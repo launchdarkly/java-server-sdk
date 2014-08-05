@@ -1,1 +1,19 @@
 apply plugin: 'java'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    compile "org.apache.httpcomponents:httpclient:4.3.5"
+}
+
+jar {
+  baseName = 'launchdarkly-client'
+  version = '0.1.0'
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.0'
+}
