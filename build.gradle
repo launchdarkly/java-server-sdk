@@ -7,6 +7,7 @@ repositories {
 
 dependencies {
     compile "org.apache.httpcomponents:httpclient:4.3.5"
+    compile "commons-codec:commons-codec:1.9"
 }
 
 jar {
