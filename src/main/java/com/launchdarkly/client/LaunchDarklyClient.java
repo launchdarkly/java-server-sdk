@@ -1,11 +1,22 @@
 package com.launchdarkly.client;
 
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import org.apache.commons.codec.EncoderException;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.cache.CacheConfig;
 import org.apache.http.impl.client.cache.CachingHttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.util.EntityUtils;
+
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Type;
 
 public class LaunchDarklyClient {
   private final Config config;
@@ -24,6 +35,7 @@ public class LaunchDarklyClient {
     CacheConfig cacheConfig = CacheConfig.custom()
         .setMaxCacheEntries(1000)
         .setMaxObjectSize(8192)
+        .setSharedCache(false)
         .build();
 
     RequestConfig requestConfig = RequestConfig.custom()
@@ -36,11 +48,31 @@ public class LaunchDarklyClient {
         .build();
   }
 
-  // TODO
   public boolean getFeatureFlag(String key, User user, boolean defaultValue) {
-    
+    Gson gson = new Gson();
+    Base64 base64 = new Base64(true);
+    try {
+      String userJson = gson.toJson(user);
 
-    return defaultValue;
+      String encodedUser = new String((byte[])base64.encode(userJson.getBytes("UTF-8")));
+
+      URIBuilder builder = config.getBuilder().setPath("/api/features/" + key + "/" +  encodedUser);
+
+      HttpGet request = new HttpGet(builder.build());
+      request.addHeader("Authorization", "api_key " + config.apiKey);
+
+      HttpResponse response = client.execute(request);
+
+      Type boolType = new TypeToken<FeatureValue<Boolean>>() {}.getType();
+
+      FeatureValue<Boolean> result = gson.fromJson(EntityUtils.toString(response.getEntity()), boolType);
+
+      return result.get().booleanValue();
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      return defaultValue;
+    }
   }
 
 

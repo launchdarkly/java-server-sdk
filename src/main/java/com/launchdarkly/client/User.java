@@ -1,5 +1,13 @@
 package com.launchdarkly.client;
 
 public class User {
-  String name;
+  private String key;
+
+  public User() {
+
+  }
+
+  public User(String key) {
+    this.key = key;
+  }
 }
