@@ -44,12 +44,17 @@ class FeatureRep<E> {
       return null;
     }
     else {
-      float sum = 0.0f;
+      for (Variation<E> variation : variations) {
+        if (variation.matchSegment(user)) {
+          return variation.value;
+        }
+      }
 
+      float sum = 0.0f;
       for (Variation<E> variation : variations) {
         sum += ((float)variation.weight) / 100.0;
 
-        if (param < sum || variation.matchSegment(user)) {
+        if (param < sum) {
           return variation.value;
         }
 
