@@ -2,7 +2,10 @@ package com.launchdarkly.client;
 
 import java.net.URI;
 
-public class Driver {
+/**
+ * A simple driver illustrating a basic use of the {@link com.launchdarkly.client.LaunchDarklyClient} library
+ */
+class Driver {
 
   public static void main(String... args) {
     Config config = new Config("7f60f21f-0552-4756-ae32-ca65a0c96ca8", URI.create("http://localhost:3000"));

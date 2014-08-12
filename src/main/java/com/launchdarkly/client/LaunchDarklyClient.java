@@ -21,16 +21,18 @@ import java.net.URISyntaxException;
 
 /**
  *
+ * A client for the LaunchDarkly API. Client instances are thread-safe. Applications can safely instantiate
+ * a single {@code LaunchDarklyClient} for the lifetime of their application.
+ *
  */
 @ThreadSafe
 public class LaunchDarklyClient {
   private final Config config;
   private final CloseableHttpClient client;
 
-
   /**
-   * Creates a new client to connect to LaunchDarkly with the default configuration. In most
-   * cases, you should use this constructor to build a client instance.
+   * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
+   * cases, you should use this constructor.
    *
    * @param apiKey the API key for your account
    */
@@ -82,13 +84,13 @@ public class LaunchDarklyClient {
   }
 
   /**
-   * Returns the value of a feature flag for a given user.
+   * Calculates the value of a feature flag for a given user.
    *
    *
    * @param key the unique key for the feature flag
    * @param user the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return whether or not the feature should be enabled, or {@code defaultValue} if the feature is disabled in the LaunchDarkly control panel
+   * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
   public boolean getFlag(String key, User user, boolean defaultValue) {
     Gson gson = new Gson();
