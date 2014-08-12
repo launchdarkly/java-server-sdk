@@ -9,7 +9,7 @@ public class Driver {
     LaunchDarklyClient client = new LaunchDarklyClient(config);
 
     User user = new User("user@test.com");
-    boolean flag = client.getFeatureFlag("engine.enable", user, false);
+    boolean flag = client.getFlag("engine.enable", user, false);
 
     System.out.println("Value of flag is " + flag);
   }
