@@ -19,7 +19,7 @@ public final class Config {
     this.baseURI = baseURI;
   }
 
-  public URIBuilder getBuilder() {
+  URIBuilder getBuilder() {
     return new URIBuilder()
         .setScheme(baseURI.getScheme())
         .setHost(baseURI.getHost())

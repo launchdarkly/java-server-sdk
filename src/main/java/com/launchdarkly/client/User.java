@@ -10,4 +10,8 @@ public class User {
   public User(String key) {
     this.key = key;
   }
+
+  String getKey() {
+    return key;
+  }
 }
