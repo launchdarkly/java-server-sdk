@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-public class FeatureValue<T> {
+class FeatureValue<T> {
   private T value;
 
   public FeatureValue() {
