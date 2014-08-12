@@ -15,8 +15,13 @@ import org.apache.http.impl.client.cache.CachingHttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URISyntaxException;
 
+/**
+ *
+ */
 @ThreadSafe
 public class LaunchDarklyClient {
   private final Config config;
@@ -35,9 +40,9 @@ public class LaunchDarklyClient {
 
   /**
    * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
-   * should be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
+   * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
    *
-   * @param config
+   * @param config a client configuration object
    */
   public LaunchDarklyClient(Config config) {
     this.config = config;
@@ -61,6 +66,21 @@ public class LaunchDarklyClient {
         .build();
   }
 
+  private HttpGet getRequest(String path) {
+    URIBuilder builder = config.getBuilder().setPath(path);
+
+    try {
+      HttpGet request = new HttpGet(builder.build());
+      request.addHeader("Authorization", "api_key " + config.apiKey);
+
+      return request;
+    }
+    catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
+
   /**
    * Returns the value of a feature flag for a given user.
    *
@@ -72,26 +92,28 @@ public class LaunchDarklyClient {
    */
   public boolean getFlag(String key, User user, boolean defaultValue) {
     Gson gson = new Gson();
-    Base64 base64 = new Base64(true);
+    HttpGet request = getRequest("/api/features/" + key);
+
     try {
-      String userJson = gson.toJson(user);
-
-      String encodedUser = new String((byte[])base64.encode(userJson.getBytes("UTF-8")));
-
-      URIBuilder builder = config.getBuilder().setPath("/api/features/" + key + "/" +  encodedUser);
-
-      HttpGet request = new HttpGet(builder.build());
-      request.addHeader("Authorization", "api_key " + config.apiKey);
-
       HttpResponse response = client.execute(request);
 
-      Type boolType = new TypeToken<FeatureValue<Boolean>>() {}.getType();
+      Type boolType = new TypeToken<FeatureRep<Boolean>>(){}.getType();
 
-      FeatureValue<Boolean> result = gson.fromJson(EntityUtils.toString(response.getEntity()), boolType);
+      FeatureRep<Boolean> result = gson.fromJson(EntityUtils.toString(response.getEntity()), boolType);
 
-      return result.get().booleanValue();
+      if (!result.on) {
+        return defaultValue;
+      }
 
-    } catch (Exception e) {
+      Boolean val = result.evaluate(user);
+
+      if (val == null) {
+        return defaultValue;
+      } else {
+        return val.booleanValue();
+      }
+
+    } catch (IOException e) {
       e.printStackTrace();
       return defaultValue;
     }
