@@ -1,9 +1,11 @@
 package com.launchdarkly.client;
 
+import org.apache.http.client.utils.URIBuilder;
+
 import java.net.URI;
 
 public final class Config {
-  public static final URI DEFAULT_BASE_URI = URI.create("https://api.launchdarkly.com");
+  public static final URI DEFAULT_BASE_URI = URI.create("https://beta.launchdarkly.com");
 
   final URI baseURI;
   final String apiKey;
@@ -15,5 +17,12 @@ public final class Config {
   public Config(String apiKey, URI baseURI) {
     this.apiKey = apiKey;
     this.baseURI = baseURI;
+  }
+
+  public URIBuilder getBuilder() {
+    return new URIBuilder()
+        .setScheme(baseURI.getScheme())
+        .setHost(baseURI.getHost())
+        .setPort(baseURI.getPort());
   }
 }
