@@ -1,15 +1,12 @@
 package com.launchdarkly.client;
 
-import java.net.URI;
-
 /**
  * A simple driver illustrating a basic use of the {@link com.launchdarkly.client.LaunchDarklyClient} library
  */
 class Driver {
 
   public static void main(String... args) {
-    Config config = new Config("7f60f21f-0552-4756-ae32-ca65a0c96ca8", URI.create("http://localhost:3000"));
-    LaunchDarklyClient client = new LaunchDarklyClient(config);
+    LaunchDarklyClient client = new LaunchDarklyClient("835a5994-d656-4e6e-9175-19780c6ad75f");
 
     User user = new User("user@test.com");
     boolean flag = client.getFlag("engine.enable", user, false);
