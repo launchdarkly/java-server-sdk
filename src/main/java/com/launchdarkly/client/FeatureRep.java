@@ -17,7 +17,7 @@ class FeatureRep<E> {
 
   }
 
-  private Float paramForUser(User user) {
+  private Float paramForUser(LDUser user) {
     String idHash;
     String hash;
 
@@ -32,12 +32,12 @@ class FeatureRep<E> {
 
     long longVal = Long.parseLong(hash, 16);
 
-    Float result =  Float.valueOf((float)longVal /long_scale);
+    Float result =  Float.valueOf((float) longVal / long_scale);
 
     return result;
   }
 
-  public E evaluate(User user) {
+  public E evaluate(LDUser user) {
     Float param = paramForUser(user);
 
     if (param == null) {

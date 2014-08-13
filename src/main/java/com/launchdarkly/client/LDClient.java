@@ -3,7 +3,6 @@ package com.launchdarkly.client;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpResponse;
 import org.apache.http.annotation.ThreadSafe;
 import org.apache.http.client.config.RequestConfig;
@@ -17,17 +16,16 @@ import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.net.URISyntaxException;
 
 /**
  *
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications can safely instantiate
- * a single {@code LaunchDarklyClient} for the lifetime of their application.
+ * a single {@code LDClient} for the lifetime of their application.
  *
  */
 @ThreadSafe
-public class LaunchDarklyClient {
-  private final Config config;
+public class LDClient {
+  private final LDConfig config;
   private final CloseableHttpClient client;
 
   /**
@@ -36,8 +34,8 @@ public class LaunchDarklyClient {
    *
    * @param apiKey the API key for your account
    */
-  public LaunchDarklyClient(String apiKey) {
-    this(new Config(apiKey));
+  public LDClient(String apiKey) {
+    this(new LDConfig(apiKey));
   }
 
   /**
@@ -46,7 +44,7 @@ public class LaunchDarklyClient {
    *
    * @param config a client configuration object
    */
-  public LaunchDarklyClient(Config config) {
+  public LDClient(LDConfig config) {
     this.config = config;
 
     PoolingHttpClientConnectionManager manager = new PoolingHttpClientConnectionManager();
@@ -92,7 +90,7 @@ public class LaunchDarklyClient {
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
-  public boolean getFlag(String key, User user, boolean defaultValue) {
+  public boolean getFlag(String key, LDUser user, boolean defaultValue) {
     Gson gson = new Gson();
     HttpGet request = getRequest("/api/features/" + key);
 

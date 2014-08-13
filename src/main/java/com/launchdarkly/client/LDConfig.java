@@ -5,10 +5,10 @@ import org.apache.http.client.utils.URIBuilder;
 import java.net.URI;
 
 /**
- * This class exposes advanced configuration options for the {@link LaunchDarklyClient}.
+ * This class exposes advanced configuration options for the {@link LDClient}.
  *
  */
-public final class Config {
+public final class LDConfig {
   static final URI DEFAULT_BASE_URI = URI.create("https://beta.launchdarkly.com");
 
   final URI baseURI;
@@ -19,7 +19,7 @@ public final class Config {
    *
    * @param apiKey the API key
    */
-  public Config(String apiKey) {
+  public LDConfig(String apiKey) {
     this(apiKey, DEFAULT_BASE_URI);
   }
 
@@ -28,7 +28,7 @@ public final class Config {
    * @param apiKey the API key
    * @param baseURI the base URL for the LaunchDarkly API. Any path specified in the URI will be ignored.
    */
-  public Config(String apiKey, URI baseURI) {
+  public LDConfig(String apiKey, URI baseURI) {
     this.apiKey = apiKey;
     this.baseURI = baseURI;
   }

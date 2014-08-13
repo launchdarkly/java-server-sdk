@@ -13,7 +13,7 @@ class Variation<E> {
 
   }
 
-  public boolean matchSegment(User user) {
+  public boolean matchSegment(LDUser user) {
     for (String match : matches) {
       if (user.getKey().equals(match)) {
         return true;
