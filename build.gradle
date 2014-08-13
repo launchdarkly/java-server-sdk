@@ -10,7 +10,7 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "0.1.0"
+    version = "0.1.1"
     sourceCompatibility = 1.6
     targetCompatibility = 1.6
 }
@@ -108,5 +108,9 @@ githubPages {
     repoUri = 'git@github.com:launchdarkly/java-client.git'
     pages {
         from javadoc.outputs.files
+    }
+    credentials {
+        username = githubUser
+        password = githubPassword
     }
 }
