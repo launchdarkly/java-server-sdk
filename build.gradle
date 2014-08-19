@@ -20,11 +20,16 @@ dependencies {
     compile "org.apache.httpcomponents:httpclient-cache:4.3.5"
     compile "commons-codec:commons-codec:1.9"
     compile "com.google.code.gson:gson:2.2.4"
+    compile "org.slf4j:slf4j-api:1.7.7"
+    testCompile 'junit:junit:[4,)'
+    testRuntime "org.slf4j:slf4j-simple:1.7.7"
 }
 
 jar {
   baseName = 'launchdarkly-client'
-  version = '0.1.0'
+  manifest {
+    attributes("Implementation-Version": version)
+  }
 }
 
 task wrapper(type: Wrapper) {
@@ -112,5 +117,13 @@ githubPages {
     credentials {
         username = githubUser
         password = githubPassword
+    }
+}
+
+test {
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        showStandardStreams = true
+        exceptionFormat = 'full'
     }
 }
