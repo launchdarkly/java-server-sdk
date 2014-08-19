@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A {@code LDUser} object contains specific attributes of a user browsing your site. The primary property is their {@code key},
+ * A {@code LDUser} object contains specific attributes of a user browsing your site. The only mandatory property property is the {@code key},
  * which must uniquely identify each user. For authenticated users, this may be a username or e-mail address. For anonymous users,
  * this could be an IP address or session ID.
  *
@@ -53,6 +53,19 @@ public class LDUser {
     return key;
   }
 
+  /**
+   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDUser} objects. Builder
+   * calls can be chained, enabling the following pattern:
+   * <p>
+   * <pre>
+   * LDUser user = new LDUser.Builder("key)
+   *      .country("US")
+   *      .ip("192.168.0.1")
+   *      .build()
+   * </pre>
+   * </p>
+   *
+   */
   public static class Builder {
     private String key;
     private String ip;
@@ -69,7 +82,7 @@ public class LDUser {
     }
 
     /**
-     * Set the "ip" interpreted attribute
+     * Set the IP for a user
      * @param s the IP address for the user
      * @return the builder
      */
@@ -79,7 +92,7 @@ public class LDUser {
     }
 
     /**
-     * Set the "country" interpreted attribute
+     * Set the country for a user
      * @param s the country for the user
      * @return the builder
      */
