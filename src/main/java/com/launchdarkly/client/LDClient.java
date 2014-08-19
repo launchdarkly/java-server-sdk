@@ -4,8 +4,12 @@ package com.launchdarkly.client;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.annotation.ThreadSafe;
+import org.apache.http.client.cache.CacheResponseStatus;
+import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -16,6 +20,12 @@ import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URL;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -25,6 +35,7 @@ import java.lang.reflect.Type;
  */
 @ThreadSafe
 public class LDClient {
+  private final Logger logger = LoggerFactory.getLogger(LDClient.class);
   private final LDConfig config;
   private final CloseableHttpClient client;
 
@@ -72,6 +83,7 @@ public class LDClient {
     try {
       HttpGet request = new HttpGet(builder.build());
       request.addHeader("Authorization", "api_key " + config.apiKey);
+      request.addHeader("User-Agent", "JavaClient/" + getClientVersion());
 
       return request;
     }
@@ -92,10 +104,47 @@ public class LDClient {
    */
   public boolean getFlag(String key, LDUser user, boolean defaultValue) {
     Gson gson = new Gson();
-    HttpGet request = getRequest("/api/features/" + key);
+    HttpCacheContext context = HttpCacheContext.create();
+    HttpGet request = getRequest("/api/eval/features/" + key);
 
+    CloseableHttpResponse response = null;
     try {
-      HttpResponse response = client.execute(request);
+      response = client.execute(request, context);
+
+      CacheResponseStatus responseStatus = context.getCacheResponseStatus();
+
+      if (logger.isDebugEnabled()) {
+        switch (responseStatus) {
+          case CACHE_HIT:
+            logger.debug("A response was generated from the cache with " +
+                "no requests sent upstream");
+            break;
+          case CACHE_MODULE_RESPONSE:
+            logger.debug("The response was generated directly by the " +
+                "caching module");
+            break;
+          case CACHE_MISS:
+            logger.debug("The response came from an upstream server");
+            break;
+          case VALIDATED:
+            logger.debug("The response was generated from the cache " +
+                "after validating the entry with the origin server");
+            break;
+        }
+      }
+
+      int status = response.getStatusLine().getStatusCode();
+
+      if (status != HttpStatus.SC_OK) {
+        if (status == HttpStatus.SC_UNAUTHORIZED) {
+          logger.info("Invalid API key");
+        } else if (status == HttpStatus.SC_NOT_FOUND) {
+          logger.error("Unknown feature key: " + key);
+        } else {
+          logger.error("Unexpected status code: " + status);
+        }
+        return defaultValue;
+      }
 
       Type boolType = new TypeToken<FeatureRep<Boolean>>(){}.getType();
 
@@ -116,6 +165,32 @@ public class LDClient {
     } catch (IOException e) {
       e.printStackTrace();
       return defaultValue;
+    } finally {
+      try {
+        response.close();
+      } catch (IOException e) {
+      }
+    }
+  }
+
+  public static String getClientVersion() {
+    Class clazz = LDClient.class;
+    String className = clazz.getSimpleName() + ".class";
+    String classPath = clazz.getResource(className).toString();
+    if (!classPath.startsWith("jar")) {
+      // Class not from JAR
+      return "Unknown";
+    }
+    String manifestPath = classPath.substring(0, classPath.lastIndexOf("!") + 1) +
+        "/META-INF/MANIFEST.MF";
+    Manifest manifest = null;
+    try {
+      manifest = new Manifest(new URL(manifestPath).openStream());
+      Attributes attr = manifest.getMainAttributes();
+      String value = attr.getValue("Implementation-Version");
+      return value;
+    } catch (IOException e) {
+      return "Unknown";
     }
   }
 
