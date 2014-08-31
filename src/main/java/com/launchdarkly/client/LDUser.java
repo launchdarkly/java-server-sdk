@@ -22,6 +22,7 @@ import java.util.Map;
  */
 public class LDUser {
   private String key;
+  private String secondary;
   private String ip;
   private String country;
   private Map<String, JsonElement> custom;
@@ -34,6 +35,7 @@ public class LDUser {
     this.key = builder.key;
     this.ip = builder.ip;
     this.country = builder.country;
+    this.secondary = builder.secondary;
     this.custom = new HashMap<String, JsonElement>(builder.custom);
   }
 
@@ -53,6 +55,16 @@ public class LDUser {
     return key;
   }
 
+  String getIp() { return ip; }
+
+  String getCountry() { return country; }
+
+  String getSecondary() { return secondary; }
+
+  JsonElement getCustom(String key) {
+    return custom.get(key);
+  }
+
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDUser} objects. Builder
    * calls can be chained, enabling the following pattern:
@@ -68,6 +80,7 @@ public class LDUser {
    */
   public static class Builder {
     private String key;
+    private String secondary;
     private String ip;
     private String country;
     private Map<String, JsonElement> custom;
@@ -88,6 +101,11 @@ public class LDUser {
      */
     public Builder ip(String s) {
       this.ip = s;
+      return this;
+    }
+
+    public Builder secondary(String s) {
+      this.secondary = s;
       return this;
     }
 

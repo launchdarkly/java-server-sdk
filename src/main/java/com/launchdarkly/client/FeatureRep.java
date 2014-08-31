@@ -28,6 +28,10 @@ class FeatureRep<E> {
       return null;
     }
 
+    if (user.getSecondary() != null) {
+      idHash += "." + user.getSecondary();
+    }
+
     hash = DigestUtils.sha1Hex(key + "." + salt + "." + idHash).substring(0,15);
 
     long longVal = Long.parseLong(hash, 16);
@@ -45,7 +49,7 @@ class FeatureRep<E> {
     }
     else {
       for (Variation<E> variation : variations) {
-        if (variation.matchSegment(user)) {
+        if (variation.matchTarget(user)) {
           return variation.value;
         }
       }
