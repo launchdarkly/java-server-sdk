@@ -3,9 +3,12 @@ package com.launchdarkly.client;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 class FeatureRep<E> {
+  String name;
   String key;
   String salt;
   boolean on;
@@ -15,6 +18,14 @@ class FeatureRep<E> {
 
   public FeatureRep() {
 
+  }
+
+  FeatureRep(Builder<E> b) {
+    this.name = b.name;
+    this.key = b.key;
+    this.salt = b.salt;
+    this.on = b.on;
+    this.variations = new ArrayList<Variation<E>>(b.variations);
   }
 
   private Float paramForUser(LDUser user) {
@@ -36,9 +47,7 @@ class FeatureRep<E> {
 
     long longVal = Long.parseLong(hash, 16);
 
-    Float result =  Float.valueOf((float) longVal / long_scale);
-
-    return result;
+    return (float) longVal / long_scale;
   }
 
   public E evaluate(LDUser user) {
@@ -65,5 +74,41 @@ class FeatureRep<E> {
       }
     }
       return null;
+  }
+
+  static class Builder<E> {
+    private String name;
+    private String key;
+    private boolean on;
+    private String salt;
+    private List<Variation<E>> variations;
+
+    Builder(String name, String key) {
+      this.on = true;
+      this.name = name;
+      this.key = key;
+      this.salt = UUID.randomUUID().toString();
+      this.variations = new ArrayList<Variation<E>>();
+    }
+
+    Builder<E> salt(String s) {
+      this.salt = s;
+      return this;
+    }
+
+    Builder<E> on(boolean b) {
+      this.on = b;
+      return this;
+    }
+
+    Builder<E> variation(Variation<E> v) {
+      variations.add(v);
+      return this;
+    }
+
+    FeatureRep<E> build() {
+      return new FeatureRep<E>(this);
+    }
+
   }
 }

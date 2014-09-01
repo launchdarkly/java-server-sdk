@@ -3,16 +3,15 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 class Variation<E> {
   E value;
   int weight;
-  List<String> matches;
   List<TargetRule> targets;
   private final Logger logger = LoggerFactory.getLogger(Variation.class);
 
@@ -20,19 +19,59 @@ class Variation<E> {
 
   }
 
+  Variation(Builder<E> b) {
+    this.value = b.value;
+    this.weight = b.weight;
+    this.targets = new ArrayList<TargetRule>(b.targets);
+  }
+
   public boolean matchTarget(LDUser user) {
     for (TargetRule target: targets) {
-      if (matchTarget(user)) {
+      if (target.matchTarget(user)) {
         return true;
       }
     }
     return false;
   }
 
-  class TargetRule {
+  static class Builder<E> {
+    E value;
+    int weight;
+    List<TargetRule> targets;
+
+    Builder(E value, int weight) {
+      this.value = value;
+      this.weight = weight;
+      targets = new ArrayList<TargetRule>();
+    }
+
+    Builder<E> target(TargetRule rule) {
+      targets.add(rule);
+      return this;
+    }
+
+    Variation<E> build() {
+      return new Variation<E>(this);
+    }
+
+  }
+
+  static class TargetRule {
     String attribute;
     String operator;
     List<String> values;
+
+    private final Logger logger = LoggerFactory.getLogger(TargetRule.class);
+
+    TargetRule(String attribute, String operator, List<String> values) {
+      this.attribute = attribute;
+      this.operator = operator;
+      this.values = new ArrayList<String>(values);
+    }
+
+    TargetRule(String attribute, List<String> values) {
+      this(attribute, "in", values);
+    }
 
     public boolean matchTarget(LDUser user) {
       String uValue;
