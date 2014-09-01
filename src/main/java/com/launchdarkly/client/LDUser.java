@@ -70,7 +70,7 @@ public class LDUser {
    * calls can be chained, enabling the following pattern:
    * <p>
    * <pre>
-   * LDUser user = new LDUser.Builder("key)
+   * LDUser user = new LDUser.Builder("key")
    *      .country("US")
    *      .ip("192.168.0.1")
    *      .build()
