@@ -74,15 +74,21 @@ class Variation<E> {
     }
 
     public boolean matchTarget(LDUser user) {
-      String uValue;
-      if (attribute.equals("key") && user.getKey() != null) {
-        uValue = user.getKey();
+      String uValue = null;
+      if (attribute.equals("key")) {
+        if (user.getKey() != null) {
+          uValue = user.getKey();
+        }
       }
       else if (attribute.equals("ip") && user.getIp() != null) {
-        uValue = user.getIp();
+        if (user.getIp() != null) {
+          uValue = user.getIp();
+        }
       }
-      else if (attribute.equals("country") && user.getCountry() != null) {
-        uValue = user.getCountry();
+      else if (attribute.equals("country")) {
+        if (user.getCountry() != null) {
+          uValue = user.getCountry();
+        }
       }
       else { // Custom attribute
         JsonElement custom = user.getCustom(attribute);
@@ -105,6 +111,9 @@ class Variation<E> {
             return values.contains(custom.getAsString());
           }
         }
+        return false;
+      }
+      if (uValue == null) {
         return false;
       }
       return values.contains((uValue));
