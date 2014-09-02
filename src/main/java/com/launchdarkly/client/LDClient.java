@@ -167,7 +167,7 @@ public class LDClient {
       return defaultValue;
     } finally {
       try {
-        response.close();
+        if (response != null) response.close();
       } catch (IOException e) {
       }
     }
