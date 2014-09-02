@@ -23,6 +23,6 @@ public class LDClientTest {
         .custom("groups", Arrays.asList("google", "microsoft"))
         .build();
     boolean flag = client.getFlag("engine.enable", user, false);
-    assertEquals(flag, false);
+    assertEquals(flag, true);
   }
 }
