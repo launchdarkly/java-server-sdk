@@ -19,7 +19,7 @@ public class LDClientTest {
   @Test
   public void getFlagReturnsTrueForEnabledUser() {
     LDUser user = new LDUser.Builder("user@test.com")
-        .country("US")
+        .country("USA")
         .custom("groups", Arrays.asList("google", "microsoft"))
         .build();
     boolean flag = client.getFlag("engine.enable", user, false);

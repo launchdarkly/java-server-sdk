@@ -9,7 +9,7 @@ import java.net.URI;
  *
  */
 public final class LDConfig {
-  static final URI DEFAULT_BASE_URI = URI.create("https://beta.launchdarkly.com");
+  static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
 
   final URI baseURI;
   final String apiKey;
