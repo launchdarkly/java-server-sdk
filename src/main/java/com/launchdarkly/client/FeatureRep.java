@@ -43,14 +43,20 @@ class FeatureRep<E> {
       idHash += "." + user.getSecondary();
     }
 
-    hash = DigestUtils.sha1Hex(key + "." + salt + "." + idHash).substring(0,15);
+    hash = DigestUtils.shaHex(key + "." + salt + "." + idHash).substring(0,15);
 
     long longVal = Long.parseLong(hash, 16);
 
-    return (float) longVal / long_scale;
+    float result =  (float) longVal / long_scale;
+
+    return result;
   }
 
   public E evaluate(LDUser user) {
+    if (!on || user == null) {
+      return null;
+    }
+
     Float param = paramForUser(user);
 
     if (param == null) {

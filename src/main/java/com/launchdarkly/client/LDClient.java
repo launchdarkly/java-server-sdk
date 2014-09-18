@@ -150,10 +150,6 @@ public class LDClient {
 
       FeatureRep<Boolean> result = gson.fromJson(EntityUtils.toString(response.getEntity()), boolType);
 
-      if (!result.on) {
-        return defaultValue;
-      }
-
       Boolean val = result.evaluate(user);
 
       if (val == null) {

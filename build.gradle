@@ -1,7 +1,7 @@
 apply plugin: 'java'
-apply plugin: 'maven-publish'
-apply plugin: 'com.jfrog.bintray'
+apply plugin: 'maven'
 apply plugin: 'github-pages'
+apply plugin: 'signing'
 
 repositories {
     mavenLocal()
@@ -10,7 +10,7 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "0.1.4"
+    version = "0.1.5"
     sourceCompatibility = 1.6
     targetCompatibility = 1.6
 }
@@ -18,7 +18,7 @@ allprojects {
 dependencies {
     compile "org.apache.httpcomponents:httpclient:4.3.5"
     compile "org.apache.httpcomponents:httpclient-cache:4.3.5"
-    compile "commons-codec:commons-codec:1.9"
+    compile "commons-codec:commons-codec:1.5"
     compile "com.google.code.gson:gson:2.2.4"
     compile "org.slf4j:slf4j-api:1.7.7"
     testCompile 'junit:junit:[4,)'
@@ -39,9 +39,6 @@ task wrapper(type: Wrapper) {
 buildscript {
     repositories {
         jcenter()
-    }
-    dependencies {
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:0.5'
     }
 }
 
@@ -70,45 +67,6 @@ artifacts {
     archives sourcesJar, javadocJar
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            if (plugins.hasPlugin('war')) {
-                from components.web
-            } else {
-                from components.java
-            }
-
-            artifact sourcesJar {
-                classifier "sources"
-            }
-
-            artifact javadocJar {
-                classifier "javadoc"
-            }
-        }
-    }
-}
-
-bintray {
-    user= bintrayUser
-    key = bintrayKey
-    dryRun = false
-    publish = true
-    publications = ['mavenJava']
-    pkg {
-        repo = 'public'
-        name="launchdarkly-java-client"
-        userOrg = 'launchdarkly'
-        desc = 'Java client library for LaunchDarkly'
-        websiteUrl = 'http://launchdarkly.com'
-        vcsUrl= 'https://github.com/launchdarkly/java-client'
-        licenses=['Apache-2.0']
-        labels=['launchdarkly', 'java', 'client', 'api']
-        publicDownloadNumbers = true
-    }
-}
-
 githubPages {
     repoUri = 'git@github.com:launchdarkly/java-client.git'
     pages {
@@ -125,5 +83,53 @@ test {
         events "passed", "skipped", "failed", "standardOut", "standardError"
         showStandardStreams = true
         exceptionFormat = 'full'
+    }
+}
+
+signing {
+    sign configurations.archives
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                authentication(userName: ossrhUsername, password: ossrhPassword)
+            }
+
+            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+                authentication(userName: ossrhUsername, password: ossrhPassword)
+            }
+
+            pom.project {
+                name 'LaunchDarkly SDK for Java'
+                packaging 'jar'
+                description 'Official LaunchDarkly SDK for Java'
+                url 'https://github.com/launchdarkly/java-client'
+
+                scm {
+                    connection 'scm:svn:http://foo.googlecode.com/svn/trunk/'
+                    developerConnection 'scm:svn:https://foo.googlecode.com/svn/trunk/'
+                    url 'http://foo.googlecode.com/svn/trunk/'
+                }
+
+                licenses {
+                    license {
+                        name 'The Apache License, Version 2.0'
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id 'jkodumal'
+                        name 'John Kodumal'
+                        email 'john@catamorphic.com'
+                    }
+                }
+            }
+        }
     }
 }
