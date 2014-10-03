@@ -27,10 +27,15 @@ public class LDUser {
   private String country;
   private Map<String, JsonElement> custom;
 
-  public LDUser() {
+  LDUser() {
 
   }
 
+  /**
+   * Creates an {@code LDUser} with custom parameters defined by the {@code builder}
+   *
+   * @param builder the builder containing the custom parameters for the user
+   */
   public LDUser(Builder builder) {
     this.key = builder.key;
     this.ip = builder.ip;
@@ -47,10 +52,6 @@ public class LDUser {
     this.key = key;
   }
 
-  /**
-   * Fetch the key for the user
-   * @return the user's unique key
-   */
   String getKey() {
     return key;
   }
