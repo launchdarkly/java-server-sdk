@@ -38,6 +38,7 @@ public class LDClient {
   private final Logger logger = LoggerFactory.getLogger(LDClient.class);
   private final LDConfig config;
   private final CloseableHttpClient client;
+  private static final String CLIENT_VERSION = getClientVersion();
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -83,7 +84,7 @@ public class LDClient {
     try {
       HttpGet request = new HttpGet(builder.build());
       request.addHeader("Authorization", "api_key " + config.apiKey);
-      request.addHeader("User-Agent", "JavaClient/" + getClientVersion());
+      request.addHeader("User-Agent", "JavaClient/" + CLIENT_VERSION);
 
       return request;
     }
