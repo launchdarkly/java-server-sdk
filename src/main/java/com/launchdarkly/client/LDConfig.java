@@ -40,6 +40,8 @@ public final class LDConfig {
    * Create a configuration using the specified base URL and API key
    * @param apiKey the API key
    * @param baseURI the base URL for the LaunchDarkly API. Any path specified in the URI will be ignored.
+   * @param capacity the maximum number of events that will be buffered before discarding. Events are batched and sent every 30 seconds,
+   *                 so this should be larger than the number of events the app might create in that time.
    */
   public LDConfig(String apiKey, URI baseURI, int capacity) {
     this.apiKey = apiKey;
@@ -86,7 +88,7 @@ public final class LDConfig {
     }
   }
 
-  public static String getClientVersion() {
+  static String getClientVersion() {
     Class clazz = LDConfig.class;
     String className = clazz.getSimpleName() + ".class";
     String classPath = clazz.getResource(className).toString();

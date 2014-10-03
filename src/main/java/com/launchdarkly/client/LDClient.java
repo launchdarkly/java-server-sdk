@@ -156,6 +156,12 @@ public class LDClient implements Closeable {
     }
   }
 
+  /**
+   * Closes the LaunchDarkly client event processing thread. This should only
+   * be called on application shutdown.
+   *
+   * @throws IOException
+   */
   @Override
   public void close() throws IOException {
     this.eventProcessor.close();
