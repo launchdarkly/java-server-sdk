@@ -78,7 +78,7 @@ public class LDClient implements Closeable {
   }
 
   /**
-   * Records that the given user performed an event
+   * Tracks that a user performed an event.
    *
    * @param eventName the name of the event
    * @param user the user that performed the event
