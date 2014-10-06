@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import org.apache.http.HttpStatus;
 import org.apache.http.annotation.ThreadSafe;
@@ -77,18 +78,29 @@ public class LDClient implements Closeable {
   }
 
   /**
+   * Records that the given user performed an event
+   *
+   * @param eventName the name of the event
+   * @param user the user that performed the event
+   * @param data a JSON object containing additional data associated with the event
+   */
+  public void sendEvent(String eventName, LDUser user, JsonObject data) {
+    eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
+  }
+
+  /**
    * Calculates the value of a feature flag for a given user.
    *
    *
-   * @param key the unique key for the feature flag
+   * @param featureKey the unique featureKey for the feature flag
    * @param user the end user requesting the flag
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
-  public boolean getFlag(String key, LDUser user, boolean defaultValue) {
+  public boolean getFlag(String featureKey, LDUser user, boolean defaultValue) {
     Gson gson = new Gson();
     HttpCacheContext context = HttpCacheContext.create();
-    HttpGet request = config.getRequest("/api/eval/features/" + key);
+    HttpGet request = config.getRequest("/api/eval/features/" + featureKey);
 
     CloseableHttpResponse response = null;
     try {
@@ -122,7 +134,7 @@ public class LDClient implements Closeable {
         if (status == HttpStatus.SC_UNAUTHORIZED) {
           logger.info("Invalid API key");
         } else if (status == HttpStatus.SC_NOT_FOUND) {
-          logger.error("Unknown feature key: " + key);
+          logger.error("Unknown feature key: " + featureKey);
         } else {
           logger.error("Unexpected status code: " + status);
         }
@@ -136,11 +148,11 @@ public class LDClient implements Closeable {
       Boolean val = result.evaluate(user);
 
       if (val == null) {
-        eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(key, user, defaultValue));
+        eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, defaultValue));
         return defaultValue;
       } else {
         boolean value = val.booleanValue();
-        eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(key, user, value));
+        eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value));
         return value;
       }
 
