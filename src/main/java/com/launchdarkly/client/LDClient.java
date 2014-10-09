@@ -138,6 +138,8 @@ public class LDClient implements Closeable {
         } else {
           logger.error("Unexpected status code: " + status);
         }
+        eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, defaultValue));
+        NewRelicReflector.annotateTransaction(featureKey, String.valueOf(defaultValue));
         return defaultValue;
       }
 
@@ -149,10 +151,12 @@ public class LDClient implements Closeable {
 
       if (val == null) {
         eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, defaultValue));
+        NewRelicReflector.annotateTransaction(featureKey, String.valueOf(defaultValue));
         return defaultValue;
       } else {
         boolean value = val.booleanValue();
         eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value));
+        NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
         return value;
       }
 
