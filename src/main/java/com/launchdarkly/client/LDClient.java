@@ -88,6 +88,11 @@ public class LDClient implements Closeable {
     eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
   }
 
+  private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value) {
+    eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value));
+    NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
+  }
+
   /**
    * Calculates the value of a feature flag for a given user.
    *
@@ -138,8 +143,7 @@ public class LDClient implements Closeable {
         } else {
           logger.error("Unexpected status code: " + status);
         }
-        eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, defaultValue));
-        NewRelicReflector.annotateTransaction(featureKey, String.valueOf(defaultValue));
+        sendFlagRequestEvent(featureKey, user, defaultValue);
         return defaultValue;
       }
 
@@ -150,18 +154,17 @@ public class LDClient implements Closeable {
       Boolean val = result.evaluate(user);
 
       if (val == null) {
-        eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, defaultValue));
-        NewRelicReflector.annotateTransaction(featureKey, String.valueOf(defaultValue));
+        sendFlagRequestEvent(featureKey, user, defaultValue);
         return defaultValue;
       } else {
         boolean value = val.booleanValue();
-        eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value));
-        NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
+        sendFlagRequestEvent(featureKey, user, value);
         return value;
       }
 
     } catch (IOException e) {
       logger.error("Unhandled exception in LaunchDarkly client", e);
+      sendFlagRequestEvent(featureKey, user, defaultValue);
       return defaultValue;
     } finally {
       try {
