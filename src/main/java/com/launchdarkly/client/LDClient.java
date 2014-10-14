@@ -36,6 +36,7 @@ public class LDClient implements Closeable {
   private final LDConfig config;
   private final CloseableHttpClient client;
   private final EventProcessor eventProcessor;
+  private ThreadLocal<LDUser> userContext;
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -55,6 +56,7 @@ public class LDClient implements Closeable {
    */
   public LDClient(LDConfig config) {
     this.config = config;
+    this.userContext = new ThreadLocal<LDUser>();
 
     PoolingHttpClientConnectionManager manager = new PoolingHttpClientConnectionManager();
     manager.setMaxTotal(100);
@@ -94,10 +96,40 @@ public class LDClient implements Closeable {
   }
 
   /**
+   * Sets the user for the current request thread. Internally, this sets a {@link java.lang.ThreadLocal} variable. Once the user has been set,
+   * it is safe to call {@link #getFlag(String, boolean)}.
+   *
+   * @param user the user associated with the current request thread
+   */
+  public void setUser(LDUser user) {
+    userContext.set(user);
+  }
+
+  /**
+   * Calculates the value of a feature flag for the current request's user as set via {@link #setUser(LDUser)}.
+   *
+   * @param featureKey the unique feature key for the feature flag
+   * @param defaultValue the default value of the flag
+   * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel,
+   * or {@link #setUser(LDUser)} has not been called in the current request thread
+   */
+  public boolean getFlag(String featureKey, boolean defaultValue) {
+    LDUser user = userContext.get();
+
+    if (user == null) {
+      logger.error("LDUser not set for this thread. setUser must be called before getFlag");
+      sendFlagRequestEvent(featureKey, null, defaultValue);
+      return defaultValue;
+    }
+
+    return getFlag(featureKey, user, defaultValue);
+  }
+
+  /**
    * Calculates the value of a feature flag for a given user.
    *
    *
-   * @param featureKey the unique featureKey for the feature flag
+   * @param featureKey the unique feature key for the feature flag
    * @param user the end user requesting the flag
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
