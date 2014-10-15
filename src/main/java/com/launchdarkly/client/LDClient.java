@@ -2,8 +2,8 @@ package com.launchdarkly.client;
 
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
-import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.annotation.ThreadSafe;
 import org.apache.http.client.cache.CacheResponseStatus;
@@ -11,18 +11,15 @@ import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.cache.CacheConfig;
 import org.apache.http.impl.client.cache.CachingHttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.net.URL;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,11 +31,11 @@ import org.slf4j.LoggerFactory;
  *
  */
 @ThreadSafe
-public class LDClient {
-  private final Logger logger = LoggerFactory.getLogger(LDClient.class);
+public class LDClient implements Closeable {
+  private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
   private final LDConfig config;
   private final CloseableHttpClient client;
-  private static final String CLIENT_VERSION = getClientVersion();
+  private final EventProcessor eventProcessor;
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -76,37 +73,39 @@ public class LDClient {
         .setCacheConfig(cacheConfig)
         .setDefaultRequestConfig(requestConfig)
         .build();
+
+    eventProcessor = new EventProcessor(config);
   }
 
-  private HttpGet getRequest(String path) {
-    URIBuilder builder = config.getBuilder().setPath(path);
+  /**
+   * Tracks that a user performed an event.
+   *
+   * @param eventName the name of the event
+   * @param user the user that performed the event
+   * @param data a JSON object containing additional data associated with the event
+   */
+  public void sendEvent(String eventName, LDUser user, JsonObject data) {
+    eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
+  }
 
-    try {
-      HttpGet request = new HttpGet(builder.build());
-      request.addHeader("Authorization", "api_key " + config.apiKey);
-      request.addHeader("User-Agent", "JavaClient/" + CLIENT_VERSION);
-
-      return request;
-    }
-    catch (Exception e) {
-      e.printStackTrace();
-      return null;
-    }
+  private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value) {
+    eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value));
+    NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
   }
 
   /**
    * Calculates the value of a feature flag for a given user.
    *
    *
-   * @param key the unique key for the feature flag
+   * @param featureKey the unique featureKey for the feature flag
    * @param user the end user requesting the flag
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
-  public boolean getFlag(String key, LDUser user, boolean defaultValue) {
+  public boolean getFlag(String featureKey, LDUser user, boolean defaultValue) {
     Gson gson = new Gson();
     HttpCacheContext context = HttpCacheContext.create();
-    HttpGet request = getRequest("/api/eval/features/" + key);
+    HttpGet request = config.getRequest("/api/eval/features/" + featureKey);
 
     CloseableHttpResponse response = null;
     try {
@@ -138,12 +137,13 @@ public class LDClient {
 
       if (status != HttpStatus.SC_OK) {
         if (status == HttpStatus.SC_UNAUTHORIZED) {
-          logger.info("Invalid API key");
+          logger.error("Invalid API key");
         } else if (status == HttpStatus.SC_NOT_FOUND) {
-          logger.error("Unknown feature key: " + key);
+          logger.error("Unknown feature key: " + featureKey);
         } else {
           logger.error("Unexpected status code: " + status);
         }
+        sendFlagRequestEvent(featureKey, user, defaultValue);
         return defaultValue;
       }
 
@@ -154,41 +154,35 @@ public class LDClient {
       Boolean val = result.evaluate(user);
 
       if (val == null) {
+        sendFlagRequestEvent(featureKey, user, defaultValue);
         return defaultValue;
       } else {
-        return val.booleanValue();
+        boolean value = val.booleanValue();
+        sendFlagRequestEvent(featureKey, user, value);
+        return value;
       }
 
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.error("Unhandled exception in LaunchDarkly client", e);
+      sendFlagRequestEvent(featureKey, user, defaultValue);
       return defaultValue;
     } finally {
       try {
         if (response != null) response.close();
       } catch (IOException e) {
+        logger.error("Unhandled exception in LaunchDarkly client", e);
       }
     }
   }
 
-  public static String getClientVersion() {
-    Class clazz = LDClient.class;
-    String className = clazz.getSimpleName() + ".class";
-    String classPath = clazz.getResource(className).toString();
-    if (!classPath.startsWith("jar")) {
-      // Class not from JAR
-      return "Unknown";
-    }
-    String manifestPath = classPath.substring(0, classPath.lastIndexOf("!") + 1) +
-        "/META-INF/MANIFEST.MF";
-    Manifest manifest = null;
-    try {
-      manifest = new Manifest(new URL(manifestPath).openStream());
-      Attributes attr = manifest.getMainAttributes();
-      String value = attr.getValue("Implementation-Version");
-      return value;
-    } catch (IOException e) {
-      return "Unknown";
-    }
+  /**
+   * Closes the LaunchDarkly client event processing thread. This should only
+   * be called on application shutdown.
+   *
+   * @throws IOException
+   */
+  @Override
+  public void close() throws IOException {
+    this.eventProcessor.close();
   }
-
 }
