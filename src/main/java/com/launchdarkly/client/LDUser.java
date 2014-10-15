@@ -3,10 +3,13 @@ package com.launchdarkly.client;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * A {@code LDUser} object contains specific attributes of a user browsing your site. The only mandatory property property is the {@code key},
@@ -24,8 +27,10 @@ public class LDUser {
   private String key;
   private String secondary;
   private String ip;
-  private String country;
+  private LDCountryCode country;
   private Map<String, JsonElement> custom;
+  private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
+
 
   LDUser() {
 
@@ -58,7 +63,7 @@ public class LDUser {
 
   String getIp() { return ip; }
 
-  String getCountry() { return country; }
+  LDCountryCode getCountry() { return country; }
 
   String getSecondary() { return secondary; }
 
@@ -83,7 +88,7 @@ public class LDUser {
     private String key;
     private String secondary;
     private String ip;
-    private String country;
+    private LDCountryCode country;
     private Map<String, JsonElement> custom;
 
     /**
@@ -111,12 +116,48 @@ public class LDUser {
     }
 
     /**
-     * Set the country for a user
+     * Set the country for a user. The country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
+     * alpha-2 or alpha-3 code. If it is not a valid ISO-3166-1 code, an attempt will be made to look up the country by its name.
+     * If that fails, a warning will be logged, and the country will not be set.
      * @param s the country for the user
      * @return the builder
      */
     public Builder country(String s) {
-      this.country = s;
+      country = LDCountryCode.getByCode(s, false);
+
+      if (country == null) {
+        List<LDCountryCode> codes = LDCountryCode.findByName("^" + Pattern.quote(s) + ".*");
+
+        if (codes.isEmpty()) {
+          logger.warn("Invalid country. Expected valid ISO-3166-1 code: " + s);
+        }
+        else if (codes.size() > 1) {
+          // See if any of the codes is an exact match
+          for (LDCountryCode c : codes) {
+            if (c.getName().equals(s)) {
+              country = c;
+              return this;
+            }
+          }
+          logger.warn("Ambiguous country. Provided code matches multiple countries: " + s);
+          country = codes.get(0);
+        }
+        else {
+          country = codes.get(0);
+        }
+
+      }
+      return this;
+    }
+
+    /**
+     * Set the country for a user.
+     *
+     * @param country the country for the user
+     * @return the builder
+     */
+    public Builder country(LDCountryCode country) {
+      this.country = country;
       return this;
     }
 
