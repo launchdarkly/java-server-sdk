@@ -137,7 +137,7 @@ public class LDClient implements Closeable {
 
       if (status != HttpStatus.SC_OK) {
         if (status == HttpStatus.SC_UNAUTHORIZED) {
-          logger.info("Invalid API key");
+          logger.error("Invalid API key");
         } else if (status == HttpStatus.SC_NOT_FOUND) {
           logger.error("Unknown feature key: " + featureKey);
         } else {

@@ -87,7 +87,7 @@ class Variation<E> {
       }
       else if (attribute.equals("country")) {
         if (user.getCountry() != null) {
-          uValue = user.getCountry();
+          uValue = user.getCountry().getAlpha2();
         }
       }
       else { // Custom attribute
