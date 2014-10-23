@@ -85,11 +85,17 @@ public class LDClient implements Closeable {
    * @param data a JSON object containing additional data associated with the event
    */
   public void sendEvent(String eventName, LDUser user, JsonObject data) {
-    eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
+    boolean processed = eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
+    if (!processed) {
+      logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
+    }
   }
 
   private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value) {
-    eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value));
+    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value));
+    if (!processed) {
+      logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
+    }
     NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
   }
 
