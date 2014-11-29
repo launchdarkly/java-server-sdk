@@ -12,7 +12,7 @@ public class LDClientTest {
 
   @Before
   public void setupLDClient() {
-    LDConfig config = new LDConfig("7f60f21f-0552-4756-ae32-ca65a0c96ca8", URI.create("http://localhost:8080"));
+    LDConfig config = new LDConfig("7f60f21f-0552-4756-ae32-ca65a0c96ca8", URI.create("http://localhost:8080"), 10000);
     client = new LDClient(config);
   }
 
