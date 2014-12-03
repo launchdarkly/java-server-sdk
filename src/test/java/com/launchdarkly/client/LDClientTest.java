@@ -1,28 +1,49 @@
 package com.launchdarkly.client;
 
-import java.net.URI;
-import java.util.Arrays;
-import static org.junit.Assert.*;
-import org.junit.*;
+import static org.easymock.EasyMock.*;
+import static org.easymock.EasyMock.createMock;
+import static org.junit.Assert.assertEquals;
 
-public class LDClientTest {
-  LDClient client;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.protocol.HttpContext;
+import org.easymock.*;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.Rule;
+import org.junit.runner.RunWith;
 
-  // TODO create / delete the feature here via API
+import java.io.IOException;
 
-  @Before
-  public void setupLDClient() {
-    LDConfig config = new LDConfig("7f60f21f-0552-4756-ae32-ca65a0c96ca8", URI.create("http://localhost:8080"), 10000);
-    client = new LDClient(config);
-  }
+public class LDClientTest extends EasyMockSupport {
+
+  private CloseableHttpClient httpClient = createMock(CloseableHttpClient.class);
+
+  private LDConfig config = new LDConfig("API_KEY");
+
+  private EventProcessor eventProcessor = createMock(EventProcessor.class);
+
+  LDClient client = new LDClient(config) {
+    @Override
+    protected CloseableHttpClient createClient() {
+      return httpClient;
+    }
+
+    @Override
+    protected EventProcessor createEventProcessor(LDConfig config) {
+      return eventProcessor;
+    }
+  };
 
   @Test
-  public void getFlagReturnsTrueForEnabledUser() {
-    LDUser user = new LDUser.Builder("user@test.com")
-        .country("USA")
-        .custom("groups", Arrays.asList("google", "microsoft"))
-        .build();
-    boolean flag = client.getFlag("engine.enable", user, false);
-    assertEquals(flag, true);
+  public void testExceptionThrownByHttpClientReturnsDefaultValue() throws IOException {
+
+    expect(httpClient.execute(anyObject(HttpUriRequest.class), anyObject(HttpContext.class))).andThrow(new RuntimeException());
+    replay(httpClient);
+
+    boolean result = client.getFlag("test", new LDUser("test.key"), true);
+    assertEquals(true, result);
+    verify(httpClient);
   }
 }
