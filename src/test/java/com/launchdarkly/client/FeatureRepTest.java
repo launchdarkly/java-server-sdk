@@ -33,13 +33,20 @@ public class FeatureRepTest {
       .variation(falseVariation)
       .build();
 
+  private final FeatureRep<Boolean> disabledFlag = new FeatureRep.Builder<Boolean>("Sample flag", "sample.flag")
+      .on(false)
+      .salt("feefifofum")
+      .variation(trueVariation)
+      .variation(falseVariation)
+      .build();
+
   @Test
   public void testFlagForTargetedUserOff() {
     LDUser user = new LDUser.Builder("targetOff@test.com").build();
 
     Boolean b = simpleFlag.evaluate(user);
 
-    assertEquals(b, false);
+    assertEquals(false, b);
   }
 
   @Test
@@ -48,7 +55,7 @@ public class FeatureRepTest {
 
     Boolean b = simpleFlag.evaluate(user);
 
-    assertEquals(b, true);
+    assertEquals(true, b);
   }
 
   @Test
@@ -59,7 +66,7 @@ public class FeatureRepTest {
 
     Boolean b = simpleFlag.evaluate(user);
 
-    assertEquals(b, true);
+    assertEquals(true, b);
   }
 
   @Test
@@ -70,7 +77,16 @@ public class FeatureRepTest {
 
     Boolean b = simpleFlag.evaluate(user);
 
-    assertEquals(b, false);
+    assertEquals(false, b);
+  }
+
+  @Test
+  public void testDisabledFlagAlwaysOff() {
+    LDUser user = new LDUser("targetOn@test.com");
+
+    Boolean b = disabledFlag.evaluate(user);
+
+    assertEquals(null, b);
   }
 
 }

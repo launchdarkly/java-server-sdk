@@ -55,9 +55,19 @@ public class LDClient implements Closeable {
    */
   public LDClient(LDConfig config) {
     this.config = config;
+    this.client = createClient();
+    this.eventProcessor = createEventProcessor(config);
+  }
 
+  protected EventProcessor createEventProcessor(LDConfig config) {
+    return new EventProcessor(config);
+  }
+
+  protected CloseableHttpClient createClient() {
+    CloseableHttpClient client;
     PoolingHttpClientConnectionManager manager = new PoolingHttpClientConnectionManager();
     manager.setMaxTotal(100);
+    manager.setDefaultMaxPerRoute(20);
 
     CacheConfig cacheConfig = CacheConfig.custom()
         .setMaxCacheEntries(1000)
@@ -71,10 +81,10 @@ public class LDClient implements Closeable {
         .build();
     client = CachingHttpClients.custom()
         .setCacheConfig(cacheConfig)
+        .setConnectionManager(manager)
         .setDefaultRequestConfig(requestConfig)
         .build();
-
-    eventProcessor = new EventProcessor(config);
+    return client;
   }
 
   /**
@@ -89,6 +99,16 @@ public class LDClient implements Closeable {
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
+  }
+
+  /**
+   * Tracks that a user performed an event.
+   *
+   * @param eventName the name of the event
+   * @param user the user that performed the event
+   */
+  public void sendEvent(String eventName, LDUser user) {
+    sendEvent(eventName, user, null);
   }
 
   private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value) {
@@ -168,7 +188,7 @@ public class LDClient implements Closeable {
         return value;
       }
 
-    } catch (IOException e) {
+    } catch (Exception e) {
       logger.error("Unhandled exception in LaunchDarkly client", e);
       sendFlagRequestEvent(featureKey, user, defaultValue);
       return defaultValue;

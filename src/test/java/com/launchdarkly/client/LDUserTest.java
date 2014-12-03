@@ -1,11 +1,9 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
-import com.sun.org.apache.bcel.internal.generic.LDC;
 import org.junit.Test;
 
 public class LDUserTest {
-
 
   @Test
   public void testValidCountryCodeSetsCountry() {
