@@ -10,7 +10,7 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "0.2.1"
+    version = "0.2.2"
     sourceCompatibility = 1.6
     targetCompatibility = 1.6
 }
@@ -46,6 +46,7 @@ buildscript {
 buildscript {
     repositories {
         mavenCentral()
+        mavenLocal()
     }
     dependencies {
         classpath 'org.ajoberstar:gradle-git:0.12.0'

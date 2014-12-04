@@ -18,12 +18,12 @@ import java.util.List;
 import java.util.concurrent.*;
 
 class EventProcessor implements Closeable {
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+  private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
   private final BlockingQueue<Event> queue;
 
   EventProcessor(LDConfig config) {
     this.queue = new ArrayBlockingQueue<Event>(config.capacity);
-    this.scheduler.scheduleAtFixedRate(new Consumer(config), 0, 30, TimeUnit.SECONDS);
+    this.scheduler.scheduleAtFixedRate(new Consumer(config), 0, 10, TimeUnit.SECONDS);
   }
 
   boolean sendEvent(Event e) {
@@ -33,6 +33,14 @@ class EventProcessor implements Closeable {
   @Override
   public void close() throws IOException {
     scheduler.shutdown();
+  }
+
+  static class DaemonThreadFactory implements ThreadFactory {
+    public Thread newThread(Runnable r) {
+      Thread thread = new Thread(r);
+      thread.setDaemon(true);
+      return thread;
+    }
   }
 
   class Consumer implements Runnable {
@@ -75,9 +83,13 @@ class EventProcessor implements Closeable {
         if (status != HttpStatus.SC_OK) {
           if (status == HttpStatus.SC_UNAUTHORIZED) {
             logger.error("Invalid API key");
-          } else {
+          }
+          else {
             logger.error("Unexpected status code: " + status);
           }
+        }
+        else {
+          logger.debug("Successfully processed events");
         }
       } catch (IOException e) {
         logger.error("Unhandled exception in LaunchDarkly client", e);
