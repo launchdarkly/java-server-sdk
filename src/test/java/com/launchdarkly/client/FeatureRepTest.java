@@ -89,4 +89,13 @@ public class FeatureRepTest {
     assertEquals(null, b);
   }
 
+  @Test
+  public void testFlagWithCustomAttributeWorksWithLDUserDefaultCtor() {
+    LDUser user = new LDUser("randomUser@test.com");
+
+    Boolean b = simpleFlag.evaluate(user);
+
+    assertNotNull(b);
+  }
+
 }
