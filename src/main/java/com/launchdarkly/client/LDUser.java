@@ -55,6 +55,7 @@ public class LDUser {
    */
   public LDUser(String key) {
     this.key = key;
+    this.custom = new HashMap<String, JsonElement>();
   }
 
   String getKey() {

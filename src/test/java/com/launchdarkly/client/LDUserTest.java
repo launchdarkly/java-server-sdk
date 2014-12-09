@@ -65,4 +65,5 @@ public class LDUserTest {
 
     assert(deserialized.getCountry().equals(LDCountryCode.US));
   }
+
 }
