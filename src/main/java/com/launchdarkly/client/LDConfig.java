@@ -9,14 +9,15 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 
 /**
- * This class exposes advanced configuration options for the {@link LDClient}.
+ * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
  *
  */
 public final class LDConfig {
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
-  private static final int DEFAULT_CONNECT_TIMEOUT = 3;
-  private static final int DEFAULT_SOCKET_TIMEOUT = 3;
+  private static final int DEFAULT_CONNECT_TIMEOUT = 2;
+  private static final int DEFAULT_SOCKET_TIMEOUT = 10;
+  private static final int DEFAULT_FLUSH_INTERVAL = 5;
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
 
   protected static final LDConfig DEFAULT = new Builder().build();
@@ -25,12 +26,106 @@ public final class LDConfig {
   final int capacity;
   final int connectTimeout;
   final int socketTimeout;
+  final int flushInterval;
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.capacity = builder.capacity;
     this.connectTimeout = builder.connectTimeout;
     this.socketTimeout = builder.socketTimeout;
+    this.flushInterval = builder.flushInterval;
+  }
+
+  /**
+   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
+   * calls can be chained, enabling the following pattern:
+   * <p>
+   * <pre>
+   * LDConfig config = new LDConfig.Builder()
+   *      .connectTimeout(3)
+   *      .socketTimeout(3)
+   *      .build()
+   * </pre>
+   * </p>
+   *
+   */
+  public static class Builder{
+    private URI baseURI = DEFAULT_BASE_URI;
+    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT;
+    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT;
+    private int capacity = DEFAULT_CAPACITY;
+    private int flushInterval = DEFAULT_FLUSH_INTERVAL;
+
+    /**
+     * Creates a builder with all configuration parameters set to the default
+     */
+    public Builder() {
+    }
+
+    /**
+     * Set the base URL of the LaunchDarkly server for this configuration
+     * @param baseURI the base URL of the LaunchDarkly server for this configuration
+     * @return the builder
+     */
+    public Builder baseURI(URI baseURI) {
+      this.baseURI = baseURI;
+      return this;
+    }
+
+    /**
+     * Set the connection timeout in seconds for the configuration. This is the time allowed for the underlying HTTP client to connect
+     * to the LaunchDarkly server. The default is 2 seconds.
+     * @param connectTimeout the connection timeout in seconds
+     * @return the builder
+     */
+    public Builder connectTimeout(int connectTimeout) {
+      this.connectTimeout = connectTimeout;
+      return this;
+    }
+
+    /**
+     * Set the socket timeout in seconds for the configuration. This is the time allowed for the server to return a response after
+     * the connection is established. The default is 10 seconds.
+     * @param socketTimeout the socket timeout in seconds
+     * @return the builder
+     */
+    public Builder socketTimeout(int socketTimeout) {
+      this.socketTimeout = socketTimeout;
+      return this;
+    }
+
+    /**
+     * Set the number of seconds between flushes of the event buffer. Decreasing the flush interval means
+     * that the event buffer is less likely to reach capacity.
+     *
+     * @param flushInterval the flush interval in seconds
+     * @return the builder
+     */
+    public Builder flushInterval(int flushInterval) {
+      this.flushInterval = flushInterval;
+      return this;
+    }
+
+    /**
+     * Set the capacity of the events buffer. The client buffers up to this many events in memory before flushing. If the capacity is exceeded before the buffer is flushed, events will be discarded.
+     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory.
+     *
+     * @param capacity the capacity of the event buffer
+     * @return the builder
+     */
+    public Builder capacity(int capacity) {
+      this.capacity = capacity;
+      return this;
+    }
+
+    /**
+     * Build the configured {@link com.launchdarkly.client.LDConfig} object
+     * @return the {@link com.launchdarkly.client.LDConfig} configured by this builder
+     */
+    public LDConfig build() {
+      return new LDConfig(this);
+    }
+
   }
 
 
@@ -72,41 +167,4 @@ public final class LDConfig {
       return null;
     }
   }
-
-
-  public static class Builder{
-    private URI baseURI = DEFAULT_BASE_URI;
-    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT;
-    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT;
-    private int capacity = DEFAULT_CAPACITY;
-
-    public Builder() {
-    }
-
-    public Builder baseURI(URI baseURI) {
-      this.baseURI = baseURI;
-      return this;
-    }
-
-    public Builder connectTimeout(int connectTimeout) {
-      this.connectTimeout = connectTimeout;
-      return this;
-    }
-
-    public Builder socketTimeout(int socketTimeout) {
-      this.socketTimeout = socketTimeout;
-      return this;
-    }
-
-    public Builder capacity(int capacity) {
-      this.capacity = capacity;
-      return this;
-    }
-
-    public LDConfig build() {
-      return new LDConfig(this);
-    }
-
-  }
-
 }

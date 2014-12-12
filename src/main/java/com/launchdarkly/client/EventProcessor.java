@@ -25,7 +25,7 @@ class EventProcessor implements Closeable {
   EventProcessor(String apiKey, LDConfig config) {
     this.apiKey = apiKey;
     this.queue = new ArrayBlockingQueue<Event>(config.capacity);
-    this.scheduler.scheduleAtFixedRate(new Consumer(config), 0, 10, TimeUnit.SECONDS);
+    this.scheduler.scheduleAtFixedRate(new Consumer(config), 0, config.flushInterval, TimeUnit.SECONDS);
   }
 
   boolean sendEvent(Event e) {
