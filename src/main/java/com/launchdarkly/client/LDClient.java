@@ -20,6 +20,10 @@ import org.apache.http.util.EntityUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URI;
+import java.net.URL;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +40,9 @@ public class LDClient implements Closeable {
   private final LDConfig config;
   private final CloseableHttpClient client;
   private final EventProcessor eventProcessor;
+  private final String apiKey;
+  protected static final String CLIENT_VERSION = getClientVersion();
+
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -44,23 +51,25 @@ public class LDClient implements Closeable {
    * @param apiKey the API key for your account
    */
   public LDClient(String apiKey) {
-    this(new LDConfig(apiKey));
+    this(apiKey, LDConfig.DEFAULT);
   }
 
   /**
    * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
    * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
    *
+   * @param apiKey the API key for your account
    * @param config a client configuration object
    */
-  public LDClient(LDConfig config) {
+  public LDClient(String apiKey, LDConfig config) {
+    this.apiKey = apiKey;
     this.config = config;
     this.client = createClient();
-    this.eventProcessor = createEventProcessor(config);
+    this.eventProcessor = createEventProcessor(apiKey, config);
   }
 
-  protected EventProcessor createEventProcessor(LDConfig config) {
-    return new EventProcessor(config);
+  protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
+    return new EventProcessor(apiKey, config);
   }
 
   protected CloseableHttpClient createClient() {
@@ -76,8 +85,8 @@ public class LDClient implements Closeable {
         .build();
 
     RequestConfig requestConfig = RequestConfig.custom()
-        .setConnectTimeout(3000)
-        .setSocketTimeout(3000)
+        .setConnectTimeout(config.connectTimeout * 1000)
+        .setSocketTimeout(config.socketTimeout * 1000)
         .build();
     client = CachingHttpClients.custom()
         .setCacheConfig(cacheConfig)
@@ -131,7 +140,7 @@ public class LDClient implements Closeable {
   public boolean getFlag(String featureKey, LDUser user, boolean defaultValue) {
     Gson gson = new Gson();
     HttpCacheContext context = HttpCacheContext.create();
-    HttpGet request = config.getRequest("/api/eval/features/" + featureKey);
+    HttpGet request = config.getRequest(apiKey, "/api/eval/features/" + featureKey);
 
     CloseableHttpResponse response = null;
     try {
@@ -139,7 +148,6 @@ public class LDClient implements Closeable {
 
       CacheResponseStatus responseStatus = context.getCacheResponseStatus();
 
-      if (logger.isDebugEnabled()) {
         switch (responseStatus) {
           case CACHE_HIT:
             logger.debug("A response was generated from the cache with " +
@@ -157,7 +165,6 @@ public class LDClient implements Closeable {
                 "after validating the entry with the origin server");
             break;
         }
-      }
 
       int status = response.getStatusLine().getStatusCode();
 
@@ -210,5 +217,28 @@ public class LDClient implements Closeable {
   @Override
   public void close() throws IOException {
     this.eventProcessor.close();
+  }
+
+
+  private static String getClientVersion() {
+    Class clazz = LDConfig.class;
+    String className = clazz.getSimpleName() + ".class";
+    String classPath = clazz.getResource(className).toString();
+    if (!classPath.startsWith("jar")) {
+      // Class not from JAR
+      return "Unknown";
+    }
+    String manifestPath = classPath.substring(0, classPath.lastIndexOf("!") + 1) +
+        "/META-INF/MANIFEST.MF";
+    Manifest manifest = null;
+    try {
+      manifest = new Manifest(new URL(manifestPath).openStream());
+      Attributes attr = manifest.getMainAttributes();
+      String value = attr.getValue("Implementation-Version");
+      return value;
+    } catch (IOException e) {
+      logger.warn("Unable to determine LaunchDarkly client library version", e);
+      return "Unknown";
+    }
   }
 }

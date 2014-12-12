@@ -36,12 +36,7 @@ public class LDUser {
 
   }
 
-  /**
-   * Creates an {@code LDUser} with custom parameters defined by the {@code builder}
-   *
-   * @param builder the builder containing the custom parameters for the user
-   */
-  public LDUser(Builder builder) {
+  protected LDUser(Builder builder) {
     this.key = builder.key;
     this.ip = builder.ip;
     this.country = builder.country;

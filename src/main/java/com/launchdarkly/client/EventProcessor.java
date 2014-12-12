@@ -20,8 +20,10 @@ import java.util.concurrent.*;
 class EventProcessor implements Closeable {
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
   private final BlockingQueue<Event> queue;
+  private final String apiKey;
 
-  EventProcessor(LDConfig config) {
+  EventProcessor(String apiKey, LDConfig config) {
+    this.apiKey = apiKey;
     this.queue = new ArrayBlockingQueue<Event>(config.capacity);
     this.scheduler.scheduleAtFixedRate(new Consumer(config), 0, 10, TimeUnit.SECONDS);
   }
@@ -70,7 +72,7 @@ class EventProcessor implements Closeable {
       Gson gson = new Gson();
       String json = gson.toJson(events);
 
-      HttpPost request = config.postRequest("/api/events/bulk");
+      HttpPost request = config.postRequest(apiKey, "/api/events/bulk");
       StringEntity entity = new StringEntity(json, "UTF-8");
       entity.setContentType("application/json");
       request.setEntity(entity);
