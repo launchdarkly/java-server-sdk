@@ -20,18 +20,16 @@ public class LDClientTest extends EasyMockSupport {
 
   private CloseableHttpClient httpClient = createMock(CloseableHttpClient.class);
 
-  private LDConfig config = new LDConfig("API_KEY");
-
   private EventProcessor eventProcessor = createMock(EventProcessor.class);
 
-  LDClient client = new LDClient(config) {
+  LDClient client = new LDClient("API_KEY") {
     @Override
     protected CloseableHttpClient createClient() {
       return httpClient;
     }
 
     @Override
-    protected EventProcessor createEventProcessor(LDConfig config) {
+    protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
       return eventProcessor;
     }
   };
