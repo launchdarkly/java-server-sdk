@@ -6,48 +6,128 @@ import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
 
 /**
- * This class exposes advanced configuration options for the {@link LDClient}.
+ * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
  *
  */
 public final class LDConfig {
-  private static final String CLIENT_VERSION = getClientVersion();
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
+  private static final int DEFAULT_CONNECT_TIMEOUT = 2;
+  private static final int DEFAULT_SOCKET_TIMEOUT = 10;
+  private static final int DEFAULT_FLUSH_INTERVAL = 5;
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
 
+  protected static final LDConfig DEFAULT = new Builder().build();
 
   final URI baseURI;
-  final String apiKey;
   final int capacity;
+  final int connectTimeout;
+  final int socketTimeout;
+  final int flushInterval;
+
+  protected LDConfig(Builder builder) {
+    this.baseURI = builder.baseURI;
+    this.capacity = builder.capacity;
+    this.connectTimeout = builder.connectTimeout;
+    this.socketTimeout = builder.socketTimeout;
+    this.flushInterval = builder.flushInterval;
+  }
 
   /**
-   * Create a configuration using the default base URL and the specified API key
+   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
+   * calls can be chained, enabling the following pattern:
+   * <p>
+   * <pre>
+   * LDConfig config = new LDConfig.Builder()
+   *      .connectTimeout(3)
+   *      .socketTimeout(3)
+   *      .build()
+   * </pre>
+   * </p>
    *
-   * @param apiKey the API key
    */
-  public LDConfig(String apiKey) {
-    this(apiKey, DEFAULT_BASE_URI, DEFAULT_CAPACITY);
+  public static class Builder{
+    private URI baseURI = DEFAULT_BASE_URI;
+    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT;
+    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT;
+    private int capacity = DEFAULT_CAPACITY;
+    private int flushInterval = DEFAULT_FLUSH_INTERVAL;
+
+    /**
+     * Creates a builder with all configuration parameters set to the default
+     */
+    public Builder() {
+    }
+
+    /**
+     * Set the base URL of the LaunchDarkly server for this configuration
+     * @param baseURI the base URL of the LaunchDarkly server for this configuration
+     * @return the builder
+     */
+    public Builder baseURI(URI baseURI) {
+      this.baseURI = baseURI;
+      return this;
+    }
+
+    /**
+     * Set the connection timeout in seconds for the configuration. This is the time allowed for the underlying HTTP client to connect
+     * to the LaunchDarkly server. The default is 2 seconds.
+     * @param connectTimeout the connection timeout in seconds
+     * @return the builder
+     */
+    public Builder connectTimeout(int connectTimeout) {
+      this.connectTimeout = connectTimeout;
+      return this;
+    }
+
+    /**
+     * Set the socket timeout in seconds for the configuration. This is the time allowed for the server to return a response after
+     * the connection is established. The default is 10 seconds.
+     * @param socketTimeout the socket timeout in seconds
+     * @return the builder
+     */
+    public Builder socketTimeout(int socketTimeout) {
+      this.socketTimeout = socketTimeout;
+      return this;
+    }
+
+    /**
+     * Set the number of seconds between flushes of the event buffer. Decreasing the flush interval means
+     * that the event buffer is less likely to reach capacity.
+     *
+     * @param flushInterval the flush interval in seconds
+     * @return the builder
+     */
+    public Builder flushInterval(int flushInterval) {
+      this.flushInterval = flushInterval;
+      return this;
+    }
+
+    /**
+     * Set the capacity of the events buffer. The client buffers up to this many events in memory before flushing. If the capacity is exceeded before the buffer is flushed, events will be discarded.
+     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory.
+     *
+     * @param capacity the capacity of the event buffer
+     * @return the builder
+     */
+    public Builder capacity(int capacity) {
+      this.capacity = capacity;
+      return this;
+    }
+
+    /**
+     * Build the configured {@link com.launchdarkly.client.LDConfig} object
+     * @return the {@link com.launchdarkly.client.LDConfig} configured by this builder
+     */
+    public LDConfig build() {
+      return new LDConfig(this);
+    }
+
   }
 
-  /**
-   * Create a configuration using the specified base URL and API key
-   * @param apiKey the API key
-   * @param baseURI the base URL for the LaunchDarkly API. Any path specified in the URI will be ignored.
-   * @param capacity the maximum number of events that will be buffered before discarding. Events are batched and sent every 30 seconds,
-   *                 so this should be larger than the number of events the app might create in that time.
-   */
-  public LDConfig(String apiKey, URI baseURI, int capacity) {
-    this.apiKey = apiKey;
-    this.baseURI = baseURI;
-    this.capacity = capacity;
-  }
 
   private URIBuilder getBuilder() {
     return new URIBuilder()
@@ -56,13 +136,13 @@ public final class LDConfig {
         .setPort(baseURI.getPort());
   }
 
-  HttpGet getRequest(String path) {
+  HttpGet getRequest(String apiKey, String path) {
     URIBuilder builder = this.getBuilder().setPath(path);
 
     try {
       HttpGet request = new HttpGet(builder.build());
-      request.addHeader("Authorization", "api_key " + this.apiKey);
-      request.addHeader("User-Agent", "JavaClient/" + CLIENT_VERSION);
+      request.addHeader("Authorization", "api_key " + apiKey);
+      request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
 
       return request;
     }
@@ -72,13 +152,13 @@ public final class LDConfig {
     }
   }
 
-  HttpPost postRequest(String path) {
+  HttpPost postRequest(String apiKey, String path) {
     URIBuilder builder = this.getBuilder().setPath(path);
 
     try {
       HttpPost request = new HttpPost(builder.build());
-      request.addHeader("Authorization", "api_key " + this.apiKey);
-      request.addHeader("User-Agent", "JavaClient/" + CLIENT_VERSION);
+      request.addHeader("Authorization", "api_key " + apiKey);
+      request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
 
       return request;
     }
@@ -87,27 +167,4 @@ public final class LDConfig {
       return null;
     }
   }
-
-  static String getClientVersion() {
-    Class clazz = LDConfig.class;
-    String className = clazz.getSimpleName() + ".class";
-    String classPath = clazz.getResource(className).toString();
-    if (!classPath.startsWith("jar")) {
-      // Class not from JAR
-      return "Unknown";
-    }
-    String manifestPath = classPath.substring(0, classPath.lastIndexOf("!") + 1) +
-        "/META-INF/MANIFEST.MF";
-    Manifest manifest = null;
-    try {
-      manifest = new Manifest(new URL(manifestPath).openStream());
-      Attributes attr = manifest.getMainAttributes();
-      String value = attr.getValue("Implementation-Version");
-      return value;
-    } catch (IOException e) {
-      logger.warn("Unable to determine LaunchDarkly client library version", e);
-      return "Unknown";
-    }
-  }
-
 }
