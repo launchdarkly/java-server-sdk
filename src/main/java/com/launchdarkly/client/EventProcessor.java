@@ -82,7 +82,7 @@ class EventProcessor implements Closeable {
 
         int status = response.getStatusLine().getStatusCode();
 
-        if (status != HttpStatus.SC_OK) {
+        if (status >= 300) {
           if (status == HttpStatus.SC_UNAUTHORIZED) {
             logger.error("Invalid API key");
           }
