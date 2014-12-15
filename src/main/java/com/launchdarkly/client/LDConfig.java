@@ -84,8 +84,8 @@ public final class LDConfig {
     }
 
     /**
-     * Set the socket timeout in seconds for the configuration. This is the time allowed for the server to return a response after
-     * the connection is established. The default is 10 seconds.
+     * Set the socket timeout in seconds for the configuration. This is the number of seconds between successive packets that the
+     * client will tolerate before flagging an error. The default is 10 seconds.
      * @param socketTimeout the socket timeout in seconds
      * @return the builder
      */
