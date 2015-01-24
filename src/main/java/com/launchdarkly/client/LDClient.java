@@ -42,6 +42,7 @@ public class LDClient implements Closeable {
   private final EventProcessor eventProcessor;
   private final String apiKey;
   protected static final String CLIENT_VERSION = getClientVersion();
+  private volatile boolean offline = false;
 
 
   /**
@@ -117,6 +118,9 @@ public class LDClient implements Closeable {
    * @param user the user that performed the event
    */
   public void track(String eventName, LDUser user) {
+    if (this.offline) {
+      return;
+    }
     track(eventName, user, null);
   }
 
@@ -125,6 +129,9 @@ public class LDClient implements Closeable {
    * @param user the user to register
    */
   public void identify(LDUser user) {
+    if (this.offline) {
+      return;
+    }
     boolean processed = eventProcessor.sendEvent(new IdentifyEvent(user));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
@@ -149,6 +156,10 @@ public class LDClient implements Closeable {
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
   public boolean getFlag(String featureKey, LDUser user, boolean defaultValue) {
+    if (this.offline) {
+      return defaultValue;
+    }
+
     Gson gson = new Gson();
     HttpCacheContext context = HttpCacheContext.create();
     HttpGet request = config.getRequest(apiKey, "/api/eval/features/" + featureKey);
@@ -230,6 +241,32 @@ public class LDClient implements Closeable {
     this.eventProcessor.close();
   }
 
+
+  /**
+   * Puts the LaunchDarkly client in offline mode.
+   * In offline mode, all calls to {@link #getFlag(String, LDUser, boolean)} will return the default value, and
+   * {@link #sendEvent(String, LDUser, com.google.gson.JsonObject)} will be a no-op.
+   *
+   */
+  public void setOffline() {
+    this.offline = true;
+  }
+
+  /**
+   * Puts the LaunchDarkly client in online mode.
+   *
+   */
+  public void setOnline() {
+    this.offline = false;
+  }
+
+  /**
+   *
+   * @return whether the client is in offline mode
+   */
+  public boolean isOffline() {
+    return this.offline;
+  }
 
   private static String getClientVersion() {
     Class clazz = LDConfig.class;
