@@ -104,7 +104,7 @@ public class LDClient implements Closeable {
    * @param user the user that performed the event
    * @param data a JSON object containing additional data associated with the event
    */
-  public void sendEvent(String eventName, LDUser user, JsonObject data) {
+  public void track(String eventName, LDUser user, JsonObject data) {
     boolean processed = eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
@@ -117,11 +117,25 @@ public class LDClient implements Closeable {
    * @param eventName the name of the event
    * @param user the user that performed the event
    */
-  public void sendEvent(String eventName, LDUser user) {
+  public void track(String eventName, LDUser user) {
     if (this.offline) {
       return;
     }
-    sendEvent(eventName, user, null);
+    track(eventName, user, null);
+  }
+
+  /**
+   * Register the user
+   * @param user the user to register
+   */
+  public void identify(LDUser user) {
+    if (this.offline) {
+      return;
+    }
+    boolean processed = eventProcessor.sendEvent(new IdentifyEvent(user));
+    if (!processed) {
+      logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
+    }
   }
 
   private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value) {
