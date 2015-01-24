@@ -28,7 +28,8 @@ public class LDUser {
   private String secondary;
   private String ip;
   private String email;
-  private String gender;
+  private String name;
+  private String avatar;
   private String firstName;
   private String lastName;
 
@@ -49,7 +50,7 @@ public class LDUser {
     this.firstName = builder.firstName;
     this.lastName = builder.lastName;
     this.email = builder.email;
-    this.gender = builder.gender;
+    this.name = builder.name;
     this.custom = new HashMap<String, JsonElement>(builder.custom);
   }
 
@@ -72,13 +73,15 @@ public class LDUser {
 
   String getSecondary() { return secondary; }
 
-  String getGender() { return gender; }
+  String getName() { return name; }
 
   String getFirstName() { return firstName; }
 
   String getLastName() { return lastName; }
 
   String getEmail() { return email; }
+
+  String getAvatar() { return avatar; }
 
   JsonElement getCustom(String key) {
     return custom.get(key);
@@ -104,7 +107,8 @@ public class LDUser {
     private String firstName;
     private String lastName;
     private String email;
-    private String gender;
+    private String name;
+    private String avatar;
     private LDCountryCode country;
     private Map<String, JsonElement> custom;
 
@@ -178,21 +182,51 @@ public class LDUser {
       return this;
     }
 
+    /**
+     * Sets the user's first name
+     * @param firstName the user's first name
+     * @return the builder
+     */
     public Builder firstName(String firstName) {
       this.firstName = firstName;
       return this;
     }
 
+    /**
+     * Sets the user's last name
+     * @param lastName the user's last name
+     * @return the builder
+     */
     public Builder lastName(String lastName) {
       this.lastName = lastName;
       return this;
     }
 
-    public Builder gender(String gender) {
-      this.gender = gender;
+    /**
+     * Sets the user's full name
+     * @param name the user's full name
+     * @return the builder
+     */
+    public Builder name(String name) {
+      this.name = name;
       return this;
     }
 
+    /**
+     * Sets the user's avatar
+     * @param avatar the user's avatar
+     * @return the builder
+     */
+    public Builder avatar(String avatar) {
+      this.avatar = avatar;
+      return this;
+    }
+
+    /**
+     * Sets the user's e-mail address
+     * @param email the e-mail address
+     * @return the builder
+     */
     public Builder email(String email) {
       this.email = email;
       return this;
