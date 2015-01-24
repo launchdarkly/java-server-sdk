@@ -27,6 +27,11 @@ public class LDUser {
   private String key;
   private String secondary;
   private String ip;
+  private String email;
+  private String gender;
+  private String firstName;
+  private String lastName;
+
   private LDCountryCode country;
   private Map<String, JsonElement> custom;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
@@ -41,6 +46,10 @@ public class LDUser {
     this.ip = builder.ip;
     this.country = builder.country;
     this.secondary = builder.secondary;
+    this.firstName = builder.firstName;
+    this.lastName = builder.lastName;
+    this.email = builder.email;
+    this.gender = builder.gender;
     this.custom = new HashMap<String, JsonElement>(builder.custom);
   }
 
@@ -63,6 +72,14 @@ public class LDUser {
 
   String getSecondary() { return secondary; }
 
+  String getGender() { return gender; }
+
+  String getFirstName() { return firstName; }
+
+  String getLastName() { return lastName; }
+
+  String getEmail() { return email; }
+
   JsonElement getCustom(String key) {
     return custom.get(key);
   }
@@ -84,6 +101,10 @@ public class LDUser {
     private String key;
     private String secondary;
     private String ip;
+    private String firstName;
+    private String lastName;
+    private String email;
+    private String gender;
     private LDCountryCode country;
     private Map<String, JsonElement> custom;
 
@@ -154,6 +175,26 @@ public class LDUser {
      */
     public Builder country(LDCountryCode country) {
       this.country = country;
+      return this;
+    }
+
+    public Builder firstName(String firstName) {
+      this.firstName = firstName;
+      return this;
+    }
+
+    public Builder lastName(String lastName) {
+      this.lastName = lastName;
+      return this;
+    }
+
+    public Builder gender(String gender) {
+      this.gender = gender;
+      return this;
+    }
+
+    public Builder email(String email) {
+      this.email = email;
       return this;
     }
 
