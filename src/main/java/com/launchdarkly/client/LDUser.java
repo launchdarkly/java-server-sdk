@@ -51,6 +51,7 @@ public class LDUser {
     this.lastName = builder.lastName;
     this.email = builder.email;
     this.name = builder.name;
+    this.avatar = builder.avatar;
     this.custom = new HashMap<String, JsonElement>(builder.custom);
   }
 
