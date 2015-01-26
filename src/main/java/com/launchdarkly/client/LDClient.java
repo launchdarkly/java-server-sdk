@@ -245,7 +245,7 @@ public class LDClient implements Closeable {
   /**
    * Puts the LaunchDarkly client in offline mode.
    * In offline mode, all calls to {@link #getFlag(String, LDUser, boolean)} will return the default value, and
-   * {@link #sendEvent(String, LDUser, com.google.gson.JsonObject)} will be a no-op.
+   * {@link #track(String, LDUser, com.google.gson.JsonObject)} will be a no-op.
    *
    */
   public void setOffline() {
