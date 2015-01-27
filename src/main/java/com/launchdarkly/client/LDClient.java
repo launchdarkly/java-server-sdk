@@ -20,7 +20,6 @@ import org.apache.http.util.EntityUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.net.URI;
 import java.net.URL;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
@@ -241,6 +240,9 @@ public class LDClient implements Closeable {
     this.eventProcessor.close();
   }
 
+  public void flush() {
+    this.eventProcessor.flush();
+  }
 
   /**
    * Puts the LaunchDarkly client in offline mode.
