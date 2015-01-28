@@ -21,11 +21,13 @@ class EventProcessor implements Closeable {
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
   private final BlockingQueue<Event> queue;
   private final String apiKey;
+  private final Consumer consumer;
 
   EventProcessor(String apiKey, LDConfig config) {
     this.apiKey = apiKey;
     this.queue = new ArrayBlockingQueue<Event>(config.capacity);
-    this.scheduler.scheduleAtFixedRate(new Consumer(config), 0, config.flushInterval, TimeUnit.SECONDS);
+    this.consumer = new Consumer(config);
+    this.scheduler.scheduleAtFixedRate(consumer, 0, config.flushInterval, TimeUnit.SECONDS);
   }
 
   boolean sendEvent(Event e) {
@@ -35,6 +37,11 @@ class EventProcessor implements Closeable {
   @Override
   public void close() throws IOException {
     scheduler.shutdown();
+    this.flush();
+  }
+
+  public void flush() {
+    this.consumer.flush();
   }
 
   static class DaemonThreadFactory implements ThreadFactory {
@@ -59,6 +66,10 @@ class EventProcessor implements Closeable {
 
     @Override
     public void run() {
+      flush();
+    }
+
+    public void flush() {
       List<Event> events = new ArrayList<Event>(queue.size());
       queue.drainTo(events);
 
