@@ -230,7 +230,7 @@ public class LDClient implements Closeable {
   }
 
   /**
-   * Closes the LaunchDarkly client event processing thread. This should only
+   * Closes the LaunchDarkly client event processing thread and flushes all pending events. This should only
    * be called on application shutdown.
    *
    * @throws IOException
@@ -240,6 +240,9 @@ public class LDClient implements Closeable {
     this.eventProcessor.close();
   }
 
+  /**
+   * Flushes all pending events
+   */
   public void flush() {
     this.eventProcessor.flush();
   }
