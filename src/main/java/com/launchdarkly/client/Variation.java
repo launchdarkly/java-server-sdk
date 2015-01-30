@@ -112,6 +112,31 @@ class Variation<E> {
           uValue = user.getCountry().getAlpha2();
         }
       }
+      else if (attribute.equals("email")) {
+        if (user.getEmail() != null) {
+          uValue = user.getEmail();
+        }
+      }
+      else if (attribute.equals("firstName")) {
+        if (user.getFirstName() != null ) {
+          uValue = user.getFirstName();
+        }
+      }
+      else if (attribute.equals("lastName")) {
+        if (user.getLastName() != null) {
+          uValue = user.getLastName();
+        }
+      }
+      else if (attribute.equals("avatar")) {
+        if (user.getAvatar() != null) {
+          uValue = user.getAvatar();
+        }
+      }
+      else if (attribute.equals("name")) {
+        if (user.getName() != null) {
+          uValue = user.getName();
+        }
+      }
       else { // Custom attribute
         JsonElement custom = user.getCustom(attribute);
 
