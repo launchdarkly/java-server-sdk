@@ -40,6 +40,29 @@ public class FeatureRepTest {
       .variation(falseVariation)
       .build();
 
+  private Variation<Boolean> userRuleVariation = new Variation.Builder<Boolean>(false, 20)
+      .userTarget(targetUserOn)
+      .build();
+
+  private final FeatureRep<Boolean> userRuleFlag = new FeatureRep.Builder<Boolean>("User rule flag", "user.rule.flag")
+      .on(true)
+      .salt("feefifofum")
+      .variation(trueVariation)
+      .variation(userRuleVariation)
+      .build();
+
+  @Test
+  public void testUserRuleFlagForTargetUserOff() {
+
+    // The trueVariation tries to enable this rule, but the userVariation (with false value) has a userRule
+    // that's able to override this. This doesn't represent a real LD response-- we'd never have feature reps
+    // that sometimes contain user rules and sometimes contain embedded 'key' rules
+    LDUser user = new LDUser.Builder("targetOn@test.com").build();
+    Boolean b = userRuleFlag.evaluate(user);
+
+    assertEquals(false, b);
+  }
+
   @Test
   public void testFlagForTargetedUserOff() {
     LDUser user = new LDUser.Builder("targetOff@test.com").build();
