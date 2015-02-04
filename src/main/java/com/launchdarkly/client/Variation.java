@@ -12,6 +12,7 @@ import java.util.List;
 class Variation<E> {
   E value;
   int weight;
+  TargetRule userTarget;
   List<TargetRule> targets;
   private final Logger logger = LoggerFactory.getLogger(Variation.class);
 
@@ -22,11 +23,25 @@ class Variation<E> {
   Variation(Builder<E> b) {
     this.value = b.value;
     this.weight = b.weight;
+    this.userTarget = b.userTarget;
     this.targets = new ArrayList<TargetRule>(b.targets);
+  }
+
+  public boolean matchUser(LDUser user) {
+    // If a userTarget rule is present, apply it
+    if (userTarget != null && userTarget.matchTarget(user)) {
+      return true;
+    }
+    return false;
   }
 
   public boolean matchTarget(LDUser user) {
     for (TargetRule target: targets) {
+      // If a userTarget rule is present, nested "key" rules
+      // are deprecated and should be ignored
+      if (userTarget != null && target.attribute == "key") {
+        continue;
+      }
       if (target.matchTarget(user)) {
         return true;
       }
@@ -37,12 +52,19 @@ class Variation<E> {
   static class Builder<E> {
     E value;
     int weight;
+    TargetRule userTarget;
     List<TargetRule> targets;
 
     Builder(E value, int weight) {
       this.value = value;
       this.weight = weight;
+      this.userTarget = new TargetRule("key", "in", new ArrayList<String>());
       targets = new ArrayList<TargetRule>();
+    }
+
+    Builder<E> userTarget(TargetRule rule) {
+      this.userTarget = rule;
+      return this;
     }
 
     Builder<E> target(TargetRule rule) {
@@ -88,6 +110,31 @@ class Variation<E> {
       else if (attribute.equals("country")) {
         if (user.getCountry() != null) {
           uValue = user.getCountry().getAlpha2();
+        }
+      }
+      else if (attribute.equals("email")) {
+        if (user.getEmail() != null) {
+          uValue = user.getEmail();
+        }
+      }
+      else if (attribute.equals("firstName")) {
+        if (user.getFirstName() != null ) {
+          uValue = user.getFirstName();
+        }
+      }
+      else if (attribute.equals("lastName")) {
+        if (user.getLastName() != null) {
+          uValue = user.getLastName();
+        }
+      }
+      else if (attribute.equals("avatar")) {
+        if (user.getAvatar() != null) {
+          uValue = user.getAvatar();
+        }
+      }
+      else if (attribute.equals("name")) {
+        if (user.getName() != null) {
+          uValue = user.getName();
         }
       }
       else { // Custom attribute
