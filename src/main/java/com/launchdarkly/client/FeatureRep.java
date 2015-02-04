@@ -63,6 +63,12 @@ class FeatureRep<E> {
       return null;
     }
     else {
+      for (Variation<E> variation: variations) {
+        if (variation.matchUser(user)) {
+          return variation.value;
+        }
+      }
+
       for (Variation<E> variation : variations) {
         if (variation.matchTarget(user)) {
           return variation.value;
