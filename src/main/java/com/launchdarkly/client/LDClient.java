@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import org.apache.http.HttpStatus;
@@ -103,7 +104,7 @@ public class LDClient implements Closeable {
    * @param user the user that performed the event
    * @param data a JSON object containing additional data associated with the event
    */
-  public void track(String eventName, LDUser user, JsonObject data) {
+  public void track(String eventName, LDUser user, JsonElement data) {
     boolean processed = eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
