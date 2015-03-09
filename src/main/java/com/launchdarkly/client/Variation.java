@@ -58,7 +58,7 @@ class Variation<E> {
     Builder(E value, int weight) {
       this.value = value;
       this.weight = weight;
-      this.userTarget = new TargetRule("key", "in", new ArrayList<String>());
+      this.userTarget = new TargetRule("key", "in", new ArrayList<Object>());
       targets = new ArrayList<TargetRule>();
     }
 
@@ -81,22 +81,22 @@ class Variation<E> {
   static class TargetRule {
     String attribute;
     String operator;
-    List<String> values;
+    List<Object> values;
 
     private final Logger logger = LoggerFactory.getLogger(TargetRule.class);
 
-    TargetRule(String attribute, String operator, List<String> values) {
+    TargetRule(String attribute, String operator, List<Object> values) {
       this.attribute = attribute;
       this.operator = operator;
-      this.values = new ArrayList<String>(values);
+      this.values = new ArrayList<Object>(values);
     }
 
-    TargetRule(String attribute, List<String> values) {
+    TargetRule(String attribute, List<Object> values) {
       this(attribute, "in", values);
     }
 
     public boolean matchTarget(LDUser user) {
-      String uValue = null;
+      Object uValue = null;
       if (attribute.equals("key")) {
         if (user.getKey() != null) {
           uValue = user.getKey();
@@ -136,6 +136,9 @@ class Variation<E> {
         if (user.getName() != null) {
           uValue = user.getName();
         }
+      }
+      else if (attribute.equals("anonymous")) {
+        uValue = user.getAnonymous();
       }
       else { // Custom attribute
         JsonElement custom = user.getCustom(attribute);
