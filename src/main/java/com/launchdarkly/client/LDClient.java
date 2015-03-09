@@ -149,13 +149,25 @@ public class LDClient implements Closeable {
   /**
    * Calculates the value of a feature flag for a given user.
    *
+   * @param featureKey the unique featureKey for the feature flag
+   * @param user the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   * @deprecated As of version 0.7.0, renamed to {@link #toggle(String, LDUser, boolean)}
+   */
+  public boolean getFlag(String featureKey, LDUser user, boolean defaultValue) {
+    return toggle(featureKey, user, defaultValue);
+  }
+
+  /**
+   * Calculates the value of a feature flag for a given user.
    *
    * @param featureKey the unique featureKey for the feature flag
    * @param user the end user requesting the flag
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
-  public boolean getFlag(String featureKey, LDUser user, boolean defaultValue) {
+  public boolean toggle(String featureKey, LDUser user, boolean defaultValue) {
     if (this.offline) {
       return defaultValue;
     }
