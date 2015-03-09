@@ -32,6 +32,7 @@ public class LDUser {
   private String avatar;
   private String firstName;
   private String lastName;
+  private boolean anonymous;
 
   private LDCountryCode country;
   private Map<String, JsonElement> custom;
@@ -52,6 +53,7 @@ public class LDUser {
     this.email = builder.email;
     this.name = builder.name;
     this.avatar = builder.avatar;
+    this.anonymous = builder.anonymous;
     this.custom = new HashMap<String, JsonElement>(builder.custom);
   }
 
@@ -84,6 +86,8 @@ public class LDUser {
 
   String getAvatar() { return avatar; }
 
+  boolean getAnonymous() { return anonymous; }
+
   JsonElement getCustom(String key) {
     return custom.get(key);
   }
@@ -110,6 +114,7 @@ public class LDUser {
     private String email;
     private String name;
     private String avatar;
+    private boolean anonymous;
     private LDCountryCode country;
     private Map<String, JsonElement> custom;
 
@@ -190,6 +195,16 @@ public class LDUser {
      */
     public Builder firstName(String firstName) {
       this.firstName = firstName;
+      return this;
+    }
+
+    /**
+     * Sets whether this user is anonymous
+     * @param anonymous whether the user is anonymous
+     * @return the builder
+     */
+    public Builder anonymous(boolean anonymous) {
+      this.anonymous = anonymous;
       return this;
     }
 
