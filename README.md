@@ -38,4 +38,4 @@ Your first feature flag
 Learn more
 ----------
 
-Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for your SDK](http://docs.launchdarkly.com/v1.0/docs/java-sdk-reference).
+Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for your SDK](http://docs.launchdarkly.com/v1.0/docs/java-sdk-reference) or our [Javadocs](http://launchdarkly.github.io/java-client/).
