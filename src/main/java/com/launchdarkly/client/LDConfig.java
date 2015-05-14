@@ -73,9 +73,9 @@ public final class LDConfig {
     }
 
     /**
-     * Set the connection timeout in seconds for the configuration. This is the time allowed for the underlying HTTP client to connect
-     * to the LaunchDarkly server. The default is 2 seconds.
-     * @param connectTimeout the connection timeout in seconds
+     * Set the connection timeout in milliseconds for the configuration. This is the time allowed for the underlying HTTP client to connect
+     * to the LaunchDarkly server. The default is 2000 ms.
+     * @param connectTimeout the connection timeout in milliseconds
      * @return the builder
      */
     public Builder connectTimeout(int connectTimeout) {
@@ -84,9 +84,9 @@ public final class LDConfig {
     }
 
     /**
-     * Set the socket timeout in seconds for the configuration. This is the number of seconds between successive packets that the
-     * client will tolerate before flagging an error. The default is 10 seconds.
-     * @param socketTimeout the socket timeout in seconds
+     * Set the socket timeout in milliseconds for the configuration. This is the number of milliseconds between successive packets that the
+     * client will tolerate before flagging an error. The default is 10 milliseconds.
+     * @param socketTimeout the socket timeout in milliseconds
      * @return the builder
      */
     public Builder socketTimeout(int socketTimeout) {
