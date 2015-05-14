@@ -86,8 +86,8 @@ public class LDClient implements Closeable {
         .build();
 
     RequestConfig requestConfig = RequestConfig.custom()
-        .setConnectTimeout(config.connectTimeout * 1000)
-        .setSocketTimeout(config.socketTimeout * 1000)
+        .setConnectTimeout(config.connectTimeout)
+        .setSocketTimeout(config.socketTimeout)
         .build();
     client = CachingHttpClients.custom()
         .setCacheConfig(cacheConfig)
