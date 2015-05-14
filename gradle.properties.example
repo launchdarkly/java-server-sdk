@@ -1,0 +1,7 @@
+githubUser = YOUR_GITHUB_USERNAME
+githubPassword = YOUR_GITHUB_PASSWORD
+signing.keyId = 5669D902
+signing.password = SIGNING_PASSWORD
+signing.secretKeyRingFile = SECRET_RING_FILE
+ossrhUsername = launchdarkly
+ossrhPassword = OSSHR_PASSWORD
