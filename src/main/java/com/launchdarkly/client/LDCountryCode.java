@@ -1437,7 +1437,7 @@ public enum LDCountryCode
   NZ("New Zealand", "NZL", 554, Assignment.OFFICIALLY_ASSIGNED),
 
   /**
-   * <a href=http://en.wikipedia.org/wiki/Oman"">Oman</a>
+   * <a href="http://en.wikipedia.org/wiki/Oman">Oman</a>
    * [<a href="http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#OM">OM</a>, OMN, 512,
    * Officially assigned]
    */
@@ -2256,7 +2256,7 @@ public enum LDCountryCode
    * {@code Locale} class.
    * </p>
    *
-   * <table border="1" style="border-collapse: collapse;" cellpadding="5">
+   * <table border="1" style="border-collapse: collapse;" cellpadding="5" summary="">
    * <tr bgcolor="#FF8C00">
    *   <th>CountryCode</th>
    *   <th>Locale</th>

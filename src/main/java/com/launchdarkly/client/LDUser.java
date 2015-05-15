@@ -95,14 +95,13 @@ public class LDUser {
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDUser} objects. Builder
    * calls can be chained, enabling the following pattern:
-   * <p>
+   * 
    * <pre>
    * LDUser user = new LDUser.Builder("key")
    *      .country("US")
    *      .ip("192.168.0.1")
    *      .build()
    * </pre>
-   * </p>
    *
    */
   public static class Builder {
