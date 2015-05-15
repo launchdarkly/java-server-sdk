@@ -39,14 +39,13 @@ public final class LDConfig {
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
    * calls can be chained, enabling the following pattern:
-   * <p>
+   * 
    * <pre>
    * LDConfig config = new LDConfig.Builder()
    *      .connectTimeout(3)
    *      .socketTimeout(3)
    *      .build()
    * </pre>
-   * </p>
    *
    */
   public static class Builder{
@@ -73,24 +72,58 @@ public final class LDConfig {
     }
 
     /**
-     * Set the connection timeout in milliseconds for the configuration. This is the time allowed for the underlying HTTP client to connect
-     * to the LaunchDarkly server. The default is 2000 ms.
-     * @param connectTimeout the connection timeout in milliseconds
+     * Set the connection timeout in seconds for the configuration. This is the time allowed for the underlying HTTP client to connect
+     * to the LaunchDarkly server. The default is 2 seconds.
+     *
+     * <p>Both this method and {@link #connectTimeoutMillis(int) connectTimeoutMillis} affect the same property internally.</p>
+     *
+     * @param connectTimeout the connection timeout in seconds
      * @return the builder
      */
     public Builder connectTimeout(int connectTimeout) {
-      this.connectTimeout = connectTimeout;
+      this.connectTimeout = connectTimeout * 1000;
+      return this;
+    }
+
+    /**
+     * Set the socket timeout in seconds for the configuration. This is the number of seconds between successive packets that the
+     * client will tolerate before flagging an error. The default is 10 seconds.
+     *
+     * <p>Both this method and {@link #socketTimeoutMillis(int) socketTimeoutMillis} affect the same property internally.</p>
+     *
+     * @param socketTimeout the socket timeout in seconds
+     * @return the builder
+     */
+    public Builder socketTimeout(int socketTimeout) {
+      this.socketTimeout = socketTimeout * 1000;
+      return this;
+    }
+
+    /**
+     * Set the connection timeout in milliseconds for the configuration. This is the time allowed for the underlying HTTP client to connect
+     * to the LaunchDarkly server. The default is 2000 ms.
+     *
+     * <p>Both this method and {@link #connectTimeout(int) connectTimeout} affect the same property internally.</p>
+     *
+     * @param connectTimeoutMillis the connection timeout in milliseconds
+     * @return the builder
+     */
+    public Builder connectTimeoutMillis(int connectTimeoutMillis) {
+      this.connectTimeout = connectTimeoutMillis;
       return this;
     }
 
     /**
      * Set the socket timeout in milliseconds for the configuration. This is the number of milliseconds between successive packets that the
-     * client will tolerate before flagging an error. The default is 10 milliseconds.
-     * @param socketTimeout the socket timeout in milliseconds
+     * client will tolerate before flagging an error. The default is 10,000 milliseconds.
+     *
+     * <p>Both this method and {@link #socketTimeout(int) socketTimeout} affect the same property internally.</p>
+     *
+     * @param socketTimeoutMillis the socket timeout in milliseconds
      * @return the builder
      */
-    public Builder socketTimeout(int socketTimeout) {
-      this.socketTimeout = socketTimeout;
+    public Builder socketTimeoutMillis(int socketTimeoutMillis) {
+      this.socketTimeout = socketTimeoutMillis;
       return this;
     }
 
