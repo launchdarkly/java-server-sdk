@@ -32,7 +32,7 @@ public class LDUser {
   private String avatar;
   private String firstName;
   private String lastName;
-  private boolean anonymous;
+  private Boolean anonymous;
 
   private LDCountryCode country;
   private Map<String, JsonElement> custom;
@@ -86,7 +86,7 @@ public class LDUser {
 
   String getAvatar() { return avatar; }
 
-  boolean getAnonymous() { return anonymous; }
+  Boolean getAnonymous() { return anonymous; }
 
   JsonElement getCustom(String key) {
     return custom.get(key);
