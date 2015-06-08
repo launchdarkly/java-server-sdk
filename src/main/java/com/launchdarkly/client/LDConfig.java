@@ -15,8 +15,8 @@ import java.net.URI;
 public final class LDConfig {
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
-  private static final int DEFAULT_CONNECT_TIMEOUT = 2;
-  private static final int DEFAULT_SOCKET_TIMEOUT = 10;
+  private static final int DEFAULT_CONNECT_TIMEOUT = 2000;
+  private static final int DEFAULT_SOCKET_TIMEOUT = 10000;
   private static final int DEFAULT_FLUSH_INTERVAL = 5;
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
 
