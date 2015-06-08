@@ -138,7 +138,9 @@ class Variation<E> {
         }
       }
       else if (attribute.equals("anonymous")) {
-        uValue = user.getAnonymous();
+        if (user.getAnonymous() != null) {
+          uValue = user.getAnonymous();
+        }
       }
       else { // Custom attribute
         JsonElement custom = user.getCustom(attribute);
