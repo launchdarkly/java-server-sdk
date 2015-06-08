@@ -113,7 +113,7 @@ public class LDUser {
     private String email;
     private String name;
     private String avatar;
-    private boolean anonymous;
+    private Boolean anonymous;
     private LDCountryCode country;
     private Map<String, JsonElement> custom;
 
