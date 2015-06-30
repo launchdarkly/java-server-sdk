@@ -270,6 +270,17 @@ public class LDUser {
     }
 
     /**
+     * Add a {@link java.lang.Boolean}-valued custom attribute
+     * @param k the key for the custom attribute
+     * @param b the value for the custom attribute
+     * @return the builder
+     */
+    public Builder custom(String k, Boolean b) {
+      custom.put(k, new JsonPrimitive(b));
+      return this;
+    }
+
+    /**
      * Add a list of {@link java.lang.String}-valued custom attributes
      * @param k the key for the list
      * @param vs the values for the attribute
