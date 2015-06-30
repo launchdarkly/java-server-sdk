@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -160,7 +161,14 @@ class Variation<E> {
             return false;
           }
           else if (custom.isJsonPrimitive()) {
-            return values.contains(custom.getAsString());
+            JsonPrimitive prim = custom.getAsJsonPrimitive();
+            if (prim.isNumber()) {
+              return values.contains(custom.getAsDouble());
+            } else if (prim.isBoolean()) {
+              return values.contains(custom.getAsBoolean());
+            } else {
+              return values.contains(custom.getAsString());
+            }
           }
         }
         return false;
