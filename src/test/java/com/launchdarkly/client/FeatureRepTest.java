@@ -12,9 +12,18 @@ public class FeatureRepTest {
 
   private final Variation.TargetRule targetGroupOn = new Variation.TargetRule("groups", Arrays.<Object>asList("google", "microsoft"));
 
+  // GSON will deserialize numbers as decimals
+  private final Variation.TargetRule targetFavoriteNumberOn = new Variation.TargetRule("favorite_number", Arrays.<Object>asList(42.0));
+
+  private final Variation.TargetRule targetLikesCatsOn = new Variation.TargetRule("likes_cats", Arrays.<Object>asList(true));
+
   private final Variation.TargetRule targetUserOff = new Variation.TargetRule("key", Collections.<Object>singletonList("targetOff@test.com"));
 
   private final Variation.TargetRule targetGroupOff = new Variation.TargetRule("groups", Arrays.<Object>asList("oracle"));
+
+  private final Variation.TargetRule targetFavoriteNumberOff = new Variation.TargetRule("favorite_number", Arrays.<Object>asList(33.0));
+
+  private final Variation.TargetRule targetLikesDogsOff = new Variation.TargetRule("likes_dogs", Arrays.<Object>asList(false));
 
   private final Variation.TargetRule targetAnonymousOn = new Variation.TargetRule("anonymous", Collections.<Object>singletonList(true));
 
@@ -22,11 +31,15 @@ public class FeatureRepTest {
       .target(targetUserOn)
       .target(targetGroupOn)
       .target(targetAnonymousOn)
+      .target(targetLikesCatsOn)
+      .target(targetFavoriteNumberOn)
       .build();
 
   private final Variation<Boolean> falseVariation = new Variation.Builder<Boolean>(false, 20)
       .target(targetUserOff)
       .target(targetGroupOff)
+      .target(targetFavoriteNumberOff)
+      .target(targetLikesDogsOff)
       .build();
 
   private final FeatureRep<Boolean> simpleFlag = new FeatureRep.Builder<Boolean>("Sample flag", "sample.flag")
@@ -96,6 +109,28 @@ public class FeatureRepTest {
   }
 
   @Test
+  public void testFlagForTargetNumericTestOn() {
+    LDUser user = new LDUser.Builder("targetOther@test.com")
+        .custom("favorite_number", 42.0)
+        .build();
+
+    Boolean b = simpleFlag.evaluate(user);
+
+    assertEquals(true, b);
+  }
+
+    @Test
+    public void testFlagForTargetBooleanTestOn() {
+        LDUser user = new LDUser.Builder("targetOther@test.com")
+                .custom("likes_cats", true)
+                .build();
+
+        Boolean b = simpleFlag.evaluate(user);
+
+        assertEquals(true, b);
+    }
+
+  @Test
   public void testFlagForTargetGroupOff() {
     LDUser user = new LDUser.Builder("targetOther@test.com")
         .custom("groups", "oracle")
@@ -105,6 +140,28 @@ public class FeatureRepTest {
 
     assertEquals(false, b);
   }
+
+  @Test
+  public void testFlagForTargetNumericTestOff() {
+    LDUser user = new LDUser.Builder("targetOther@test.com")
+        .custom("favorite_number", 33.0)
+        .build();
+
+    Boolean b = simpleFlag.evaluate(user);
+
+    assertEquals(false, b);
+  }
+
+    @Test
+    public void testFlagForTargetBooleanTestOff() {
+        LDUser user = new LDUser.Builder("targetOther@test.com")
+                .custom("likes_dogs", false)
+                .build();
+
+        Boolean b = simpleFlag.evaluate(user);
+
+        assertEquals(false, b);
+    }
 
   @Test
   public void testDisabledFlagAlwaysOff() {
