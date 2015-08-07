@@ -61,7 +61,7 @@ class EventProcessor implements Closeable {
 
     Consumer(LDConfig config) {
       this.config = config;
-      client = HttpClients.createDefault();
+      client = HttpClients.custom().setProxy(config.proxyHost).build();
     }
 
     @Override
