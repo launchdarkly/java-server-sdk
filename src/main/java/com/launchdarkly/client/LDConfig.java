@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import org.apache.http.HttpHost;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URIBuilder;
@@ -27,6 +28,7 @@ public final class LDConfig {
   final int connectTimeout;
   final int socketTimeout;
   final int flushInterval;
+  final HttpHost proxyHost;
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -34,6 +36,7 @@ public final class LDConfig {
     this.connectTimeout = builder.connectTimeout;
     this.socketTimeout = builder.socketTimeout;
     this.flushInterval = builder.flushInterval;
+    this.proxyHost = builder.proxyHost();
   }
 
   /**
@@ -54,6 +57,9 @@ public final class LDConfig {
     private int socketTimeout = DEFAULT_SOCKET_TIMEOUT;
     private int capacity = DEFAULT_CAPACITY;
     private int flushInterval = DEFAULT_FLUSH_INTERVAL;
+    private String proxyHost;
+    private int proxyPort = -1;
+    private String proxyScheme;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -149,6 +155,63 @@ public final class LDConfig {
     public Builder capacity(int capacity) {
       this.capacity = capacity;
       return this;
+    }
+
+    /**
+     * Set the host to use as an HTTP proxy for making connections to LaunchDarkly. If this is not set, but
+     * {@link #proxyPort(int)} or  {@link #proxyScheme(String)} are specified, this will default to <code>localhost</code>.
+     * <p>
+     * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
+     * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
+     * </p>
+     * @param host
+     * @return
+     */
+    public Builder proxyHost(String host) {
+      this.proxyHost = host;
+      return this;
+    }
+
+    /**
+     * Set the port to use for an HTTP proxy for making connections to LaunchDarkly.  If not set (but {@link #proxyHost(String)}
+     * or {@link #proxyScheme(String)} are specified, the default port for the scheme will be used.
+     *
+     * <p>
+     * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
+     * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
+     * </p>
+     * @param port
+     * @return
+     */
+    public Builder proxyPort(int port) {
+      this.proxyPort = port;
+      return this;
+    }
+
+    /**
+     * Set the scheme to use for an HTTP proxy for making connections to LaunchDarkly.  If not set (but {@link #proxyHost(String)}
+     * or {@link #proxyPort(int)} are specified, the default <code>https</code> scheme will be used.
+     *
+     * <p>
+     * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
+     * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
+     * </p>
+     * @param scheme
+     * @return
+     */
+    public Builder proxyScheme(String scheme) {
+      this.proxyScheme = scheme;
+      return this;
+    }
+
+    HttpHost proxyHost() {
+      if (this.proxyHost == null && this.proxyPort == -1 && this.proxyScheme == null) {
+        return null;
+      } else {
+        String hostname = this.proxyHost == null ? "localhost" : this.proxyHost;
+        String scheme = this.proxyScheme == null ? "https" : this.proxyScheme;
+        return new HttpHost(hostname, this.proxyPort, scheme);
+      }
     }
 
     /**
