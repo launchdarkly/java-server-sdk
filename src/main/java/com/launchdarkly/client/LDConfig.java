@@ -15,6 +15,7 @@ import java.net.URI;
  */
 public final class LDConfig {
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
+  private static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
   private static final int DEFAULT_CONNECT_TIMEOUT = 2000;
   private static final int DEFAULT_SOCKET_TIMEOUT = 10000;
@@ -24,11 +25,13 @@ public final class LDConfig {
   protected static final LDConfig DEFAULT = new Builder().build();
 
   final URI baseURI;
+  final URI streamURI;
   final int capacity;
   final int connectTimeout;
   final int socketTimeout;
   final int flushInterval;
   final HttpHost proxyHost;
+  final boolean stream;
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -37,6 +40,8 @@ public final class LDConfig {
     this.socketTimeout = builder.socketTimeout;
     this.flushInterval = builder.flushInterval;
     this.proxyHost = builder.proxyHost();
+    this.streamURI = builder.streamURI;
+    this.stream = builder.stream;
   }
 
   /**
@@ -53,6 +58,7 @@ public final class LDConfig {
    */
   public static class Builder{
     private URI baseURI = DEFAULT_BASE_URI;
+    private URI streamURI = DEFAULT_STREAM_URI;
     private int connectTimeout = DEFAULT_CONNECT_TIMEOUT;
     private int socketTimeout = DEFAULT_SOCKET_TIMEOUT;
     private int capacity = DEFAULT_CAPACITY;
@@ -60,6 +66,7 @@ public final class LDConfig {
     private String proxyHost;
     private int proxyPort = -1;
     private String proxyScheme;
+    private boolean stream = false;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -74,6 +81,26 @@ public final class LDConfig {
      */
     public Builder baseURI(URI baseURI) {
       this.baseURI = baseURI;
+      return this;
+    }
+
+    /**
+     * Set the base URL of the LaunchDarkly streaming server for this configuration
+     * @param streamURI the base URL of the LaunchDarkly streaming server
+     * @return the builder
+     */
+    public Builder streamURI(URI streamURI) {
+      this.streamURI = streamURI;
+      return this;
+    }
+
+    /**
+     * Set whether streaming mode should be enabled
+     * @param stream whether streaming mode should be enabled
+     * @return the builder
+     */
+    public Builder stream(boolean stream) {
+      this.stream = stream;
       return this;
     }
 

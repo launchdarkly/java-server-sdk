@@ -3,7 +3,6 @@ package com.launchdarkly.client;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import org.apache.http.HttpStatus;
 import org.apache.http.annotation.ThreadSafe;
@@ -40,6 +39,7 @@ public class LDClient implements Closeable {
   private final LDConfig config;
   private final CloseableHttpClient client;
   private final EventProcessor eventProcessor;
+  private final StreamProcessor streamProcessor;
   private final String apiKey;
   protected static final String CLIENT_VERSION = getClientVersion();
   private volatile boolean offline = false;
@@ -67,10 +67,23 @@ public class LDClient implements Closeable {
     this.config = config;
     this.client = createClient();
     this.eventProcessor = createEventProcessor(apiKey, config);
+
+    if (config.stream) {
+      logger.debug("Enabling streaming API");
+      this.streamProcessor = createStreamProcessor(apiKey, config);
+      this.streamProcessor.subscribe();
+    } else {
+      logger.debug("Streaming API disabled");
+      this.streamProcessor = null;
+    }
   }
 
   protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
     return new EventProcessor(apiKey, config);
+  }
+
+  protected StreamProcessor createStreamProcessor(String apiKey, LDConfig config) {
+    return new StreamProcessor(apiKey, config);
   }
 
   protected CloseableHttpClient createClient() {
@@ -172,7 +185,37 @@ public class LDClient implements Closeable {
     if (this.offline) {
       return defaultValue;
     }
+    try {
+      FeatureRep<Boolean> result;
+      if (this.config.stream && this.streamProcessor != null && this.streamProcessor.initialized()) {
+        logger.debug("Using feature flag stored from streaming API");
+        result = (FeatureRep<Boolean>) this.streamProcessor.getFeature(featureKey);
+      } else {
+        result = fetchFeature(featureKey);
+      }
+      if (result == null) {
+        logger.warn("Unknown feature flag " + featureKey + "; returning default value");
+        sendFlagRequestEvent(featureKey, user, defaultValue);
+        return defaultValue;
+      }
 
+      Boolean val = result.evaluate(user);
+      if (val == null) {
+        sendFlagRequestEvent(featureKey, user, defaultValue);
+        return defaultValue;
+      } else {
+        boolean value = val.booleanValue();
+        sendFlagRequestEvent(featureKey, user, value);
+        return value;
+      }
+    } catch (Exception e) {
+      logger.error("Encountered exception in LaunchDarkly client", e);
+      sendFlagRequestEvent(featureKey, user, defaultValue);
+      return defaultValue;
+    }
+  }
+
+  private FeatureRep<Boolean> fetchFeature(String featureKey) throws IOException {
     Gson gson = new Gson();
     HttpCacheContext context = HttpCacheContext.create();
     HttpGet request = config.getRequest(apiKey, "/api/eval/features/" + featureKey);
@@ -183,23 +226,23 @@ public class LDClient implements Closeable {
 
       CacheResponseStatus responseStatus = context.getCacheResponseStatus();
 
-        switch (responseStatus) {
-          case CACHE_HIT:
-            logger.debug("A response was generated from the cache with " +
-                "no requests sent upstream");
-            break;
-          case CACHE_MODULE_RESPONSE:
-            logger.debug("The response was generated directly by the " +
-                "caching module");
-            break;
-          case CACHE_MISS:
-            logger.debug("The response came from an upstream server");
-            break;
-          case VALIDATED:
-            logger.debug("The response was generated from the cache " +
-                "after validating the entry with the origin server");
-            break;
-        }
+      switch (responseStatus) {
+        case CACHE_HIT:
+          logger.debug("A response was generated from the cache with " +
+              "no requests sent upstream");
+          break;
+        case CACHE_MODULE_RESPONSE:
+          logger.debug("The response was generated directly by the " +
+              "caching module");
+          break;
+        case CACHE_MISS:
+          logger.debug("The response came from an upstream server");
+          break;
+        case VALIDATED:
+          logger.debug("The response was generated from the cache " +
+              "after validating the entry with the origin server");
+          break;
+      }
 
       int status = response.getStatusLine().getStatusCode();
 
@@ -211,34 +254,18 @@ public class LDClient implements Closeable {
         } else {
           logger.error("Unexpected status code: " + status);
         }
-        sendFlagRequestEvent(featureKey, user, defaultValue);
-        return defaultValue;
+        throw new IOException("Failed to fetch flag");
       }
 
-      Type boolType = new TypeToken<FeatureRep<Boolean>>(){}.getType();
+      Type boolType = new TypeToken<FeatureRep<Boolean>>() {}.getType();
 
       FeatureRep<Boolean> result = gson.fromJson(EntityUtils.toString(response.getEntity()), boolType);
-
-      Boolean val = result.evaluate(user);
-
-      if (val == null) {
-        sendFlagRequestEvent(featureKey, user, defaultValue);
-        return defaultValue;
-      } else {
-        boolean value = val.booleanValue();
-        sendFlagRequestEvent(featureKey, user, value);
-        return value;
-      }
-
-    } catch (Exception e) {
-      logger.error("Unhandled exception in LaunchDarkly client", e);
-      sendFlagRequestEvent(featureKey, user, defaultValue);
-      return defaultValue;
-    } finally {
+      return result;
+    }
+    finally {
       try {
         if (response != null) response.close();
       } catch (IOException e) {
-        logger.error("Unhandled exception in LaunchDarkly client", e);
       }
     }
   }
@@ -252,6 +279,9 @@ public class LDClient implements Closeable {
   @Override
   public void close() throws IOException {
     this.eventProcessor.close();
+    if (this.streamProcessor != null) {
+      this.streamProcessor.close();
+    }
   }
 
   /**
@@ -263,7 +293,7 @@ public class LDClient implements Closeable {
 
   /**
    * Puts the LaunchDarkly client in offline mode.
-   * In offline mode, all calls to {@link #getFlag(String, LDUser, boolean)} will return the default value, and
+   * In offline mode, all calls to {@link #toggle(String, LDUser, boolean)} will return the default value, and
    * {@link #track(String, LDUser, com.google.gson.JsonElement)} will be a no-op.
    *
    */

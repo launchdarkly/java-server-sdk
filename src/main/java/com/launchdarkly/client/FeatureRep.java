@@ -13,6 +13,8 @@ class FeatureRep<E> {
   String salt;
   boolean on;
   List<Variation<E>> variations;
+  boolean deleted;
+  int version;
 
   private static final float long_scale = (float)0xFFFFFFFFFFFFFFFL;
 
@@ -25,6 +27,8 @@ class FeatureRep<E> {
     this.key = b.key;
     this.salt = b.salt;
     this.on = b.on;
+    this.deleted = b.deleted;
+    this.version = b.version;
     this.variations = new ArrayList<Variation<E>>(b.variations);
   }
 
@@ -93,6 +97,8 @@ class FeatureRep<E> {
     private String key;
     private boolean on;
     private String salt;
+    private boolean deleted;
+    private int version;
     private List<Variation<E>> variations;
 
     Builder(String name, String key) {
@@ -115,6 +121,16 @@ class FeatureRep<E> {
 
     Builder<E> variation(Variation<E> v) {
       variations.add(v);
+      return this;
+    }
+
+    Builder<E> deleted(boolean d) {
+      this.deleted = d;
+      return this;
+    }
+
+    Builder<E> version(int v) {
+      this.version = v;
       return this;
     }
 
