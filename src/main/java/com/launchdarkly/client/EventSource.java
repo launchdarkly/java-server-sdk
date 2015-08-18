@@ -34,8 +34,6 @@ public class EventSource implements EventListener {
     READY, OPEN, CLOSED
   }
 
-  private static final Level CONNECTION_ERROR_LEVEL = Level.FINE;
-
   private static final org.slf4j.Logger logger = LoggerFactory.getLogger(EventSource.class);
 
   /**
