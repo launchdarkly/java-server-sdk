@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  *
- * A client for the LaunchDarkly API. Client instances are thread-safe. Applications can safely instantiate
+ * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
  * a single {@code LDClient} for the lifetime of their application.
  *
  */
