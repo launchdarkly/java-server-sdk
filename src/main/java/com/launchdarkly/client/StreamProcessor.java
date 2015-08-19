@@ -15,9 +15,6 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.Map;
 
-/**
- * Created by jkodumal on 8/13/15.
- */
 class StreamProcessor implements Closeable {
   private static final String PUT_FEATURES = "put/features";
   private static final String PATCH_FEATURE = "patch/features";
