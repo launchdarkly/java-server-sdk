@@ -4,14 +4,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-/**
- * Created by jkodumal on 8/13/15.
- */
 public class InMemoryFeatureStore implements FeatureStore {
 
   final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   final Map<String, FeatureRep<?>> features = new HashMap<String, FeatureRep<?>>();
-  boolean initialized = false;
+  volatile boolean initialized = false;
 
   @Override
   public FeatureRep<?> get(String key) {
