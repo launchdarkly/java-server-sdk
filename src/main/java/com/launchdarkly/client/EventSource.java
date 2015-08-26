@@ -617,7 +617,7 @@ public class EventSource implements EventListener {
       }
 
       // propagate the current reconnectDelay, but schedule based on the delay parameter
-      final EventProcessor processor = new EventProcessor(this);
+      final EventProcessor processor = new EventProcessor(reconnectDelay, null, headers);
       if (delay > 0) {
         executor.schedule(processor, delay, TimeUnit.MILLISECONDS);
       } else {
