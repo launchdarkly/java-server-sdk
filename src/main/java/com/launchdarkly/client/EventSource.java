@@ -75,12 +75,12 @@ public class EventSource implements EventListener {
    * a static {@link EventSource#target(javax.ws.rs.client.WebTarget) EventSource.target(endpoint)} factory method.
    * <p>
    * For example:
+   * </p>
    * <pre>
    * EventSource es = EventSource.target(endpoint).named("my source")
    *                             .reconnectingEvery(5, SECONDS)
    *                             .open();
    * </pre>
-   * </p>
    *
    * @since 2.3
    */
@@ -497,12 +497,15 @@ public class EventSource implements EventListener {
       EventInput eventInput = null;
       try {
         try {
+          logger.debug("current state is {0}", state.get());
           final Invocation.Builder request = prepareHandshakeRequest();
           if (state.get() == State.OPEN) { // attempt to connect only if even source is open
             logger.debug("Connecting...");
             eventInput = request.get(EventInput.class);
             logger.debug("Connected!");
           }
+        } catch (Exception e) {
+          logger.warn("Encountered error trying to connect", e);
         } finally {
           if (firstContactSignal != null) {
             // release the signal regardless of event source state or connection request outcome
