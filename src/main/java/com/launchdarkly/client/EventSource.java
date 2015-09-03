@@ -497,7 +497,7 @@ public class EventSource implements EventListener {
       EventInput eventInput = null;
       try {
         try {
-          logger.debug("current state is {0}", state.get());
+          logger.debug("current state is {}", state.get());
           final Invocation.Builder request = prepareHandshakeRequest();
           if (state.get() == State.OPEN) { // attempt to connect only if even source is open
             logger.debug("Connecting...");
@@ -517,7 +517,7 @@ public class EventSource implements EventListener {
 
         while (state.get() == State.OPEN && !execThread.isInterrupted()) {
           if (eventInput == null || eventInput.isClosed()) {
-            logger.debug("Connection lost - scheduling reconnect in {0} ms", reconnectDelay);
+            logger.debug("Connection lost - scheduling reconnect in {} ms", reconnectDelay);
             scheduleReconnect(reconnectDelay);
             break;
           } else {
@@ -534,7 +534,7 @@ public class EventSource implements EventListener {
           delay = (delay > 0) ? delay : 0;
         }
 
-        logger.debug("Recovering from HTTP 503 - scheduling to reconnect in {0} ms", delay);
+        logger.debug("Recovering from HTTP 503 - scheduling to reconnect in {} ms", delay);
         scheduleReconnect(delay);
       } catch (Exception ex) {
         logger.debug("Recovering from exception " + ex.getMessage() + "-- scheduling reconnect");
@@ -614,7 +614,7 @@ public class EventSource implements EventListener {
     private void scheduleReconnect(final long delay) {
       final State s = state.get();
       if (s != State.OPEN) {
-        logger.debug("Aborting reconnect of event source in {0} state", state);
+        logger.debug("Aborting reconnect of event source in {} state", state);
         return;
       }
 
