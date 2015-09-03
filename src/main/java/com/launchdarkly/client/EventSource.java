@@ -534,10 +534,9 @@ public class EventSource implements EventListener {
         logger.debug("Recovering from HTTP 503 - scheduling to reconnect in {0} ms", delay);
         scheduleReconnect(delay);
       } catch (Exception ex) {
-          logger.warn(String.format("Unable to connect - closing the event source to %s.",
-              target.getUri().toASCIIString()), ex);
-        // if we're here, an unrecoverable error has occurred - just turn off the lights...
-        EventSource.this.shutdown();
+        logger.debug("Recovering from exception " + ex.getMessage() + "-- scheduling reconnect");
+        scheduleReconnect(reconnectDelay);
+
       } finally {
         if (eventInput != null && !eventInput.isClosed()) {
           eventInput.close();
