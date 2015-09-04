@@ -45,22 +45,18 @@ class StreamProcessor implements Closeable {
       @Override
       public void onEvent(InboundEvent event) {
         Gson gson = new Gson();
-        System.out.println("Received an event: " + event.getName());
         if (event.getName().equals(PUT_FEATURES)) {
           Type type = new TypeToken<Map<String,FeatureRep<?>>>(){}.getType();
           Map<String, FeatureRep<?>> features = gson.fromJson(event.readData(), type);
           store.init(features);
-          System.out.println("replaced all features: " + gson.toJson(features));
         }
         else if (event.getName().equals(PATCH_FEATURE)) {
           FeaturePatchData data = gson.fromJson(event.readData(), FeaturePatchData.class);
           store.upsert(data.key(), data.feature());
-          System.out.println("replaced single feature: " + gson.toJson(data.feature()));
         }
         else if (event.getName().equals(DELETE_FEATURE)) {
           FeatureDeleteData data = gson.fromJson(event.readData(), FeatureDeleteData.class);
           store.delete(data.key(), data.version());
-          System.out.println("deleted feature " + data.key());
         }
         else {
           // TODO log an error
