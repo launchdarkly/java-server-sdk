@@ -497,7 +497,6 @@ public class EventSource implements EventListener {
       EventInput eventInput = null;
       try {
         try {
-          logger.debug("current state is {}", state.get());
           final Invocation.Builder request = prepareHandshakeRequest();
           if (state.get() == State.OPEN) { // attempt to connect only if even source is open
             logger.debug("Connecting...");
