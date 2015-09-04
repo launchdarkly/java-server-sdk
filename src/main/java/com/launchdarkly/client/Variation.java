@@ -21,6 +21,39 @@ class Variation<E> {
 
   }
 
+  @Override
+  public String toString() {
+    return "Variation{" +
+            "value=" + value +
+            ", weight=" + weight +
+            ", userTarget=" + userTarget +
+            ", targets=" + targets +
+            '}';
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    Variation<?> variation = (Variation<?>) o;
+
+    if (weight != variation.weight) return false;
+    if (!value.equals(variation.value)) return false;
+    if (!userTarget.equals(variation.userTarget)) return false;
+    return targets.equals(variation.targets);
+
+  }
+
+  @Override
+  public int hashCode() {
+    int result = value.hashCode();
+    result = 31 * result + weight;
+    result = 31 * result + userTarget.hashCode();
+    result = 31 * result + targets.hashCode();
+    return result;
+  }
+
   Variation(Builder<E> b) {
     this.value = b.value;
     this.weight = b.weight;
