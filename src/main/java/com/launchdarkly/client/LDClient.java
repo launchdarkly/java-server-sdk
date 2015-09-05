@@ -190,10 +190,10 @@ public class LDClient implements Closeable {
       if (this.config.stream && this.streamProcessor != null && this.streamProcessor.initialized()) {
         logger.debug("Using feature flag stored from streaming API");
         result = (FeatureRep<Boolean>) this.streamProcessor.getFeature(featureKey);
-        if (logger.isDebugEnabled()) {
+        if (config.debugStreaming) {
           FeatureRep<Boolean> pollingResult = fetchFeature(featureKey);
           if (!result.equals(pollingResult)) {
-            logger.debug("Mismatch between streaming and polling feature! Streaming: {} Polling: {}", result, pollingResult);
+            logger.warn("Mismatch between streaming and polling feature! Streaming: {} Polling: {}", result, pollingResult);
           }
         }
       } else {
