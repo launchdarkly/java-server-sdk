@@ -16,9 +16,9 @@ import java.lang.reflect.Type;
 import java.util.Map;
 
 class StreamProcessor implements Closeable {
-  private static final String PUT_FEATURES = "put/features";
-  private static final String PATCH_FEATURE = "patch/features";
-  private static final String DELETE_FEATURE = "delete/features";
+  private static final String PUT = "put";
+  private static final String PATCH = "patch";
+  private static final String DELETE = "delete";
 
   private final Client client;
   private final FeatureStore store;
@@ -39,22 +39,22 @@ class StreamProcessor implements Closeable {
     headers.putSingle("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
     headers.putSingle("Accept", SseFeature.SERVER_SENT_EVENTS_TYPE);
 
-    WebTarget target = client.target(config.streamURI.toASCIIString() + "/");
+    WebTarget target = client.target(config.streamURI.toASCIIString() + "/features");
 
     es = new EventSource(target, true, headers) {
       @Override
       public void onEvent(InboundEvent event) {
         Gson gson = new Gson();
-        if (event.getName().equals(PUT_FEATURES)) {
+        if (event.getName().equals(PUT)) {
           Type type = new TypeToken<Map<String,FeatureRep<?>>>(){}.getType();
           Map<String, FeatureRep<?>> features = gson.fromJson(event.readData(), type);
           store.init(features);
         }
-        else if (event.getName().equals(PATCH_FEATURE)) {
+        else if (event.getName().equals(PATCH)) {
           FeaturePatchData data = gson.fromJson(event.readData(), FeaturePatchData.class);
           store.upsert(data.key(), data.feature());
         }
-        else if (event.getName().equals(DELETE_FEATURE)) {
+        else if (event.getName().equals(DELETE)) {
           FeatureDeleteData data = gson.fromJson(event.readData(), FeatureDeleteData.class);
           store.delete(data.key(), data.version());
         }
