@@ -68,7 +68,7 @@ public final class LDConfig {
     private String proxyHost;
     private int proxyPort = -1;
     private String proxyScheme;
-    private boolean stream = false;
+    private boolean stream = true;
     private boolean debugStreaming = false;
 
     /**
@@ -110,7 +110,7 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether streaming mode should be enabled
+     * Set whether streaming mode should be enabled. By default, streaming is enabled.
      * @param stream whether streaming mode should be enabled
      * @return the builder
      */
