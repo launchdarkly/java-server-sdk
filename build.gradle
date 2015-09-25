@@ -11,7 +11,7 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "0.13.1"
+    version = "0.14.0"
     sourceCompatibility = 1.6
     targetCompatibility = 1.6
 }
