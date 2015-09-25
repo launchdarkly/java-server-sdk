@@ -85,7 +85,6 @@ test {
     }
 }
 
-
 signing {
     sign configurations.archives
 }
@@ -98,7 +97,6 @@ idea {
         downloadSources = true
     }
 }
-
 
 uploadArchives {
     repositories {
@@ -143,3 +141,4 @@ uploadArchives {
         }
     }
 }
+
