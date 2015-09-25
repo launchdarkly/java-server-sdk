@@ -12,4 +12,5 @@
 .gradletasknamecache
 .gradle/
 build/
-bin/gradle.properties
+bin/
+gradle.properties
