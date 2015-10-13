@@ -1,3 +1,13 @@
-dependencies:
-  pre:
-    - cp gradle.properties.example gradle.properties
+--- 
+dependencies: 
+  pre: 
+    - "cp gradle.properties.example gradle.properties"
+experimental: 
+  notify: 
+    branches: 
+      ignore: 
+        - gh-pages
+general: 
+  branches: 
+    ignore: 
+      - gh-pages
