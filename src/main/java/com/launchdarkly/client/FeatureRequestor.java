@@ -43,7 +43,7 @@ class FeatureRequestor {
 
     CacheConfig cacheConfig = CacheConfig.custom()
         .setMaxCacheEntries(1000)
-        .setMaxObjectSize(8192)
+        .setMaxObjectSize(131072)
         .setSharedCache(false)
         .build();
 
