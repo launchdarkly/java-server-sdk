@@ -1,31 +1,16 @@
 package com.launchdarkly.client;
 
 
-import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.google.gson.reflect.TypeToken;
-import org.apache.http.HttpStatus;
 import org.apache.http.annotation.ThreadSafe;
-import org.apache.http.client.cache.CacheResponseStatus;
-import org.apache.http.client.cache.HttpCacheContext;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.cache.CacheConfig;
-import org.apache.http.impl.client.cache.CachingHttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.net.URL;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -37,10 +22,9 @@ import org.slf4j.LoggerFactory;
 public class LDClient implements Closeable {
   private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
   private final LDConfig config;
-  private final CloseableHttpClient client;
+  private final FeatureRequestor requestor;
   private final EventProcessor eventProcessor;
   private final StreamProcessor streamProcessor;
-  private final String apiKey;
   protected static final String CLIENT_VERSION = getClientVersion();
   private volatile boolean offline = false;
 
@@ -63,9 +47,8 @@ public class LDClient implements Closeable {
    * @param config a client configuration object
    */
   public LDClient(String apiKey, LDConfig config) {
-    this.apiKey = apiKey;
     this.config = config;
-    this.client = createClient();
+    this.requestor = createFeatureRequestor(apiKey, config);
     this.eventProcessor = createEventProcessor(apiKey, config);
 
     if (config.stream) {
@@ -78,6 +61,10 @@ public class LDClient implements Closeable {
     }
   }
 
+  protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
+    return new FeatureRequestor(apiKey, config);
+  }
+
   protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
     return new EventProcessor(apiKey, config);
   }
@@ -86,30 +73,6 @@ public class LDClient implements Closeable {
     return new StreamProcessor(apiKey, config);
   }
 
-  protected CloseableHttpClient createClient() {
-    CloseableHttpClient client;
-    PoolingHttpClientConnectionManager manager = new PoolingHttpClientConnectionManager();
-    manager.setMaxTotal(100);
-    manager.setDefaultMaxPerRoute(20);
-
-    CacheConfig cacheConfig = CacheConfig.custom()
-        .setMaxCacheEntries(1000)
-        .setMaxObjectSize(8192)
-        .setSharedCache(false)
-        .build();
-
-    RequestConfig requestConfig = RequestConfig.custom()
-        .setConnectTimeout(config.connectTimeout)
-        .setSocketTimeout(config.socketTimeout)
-        .setProxy(config.proxyHost)
-        .build();
-    client = CachingHttpClients.custom()
-        .setCacheConfig(cacheConfig)
-        .setConnectionManager(manager)
-        .setDefaultRequestConfig(requestConfig)
-        .build();
-    return client;
-  }
 
   /**
    * Tracks that a user performed an event.
@@ -191,13 +154,14 @@ public class LDClient implements Closeable {
         logger.debug("Using feature flag stored from streaming API");
         result = (FeatureRep<Boolean>) this.streamProcessor.getFeature(featureKey);
         if (config.debugStreaming) {
-          FeatureRep<Boolean> pollingResult = fetchFeature(featureKey);
+          FeatureRep<Boolean> pollingResult = requestor.makeRequest(featureKey, true);
           if (!result.equals(pollingResult)) {
             logger.warn("Mismatch between streaming and polling feature! Streaming: {} Polling: {}", result, pollingResult);
           }
         }
       } else {
-        result = fetchFeature(featureKey);
+        // If streaming is enabled, always get the latest version of the feature while polling
+        result = requestor.makeRequest(featureKey, this.config.stream);
       }
       if (result == null) {
         logger.warn("Unknown feature flag " + featureKey + "; returning default value");
@@ -221,60 +185,7 @@ public class LDClient implements Closeable {
     }
   }
 
-  private FeatureRep<Boolean> fetchFeature(String featureKey) throws IOException {
-    Gson gson = new Gson();
-    HttpCacheContext context = HttpCacheContext.create();
-    HttpGet request = config.getRequest(apiKey, "/api/eval/features/" + featureKey);
 
-    CloseableHttpResponse response = null;
-    try {
-      response = client.execute(request, context);
-
-      CacheResponseStatus responseStatus = context.getCacheResponseStatus();
-
-      switch (responseStatus) {
-        case CACHE_HIT:
-          logger.debug("A response was generated from the cache with " +
-              "no requests sent upstream");
-          break;
-        case CACHE_MODULE_RESPONSE:
-          logger.debug("The response was generated directly by the " +
-              "caching module");
-          break;
-        case CACHE_MISS:
-          logger.debug("The response came from an upstream server");
-          break;
-        case VALIDATED:
-          logger.debug("The response was generated from the cache " +
-              "after validating the entry with the origin server");
-          break;
-      }
-
-      int status = response.getStatusLine().getStatusCode();
-
-      if (status != HttpStatus.SC_OK) {
-        if (status == HttpStatus.SC_UNAUTHORIZED) {
-          logger.error("Invalid API key");
-        } else if (status == HttpStatus.SC_NOT_FOUND) {
-          logger.error("Unknown feature key: " + featureKey);
-        } else {
-          logger.error("Unexpected status code: " + status);
-        }
-        throw new IOException("Failed to fetch flag");
-      }
-
-      Type boolType = new TypeToken<FeatureRep<Boolean>>() {}.getType();
-
-      FeatureRep<Boolean> result = gson.fromJson(EntityUtils.toString(response.getEntity()), boolType);
-      return result;
-    }
-    finally {
-      try {
-        if (response != null) response.close();
-      } catch (IOException e) {
-      }
-    }
-  }
 
   /**
    * Closes the LaunchDarkly client event processing thread and flushes all pending events. This should only
