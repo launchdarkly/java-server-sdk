@@ -105,9 +105,9 @@ class FeatureRequestor {
         throw new IOException("Failed to fetch flag");
       }
 
-      Type boolType = new TypeToken<FeatureRep<T>>() {}.getType();
+      Type type = new TypeToken<FeatureRep<T>>() {}.getType();
 
-      FeatureRep<T> result = gson.fromJson(EntityUtils.toString(response.getEntity()), boolType);
+      FeatureRep<T> result = gson.fromJson(EntityUtils.toString(response.getEntity()), type);
       return result;
     }
     finally {
