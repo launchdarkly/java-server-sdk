@@ -5,6 +5,8 @@ import com.google.gson.reflect.TypeToken;
 import org.glassfish.jersey.internal.util.collection.StringKeyIgnoreCaseMultivaluedMap;
 import org.glassfish.jersey.media.sse.InboundEvent;
 import org.glassfish.jersey.media.sse.SseFeature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -19,18 +21,23 @@ class StreamProcessor implements Closeable {
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
+  private static final String INDIRECT_PATCH = "indirect/patch";
+  private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
 
   private final Client client;
   private final FeatureStore store;
   private final LDConfig config;
   private final String apiKey;
+  private final FeatureRequestor requestor;
   private EventSource es;
 
-  StreamProcessor(String apiKey, LDConfig config) {
+
+  StreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
     this.client = ClientBuilder.newBuilder().register(SseFeature.class).build();
     this.store = new InMemoryFeatureStore();
     this.config = config;
     this.apiKey = apiKey;
+    this.requestor = requestor;
   }
 
   void subscribe() {
@@ -58,8 +65,17 @@ class StreamProcessor implements Closeable {
           FeatureDeleteData data = gson.fromJson(event.readData(), FeatureDeleteData.class);
           store.delete(data.key(), data.version());
         }
+        else if (event.getName().equals(INDIRECT_PATCH)) {
+          String key = gson.fromJson(event.readData(), String.class);
+          try {
+            FeatureRep<?> feature = requestor.makeRequest(key, true);
+            store.upsert(key, feature);
+          } catch (IOException e) {
+            logger.error("Encountered exception in LaunchDarkly client", e);
+          }
+        }
         else {
-          // TODO log an error
+          logger.warn("Unexpected event found in stream: " + event.getName());
         }
       }
     };

@@ -53,7 +53,7 @@ public class LDClient implements Closeable {
 
     if (config.stream) {
       logger.debug("Enabling streaming API");
-      this.streamProcessor = createStreamProcessor(apiKey, config);
+      this.streamProcessor = createStreamProcessor(apiKey, config, requestor);
       this.streamProcessor.subscribe();
     } else {
       logger.debug("Streaming API disabled");
@@ -69,8 +69,8 @@ public class LDClient implements Closeable {
     return new EventProcessor(apiKey, config);
   }
 
-  protected StreamProcessor createStreamProcessor(String apiKey, LDConfig config) {
-    return new StreamProcessor(apiKey, config);
+  protected StreamProcessor createStreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
+    return new StreamProcessor(apiKey, config, requestor);
   }
 
 
