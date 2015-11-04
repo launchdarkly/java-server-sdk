@@ -18,10 +18,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.Map;
 
-/**
- * Created by jkodumal on 11/2/15.
- */
 class FeatureRequestor {
 
   private final String apiKey;
@@ -60,6 +58,75 @@ class FeatureRequestor {
     return client;
   }
 
+  Map<String, FeatureRep<?>> makeAllRequest(boolean latest) throws IOException {
+    Gson gson = new Gson();
+    HttpCacheContext context = HttpCacheContext.create();
+
+    String resource = latest ? "/api/eval/latest-features" : "/api/eval/features";
+
+    HttpGet request = config.getRequest(apiKey, resource);
+
+    CloseableHttpResponse response = null;
+    try {
+      response = client.execute(request, context);
+
+      logCacheResponse(context.getCacheResponseStatus());
+
+      handleResponseStatus(response.getStatusLine().getStatusCode(), null);
+
+      Type type = new TypeToken<Map<String, FeatureRep<?>>>() {}.getType();
+
+      Map<String, FeatureRep<?>> result = gson.fromJson(EntityUtils.toString(response.getEntity()), type);
+      return result;
+    }
+    finally {
+      try {
+        if (response != null) response.close();
+      } catch (IOException e) {
+      }
+    }
+  }
+
+  void logCacheResponse(CacheResponseStatus status) {
+    switch (status) {
+      case CACHE_HIT:
+        logger.debug("A response was generated from the cache with " +
+            "no requests sent upstream");
+        break;
+      case CACHE_MODULE_RESPONSE:
+        logger.debug("The response was generated directly by the " +
+            "caching module");
+        break;
+      case CACHE_MISS:
+        logger.debug("The response came from an upstream server");
+        break;
+      case VALIDATED:
+        logger.debug("The response was generated from the cache " +
+            "after validating the entry with the origin server");
+        break;
+    }
+  }
+
+  void handleResponseStatus(int status, String featureKey) throws IOException {
+
+    if (status != HttpStatus.SC_OK) {
+      if (status == HttpStatus.SC_UNAUTHORIZED) {
+        logger.error("Invalid API key");
+      } else if (status == HttpStatus.SC_NOT_FOUND) {
+        if (featureKey != null) {
+          logger.error("Unknown feature key: " + featureKey);
+        }
+        else {
+          logger.error("Resource not found");
+        }
+      } else {
+        logger.error("Unexpected status code: " + status);
+      }
+      throw new IOException("Failed to fetch flag");
+    }
+
+  }
+
   <T> FeatureRep<T> makeRequest(String featureKey, boolean latest) throws IOException {
     Gson gson = new Gson();
     HttpCacheContext context = HttpCacheContext.create();
@@ -72,38 +139,9 @@ class FeatureRequestor {
     try {
       response = client.execute(request, context);
 
-      CacheResponseStatus responseStatus = context.getCacheResponseStatus();
+      logCacheResponse(context.getCacheResponseStatus());
 
-      switch (responseStatus) {
-        case CACHE_HIT:
-          logger.debug("A response was generated from the cache with " +
-              "no requests sent upstream");
-          break;
-        case CACHE_MODULE_RESPONSE:
-          logger.debug("The response was generated directly by the " +
-              "caching module");
-          break;
-        case CACHE_MISS:
-          logger.debug("The response came from an upstream server");
-          break;
-        case VALIDATED:
-          logger.debug("The response was generated from the cache " +
-              "after validating the entry with the origin server");
-          break;
-      }
-
-      int status = response.getStatusLine().getStatusCode();
-
-      if (status != HttpStatus.SC_OK) {
-        if (status == HttpStatus.SC_UNAUTHORIZED) {
-          logger.error("Invalid API key");
-        } else if (status == HttpStatus.SC_NOT_FOUND) {
-          logger.error("Unknown feature key: " + featureKey);
-        } else {
-          logger.error("Unexpected status code: " + status);
-        }
-        throw new IOException("Failed to fetch flag");
-      }
+      handleResponseStatus(response.getStatusLine().getStatusCode(), featureKey);
 
       Type type = new TypeToken<FeatureRep<T>>() {}.getType();
 
