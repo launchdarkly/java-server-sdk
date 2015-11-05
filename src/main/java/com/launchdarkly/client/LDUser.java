@@ -254,7 +254,9 @@ public class LDUser {
      * @return the builder
      */
     public Builder custom(String k, String v) {
-      custom.put(k, new JsonPrimitive(v));
+      if (key != null && v != null) {
+        custom.put(k, new JsonPrimitive(v));
+      }
       return this;
     }
 
@@ -265,7 +267,9 @@ public class LDUser {
      * @return the builder
      */
     public Builder custom(String k, Number n) {
-      custom.put(k, new JsonPrimitive(n));
+      if (key != null && n != null) {
+        custom.put(k, new JsonPrimitive(n));
+      }
       return this;
     }
 
@@ -276,7 +280,9 @@ public class LDUser {
      * @return the builder
      */
     public Builder custom(String k, Boolean b) {
-      custom.put(k, new JsonPrimitive(b));
+      if (key != null && b != null) {
+        custom.put(k, new JsonPrimitive(b));
+      }
       return this;
     }
 
@@ -289,7 +295,9 @@ public class LDUser {
     public Builder custom(String k, List<String> vs) {
       JsonArray array = new JsonArray();
       for (String v : vs) {
-        array.add(new JsonPrimitive(v));
+        if (v != null) {
+          array.add(new JsonPrimitive(v));
+        }
       }
       custom.put(k, array);
       return this;
