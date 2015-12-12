@@ -20,28 +20,24 @@ public class LDClientTest extends EasyMockSupport {
 
   private CloseableHttpClient httpClient = createMock(CloseableHttpClient.class);
 
-  private EventProcessor eventProcessor = createMock(EventProcessor.class);
+  private FeatureRequestor requestor = createMock(FeatureRequestor.class);
 
   LDClient client = new LDClient("API_KEY") {
-    @Override
-    protected CloseableHttpClient createClient() {
-      return httpClient;
-    }
 
     @Override
-    protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
-      return eventProcessor;
+    protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
+      return requestor;
     }
   };
 
   @Test
   public void testExceptionThrownByHttpClientReturnsDefaultValue() throws IOException {
 
-    expect(httpClient.execute(anyObject(HttpUriRequest.class), anyObject(HttpContext.class))).andThrow(new RuntimeException());
-    replay(httpClient);
+    expect(requestor.makeRequest(anyString(), anyBoolean())).andThrow(new IOException());
+    replay(requestor);
 
-    boolean result = client.getFlag("test", new LDUser("test.key"), true);
+    boolean result = client.toggle("test", new LDUser("test.key"), true);
     assertEquals(true, result);
-    verify(httpClient);
+    verify(requestor);
   }
 }
