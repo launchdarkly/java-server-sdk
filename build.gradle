@@ -79,6 +79,17 @@ githubPages {
     }
 }
 
+shadowJar {
+    relocate 'javax.annotation', 'com.launchdarkly.shaded.javax.annotation'
+    relocate 'javax.inject', 'com.launchdarkly.shaded.javax.inject'
+    relocate 'javax.ws.rs', 'com.launchdarkly.shaded.javax.ws.rs'
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+    mergeServiceFiles()
+    classifier = 'all'
+}
+
 test {
     testLogging {
         events "passed", "skipped", "failed", "standardOut", "standardError"
