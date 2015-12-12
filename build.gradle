@@ -65,7 +65,7 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 
 // add javadoc/source jar tasks as artifacts
 artifacts {
-    archives sourcesJar, javadocJar
+    archives sourcesJar, javadocJar, shadowJar
 }
 
 githubPages {
@@ -87,7 +87,7 @@ shadowJar {
     exclude 'META-INF/*.DSA'
     exclude 'META-INF/*.RSA'
     mergeServiceFiles()
-    classifier = 'all'
+    classifier = 'shadowed'
 }
 
 test {
