@@ -302,6 +302,23 @@ public class LDUser {
       custom.put(k, array);
       return this;
     }
+    
+    /**
+     * Add a list of {@link java.lang.Integer}-valued custom attributes
+     * @param k the key for the list
+     * @param vs the values for the attribute
+     * @return the builder
+     */
+    public Builder custom(String k, List<Integer> vs) {
+      JsonArray array = new JsonArray();
+      for (Integer v : vs) {
+        if (v != null) {
+          array.add(new JsonPrimitive(v));
+        }
+      }
+      custom.put(k, array);
+      return this;
+    }
 
     /**
      * Build the configured {@link com.launchdarkly.client.LDUser} object
