@@ -291,7 +291,7 @@ public class LDUser {
      * @param k the key for the list
      * @param vs the values for the attribute
      * @return the builder
-     * @deprecated As of version 0.16.0, renamed to {@link #customString(String, List<String>)}
+     * @deprecated As of version 0.16.0, renamed to {@link #customString(String, List) customString}
      */
     public Builder custom(String k, List<String> vs) {
       return this.customString(k, vs);
@@ -320,9 +320,9 @@ public class LDUser {
      * @param vs the values for the attribute
      * @return the builder
      */
-    public Builder customInt(String k, List<Integer> vs) {
+    public Builder customNumber(String k, List<Number> vs) {
       JsonArray array = new JsonArray();
-      for (Integer v : vs) {
+      for (Number v : vs) {
         if (v != null) {
           array.add(new JsonPrimitive(v));
         }
