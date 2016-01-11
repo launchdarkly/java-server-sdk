@@ -119,6 +119,10 @@ class Variation<E> {
 
     private final Logger logger = LoggerFactory.getLogger(TargetRule.class);
 
+    public TargetRule() {
+
+    }
+
     TargetRule(String attribute, String operator, List<Object> values) {
       this.attribute = attribute;
       this.operator = operator;
