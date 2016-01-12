@@ -92,7 +92,7 @@ class Variation<E> {
     Builder(E value, int weight) {
       this.value = value;
       this.weight = weight;
-      this.userTarget = new TargetRule("key", "in", new ArrayList<Object>());
+      this.userTarget = new TargetRule("key", "in", new ArrayList<JsonPrimitive>());
       targets = new ArrayList<TargetRule>();
     }
 
@@ -115,7 +115,7 @@ class Variation<E> {
   static class TargetRule {
     String attribute;
     String operator;
-    List<Object> values;
+    List<JsonPrimitive> values;
 
     private final Logger logger = LoggerFactory.getLogger(TargetRule.class);
 
@@ -123,71 +123,61 @@ class Variation<E> {
 
     }
 
-    TargetRule(String attribute, String operator, List<Object> values) {
+    TargetRule(String attribute, String operator, List<JsonPrimitive> values) {
       this.attribute = attribute;
       this.operator = operator;
-      this.values = new ArrayList<Object>(values);
+      this.values = new ArrayList<JsonPrimitive>(values);
     }
 
-    TargetRule(String attribute, List<Object> values) {
+    TargetRule(String attribute, List<JsonPrimitive> values) {
       this(attribute, "in", values);
-    }
-
-    private boolean matchCustom(JsonPrimitive prim, List<Object> values) {
-      if (prim.isNumber()) {
-        return values.contains(prim.getAsDouble());
-      } else if (prim.isBoolean()) {
-        return values.contains(prim.getAsBoolean());
-      } else {
-        return values.contains(prim.getAsString());
-      }
     }
 
     public boolean matchTarget(LDUser user) {
       Object uValue = null;
       if (attribute.equals("key")) {
         if (user.getKey() != null) {
-          uValue = user.getKey();
+          uValue = new JsonPrimitive(user.getKey());
         }
       }
       else if (attribute.equals("ip") && user.getIp() != null) {
         if (user.getIp() != null) {
-          uValue = user.getIp();
+          uValue = new JsonPrimitive(user.getIp());
         }
       }
       else if (attribute.equals("country")) {
         if (user.getCountry() != null) {
-          uValue = user.getCountry().getAlpha2();
+          uValue = new JsonPrimitive(user.getCountry().getAlpha2());
         }
       }
       else if (attribute.equals("email")) {
         if (user.getEmail() != null) {
-          uValue = user.getEmail();
+          uValue = new JsonPrimitive(user.getEmail());
         }
       }
       else if (attribute.equals("firstName")) {
         if (user.getFirstName() != null ) {
-          uValue = user.getFirstName();
+          uValue = new JsonPrimitive(user.getFirstName());
         }
       }
       else if (attribute.equals("lastName")) {
         if (user.getLastName() != null) {
-          uValue = user.getLastName();
+          uValue = new JsonPrimitive(user.getLastName());
         }
       }
       else if (attribute.equals("avatar")) {
         if (user.getAvatar() != null) {
-          uValue = user.getAvatar();
+          uValue = new JsonPrimitive(user.getAvatar());
         }
       }
       else if (attribute.equals("name")) {
         if (user.getName() != null) {
-          uValue = user.getName();
+          uValue = new JsonPrimitive(user.getName());
         }
       }
       else if (attribute.equals("anonymous")) {
         if (user.getAnonymous() != null) {
-          uValue = user.getAnonymous();
+          uValue = new JsonPrimitive(user.getAnonymous());
         }
       }
       else { // Custom attribute
@@ -201,14 +191,14 @@ class Variation<E> {
                 logger.error("Invalid custom attribute value in user object: " + elt);
                 return false;
               }
-              else if (matchCustom(elt.getAsJsonPrimitive(), values)) {
+              else if (values.contains(elt.getAsJsonPrimitive())) {
                 return true;
               }
             }
             return false;
           }
           else if (custom.isJsonPrimitive()) {
-            return matchCustom(custom.getAsJsonPrimitive(), values);
+            return values.contains(custom.getAsJsonPrimitive());
           }
         }
         return false;
