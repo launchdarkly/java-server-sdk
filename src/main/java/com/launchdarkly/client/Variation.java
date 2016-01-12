@@ -133,6 +133,16 @@ class Variation<E> {
       this(attribute, "in", values);
     }
 
+    private boolean matchCustom(JsonPrimitive prim, List<Object> values) {
+      if (prim.isNumber()) {
+        return values.contains(prim.getAsDouble());
+      } else if (prim.isBoolean()) {
+        return values.contains(prim.getAsBoolean());
+      } else {
+        return values.contains(prim.getAsString());
+      }
+    }
+
     public boolean matchTarget(LDUser user) {
       Object uValue = null;
       if (attribute.equals("key")) {
@@ -191,21 +201,14 @@ class Variation<E> {
                 logger.error("Invalid custom attribute value in user object: " + elt);
                 return false;
               }
-              else if (values.contains(elt.getAsString())) {
+              else if (matchCustom(elt.getAsJsonPrimitive(), values)) {
                 return true;
               }
             }
             return false;
           }
           else if (custom.isJsonPrimitive()) {
-            JsonPrimitive prim = custom.getAsJsonPrimitive();
-            if (prim.isNumber()) {
-              return values.contains(custom.getAsDouble());
-            } else if (prim.isBoolean()) {
-              return values.contains(custom.getAsBoolean());
-            } else {
-              return values.contains(custom.getAsString());
-            }
+            return matchCustom(custom.getAsJsonPrimitive(), values);
           }
         }
         return false;
