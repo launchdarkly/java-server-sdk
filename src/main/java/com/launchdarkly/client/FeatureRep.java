@@ -78,7 +78,7 @@ class FeatureRep<E> {
     String hash;
 
     if (user.getKey() != null) {
-      idHash = user.getKey();
+      idHash = user.getKey().getAsString();
     }
     else {
       return null;

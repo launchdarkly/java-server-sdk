@@ -137,47 +137,47 @@ class Variation<E> {
       Object uValue = null;
       if (attribute.equals("key")) {
         if (user.getKey() != null) {
-          uValue = new JsonPrimitive(user.getKey());
+          uValue = user.getKey();
         }
       }
       else if (attribute.equals("ip") && user.getIp() != null) {
         if (user.getIp() != null) {
-          uValue = new JsonPrimitive(user.getIp());
+          uValue = user.getIp();
         }
       }
       else if (attribute.equals("country")) {
         if (user.getCountry() != null) {
-          uValue = new JsonPrimitive(user.getCountry().getAlpha2());
+          uValue = user.getCountry();
         }
       }
       else if (attribute.equals("email")) {
         if (user.getEmail() != null) {
-          uValue = new JsonPrimitive(user.getEmail());
+          uValue = user.getEmail();
         }
       }
       else if (attribute.equals("firstName")) {
         if (user.getFirstName() != null ) {
-          uValue = new JsonPrimitive(user.getFirstName());
+          uValue = user.getFirstName();
         }
       }
       else if (attribute.equals("lastName")) {
         if (user.getLastName() != null) {
-          uValue = new JsonPrimitive(user.getLastName());
+          uValue = user.getLastName();
         }
       }
       else if (attribute.equals("avatar")) {
         if (user.getAvatar() != null) {
-          uValue = new JsonPrimitive(user.getAvatar());
+          uValue = user.getAvatar();
         }
       }
       else if (attribute.equals("name")) {
         if (user.getName() != null) {
-          uValue = new JsonPrimitive(user.getName());
+          uValue = user.getName();
         }
       }
       else if (attribute.equals("anonymous")) {
         if (user.getAnonymous() != null) {
-          uValue = new JsonPrimitive(user.getAnonymous());
+          uValue = user.getAnonymous();
         }
       }
       else { // Custom attribute
