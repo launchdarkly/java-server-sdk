@@ -1,15 +1,18 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonPrimitive;
 import org.junit.Test;
 
 public class LDUserTest {
+
+  private JsonPrimitive us = new JsonPrimitive(LDCountryCode.US.getAlpha2());
 
   @Test
   public void testValidCountryCodeSetsCountry() {
     LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
 
-    assert(user.getCountry().equals(LDCountryCode.US));
+    assert(user.getCountry().equals(us));
   }
 
 
@@ -17,21 +20,21 @@ public class LDUserTest {
   public void testValidCountryCodeStringSetsCountry() {
     LDUser user = new LDUser.Builder("key").country("US").build();
 
-    assert(user.getCountry().equals(LDCountryCode.US));
+    assert(user.getCountry().equals(us));
   }
 
   @Test
   public void testValidCountryCode3SetsCountry() {
     LDUser user = new LDUser.Builder("key").country("USA").build();
 
-    assert(user.getCountry().equals(LDCountryCode.US));
+    assert(user.getCountry().equals(us));
   }
 
   @Test
   public void testAmbiguousCountryNameSetsCountryWithExactMatch() {
     // "United States" is ambiguous: can also match "United States Minor Outlying Islands"
     LDUser user = new LDUser.Builder("key").country("United States").build();
-    assert(user.getCountry().equals(LDCountryCode.US));
+    assert(user.getCountry().equals(us));
   }
 
   @Test
@@ -45,7 +48,7 @@ public class LDUserTest {
   @Test
   public void testPartialUniqueMatchSetsCountry() {
     LDUser user = new LDUser.Builder("key").country("United States Minor").build();
-    assert(user.getCountry().equals(LDCountryCode.UM));
+    assert(user.getCountry().equals(new JsonPrimitive(LDCountryCode.UM.getAlpha2())));
   }
 
   @Test
@@ -63,6 +66,6 @@ public class LDUserTest {
 
     LDUser deserialized = gson.fromJson(jsonStr, LDUser.class);
 
-    assert(deserialized.getCountry().equals(LDCountryCode.US));
+    assert(deserialized.getCountry().equals(us));
   }
 }

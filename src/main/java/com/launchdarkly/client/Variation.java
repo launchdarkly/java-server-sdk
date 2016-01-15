@@ -92,7 +92,7 @@ class Variation<E> {
     Builder(E value, int weight) {
       this.value = value;
       this.weight = weight;
-      this.userTarget = new TargetRule("key", "in", new ArrayList<Object>());
+      this.userTarget = new TargetRule("key", "in", new ArrayList<JsonPrimitive>());
       targets = new ArrayList<TargetRule>();
     }
 
@@ -115,17 +115,21 @@ class Variation<E> {
   static class TargetRule {
     String attribute;
     String operator;
-    List<Object> values;
+    List<JsonPrimitive> values;
 
     private final Logger logger = LoggerFactory.getLogger(TargetRule.class);
 
-    TargetRule(String attribute, String operator, List<Object> values) {
-      this.attribute = attribute;
-      this.operator = operator;
-      this.values = new ArrayList<Object>(values);
+    public TargetRule() {
+
     }
 
-    TargetRule(String attribute, List<Object> values) {
+    TargetRule(String attribute, String operator, List<JsonPrimitive> values) {
+      this.attribute = attribute;
+      this.operator = operator;
+      this.values = new ArrayList<JsonPrimitive>(values);
+    }
+
+    TargetRule(String attribute, List<JsonPrimitive> values) {
       this(attribute, "in", values);
     }
 
@@ -143,7 +147,7 @@ class Variation<E> {
       }
       else if (attribute.equals("country")) {
         if (user.getCountry() != null) {
-          uValue = user.getCountry().getAlpha2();
+          uValue = user.getCountry();
         }
       }
       else if (attribute.equals("email")) {
@@ -187,21 +191,14 @@ class Variation<E> {
                 logger.error("Invalid custom attribute value in user object: " + elt);
                 return false;
               }
-              else if (values.contains(elt.getAsString())) {
+              else if (values.contains(elt.getAsJsonPrimitive())) {
                 return true;
               }
             }
             return false;
           }
           else if (custom.isJsonPrimitive()) {
-            JsonPrimitive prim = custom.getAsJsonPrimitive();
-            if (prim.isNumber()) {
-              return values.contains(custom.getAsDouble());
-            } else if (prim.isBoolean()) {
-              return values.contains(custom.getAsBoolean());
-            } else {
-              return values.contains(custom.getAsString());
-            }
+            return values.contains(custom.getAsJsonPrimitive());
           }
         }
         return false;

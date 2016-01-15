@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.google.gson.JsonPrimitive;
+import org.glassfish.jersey.server.JSONP;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -8,24 +10,24 @@ import static org.junit.Assert.*;
 
 public class FeatureRepTest {
 
-  private final Variation.TargetRule targetUserOn = new Variation.TargetRule("key", Collections.<Object>singletonList("targetOn@test.com"));
+  private final Variation.TargetRule targetUserOn = new Variation.TargetRule("key", Collections.<JsonPrimitive>singletonList(new JsonPrimitive("targetOn@test.com")));
 
-  private final Variation.TargetRule targetGroupOn = new Variation.TargetRule("groups", Arrays.<Object>asList("google", "microsoft"));
+  private final Variation.TargetRule targetGroupOn = new Variation.TargetRule("groups", Arrays.<JsonPrimitive>asList(new JsonPrimitive("google"), new JsonPrimitive("microsoft")));
 
   // GSON will deserialize numbers as decimals
-  private final Variation.TargetRule targetFavoriteNumberOn = new Variation.TargetRule("favorite_number", Arrays.<Object>asList(42.0));
+  private final Variation.TargetRule targetFavoriteNumberOn = new Variation.TargetRule("favorite_number", Arrays.<JsonPrimitive>asList(new JsonPrimitive(42)));
 
-  private final Variation.TargetRule targetLikesCatsOn = new Variation.TargetRule("likes_cats", Arrays.<Object>asList(true));
+  private final Variation.TargetRule targetLikesCatsOn = new Variation.TargetRule("likes_cats", Arrays.<JsonPrimitive>asList(new JsonPrimitive(true)));
 
-  private final Variation.TargetRule targetUserOff = new Variation.TargetRule("key", Collections.<Object>singletonList("targetOff@test.com"));
+  private final Variation.TargetRule targetUserOff = new Variation.TargetRule("key", Collections.<JsonPrimitive>singletonList(new JsonPrimitive("targetOff@test.com")));
 
-  private final Variation.TargetRule targetGroupOff = new Variation.TargetRule("groups", Arrays.<Object>asList("oracle"));
+  private final Variation.TargetRule targetGroupOff = new Variation.TargetRule("groups", Arrays.<JsonPrimitive>asList(new JsonPrimitive("oracle")));
 
-  private final Variation.TargetRule targetFavoriteNumberOff = new Variation.TargetRule("favorite_number", Arrays.<Object>asList(33.0));
+  private final Variation.TargetRule targetFavoriteNumberOff = new Variation.TargetRule("favorite_number", Arrays.<JsonPrimitive>asList(new JsonPrimitive(33.0)));
 
-  private final Variation.TargetRule targetLikesDogsOff = new Variation.TargetRule("likes_dogs", Arrays.<Object>asList(false));
+  private final Variation.TargetRule targetLikesDogsOff = new Variation.TargetRule("likes_dogs", Arrays.<JsonPrimitive>asList(new JsonPrimitive(false)));
 
-  private final Variation.TargetRule targetAnonymousOn = new Variation.TargetRule("anonymous", Collections.<Object>singletonList(true));
+  private final Variation.TargetRule targetAnonymousOn = new Variation.TargetRule("anonymous", Collections.<JsonPrimitive>singletonList(new JsonPrimitive(true)));
 
   private final Variation<Boolean> trueVariation = new Variation.Builder<Boolean>(true, 80)
       .target(targetUserOn)
@@ -119,16 +121,27 @@ public class FeatureRepTest {
     assertEquals(true, b);
   }
 
-    @Test
-    public void testFlagForTargetBooleanTestOn() {
-        LDUser user = new LDUser.Builder("targetOther@test.com")
-                .custom("likes_cats", true)
-                .build();
+  @Test
+  public void testFlagForTargetNumericListTestOn() {
+    LDUser user = new LDUser.Builder("targetOther@test.com")
+        .customNumber("favorite_number", Arrays.<Number>asList(42, 32))
+        .build();
 
-        Boolean b = simpleFlag.evaluate(user);
+    Boolean b = simpleFlag.evaluate(user);
 
-        assertEquals(true, b);
-    }
+    assertEquals(true, b);
+  }
+
+  @Test
+  public void testFlagForTargetBooleanTestOn() {
+      LDUser user = new LDUser.Builder("targetOther@test.com")
+              .custom("likes_cats", true)
+              .build();
+
+      Boolean b = simpleFlag.evaluate(user);
+
+      assertEquals(true, b);
+  }
 
   @Test
   public void testFlagForTargetGroupOff() {
@@ -152,16 +165,16 @@ public class FeatureRepTest {
     assertEquals(false, b);
   }
 
-    @Test
-    public void testFlagForTargetBooleanTestOff() {
-        LDUser user = new LDUser.Builder("targetOther@test.com")
-                .custom("likes_dogs", false)
-                .build();
+  @Test
+  public void testFlagForTargetBooleanTestOff() {
+      LDUser user = new LDUser.Builder("targetOther@test.com")
+              .custom("likes_dogs", false)
+              .build();
 
-        Boolean b = simpleFlag.evaluate(user);
+      Boolean b = simpleFlag.evaluate(user);
 
-        assertEquals(false, b);
-    }
+      assertEquals(false, b);
+  }
 
   @Test
   public void testDisabledFlagAlwaysOff() {

@@ -24,17 +24,17 @@ import java.util.regex.Pattern;
  * launch a feature to the top 10% of users on a site.
  */
 public class LDUser {
-  private String key;
-  private String secondary;
-  private String ip;
-  private String email;
-  private String name;
-  private String avatar;
-  private String firstName;
-  private String lastName;
-  private Boolean anonymous;
+  private JsonPrimitive key;
+  private JsonPrimitive secondary;
+  private JsonPrimitive ip;
+  private JsonPrimitive email;
+  private JsonPrimitive name;
+  private JsonPrimitive avatar;
+  private JsonPrimitive firstName;
+  private JsonPrimitive lastName;
+  private JsonPrimitive anonymous;
 
-  private LDCountryCode country;
+  private JsonPrimitive country;
   private Map<String, JsonElement> custom;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
@@ -44,16 +44,16 @@ public class LDUser {
   }
 
   protected LDUser(Builder builder) {
-    this.key = builder.key;
-    this.ip = builder.ip;
-    this.country = builder.country;
-    this.secondary = builder.secondary;
-    this.firstName = builder.firstName;
-    this.lastName = builder.lastName;
-    this.email = builder.email;
-    this.name = builder.name;
-    this.avatar = builder.avatar;
-    this.anonymous = builder.anonymous;
+    this.key = builder.key == null? null : new JsonPrimitive(builder.key);
+    this.ip = builder.ip == null? null : new JsonPrimitive(builder.ip);
+    this.country = builder.country == null? null : new JsonPrimitive(builder.country.getAlpha2());
+    this.secondary = builder.secondary == null ? null : new JsonPrimitive(builder.secondary);
+    this.firstName = builder.firstName == null ? null : new JsonPrimitive(builder.firstName);
+    this.lastName = builder.lastName == null ? null : new JsonPrimitive(builder.lastName);
+    this.email = builder.email == null ? null : new JsonPrimitive(builder.email);
+    this.name = builder.name == null ? null : new JsonPrimitive(builder.name);
+    this.avatar = builder.avatar == null ? null : new JsonPrimitive(builder.avatar);
+    this.anonymous =  builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
     this.custom = new HashMap<String, JsonElement>(builder.custom);
   }
 
@@ -62,31 +62,31 @@ public class LDUser {
    * @param key a {@code String} that uniquely identifies a user
    */
   public LDUser(String key) {
-    this.key = key;
+    this.key = new JsonPrimitive(key);
     this.custom = new HashMap<String, JsonElement>();
   }
 
-  String getKey() {
+  JsonPrimitive getKey() {
     return key;
   }
 
-  String getIp() { return ip; }
+  JsonPrimitive getIp() { return ip; }
 
-  LDCountryCode getCountry() { return country; }
+  JsonPrimitive getCountry() { return country; }
 
-  String getSecondary() { return secondary; }
+  JsonPrimitive getSecondary() { return secondary; }
 
-  String getName() { return name; }
+  JsonPrimitive getName() { return name; }
 
-  String getFirstName() { return firstName; }
+  JsonPrimitive getFirstName() { return firstName; }
 
-  String getLastName() { return lastName; }
+  JsonPrimitive getLastName() { return lastName; }
 
-  String getEmail() { return email; }
+  JsonPrimitive getEmail() { return email; }
 
-  String getAvatar() { return avatar; }
+  JsonPrimitive getAvatar() { return avatar; }
 
-  Boolean getAnonymous() { return anonymous; }
+  JsonPrimitive getAnonymous() { return anonymous; }
 
   JsonElement getCustom(String key) {
     return custom.get(key);
