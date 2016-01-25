@@ -33,6 +33,7 @@ public final class LDConfig {
   final HttpHost proxyHost;
   final boolean stream;
   final boolean debugStreaming;
+  final FeatureStore featureStore;
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -44,6 +45,7 @@ public final class LDConfig {
     this.streamURI = builder.streamURI;
     this.stream = builder.stream;
     this.debugStreaming = builder.debugStreaming;
+    this.featureStore = builder.featureStore;
   }
 
   /**
@@ -70,6 +72,7 @@ public final class LDConfig {
     private String proxyScheme;
     private boolean stream = true;
     private boolean debugStreaming = false;
+    private FeatureStore featureStore = new InMemoryFeatureStore();
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -94,6 +97,11 @@ public final class LDConfig {
      */
     public Builder streamURI(URI streamURI) {
       this.streamURI = streamURI;
+      return this;
+    }
+
+    public Builder featureStore(FeatureStore store) {
+      this.featureStore = store;
       return this;
     }
 
@@ -265,7 +273,6 @@ public final class LDConfig {
     }
 
   }
-
 
   private URIBuilder getBuilder() {
     return new URIBuilder()
