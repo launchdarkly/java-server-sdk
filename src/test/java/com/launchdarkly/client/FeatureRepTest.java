@@ -102,7 +102,7 @@ public class FeatureRepTest {
   @Test
   public void testFlagForTargetGroupOn() {
     LDUser user = new LDUser.Builder("targetOther@test.com")
-        .custom("groups", Arrays.asList("google", "microsoft"))
+        .customString("groups", Arrays.asList("google", "microsoft"))
         .build();
 
     Boolean b = simpleFlag.evaluate(user);

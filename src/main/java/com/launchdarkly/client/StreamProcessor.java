@@ -35,7 +35,7 @@ class StreamProcessor implements Closeable {
 
   StreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
     this.client = ClientBuilder.newBuilder().register(SseFeature.class).build();
-    this.store = new InMemoryFeatureStore();
+    this.store = config.featureStore;
     this.config = config;
     this.apiKey = apiKey;
     this.requestor = requestor;

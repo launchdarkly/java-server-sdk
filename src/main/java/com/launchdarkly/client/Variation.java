@@ -15,7 +15,7 @@ class Variation<E> {
   int weight;
   TargetRule userTarget;
   List<TargetRule> targets;
-  private final Logger logger = LoggerFactory.getLogger(Variation.class);
+  private final static Logger logger = LoggerFactory.getLogger(Variation.class);
 
   public Variation() {
 
@@ -117,7 +117,7 @@ class Variation<E> {
     String operator;
     List<JsonPrimitive> values;
 
-    private final Logger logger = LoggerFactory.getLogger(TargetRule.class);
+    private final static Logger logger = LoggerFactory.getLogger(TargetRule.class);
 
     public TargetRule() {
 
