@@ -66,7 +66,7 @@ public interface FeatureStore {
   void upsert(String key, FeatureRep<?> feature);
 
   /**
-   * Returns true if this store has been initialized (i.e. if {@link #init(java.util.Map)} has been called)
+   * Returns true if this store has been initialized
    *
    * @return true if this store has been initialized
    */
