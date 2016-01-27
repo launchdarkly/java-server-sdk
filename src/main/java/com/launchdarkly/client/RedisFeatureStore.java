@@ -15,24 +15,47 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * A thread-safe, versioned store for {@link com.launchdarkly.client.FeatureRep} objects backed by Redis. Also
+ * supports an optional in-memory cache configuration that can be used to improve performance.
+ *
+ */
 public class RedisFeatureStore implements FeatureStore {
   private static final String DEFAULT_PREFIX = "launchdarkly";
   private final Jedis jedis;
   private LoadingCache<String, FeatureRep<?>> cache;
   private String prefix;
 
+  /**
+   *
+   * @param host the host for the Redis connection
+   * @param port the port for the Redis connection
+   * @param prefix a namespace prefix for all keys stored in Redis
+   * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
+   */
   public RedisFeatureStore(String host, int port, String prefix, long cacheTimeSecs) {
     jedis = new Jedis(host, port);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
   }
 
+  /**
+   * Creates a new store instance that connects to Redis with the provided URI, prefix, and cache timeout.
+   *
+   * @param uri the URI for the Redis connection
+   * @param prefix a namespace prefix for all keys stored in Redis
+   * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
+   */
   public RedisFeatureStore(URI uri, String prefix, long cacheTimeSecs) {
     jedis = new Jedis(uri);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
   }
 
+  /**
+   * Creates a new store instance that connects to Redis with a default connection (localhost port 6379) and no in-memory cache.
+   *
+   */
   public RedisFeatureStore() {
     jedis = new Jedis("localhost");
     this.prefix = DEFAULT_PREFIX;
@@ -59,7 +82,17 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
-
+  /**
+   *
+   * Returns the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
+   * null if the key is not associated or the associated {@link com.launchdarkly.client.FeatureRep} has
+   * been deleted.
+   *
+   * @param key the key whose associated {@link com.launchdarkly.client.FeatureRep} is to be returned
+   * @return the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
+   * null if the key is not associated or the associated {@link com.launchdarkly.client.FeatureRep} has
+   * been deleted.
+   */
   @Override
   public FeatureRep<?> get(String key) {
     if (cache != null) {
@@ -69,6 +102,14 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
+
+  /**
+   * Returns a {@link java.util.Map} of all associated features. This implementation does not take advantage
+   * of the in-memory cache, so fetching all features will involve a fetch from Redis.
+   *
+   *
+   * @return a map of all associated features.
+   */
   @Override
   public Map<String, FeatureRep<?>> all() {
     Map<String,String> featuresJson = jedis.hgetAll(featuresKey());
@@ -84,7 +125,12 @@ public class RedisFeatureStore implements FeatureStore {
 
     return result;
   }
-
+  /**
+   * Initializes (or re-initializes) the store with the specified set of features. Any existing entries
+   * will be removed.
+   *
+   * @param features the features to set the store
+   */
   @Override
   public void init(Map<String, FeatureRep<?>> features) {
     Gson gson = new Gson();
@@ -99,6 +145,15 @@ public class RedisFeatureStore implements FeatureStore {
     t.exec();
   }
 
+
+  /**
+   *
+   * Deletes the feature associated with the specified key, if it exists and its version
+   * is less than or equal to the specified version.
+   *
+   * @param key the key of the feature to be deleted
+   * @param version the version for the delete operation
+   */
   @Override
   public void delete(String key, int version) {
     try {
@@ -126,6 +181,13 @@ public class RedisFeatureStore implements FeatureStore {
 
   }
 
+  /**
+   * Update or insert the feature associated with the specified key, if its version
+   * is less than or equal to the version specified in the argument feature.
+   *
+   * @param key
+   * @param feature
+   */
   @Override
   public void upsert(String key, FeatureRep<?> feature) {
     try {
@@ -149,6 +211,11 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
+  /**
+   * Returns true if this store has been initialized
+   *
+   * @return true if this store has been initialized
+   */
   @Override
   public boolean initialized() {
     return jedis.exists(featuresKey());
