@@ -42,6 +42,11 @@ class StreamProcessor implements Closeable {
   }
 
   void subscribe() {
+    // If the LaunchDarkly daemon is to be used, then do not subscribe to the stream
+    if (config.useLdd) {
+      return;
+    }
+
     MultivaluedMap<String, Object> headers = new StringKeyIgnoreCaseMultivaluedMap<Object>();
     headers.putSingle("Authorization", "api_key " + this.apiKey);
     headers.putSingle("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);

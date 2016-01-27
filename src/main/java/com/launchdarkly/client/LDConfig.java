@@ -34,6 +34,7 @@ public final class LDConfig {
   final boolean stream;
   final boolean debugStreaming;
   final FeatureStore featureStore;
+  final boolean useLdd;
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -46,6 +47,7 @@ public final class LDConfig {
     this.stream = builder.stream;
     this.debugStreaming = builder.debugStreaming;
     this.featureStore = builder.featureStore;
+    this.useLdd = builder.useLdd;
   }
 
   /**
@@ -72,6 +74,7 @@ public final class LDConfig {
     private String proxyScheme;
     private boolean stream = true;
     private boolean debugStreaming = false;
+    private boolean useLdd = false;
     private FeatureStore featureStore = new InMemoryFeatureStore();
 
     /**
@@ -110,7 +113,7 @@ public final class LDConfig {
      * retrieved feature with the value in the feature store. There is a performance cost to this, so it is not
      * recommended for production use.
      * @param debugStreaming whether streaming mode should be debugged
-     * @return
+     * @return the builder
      */
     public Builder debugStreaming(boolean debugStreaming) {
       this.debugStreaming = debugStreaming;
@@ -215,7 +218,7 @@ public final class LDConfig {
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
      * @param host
-     * @return
+     * @return the builder
      */
     public Builder proxyHost(String host) {
       this.proxyHost = host;
@@ -231,7 +234,7 @@ public final class LDConfig {
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
      * @param port
-     * @return
+     * @return the builder
      */
     public Builder proxyPort(int port) {
       this.proxyPort = port;
@@ -247,10 +250,21 @@ public final class LDConfig {
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
      * @param scheme
-     * @return
+     * @return the builder
      */
     public Builder proxyScheme(String scheme) {
       this.proxyScheme = scheme;
+      return this;
+    }
+
+    /**
+     * Set whether this client should subscribe to the streaming API, or whether the LaunchDarkly daemon is in use
+     * instead
+     * @param useLdd
+     * @return the builder
+     */
+    public Builder useLdd(boolean useLdd) {
+      this.useLdd = useLdd;
       return this;
     }
 
