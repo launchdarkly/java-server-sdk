@@ -3,7 +3,10 @@ package com.launchdarkly.client;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+import org.apache.http.client.methods.HttpPost;
 import org.junit.Test;
+
+import java.net.URI;
 
 public class LDConfigTest {
   @Test
@@ -80,5 +83,21 @@ public class LDConfigTest {
     LDConfig config = new LDConfig.Builder().proxyScheme("http").build();
 
     assertEquals("http", config.proxyHost.getSchemeName());
+  }
+
+  @Test
+  public void testDefaultEventsUriIsConstructedProperly(){
+    LDConfig config = new LDConfig.Builder().build();
+
+    HttpPost post = config.postEventsRequest("dummy-api-key", "/bulk");
+    assertEquals("https://events.launchdarkly.com/bulk", post.getURI().toString());
+  }
+
+  @Test
+  public void testCustomEventsUriIsConstructedProperly(){
+    LDConfig config = new LDConfig.Builder().eventsURI(URI.create("http://localhost:3000/api/events")).build();
+
+    HttpPost post = config.postEventsRequest("dummy-api-key", "/bulk");
+    assertEquals("http://localhost:3000/api/events/bulk", post.getURI().toString());
   }
 }
