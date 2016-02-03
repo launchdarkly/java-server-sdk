@@ -99,7 +99,7 @@ public final class LDConfig {
 
     /**
      * Set the events URL of the LaunchDarkly server for this configuration
-     * @param baseURI the events URL of the LaunchDarkly server for this configuration
+     * @param eventsURI the events URL of the LaunchDarkly server for this configuration
      * @return the builder
      */
     public Builder eventsURI(URI eventsURI) {
