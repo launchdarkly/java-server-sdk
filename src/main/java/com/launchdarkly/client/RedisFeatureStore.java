@@ -24,7 +24,9 @@ public class RedisFeatureStore implements FeatureStore {
   private static final String DEFAULT_PREFIX = "launchdarkly";
   private final Jedis jedis;
   private LoadingCache<String, FeatureRep<?>> cache;
+  private LoadingCache<String, Boolean> initCache;
   private String prefix;
+  private static final String INIT_KEY = "$initialized$";
 
   /**
    *
@@ -37,6 +39,7 @@ public class RedisFeatureStore implements FeatureStore {
     jedis = new Jedis(host, port);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
+    createInitCache(cacheTimeSecs);
   }
 
   /**
@@ -50,6 +53,7 @@ public class RedisFeatureStore implements FeatureStore {
     jedis = new Jedis(uri);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
+    createInitCache(cacheTimeSecs);
   }
 
   /**
@@ -77,6 +81,18 @@ public class RedisFeatureStore implements FeatureStore {
         @Override
         public FeatureRep<?> load(String key) throws Exception {
           return getRedis(key);
+        }
+      });
+    }
+  }
+
+  private void createInitCache(long cacheTimeSecs) {
+    if (cacheTimeSecs > 0) {
+      initCache = CacheBuilder.newBuilder().expireAfterWrite(cacheTimeSecs, TimeUnit.SECONDS).build(new CacheLoader<String, Boolean>() {
+
+        @Override
+        public Boolean load(String key) throws Exception {
+          return getInit();
         }
       });
     }
@@ -218,12 +234,24 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public boolean initialized() {
-    return jedis.exists(featuresKey());
+    if (initCache != null) {
+      Boolean initialized = initCache.getUnchecked(INIT_KEY);
+
+      if (initialized != null && initialized.booleanValue()) {
+        return true;
+      }
+    }
+
+    return getInit();
   }
 
 
   private String featuresKey() {
     return prefix + ":features";
+  }
+
+  private Boolean getInit() {
+    return jedis.exists(featuresKey());
   }
 
   private FeatureRep<?> getRedis(String key) {
