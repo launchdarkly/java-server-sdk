@@ -83,7 +83,7 @@ class EventProcessor implements Closeable {
       Gson gson = new Gson();
       String json = gson.toJson(events);
 
-      HttpPost request = config.postRequest(apiKey, "/api/events/bulk");
+      HttpPost request = config.postEventsRequest(apiKey, "/bulk");
       StringEntity entity = new StringEntity(json, "UTF-8");
       entity.setContentType("application/json");
       request.setEntity(entity);

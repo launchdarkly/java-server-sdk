@@ -15,6 +15,7 @@ import java.net.URI;
  */
 public final class LDConfig {
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
+  private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
   private static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
   private static final int DEFAULT_CONNECT_TIMEOUT = 2000;
@@ -25,6 +26,7 @@ public final class LDConfig {
   protected static final LDConfig DEFAULT = new Builder().build();
 
   final URI baseURI;
+  final URI eventsURI;
   final URI streamURI;
   final int capacity;
   final int connectTimeout;
@@ -38,6 +40,7 @@ public final class LDConfig {
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
+    this.eventsURI = builder.eventsURI;
     this.capacity = builder.capacity;
     this.connectTimeout = builder.connectTimeout;
     this.socketTimeout = builder.socketTimeout;
@@ -64,6 +67,7 @@ public final class LDConfig {
    */
   public static class Builder{
     private URI baseURI = DEFAULT_BASE_URI;
+    private URI eventsURI = DEFAULT_EVENTS_URI;
     private URI streamURI = DEFAULT_STREAM_URI;
     private int connectTimeout = DEFAULT_CONNECT_TIMEOUT;
     private int socketTimeout = DEFAULT_SOCKET_TIMEOUT;
@@ -90,6 +94,16 @@ public final class LDConfig {
      */
     public Builder baseURI(URI baseURI) {
       this.baseURI = baseURI;
+      return this;
+    }
+
+    /**
+     * Set the events URL of the LaunchDarkly server for this configuration
+     * @param eventsURI the events URL of the LaunchDarkly server for this configuration
+     * @return the builder
+     */
+    public Builder eventsURI(URI eventsURI) {
+      this.eventsURI = eventsURI;
       return this;
     }
 
@@ -295,6 +309,13 @@ public final class LDConfig {
         .setPort(baseURI.getPort());
   }
 
+  private URIBuilder getEventsBuilder() {
+    return new URIBuilder()
+            .setScheme(eventsURI.getScheme())
+            .setHost(eventsURI.getHost())
+            .setPort(eventsURI.getPort());
+  }
+
   HttpGet getRequest(String apiKey, String path) {
     URIBuilder builder = this.getBuilder().setPath(path);
 
@@ -313,6 +334,22 @@ public final class LDConfig {
 
   HttpPost postRequest(String apiKey, String path) {
     URIBuilder builder = this.getBuilder().setPath(path);
+
+    try {
+      HttpPost request = new HttpPost(builder.build());
+      request.addHeader("Authorization", "api_key " + apiKey);
+      request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
+
+      return request;
+    }
+    catch (Exception e) {
+      logger.error("Unhandled exception in LaunchDarkly client", e);
+      return null;
+    }
+  }
+
+  HttpPost postEventsRequest(String apiKey, String path) {
+    URIBuilder builder = this.getEventsBuilder().setPath(eventsURI.getPath() + path);
 
     try {
       HttpPost request = new HttpPost(builder.build());
