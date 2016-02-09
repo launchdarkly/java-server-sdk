@@ -115,8 +115,8 @@ public class LDClient implements Closeable {
     }
   }
 
-  private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value) {
-    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value));
+  private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value, boolean defaultValue) {
+    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value, defaultValue));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
@@ -165,22 +165,22 @@ public class LDClient implements Closeable {
       }
       if (result == null) {
         logger.warn("Unknown feature flag " + featureKey + "; returning default value");
-        sendFlagRequestEvent(featureKey, user, defaultValue);
+        sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue);
         return defaultValue;
       }
 
       Boolean val = result.evaluate(user);
       if (val == null) {
-        sendFlagRequestEvent(featureKey, user, defaultValue);
+        sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue);
         return defaultValue;
       } else {
         boolean value = val.booleanValue();
-        sendFlagRequestEvent(featureKey, user, value);
+        sendFlagRequestEvent(featureKey, user, value, defaultValue);
         return value;
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
-      sendFlagRequestEvent(featureKey, user, defaultValue);
+      sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue);
       return defaultValue;
     }
   }
