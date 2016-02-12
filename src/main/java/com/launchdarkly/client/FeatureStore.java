@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import java.io.Closeable;
 import java.util.Map;
 
 /**
@@ -13,7 +14,7 @@ import java.util.Map;
  * of features based on update messages that may be received out-of-order.
  *
  */
-public interface FeatureStore {
+public interface FeatureStore extends Closeable {
   /**
    *
    * Returns the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
@@ -71,4 +72,5 @@ public interface FeatureStore {
    * @return true if this store has been initialized
    */
   boolean initialized();
+
 }

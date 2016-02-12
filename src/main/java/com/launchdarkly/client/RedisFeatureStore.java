@@ -7,8 +7,11 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.apache.http.util.EntityUtils;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.HashMap;
@@ -22,7 +25,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class RedisFeatureStore implements FeatureStore {
   private static final String DEFAULT_PREFIX = "launchdarkly";
-  private final Jedis jedis;
+  private final JedisPool pool;
   private LoadingCache<String, FeatureRep<?>> cache;
   private LoadingCache<String, Boolean> initCache;
   private String prefix;
@@ -36,7 +39,7 @@ public class RedisFeatureStore implements FeatureStore {
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
    */
   public RedisFeatureStore(String host, int port, String prefix, long cacheTimeSecs) {
-    jedis = new Jedis(host, port);
+    pool = new JedisPool(new JedisPoolConfig(), host, port);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
     createInitCache(cacheTimeSecs);
@@ -50,7 +53,7 @@ public class RedisFeatureStore implements FeatureStore {
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
    */
   public RedisFeatureStore(URI uri, String prefix, long cacheTimeSecs) {
-    jedis = new Jedis(uri);
+    pool = new JedisPool(new JedisPoolConfig(), uri);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
     createInitCache(cacheTimeSecs);
@@ -61,7 +64,7 @@ public class RedisFeatureStore implements FeatureStore {
    *
    */
   public RedisFeatureStore() {
-    jedis = new Jedis("localhost");
+    pool = new JedisPool(new JedisPoolConfig(), "localhost");
     this.prefix = DEFAULT_PREFIX;
   }
 
@@ -128,7 +131,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public Map<String, FeatureRep<?>> all() {
-    Map<String,String> featuresJson = jedis.hgetAll(featuresKey());
+    Map<String,String> featuresJson = jedis().hgetAll(featuresKey());
     Map<String, FeatureRep<?>> result = new HashMap<String, FeatureRep<?>>();
     Gson gson = new Gson();
 
@@ -149,6 +152,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void init(Map<String, FeatureRep<?>> features) {
+    Jedis jedis = jedis();
     Gson gson = new Gson();
     Transaction t = jedis.multi();
 
@@ -172,6 +176,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void delete(String key, int version) {
+    Jedis jedis = jedis();
     try {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
@@ -206,6 +211,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void upsert(String key, FeatureRep<?> feature) {
+    Jedis jedis = jedis();
     try {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
@@ -245,18 +251,28 @@ public class RedisFeatureStore implements FeatureStore {
     return getInit();
   }
 
+  /**
+   * Releases all resources associated with the store. The store must no longer be used once closed.
+   * @throws IOException
+   */
+  public void close() throws IOException
+  {
+    pool.destroy();
+  }
+
+
 
   private String featuresKey() {
     return prefix + ":features";
   }
 
   private Boolean getInit() {
-    return jedis.exists(featuresKey());
+    return jedis().exists(featuresKey());
   }
 
   private FeatureRep<?> getRedis(String key) {
     Gson gson = new Gson();
-    String featureJson = jedis.hget(featuresKey(), key);
+    String featureJson = jedis().hget(featuresKey(), key);
 
     if (featureJson == null) {
       return null;
@@ -266,5 +282,9 @@ public class RedisFeatureStore implements FeatureStore {
     FeatureRep<?> f = gson.fromJson(featureJson, type);
 
     return f.deleted ? null : f;
+  }
+
+  private final Jedis jedis() {
+    return pool.getResource();
   }
 }

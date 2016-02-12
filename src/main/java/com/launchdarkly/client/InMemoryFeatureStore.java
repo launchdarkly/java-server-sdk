@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -140,5 +141,15 @@ public class InMemoryFeatureStore implements FeatureStore {
   @Override
   public boolean initialized() {
     return initialized;
+  }
+
+  /**
+   * Does nothing; this class does not have any resources to release
+   * @throws IOException
+   */
+  @Override
+  public void close() throws IOException
+  {
+    return;
   }
 }
