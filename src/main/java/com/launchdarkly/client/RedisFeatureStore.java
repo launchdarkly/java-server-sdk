@@ -5,10 +5,12 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import org.apache.http.util.EntityUtils;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.HashMap;
@@ -22,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class RedisFeatureStore implements FeatureStore {
   private static final String DEFAULT_PREFIX = "launchdarkly";
-  private final Jedis jedis;
+  private final JedisPool pool;
   private LoadingCache<String, FeatureRep<?>> cache;
   private LoadingCache<String, Boolean> initCache;
   private String prefix;
@@ -36,7 +38,7 @@ public class RedisFeatureStore implements FeatureStore {
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
    */
   public RedisFeatureStore(String host, int port, String prefix, long cacheTimeSecs) {
-    jedis = new Jedis(host, port);
+    pool = new JedisPool(getPoolConfig(), host, port);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
     createInitCache(cacheTimeSecs);
@@ -50,7 +52,7 @@ public class RedisFeatureStore implements FeatureStore {
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
    */
   public RedisFeatureStore(URI uri, String prefix, long cacheTimeSecs) {
-    jedis = new Jedis(uri);
+    pool = new JedisPool(getPoolConfig(), uri);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
     createInitCache(cacheTimeSecs);
@@ -61,7 +63,7 @@ public class RedisFeatureStore implements FeatureStore {
    *
    */
   public RedisFeatureStore() {
-    jedis = new Jedis("localhost");
+    pool = new JedisPool(getPoolConfig(), "localhost");
     this.prefix = DEFAULT_PREFIX;
   }
 
@@ -128,18 +130,26 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public Map<String, FeatureRep<?>> all() {
-    Map<String,String> featuresJson = jedis.hgetAll(featuresKey());
-    Map<String, FeatureRep<?>> result = new HashMap<String, FeatureRep<?>>();
-    Gson gson = new Gson();
+    Jedis jedis = null;
+    try {
+      jedis = getJedis();
+      Map<String,String> featuresJson = getJedis().hgetAll(featuresKey());
+      Map<String, FeatureRep<?>> result = new HashMap<String, FeatureRep<?>>();
+      Gson gson = new Gson();
 
-    Type type = new TypeToken<FeatureRep<?>>() {}.getType();
+      Type type = new TypeToken<FeatureRep<?>>() {}.getType();
 
-    for (Map.Entry<String, String> entry : featuresJson.entrySet()) {
-      FeatureRep<?> rep =  gson.fromJson(entry.getValue(), type);
-      result.put(entry.getKey(), rep);
+      for (Map.Entry<String, String> entry : featuresJson.entrySet()) {
+        FeatureRep<?> rep =  gson.fromJson(entry.getValue(), type);
+        result.put(entry.getKey(), rep);
+      }
+      return result;
+    } finally {
+      if (jedis != null) {
+        jedis.close();
+      }
     }
 
-    return result;
   }
   /**
    * Initializes (or re-initializes) the store with the specified set of features. Any existing entries
@@ -149,16 +159,25 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void init(Map<String, FeatureRep<?>> features) {
-    Gson gson = new Gson();
-    Transaction t = jedis.multi();
+    Jedis jedis = null;
 
-    t.del(featuresKey());
+    try {
+      jedis = getJedis();
+      Gson gson = new Gson();
+      Transaction t = jedis.multi();
 
-    for (FeatureRep<?> f: features.values()) {
-      t.hset(featuresKey(), f.key, gson.toJson(f));
+      t.del(featuresKey());
+
+      for (FeatureRep<?> f: features.values()) {
+        t.hset(featuresKey(), f.key, gson.toJson(f));
+      }
+
+      t.exec();
+    } finally {
+      if (jedis != null) {
+        jedis.close();
+      }
     }
-
-    t.exec();
   }
 
 
@@ -172,7 +191,9 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void delete(String key, int version) {
+    Jedis jedis = null;
     try {
+      jedis = getJedis();
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
@@ -192,7 +213,10 @@ public class RedisFeatureStore implements FeatureStore {
       }
     }
     finally {
-      jedis.unwatch();
+      if (jedis != null) {
+        jedis.unwatch();
+        jedis.close();
+      }
     }
 
   }
@@ -206,7 +230,9 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void upsert(String key, FeatureRep<?> feature) {
+    Jedis jedis = null;
     try {
+      jedis = getJedis();
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
@@ -223,7 +249,10 @@ public class RedisFeatureStore implements FeatureStore {
       }
     }
     finally {
-      jedis.unwatch();
+      if (jedis != null) {
+        jedis.unwatch();
+        jedis.close();
+      }
     }
   }
 
@@ -245,26 +274,64 @@ public class RedisFeatureStore implements FeatureStore {
     return getInit();
   }
 
+  /**
+   * Releases all resources associated with the store. The store must no longer be used once closed.
+   * @throws IOException
+   */
+  public void close() throws IOException
+  {
+    pool.destroy();
+  }
+
+
 
   private String featuresKey() {
     return prefix + ":features";
   }
 
   private Boolean getInit() {
-    return jedis.exists(featuresKey());
+    Jedis jedis = null;
+
+    try {
+      jedis = getJedis();
+      return jedis.exists(featuresKey());
+    } finally {
+      if (jedis != null) {
+        jedis.close();
+      }
+    }
   }
 
   private FeatureRep<?> getRedis(String key) {
-    Gson gson = new Gson();
-    String featureJson = jedis.hget(featuresKey(), key);
+    Jedis jedis = null;
+    try {
+      jedis = getJedis();
+      Gson gson = new Gson();
+      String featureJson = getJedis().hget(featuresKey(), key);
 
-    if (featureJson == null) {
-      return null;
+      if (featureJson == null) {
+        return null;
+      }
+
+      Type type = new TypeToken<FeatureRep<?>>() {}.getType();
+      FeatureRep<?> f = gson.fromJson(featureJson, type);
+
+      return f.deleted ? null : f;
+    } finally {
+      if (jedis != null) {
+        jedis.close();
+      }
     }
+  }
 
-    Type type = new TypeToken<FeatureRep<?>>() {}.getType();
-    FeatureRep<?> f = gson.fromJson(featureJson, type);
+  private final Jedis getJedis() {
+    return pool.getResource();
+  }
 
-    return f.deleted ? null : f;
+  private final JedisPoolConfig getPoolConfig() {
+    JedisPoolConfig config = new JedisPoolConfig();
+    config.setMaxTotal(256);
+    config.setBlockWhenExhausted(false);
+    return config;
   }
 }

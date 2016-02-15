@@ -101,6 +101,9 @@ class StreamProcessor implements Closeable {
     if (es != null) {
       es.close();
     }
+    if (store != null) {
+      store.close();
+    }
   }
 
   boolean initialized() {
