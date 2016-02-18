@@ -31,6 +31,8 @@ public class RedisFeatureStore implements FeatureStore {
   private static final String INIT_KEY = "$initialized$";
 
   /**
+   * Creates a new store instance that connects to Redis with the provided host, port, prefix, and cache timeout. Uses a default
+   * connection pool configuration.
    *
    * @param host the host for the Redis connection
    * @param port the port for the Redis connection
@@ -38,21 +40,47 @@ public class RedisFeatureStore implements FeatureStore {
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
    */
   public RedisFeatureStore(String host, int port, String prefix, long cacheTimeSecs) {
-    pool = new JedisPool(getPoolConfig(), host, port);
-    setPrefix(prefix);
-    createCache(cacheTimeSecs);
-    createInitCache(cacheTimeSecs);
+    this(host, port, prefix, cacheTimeSecs, getPoolConfig());
   }
 
   /**
-   * Creates a new store instance that connects to Redis with the provided URI, prefix, and cache timeout.
+   * Creates a new store instance that connects to Redis with the provided URI, prefix, and cache timeout. Uses a default
+   * connection pool configuration.
    *
    * @param uri the URI for the Redis connection
    * @param prefix a namespace prefix for all keys stored in Redis
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
    */
   public RedisFeatureStore(URI uri, String prefix, long cacheTimeSecs) {
-    pool = new JedisPool(getPoolConfig(), uri);
+    this(uri, prefix, cacheTimeSecs, getPoolConfig());
+  }
+
+  /**
+   * Creates a new store instance that connects to Redis with the provided URI, prefix, cache timeout, and connection pool settings.
+   *
+   * @param host the host for the Redis connection
+   * @param port the port for the Redis connection
+   * @param prefix a namespace prefix for all keys stored in Redis
+   * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
+   * @param poolConfig an optional pool config for the Jedis connection pool
+   */
+  public RedisFeatureStore(String host, int port, String prefix, long cacheTimeSecs, JedisPoolConfig poolConfig) {
+    pool = new JedisPool(poolConfig, host, port);
+    setPrefix(prefix);
+    createCache(cacheTimeSecs);
+    createInitCache(cacheTimeSecs);
+  }
+
+  /**
+   * Creates a new store instance that connects to Redis with the provided URI, prefix, cache timeout, and connection pool settings.
+   *
+   * @param uri the URI for the Redis connection
+   * @param prefix a namespace prefix for all keys stored in Redis
+   * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
+   * @param poolConfig an optional pool config for the Jedis connection pool
+   */
+  public RedisFeatureStore(URI uri, String prefix, long cacheTimeSecs, JedisPoolConfig poolConfig) {
+    pool = new JedisPool(poolConfig, uri);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
     createInitCache(cacheTimeSecs);
@@ -130,10 +158,8 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public Map<String, FeatureRep<?>> all() {
-    Jedis jedis = null;
-    try {
-      jedis = getJedis();
-      Map<String,String> featuresJson = getJedis().hgetAll(featuresKey());
+    try (Jedis jedis = pool.getResource()) {
+      Map<String,String> featuresJson = jedis.hgetAll(featuresKey());
       Map<String, FeatureRep<?>> result = new HashMap<String, FeatureRep<?>>();
       Gson gson = new Gson();
 
@@ -144,10 +170,6 @@ public class RedisFeatureStore implements FeatureStore {
         result.put(entry.getKey(), rep);
       }
       return result;
-    } finally {
-      if (jedis != null) {
-        jedis.close();
-      }
     }
 
   }
@@ -159,10 +181,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void init(Map<String, FeatureRep<?>> features) {
-    Jedis jedis = null;
-
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       Transaction t = jedis.multi();
 
@@ -173,10 +192,6 @@ public class RedisFeatureStore implements FeatureStore {
       }
 
       t.exec();
-    } finally {
-      if (jedis != null) {
-        jedis.close();
-      }
     }
   }
 
@@ -191,9 +206,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void delete(String key, int version) {
-    Jedis jedis = null;
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
@@ -212,13 +225,6 @@ public class RedisFeatureStore implements FeatureStore {
         cache.invalidate(key);
       }
     }
-    finally {
-      if (jedis != null) {
-        jedis.unwatch();
-        jedis.close();
-      }
-    }
-
   }
 
   /**
@@ -230,9 +236,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void upsert(String key, FeatureRep<?> feature) {
-    Jedis jedis = null;
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
@@ -246,12 +250,6 @@ public class RedisFeatureStore implements FeatureStore {
 
       if (cache != null) {
         cache.invalidate(key);
-      }
-    }
-    finally {
-      if (jedis != null) {
-        jedis.unwatch();
-        jedis.close();
       }
     }
   }
@@ -290,24 +288,15 @@ public class RedisFeatureStore implements FeatureStore {
   }
 
   private Boolean getInit() {
-    Jedis jedis = null;
-
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()) {
       return jedis.exists(featuresKey());
-    } finally {
-      if (jedis != null) {
-        jedis.close();
-      }
     }
   }
 
   private FeatureRep<?> getRedis(String key) {
-    Jedis jedis = null;
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()){
       Gson gson = new Gson();
-      String featureJson = getJedis().hget(featuresKey(), key);
+      String featureJson = jedis.hget(featuresKey(), key);
 
       if (featureJson == null) {
         return null;
@@ -317,21 +306,12 @@ public class RedisFeatureStore implements FeatureStore {
       FeatureRep<?> f = gson.fromJson(featureJson, type);
 
       return f.deleted ? null : f;
-    } finally {
-      if (jedis != null) {
-        jedis.close();
-      }
     }
   }
 
-  private final Jedis getJedis() {
-    return pool.getResource();
-  }
-
-  private final JedisPoolConfig getPoolConfig() {
+  private static final JedisPoolConfig getPoolConfig() {
     JedisPoolConfig config = new JedisPoolConfig();
-    config.setMaxTotal(256);
-    config.setBlockWhenExhausted(false);
     return config;
   }
+
 }
