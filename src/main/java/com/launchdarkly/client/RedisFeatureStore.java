@@ -15,6 +15,8 @@ import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -130,10 +132,8 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public Map<String, FeatureRep<?>> all() {
-    Jedis jedis = null;
-    try {
-      jedis = getJedis();
-      Map<String,String> featuresJson = getJedis().hgetAll(featuresKey());
+    try (Jedis jedis = pool.getResource()) {
+      Map<String,String> featuresJson = jedis.hgetAll(featuresKey());
       Map<String, FeatureRep<?>> result = new HashMap<String, FeatureRep<?>>();
       Gson gson = new Gson();
 
@@ -144,10 +144,6 @@ public class RedisFeatureStore implements FeatureStore {
         result.put(entry.getKey(), rep);
       }
       return result;
-    } finally {
-      if (jedis != null) {
-        jedis.close();
-      }
     }
 
   }
@@ -159,10 +155,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void init(Map<String, FeatureRep<?>> features) {
-    Jedis jedis = null;
-
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       Transaction t = jedis.multi();
 
@@ -173,10 +166,6 @@ public class RedisFeatureStore implements FeatureStore {
       }
 
       t.exec();
-    } finally {
-      if (jedis != null) {
-        jedis.close();
-      }
     }
   }
 
@@ -191,9 +180,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void delete(String key, int version) {
-    Jedis jedis = null;
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
@@ -212,13 +199,6 @@ public class RedisFeatureStore implements FeatureStore {
         cache.invalidate(key);
       }
     }
-    finally {
-      if (jedis != null) {
-        jedis.unwatch();
-        jedis.close();
-      }
-    }
-
   }
 
   /**
@@ -230,9 +210,7 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void upsert(String key, FeatureRep<?> feature) {
-    Jedis jedis = null;
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
@@ -246,12 +224,6 @@ public class RedisFeatureStore implements FeatureStore {
 
       if (cache != null) {
         cache.invalidate(key);
-      }
-    }
-    finally {
-      if (jedis != null) {
-        jedis.unwatch();
-        jedis.close();
       }
     }
   }
@@ -290,24 +262,15 @@ public class RedisFeatureStore implements FeatureStore {
   }
 
   private Boolean getInit() {
-    Jedis jedis = null;
-
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()) {
       return jedis.exists(featuresKey());
-    } finally {
-      if (jedis != null) {
-        jedis.close();
-      }
     }
   }
 
   private FeatureRep<?> getRedis(String key) {
-    Jedis jedis = null;
-    try {
-      jedis = getJedis();
+    try (Jedis jedis = pool.getResource()){
       Gson gson = new Gson();
-      String featureJson = getJedis().hget(featuresKey(), key);
+      String featureJson = jedis.hget(featuresKey(), key);
 
       if (featureJson == null) {
         return null;
@@ -317,21 +280,12 @@ public class RedisFeatureStore implements FeatureStore {
       FeatureRep<?> f = gson.fromJson(featureJson, type);
 
       return f.deleted ? null : f;
-    } finally {
-      if (jedis != null) {
-        jedis.close();
-      }
     }
-  }
-
-  private final Jedis getJedis() {
-    return pool.getResource();
   }
 
   private final JedisPoolConfig getPoolConfig() {
     JedisPoolConfig config = new JedisPoolConfig();
-    config.setMaxTotal(256);
-    config.setBlockWhenExhausted(false);
     return config;
   }
+
 }
