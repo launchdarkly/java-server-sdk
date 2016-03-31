@@ -55,15 +55,15 @@ public class EventSource implements EventListener {
   /**
    * Event source internal state.
    */
-  private final AtomicReference<State> state = new AtomicReference<State>(State.READY);
+  private final AtomicReference<State> state = new AtomicReference<>(State.READY);
   /**
    * List of all listeners not bound to receive only events of a particular name.
    */
-  private final List<EventListener> unboundListeners = new CopyOnWriteArrayList<EventListener>();
+  private final List<EventListener> unboundListeners = new CopyOnWriteArrayList<>();
   /**
    * A map of listeners bound to receive only events of a particular name.
    */
-  private final ConcurrentMap<String, List<EventListener>> boundListeners = new ConcurrentHashMap<String, List<EventListener>>();
+  private final ConcurrentMap<String, List<EventListener>> boundListeners = new ConcurrentHashMap<>();
 
   private final MultivaluedMap<String, Object> headers;
 
@@ -96,7 +96,7 @@ public class EventSource implements EventListener {
       this.endpoint = endpoint;
     }
 
-    private MultivaluedMap<String, Object> headers = new StringKeyIgnoreCaseMultivaluedMap<Object>();
+    private MultivaluedMap<String, Object> headers = new StringKeyIgnoreCaseMultivaluedMap<>();
 
     /**
      * Set a custom name for the event source.
@@ -233,7 +233,7 @@ public class EventSource implements EventListener {
    * @throws NullPointerException in case the supplied web target is {@code null}.
    */
   public EventSource(final WebTarget endpoint) {
-    this(endpoint, true, new StringKeyIgnoreCaseMultivaluedMap<Object>());
+    this(endpoint, true, new StringKeyIgnoreCaseMultivaluedMap<>());
   }
 
   /**
@@ -293,7 +293,7 @@ public class EventSource implements EventListener {
       }
     });
 
-    this.headers = new StringKeyIgnoreCaseMultivaluedMap<Object>();
+    this.headers = new StringKeyIgnoreCaseMultivaluedMap<>();
     this.headers.putAll(headers);
 
     if (open) {
@@ -373,7 +373,7 @@ public class EventSource implements EventListener {
 
   private void addBoundListener(final String name, final EventListener listener) {
     List<EventListener> listeners = boundListeners.putIfAbsent(name,
-        new CopyOnWriteArrayList<EventListener>(Collections.singleton(listener)));
+            new CopyOnWriteArrayList<>(Collections.singleton(listener)));
     if (listeners != null) {
       // alas, new listener collection registration conflict:
       // need to add the new listener to the existing listener collection

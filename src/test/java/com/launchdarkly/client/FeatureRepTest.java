@@ -29,7 +29,7 @@ public class FeatureRepTest {
 
   private final Variation.TargetRule targetAnonymousOn = new Variation.TargetRule("anonymous", Collections.<JsonPrimitive>singletonList(new JsonPrimitive(true)));
 
-  private final Variation<Boolean> trueVariation = new Variation.Builder<Boolean>(true, 80)
+  private final Variation<Boolean> trueVariation = new Variation.Builder<>(true, 80)
       .target(targetUserOn)
       .target(targetGroupOn)
       .target(targetAnonymousOn)
@@ -37,7 +37,7 @@ public class FeatureRepTest {
       .target(targetFavoriteNumberOn)
       .build();
 
-  private final Variation<Boolean> falseVariation = new Variation.Builder<Boolean>(false, 20)
+  private final Variation<Boolean> falseVariation = new Variation.Builder<>(false, 20)
       .target(targetUserOff)
       .target(targetGroupOff)
       .target(targetFavoriteNumberOff)
@@ -58,7 +58,7 @@ public class FeatureRepTest {
       .variation(falseVariation)
       .build();
 
-  private Variation<Boolean> userRuleVariation = new Variation.Builder<Boolean>(false, 20)
+  private Variation<Boolean> userRuleVariation = new Variation.Builder<>(false, 20)
       .userTarget(targetUserOn)
       .build();
 

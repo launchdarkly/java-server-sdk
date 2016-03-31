@@ -13,7 +13,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class InMemoryFeatureStore implements FeatureStore {
 
   final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-  final Map<String, FeatureRep<?>> features = new HashMap<String, FeatureRep<?>>();
+  final Map<String, FeatureRep<?>> features = new HashMap<>();
   volatile boolean initialized = false;
 
 
@@ -52,7 +52,7 @@ public class InMemoryFeatureStore implements FeatureStore {
   public Map<String, FeatureRep<?>> all() {
     try {
       lock.readLock().lock();
-      Map<String, FeatureRep<?>> fs = new HashMap<String, FeatureRep<?>>();
+      Map<String, FeatureRep<?>> fs = new HashMap<>();
 
       for (Map.Entry<String, FeatureRep<?>> entry : features.entrySet()) {
         if (!entry.getValue().deleted) {

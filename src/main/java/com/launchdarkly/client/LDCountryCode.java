@@ -2131,8 +2131,8 @@ public enum LDCountryCode
   }
 
 
-  private static final Map<String, LDCountryCode> alpha3Map = new HashMap<String, LDCountryCode>();
-  private static final Map<Integer, LDCountryCode> numericMap = new HashMap<Integer, LDCountryCode>();
+  private static final Map<String, LDCountryCode> alpha3Map = new HashMap<>();
+  private static final Map<Integer, LDCountryCode> numericMap = new HashMap<>();
 
 
   static
@@ -2640,7 +2640,7 @@ public enum LDCountryCode
       throw new IllegalArgumentException("pattern is null.");
     }
 
-    List<LDCountryCode> list = new ArrayList<LDCountryCode>();
+    List<LDCountryCode> list = new ArrayList<>();
 
     for (LDCountryCode entry : values())
     {

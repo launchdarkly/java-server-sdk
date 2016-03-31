@@ -116,7 +116,7 @@ public class LDClient implements Closeable {
   }
 
   private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value, boolean defaultValue) {
-    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent<Boolean>(featureKey, user, value, defaultValue));
+    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent<>(featureKey, user, value, defaultValue));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
