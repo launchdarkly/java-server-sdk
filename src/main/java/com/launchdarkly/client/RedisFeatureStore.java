@@ -264,7 +264,7 @@ public class RedisFeatureStore implements FeatureStore {
     if (initCache != null) {
       Boolean initialized = initCache.getUnchecked(INIT_KEY);
 
-      if (initialized != null && initialized.booleanValue()) {
+      if (initialized != null && initialized) {
         return true;
       }
     }

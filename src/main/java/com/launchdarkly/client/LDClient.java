@@ -174,9 +174,8 @@ public class LDClient implements Closeable {
         sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue);
         return defaultValue;
       } else {
-        boolean value = val.booleanValue();
-        sendFlagRequestEvent(featureKey, user, value, defaultValue);
-        return value;
+        sendFlagRequestEvent(featureKey, user, val, defaultValue);
+        return val;
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
