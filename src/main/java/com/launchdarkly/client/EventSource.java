@@ -14,7 +14,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Level;
 
 // EventSource class modified from
 // https://github.com/jersey/jersey/blob/master/media/sse/src/main/java/org/glassfish/jersey/media/sse/EventSource.java

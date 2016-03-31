@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
-import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;

@@ -18,9 +18,7 @@ final class NewRelicReflector {
     try {
       newRelic = Class.forName("com.newrelic.api.agent.NewRelic");
       addCustomParameter = newRelic.getDeclaredMethod("addCustomParameter", String.class, String.class);
-    } catch (ClassNotFoundException e) {
-      logger.info("No NewRelic agent detected");
-    } catch (NoSuchMethodException e) {
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
       logger.info("No NewRelic agent detected");
     }
   }
