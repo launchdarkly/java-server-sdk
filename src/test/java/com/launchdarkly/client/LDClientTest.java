@@ -1,18 +1,11 @@
 package com.launchdarkly.client;
 
 import static org.easymock.EasyMock.*;
-import static org.easymock.EasyMock.createMock;
 import static org.junit.Assert.assertEquals;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.protocol.HttpContext;
 import org.easymock.*;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.Rule;
-import org.junit.runner.RunWith;
 
 import java.io.IOException;
 

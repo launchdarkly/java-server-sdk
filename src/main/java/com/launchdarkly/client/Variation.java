@@ -58,7 +58,7 @@ class Variation<E> {
     this.value = b.value;
     this.weight = b.weight;
     this.userTarget = b.userTarget;
-    this.targets = new ArrayList<TargetRule>(b.targets);
+    this.targets = new ArrayList<>(b.targets);
   }
 
   public boolean matchUser(LDUser user) {
@@ -93,7 +93,7 @@ class Variation<E> {
       this.value = value;
       this.weight = weight;
       this.userTarget = new TargetRule("key", "in", new ArrayList<JsonPrimitive>());
-      targets = new ArrayList<TargetRule>();
+      targets = new ArrayList<>();
     }
 
     Builder<E> userTarget(TargetRule rule) {
@@ -107,7 +107,7 @@ class Variation<E> {
     }
 
     Variation<E> build() {
-      return new Variation<E>(this);
+      return new Variation<>(this);
     }
 
   }
@@ -126,7 +126,7 @@ class Variation<E> {
     TargetRule(String attribute, String operator, List<JsonPrimitive> values) {
       this.attribute = attribute;
       this.operator = operator;
-      this.values = new ArrayList<JsonPrimitive>(values);
+      this.values = new ArrayList<>(values);
     }
 
     TargetRule(String attribute, List<JsonPrimitive> values) {

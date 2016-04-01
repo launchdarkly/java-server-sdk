@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
-import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -25,7 +24,7 @@ class EventProcessor implements Closeable {
 
   EventProcessor(String apiKey, LDConfig config) {
     this.apiKey = apiKey;
-    this.queue = new ArrayBlockingQueue<Event>(config.capacity);
+    this.queue = new ArrayBlockingQueue<>(config.capacity);
     this.consumer = new Consumer(config);
     this.scheduler.scheduleAtFixedRate(consumer, 0, config.flushInterval, TimeUnit.SECONDS);
   }
@@ -70,7 +69,7 @@ class EventProcessor implements Closeable {
     }
 
     public void flush() {
-      List<Event> events = new ArrayList<Event>(queue.size());
+      List<Event> events = new ArrayList<>(queue.size());
       queue.drainTo(events);
 
       if (!events.isEmpty()) {

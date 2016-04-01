@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
-import org.glassfish.jersey.server.JSONP;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -10,26 +9,26 @@ import static org.junit.Assert.*;
 
 public class FeatureRepTest {
 
-  private final Variation.TargetRule targetUserOn = new Variation.TargetRule("key", Collections.<JsonPrimitive>singletonList(new JsonPrimitive("targetOn@test.com")));
+  private final Variation.TargetRule targetUserOn = new Variation.TargetRule("key", Collections.singletonList(new JsonPrimitive("targetOn@test.com")));
 
-  private final Variation.TargetRule targetGroupOn = new Variation.TargetRule("groups", Arrays.<JsonPrimitive>asList(new JsonPrimitive("google"), new JsonPrimitive("microsoft")));
+  private final Variation.TargetRule targetGroupOn = new Variation.TargetRule("groups", Arrays.asList(new JsonPrimitive("google"), new JsonPrimitive("microsoft")));
 
   // GSON will deserialize numbers as decimals
-  private final Variation.TargetRule targetFavoriteNumberOn = new Variation.TargetRule("favorite_number", Arrays.<JsonPrimitive>asList(new JsonPrimitive(42)));
+  private final Variation.TargetRule targetFavoriteNumberOn = new Variation.TargetRule("favorite_number", Arrays.asList(new JsonPrimitive(42)));
 
-  private final Variation.TargetRule targetLikesCatsOn = new Variation.TargetRule("likes_cats", Arrays.<JsonPrimitive>asList(new JsonPrimitive(true)));
+  private final Variation.TargetRule targetLikesCatsOn = new Variation.TargetRule("likes_cats", Arrays.asList(new JsonPrimitive(true)));
 
-  private final Variation.TargetRule targetUserOff = new Variation.TargetRule("key", Collections.<JsonPrimitive>singletonList(new JsonPrimitive("targetOff@test.com")));
+  private final Variation.TargetRule targetUserOff = new Variation.TargetRule("key", Collections.singletonList(new JsonPrimitive("targetOff@test.com")));
 
-  private final Variation.TargetRule targetGroupOff = new Variation.TargetRule("groups", Arrays.<JsonPrimitive>asList(new JsonPrimitive("oracle")));
+  private final Variation.TargetRule targetGroupOff = new Variation.TargetRule("groups", Arrays.asList(new JsonPrimitive("oracle")));
 
-  private final Variation.TargetRule targetFavoriteNumberOff = new Variation.TargetRule("favorite_number", Arrays.<JsonPrimitive>asList(new JsonPrimitive(33.0)));
+  private final Variation.TargetRule targetFavoriteNumberOff = new Variation.TargetRule("favorite_number", Arrays.asList(new JsonPrimitive(33.0)));
 
-  private final Variation.TargetRule targetLikesDogsOff = new Variation.TargetRule("likes_dogs", Arrays.<JsonPrimitive>asList(new JsonPrimitive(false)));
+  private final Variation.TargetRule targetLikesDogsOff = new Variation.TargetRule("likes_dogs", Arrays.asList(new JsonPrimitive(false)));
 
-  private final Variation.TargetRule targetAnonymousOn = new Variation.TargetRule("anonymous", Collections.<JsonPrimitive>singletonList(new JsonPrimitive(true)));
+  private final Variation.TargetRule targetAnonymousOn = new Variation.TargetRule("anonymous", Collections.singletonList(new JsonPrimitive(true)));
 
-  private final Variation<Boolean> trueVariation = new Variation.Builder<Boolean>(true, 80)
+  private final Variation<Boolean> trueVariation = new Variation.Builder<>(true, 80)
       .target(targetUserOn)
       .target(targetGroupOn)
       .target(targetAnonymousOn)
@@ -37,7 +36,7 @@ public class FeatureRepTest {
       .target(targetFavoriteNumberOn)
       .build();
 
-  private final Variation<Boolean> falseVariation = new Variation.Builder<Boolean>(false, 20)
+  private final Variation<Boolean> falseVariation = new Variation.Builder<>(false, 20)
       .target(targetUserOff)
       .target(targetGroupOff)
       .target(targetFavoriteNumberOff)
@@ -58,7 +57,7 @@ public class FeatureRepTest {
       .variation(falseVariation)
       .build();
 
-  private Variation<Boolean> userRuleVariation = new Variation.Builder<Boolean>(false, 20)
+  private Variation<Boolean> userRuleVariation = new Variation.Builder<>(false, 20)
       .userTarget(targetUserOn)
       .build();
 

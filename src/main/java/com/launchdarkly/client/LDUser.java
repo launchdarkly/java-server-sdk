@@ -54,7 +54,7 @@ public class LDUser {
     this.name = builder.name == null ? null : new JsonPrimitive(builder.name);
     this.avatar = builder.avatar == null ? null : new JsonPrimitive(builder.avatar);
     this.anonymous =  builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
-    this.custom = new HashMap<String, JsonElement>(builder.custom);
+    this.custom = new HashMap<>(builder.custom);
   }
 
   /**
@@ -63,7 +63,7 @@ public class LDUser {
    */
   public LDUser(String key) {
     this.key = new JsonPrimitive(key);
-    this.custom = new HashMap<String, JsonElement>();
+    this.custom = new HashMap<>();
   }
 
   JsonPrimitive getKey() {
@@ -123,7 +123,7 @@ public class LDUser {
      */
     public Builder(String key) {
       this.key = key;
-      this.custom = new HashMap<String, JsonElement>();
+      this.custom = new HashMap<>();
     }
 
     /**
