@@ -47,7 +47,7 @@ class StreamProcessor implements Closeable {
       return;
     }
 
-    MultivaluedMap<String, Object> headers = new StringKeyIgnoreCaseMultivaluedMap<Object>();
+    MultivaluedMap<String, Object> headers = new StringKeyIgnoreCaseMultivaluedMap<>();
     headers.putSingle("Authorization", "api_key " + this.apiKey);
     headers.putSingle("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
     headers.putSingle("Accept", SseFeature.SERVER_SENT_EVENTS_TYPE);

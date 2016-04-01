@@ -70,7 +70,7 @@ class FeatureRep<E> {
     this.on = b.on;
     this.deleted = b.deleted;
     this.version = b.version;
-    this.variations = new ArrayList<Variation<E>>(b.variations);
+    this.variations = new ArrayList<>(b.variations);
   }
 
   private Float paramForUser(LDUser user) {
@@ -147,7 +147,7 @@ class FeatureRep<E> {
       this.name = name;
       this.key = key;
       this.salt = UUID.randomUUID().toString();
-      this.variations = new ArrayList<Variation<E>>();
+      this.variations = new ArrayList<>();
     }
 
     Builder<E> salt(String s) {
@@ -176,7 +176,7 @@ class FeatureRep<E> {
     }
 
     FeatureRep<E> build() {
-      return new FeatureRep<E>(this);
+      return new FeatureRep<>(this);
     }
 
   }

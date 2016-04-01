@@ -160,7 +160,7 @@ public class RedisFeatureStore implements FeatureStore {
   public Map<String, FeatureRep<?>> all() {
     try (Jedis jedis = pool.getResource()) {
       Map<String,String> featuresJson = jedis.hgetAll(featuresKey());
-      Map<String, FeatureRep<?>> result = new HashMap<String, FeatureRep<?>>();
+      Map<String, FeatureRep<?>> result = new HashMap<>();
       Gson gson = new Gson();
 
       Type type = new TypeToken<FeatureRep<?>>() {}.getType();
@@ -264,7 +264,7 @@ public class RedisFeatureStore implements FeatureStore {
     if (initCache != null) {
       Boolean initialized = initCache.getUnchecked(INIT_KEY);
 
-      if (initialized != null && initialized.booleanValue()) {
+      if (initialized != null && initialized) {
         return true;
       }
     }

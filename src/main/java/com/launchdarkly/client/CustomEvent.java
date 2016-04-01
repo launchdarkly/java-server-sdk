@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 
 class CustomEvent extends Event {
   private final JsonElement data;
