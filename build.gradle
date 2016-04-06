@@ -8,11 +8,14 @@ apply plugin: 'com.github.johnrengelman.shadow'
 repositories {
     mavenCentral()
     mavenLocal()
+    maven {
+        url "https://oss.sonatype.org/content/groups/public/"
+    }
 }
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "0.20.0"
+    version = "0.21.0-SNAPSHOT"
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
 }
@@ -50,7 +53,7 @@ buildscript {
     }
     dependencies {
         classpath 'org.ajoberstar:gradle-git:0.12.0'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.2'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
     }
 }
 
@@ -124,12 +127,6 @@ uploadArchives {
                 packaging 'jar'
                 description 'Official LaunchDarkly SDK for Java'
                 url 'https://github.com/launchdarkly/java-client'
-
-                scm {
-                    connection 'scm:svn:http://foo.googlecode.com/svn/trunk/'
-                    developerConnection 'scm:svn:https://foo.googlecode.com/svn/trunk/'
-                    url 'http://foo.googlecode.com/svn/trunk/'
-                }
 
                 licenses {
                     license {
