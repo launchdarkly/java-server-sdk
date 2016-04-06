@@ -2,22 +2,20 @@ package com.launchdarkly.client;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import org.glassfish.jersey.internal.util.collection.StringKeyIgnoreCaseMultivaluedMap;
-import org.glassfish.jersey.media.sse.InboundEvent;
-import org.glassfish.jersey.media.sse.SseFeature;
+import com.launchdarkly.eventsource.EventHandler;
+import com.launchdarkly.eventsource.EventSource;
+import com.launchdarkly.eventsource.MessageEvent;
+import okhttp3.Headers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MultivaluedMap;
-import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URI;
 import java.util.Map;
+import java.util.concurrent.Future;
 
-class StreamProcessor implements Closeable {
+class StreamProcessor implements UpdateProcessor {
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
@@ -25,62 +23,74 @@ class StreamProcessor implements Closeable {
   private static final String INDIRECT_PATCH = "indirect/patch";
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
 
-  private final Client client;
   private final FeatureStore store;
   private final LDConfig config;
   private final String apiKey;
   private final FeatureRequestor requestor;
   private EventSource es;
+  private volatile boolean initialized = false;
 
 
   StreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
-    this.client = ClientBuilder.newBuilder().register(SseFeature.class).build();
     this.store = config.featureStore;
     this.config = config;
     this.apiKey = apiKey;
     this.requestor = requestor;
   }
 
-  void subscribe() {
-    // If the LaunchDarkly daemon is to be used, then do not subscribe to the stream
-    if (config.useLdd) {
-      return;
-    }
+  @Override
+  public Future<Void> start() {
+    final VeryBasicFuture initFuture = new VeryBasicFuture();
 
-    MultivaluedMap<String, Object> headers = new StringKeyIgnoreCaseMultivaluedMap<>();
-    headers.putSingle("Authorization", "api_key " + this.apiKey);
-    headers.putSingle("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
-    headers.putSingle("Accept", SseFeature.SERVER_SENT_EVENTS_TYPE);
+    Headers headers = new Headers.Builder()
+        .add("Authorization", "api_key " + this.apiKey)
+        .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION)
+        .add("Accept", "text/event-stream")
+        .build();
 
-    WebTarget target = client.target(config.streamURI.toASCIIString() + "/features");
+    EventHandler handler = new EventHandler() {
 
-    es = new EventSource(target, true, headers) {
       @Override
-      public void onEvent(InboundEvent event) {
+      public void onOpen() throws Exception {
+
+      }
+
+      @Override
+      public void onMessage(String name, MessageEvent event) throws Exception {
         Gson gson = new Gson();
-        if (event.getName().equals(PUT)) {
+        if (name.equals(PUT)) {
           Type type = new TypeToken<Map<String,FeatureRep<?>>>(){}.getType();
-          Map<String, FeatureRep<?>> features = gson.fromJson(event.readData(), type);
+          Map<String, FeatureRep<?>> features = gson.fromJson(event.getData(), type);
           store.init(features);
+          if (!initialized) {
+            initialized = true;
+            initFuture.completed(null);
+            logger.info("Initialized LaunchDarkly client.");
+          }
         }
-        else if (event.getName().equals(PATCH)) {
-          FeaturePatchData data = gson.fromJson(event.readData(), FeaturePatchData.class);
+        else if (name.equals(PATCH)) {
+          FeaturePatchData data = gson.fromJson(event.getData(), FeaturePatchData.class);
           store.upsert(data.key(), data.feature());
         }
-        else if (event.getName().equals(DELETE)) {
-          FeatureDeleteData data = gson.fromJson(event.readData(), FeatureDeleteData.class);
+        else if (name.equals(DELETE)) {
+          FeatureDeleteData data = gson.fromJson(event.getData(), FeatureDeleteData.class);
           store.delete(data.key(), data.version());
         }
-        else if (event.getName().equals(INDIRECT_PUT)) {
+        else if (name.equals(INDIRECT_PUT)) {
           try {
             Map<String, FeatureRep<?>> features = requestor.makeAllRequest(true);
             store.init(features);
+            if (!initialized) {
+              initialized = true;
+              initFuture.completed(null);
+              logger.info("Initialized LaunchDarkly client.");
+            }
           } catch (IOException e) {
             logger.error("Encountered exception in LaunchDarkly client", e);
           }
         }
-        else if (event.getName().equals(INDIRECT_PATCH)) {
-          String key = event.readData();
+        else if (name.equals(INDIRECT_PATCH)) {
+          String key = event.getData();
           try {
             FeatureRep<?> feature = requestor.makeRequest(key, true);
             store.upsert(key, feature);
@@ -89,25 +99,38 @@ class StreamProcessor implements Closeable {
           }
         }
         else {
-          logger.warn("Unexpected event found in stream: " + event.getName());
+          logger.warn("Unexpected event found in stream: " + event.getData());
         }
+      }
+
+      @Override
+      public void onError(Throwable throwable) {
+        logger.error("Encountered exception in LaunchDarkly client: " + throwable.getMessage());
       }
     };
 
+
+    es = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/features"))
+        .headers(headers)
+        .build();
+
+    es.start();
+    return initFuture;
   }
 
   @Override
   public void close() throws IOException {
     if (es != null) {
-      es.close();
+      es.stop();
     }
     if (store != null) {
       store.close();
     }
   }
 
-  boolean initialized() {
-    return store.initialized();
+  @Override
+  public boolean initialized() {
+    return initialized && store.initialized();
   }
 
   FeatureRep<?> getFeature(String key) {

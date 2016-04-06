@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonElement;
 import org.apache.http.annotation.ThreadSafe;
 import org.slf4j.Logger;
@@ -9,14 +10,15 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URL;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
 /**
- *
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
  * a single {@code LDClient} for the lifetime of their application.
- *
  */
 @ThreadSafe
 public class LDClient implements Closeable {
@@ -24,7 +26,7 @@ public class LDClient implements Closeable {
   private final LDConfig config;
   private final FeatureRequestor requestor;
   private final EventProcessor eventProcessor;
-  private final StreamProcessor streamProcessor;
+  private UpdateProcessor updateProcessor;
   protected static final String CLIENT_VERSION = getClientVersion();
   private volatile boolean offline = false;
 
@@ -33,44 +35,78 @@ public class LDClient implements Closeable {
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
    * cases, you should use this constructor.
    *
-   * @param apiKey the API key for your account
+   * @param apiKey        the API key for your account
+   * @param waitForMillis when set to greater than zero allows callers to block until the client
+   *                      has connected to LaunchDarkly and is properly initialized
    */
-  public LDClient(String apiKey) {
-    this(apiKey, LDConfig.DEFAULT);
+  public LDClient(String apiKey, Long waitForMillis) {
+    this(apiKey, LDConfig.DEFAULT, waitForMillis);
   }
 
   /**
    * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
    * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
    *
-   * @param apiKey the API key for your account
-   * @param config a client configuration object
+   * @param apiKey        the API key for your account
+   * @param config        a client configuration object
+   * @param waitForMillis when set to greater than zero allows callers to block until the client
+   *                      has connected to LaunchDarkly and is properly initialized
    */
-  public LDClient(String apiKey, LDConfig config) {
+  public LDClient(String apiKey, LDConfig config, Long waitForMillis) {
     this.config = config;
     this.requestor = createFeatureRequestor(apiKey, config);
     this.eventProcessor = createEventProcessor(apiKey, config);
 
+    if (config.offline || config.useLdd) {
+      logger.info("Starting LaunchDarkly client in offline mode");
+      setOffline();
+      return;
+    }
+
     if (config.stream) {
-      logger.debug("Enabling streaming API");
-      this.streamProcessor = createStreamProcessor(apiKey, config, requestor);
-      this.streamProcessor.subscribe();
+      logger.info("Enabling streaming API");
+      this.updateProcessor = createStreamProcessor(apiKey, config, requestor);
     } else {
-      logger.debug("Streaming API disabled");
-      this.streamProcessor = null;
+      logger.info("Disabling streaming API");
+      this.updateProcessor = createPollingProcessor(config);
+    }
+
+    Future<Void> startFuture = updateProcessor.start();
+
+    if (waitForMillis > 0L) {
+      logger.info("Waiting up to " + waitForMillis + " milliseconds for LaunchDarkly client to start...");
+      try {
+        startFuture.get(waitForMillis, TimeUnit.MILLISECONDS);
+      } catch (TimeoutException e) {
+        logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
+      } catch (Exception e) {
+        logger.error("Exception encountered waiting for LaunchDarkly client initialization", e);
+      }
     }
   }
 
+  public boolean initialized() {
+    return isOffline() || config.useLdd || updateProcessor.initialized();
+  }
+
+  @VisibleForTesting
   protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
     return new FeatureRequestor(apiKey, config);
   }
 
+  @VisibleForTesting
   protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
     return new EventProcessor(apiKey, config);
   }
 
+  @VisibleForTesting
   protected StreamProcessor createStreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
     return new StreamProcessor(apiKey, config, requestor);
+  }
+
+  @VisibleForTesting
+  protected PollingProcessor createPollingProcessor(LDConfig config) {
+    return new PollingProcessor(config, requestor);
   }
 
 
@@ -145,24 +181,11 @@ public class LDClient implements Closeable {
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
   public boolean toggle(String featureKey, LDUser user, boolean defaultValue) {
-    if (this.offline) {
+    if (!initialized()) {
       return defaultValue;
     }
     try {
-      FeatureRep<Boolean> result;
-      if (this.config.stream && this.streamProcessor != null && this.streamProcessor.initialized()) {
-        logger.debug("Using feature flag stored from streaming API");
-        result = (FeatureRep<Boolean>) this.streamProcessor.getFeature(featureKey);
-        if (config.debugStreaming) {
-          FeatureRep<Boolean> pollingResult = requestor.makeRequest(featureKey, true);
-          if (!result.equals(pollingResult)) {
-            logger.warn("Mismatch between streaming and polling feature! Streaming: {} Polling: {}", result, pollingResult);
-          }
-        }
-      } else {
-        // If streaming is enabled, always get the latest version of the feature while polling
-        result = requestor.makeRequest(featureKey, this.config.stream);
-      }
+      FeatureRep<Boolean> result = (FeatureRep<Boolean>) config.featureStore.get(featureKey);
       if (result == null) {
         logger.warn("Unknown feature flag " + featureKey + "; returning default value");
         sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue);
@@ -195,8 +218,8 @@ public class LDClient implements Closeable {
   @Override
   public void close() throws IOException {
     this.eventProcessor.close();
-    if (this.streamProcessor != null) {
-      this.streamProcessor.close();
+    if (this.updateProcessor != null) {
+      this.updateProcessor.close();
     }
   }
 
@@ -226,7 +249,6 @@ public class LDClient implements Closeable {
   }
 
   /**
-   *
    * @return whether the client is in offline mode
    */
   public boolean isOffline() {

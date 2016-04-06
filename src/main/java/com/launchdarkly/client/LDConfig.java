@@ -21,6 +21,7 @@ public final class LDConfig {
   private static final int DEFAULT_CONNECT_TIMEOUT = 2000;
   private static final int DEFAULT_SOCKET_TIMEOUT = 10000;
   private static final int DEFAULT_FLUSH_INTERVAL = 5;
+  private static final long DEFAULT_POLLING_INTERVAL_MILLIS = 1000L;
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
 
   protected static final LDConfig DEFAULT = new Builder().build();
@@ -37,6 +38,8 @@ public final class LDConfig {
   final boolean debugStreaming;
   final FeatureStore featureStore;
   final boolean useLdd;
+  final boolean offline;
+  final long pollingIntervalMillis;
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -51,21 +54,26 @@ public final class LDConfig {
     this.debugStreaming = builder.debugStreaming;
     this.featureStore = builder.featureStore;
     this.useLdd = builder.useLdd;
+    this.offline = builder.offline;
+    if (builder.pollingIntervalMillis < DEFAULT_POLLING_INTERVAL_MILLIS) {
+      this.pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
+    } else {
+      this.pollingIntervalMillis = builder.pollingIntervalMillis;
+    }
   }
 
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
    * calls can be chained, enabling the following pattern:
-   * 
+   *
    * <pre>
    * LDConfig config = new LDConfig.Builder()
    *      .connectTimeout(3)
    *      .socketTimeout(3)
    *      .build()
    * </pre>
-   *
    */
-  public static class Builder{
+  public static class Builder {
     private URI baseURI = DEFAULT_BASE_URI;
     private URI eventsURI = DEFAULT_EVENTS_URI;
     private URI streamURI = DEFAULT_STREAM_URI;
@@ -79,6 +87,8 @@ public final class LDConfig {
     private boolean stream = true;
     private boolean debugStreaming = false;
     private boolean useLdd = false;
+    private boolean offline = false;
+    private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
 
     /**
@@ -231,6 +241,7 @@ public final class LDConfig {
      * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
+     *
      * @param host
      * @return the builder
      */
@@ -242,11 +253,12 @@ public final class LDConfig {
     /**
      * Set the port to use for an HTTP proxy for making connections to LaunchDarkly.  If not set (but {@link #proxyHost(String)}
      * or {@link #proxyScheme(String)} are specified, the default port for the scheme will be used.
-     *
+     * <p>
      * <p>
      * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
+     *
      * @param port
      * @return the builder
      */
@@ -258,11 +270,12 @@ public final class LDConfig {
     /**
      * Set the scheme to use for an HTTP proxy for making connections to LaunchDarkly.  If not set (but {@link #proxyHost(String)}
      * or {@link #proxyPort(int)} are specified, the default <code>https</code> scheme will be used.
-     *
+     * <p>
      * <p>
      * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
+     *
      * @param scheme
      * @return the builder
      */
@@ -274,11 +287,35 @@ public final class LDConfig {
     /**
      * Set whether this client should subscribe to the streaming API, or whether the LaunchDarkly daemon is in use
      * instead
+     *
      * @param useLdd
      * @return the builder
      */
     public Builder useLdd(boolean useLdd) {
       this.useLdd = useLdd;
+      return this;
+    }
+
+    /**
+     * Set whether this client is offline.
+     *
+     * @param offline when set to true no calls to LaunchDarkly will be made.
+     * @return the builder
+     */
+    public Builder offline(boolean offline) {
+      this.offline = offline;
+      return this;
+    }
+
+    /**
+     * Set the polling interval (when streaming is disabled). Values less than {@value #DEFAULT_POLLING_INTERVAL_MILLIS}
+     * will be set to the default of {@value #DEFAULT_POLLING_INTERVAL_MILLIS}
+     *
+     * @param pollingIntervalMillis rule update polling interval in milliseconds.
+     * @return the builder
+     */
+    public Builder pollingIntervalMillis(long pollingIntervalMillis) {
+      this.pollingIntervalMillis = pollingIntervalMillis;
       return this;
     }
 
@@ -294,6 +331,7 @@ public final class LDConfig {
 
     /**
      * Build the configured {@link com.launchdarkly.client.LDConfig} object
+     *
      * @return the {@link com.launchdarkly.client.LDConfig} configured by this builder
      */
     public LDConfig build() {
@@ -311,9 +349,9 @@ public final class LDConfig {
 
   private URIBuilder getEventsBuilder() {
     return new URIBuilder()
-            .setScheme(eventsURI.getScheme())
-            .setHost(eventsURI.getHost())
-            .setPort(eventsURI.getPort());
+        .setScheme(eventsURI.getScheme())
+        .setHost(eventsURI.getHost())
+        .setPort(eventsURI.getPort());
   }
 
   HttpGet getRequest(String apiKey, String path) {
@@ -325,8 +363,7 @@ public final class LDConfig {
       request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
 
       return request;
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       logger.error("Unhandled exception in LaunchDarkly client", e);
       return null;
     }
@@ -341,8 +378,7 @@ public final class LDConfig {
       request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
 
       return request;
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       logger.error("Unhandled exception in LaunchDarkly client", e);
       return null;
     }
@@ -357,8 +393,7 @@ public final class LDConfig {
       request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
 
       return request;
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       logger.error("Unhandled exception in LaunchDarkly client", e);
       return null;
     }
