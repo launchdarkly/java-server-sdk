@@ -2,20 +2,20 @@ package com.launchdarkly.client;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.launchdarkly.eventsource.EventHandler;
+import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import okhttp3.Headers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.Map;
-import com.launchdarkly.eventsource.EventSource;
-import com.launchdarkly.eventsource.EventHandler;
+import java.util.concurrent.Future;
 
-class StreamProcessor implements Closeable {
+class StreamProcessor implements UpdateProcessor {
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
@@ -28,6 +28,7 @@ class StreamProcessor implements Closeable {
   private final String apiKey;
   private final FeatureRequestor requestor;
   private EventSource es;
+  private volatile boolean initialized = false;
 
 
   StreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
@@ -37,11 +38,9 @@ class StreamProcessor implements Closeable {
     this.requestor = requestor;
   }
 
-  void subscribe() {
-    // If the LaunchDarkly daemon is to be used, then do not subscribe to the stream
-    if (config.useLdd) {
-      return;
-    }
+  @Override
+  public Future<Void> start() {
+    final VeryBasicFuture initFuture = new VeryBasicFuture();
 
     Headers headers = new Headers.Builder()
         .add("Authorization", "api_key " + this.apiKey)
@@ -63,6 +62,11 @@ class StreamProcessor implements Closeable {
           Type type = new TypeToken<Map<String,FeatureRep<?>>>(){}.getType();
           Map<String, FeatureRep<?>> features = gson.fromJson(event.getData(), type);
           store.init(features);
+          if (!initialized) {
+            initialized = true;
+            initFuture.completed(null);
+            logger.info("Initialized LaunchDarkly client.");
+          }
         }
         else if (name.equals(PATCH)) {
           FeaturePatchData data = gson.fromJson(event.getData(), FeaturePatchData.class);
@@ -76,6 +80,11 @@ class StreamProcessor implements Closeable {
           try {
             Map<String, FeatureRep<?>> features = requestor.makeAllRequest(true);
             store.init(features);
+            if (!initialized) {
+              initialized = true;
+              initFuture.completed(null);
+              logger.info("Initialized LaunchDarkly client.");
+            }
           } catch (IOException e) {
             logger.error("Encountered exception in LaunchDarkly client", e);
           }
@@ -106,7 +115,7 @@ class StreamProcessor implements Closeable {
         .build();
 
     es.start();
-
+    return initFuture;
   }
 
   @Override
@@ -119,8 +128,9 @@ class StreamProcessor implements Closeable {
     }
   }
 
-  boolean initialized() {
-    return store.initialized();
+  @Override
+  public boolean initialized() {
+    return initialized && store.initialized();
   }
 
   FeatureRep<?> getFeature(String key) {
