@@ -31,7 +31,7 @@ dependencies {
     compile "org.slf4j:slf4j-api:1.7.7"
     compile "com.launchdarkly:okhttp-eventsource:0.1.2"
     compile "redis.clients:jedis:2.8.0"
-    testCompile "org.easymock:easymock:3.3"
+    testCompile "org.easymock:easymock:3.4"
     testCompile 'junit:junit:[4.10,)'
     testRuntime "org.slf4j:slf4j-simple:1.7.7"
 }

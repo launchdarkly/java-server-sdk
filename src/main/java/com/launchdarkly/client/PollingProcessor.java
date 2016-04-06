@@ -8,6 +8,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PollingProcessor implements UpdateProcessor {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
@@ -15,7 +16,7 @@ public class PollingProcessor implements UpdateProcessor {
   private final FeatureRequestor requestor;
   private final LDConfig config;
   private final FeatureStore store;
-  private volatile boolean initialized = false;
+  private AtomicBoolean initialized = new AtomicBoolean(false);
   private ScheduledExecutorService scheduler = null;
 
   PollingProcessor(LDConfig config, FeatureRequestor requestor) {
@@ -26,7 +27,7 @@ public class PollingProcessor implements UpdateProcessor {
 
   @Override
   public boolean initialized() {
-    return initialized && config.featureStore.initialized();
+    return initialized.get() && config.featureStore.initialized();
   }
 
   @Override
@@ -46,9 +47,8 @@ public class PollingProcessor implements UpdateProcessor {
       public void run() {
         try {
           store.init(requestor.makeAllRequest(true));
-          if (!initialized) {
+          if (!initialized.getAndSet(true)) {
             logger.info("Initialized LaunchDarkly client.");
-            initialized = true;
             initFuture.completed(null);
           }
         } catch (IOException e) {

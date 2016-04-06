@@ -28,7 +28,6 @@ public class LDClient implements Closeable {
   private final EventProcessor eventProcessor;
   private UpdateProcessor updateProcessor;
   protected static final String CLIENT_VERSION = getClientVersion();
-  private final boolean offline;
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -38,7 +37,7 @@ public class LDClient implements Closeable {
    * @param waitForMillis when set to greater than zero allows callers to block until the client
    *                      has connected to LaunchDarkly and is properly initialized
    */
-  public LDClient(String apiKey, Long waitForMillis) {
+  public LDClient(String apiKey, long waitForMillis) {
     this(apiKey, LDConfig.DEFAULT, waitForMillis);
   }
 
@@ -51,17 +50,20 @@ public class LDClient implements Closeable {
    * @param waitForMillis when set to greater than zero allows callers to block until the client
    *                      has connected to LaunchDarkly and is properly initialized
    */
-  public LDClient(String apiKey, LDConfig config, Long waitForMillis) {
+  public LDClient(String apiKey, LDConfig config, long waitForMillis) {
     this.config = config;
     this.requestor = createFeatureRequestor(apiKey, config);
     this.eventProcessor = createEventProcessor(apiKey, config);
 
-    if (config.offline || config.useLdd) {
+    if (config.offline) {
       logger.info("Starting LaunchDarkly client in offline mode");
-      offline = true;
       return;
     }
-    offline = false;
+
+    if (config.useLdd) {
+      logger.info("Starting LaunchDarkly in LDD mode. Skipping direct feature retrieval.");
+      return;
+    }
 
     if (config.stream) {
       logger.info("Enabling streaming API");
@@ -118,6 +120,9 @@ public class LDClient implements Closeable {
    * @param data a JSON object containing additional data associated with the event
    */
   public void track(String eventName, LDUser user, JsonElement data) {
+    if (isOffline()) {
+      return;
+    }
     boolean processed = eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
@@ -131,7 +136,7 @@ public class LDClient implements Closeable {
    * @param user the user that performed the event
    */
   public void track(String eventName, LDUser user) {
-    if (this.offline) {
+    if (isOffline()) {
       return;
     }
     track(eventName, user, null);
@@ -142,7 +147,7 @@ public class LDClient implements Closeable {
    * @param user the user to register
    */
   public void identify(LDUser user) {
-    if (this.offline) {
+    if (isOffline()) {
       return;
     }
     boolean processed = eventProcessor.sendEvent(new IdentifyEvent(user));
@@ -152,6 +157,9 @@ public class LDClient implements Closeable {
   }
 
   private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value, boolean defaultValue) {
+    if (isOffline()) {
+      return;
+    }
     boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent<>(featureKey, user, value, defaultValue));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
@@ -181,28 +189,34 @@ public class LDClient implements Closeable {
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
   public boolean toggle(String featureKey, LDUser user, boolean defaultValue) {
+    if (isOffline()) {
+      return defaultValue;
+    }
+    boolean value = evaluate(featureKey, user, defaultValue);
+    sendFlagRequestEvent(featureKey, user, value, defaultValue);
+    return value;
+  }
+
+  private boolean evaluate(String featureKey, LDUser user, boolean defaultValue) {
     if (!initialized()) {
       return defaultValue;
     }
+
     try {
       FeatureRep<Boolean> result = (FeatureRep<Boolean>) config.featureStore.get(featureKey);
       if (result == null) {
-        logger.warn("Unknown feature flag " + featureKey + "; returning default value");
-        sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue);
+        logger.warn("Unknown feature flag " + featureKey + "; returning default value: ");
         return defaultValue;
       }
 
       Boolean val = result.evaluate(user);
       if (val == null) {
-        sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue);
         return defaultValue;
       } else {
-        sendFlagRequestEvent(featureKey, user, val, defaultValue);
         return val;
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
-      sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue);
       return defaultValue;
     }
   }
@@ -234,7 +248,7 @@ public class LDClient implements Closeable {
    * @return whether the client is in offline mode
    */
   public boolean isOffline() {
-    return this.offline;
+    return config.offline;
   }
 
   private static String getClientVersion() {

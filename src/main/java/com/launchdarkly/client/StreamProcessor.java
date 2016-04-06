@@ -14,6 +14,7 @@ import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 class StreamProcessor implements UpdateProcessor {
   private static final String PUT = "put";
@@ -28,7 +29,7 @@ class StreamProcessor implements UpdateProcessor {
   private final String apiKey;
   private final FeatureRequestor requestor;
   private EventSource es;
-  private volatile boolean initialized = false;
+  private AtomicBoolean initialized = new AtomicBoolean(false);
 
 
   StreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
@@ -62,8 +63,7 @@ class StreamProcessor implements UpdateProcessor {
           Type type = new TypeToken<Map<String,FeatureRep<?>>>(){}.getType();
           Map<String, FeatureRep<?>> features = gson.fromJson(event.getData(), type);
           store.init(features);
-          if (!initialized) {
-            initialized = true;
+          if (!initialized.getAndSet(true)) {
             initFuture.completed(null);
             logger.info("Initialized LaunchDarkly client.");
           }
@@ -80,8 +80,7 @@ class StreamProcessor implements UpdateProcessor {
           try {
             Map<String, FeatureRep<?>> features = requestor.makeAllRequest(true);
             store.init(features);
-            if (!initialized) {
-              initialized = true;
+            if (!initialized.getAndSet(true)) {
               initFuture.completed(null);
               logger.info("Initialized LaunchDarkly client.");
             }
@@ -130,7 +129,7 @@ class StreamProcessor implements UpdateProcessor {
 
   @Override
   public boolean initialized() {
-    return initialized && store.initialized();
+    return initialized.get();
   }
 
   FeatureRep<?> getFeature(String key) {

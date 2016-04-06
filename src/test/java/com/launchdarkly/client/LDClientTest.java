@@ -9,6 +9,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -17,40 +18,46 @@ public class LDClientTest extends EasyMockSupport {
   private FeatureRequestor requestor;
   private StreamProcessor streamProcessor;
   private PollingProcessor pollingProcessor;
+  private EventProcessor eventProcessor;
   private Future initFuture;
+  private LDClient client;
 
   @Before
   public void before() {
     requestor = createStrictMock(FeatureRequestor.class);
     streamProcessor = createStrictMock(StreamProcessor.class);
     pollingProcessor = createStrictMock(PollingProcessor.class);
+    eventProcessor = createStrictMock(EventProcessor.class);
     initFuture = createStrictMock(Future.class);
   }
 
   @Test
-  public void testOfflineDoesNotConnect() throws IOException {
+  public void testOffline() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .offline(true)
         .build();
 
-    LDClient client = createMockClient(config, 0L);
+    client = createMockClient(config, 0L);
     replayAll();
 
-    assertDefaultValueIsReturned(client);
+    assertDefaultValueIsReturned();
     assertTrue(client.initialized());
     verifyAll();
   }
 
   @Test
-  public void testUseLddDoesNotConnect() throws IOException {
+  public void testUseLdd() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .useLdd(true)
         .build();
 
-    LDClient client = createMockClient(config, 0L);
+    client = createMockClient(config, 0L);
+    // Asserting 2 things here: no pollingProcessor or streamingProcessor activity
+    // and sending of event:
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
     replayAll();
 
-    assertDefaultValueIsReturned(client);
+    assertDefaultValueIsReturned();
     assertTrue(client.initialized());
     verifyAll();
   }
@@ -63,10 +70,11 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(streamProcessor.start()).andReturn(initFuture);
     expect(streamProcessor.initialized()).andReturn(false);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
     replayAll();
 
-    LDClient client = createMockClient(config, 0L);
-    assertDefaultValueIsReturned(client);
+    client = createMockClient(config, 0L);
+    assertDefaultValueIsReturned();
 
     verifyAll();
   }
@@ -81,7 +89,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
     replayAll();
 
-    LDClient client = createMockClient(config, 10L);
+    client = createMockClient(config, 10L);
     verifyAll();
   }
 
@@ -93,10 +101,11 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(false);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
     replayAll();
 
-    LDClient client = createMockClient(config, 0L);
-    assertDefaultValueIsReturned(client);
+    client = createMockClient(config, 0L);
+    assertDefaultValueIsReturned();
 
     verifyAll();
   }
@@ -109,13 +118,16 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expect(pollingProcessor.initialized()).andReturn(false);
     replayAll();
 
-    LDClient client = createMockClient(config, 10L);
+    client = createMockClient(config, 10L);
+    assertDefaultValueIsReturned();
     verifyAll();
   }
 
-  private void assertDefaultValueIsReturned(LDClient client) {
+  private void assertDefaultValueIsReturned() {
     boolean result = client.toggle("test", new LDUser("test.key"), true);
     assertEquals(true, result);
   }
@@ -125,7 +137,6 @@ public class LDClientTest extends EasyMockSupport {
       Long waitForMillis
   ) {
     return new LDClient("API_KEY", config, waitForMillis) {
-
       @Override
       protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
         return requestor;
@@ -139,6 +150,11 @@ public class LDClientTest extends EasyMockSupport {
       @Override
       protected PollingProcessor createPollingProcessor(LDConfig config) {
         return pollingProcessor;
+      }
+
+      @Override
+      protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
+        return eventProcessor;
       }
     };
   }
