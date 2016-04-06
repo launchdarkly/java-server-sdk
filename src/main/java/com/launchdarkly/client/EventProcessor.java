@@ -104,7 +104,7 @@ class EventProcessor implements Closeable {
           logger.debug("Successfully processed events");
         }
       } catch (IOException e) {
-        logger.error("Unhandled exception in LaunchDarkly client", e);
+        logger.error("Unhandled exception in LaunchDarkly client attempting to connect to URI: " + config.eventsURI, e);
       } finally {
         try {
           if (response != null) response.close();
