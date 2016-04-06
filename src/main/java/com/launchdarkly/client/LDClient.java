@@ -28,8 +28,7 @@ public class LDClient implements Closeable {
   private final EventProcessor eventProcessor;
   private UpdateProcessor updateProcessor;
   protected static final String CLIENT_VERSION = getClientVersion();
-  private volatile boolean offline = false;
-
+  private final boolean offline;
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -59,9 +58,10 @@ public class LDClient implements Closeable {
 
     if (config.offline || config.useLdd) {
       logger.info("Starting LaunchDarkly client in offline mode");
-      setOffline();
+      offline = true;
       return;
     }
+    offline = false;
 
     if (config.stream) {
       logger.info("Enabling streaming API");
@@ -228,24 +228,6 @@ public class LDClient implements Closeable {
    */
   public void flush() {
     this.eventProcessor.flush();
-  }
-
-  /**
-   * Puts the LaunchDarkly client in offline mode.
-   * In offline mode, all calls to {@link #toggle(String, LDUser, boolean)} will return the default value, and
-   * {@link #track(String, LDUser, com.google.gson.JsonElement)} will be a no-op.
-   *
-   */
-  public void setOffline() {
-    this.offline = true;
-  }
-
-  /**
-   * Puts the LaunchDarkly client in online mode.
-   *
-   */
-  public void setOnline() {
-    this.offline = false;
   }
 
   /**
