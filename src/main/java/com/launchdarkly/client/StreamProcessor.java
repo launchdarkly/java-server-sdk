@@ -120,7 +120,7 @@ class StreamProcessor implements UpdateProcessor {
   @Override
   public void close() throws IOException {
     if (es != null) {
-      es.stop();
+      es.close();
     }
     if (store != null) {
       store.close();

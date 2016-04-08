@@ -27,7 +27,7 @@ public class PollingProcessor implements UpdateProcessor {
 
   @Override
   public boolean initialized() {
-    return initialized.get() && config.featureStore.initialized();
+    return initialized.get();
   }
 
   @Override
