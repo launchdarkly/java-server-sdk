@@ -34,11 +34,9 @@ public class LDClient implements Closeable {
    * cases, you should use this constructor.
    *
    * @param apiKey        the API key for your account
-   * @param waitForMillis when set to greater than zero allows callers to block until the client
-   *                      has connected to LaunchDarkly and is properly initialized
    */
-  public LDClient(String apiKey, long waitForMillis) {
-    this(apiKey, LDConfig.DEFAULT, waitForMillis);
+  public LDClient(String apiKey) {
+    this(apiKey, LDConfig.DEFAULT);
   }
 
   /**
@@ -47,10 +45,8 @@ public class LDClient implements Closeable {
    *
    * @param apiKey        the API key for your account
    * @param config        a client configuration object
-   * @param waitForMillis when set to greater than zero allows callers to block until the client
-   *                      has connected to LaunchDarkly and is properly initialized
    */
-  public LDClient(String apiKey, LDConfig config, long waitForMillis) {
+  public LDClient(String apiKey, LDConfig config) {
     this.config = config;
     this.requestor = createFeatureRequestor(apiKey, config);
     this.eventProcessor = createEventProcessor(apiKey, config);
@@ -75,10 +71,10 @@ public class LDClient implements Closeable {
 
     Future<Void> startFuture = updateProcessor.start();
 
-    if (waitForMillis > 0L) {
-      logger.info("Waiting up to " + waitForMillis + " milliseconds for LaunchDarkly client to start...");
+    if (config.startWaitMillis > 0L) {
+      logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
       try {
-        startFuture.get(waitForMillis, TimeUnit.MILLISECONDS);
+        startFuture.get(config.startWaitMillis, TimeUnit.MILLISECONDS);
       } catch (TimeoutException e) {
         logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
       } catch (Exception e) {

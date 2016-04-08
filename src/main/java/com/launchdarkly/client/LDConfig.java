@@ -22,6 +22,7 @@ public final class LDConfig {
   private static final int DEFAULT_SOCKET_TIMEOUT = 10000;
   private static final int DEFAULT_FLUSH_INTERVAL = 5;
   private static final long DEFAULT_POLLING_INTERVAL_MILLIS = 1000L;
+  private static final long DEFAULT_START_WAIT_MILLIS = 0L;
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
 
   protected static final LDConfig DEFAULT = new Builder().build();
@@ -40,6 +41,7 @@ public final class LDConfig {
   final boolean useLdd;
   final boolean offline;
   final long pollingIntervalMillis;
+  final long startWaitMillis;
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -60,6 +62,7 @@ public final class LDConfig {
     } else {
       this.pollingIntervalMillis = builder.pollingIntervalMillis;
     }
+    this.startWaitMillis = builder.startWaitMillis;
   }
 
   /**
@@ -90,6 +93,7 @@ public final class LDConfig {
     private boolean offline = false;
     private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
+    public long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -316,6 +320,18 @@ public final class LDConfig {
      */
     public Builder pollingIntervalMillis(long pollingIntervalMillis) {
       this.pollingIntervalMillis = pollingIntervalMillis;
+      return this;
+    }
+
+    /**
+     * Set how long the constructor will block awaiting a successful connection to LaunchDarkly.
+     * Default value of 0 will not block and cause the constructor to return immediately.
+     *
+     * @param startWaitMillis
+     * @return the builder
+     */
+    public Builder startWaitMillis(long startWaitMillis) {
+      this.startWaitMillis = startWaitMillis;
       return this;
     }
 
