@@ -68,6 +68,7 @@ class FeatureRequestor {
 
     CloseableHttpResponse response = null;
     try {
+      logger.debug("Making request: " + request);
       response = client.execute(request, context);
 
       logCacheResponse(context.getCacheResponseStatus());
@@ -76,7 +77,10 @@ class FeatureRequestor {
 
       Type type = new TypeToken<Map<String, FeatureRep<?>>>() {}.getType();
 
-      Map<String, FeatureRep<?>> result = gson.fromJson(EntityUtils.toString(response.getEntity()), type);
+      String json = EntityUtils.toString(response.getEntity());
+      logger.debug("Got response: " + response.toString());
+      logger.debug("Got Response body: " + json);
+      Map<String, FeatureRep<?>> result = gson.fromJson(json, type);
       return result;
     }
     finally {

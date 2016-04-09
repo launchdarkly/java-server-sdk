@@ -1,36 +1,162 @@
 package com.launchdarkly.client;
 
-import static org.easymock.EasyMock.*;
-import static org.junit.Assert.assertEquals;
-
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.easymock.*;
+import org.easymock.EasyMockSupport;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.expect;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class LDClientTest extends EasyMockSupport {
+  private FeatureRequestor requestor;
+  private StreamProcessor streamProcessor;
+  private PollingProcessor pollingProcessor;
+  private EventProcessor eventProcessor;
+  private Future initFuture;
+  private LDClient client;
 
-  private CloseableHttpClient httpClient = createMock(CloseableHttpClient.class);
-
-  private FeatureRequestor requestor = createMock(FeatureRequestor.class);
-
-  LDClient client = new LDClient("API_KEY") {
-
-    @Override
-    protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
-      return requestor;
-    }
-  };
+  @Before
+  public void before() {
+    requestor = createStrictMock(FeatureRequestor.class);
+    streamProcessor = createStrictMock(StreamProcessor.class);
+    pollingProcessor = createStrictMock(PollingProcessor.class);
+    eventProcessor = createStrictMock(EventProcessor.class);
+    initFuture = createStrictMock(Future.class);
+  }
 
   @Test
-  public void testExceptionThrownByHttpClientReturnsDefaultValue() throws IOException {
+  public void testOffline() throws IOException {
+    LDConfig config = new LDConfig.Builder()
+        .offline(true)
+        .build();
 
-    expect(requestor.makeRequest(anyString(), anyBoolean())).andThrow(new IOException());
-    replay(requestor);
+    client = createMockClient(config);
+    replayAll();
 
+    assertDefaultValueIsReturned();
+    assertTrue(client.initialized());
+    verifyAll();
+  }
+
+  @Test
+  public void testUseLdd() throws IOException {
+    LDConfig config = new LDConfig.Builder()
+        .useLdd(true)
+        .build();
+
+    client = createMockClient(config);
+    // Asserting 2 things here: no pollingProcessor or streamingProcessor activity
+    // and sending of event:
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    replayAll();
+
+    assertDefaultValueIsReturned();
+    assertTrue(client.initialized());
+    verifyAll();
+  }
+
+  @Test
+  public void testStreamingNoWait() throws IOException {
+    LDConfig config = new LDConfig.Builder()
+        .startWaitMillis(0L)
+        .stream(true)
+        .build();
+
+    expect(streamProcessor.start()).andReturn(initFuture);
+    expect(streamProcessor.initialized()).andReturn(false);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    replayAll();
+
+    client = createMockClient(config);
+    assertDefaultValueIsReturned();
+
+    verifyAll();
+  }
+
+  @Test
+  public void testStreamingWait() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .startWaitMillis(10L)
+        .stream(true)
+        .build();
+
+    expect(streamProcessor.start()).andReturn(initFuture);
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
+    replayAll();
+
+    client = createMockClient(config);
+    verifyAll();
+  }
+
+  @Test
+  public void testPollingNoWait() throws IOException {
+    LDConfig config = new LDConfig.Builder()
+        .startWaitMillis(0L)
+        .stream(false)
+        .build();
+
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(false);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    replayAll();
+
+    client = createMockClient(config);
+    assertDefaultValueIsReturned();
+
+    verifyAll();
+  }
+
+  @Test
+  public void testPollingWait() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .startWaitMillis(10L)
+        .stream(false)
+        .build();
+
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expect(pollingProcessor.initialized()).andReturn(false);
+    replayAll();
+
+    client = createMockClient(config);
+    assertDefaultValueIsReturned();
+    verifyAll();
+  }
+
+  private void assertDefaultValueIsReturned() {
     boolean result = client.toggle("test", new LDUser("test.key"), true);
     assertEquals(true, result);
-    verify(requestor);
+  }
+
+  private LDClient createMockClient(LDConfig config) {
+    return new LDClient("API_KEY", config) {
+      @Override
+      protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
+        return requestor;
+      }
+
+      @Override
+      protected StreamProcessor createStreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
+        return streamProcessor;
+      }
+
+      @Override
+      protected PollingProcessor createPollingProcessor(LDConfig config) {
+        return pollingProcessor;
+      }
+
+      @Override
+      protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
+        return eventProcessor;
+      }
+    };
   }
 }

@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -14,22 +15,34 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.*;
 
 class EventProcessor implements Closeable {
-  private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
+  private final ScheduledExecutorService scheduler;
+  private final Random random = new Random();
   private final BlockingQueue<Event> queue;
   private final String apiKey;
+  private final LDConfig config;
   private final Consumer consumer;
 
   EventProcessor(String apiKey, LDConfig config) {
     this.apiKey = apiKey;
     this.queue = new ArrayBlockingQueue<>(config.capacity);
     this.consumer = new Consumer(config);
+    this.config = config;
+    ThreadFactory threadFactory = new ThreadFactoryBuilder()
+        .setDaemon(true)
+        .setNameFormat("LaunchDarkly-EventProcessor-%d")
+        .build();
+    this.scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
     this.scheduler.scheduleAtFixedRate(consumer, 0, config.flushInterval, TimeUnit.SECONDS);
   }
 
   boolean sendEvent(Event e) {
+    if (config.samplingInterval > 0 && random.nextInt(config.samplingInterval) != 0) {
+      return true;
+    }
     return queue.offer(e);
   }
 
@@ -43,18 +56,8 @@ class EventProcessor implements Closeable {
     this.consumer.flush();
   }
 
-  static class DaemonThreadFactory implements ThreadFactory {
-    public Thread newThread(Runnable r) {
-      Thread thread = new Thread(r);
-      thread.setDaemon(true);
-      return thread;
-    }
-  }
-
   class Consumer implements Runnable {
     private final Logger logger = LoggerFactory.getLogger(Consumer.class);
-
-
     private final CloseableHttpClient client;
     private final LDConfig config;
 
@@ -78,6 +81,7 @@ class EventProcessor implements Closeable {
     }
 
     private void postEvents(List<Event> events) {
+      logger.debug("Posting " + events.size() + " event(s)..");
       CloseableHttpResponse response = null;
       Gson gson = new Gson();
       String json = gson.toJson(events);
@@ -95,16 +99,14 @@ class EventProcessor implements Closeable {
         if (status >= 300) {
           if (status == HttpStatus.SC_UNAUTHORIZED) {
             logger.error("Invalid API key");
-          }
-          else {
+          } else {
             logger.error("Unexpected status code: " + status);
           }
-        }
-        else {
-          logger.debug("Successfully processed events");
+        } else {
+          logger.debug("Successfully posted " + events.size() + " event(s).");
         }
       } catch (IOException e) {
-        logger.error("Unhandled exception in LaunchDarkly client", e);
+        logger.error("Unhandled exception in LaunchDarkly client attempting to connect to URI: " + config.eventsURI, e);
       } finally {
         try {
           if (response != null) response.close();
@@ -112,7 +114,6 @@ class EventProcessor implements Closeable {
           logger.error("Unhandled exception in LaunchDarkly client", e);
         }
       }
-
     }
   }
 }

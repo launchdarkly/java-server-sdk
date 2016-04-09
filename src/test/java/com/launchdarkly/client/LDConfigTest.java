@@ -1,12 +1,12 @@
 package com.launchdarkly.client;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-
 import org.apache.http.client.methods.HttpPost;
 import org.junit.Test;
 
 import java.net.URI;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class LDConfigTest {
   @Test
@@ -99,5 +99,17 @@ public class LDConfigTest {
 
     HttpPost post = config.postEventsRequest("dummy-api-key", "/bulk");
     assertEquals("http://localhost:3000/api/events/bulk", post.getURI().toString());
+  }
+
+  @Test
+  public void testMinimumPollingIntervalIsEnforcedProperly(){
+    LDConfig config = new LDConfig.Builder().pollingIntervalMillis(10L).build();
+    assertEquals(1000L, config.pollingIntervalMillis);
+  }
+
+  @Test
+  public void testPollingIntervalIsEnforcedProperly(){
+    LDConfig config = new LDConfig.Builder().pollingIntervalMillis(10001L).build();
+    assertEquals(10001L, config.pollingIntervalMillis);
   }
 }
