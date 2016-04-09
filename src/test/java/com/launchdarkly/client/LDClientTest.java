@@ -65,6 +65,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testStreamingNoWait() throws IOException {
     LDConfig config = new LDConfig.Builder()
+        .startWaitMillis(0L)
         .stream(true)
         .build();
 
@@ -97,6 +98,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testPollingNoWait() throws IOException {
     LDConfig config = new LDConfig.Builder()
+        .startWaitMillis(0L)
         .stream(false)
         .build();
 
