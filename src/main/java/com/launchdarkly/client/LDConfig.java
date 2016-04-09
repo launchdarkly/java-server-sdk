@@ -22,7 +22,7 @@ public final class LDConfig {
   private static final int DEFAULT_SOCKET_TIMEOUT = 10000;
   private static final int DEFAULT_FLUSH_INTERVAL = 5;
   private static final long DEFAULT_POLLING_INTERVAL_MILLIS = 1000L;
-  private static final long DEFAULT_START_WAIT_MILLIS = 0L;
+  private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
   private static final int DEFAULT_SAMPLING_INTERVAL = 0;
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
 
@@ -96,8 +96,8 @@ public final class LDConfig {
     private boolean offline = false;
     private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
-    public long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
-    public int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
+    private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
+    private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -329,9 +329,11 @@ public final class LDConfig {
 
     /**
      * Set how long the constructor will block awaiting a successful connection to LaunchDarkly.
-     * Default value of 0 will not block and cause the constructor to return immediately.
+     * Setting this to 0 will not block and cause the constructor to return immediately.
+     * Default value: {@value #DEFAULT_START_WAIT_MILLIS}
      *
-     * @param startWaitMillis
+     *
+     * @param startWaitMillis milliseconds to wait
      * @return the builder
      */
     public Builder startWaitMillis(long startWaitMillis) {
@@ -339,7 +341,7 @@ public final class LDConfig {
       return this;
     }
 
-   /**
+    /**
      * Enable event sampling. When set to the default of zero, sampling is disabled and all events
      * are sent back to LaunchDarkly. When set to greater than zero, there is a 1 in
      * <code>samplingInterval</code> chance events will be will be sent.
