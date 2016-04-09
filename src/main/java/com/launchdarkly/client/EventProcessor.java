@@ -19,12 +19,7 @@ import java.util.Random;
 import java.util.concurrent.*;
 
 class EventProcessor implements Closeable {
-  ThreadFactory threadFactory = new ThreadFactoryBuilder()
-      .setDaemon(true)
-      .setNameFormat("LaunchDarkly-EventProcessor-%d")
-      .build();
-  private final ScheduledExecutorService scheduler =
-      Executors.newSingleThreadScheduledExecutor(threadFactory);
+  private final ScheduledExecutorService scheduler;
   private final Random random = new Random();
   private final BlockingQueue<Event> queue;
   private final String apiKey;
@@ -36,6 +31,11 @@ class EventProcessor implements Closeable {
     this.queue = new ArrayBlockingQueue<>(config.capacity);
     this.consumer = new Consumer(config);
     this.config = config;
+    ThreadFactory threadFactory = new ThreadFactoryBuilder()
+        .setDaemon(true)
+        .setNameFormat("LaunchDarkly-EventProcessor-%d")
+        .build();
+    this.scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
     this.scheduler.scheduleAtFixedRate(consumer, 0, config.flushInterval, TimeUnit.SECONDS);
   }
 
