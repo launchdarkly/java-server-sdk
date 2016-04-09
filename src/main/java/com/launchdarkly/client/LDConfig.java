@@ -23,6 +23,7 @@ public final class LDConfig {
   private static final int DEFAULT_FLUSH_INTERVAL = 5;
   private static final long DEFAULT_POLLING_INTERVAL_MILLIS = 1000L;
   private static final long DEFAULT_START_WAIT_MILLIS = 0L;
+  private static final int DEFAULT_SAMPLING_INTERVAL = 0;
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
 
   protected static final LDConfig DEFAULT = new Builder().build();
@@ -42,6 +43,7 @@ public final class LDConfig {
   final boolean offline;
   final long pollingIntervalMillis;
   final long startWaitMillis;
+  final int samplingInterval;
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -63,6 +65,7 @@ public final class LDConfig {
       this.pollingIntervalMillis = builder.pollingIntervalMillis;
     }
     this.startWaitMillis = builder.startWaitMillis;
+    this.samplingInterval = builder.samplingInterval;
   }
 
   /**
@@ -94,6 +97,7 @@ public final class LDConfig {
     private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
     public long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
+    public int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -332,6 +336,21 @@ public final class LDConfig {
      */
     public Builder startWaitMillis(long startWaitMillis) {
       this.startWaitMillis = startWaitMillis;
+      return this;
+    }
+
+   /**
+     * Enable event sampling. When set to the default of zero, sampling is disabled and all events
+     * are sent back to LaunchDarkly. When set to greater than zero, there is a 1 in
+     * <code>samplingInterval</code> chance events will be will be sent.
+     *
+     * <p>Example: if you want 5% sampling rate, set <code>samplingInterval</code> to 20.
+     *
+     * @param samplingInterval the sampling interval.
+     * @return the builder
+     */
+    public Builder samplingInterval(int samplingInterval) {
+      this.samplingInterval = samplingInterval;
       return this;
     }
 

@@ -104,10 +104,9 @@ class StreamProcessor implements UpdateProcessor {
 
       @Override
       public void onError(Throwable throwable) {
-        logger.error("Encountered exception in LaunchDarkly client: " + throwable.getMessage());
+        logger.warn("Encountered EventSource error", throwable);
       }
     };
-
 
     es = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/features"))
         .headers(headers)

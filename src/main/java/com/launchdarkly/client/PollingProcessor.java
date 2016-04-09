@@ -1,13 +1,11 @@
 package com.launchdarkly.client;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PollingProcessor implements UpdateProcessor {
@@ -40,7 +38,10 @@ public class PollingProcessor implements UpdateProcessor {
     logger.info("Starting LaunchDarkly polling client with interval: "
         + config.pollingIntervalMillis + " milliseconds");
     final VeryBasicFuture initFuture = new VeryBasicFuture();
-    scheduler = Executors.newScheduledThreadPool(1);
+    ThreadFactory threadFactory = new ThreadFactoryBuilder()
+        .setNameFormat("LaunchDarkly-PollingProcessor-%d")
+        .build();
+    scheduler = Executors.newScheduledThreadPool(1, threadFactory);
 
     scheduler.scheduleAtFixedRate(new Runnable() {
       @Override
