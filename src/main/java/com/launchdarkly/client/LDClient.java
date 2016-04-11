@@ -200,7 +200,14 @@ public class LDClient implements Closeable {
 
     try {
       FeatureRep<Boolean> result = (FeatureRep<Boolean>) config.featureStore.get(featureKey);
-      if (result == null) {
+      if (result != null) {
+        if (config.stream && config.debugStreaming) {
+          FeatureRep<Boolean> pollingResult = requestor.makeRequest(featureKey, true);
+          if (!result.equals(pollingResult)) {
+            logger.warn("Mismatch between streaming and polling feature! Streaming: {} Polling: {}", result, pollingResult);
+          }
+        }
+      } else {
         logger.warn("Unknown feature flag " + featureKey + "; returning default value: ");
         return defaultValue;
       }

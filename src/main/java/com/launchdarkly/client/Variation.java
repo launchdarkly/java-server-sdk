@@ -39,18 +39,17 @@ class Variation<E> {
     Variation<?> variation = (Variation<?>) o;
 
     if (weight != variation.weight) return false;
-    if (!value.equals(variation.value)) return false;
-    if (!userTarget.equals(variation.userTarget)) return false;
-    return targets.equals(variation.targets);
-
+    if (value != null ? !value.equals(variation.value) : variation.value != null) return false;
+    if (userTarget != null ? !userTarget.equals(variation.userTarget) : variation.userTarget != null) return false;
+    return targets != null ? targets.equals(variation.targets) : variation.targets == null;
   }
 
   @Override
   public int hashCode() {
-    int result = value.hashCode();
+    int result = value != null ? value.hashCode() : 0;
     result = 31 * result + weight;
-    result = 31 * result + userTarget.hashCode();
-    result = 31 * result + targets.hashCode();
+    result = 31 * result + (userTarget != null ? userTarget.hashCode() : 0);
+    result = 31 * result + (targets != null ? targets.hashCode() : 0);
     return result;
   }
 
