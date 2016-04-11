@@ -72,7 +72,7 @@ class Variation<E> {
     for (TargetRule target: targets) {
       // If a userTarget rule is present, nested "key" rules
       // are deprecated and should be ignored
-      if (userTarget != null && target.attribute == "key") {
+      if (userTarget != null && target.attribute.equals("key")) {
         continue;
       }
       if (target.matchTarget(user)) {
