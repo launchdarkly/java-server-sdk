@@ -316,8 +316,8 @@ public final class LDConfig {
     }
 
     /**
-     * Set the polling interval (when streaming is disabled). Values less than {@value #DEFAULT_POLLING_INTERVAL_MILLIS}
-     * will be set to the default of {@value #DEFAULT_POLLING_INTERVAL_MILLIS}
+     * Set the polling interval (when streaming is disabled). Values less than the default of 1000
+     * will be set to 1000.
      *
      * @param pollingIntervalMillis rule update polling interval in milliseconds.
      * @return the builder
@@ -330,7 +330,7 @@ public final class LDConfig {
     /**
      * Set how long the constructor will block awaiting a successful connection to LaunchDarkly.
      * Setting this to 0 will not block and cause the constructor to return immediately.
-     * Default value: {@value #DEFAULT_START_WAIT_MILLIS}
+     * Default value: 5000
      *
      *
      * @param startWaitMillis milliseconds to wait

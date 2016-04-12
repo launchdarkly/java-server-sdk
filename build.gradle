@@ -78,7 +78,7 @@ artifacts {
 }
 
 githubPages {
-    repoUri = 'git@github.com:launchdarkly/java-client.git'
+    repoUri = 'https://github.com/launchdarkly/java-client.git'
     pages {
         from javadoc
     }
