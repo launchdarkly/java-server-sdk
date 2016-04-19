@@ -81,7 +81,7 @@ class EventProcessor implements Closeable {
     }
 
     private void postEvents(List<Event> events) {
-      logger.debug("Posting " + events.size() + " event(s)..");
+      logger.debug("Posting " + events.size() + " event(s) to " + config.eventsURI);
       CloseableHttpResponse response = null;
       Gson gson = new Gson();
       String json = gson.toJson(events);
