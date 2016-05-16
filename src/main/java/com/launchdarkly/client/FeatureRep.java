@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-class FeatureRep<E> {
+public class FeatureRep<E> {
   String name;
   String key;
   String salt;
