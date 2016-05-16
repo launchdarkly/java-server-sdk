@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-class Variation<E> {
+public class Variation<E> {
   E value;
   int weight;
   TargetRule userTarget;
@@ -82,36 +82,36 @@ class Variation<E> {
     return false;
   }
 
-  static class Builder<E> {
+  public static class Builder<E> {
     E value;
     int weight;
     TargetRule userTarget;
     List<TargetRule> targets;
 
-    Builder(E value, int weight) {
+    public Builder(E value, int weight) {
       this.value = value;
       this.weight = weight;
       this.userTarget = new TargetRule("key", "in", new ArrayList<JsonPrimitive>());
       targets = new ArrayList<>();
     }
 
-    Builder<E> userTarget(TargetRule rule) {
+    public Builder<E> userTarget(TargetRule rule) {
       this.userTarget = rule;
       return this;
     }
 
-    Builder<E> target(TargetRule rule) {
+    public Builder<E> target(TargetRule rule) {
       targets.add(rule);
       return this;
     }
 
-    Variation<E> build() {
+    public Variation<E> build() {
       return new Variation<>(this);
     }
 
   }
 
-  static class TargetRule {
+  public static class TargetRule {
     String attribute;
     String operator;
     List<JsonPrimitive> values;
@@ -122,13 +122,13 @@ class Variation<E> {
 
     }
 
-    TargetRule(String attribute, String operator, List<JsonPrimitive> values) {
+    public TargetRule(String attribute, String operator, List<JsonPrimitive> values) {
       this.attribute = attribute;
       this.operator = operator;
       this.values = new ArrayList<>(values);
     }
 
-    TargetRule(String attribute, List<JsonPrimitive> values) {
+    public TargetRule(String attribute, List<JsonPrimitive> values) {
       this(attribute, "in", values);
     }
 
