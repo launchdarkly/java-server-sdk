@@ -63,7 +63,7 @@ public class FeatureRep<E> {
     return result;
   }
 
-  FeatureRep(Builder<E> b) {
+  public FeatureRep(Builder<E> b) {
     this.name = b.name;
     this.key = b.key;
     this.salt = b.salt;
@@ -133,7 +133,7 @@ public class FeatureRep<E> {
       return null;
   }
 
-  static class Builder<E> {
+  public static class Builder<E> {
     private String name;
     private String key;
     private boolean on;
@@ -142,7 +142,7 @@ public class FeatureRep<E> {
     private int version;
     private List<Variation<E>> variations;
 
-    Builder(String name, String key) {
+    public Builder(String name, String key) {
       this.on = true;
       this.name = name;
       this.key = key;
@@ -150,32 +150,32 @@ public class FeatureRep<E> {
       this.variations = new ArrayList<>();
     }
 
-    Builder<E> salt(String s) {
+    public Builder<E> salt(String s) {
       this.salt = s;
       return this;
     }
 
-    Builder<E> on(boolean b) {
+    public Builder<E> on(boolean b) {
       this.on = b;
       return this;
     }
 
-    Builder<E> variation(Variation<E> v) {
+    public Builder<E> variation(Variation<E> v) {
       variations.add(v);
       return this;
     }
 
-    Builder<E> deleted(boolean d) {
+    public Builder<E> deleted(boolean d) {
       this.deleted = d;
       return this;
     }
 
-    Builder<E> version(int v) {
+    public Builder<E> version(int v) {
       this.version = v;
       return this;
     }
 
-    FeatureRep<E> build() {
+    public FeatureRep<E> build() {
       return new FeatureRep<>(this);
     }
 
