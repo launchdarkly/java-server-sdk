@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-class Variation<E> {
+public class Variation<E> {
   E value;
   int weight;
   TargetRule userTarget;
