@@ -5,6 +5,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -12,6 +14,7 @@ import java.util.concurrent.TimeoutException;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class LDClientTest extends EasyMockSupport {
@@ -42,6 +45,76 @@ public class LDClientTest extends EasyMockSupport {
 
     assertDefaultValueIsReturned();
     assertTrue(client.initialized());
+    verifyAll();
+  }
+
+  @Test
+  public void testTestFeatureStoreFlagOn() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(1);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    replayAll();
+
+    client = createMockClient(config);
+    testFeatureStore.turnFeatureOn("key");
+    assertTrue("Test flag should be on, but was not.", client.toggle("key", new LDUser("user"), false));
+
+    verifyAll();
+  }
+
+  @Test
+  public void testTestFeatureStoreFlagOff() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(1);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    replayAll();
+
+    client = createMockClient(config);
+    testFeatureStore.turnFeatureOff("key");
+    assertFalse("Test flag should be off, but was on (the default).", client.toggle("key", new LDUser("user"), true));
+
+    verifyAll();
+  }
+
+  @Test
+  public void testTestFeatureStoreFlagOnThenOff() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(2);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.turnFeatureOn("key");
+    assertTrue("Test flag should be on, but was not.", client.toggle("key", new LDUser("user"), false));
+
+    testFeatureStore.turnFeatureOff("key");
+    assertFalse("Test flag should be off, but was on (the default).", client.toggle("key", new LDUser("user"), true));
+
     verifyAll();
   }
 
