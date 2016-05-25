@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -177,6 +179,35 @@ public class LDClient implements Closeable {
   }
 
   /**
+   * Returns a map from feature flag keys to boolean feature flag values for a given user. The map will contain {@code null}
+   * entries for any flags that are off. If the client is offline or has not been initialized, a {@code null} map will be returned.
+   * This method will not send analytics events back to LaunchDarkly.
+   *
+   * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
+   *
+   * @param user the end user requesting the feature flags
+   * @return a map from feature flag keys to boolean feature flag values for the specified user
+   */
+  public Map<String, Boolean> allFlags(LDUser user) {
+    if (isOffline()) {
+      return null;
+    }
+
+    if (!initialized()) {
+      return null;
+    }
+
+    Map<String, FeatureRep<?>> flags = this.config.featureStore.all();
+    Map<String, Boolean> result = new HashMap<>();
+
+    for (String key: flags.keySet()) {
+      result.put(key, evaluate(key, user, null));
+    }
+
+    return result;
+  }
+
+  /**
    * Calculates the value of a feature flag for a given user.
    *
    * @param featureKey the unique featureKey for the feature flag
@@ -193,7 +224,7 @@ public class LDClient implements Closeable {
     return value;
   }
 
-  private boolean evaluate(String featureKey, LDUser user, boolean defaultValue) {
+  private Boolean evaluate(String featureKey, LDUser user, Boolean defaultValue) {
     if (!initialized()) {
       return defaultValue;
     }
