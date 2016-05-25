@@ -25,14 +25,14 @@ allprojects {
 }
 
 dependencies {
-    compile "org.apache.httpcomponents:httpclient:4.3.6"
-    compile "org.apache.httpcomponents:httpclient-cache:4.3.6"
-    compile "commons-codec:commons-codec:1.5"
-    compile "com.google.code.gson:gson:2.2.4"
+    compile "org.apache.httpcomponents:httpclient:4.5.2"
+    compile "org.apache.httpcomponents:httpclient-cache:4.5.2"
+    compile "commons-codec:commons-codec:1.10"
+    compile "com.google.code.gson:gson:2.6.2"
     compile "com.google.guava:guava:19.0"
-    compile "org.slf4j:slf4j-api:1.7.7"
+    compile "org.slf4j:slf4j-api:1.7.21"
     compile group: "com.launchdarkly", name: "okhttp-eventsource", version: "0.2.1", changing: true
-    compile "redis.clients:jedis:2.8.0"
+    compile "redis.clients:jedis:2.8.1"
     testCompile "org.easymock:easymock:3.4"
     testCompile 'junit:junit:4.12'
     testRuntime "ch.qos.logback:logback-classic:1.1.7"
@@ -56,7 +56,7 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-        classpath 'org.ajoberstar:gradle-git:0.12.0'
+        classpath 'org.ajoberstar:gradle-git:1.5.0-rc.1'
         classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
     }
 }
