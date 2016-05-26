@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-public enum UserAttribute {
+enum UserAttribute {
   key,
   secondary,
   ip,
@@ -10,5 +10,5 @@ public enum UserAttribute {
   firstName,
   lastName,
   anonymous,
-  country;
+  country
 }
