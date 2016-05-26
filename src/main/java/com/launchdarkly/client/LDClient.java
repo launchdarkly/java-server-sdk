@@ -3,7 +3,6 @@ package com.launchdarkly.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.flag.FeatureFlag;
 import org.apache.http.annotation.ThreadSafe;
@@ -190,7 +189,7 @@ public class LDClient implements Closeable {
    * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
    *
    * @param user the end user requesting the feature flags
-   * @return a map from feature flag keys to boolean feature flag values for the specified user
+   * @return a map from feature flag keys to JsonElement values for the specified user
    */
   public Map<String, JsonElement> allFlags(LDUser user) {
     if (isOffline()) {
@@ -220,14 +219,46 @@ public class LDClient implements Closeable {
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
   public boolean toggle(String featureKey, LDUser user, boolean defaultValue) {
+    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
+    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean()) {
+      return value.getAsJsonPrimitive().getAsBoolean();
+    }
+    return false;
+  }
+
+  public Integer intVariation(String featureKey, LDUser user, int defaultValue) {
+    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
+    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+      return value.getAsJsonPrimitive().getAsInt();
+    }
+    return null;
+  }
+
+  public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
+    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
+    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+      return value.getAsJsonPrimitive().getAsDouble();
+    }
+    return null;
+  }
+
+  public String stringVariation(String featureKey, LDUser user, String defaultValue) {
+    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
+    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+      return value.getAsJsonPrimitive().getAsString();
+    }
+    return null;
+  }
+
+  public JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue) {
     if (isOffline()) {
       return defaultValue;
     }
-    JsonPrimitive defaultValueJsonPrimitive = new JsonPrimitive(defaultValue);
-    JsonElement value = evaluate(featureKey, user, defaultValueJsonPrimitive);
-    sendFlagRequestEvent(featureKey, user, value, defaultValueJsonPrimitive);
-    return value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean() && value.getAsJsonPrimitive().getAsBoolean();
+    JsonElement value = evaluate(featureKey, user, defaultValue);
+    sendFlagRequestEvent(featureKey, user, value, defaultValue);
+    return value;
   }
+
 
   private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue) {
     if (!initialized()) {
@@ -235,7 +266,7 @@ public class LDClient implements Closeable {
     }
 
     try {
-      FeatureFlag result =  config.featureStore.get(featureKey);
+      FeatureFlag result = config.featureStore.get(featureKey);
       if (result != null) {
         if (config.stream && config.debugStreaming) {
           FeatureFlag pollingResult = requestor.makeRequest(featureKey, true);
@@ -259,7 +290,6 @@ public class LDClient implements Closeable {
       return defaultValue;
     }
   }
-
 
   /**
    * Closes the LaunchDarkly client event processing thread and flushes all pending events. This should only

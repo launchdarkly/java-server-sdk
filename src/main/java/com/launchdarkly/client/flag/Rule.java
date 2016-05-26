@@ -35,14 +35,11 @@ public class Rule<E> {
     if (variation != null) {
       return variation;
     } else if (rollout != null) {
-      String bucketBy = "key";
-      if (rollout.bucketBy != null) {
-        bucketBy = rollout.bucketBy;
-      }
+      String bucketBy = rollout.bucketBy == null ? "key" : rollout.bucketBy;
       Float bucket = bucketUser(user, key, bucketBy, salt);
       Float sum = 0F;
       for (WeightedVariation wv : rollout.variations) {
-        sum += wv.weight / 100000F;
+        sum += (float)wv.weight / 100000F;
         if (bucket < sum) {
           return wv.variation;
         }
