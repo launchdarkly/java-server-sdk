@@ -179,7 +179,9 @@ class Variation<E> {
           uValue = user.getAnonymous();
         }
       }
-      else { // Custom attribute
+
+      // Always check custom attributes in case interpreted keys were used here
+      if (uValue == null) { // Custom attribute
         JsonElement custom = user.getCustom(attribute);
 
         if (custom != null) {
