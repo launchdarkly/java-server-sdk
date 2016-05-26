@@ -1,7 +1,9 @@
-package com.launchdarkly.client;
+package com.launchdarkly.client.flag;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.LDCountryCode;
+import com.launchdarkly.client.LDUser;
 import org.junit.Test;
 
 public class LDUserTest {

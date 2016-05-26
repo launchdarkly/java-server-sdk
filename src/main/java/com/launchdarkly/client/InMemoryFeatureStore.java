@@ -1,39 +1,41 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.flag.FeatureFlag;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * A thread-safe, versioned store for {@link com.launchdarkly.client.FeatureRep} objects based on a
+ * A thread-safe, versioned store for {@link FeatureFlag} objects based on a
  * {@link HashMap}
  *
  */
 public class InMemoryFeatureStore implements FeatureStore {
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-  private final Map<String, FeatureRep<?>> features = new HashMap<>();
+  private final Map<String, FeatureFlag> features = new HashMap<>();
   private volatile boolean initialized = false;
 
 
   /**
    *
-   * Returns the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link com.launchdarkly.client.FeatureRep} has
+   * Returns the {@link FeatureFlag} to which the specified key is mapped, or
+   * null if the key is not associated or the associated {@link FeatureFlag} has
    * been deleted.
    *
-   * @param key the key whose associated {@link com.launchdarkly.client.FeatureRep} is to be returned
-   * @return the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link com.launchdarkly.client.FeatureRep} has
+   * @param key the key whose associated {@link FeatureFlag} is to be returned
+   * @return the {@link FeatureFlag} to which the specified key is mapped, or
+   * null if the key is not associated or the associated {@link FeatureFlag} has
    * been deleted.
    */
   @Override
-  public FeatureRep<?> get(String key) {
+  public FeatureFlag get(String key) {
     try {
       lock.readLock().lock();
-      FeatureRep<?> rep =  features.get(key);
-      if (rep == null || rep.deleted) {
+      FeatureFlag rep =  features.get(key);
+      if (rep == null || rep.isDeleted()) {
         return null;
       }
       return rep;
@@ -49,13 +51,13 @@ public class InMemoryFeatureStore implements FeatureStore {
    * @return a map of all associated features.
    */
   @Override
-  public Map<String, FeatureRep<?>> all() {
+  public Map<String, FeatureFlag> all() {
     try {
       lock.readLock().lock();
-      Map<String, FeatureRep<?>> fs = new HashMap<>();
+      Map<String, FeatureFlag> fs = new HashMap<>();
 
-      for (Map.Entry<String, FeatureRep<?>> entry : features.entrySet()) {
-        if (!entry.getValue().deleted) {
+      for (Map.Entry<String, FeatureFlag> entry : features.entrySet()) {
+        if (!entry.getValue().isDeleted()) {
           fs.put(entry.getKey(), entry.getValue());
         }
       }
@@ -73,7 +75,7 @@ public class InMemoryFeatureStore implements FeatureStore {
    * @param features the features to set the store
    */
   @Override
-  public void init(Map<String, FeatureRep<?>> features) {
+  public void init(Map<String, FeatureFlag> features) {
     try {
       lock.writeLock().lock();
       this.features.clear();
@@ -96,14 +98,17 @@ public class InMemoryFeatureStore implements FeatureStore {
   public void delete(String key, int version) {
     try {
       lock.writeLock().lock();
-      FeatureRep<?> f = features.get(key);
-      if (f != null && f.version < version) {
-        f.deleted = true;
-        f.version = version;
+      FeatureFlag f = features.get(key);
+      if (f != null && f.getVersion() < version) {
+        f.setDeleted();
+        f.setVersion(version);
         features.put(key, f);
       }
       else if (f == null) {
-        f = new FeatureRep.Builder(key, key).deleted(true).version(version).build();
+        f = new FeatureFlag.Builder(key, key)
+            .deleted(true)
+            .version(version)
+            .build();
         features.put(key, f);
       }
     } finally {
@@ -119,12 +124,12 @@ public class InMemoryFeatureStore implements FeatureStore {
    * @param feature
    */
   @Override
-  public void upsert(String key, FeatureRep<?> feature) {
+  public void upsert(String key, FeatureFlag feature) {
     try {
       lock.writeLock().lock();
-      FeatureRep<?> old = features.get(key);
+      FeatureFlag old = features.get(key);
 
-      if (old == null || old.version < feature.version) {
+      if (old == null || old.getVersion() < feature.getVersion()) {
         features.put(key, feature);
       }
     }
