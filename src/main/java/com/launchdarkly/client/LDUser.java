@@ -33,7 +33,6 @@ public class LDUser {
   private JsonPrimitive firstName;
   private JsonPrimitive lastName;
   private JsonPrimitive anonymous;
-
   private JsonPrimitive country;
   private Map<String, JsonElement> custom;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
@@ -248,8 +247,8 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.String}-valued custom attribute
-     * @param k the key for the custom attribute
+     * Add a {@link java.lang.String}-valued custom attribute.
+     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param v the value for the custom attribute
      * @return the builder
      */
@@ -262,7 +261,7 @@ public class LDUser {
 
     /**
      * Add a {@link java.lang.Number}-valued custom attribute
-     * @param k the key for the custom attribute
+     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param n the value for the custom attribute
      * @return the builder
      */
@@ -275,7 +274,7 @@ public class LDUser {
 
     /**
      * Add a {@link java.lang.Boolean}-valued custom attribute
-     * @param k the key for the custom attribute
+     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param b the value for the custom attribute
      * @return the builder
      */
@@ -288,7 +287,7 @@ public class LDUser {
 
     /**
      * Add a list of {@link java.lang.String}-valued custom attributes
-     * @param k the key for the list
+     * @param k the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
      * @return the builder
      * @deprecated As of version 0.16.0, renamed to {@link #customString(String, List) customString}
@@ -299,7 +298,7 @@ public class LDUser {
     
     /**
      * Add a list of {@link java.lang.String}-valued custom attributes
-     * @param k the key for the list
+     * @param k the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
      * @return the builder
      */
@@ -316,7 +315,7 @@ public class LDUser {
     
     /**
      * Add a list of {@link java.lang.Integer}-valued custom attributes
-     * @param k the key for the list
+     * @param k the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
      * @return the builder
      */
