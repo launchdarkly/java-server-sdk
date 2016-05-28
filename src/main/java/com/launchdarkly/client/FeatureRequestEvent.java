@@ -8,7 +8,7 @@ public class FeatureRequestEvent extends Event {
   @SerializedName("default")
   JsonElement defaultVal;
 
-  public FeatureRequestEvent(String key, LDUser user, JsonElement value, JsonElement defaultVal) {
+  FeatureRequestEvent(String key, LDUser user, JsonElement value, JsonElement defaultVal) {
     super("feature", key, user);
     this.value = value;
     this.defaultVal = defaultVal;

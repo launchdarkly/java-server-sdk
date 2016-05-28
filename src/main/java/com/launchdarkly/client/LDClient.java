@@ -4,7 +4,6 @@ package com.launchdarkly.client;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
-import com.launchdarkly.client.flag.FeatureFlag;
 import org.apache.http.annotation.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -169,7 +168,7 @@ public class LDClient implements Closeable {
   }
 
   /**
-   * Calculates the value of a feature flag for a given user.
+   * Calculates the boolean value of a feature flag for a given user.
    *
    * @param featureKey   the unique featureKey for the feature flag
    * @param user         the end user requesting the flag
@@ -182,7 +181,7 @@ public class LDClient implements Closeable {
   }
 
   /**
-   * Returns a map from feature flag keys to boolean feature flag values for a given user. The map will contain {@code null}
+   * Returns a map from feature flag keys to {@link JsonElement} feature flag values for a given user. The map will contain {@code null}
    * entries for any flags that are off. If the client is offline or has not been initialized, a {@code null} map will be returned.
    * This method will not send analytics events back to LaunchDarkly.
    * <p>
@@ -226,6 +225,14 @@ public class LDClient implements Closeable {
     return false;
   }
 
+  /**
+   * Calculates the integer value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   */
   public Integer intVariation(String featureKey, LDUser user, int defaultValue) {
     JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
     if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
@@ -234,6 +241,14 @@ public class LDClient implements Closeable {
     return null;
   }
 
+  /**
+   * Calculates the floating point numeric value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   */
   public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
     JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
     if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
@@ -242,6 +257,14 @@ public class LDClient implements Closeable {
     return null;
   }
 
+  /**
+   * Calculates the String value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   */
   public String stringVariation(String featureKey, LDUser user, String defaultValue) {
     JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
     if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
@@ -250,6 +273,14 @@ public class LDClient implements Closeable {
     return null;
   }
 
+  /**
+   * Calculates the {@link JsonElement} value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   */
   public JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue) {
     if (isOffline()) {
       return defaultValue;

@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -48,9 +47,8 @@ public class LDClientTest extends EasyMockSupport {
     verifyAll();
   }
 
-  @Ignore
   @Test
-  public void testTestFeatureStoreFlagOn() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+  public void testTestFeatureStoreSetFeatureTrue() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
@@ -65,15 +63,14 @@ public class LDClientTest extends EasyMockSupport {
     replayAll();
 
     client = createMockClient(config);
-    testFeatureStore.turnFeatureOn("key");
-    assertTrue("Test flag should be on, but was not.", client.toggle("key", new LDUser("user"), false));
+    testFeatureStore.setFeatureTrue("key");
+    assertTrue("Test flag should be true, but was not.", client.toggle("key", new LDUser("user"), false));
 
     verifyAll();
   }
 
-  @Ignore
   @Test
-  public void testTestFeatureStoreFlagOff() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+  public void testTestFeatureStoreSetFalse() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
@@ -88,15 +85,14 @@ public class LDClientTest extends EasyMockSupport {
     replayAll();
 
     client = createMockClient(config);
-    testFeatureStore.turnFeatureOff("key");
-    assertFalse("Test flag should be off, but was on (the default).", client.toggle("key", new LDUser("user"), true));
+    testFeatureStore.setFeatureFalse("key");
+    assertFalse("Test flag should be false, but was on (the default).", client.toggle("key", new LDUser("user"), true));
 
     verifyAll();
   }
 
-  @Ignore
   @Test
-  public void testTestFeatureStoreFlagOnThenOff() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+  public void testTestFeatureStoreFlagTrueThenFalse() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
@@ -112,11 +108,11 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testFeatureStore.turnFeatureOn("key");
-    assertTrue("Test flag should be on, but was not.", client.toggle("key", new LDUser("user"), false));
+    testFeatureStore.setFeatureTrue("key");
+    assertTrue("Test flag should be true, but was not.", client.toggle("key", new LDUser("user"), false));
 
-    testFeatureStore.turnFeatureOff("key");
-    assertFalse("Test flag should be off, but was on (the default).", client.toggle("key", new LDUser("user"), true));
+    testFeatureStore.setFeatureFalse("key");
+    assertFalse("Test flag should be false, but was on (the default).", client.toggle("key", new LDUser("user"), true));
 
     verifyAll();
   }

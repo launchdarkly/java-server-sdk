@@ -1,13 +1,16 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
 import org.joda.time.DateTime;
 
 import java.util.regex.Pattern;
 
-import static com.launchdarkly.client.flag.Util.jsonPrimitiveToDateTime;
-
-public enum Operator {
+/**
+ * Operator value that can be applied to {@link JsonPrimitive} objects. Incompatible types or other errors
+ * will always yield false. This enum can be directly deserialized from JSON, avoiding the need for a mapping
+ * of strings to operators.
+ */
+enum Operator {
   in {
     @Override
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
@@ -18,9 +21,9 @@ public enum Operator {
       if (uValue.isNumber() && cValue.isNumber()) {
         return uValue.getAsDouble() == cValue.getAsDouble();
       }
-      DateTime uDateTime = jsonPrimitiveToDateTime(uValue);
+      DateTime uDateTime = Util.jsonPrimitiveToDateTime(uValue);
       if (uDateTime != null) {
-        DateTime cDateTime = jsonPrimitiveToDateTime(cValue);
+        DateTime cDateTime = Util.jsonPrimitiveToDateTime(cValue);
         if (cDateTime != null) {
           return uDateTime.getMillis() == cDateTime.getMillis();
         }
@@ -72,9 +75,9 @@ public enum Operator {
   },
   before {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      DateTime uDateTime = jsonPrimitiveToDateTime(uValue);
+      DateTime uDateTime = Util.jsonPrimitiveToDateTime(uValue);
       if (uDateTime != null) {
-        DateTime cDateTime = jsonPrimitiveToDateTime(cValue);
+        DateTime cDateTime = Util.jsonPrimitiveToDateTime(cValue);
         if (cDateTime != null) {
           return uDateTime.isBefore(cDateTime);
         }
@@ -84,9 +87,9 @@ public enum Operator {
   },
   after {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      DateTime uDateTime = jsonPrimitiveToDateTime(uValue);
+      DateTime uDateTime = Util.jsonPrimitiveToDateTime(uValue);
       if (uDateTime != null) {
-        DateTime cDateTime = jsonPrimitiveToDateTime(cValue);
+        DateTime cDateTime = Util.jsonPrimitiveToDateTime(cValue);
         if (cDateTime != null) {
           return uDateTime.isAfter(cDateTime);
         }
@@ -94,5 +97,5 @@ public enum Operator {
       return false;
     }
   };
-  public abstract boolean apply(JsonPrimitive uValue, JsonPrimitive cValue);
+  abstract boolean apply(JsonPrimitive uValue, JsonPrimitive cValue);
 }

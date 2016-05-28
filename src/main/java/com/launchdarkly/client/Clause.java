@@ -1,15 +1,14 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
-import com.launchdarkly.client.LDUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-public class Clause {
+class Clause {
   private final static Logger logger = LoggerFactory.getLogger(Clause.class);
 
   private String attribute;
@@ -17,7 +16,7 @@ public class Clause {
   private List<JsonPrimitive> values; //interpreted as an OR of values
   private boolean negate;
 
-  public boolean matchesUser(LDUser user) {
+  boolean matchesUser(LDUser user) {
     JsonElement userValue = valueOf(user, attribute);
     if (userValue == null) {
       return false;
@@ -60,7 +59,7 @@ public class Clause {
       return b;
   }
 
-  protected static JsonElement valueOf(LDUser user, String attribute) {
+  static JsonElement valueOf(LDUser user, String attribute) {
     switch (attribute) {
       case "key":
         return user.getKey();

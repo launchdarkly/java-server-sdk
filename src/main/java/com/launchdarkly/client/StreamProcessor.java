@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
-import com.launchdarkly.client.flag.FeatureFlag;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;

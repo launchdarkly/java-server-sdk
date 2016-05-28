@@ -1,11 +1,8 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
-import com.launchdarkly.client.FeatureRequestEvent;
-import com.launchdarkly.client.FeatureStore;
-import com.launchdarkly.client.LDUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +13,8 @@ public class FeatureFlag {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
 
   private static final Gson gson = new Gson();
-  private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {}.getType();
+  private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {
+  }.getType();
 
   private String key;
   private int version;
@@ -31,9 +29,6 @@ public class FeatureFlag {
   private List<JsonElement> variations;
   private boolean deleted;
 
-  public FeatureFlag() {
-  }
-
   public static FeatureFlag fromJson(String json) {
     return gson.fromJson(json, FeatureFlag.class);
   }
@@ -42,30 +37,29 @@ public class FeatureFlag {
     return gson.fromJson(json, mapType);
   }
 
-  FeatureFlag(Builder b) {
-    this.key = b.key;
-    this.salt = b.salt;
-    this.on = b.on;
-    this.version = b.version;
-    this.variations = new ArrayList<>(b.variations);
+  public FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, String sel, List<Target> targets, List<Rule> rules, Rule fallthrough, Integer offVariation, List<JsonElement> variations, boolean deleted) {
+    this.key = key;
+    this.version = version;
+    this.on = on;
+    this.prerequisites = prerequisites;
+    this.salt = salt;
+    this.sel = sel;
+    this.targets = targets;
+    this.rules = rules;
+    this.fallthrough = fallthrough;
+    this.offVariation = offVariation;
+    this.variations = variations;
+    this.deleted = deleted;
   }
 
-  private JsonElement getVariation(Integer index) {
-    if (index == null || index >= variations.size()) {
-      return null;
-    } else {
-      return variations.get(index);
-    }
-  }
-
-  public JsonElement getOffVariation() {
+  JsonElement getOffVariation() {
     if (offVariation != null && offVariation < variations.size()) {
       return variations.get(offVariation);
     }
     return null;
   }
 
-  public EvalResult evaluate(LDUser user, FeatureStore featureStore) {
+  EvalResult evaluate(LDUser user, FeatureStore featureStore) {
     if (user == null || user.getKey() == null) {
       return null;
     }
@@ -127,20 +121,24 @@ public class FeatureFlag {
     return fallthrough.variationIndexForUser(user, key, salt);
   }
 
+  private JsonElement getVariation(Integer index) {
+    if (index == null || index >= variations.size()) {
+      return null;
+    } else {
+      return variations.get(index);
+    }
+  }
+
   public int getVersion() {
     return version;
   }
 
-  public void setVersion(int version) {
+  void setVersion(int version) {
     this.version = version;
   }
 
   public String getKey() {
     return key;
-  }
-
-  public void setKey(String key) {
-    this.key = key;
   }
 
   public boolean isDeleted() {
@@ -222,9 +220,7 @@ public class FeatureFlag {
     return result;
   }
 
-
-
-  public static class EvalResult {
+  static class EvalResult {
     private JsonElement value;
     private Set<FeatureRequestEvent> prerequisiteEvents;
     private Set<String> visitedFeatureKeys;
@@ -235,60 +231,12 @@ public class FeatureFlag {
       this.visitedFeatureKeys = visitedFeatureKeys;
     }
 
-    public JsonElement getValue() {
+    JsonElement getValue() {
       return value;
     }
 
-    public Set<FeatureRequestEvent> getPrerequisiteEvents() {
+    Set<FeatureRequestEvent> getPrerequisiteEvents() {
       return prerequisiteEvents;
     }
-  }
-
-  public static class Builder {
-    private String name;
-    private String key;
-    private boolean on;
-    private String salt;
-    private boolean deleted;
-    private int version;
-    private List<JsonElement> variations;
-
-    public Builder(String name, String key) {
-      this.on = true;
-      this.name = name;
-      this.key = key;
-      this.salt = UUID.randomUUID().toString();
-      this.variations = new ArrayList<>();
-    }
-
-    Builder salt(String s) {
-      this.salt = s;
-      return this;
-    }
-
-    Builder on(boolean b) {
-      this.on = b;
-      return this;
-    }
-
-    public Builder variation(JsonElement v) {
-      variations.add(v);
-      return this;
-    }
-
-    public Builder deleted(boolean d) {
-      this.deleted = d;
-      return this;
-    }
-
-    public Builder version(int v) {
-      this.version = v;
-      return this;
-    }
-
-    public FeatureFlag build() {
-      return new FeatureFlag(this);
-    }
-
   }
 }

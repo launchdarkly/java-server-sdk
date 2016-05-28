@@ -1,16 +1,16 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 import java.util.List;
 
-public class Target {
+class Target {
   private List<String> values;
   private int variation;
 
-  public List<String> getValues() {
+  List<String> getValues() {
     return values;
   }
 
-  public int getVariation() {
+  int getVariation() {
     return variation;
   }
 }

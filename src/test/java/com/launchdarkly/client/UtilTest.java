@@ -1,12 +1,10 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Assert;
 import org.junit.Test;
-
-import static org.junit.Assert.assertNull;
 
 public class UtilTest {
   @Test
@@ -47,8 +45,9 @@ public class UtilTest {
   @Test
   public void testDateTimeConversionAsUnixMillis() {
     long unixMillis = 1000;
+    String expected = "1970-01-01T00:00:01.000Z";
     DateTime actual = Util.jsonPrimitiveToDateTime(new JsonPrimitive(unixMillis));
-    Assert.assertEquals(unixMillis, actual.withZone(DateTimeZone.UTC).toString());
+    Assert.assertEquals(expected, actual.withZone(DateTimeZone.UTC).toString());
   }
 
   @Test

@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.flag.FeatureFlag;
 import org.easymock.EasyMockSupport;
 import org.junit.Test;
 

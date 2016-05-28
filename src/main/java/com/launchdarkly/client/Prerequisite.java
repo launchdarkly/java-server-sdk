@@ -1,4 +1,4 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 public class Prerequisite {
   private String key;

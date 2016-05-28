@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.flag.FeatureFlag;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.cache.CacheResponseStatus;
 import org.apache.http.client.cache.HttpCacheContext;

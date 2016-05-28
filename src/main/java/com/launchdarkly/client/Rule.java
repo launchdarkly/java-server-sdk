@@ -1,28 +1,31 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
-import com.launchdarkly.client.LDUser;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-import static com.launchdarkly.client.flag.Clause.valueOf;
+import static com.launchdarkly.client.Clause.valueOf;
 
-// Expresses a set of AND-ed matching conditions for a user, along with
-// either the fixed variation or percent rollout to serve if the conditions
-// match.
-// Invariant: one of the variation or rollout must be non-nil.
-public class Rule {
-  private final static Logger logger = LoggerFactory.getLogger(Rule.class);
+/**
+ * Expresses a set of AND-ed matching conditions for a user, along with either the fixed variation or percent rollout
+ * to serve if the conditions match.
+ * Invariant: one of the variation or rollout must be non-nil.
+ */
+class Rule {
   private static final float long_scale = (float) 0xFFFFFFFFFFFFFFFL;
 
   private List<Clause> clauses;
   private Integer variation;
   private Rollout rollout;
 
-  public boolean matchesUser(LDUser user) {
+  Rule(List<Clause> clauses, Integer variation, Rollout rollout) {
+    this.clauses = clauses;
+    this.variation = variation;
+    this.rollout = rollout;
+  }
+
+  boolean matchesUser(LDUser user) {
     for (Clause clause : clauses) {
       if (!clause.matchesUser(user)) {
         return false;
@@ -31,7 +34,7 @@ public class Rule {
     return true;
   }
 
-  public Integer variationIndexForUser(LDUser user, String key, String salt) {
+  Integer variationIndexForUser(LDUser user, String key, String salt) {
     if (variation != null) {
       return variation;
     } else if (rollout != null) {
@@ -48,7 +51,7 @@ public class Rule {
     return null;
   }
 
-  protected Float bucketUser(LDUser user, String key, String attr, String salt) {
+  Float bucketUser(LDUser user, String key, String attr, String salt) {
     JsonElement userValue = valueOf(user, attr);
     String idHash;
     if (userValue != null) {
@@ -65,13 +68,23 @@ public class Rule {
     return null;
   }
 
-  private class Rollout {
+  static class Rollout {
     private List<WeightedVariation> variations;
     private String bucketBy;
+
+    public Rollout(List<WeightedVariation> variations, String bucketBy) {
+      this.variations = variations;
+      this.bucketBy = bucketBy;
+    }
   }
 
-  private class WeightedVariation {
+  static class WeightedVariation {
     private int variation;
     private int weight;
+
+    public WeightedVariation(int variation, int weight) {
+      this.variation = variation;
+      this.weight = weight;
+    }
   }
 }

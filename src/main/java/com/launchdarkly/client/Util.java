@@ -1,4 +1,4 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
 import org.joda.time.DateTime;

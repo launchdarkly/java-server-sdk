@@ -1,7 +1,5 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.flag.FeatureFlag;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,11 +32,11 @@ public class InMemoryFeatureStore implements FeatureStore {
   public FeatureFlag get(String key) {
     try {
       lock.readLock().lock();
-      FeatureFlag rep =  features.get(key);
-      if (rep == null || rep.isDeleted()) {
+      FeatureFlag featureFlag =  features.get(key);
+      if (featureFlag == null || featureFlag.isDeleted()) {
         return null;
       }
-      return rep;
+      return featureFlag;
     } finally {
       lock.readLock().unlock();
     }
@@ -105,7 +103,7 @@ public class InMemoryFeatureStore implements FeatureStore {
         features.put(key, f);
       }
       else if (f == null) {
-        f = new FeatureFlag.Builder(key, key)
+        f = new FeatureFlagBuilder(key)
             .deleted(true)
             .version(version)
             .build();

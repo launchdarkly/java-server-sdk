@@ -1,7 +1,5 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.flag.FeatureFlag;
-
 import java.io.Closeable;
 import java.util.Map;
 
