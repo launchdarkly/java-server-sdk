@@ -38,7 +38,7 @@ class Clause {
     if (userValue.isJsonPrimitive()) {
       return maybeNegate(matchAny(userValue.getAsJsonPrimitive()));
     }
-    logger.error("Got unexpected user attribute type: " + userValue.getClass().getName() + " for user key: "
+    logger.warn("Got unexpected user attribute type: " + userValue.getClass().getName() + " for user key: "
         + user.getKey() + " and attribute: " + attribute);
     return false;
   }
