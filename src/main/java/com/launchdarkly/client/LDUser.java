@@ -72,6 +72,15 @@ public class LDUser {
     return key;
   }
 
+  public String getKeyAsString() {
+    if (key == null || key.getAsString().equals("")) {
+      logger.warn("Found user with null/empty key: " + toString());
+      return "";
+    } else {
+      return key.getAsString();
+    }
+  }
+
   public JsonPrimitive getIp() {
     return ip;
   }

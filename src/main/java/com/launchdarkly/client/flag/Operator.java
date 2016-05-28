@@ -1,21 +1,31 @@
 package com.launchdarkly.client.flag;
 
 import com.google.gson.JsonPrimitive;
+import org.joda.time.DateTime;
 
 import java.util.regex.Pattern;
+
+import static com.launchdarkly.client.flag.Util.jsonPrimitiveToDateTime;
 
 public enum Operator {
   in {
     @Override
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
       if (uValue.isString() && cValue.isString()) {
-        return uValue.getAsString().equals(cValue.getAsString());
+        if (uValue.getAsString().equals(cValue.getAsString()))
+          return true;
       }
       if (uValue.isNumber() && cValue.isNumber()) {
-        //TODO: deal with rounding.. maybe.
-        return uValue.getAsNumber().doubleValue() == cValue.getAsNumber().doubleValue();
+        System.out.println("uValue: " + uValue + " cValue: " + cValue);
+        return uValue.getAsDouble() == cValue.getAsDouble();
       }
-      //TODO: deal with date type.
+      DateTime uDateTime = jsonPrimitiveToDateTime(uValue);
+      if (uDateTime != null) {
+        DateTime cDateTime = jsonPrimitiveToDateTime(cValue);
+        if (cDateTime != null) {
+          return uDateTime.getMillis() == cDateTime.getMillis();
+        }
+      }
       return false;
     }
   },
@@ -44,39 +54,54 @@ public enum Operator {
   lessThan {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
       //TODO: deal with rounding.. maybe.
-      return uValue.isNumber() && cValue.isNumber() && uValue.getAsNumber().doubleValue() < cValue.getAsNumber().doubleValue();
+      System.out.println("uValue: " + uValue + " cValue: " + cValue);
+      return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() < cValue.getAsDouble();
     }
   },
   lessThanOrEqual {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
       //TODO: deal with rounding.. maybe.
-      return uValue.isNumber() && cValue.isNumber() && uValue.getAsNumber().doubleValue() <= cValue.getAsNumber().doubleValue();
+      System.out.println("uValue: " + uValue + " cValue: " + cValue);
+      return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() <= cValue.getAsDouble();
     }
   },
   greaterThan {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
       //TODO: deal with rounding.. maybe.
-      return uValue.isNumber() && cValue.isNumber() && uValue.getAsNumber().doubleValue() > cValue.getAsNumber().doubleValue();
+      System.out.println("uValue: " + uValue + " cValue: " + cValue);
+      return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() > cValue.getAsDouble();
     }
   },
   greaterThanOrEqual {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
       //TODO: deal with rounding.. maybe.
-      return uValue.isNumber() && cValue.isNumber() && uValue.getAsNumber().doubleValue() >= cValue.getAsNumber().doubleValue();
+      System.out.println("uValue: " + uValue + " cValue: " + cValue);
+      return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() >= cValue.getAsDouble();
     }
   },
   before {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      //TODO: deal with date type.
+      DateTime uDateTime = jsonPrimitiveToDateTime(uValue);
+      if (uDateTime != null) {
+        DateTime cDateTime = jsonPrimitiveToDateTime(cValue);
+        if (cDateTime != null) {
+          return uDateTime.isBefore(cDateTime);
+        }
+      }
       return false;
     }
   },
   after {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      //TODO: deal with date type.
+      DateTime uDateTime = jsonPrimitiveToDateTime(uValue);
+      if (uDateTime != null) {
+        DateTime cDateTime = jsonPrimitiveToDateTime(cValue);
+        if (cDateTime != null) {
+          return uDateTime.isAfter(cDateTime);
+        }
+      }
       return false;
     }
   };
-
   public abstract boolean apply(JsonPrimitive uValue, JsonPrimitive cValue);
 }

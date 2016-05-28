@@ -30,6 +30,7 @@ dependencies {
     compile "commons-codec:commons-codec:1.10"
     compile "com.google.code.gson:gson:2.6.2"
     compile "com.google.guava:guava:19.0"
+    compile "joda-time:joda-time:2.9.3"
     compile "org.slf4j:slf4j-api:1.7.21"
     compile group: "com.launchdarkly", name: "okhttp-eventsource", version: "0.2.1", changing: true
     compile "redis.clients:jedis:2.8.1"

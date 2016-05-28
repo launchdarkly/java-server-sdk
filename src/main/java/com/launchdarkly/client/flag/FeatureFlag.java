@@ -3,20 +3,17 @@ package com.launchdarkly.client.flag;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
+import com.launchdarkly.client.FeatureRequestEvent;
+import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.LDUser;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class FeatureFlag {
-  private static final float long_scale = (float) 0xFFFFFFFFFFFFFFFL;
   private static final Gson gson = new Gson();
   private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {
   }.getType();
-
 
   private String key;
   private int version;
@@ -78,14 +75,52 @@ public class FeatureFlag {
     }
   }
 
+  public JsonElement getOffVariation() {
+    if (offVariation != null && offVariation < variations.size()) {
+      return variations.get(offVariation);
+    }
+    return null;
+  }
 
-  public JsonElement evaluate(LDUser user) {
-    if (!on || user == null || user.getKey() == null) {
+  public EvalResult evaluate(LDUser user, FeatureStore featureStore) {
+    if (user == null || user.getKey() == null) {
       return null;
     }
+    List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
+    Set<String> visited = new HashSet<>();
+    return evaluate(user, featureStore, prereqEvents, visited);
+  }
 
-    //TODO: Check prereqs
-    return getVariation(evaluateIndex(user));
+  private EvalResult evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events, Set<String> visited) {
+    for (Prerequisite prereq : prerequisites) {
+      visited.add(key);
+      if (visited.contains(prereq.getKey())) {
+        //cycle!
+        return null;
+      }
+      FeatureFlag prereqFeatureFlag = featureStore.get(prereq.getKey());
+      if (prereqFeatureFlag == null) {
+        return null;
+      }
+      JsonElement prereqValue;
+      if (prereqFeatureFlag.isOn()) {
+        EvalResult prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, visited);
+        if (prereqEvalResult == null) {
+          return null;
+        }
+        prereqValue = prereqEvalResult.value;
+        visited = prereqEvalResult.visitedFeatureKeys;
+        events = prereqEvalResult.prerequisiteEvents;
+      } else {
+        prereqValue = prereqFeatureFlag.getOffVariation();
+      }
+      events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqValue, null));
+      if (prereqValue == null || !prereqValue.equals(prereqFeatureFlag.getVariation(prereq.getVariation()))) {
+        //prereq failed!
+        return new EvalResult(null, events, visited);
+      }
+    }
+    return new EvalResult(getVariation(evaluateIndex(user)), events, visited);
   }
 
   private Integer evaluateIndex(LDUser user) {
@@ -161,10 +196,6 @@ public class FeatureFlag {
     return fallthrough;
   }
 
-  public Integer getOffVariation() {
-    return offVariation;
-  }
-
   public List<JsonElement> getVariations() {
     return variations;
   }
@@ -208,14 +239,34 @@ public class FeatureFlag {
     return result;
   }
 
-  public static class Builder<E> {
+  public static class EvalResult {
+    private JsonElement value;
+    private List<FeatureRequestEvent> prerequisiteEvents;
+    private Set<String> visitedFeatureKeys;
+
+    private EvalResult(JsonElement value, List<FeatureRequestEvent> prerequisiteEvents, Set<String> visitedFeatureKeys) {
+      this.value = value;
+      this.prerequisiteEvents = prerequisiteEvents;
+      this.visitedFeatureKeys = visitedFeatureKeys;
+    }
+
+    public JsonElement getValue() {
+      return value;
+    }
+
+    public List<FeatureRequestEvent> getPrerequisiteEvents() {
+      return prerequisiteEvents;
+    }
+  }
+
+  public static class Builder {
     private String name;
     private String key;
     private boolean on;
     private String salt;
     private boolean deleted;
     private int version;
-    private List<E> variations;
+    private List<JsonElement> variations;
 
     public Builder(String name, String key) {
       this.on = true;
@@ -235,7 +286,7 @@ public class FeatureFlag {
       return this;
     }
 
-    public Builder variation(E v) {
+    public Builder variation(JsonElement v) {
       variations.add(v);
       return this;
     }

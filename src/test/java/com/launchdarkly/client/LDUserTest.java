@@ -1,6 +1,7 @@
-package com.launchdarkly.client.flag;
+package com.launchdarkly.client;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.LDCountryCode;
 import com.launchdarkly.client.LDUser;
@@ -69,5 +70,24 @@ public class LDUserTest {
     LDUser deserialized = gson.fromJson(jsonStr, LDUser.class);
 
     assert(deserialized.getCountry().equals(us));
+  }
+
+  @Test
+  public void testLDUserCustom() {
+    Gson gson = new Gson();
+
+    String jsonStr = "{\n" +
+        "          \"key\": \"01.matchesLessThanKey\",\n" +
+        "          \"custom\": {\n" +
+        "            \"lessThanAttribute\": -100.001\n" +
+        "          }\n" +
+        "        }";
+
+    LDUser user = gson.fromJson(jsonStr, LDUser.class);
+    JsonElement custom = user.getCustom("lessThanAttribute");
+
+
+
+    System.out.println(custom.getAsDouble());
   }
 }
