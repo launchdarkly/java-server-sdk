@@ -112,7 +112,6 @@ public class LDUser {
     return avatar;
   }
 
-  JsonPrimitive getAnonymous() { return anonymous; }
   JsonPrimitive getAnonymous() {
     return anonymous;
   }
@@ -293,7 +292,6 @@ public class LDUser {
      * @param k the key for the custom attribute.
      * @param v the value for the custom attribute
      * @return the builder
-     * @see
      */
     public Builder custom(String k, String v) {
       checkCustomAttribute(k);
