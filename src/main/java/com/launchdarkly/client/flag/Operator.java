@@ -16,7 +16,6 @@ public enum Operator {
           return true;
       }
       if (uValue.isNumber() && cValue.isNumber()) {
-        System.out.println("uValue: " + uValue + " cValue: " + cValue);
         return uValue.getAsDouble() == cValue.getAsDouble();
       }
       DateTime uDateTime = jsonPrimitiveToDateTime(uValue);
@@ -53,29 +52,21 @@ public enum Operator {
   },
   lessThan {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      //TODO: deal with rounding.. maybe.
-      System.out.println("uValue: " + uValue + " cValue: " + cValue);
       return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() < cValue.getAsDouble();
     }
   },
   lessThanOrEqual {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      //TODO: deal with rounding.. maybe.
-      System.out.println("uValue: " + uValue + " cValue: " + cValue);
       return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() <= cValue.getAsDouble();
     }
   },
   greaterThan {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      //TODO: deal with rounding.. maybe.
-      System.out.println("uValue: " + uValue + " cValue: " + cValue);
       return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() > cValue.getAsDouble();
     }
   },
   greaterThanOrEqual {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      //TODO: deal with rounding.. maybe.
-      System.out.println("uValue: " + uValue + " cValue: " + cValue);
       return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() >= cValue.getAsDouble();
     }
   },

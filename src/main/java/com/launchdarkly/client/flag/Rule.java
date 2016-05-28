@@ -14,7 +14,7 @@ import static com.launchdarkly.client.flag.Clause.valueOf;
 // either the fixed variation or percent rollout to serve if the conditions
 // match.
 // Invariant: one of the variation or rollout must be non-nil.
-public class Rule<E> {
+public class Rule {
   private final static Logger logger = LoggerFactory.getLogger(Rule.class);
   private static final float long_scale = (float) 0xFFFFFFFFFFFFFFFL;
 

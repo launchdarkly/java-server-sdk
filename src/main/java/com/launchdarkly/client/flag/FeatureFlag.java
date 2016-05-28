@@ -6,14 +6,17 @@ import com.google.gson.reflect.TypeToken;
 import com.launchdarkly.client.FeatureRequestEvent;
 import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.LDUser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
 import java.util.*;
 
 public class FeatureFlag {
+  private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
+
   private static final Gson gson = new Gson();
-  private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {
-  }.getType();
+  private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {}.getType();
 
   private String key;
   private int version;
@@ -32,32 +35,12 @@ public class FeatureFlag {
   }
 
   public static FeatureFlag fromJson(String json) {
-    Type type = new TypeToken<FeatureFlag>() {
-    }.getType();
-    return gson.fromJson(json, type);
+    return gson.fromJson(json, FeatureFlag.class);
   }
 
   public static Map<String, FeatureFlag> fromJsonMap(String json) {
     return gson.fromJson(json, mapType);
   }
-
-  @Override
-  public String toString() {
-    return "FeatureRep{" +
-        "key='" + key + '\'' +
-        ", version=" + version +
-        ", on=" + on +
-        ", prerequisites=" + prerequisites +
-        ", salt='" + salt + '\'' +
-        ", sel='" + sel + '\'' +
-        ", targets=" + targets +
-        ", rules=" + rules +
-        ", fallthrough=" + fallthrough +
-        ", offVariation=" + offVariation +
-        ", variations=" + variations +
-        '}';
-  }
-
 
   FeatureFlag(Builder b) {
     this.key = b.key;
@@ -86,20 +69,21 @@ public class FeatureFlag {
     if (user == null || user.getKey() == null) {
       return null;
     }
-    List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
+    Set<FeatureRequestEvent> prereqEvents = new HashSet<>();
     Set<String> visited = new HashSet<>();
     return evaluate(user, featureStore, prereqEvents, visited);
   }
 
-  private EvalResult evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events, Set<String> visited) {
+  private EvalResult evaluate(LDUser user, FeatureStore featureStore, Set<FeatureRequestEvent> events, Set<String> visited) {
     for (Prerequisite prereq : prerequisites) {
       visited.add(key);
       if (visited.contains(prereq.getKey())) {
-        //cycle!
+        logger.error("Prerequisite cycle detected when evaluating feature flag: " + key);
         return null;
       }
       FeatureFlag prereqFeatureFlag = featureStore.get(prereq.getKey());
       if (prereqFeatureFlag == null) {
+        logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
         return null;
       }
       JsonElement prereqValue;
@@ -116,7 +100,6 @@ public class FeatureFlag {
       }
       events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqValue, null));
       if (prereqValue == null || !prereqValue.equals(prereqFeatureFlag.getVariation(prereq.getVariation()))) {
-        //prereq failed!
         return new EvalResult(null, events, visited);
       }
     }
@@ -239,12 +222,14 @@ public class FeatureFlag {
     return result;
   }
 
+
+
   public static class EvalResult {
     private JsonElement value;
-    private List<FeatureRequestEvent> prerequisiteEvents;
+    private Set<FeatureRequestEvent> prerequisiteEvents;
     private Set<String> visitedFeatureKeys;
 
-    private EvalResult(JsonElement value, List<FeatureRequestEvent> prerequisiteEvents, Set<String> visitedFeatureKeys) {
+    private EvalResult(JsonElement value, Set<FeatureRequestEvent> prerequisiteEvents, Set<String> visitedFeatureKeys) {
       this.value = value;
       this.prerequisiteEvents = prerequisiteEvents;
       this.visitedFeatureKeys = visitedFeatureKeys;
@@ -254,7 +239,7 @@ public class FeatureFlag {
       return value;
     }
 
-    public List<FeatureRequestEvent> getPrerequisiteEvents() {
+    public Set<FeatureRequestEvent> getPrerequisiteEvents() {
       return prerequisiteEvents;
     }
   }
