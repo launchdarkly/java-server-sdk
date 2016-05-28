@@ -33,7 +33,6 @@ public class LDUser {
   private JsonPrimitive firstName;
   private JsonPrimitive lastName;
   private JsonPrimitive anonymous;
-
   private JsonPrimitive country;
   private Map<String, JsonElement> custom;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
@@ -81,39 +80,40 @@ public class LDUser {
     }
   }
 
-  public JsonPrimitive getIp() {
+  JsonPrimitive getIp() {
     return ip;
   }
 
-  public JsonPrimitive getCountry() {
+  JsonPrimitive getCountry() {
     return country;
   }
 
-  public JsonPrimitive getSecondary() {
+  JsonPrimitive getSecondary() {
     return secondary;
   }
 
-  public JsonPrimitive getName() {
+  JsonPrimitive getName() {
     return name;
   }
 
-  public JsonPrimitive getFirstName() {
+  JsonPrimitive getFirstName() {
     return firstName;
   }
 
-  public JsonPrimitive getLastName() {
+  JsonPrimitive getLastName() {
     return lastName;
   }
 
-  public JsonPrimitive getEmail() {
+  JsonPrimitive getEmail() {
     return email;
   }
 
-  public JsonPrimitive getAvatar() {
+  JsonPrimitive getAvatar() {
     return avatar;
   }
 
-  public JsonPrimitive getAnonymous() {
+  JsonPrimitive getAnonymous() { return anonymous; }
+  JsonPrimitive getAnonymous() {
     return anonymous;
   }
 
@@ -286,67 +286,83 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.String}-valued custom attribute
+     * Add a {@link java.lang.String}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute
+     * @param k the key for the custom attribute.
      * @param v the value for the custom attribute
      * @return the builder
+     * @see
      */
     public Builder custom(String k, String v) {
-      if (key != null && v != null) {
+      checkCustomAttribute(k);
+      if (k != null && v != null) {
         custom.put(k, new JsonPrimitive(v));
       }
       return this;
     }
 
     /**
-     * Add a {@link java.lang.Number}-valued custom attribute
+     * Add a {@link java.lang.Number}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute
+     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param n the value for the custom attribute
      * @return the builder
      */
     public Builder custom(String k, Number n) {
-      if (key != null && n != null) {
+      checkCustomAttribute(k);
+      if (k != null && n != null) {
         custom.put(k, new JsonPrimitive(n));
       }
       return this;
     }
 
     /**
-     * Add a {@link java.lang.Boolean}-valued custom attribute
+     * Add a {@link java.lang.Boolean}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute
+     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param b the value for the custom attribute
      * @return the builder
      */
     public Builder custom(String k, Boolean b) {
-      if (key != null && b != null) {
+      checkCustomAttribute(k);
+      if (k != null && b != null) {
         custom.put(k, new JsonPrimitive(b));
       }
       return this;
     }
 
     /**
-     * Add a list of {@link java.lang.String}-valued custom attributes
+     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k  the key for the list
+     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
      * @return the builder
      * @deprecated As of version 0.16.0, renamed to {@link #customString(String, List) customString}
      */
     public Builder custom(String k, List<String> vs) {
+      checkCustomAttribute(k);
       return this.customString(k, vs);
     }
 
     /**
-     * Add a list of {@link java.lang.String}-valued custom attributes
+     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k  the key for the list
+     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
      * @return the builder
      */
     public Builder customString(String k, List<String> vs) {
+      checkCustomAttribute(k);
       JsonArray array = new JsonArray();
       for (String v : vs) {
         if (v != null) {
@@ -358,13 +374,16 @@ public class LDUser {
     }
 
     /**
-     * Add a list of {@link java.lang.Integer}-valued custom attributes
+     * Add a list of {@link java.lang.Integer}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k  the key for the list
+     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
      * @return the builder
      */
     public Builder customNumber(String k, List<Number> vs) {
+      checkCustomAttribute(k);
       JsonArray array = new JsonArray();
       for (Number v : vs) {
         if (v != null) {
@@ -375,10 +394,19 @@ public class LDUser {
       return this;
     }
 
+    private void checkCustomAttribute(String key) {
+      for (UserAttribute a : UserAttribute.values()) {
+        if (a.name().equals(key)) {
+          logger.warn("Built-in attribute key: " + key + " added as custom attribute! This custom attribute will be ignored during Feature Flag evaluation");
+          return;
+        }
+      }
+    }
+
     /**
-     * Build the configured {@link LDUser} object
+     * Build the configured {@link com.launchdarkly.client.LDUser} object
      *
-     * @return the {@link LDUser} configured by this builder
+     * @return the {@link com.launchdarkly.client.LDUser} configured by this builder
      */
     public LDUser build() {
       return new LDUser(this);
