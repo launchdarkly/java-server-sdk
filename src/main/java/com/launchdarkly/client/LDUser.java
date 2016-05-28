@@ -272,11 +272,14 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.String}-valued custom attribute.
+     * Add a {@link java.lang.String}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param k the key for the custom attribute.
      * @param v the value for the custom attribute
      * @return the builder
+     * @see
      */
     public Builder custom(String k, String v) {
       checkCustomAttribute(k);
@@ -287,7 +290,9 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.Number}-valued custom attribute
+     * Add a {@link java.lang.Number}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
      * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param n the value for the custom attribute
@@ -302,7 +307,9 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.Boolean}-valued custom attribute
+     * Add a {@link java.lang.Boolean}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
      * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param b the value for the custom attribute
@@ -317,7 +324,9 @@ public class LDUser {
     }
 
     /**
-     * Add a list of {@link java.lang.String}-valued custom attributes
+     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
      * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
@@ -330,7 +339,9 @@ public class LDUser {
     }
 
     /**
-     * Add a list of {@link java.lang.String}-valued custom attributes
+     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
      * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
@@ -349,7 +360,9 @@ public class LDUser {
     }
 
     /**
-     * Add a list of {@link java.lang.Integer}-valued custom attributes
+     * Add a list of {@link java.lang.Integer}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored.
      *
      * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
      * @param vs the values for the attribute
