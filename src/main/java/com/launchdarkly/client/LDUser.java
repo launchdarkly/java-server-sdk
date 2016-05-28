@@ -66,12 +66,11 @@ public class LDUser {
     this.custom = new HashMap<>();
   }
 
-
-  public JsonPrimitive getKey() {
+  JsonPrimitive getKey() {
     return key;
   }
 
-  public String getKeyAsString() {
+  String getKeyAsString() {
     if (key == null || key.getAsString().equals("")) {
       logger.warn("Found user with null/empty key: " + toString());
       return "";
@@ -116,7 +115,7 @@ public class LDUser {
     return anonymous;
   }
 
-  public JsonElement getCustom(String key) {
+  JsonElement getCustom(String key) {
     if (custom != null) {
       return custom.get(key);
     }

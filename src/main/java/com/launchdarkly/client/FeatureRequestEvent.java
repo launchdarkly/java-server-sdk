@@ -3,7 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
 
-public class FeatureRequestEvent extends Event {
+class FeatureRequestEvent extends Event {
   JsonElement value;
   @SerializedName("default")
   JsonElement defaultVal;
