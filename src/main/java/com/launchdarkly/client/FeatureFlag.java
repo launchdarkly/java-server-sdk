@@ -89,12 +89,12 @@ public class FeatureFlag {
         prereqValue = prereqEvalResult.value;
         visited = prereqEvalResult.visitedFeatureKeys;
         events = prereqEvalResult.prerequisiteEvents;
+        events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqValue, null));
+        if (prereqValue == null || !prereqValue.equals(prereqFeatureFlag.getVariation(prereq.getVariation()))) {
+          return new EvalResult(null, events, visited);
+        }
       } else {
-        prereqValue = prereqFeatureFlag.getOffVariation();
-      }
-      events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqValue, null));
-      if (prereqValue == null || !prereqValue.equals(prereqFeatureFlag.getVariation(prereq.getVariation()))) {
-        return new EvalResult(null, events, visited);
+        return null;
       }
     }
     return new EvalResult(getVariation(evaluateIndex(user)), events, visited);
