@@ -4,7 +4,7 @@ import java.io.Closeable;
 import java.util.Map;
 
 /**
- * A thread-safe, versioned store for {@link com.launchdarkly.client.FeatureRep} objects.
+ * A thread-safe, versioned store for {@link FeatureFlag} objects.
  * Implementations should permit concurrent access and updates.
  *
  * Delete and upsert requests are versioned-- if the version number in the request is less than
@@ -17,16 +17,16 @@ import java.util.Map;
 public interface FeatureStore extends Closeable {
   /**
    *
-   * Returns the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link com.launchdarkly.client.FeatureRep} has
+   * Returns the {@link FeatureFlag} to which the specified key is mapped, or
+   * null if the key is not associated or the associated {@link FeatureFlag} has
    * been deleted.
    *
-   * @param key the key whose associated {@link com.launchdarkly.client.FeatureRep} is to be returned
-   * @return the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link com.launchdarkly.client.FeatureRep} has
+   * @param key the key whose associated {@link FeatureFlag} is to be returned
+   * @return the {@link FeatureFlag} to which the specified key is mapped, or
+   * null if the key is not associated or the associated {@link FeatureFlag} has
    * been deleted.
    */
-  FeatureRep<?> get(String key);
+  FeatureFlag get(String key);
 
   /**
    * Returns a {@link java.util.Map} of all associated features.
@@ -34,7 +34,7 @@ public interface FeatureStore extends Closeable {
    *
    * @return a map of all associated features.
    */
-  Map<String, FeatureRep<?>> all();
+  Map<String, FeatureFlag> all();
 
   /**
    * Initializes (or re-initializes) the store with the specified set of features. Any existing entries
@@ -45,7 +45,7 @@ public interface FeatureStore extends Closeable {
    *
    * @param features the features to set the store
    */
-  void init(Map<String, FeatureRep<?>> features);
+  void init(Map<String, FeatureFlag> features);
 
   /**
    *
@@ -64,7 +64,7 @@ public interface FeatureStore extends Closeable {
    * @param key
    * @param feature
    */
-  void upsert(String key, FeatureRep<?> feature);
+  void upsert(String key, FeatureFlag feature);
 
   /**
    * Returns true if this store has been initialized

@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
 import org.apache.http.annotation.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +36,7 @@ public class LDClient implements Closeable {
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
    * cases, you should use this constructor.
    *
-   * @param apiKey        the API key for your account
+   * @param apiKey the API key for your account
    */
   public LDClient(String apiKey) {
     this(apiKey, LDConfig.DEFAULT);
@@ -45,8 +46,8 @@ public class LDClient implements Closeable {
    * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
    * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
    *
-   * @param apiKey        the API key for your account
-   * @param config        a client configuration object
+   * @param apiKey the API key for your account
+   * @param config a client configuration object
    */
   public LDClient(String apiKey, LDConfig config) {
     this.config = config;
@@ -114,8 +115,8 @@ public class LDClient implements Closeable {
    * Tracks that a user performed an event.
    *
    * @param eventName the name of the event
-   * @param user the user that performed the event
-   * @param data a JSON object containing additional data associated with the event
+   * @param user      the user that performed the event
+   * @param data      a JSON object containing additional data associated with the event
    */
   public void track(String eventName, LDUser user, JsonElement data) {
     if (isOffline()) {
@@ -131,7 +132,7 @@ public class LDClient implements Closeable {
    * Tracks that a user performed an event.
    *
    * @param eventName the name of the event
-   * @param user the user that performed the event
+   * @param user      the user that performed the event
    */
   public void track(String eventName, LDUser user) {
     if (isOffline()) {
@@ -142,6 +143,7 @@ public class LDClient implements Closeable {
 
   /**
    * Register the user
+   *
    * @param user the user to register
    */
   public void identify(LDUser user) {
@@ -154,11 +156,11 @@ public class LDClient implements Closeable {
     }
   }
 
-  private void sendFlagRequestEvent(String featureKey, LDUser user, boolean value, boolean defaultValue) {
+  private void sendFlagRequestEvent(String featureKey, LDUser user, JsonElement value, JsonElement defaultValue) {
     if (isOffline()) {
       return;
     }
-    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent<>(featureKey, user, value, defaultValue));
+    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
@@ -166,10 +168,10 @@ public class LDClient implements Closeable {
   }
 
   /**
-   * Calculates the value of a feature flag for a given user.
+   * Calculates the boolean value of a feature flag for a given user.
    *
-   * @param featureKey the unique featureKey for the feature flag
-   * @param user the end user requesting the flag
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    * @deprecated As of version 0.7.0, renamed to {@link #toggle(String, LDUser, boolean)}
@@ -179,14 +181,15 @@ public class LDClient implements Closeable {
   }
 
   /**
-   * Returns a map from feature flag keys to boolean feature flag values for a given user. The map will contain {@code null}
-   * entries for any flags that are off. If the client is offline or has not been initialized, a {@code null} map will be returned.
+   * Returns a map from feature flag keys to Boolean feature flag values for a given user. The map will contain {@code null}
+   * entries for any flags that are off or for any feature flags with non-boolean variations. If the client is offline or
+   * has not been initialized, a {@code null} map will be returned.
    * This method will not send analytics events back to LaunchDarkly.
-   *
+   * <p>
    * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
    *
    * @param user the end user requesting the feature flags
-   * @return a map from feature flag keys to boolean feature flag values for the specified user
+   * @return a map from feature flag keys to JsonElement values for the specified user
    */
   public Map<String, Boolean> allFlags(LDUser user) {
     if (isOffline()) {
@@ -197,65 +200,143 @@ public class LDClient implements Closeable {
       return null;
     }
 
-    Map<String, FeatureRep<?>> flags = this.config.featureStore.all();
+    Map<String, FeatureFlag> flags = this.config.featureStore.all();
     Map<String, Boolean> result = new HashMap<>();
 
-    for (String key: flags.keySet()) {
-      result.put(key, evaluate(key, user, null));
-    }
+    for (String key : flags.keySet()) {
+      JsonElement evalResult = evaluate(key, user, null);
+      if (evalResult.isJsonPrimitive() && evalResult.getAsJsonPrimitive().isBoolean()) {
+        result.put(key, evalResult.getAsBoolean());
 
+      }
+    }
     return result;
   }
 
   /**
    * Calculates the value of a feature flag for a given user.
    *
-   * @param featureKey the unique featureKey for the feature flag
-   * @param user the end user requesting the flag
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
   public boolean toggle(String featureKey, LDUser user, boolean defaultValue) {
+    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
+    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean()) {
+      return value.getAsJsonPrimitive().getAsBoolean();
+    }
+    return false;
+  }
+
+  /**
+   * Calculates the integer value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   */
+  public Integer intVariation(String featureKey, LDUser user, int defaultValue) {
+    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
+    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+      return value.getAsJsonPrimitive().getAsInt();
+    }
+    return null;
+  }
+
+  /**
+   * Calculates the floating point numeric value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   */
+  public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
+    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
+    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
+      return value.getAsJsonPrimitive().getAsDouble();
+    }
+    return null;
+  }
+
+  /**
+   * Calculates the String value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   */
+  public String stringVariation(String featureKey, LDUser user, String defaultValue) {
+    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
+    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+      return value.getAsJsonPrimitive().getAsString();
+    }
+    return null;
+  }
+
+  /**
+   * Calculates the {@link JsonElement} value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique featureKey for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   */
+  public JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue) {
     if (isOffline()) {
       return defaultValue;
     }
-    boolean value = evaluate(featureKey, user, defaultValue);
+    JsonElement value = evaluate(featureKey, user, defaultValue);
     sendFlagRequestEvent(featureKey, user, value, defaultValue);
     return value;
   }
 
-  private Boolean evaluate(String featureKey, LDUser user, Boolean defaultValue) {
+
+  private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue) {
     if (!initialized()) {
       return defaultValue;
     }
-
     try {
-      FeatureRep<Boolean> result = (FeatureRep<Boolean>) config.featureStore.get(featureKey);
-      if (result != null) {
+      FeatureFlag featureFlag = config.featureStore.get(featureKey);
+      if (featureFlag != null) {
         if (config.stream && config.debugStreaming) {
-          FeatureRep<Boolean> pollingResult = requestor.makeRequest(featureKey, true);
-          if (!result.equals(pollingResult)) {
-            logger.warn("Mismatch between streaming and polling feature! Streaming: {} Polling: {}", result, pollingResult);
+          FeatureFlag pollingResult = requestor.makeRequest(featureKey, true);
+          if (!featureFlag.equals(pollingResult)) {
+            logger.warn("Mismatch between streaming and polling feature! Streaming: {} Polling: {}", featureFlag, pollingResult);
           }
         }
       } else {
         logger.warn("Unknown feature flag " + featureKey + "; returning default value: ");
         return defaultValue;
       }
-
-      Boolean val = result.evaluate(user);
-      if (val == null) {
-        return defaultValue;
+      if (featureFlag.isOn()) {
+        FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore);
+        if (evalResult != null) {
+          if (!isOffline()) {
+            for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
+              eventProcessor.sendEvent(event);
+            }
+          }
+          if (evalResult.getValue() == null) {
+            return defaultValue;
+          } else {
+            return evalResult.getValue();
+          }
+        }
       } else {
-        return val;
+        JsonElement offVariation = featureFlag.getOffVariationValue();
+        if (offVariation != null) {
+          return offVariation;
+        }
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
-      return defaultValue;
     }
+    return defaultValue;
   }
-
-
 
   /**
    * Closes the LaunchDarkly client event processing thread and flushes all pending events. This should only

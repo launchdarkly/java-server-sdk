@@ -1,7 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.cache.CacheResponseStatus;
 import org.apache.http.client.cache.HttpCacheContext;
@@ -17,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.Map;
 
 class FeatureRequestor {
@@ -58,11 +55,10 @@ class FeatureRequestor {
     return client;
   }
 
-  Map<String, FeatureRep<?>> makeAllRequest(boolean latest) throws IOException {
-    Gson gson = new Gson();
+  Map<String, FeatureFlag> makeAllRequest(boolean latest) throws IOException {
     HttpCacheContext context = HttpCacheContext.create();
 
-    String resource = latest ? "/api/eval/latest-features" : "/api/eval/features";
+    String resource = latest ? "/sdk/latest-flags" : "/sdk/flags";
 
     HttpGet request = config.getRequest(apiKey, resource);
 
@@ -75,13 +71,10 @@ class FeatureRequestor {
 
       handleResponseStatus(response.getStatusLine().getStatusCode(), null);
 
-      Type type = new TypeToken<Map<String, FeatureRep<?>>>() {}.getType();
-
       String json = EntityUtils.toString(response.getEntity());
       logger.debug("Got response: " + response.toString());
       logger.debug("Got Response body: " + json);
-      Map<String, FeatureRep<?>> result = gson.fromJson(json, type);
-      return result;
+      return FeatureFlag.fromJsonMap(json);
     }
     finally {
       try {
@@ -126,13 +119,12 @@ class FeatureRequestor {
       } else {
         logger.error("Unexpected status code: " + status);
       }
-      throw new IOException("Failed to fetch flag");
+      throw new IOException("Failed to fetch flags");
     }
 
   }
 
-  <T> FeatureRep<T> makeRequest(String featureKey, boolean latest) throws IOException {
-    Gson gson = new Gson();
+  FeatureFlag makeRequest(String featureKey, boolean latest) throws IOException {
     HttpCacheContext context = HttpCacheContext.create();
 
     String resource = latest ? "/api/eval/latest-features/" : "/api/eval/features/";
@@ -147,10 +139,7 @@ class FeatureRequestor {
 
       handleResponseStatus(response.getStatusLine().getStatusCode(), featureKey);
 
-      Type type = new TypeToken<FeatureRep<T>>() {}.getType();
-
-      FeatureRep<T> result = gson.fromJson(EntityUtils.toString(response.getEntity()), type);
-      return result;
+      return FeatureFlag.fromJson(EntityUtils.toString(response.getEntity()));
     }
     finally {
       try {

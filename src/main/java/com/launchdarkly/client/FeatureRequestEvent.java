@@ -1,13 +1,14 @@
 package com.launchdarkly.client;
 
+import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
 
-class FeatureRequestEvent<E> extends Event {
-  E value;
+class FeatureRequestEvent extends Event {
+  JsonElement value;
   @SerializedName("default")
-  E defaultVal;
+  JsonElement defaultVal;
 
-  FeatureRequestEvent(String key, LDUser user, E value, E defaultVal) {
+  FeatureRequestEvent(String key, LDUser user, JsonElement value, JsonElement defaultVal) {
     super("feature", key, user);
     this.value = value;
     this.defaultVal = defaultVal;

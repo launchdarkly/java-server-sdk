@@ -1,20 +1,15 @@
 package com.launchdarkly.client;
 
 import org.easymock.EasyMockSupport;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.sql.Time;
 import java.util.HashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.verify;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -26,7 +21,7 @@ public class PollingProcessorTest extends EasyMockSupport {
     PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor);
 
     expect(requestor.makeAllRequest(true))
-        .andReturn(new HashMap<String, FeatureRep<?>>())
+        .andReturn(new HashMap<String, FeatureFlag>())
         .once();
     replayAll();
 
@@ -51,7 +46,7 @@ public class PollingProcessorTest extends EasyMockSupport {
     try {
       initFuture.get(100L, TimeUnit.MILLISECONDS);
       fail("Expected Timeout, instead initFuture.get() returned.");
-    } catch (TimeoutException expected) {
+    } catch (TimeoutException ignored) {
     }
     assertFalse(initFuture.isDone());
     assertFalse(pollingProcessor.initialized());
