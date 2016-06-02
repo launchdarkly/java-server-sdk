@@ -34,8 +34,7 @@ class Clause {
         }
       }
       return maybeNegate(false);
-    }
-    if (userValue.isJsonPrimitive()) {
+    } else if (userValue.isJsonPrimitive()) {
       return maybeNegate(matchAny(userValue.getAsJsonPrimitive()));
     }
     logger.warn("Got unexpected user attribute type: " + userValue.getClass().getName() + " for user key: "

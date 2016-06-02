@@ -8,7 +8,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * A thread-safe, versioned store for {@link FeatureFlag} objects based on a
  * {@link HashMap}
- *
  */
 public class InMemoryFeatureStore implements FeatureStore {
 
@@ -18,7 +17,6 @@ public class InMemoryFeatureStore implements FeatureStore {
 
 
   /**
-   *
    * Returns the {@link FeatureFlag} to which the specified key is mapped, or
    * null if the key is not associated or the associated {@link FeatureFlag} has
    * been deleted.
@@ -32,7 +30,7 @@ public class InMemoryFeatureStore implements FeatureStore {
   public FeatureFlag get(String key) {
     try {
       lock.readLock().lock();
-      FeatureFlag featureFlag =  features.get(key);
+      FeatureFlag featureFlag = features.get(key);
       if (featureFlag == null || featureFlag.isDeleted()) {
         return null;
       }
@@ -44,7 +42,6 @@ public class InMemoryFeatureStore implements FeatureStore {
 
   /**
    * Returns a {@link java.util.Map} of all associated features.
-   *
    *
    * @return a map of all associated features.
    */
@@ -85,11 +82,10 @@ public class InMemoryFeatureStore implements FeatureStore {
   }
 
   /**
-   *
    * Deletes the feature associated with the specified key, if it exists and its version
    * is less than or equal to the specified version.
    *
-   * @param key the key of the feature to be deleted
+   * @param key     the key of the feature to be deleted
    * @param version the version for the delete operation
    */
   @Override
@@ -98,11 +94,11 @@ public class InMemoryFeatureStore implements FeatureStore {
       lock.writeLock().lock();
       FeatureFlag f = features.get(key);
       if (f != null && f.getVersion() < version) {
-        f.setDeleted();
-        f.setVersion(version);
-        features.put(key, f);
-      }
-      else if (f == null) {
+        FeatureFlagBuilder newBuilder = new FeatureFlagBuilder(f);
+        newBuilder.on(false);
+        newBuilder.version(version);
+        features.put(key, newBuilder.build());
+      } else if (f == null) {
         f = new FeatureFlagBuilder(key)
             .deleted(true)
             .version(version)
@@ -130,8 +126,7 @@ public class InMemoryFeatureStore implements FeatureStore {
       if (old == null || old.getVersion() < feature.getVersion()) {
         features.put(key, feature);
       }
-    }
-    finally {
+    } finally {
       lock.writeLock().unlock();
     }
   }
@@ -148,11 +143,11 @@ public class InMemoryFeatureStore implements FeatureStore {
 
   /**
    * Does nothing; this class does not have any resources to release
+   *
    * @throws IOException
    */
   @Override
-  public void close() throws IOException
-  {
+  public void close() throws IOException {
     return;
   }
 }

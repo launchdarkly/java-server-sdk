@@ -1,14 +1,14 @@
 package com.launchdarkly.client;
 
-public class Prerequisite {
+class Prerequisite {
   private String key;
   private int variation;
 
-  public String getKey() {
+  String getKey() {
     return key;
   }
 
-  public int getVariation() {
+  int getVariation() {
     return variation;
   }
 }

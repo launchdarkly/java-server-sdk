@@ -4,13 +4,12 @@ import com.google.gson.JsonElement;
 
 import java.util.List;
 
-public class FeatureFlagBuilder {
+class FeatureFlagBuilder {
   private String key;
   private int version;
   private boolean on;
   private List<Prerequisite> prerequisites;
   private String salt;
-  private String sel;
   private List<Target> targets;
   private List<Rule> rules;
   private Rule fallthrough;
@@ -18,66 +17,78 @@ public class FeatureFlagBuilder {
   private List<JsonElement> variations;
   private boolean deleted;
 
-  public FeatureFlagBuilder(String key) {
+  FeatureFlagBuilder(String key) {
     this.key = key;
   }
 
-  public FeatureFlagBuilder version(int version) {
+  FeatureFlagBuilder(FeatureFlag f) {
+    if (f != null) {
+      this.key = f.getKey();
+      this.version = f.getVersion();
+      this.on = f.isOn();
+      this.prerequisites = f.getPrerequisites();
+      this.salt = f.getSalt();
+      this.targets = f.getTargets();
+      this.rules = f.getRules();
+      this.fallthrough = f.getFallthrough();
+      this.offVariation = f.getOffVariation();
+      this.variations = f.getVariations();
+      this.deleted = f.isDeleted();
+    }
+  }
+
+
+  FeatureFlagBuilder version(int version) {
     this.version = version;
     return this;
   }
 
-  public FeatureFlagBuilder on(boolean on) {
+  FeatureFlagBuilder on(boolean on) {
     this.on = on;
     return this;
   }
 
-  public FeatureFlagBuilder prerequisites(List<Prerequisite> prerequisites) {
+  FeatureFlagBuilder prerequisites(List<Prerequisite> prerequisites) {
     this.prerequisites = prerequisites;
     return this;
   }
 
-  public FeatureFlagBuilder salt(String salt) {
+  FeatureFlagBuilder salt(String salt) {
     this.salt = salt;
     return this;
   }
 
-  public FeatureFlagBuilder sel(String sel) {
-    this.sel = sel;
-    return this;
-  }
-
-  public FeatureFlagBuilder targets(List<Target> targets) {
+  FeatureFlagBuilder targets(List<Target> targets) {
     this.targets = targets;
     return this;
   }
 
-  public FeatureFlagBuilder rules(List<Rule> rules) {
+  FeatureFlagBuilder rules(List<Rule> rules) {
     this.rules = rules;
     return this;
   }
 
-  public FeatureFlagBuilder fallthrough(Rule fallthrough) {
+  FeatureFlagBuilder fallthrough(Rule fallthrough) {
     this.fallthrough = fallthrough;
     return this;
   }
 
-  public FeatureFlagBuilder offVariation(Integer offVariation) {
+  FeatureFlagBuilder offVariation(Integer offVariation) {
     this.offVariation = offVariation;
     return this;
   }
 
-  public FeatureFlagBuilder variations(List<JsonElement> variations) {
+  FeatureFlagBuilder variations(List<JsonElement> variations) {
     this.variations = variations;
     return this;
   }
 
-  public FeatureFlagBuilder deleted(boolean deleted) {
+  FeatureFlagBuilder deleted(boolean deleted) {
     this.deleted = deleted;
     return this;
   }
 
-  public FeatureFlag build() {
-    return new FeatureFlag(key, version, on, prerequisites, salt, sel, targets, rules, fallthrough, offVariation, variations, deleted);
+  FeatureFlag build() {
+    return new FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations, deleted);
   }
 }

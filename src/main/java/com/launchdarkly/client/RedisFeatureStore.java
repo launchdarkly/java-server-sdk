@@ -280,10 +280,10 @@ public class RedisFeatureStore implements FeatureStore {
         return;
       }
 
-      feature.setDeleted();
-      feature.setVersion(version);
-
-      jedis.hset(featuresKey(), key, gson.toJson(feature));
+      FeatureFlagBuilder newBuilder = new FeatureFlagBuilder(feature);
+      newBuilder.on(false);
+      newBuilder.version(version);
+      jedis.hset(featuresKey(), key, gson.toJson(newBuilder.build()));
 
       if (cache != null) {
         cache.invalidate(key);

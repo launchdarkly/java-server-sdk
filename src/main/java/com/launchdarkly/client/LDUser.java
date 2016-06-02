@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * launch a feature to the top 10% of users on a site.
  */
 public class LDUser {
-  private JsonPrimitive key;
+  private final JsonPrimitive key;
   private JsonPrimitive secondary;
   private JsonPrimitive ip;
   private JsonPrimitive email;
@@ -37,12 +37,10 @@ public class LDUser {
   private Map<String, JsonElement> custom;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
-
-  LDUser() {
-
-  }
-
   protected LDUser(Builder builder) {
+    if (builder.key == null || builder.key.equals("")) {
+      logger.warn("User was created with null/empty key");
+    }
     this.key = builder.key == null ? null : new JsonPrimitive(builder.key);
     this.ip = builder.ip == null ? null : new JsonPrimitive(builder.ip);
     this.country = builder.country == null ? null : new JsonPrimitive(builder.country.getAlpha2());
@@ -71,8 +69,7 @@ public class LDUser {
   }
 
   String getKeyAsString() {
-    if (key == null || key.getAsString().equals("")) {
-      logger.warn("Found user with null/empty key: " + toString());
+    if (key == null) {
       return "";
     } else {
       return key.getAsString();
@@ -116,10 +113,7 @@ public class LDUser {
   }
 
   JsonElement getCustom(String key) {
-    if (custom != null) {
       return custom.get(key);
-    }
-    return null;
   }
 
   /**
