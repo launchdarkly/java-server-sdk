@@ -113,9 +113,11 @@ public class LDUser {
   }
 
   JsonElement getCustom(String key) {
+    if (custom != null) {
       return custom.get(key);
+    }
+    return null;
   }
-
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link LDUser} objects. Builder
    * calls can be chained, enabling the following pattern:
