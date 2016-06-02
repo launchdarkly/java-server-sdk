@@ -23,7 +23,7 @@ class FeatureFlag {
   private final String salt;
   private final List<Target> targets;
   private final List<Rule> rules;
-  private final Rule fallthrough;
+  private final VariationOrRollout fallthrough;
   private final Integer offVariation; //optional
   private final List<JsonElement> variations;
   private final boolean deleted;
@@ -36,7 +36,7 @@ class FeatureFlag {
     return gson.fromJson(json, mapType);
   }
 
-  FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets, List<Rule> rules, Rule fallthrough, Integer offVariation, List<JsonElement> variations, boolean deleted) {
+  FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets, List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations, boolean deleted) {
     this.key = key;
     this.version = version;
     this.on = on;
@@ -163,7 +163,7 @@ class FeatureFlag {
     return rules;
   }
 
-  Rule getFallthrough() {
+  VariationOrRollout getFallthrough() {
     return fallthrough;
   }
 

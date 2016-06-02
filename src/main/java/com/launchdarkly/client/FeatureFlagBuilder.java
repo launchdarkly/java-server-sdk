@@ -12,7 +12,7 @@ class FeatureFlagBuilder {
   private String salt;
   private List<Target> targets;
   private List<Rule> rules;
-  private Rule fallthrough;
+  private VariationOrRollout fallthrough;
   private Integer offVariation;
   private List<JsonElement> variations;
   private boolean deleted;
@@ -68,7 +68,7 @@ class FeatureFlagBuilder {
     return this;
   }
 
-  FeatureFlagBuilder fallthrough(Rule fallthrough) {
+  FeatureFlagBuilder fallthrough(VariationOrRollout fallthrough) {
     this.fallthrough = fallthrough;
     return this;
   }
