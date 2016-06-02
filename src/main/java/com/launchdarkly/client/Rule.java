@@ -15,9 +15,9 @@ import static com.launchdarkly.client.Clause.valueOf;
 class Rule {
   private static final float long_scale = (float) 0xFFFFFFFFFFFFFFFL;
 
-  private List<Clause> clauses;
-  private Integer variation;
-  private Rollout rollout;
+  private final List<Clause> clauses;
+  private final Integer variation;
+  private final Rollout rollout;
 
   Rule(List<Clause> clauses, Integer variation, Rollout rollout) {
     this.clauses = clauses;
@@ -42,7 +42,7 @@ class Rule {
       Float bucket = bucketUser(user, key, bucketBy, salt);
       Float sum = 0F;
       for (WeightedVariation wv : rollout.variations) {
-        sum += (float)wv.weight / 100000F;
+        sum += (float) wv.weight / 100000F;
         if (bucket < sum) {
           return wv.variation;
         }
@@ -51,7 +51,7 @@ class Rule {
     return null;
   }
 
-  Float bucketUser(LDUser user, String key, String attr, String salt) {
+  private Float bucketUser(LDUser user, String key, String attr, String salt) {
     JsonElement userValue = valueOf(user, attr);
     String idHash;
     if (userValue != null) {
@@ -69,20 +69,20 @@ class Rule {
   }
 
   static class Rollout {
-    private List<WeightedVariation> variations;
-    private String bucketBy;
+    private final List<WeightedVariation> variations;
+    private final String bucketBy;
 
-    public Rollout(List<WeightedVariation> variations, String bucketBy) {
+    Rollout(List<WeightedVariation> variations, String bucketBy) {
       this.variations = variations;
       this.bucketBy = bucketBy;
     }
   }
 
   static class WeightedVariation {
-    private int variation;
-    private int weight;
+    private final int variation;
+    private final int weight;
 
-    public WeightedVariation(int variation, int weight) {
+    WeightedVariation(int variation, int weight) {
       this.variation = variation;
       this.weight = weight;
     }
