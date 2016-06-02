@@ -98,10 +98,18 @@ shadowJar {
     classifier = ''
 
     // Shade all jars except for launchdarkly
-    relocate('com.google', 'com.launchdarkly.shaded.com.google')
+    relocate('com', 'com.launchdarkly.shaded.com') {
+        exclude("com.launchdarkly.client.*")
+        exclude("com.launchdarkly.eventsource.*")
+    }
     relocate('okhttp3', 'com.launchdarkly.shaded.okhttp3')
     relocate('okio', 'com.launchdarkly.shaded.okio')
-    relocate('org', 'com.launchdarkly.shaded.org')
+    relocate('org', 'com.launchdarkly.shaded.org') {
+        exclude("org.slf4j.*")
+        exclude("org.slf4j.event.*")
+        exclude("org.slf4j.helpers.*")
+        exclude("org.slf4j.spi.*")
+    }
     relocate('redis', 'com.launchdarkly.shaded.redis')
 
     manifest {
