@@ -2,19 +2,20 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
 
+import java.util.ArrayList;
 import java.util.List;
 
 class FeatureFlagBuilder {
   private String key;
   private int version;
   private boolean on;
-  private List<Prerequisite> prerequisites;
+  private List<Prerequisite> prerequisites = new ArrayList<>();
   private String salt;
-  private List<Target> targets;
-  private List<Rule> rules;
+  private List<Target> targets = new ArrayList<>();
+  private List<Rule> rules = new ArrayList<>();
   private VariationOrRollout fallthrough;
   private Integer offVariation;
-  private List<JsonElement> variations;
+  private List<JsonElement> variations = new ArrayList<>();
   private boolean deleted;
 
   FeatureFlagBuilder(String key) {

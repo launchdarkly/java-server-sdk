@@ -40,8 +40,8 @@ public class FeatureFlagTest {
     featureStore.upsert(f1.getKey(), f1);
     featureStore.upsert(f2.getKey(), f2);
     LDUser user = new LDUser.Builder("userKey").build();
-    Assert.assertNull(f1.evaluate(user, featureStore));
-    Assert.assertNull(f2.evaluate(user, featureStore));
+    Assert.assertNull(f1.evaluate(user, featureStore).getValue());
+    Assert.assertNull(f2.evaluate(user, featureStore).getValue());
   }
 
   @Test
@@ -57,9 +57,9 @@ public class FeatureFlagTest {
     featureStore.upsert(f2.getKey(), f2);
     featureStore.upsert(f3.getKey(), f3);
     LDUser user = new LDUser.Builder("userKey").build();
-    Assert.assertNull(f1.evaluate(user, featureStore));
-    Assert.assertNull(f2.evaluate(user, featureStore));
-    Assert.assertNull(f3.evaluate(user, featureStore));
+    Assert.assertNull(f1.evaluate(user, featureStore).getValue());
+    Assert.assertNull(f2.evaluate(user, featureStore).getValue());
+    Assert.assertNull(f3.evaluate(user, featureStore).getValue());
   }
 
   @Test
@@ -73,10 +73,51 @@ public class FeatureFlagTest {
     Assert.assertNull(f1.evaluate(user, featureStore));
   }
 
+  @Test
+  public void testPrereqCollectsEventsForPrereqs() {
+    String keyA = "keyA";
+    String keyB = "keyB";
+    String keyC = "keyC";
+    FeatureFlag flagA = newFlagWithPrereq(keyA, keyB);
+    FeatureFlag flagB = newFlagWithPrereq(keyB, keyC);
+    FeatureFlag flagC = newFlagOff(keyC);
+
+    featureStore.upsert(flagA.getKey(), flagA);
+    featureStore.upsert(flagB.getKey(), flagB);
+    featureStore.upsert(flagC.getKey(), flagC);
+
+    LDUser user = new LDUser.Builder("userKey").build();
+
+    FeatureFlag.EvalResult flagAResult = flagA.evaluate(user, featureStore);
+    Assert.assertNotNull(flagAResult);
+    Assert.assertNull(flagAResult.getValue());
+    Assert.assertEquals(2, flagAResult.getPrerequisiteEvents().size());
+
+    FeatureFlag.EvalResult flagBResult = flagB.evaluate(user, featureStore);
+    Assert.assertNotNull(flagBResult);
+    Assert.assertNull(flagBResult.getValue());
+    Assert.assertEquals(1, flagBResult.getPrerequisiteEvents().size());
+
+    FeatureFlag.EvalResult flagCResult = flagC.evaluate(user, featureStore);
+    Assert.assertNotNull(flagCResult);
+    Assert.assertEquals(new JsonPrimitive(0), flagCResult.getValue());
+    Assert.assertEquals(0, flagCResult.getPrerequisiteEvents().size());
+  }
+
   private FeatureFlag newFlagWithPrereq(String featureKey, String prereqKey) {
     return new FeatureFlagBuilder(featureKey)
         .prerequisites(singletonList(new Prerequisite(prereqKey, 0)))
         .variations(Arrays.<JsonElement>asList(new JsonPrimitive(0), new JsonPrimitive(1)))
+        .fallthrough(new VariationOrRollout(0, null))
+        .on(true)
+        .build();
+  }
+
+  private FeatureFlag newFlagOff(String featureKey) {
+    return new FeatureFlagBuilder(featureKey)
+        .variations(Arrays.<JsonElement>asList(new JsonPrimitive(0), new JsonPrimitive(1)))
+        .fallthrough(new VariationOrRollout(0, null))
+        .on(false)
         .build();
   }
 }
