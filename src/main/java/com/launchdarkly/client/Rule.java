@@ -50,7 +50,7 @@ class Rule {
   }
 
   private Float bucketUser(LDUser user, String key, String attr, String salt) {
-    JsonElement userValue = user.getValueOf(attr);
+    JsonElement userValue = user.getValueForEvaluation(attr);
     String idHash;
     if (userValue != null) {
       if (userValue.isJsonPrimitive() && userValue.getAsJsonPrimitive().isString()) {

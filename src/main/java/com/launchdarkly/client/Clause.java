@@ -17,7 +17,7 @@ class Clause {
   private boolean negate;
 
   boolean matchesUser(LDUser user) {
-    JsonElement userValue = user.getValueOf(attribute);
+    JsonElement userValue = user.getValueForEvaluation(attribute);
     if (userValue == null) {
       return false;
     }

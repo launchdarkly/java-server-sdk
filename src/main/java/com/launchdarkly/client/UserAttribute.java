@@ -10,7 +10,7 @@ enum UserAttribute {
   },
   secondary {
     JsonElement get(LDUser user) {
-      return user.getSecondary();
+      return null; //Not used for evaluation.
     }
   },
   ip {
@@ -21,11 +21,6 @@ enum UserAttribute {
   email {
     JsonElement get(LDUser user) {
       return user.getEmail();
-    }
-  },
-  name {
-    JsonElement get(LDUser user) {
-      return user.getName();
     }
   },
   avatar {
@@ -43,16 +38,27 @@ enum UserAttribute {
       return user.getLastName();
     }
   },
-  anonymous {
+  name {
     JsonElement get(LDUser user) {
-      return user.getAnonymous();
+      return user.getName();
     }
   },
   country {
     JsonElement get(LDUser user) {
       return user.getCountry();
     }
+  },
+  anonymous {
+    JsonElement get(LDUser user) {
+      return user.getAnonymous();
+    }
   };
 
+  /**
+   * Gets value for Rule evaluation for a user.
+   *
+   * @param user
+   * @return
+   */
   abstract JsonElement get(LDUser user);
 }

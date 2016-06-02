@@ -14,6 +14,10 @@ enum Operator {
   in {
     @Override
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+      if (uValue.equals(cValue)) {
+          return true;
+      }
+
       if (uValue.isString() && cValue.isString()) {
         if (uValue.getAsString().equals(cValue.getAsString()))
           return true;
