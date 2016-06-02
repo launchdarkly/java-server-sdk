@@ -5,8 +5,6 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 import java.util.List;
 
-import static com.launchdarkly.client.Clause.valueOf;
-
 /**
  * Expresses a set of AND-ed matching conditions for a user, along with either the fixed variation or percent rollout
  * to serve if the conditions match.
@@ -52,7 +50,7 @@ class Rule {
   }
 
   private Float bucketUser(LDUser user, String key, String attr, String salt) {
-    JsonElement userValue = valueOf(user, attr);
+    JsonElement userValue = user.getValueOf(attr);
     String idHash;
     if (userValue != null) {
       if (userValue.isJsonPrimitive() && userValue.getAsJsonPrimitive().isString()) {
