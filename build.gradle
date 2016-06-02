@@ -40,14 +40,17 @@ dependencies {
 }
 
 jar {
-  baseName = 'launchdarkly-client'
-  manifest {
-    attributes("Implementation-Version": version)
-  }
+    baseName = 'launchdarkly-client'
+    // thin classifier means that the non-shaded non-fat jar is still available
+    // but is opt-in since users will have to specify it.
+    classifier = 'thin'
+    manifest {
+        attributes("Implementation-Version": version)
+    }
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.0'
+    gradleVersion = '2.14-rc-3'
 }
 
 buildscript {
@@ -90,7 +93,20 @@ githubPages {
 }
 
 shadowJar {
-    classifier = 'all'
+    baseName = 'launchdarkly-client'
+    //no classifier means that the fat + shaded jar becomes the default artifact
+    classifier = ''
+
+    // Shade all jars except for launchdarkly
+    relocate('com.google', 'com.launchdarkly.shaded.com.google')
+    relocate('okhttp3', 'com.launchdarkly.shaded.okhttp3')
+    relocate('okio', 'com.launchdarkly.shaded.okio')
+    relocate('org', 'com.launchdarkly.shaded.org')
+    relocate('redis', 'com.launchdarkly.shaded.redis')
+
+    manifest {
+        attributes("Implementation-Version": version)
+    }
 }
 
 test {
