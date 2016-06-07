@@ -101,6 +101,14 @@ shadowJar {
     relocate('com', 'com.launchdarkly.shaded.com') {
         exclude("com.launchdarkly.client.*")
         exclude("com.launchdarkly.eventsource.*")
+        exclude("com.google.gson.*")
+        exclude("com.google.gson.annotations.*")
+        exclude("com.google.gson.internal.*")
+        exclude("com.google.gson.internal.bind.*")
+        exclude("com.google.gson.internal.bind.util.*")
+        exclude("com.google.gson.internal.bind.util.*")
+        exclude("com.google.gson.reflect.*")
+        exclude("com.google.gson.stream.*")
     }
     relocate('okhttp3', 'com.launchdarkly.shaded.okhttp3')
     relocate('okio', 'com.launchdarkly.shaded.okio')
