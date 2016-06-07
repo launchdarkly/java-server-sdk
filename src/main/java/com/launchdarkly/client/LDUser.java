@@ -64,6 +64,14 @@ public class LDUser {
     this.custom = new HashMap<>();
   }
 
+  protected JsonElement getValueForEvaluation(String attribute) {
+    try {
+      return UserAttribute.valueOf(attribute).get(this);
+    } catch (IllegalArgumentException expected) {
+      return getCustom(attribute);
+    }
+  }
+
   JsonPrimitive getKey() {
     return key;
   }

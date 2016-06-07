@@ -17,7 +17,7 @@ class Clause {
   private boolean negate;
 
   boolean matchesUser(LDUser user) {
-    JsonElement userValue = valueOf(user, attribute);
+    JsonElement userValue = user.getValueForEvaluation(attribute);
     if (userValue == null) {
       return false;
     }
@@ -58,27 +58,5 @@ class Clause {
       return b;
   }
 
-  static JsonElement valueOf(LDUser user, String attribute) {
-    switch (attribute) {
-      case "key":
-        return user.getKey();
-      case "ip":
-        return user.getIp();
-      case "country":
-        return user.getCountry();
-      case "email":
-        return user.getEmail();
-      case "firstName":
-        return user.getFirstName();
-      case "lastName":
-        return user.getLastName();
-      case "avatar":
-        return user.getAvatar();
-      case "name":
-        return user.getName();
-      case "anonymous":
-        return user.getAnonymous();
-    }
-    return user.getCustom(attribute);
-  }
+
 }
