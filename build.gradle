@@ -100,7 +100,6 @@ shadowJar {
     // Shade all jars except for launchdarkly
     relocate('com', 'com.launchdarkly.shaded.com') {
         exclude("com.launchdarkly.client.*")
-        exclude("com.launchdarkly.eventsource.*")
         exclude("com.google.gson.*")
         exclude("com.google.gson.annotations.*")
         exclude("com.google.gson.internal.*")
