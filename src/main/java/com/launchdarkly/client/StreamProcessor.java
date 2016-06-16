@@ -102,7 +102,7 @@ class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    es = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/features"))
+    es = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
         .headers(headers)
         .build();
 
