@@ -73,10 +73,9 @@ class FeatureFlag {
   // Returning either a nil EvalResult or EvalResult.value indicates prereq failure/error.
   private EvalResult evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events, Set<String> visited) {
     boolean prereqOk = true;
-    EvalResult evalResult = new EvalResult(null, events, visited);
     for (Prerequisite prereq : prerequisites) {
-      evalResult.visitedFeatureKeys.add(key);
-      if (evalResult.visitedFeatureKeys.contains(prereq.getKey())) {
+      visited.add(key);
+      if (visited.contains(prereq.getKey())) {
         logger.error("Prerequisite cycle detected when evaluating feature flag: " + key);
         return null;
       }
@@ -86,7 +85,7 @@ class FeatureFlag {
         logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
         return null;
       } else if (prereqFeatureFlag.isOn()) {
-        EvalResult prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, evalResult.prerequisiteEvents, evalResult.visitedFeatureKeys);
+        EvalResult prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, visited);
         if (prereqEvalResult == null || prereqEvalResult.getValue() == null || !prereqEvalResult.value.equals(prereqFeatureFlag.getVariation(prereq.getVariation()))) {
           prereqOk = false;
         }
@@ -95,12 +94,12 @@ class FeatureFlag {
         prereqOk = false;
       }
       //We don't short circuit and also send events for each prereq.
-      evalResult.prerequisiteEvents.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResultValue, null));
+      events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResultValue, null));
     }
     if (prereqOk) {
-      evalResult.value = getVariation(evaluateIndex(user));
+      return new EvalResult(getVariation(evaluateIndex(user)), events);
     }
-    return evalResult;
+    return new EvalResult(null, events);
   }
 
   private Integer evaluateIndex(LDUser user) {
@@ -175,12 +174,10 @@ class FeatureFlag {
   static class EvalResult {
     private JsonElement value;
     private List<FeatureRequestEvent> prerequisiteEvents;
-    private Set<String> visitedFeatureKeys;
 
-    private EvalResult(JsonElement value, List<FeatureRequestEvent> prerequisiteEvents, Set<String> visitedFeatureKeys) {
+    private EvalResult(JsonElement value, List<FeatureRequestEvent> prerequisiteEvents) {
       this.value = value;
       this.prerequisiteEvents = prerequisiteEvents;
-      this.visitedFeatureKeys = visitedFeatureKeys;
     }
 
     JsonElement getValue() {
