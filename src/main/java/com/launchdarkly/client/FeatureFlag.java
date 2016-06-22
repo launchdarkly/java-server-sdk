@@ -67,11 +67,12 @@ class FeatureFlag {
     }
     List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
     Set<String> visited = new HashSet<>();
-    return evaluate(user, featureStore, prereqEvents, visited);
+    JsonElement value = evaluate(user, featureStore, prereqEvents, visited);
+    return new EvalResult(value, prereqEvents);
   }
 
-  // Returning either a nil EvalResult or EvalResult.value indicates prereq failure/error.
-  private EvalResult evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events, Set<String> visited) {
+  // Returning either a JsonElement or null indicating prereq failure/error.
+  private JsonElement evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events, Set<String> visited) {
     boolean prereqOk = true;
     for (Prerequisite prereq : prerequisites) {
       visited.add(key);
@@ -79,27 +80,26 @@ class FeatureFlag {
         logger.error("Prerequisite cycle detected when evaluating feature flag: " + key);
         return null;
       }
-      JsonElement prereqEvalResultValue = null;
       FeatureFlag prereqFeatureFlag = featureStore.get(prereq.getKey());
+      JsonElement prereqEvalResult = null;
       if (prereqFeatureFlag == null) {
         logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
         return null;
       } else if (prereqFeatureFlag.isOn()) {
-        EvalResult prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, visited);
-        if (prereqEvalResult == null || prereqEvalResult.getValue() == null || !prereqEvalResult.value.equals(prereqFeatureFlag.getVariation(prereq.getVariation()))) {
+        prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, visited);
+        if (prereqEvalResult == null || !prereqEvalResult.equals(prereqFeatureFlag.getVariation(prereq.getVariation()))) {
           prereqOk = false;
         }
-        prereqEvalResultValue = prereqEvalResult != null ? prereqEvalResult.getValue() : null;
       } else {
         prereqOk = false;
       }
       //We don't short circuit and also send events for each prereq.
-      events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResultValue, null));
+      events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResult, null));
     }
     if (prereqOk) {
-      return new EvalResult(getVariation(evaluateIndex(user)), events);
+      return getVariation(evaluateIndex(user));
     }
-    return new EvalResult(null, events);
+    return null;
   }
 
   private Integer evaluateIndex(LDUser user) {
@@ -172,8 +172,8 @@ class FeatureFlag {
   }
 
   static class EvalResult {
-    private JsonElement value;
-    private List<FeatureRequestEvent> prerequisiteEvents;
+    private final JsonElement value;
+    private final List<FeatureRequestEvent> prerequisiteEvents;
 
     private EvalResult(JsonElement value, List<FeatureRequestEvent> prerequisiteEvents) {
       this.value = value;
