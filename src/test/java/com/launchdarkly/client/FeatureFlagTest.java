@@ -27,7 +27,12 @@ public class FeatureFlagTest {
 
     featureStore.upsert(keyA, f);
     LDUser user = new LDUser.Builder("userKey").build();
-    Assert.assertNull(f.evaluate(user, featureStore));
+
+    FeatureFlag.EvalResult actual = f.evaluate(user, featureStore);
+
+    Assert.assertNull(actual.getValue());
+    Assert.assertNotNull(actual.getPrerequisiteEvents());
+    Assert.assertEquals(0, actual.getPrerequisiteEvents().size());
   }
 
   @Test
@@ -70,7 +75,11 @@ public class FeatureFlagTest {
 
     featureStore.upsert(f1.getKey(), f1);
     LDUser user = new LDUser.Builder("userKey").build();
-    Assert.assertNull(f1.evaluate(user, featureStore));
+    FeatureFlag.EvalResult actual = f1.evaluate(user, featureStore);
+
+    Assert.assertNull(actual.getValue());
+    Assert.assertNotNull(actual.getPrerequisiteEvents());
+    Assert.assertEquals(0, actual.getPrerequisiteEvents().size());
   }
 
   @Test
