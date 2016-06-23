@@ -74,8 +74,8 @@ class FeatureFlag {
   // Returning either a JsonElement or null indicating prereq failure/error.
   private JsonElement evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events, Set<String> visited) {
     boolean prereqOk = true;
+    visited.add(key);
     for (Prerequisite prereq : prerequisites) {
-      visited.add(key);
       if (visited.contains(prereq.getKey())) {
         logger.error("Prerequisite cycle detected when evaluating feature flag: " + key);
         return null;
