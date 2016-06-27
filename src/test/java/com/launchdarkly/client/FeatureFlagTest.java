@@ -21,54 +21,7 @@ public class FeatureFlagTest {
   }
 
   @Test
-  public void testPrereqSelfCycle() {
-    String keyA = "keyA";
-    FeatureFlag f = newFlagWithPrereq(keyA, keyA);
-
-    featureStore.upsert(keyA, f);
-    LDUser user = new LDUser.Builder("userKey").build();
-
-    FeatureFlag.EvalResult actual = f.evaluate(user, featureStore);
-
-    Assert.assertNull(actual.getValue());
-    Assert.assertNotNull(actual.getPrerequisiteEvents());
-    Assert.assertEquals(0, actual.getPrerequisiteEvents().size());
-  }
-
-  @Test
-  public void testPrereqSimpleCycle() {
-    String keyA = "keyA";
-    String keyB = "keyB";
-    FeatureFlag f1 = newFlagWithPrereq(keyA, keyB);
-    FeatureFlag f2 = newFlagWithPrereq(keyB, keyA);
-
-    featureStore.upsert(f1.getKey(), f1);
-    featureStore.upsert(f2.getKey(), f2);
-    LDUser user = new LDUser.Builder("userKey").build();
-    Assert.assertNull(f1.evaluate(user, featureStore).getValue());
-    Assert.assertNull(f2.evaluate(user, featureStore).getValue());
-  }
-
-  @Test
-  public void testPrereqCycle() {
-    String keyA = "keyA";
-    String keyB = "keyB";
-    String keyC = "keyC";
-    FeatureFlag f1 = newFlagWithPrereq(keyA, keyB);
-    FeatureFlag f2 = newFlagWithPrereq(keyB, keyC);
-    FeatureFlag f3 = newFlagWithPrereq(keyC, keyA);
-
-    featureStore.upsert(f1.getKey(), f1);
-    featureStore.upsert(f2.getKey(), f2);
-    featureStore.upsert(f3.getKey(), f3);
-    LDUser user = new LDUser.Builder("userKey").build();
-    Assert.assertNull(f1.evaluate(user, featureStore).getValue());
-    Assert.assertNull(f2.evaluate(user, featureStore).getValue());
-    Assert.assertNull(f3.evaluate(user, featureStore).getValue());
-  }
-
-  @Test
-  public void testPrereqDoesNotExist() {
+  public void testPrereqDoesNotExist() throws EvaluationError {
     String keyA = "keyA";
     String keyB = "keyB";
     FeatureFlag f1 = newFlagWithPrereq(keyA, keyB);
@@ -83,7 +36,7 @@ public class FeatureFlagTest {
   }
 
   @Test
-  public void testPrereqCollectsEventsForPrereqs() {
+  public void testPrereqCollectsEventsForPrereqs() throws EvaluationError {
     String keyA = "keyA";
     String keyB = "keyB";
     String keyC = "keyC";
