@@ -25,13 +25,6 @@ enum Operator {
       if (uValue.isNumber() && cValue.isNumber()) {
         return uValue.getAsDouble() == cValue.getAsDouble();
       }
-      DateTime uDateTime = Util.jsonPrimitiveToDateTime(uValue);
-      if (uDateTime != null) {
-        DateTime cDateTime = Util.jsonPrimitiveToDateTime(cValue);
-        if (cDateTime != null) {
-          return uDateTime.getMillis() == cDateTime.getMillis();
-        }
-      }
       return false;
     }
   },

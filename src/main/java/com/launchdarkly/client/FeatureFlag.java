@@ -61,33 +61,32 @@ class FeatureFlag {
     return null;
   }
 
-  EvalResult evaluate(LDUser user, FeatureStore featureStore) {
+  EvalResult evaluate(LDUser user, FeatureStore featureStore) throws EvaluationError {
     if (user == null || user.getKey() == null) {
-      return null;
+      throw new EvaluationError("User or user key is null");
     }
     List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
-    Set<String> visited = new HashSet<>();
-    JsonElement value = evaluate(user, featureStore, prereqEvents, visited);
+    JsonElement value = evaluate(user, featureStore, prereqEvents);
     return new EvalResult(value, prereqEvents);
   }
 
   // Returning either a JsonElement or null indicating prereq failure/error.
-  private JsonElement evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events, Set<String> visited) {
+  private JsonElement evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events) throws EvaluationError {
     boolean prereqOk = true;
-    visited.add(key);
     for (Prerequisite prereq : prerequisites) {
-      if (visited.contains(prereq.getKey())) {
-        logger.error("Prerequisite cycle detected when evaluating feature flag: " + key);
-        return null;
-      }
       FeatureFlag prereqFeatureFlag = featureStore.get(prereq.getKey());
       JsonElement prereqEvalResult = null;
       if (prereqFeatureFlag == null) {
         logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
         return null;
       } else if (prereqFeatureFlag.isOn()) {
-        prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, visited);
-        if (prereqEvalResult == null || !prereqEvalResult.equals(prereqFeatureFlag.getVariation(prereq.getVariation()))) {
+        prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events);
+        try {
+          JsonElement variation = prereqFeatureFlag.getVariation(prereq.getVariation());
+          if (prereqEvalResult == null || variation == null || !prereqEvalResult.equals(variation)) {
+            prereqOk = false;
+          }
+        } catch (EvaluationError err) {
           prereqOk = false;
         }
       } else {
@@ -123,10 +122,18 @@ class FeatureFlag {
     return fallthrough.variationIndexForUser(user, key, salt);
   }
 
-  private JsonElement getVariation(Integer index) {
-    if (index == null || index >= variations.size()) {
+  private JsonElement getVariation(Integer index) throws EvaluationError {
+    // If the supplied index is null, then rules didn't match, and we want to return
+    // the off variation
+    if (index == null) {
       return null;
-    } else {
+    }
+    // If the index doesn't refer to a valid variation, that's an unexpected exception and we will
+    // return the default variation
+    else if (index >= variations.size()) {
+      throw new EvaluationError("Invalid index");
+    }
+    else {
       return variations.get(index);
     }
   }

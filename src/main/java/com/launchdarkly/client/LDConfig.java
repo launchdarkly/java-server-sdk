@@ -37,7 +37,6 @@ public final class LDConfig {
   final int flushInterval;
   final HttpHost proxyHost;
   final boolean stream;
-  final boolean debugStreaming;
   final FeatureStore featureStore;
   final boolean useLdd;
   final boolean offline;
@@ -55,7 +54,6 @@ public final class LDConfig {
     this.proxyHost = builder.proxyHost();
     this.streamURI = builder.streamURI;
     this.stream = builder.stream;
-    this.debugStreaming = builder.debugStreaming;
     this.featureStore = builder.featureStore;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
@@ -91,7 +89,6 @@ public final class LDConfig {
     private int proxyPort = -1;
     private String proxyScheme;
     private boolean stream = true;
-    private boolean debugStreaming = false;
     private boolean useLdd = false;
     private boolean offline = false;
     private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
@@ -137,18 +134,6 @@ public final class LDConfig {
 
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
-      return this;
-    }
-
-    /**
-     * Set whether we should debug streaming mode. If set, the client will fetch features via polling and compare the
-     * retrieved feature with the value in the feature store. There is a performance cost to this, so it is not
-     * recommended for production use.
-     * @param debugStreaming whether streaming mode should be debugged
-     * @return the builder
-     */
-    public Builder debugStreaming(boolean debugStreaming) {
-      this.debugStreaming = debugStreaming;
       return this;
     }
 
