@@ -50,17 +50,6 @@ class FeatureFlag {
     this.deleted = deleted;
   }
 
-  Integer getOffVariation() {
-    return this.offVariation;
-  }
-
-  JsonElement getOffVariationValue() {
-    if (offVariation != null && offVariation < variations.size()) {
-      return variations.get(offVariation);
-    }
-    return null;
-  }
-
   EvalResult evaluate(LDUser user, FeatureStore featureStore) throws EvaluationError {
     if (user == null || user.getKey() == null) {
       throw new EvaluationError("User or user key is null");
@@ -87,6 +76,7 @@ class FeatureFlag {
             prereqOk = false;
           }
         } catch (EvaluationError err) {
+          logger.warn("Error evaluating prerequisites: " + err.getMessage());
           prereqOk = false;
         }
       } else {
@@ -120,6 +110,18 @@ class FeatureFlag {
 
     // Walk through the fallthrough and see if it matches
     return fallthrough.variationIndexForUser(user, key, salt);
+  }
+
+  JsonElement getOffVariationValue() throws EvaluationError {
+    if (offVariation == null) {
+      return null;
+    }
+
+    if (offVariation >= variations.size()) {
+      throw new EvaluationError("Invalid off variation index");
+    }
+
+    return variations.get(offVariation);
   }
 
   private JsonElement getVariation(Integer index) throws EvaluationError {
@@ -177,6 +179,8 @@ class FeatureFlag {
   List<JsonElement> getVariations() {
     return variations;
   }
+
+  Integer getOffVariation() { return offVariation; }
 
   static class EvalResult {
     private final JsonElement value;
