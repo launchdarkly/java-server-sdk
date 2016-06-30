@@ -50,9 +50,9 @@ class FeatureFlag {
     this.deleted = deleted;
   }
 
-  EvalResult evaluate(LDUser user, FeatureStore featureStore) throws EvaluationError {
+  EvalResult evaluate(LDUser user, FeatureStore featureStore) throws EvaluationException {
     if (user == null || user.getKey() == null) {
-      throw new EvaluationError("User or user key is null");
+      throw new EvaluationException("User or user key is null");
     }
     List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
     JsonElement value = evaluate(user, featureStore, prereqEvents);
@@ -60,7 +60,7 @@ class FeatureFlag {
   }
 
   // Returning either a JsonElement or null indicating prereq failure/error.
-  private JsonElement evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events) throws EvaluationError {
+  private JsonElement evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events) throws EvaluationException {
     boolean prereqOk = true;
     for (Prerequisite prereq : prerequisites) {
       FeatureFlag prereqFeatureFlag = featureStore.get(prereq.getKey());
@@ -75,7 +75,7 @@ class FeatureFlag {
           if (prereqEvalResult == null || variation == null || !prereqEvalResult.equals(variation)) {
             prereqOk = false;
           }
-        } catch (EvaluationError err) {
+        } catch (EvaluationException err) {
           logger.warn("Error evaluating prerequisites: " + err.getMessage());
           prereqOk = false;
         }
@@ -112,19 +112,19 @@ class FeatureFlag {
     return fallthrough.variationIndexForUser(user, key, salt);
   }
 
-  JsonElement getOffVariationValue() throws EvaluationError {
+  JsonElement getOffVariationValue() throws EvaluationException {
     if (offVariation == null) {
       return null;
     }
 
     if (offVariation >= variations.size()) {
-      throw new EvaluationError("Invalid off variation index");
+      throw new EvaluationException("Invalid off variation index");
     }
 
     return variations.get(offVariation);
   }
 
-  private JsonElement getVariation(Integer index) throws EvaluationError {
+  private JsonElement getVariation(Integer index) throws EvaluationException {
     // If the supplied index is null, then rules didn't match, and we want to return
     // the off variation
     if (index == null) {
@@ -133,7 +133,7 @@ class FeatureFlag {
     // If the index doesn't refer to a valid variation, that's an unexpected exception and we will
     // return the default variation
     else if (index >= variations.size()) {
-      throw new EvaluationError("Invalid index");
+      throw new EvaluationException("Invalid index");
     }
     else {
       return variations.get(index);

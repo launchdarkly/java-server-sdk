@@ -21,7 +21,7 @@ public class FeatureFlagTest {
   }
 
   @Test
-  public void testPrereqDoesNotExist() throws EvaluationError {
+  public void testPrereqDoesNotExist() throws EvaluationException {
     String keyA = "keyA";
     String keyB = "keyB";
     FeatureFlag f1 = newFlagWithPrereq(keyA, keyB);
@@ -36,7 +36,7 @@ public class FeatureFlagTest {
   }
 
   @Test
-  public void testPrereqCollectsEventsForPrereqs() throws EvaluationError {
+  public void testPrereqCollectsEventsForPrereqs() throws EvaluationException {
     String keyA = "keyA";
     String keyB = "keyB";
     String keyC = "keyC";
