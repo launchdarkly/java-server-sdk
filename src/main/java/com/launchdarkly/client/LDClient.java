@@ -294,47 +294,36 @@ public class LDClient implements Closeable {
     return value;
   }
 
-
   private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue) {
     if (!initialized()) {
       return defaultValue;
     }
     try {
       FeatureFlag featureFlag = config.featureStore.get(featureKey);
-      if (featureFlag != null) {
-        if (config.stream && config.debugStreaming) {
-          FeatureFlag pollingResult = requestor.makeRequest(featureKey, true);
-          if (!featureFlag.equals(pollingResult)) {
-            logger.warn("Mismatch between streaming and polling feature! Streaming: {} Polling: {}", featureFlag, pollingResult);
-          }
-        }
-      } else {
+      if (featureFlag == null) {
         logger.warn("Unknown feature flag " + featureKey + "; returning default value: ");
         return defaultValue;
       }
       if (featureFlag.isOn()) {
         FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore);
-        if (evalResult != null) {
           if (!isOffline()) {
             for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
               eventProcessor.sendEvent(event);
             }
           }
-          if (evalResult.getValue() == null) {
-            return defaultValue;
-          } else {
+          if (evalResult.getValue() != null) {
             return evalResult.getValue();
           }
-        }
-      } else {
-        JsonElement offVariation = featureFlag.getOffVariationValue();
-        if (offVariation != null) {
-          return offVariation;
-        }
+      }
+      JsonElement offVariation = featureFlag.getOffVariationValue();
+      if (offVariation != null) {
+        return offVariation;
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
     }
+
+
     return defaultValue;
   }
 
