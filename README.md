@@ -50,7 +50,7 @@ Troubleshooting
    ```
 
 1. SSL exceptions when calling toggle():
-   Make sure your build tool is bringing in the proper version of the Apache http client. The LaunchDarkly SDK may have problems with versions earlier than 3.3.6. To enforce the proper version add this dependency:
+   Make sure your build tool is bringing in the proper version of the Apache http client. The LaunchDarkly SDK may have problems with versions earlier than 4.3.6. To enforce the proper version add this dependency:
    ```
    <dependency>
      <groupId>org.apache.httpcomponents</groupId>
