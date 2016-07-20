@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonPrimitive;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
@@ -114,6 +116,142 @@ public class LDClientTest extends EasyMockSupport {
     testFeatureStore.setFeatureFalse("key");
     assertFalse("Test flag should be false, but was on (the default).", client.toggle("key", new LDUser("user"), true));
 
+    verifyAll();
+  }
+
+  @Test
+  public void testTestFeatureStoreIntegerVariation() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(2);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setIntegerValue("key", 1);
+    assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
+    testFeatureStore.setIntegerValue("key", 42);
+    assertEquals(new Integer(42), client.intVariation("key", new LDUser("user"), 1));
+    verifyAll();
+  }
+
+  @Test
+  public void testTestFeatureStoreDoubleVariation() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(2);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setDoubleValue("key", 1d);
+    assertEquals(new Double(1), client.doubleVariation("key", new LDUser("user"), 0d));
+    testFeatureStore.setDoubleValue("key", 42d);
+    assertEquals(new Double(42), client.doubleVariation("key", new LDUser("user"), 1d));
+    verifyAll();
+  }
+
+  @Test
+  public void testTestFeatureStoreStringVariation() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(2);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setStringValue("key", "apples");
+    assertEquals("apples", client.stringVariation("key", new LDUser("user"), "oranges"));
+    testFeatureStore.setStringValue("key", "bananas");
+    assertEquals("bananas", client.stringVariation("key", new LDUser("user"), "apples"));
+    verifyAll();
+  }
+
+  @Test
+  public void testTestFeatureStoreJsonVariationPrimitive() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(4);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(4);
+    replayAll();
+
+    client = createMockClient(config);
+
+    // Character
+    testFeatureStore.setJsonValue("key", new JsonPrimitive('a'));
+    assertEquals(new JsonPrimitive('a'), client.jsonVariation("key", new LDUser("user"), new JsonPrimitive('b')));
+    testFeatureStore.setJsonValue("key", new JsonPrimitive('b'));
+    assertEquals(new JsonPrimitive('b'), client.jsonVariation("key", new LDUser("user"), new JsonPrimitive('z')));
+
+    // Long
+    testFeatureStore.setJsonValue("key", new JsonPrimitive(1L));
+    assertEquals(new JsonPrimitive(1l), client.jsonVariation("key", new LDUser("user"), new JsonPrimitive(0L)));
+    testFeatureStore.setJsonValue("key", new JsonPrimitive(42L));
+    assertEquals(new JsonPrimitive(42L), client.jsonVariation("key", new LDUser("user"), new JsonPrimitive(0L)));
+    verifyAll();
+  }
+
+  @Test
+  public void testTestFeatureStoreJsonVariationArray() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(2);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    replayAll();
+
+    client = createMockClient(config);
+
+    // JsonArray
+    JsonArray array = new JsonArray();
+    array.add("red");
+    array.add("blue");
+    array.add("green");
+    testFeatureStore.setJsonValue("key", array);
+    assertEquals(array, client.jsonVariation("key", new LDUser("user"), new JsonArray()));
+
+    JsonArray array2 = new JsonArray();
+    array2.addAll(array);
+    array2.add("yellow");
+    testFeatureStore.setJsonValue("key", array2);
+    assertEquals(array2, client.jsonVariation("key", new LDUser("user"), new JsonArray()));
     verifyAll();
   }
 
