@@ -322,8 +322,6 @@ public class LDClient implements Closeable {
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
     }
-
-
     return defaultValue;
   }
 

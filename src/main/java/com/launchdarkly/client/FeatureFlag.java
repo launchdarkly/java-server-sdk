@@ -62,28 +62,30 @@ class FeatureFlag {
   // Returning either a JsonElement or null indicating prereq failure/error.
   private JsonElement evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events) throws EvaluationException {
     boolean prereqOk = true;
-    for (Prerequisite prereq : prerequisites) {
-      FeatureFlag prereqFeatureFlag = featureStore.get(prereq.getKey());
-      JsonElement prereqEvalResult = null;
-      if (prereqFeatureFlag == null) {
-        logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
-        return null;
-      } else if (prereqFeatureFlag.isOn()) {
-        prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events);
-        try {
-          JsonElement variation = prereqFeatureFlag.getVariation(prereq.getVariation());
-          if (prereqEvalResult == null || variation == null || !prereqEvalResult.equals(variation)) {
+    if (prerequisites != null) {
+      for (Prerequisite prereq : prerequisites) {
+        FeatureFlag prereqFeatureFlag = featureStore.get(prereq.getKey());
+        JsonElement prereqEvalResult = null;
+        if (prereqFeatureFlag == null) {
+          logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
+          return null;
+        } else if (prereqFeatureFlag.isOn()) {
+          prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events);
+          try {
+            JsonElement variation = prereqFeatureFlag.getVariation(prereq.getVariation());
+            if (prereqEvalResult == null || variation == null || !prereqEvalResult.equals(variation)) {
+              prereqOk = false;
+            }
+          } catch (EvaluationException err) {
+            logger.warn("Error evaluating prerequisites: " + err.getMessage());
             prereqOk = false;
           }
-        } catch (EvaluationException err) {
-          logger.warn("Error evaluating prerequisites: " + err.getMessage());
+        } else {
           prereqOk = false;
         }
-      } else {
-        prereqOk = false;
+        //We don't short circuit and also send events for each prereq.
+        events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResult, null));
       }
-      //We don't short circuit and also send events for each prereq.
-      events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResult, null));
     }
     if (prereqOk) {
       return getVariation(evaluateIndex(user));
@@ -93,21 +95,23 @@ class FeatureFlag {
 
   private Integer evaluateIndex(LDUser user) {
     // Check to see if targets match
-    for (Target target : targets) {
-      for (String v : target.getValues()) {
-        if (v.equals(user.getKey().getAsString())) {
-          return target.getVariation();
+    if (targets != null) {
+      for (Target target : targets) {
+        for (String v : target.getValues()) {
+          if (v.equals(user.getKey().getAsString())) {
+            return target.getVariation();
+          }
         }
       }
     }
-
     // Now walk through the rules and see if any match
-    for (Rule rule : rules) {
-      if (rule.matchesUser(user)) {
-        return rule.variationIndexForUser(user, key, salt);
+    if (rules != null) {
+      for (Rule rule : rules) {
+        if (rule.matchesUser(user)) {
+          return rule.variationIndexForUser(user, key, salt);
+        }
       }
     }
-
     // Walk through the fallthrough and see if it matches
     return fallthrough.variationIndexForUser(user, key, salt);
   }
