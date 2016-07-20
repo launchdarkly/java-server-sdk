@@ -72,7 +72,6 @@ class FeatureRequestor {
 
       String json = EntityUtils.toString(response.getEntity());
       logger.debug("Got response: " + response.toString());
-      logger.debug("Got Response body: " + json);
       return FeatureFlag.fromJsonMap(json);
     }
     finally {
