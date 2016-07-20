@@ -19,6 +19,7 @@ import java.util.Map;
 
 class FeatureRequestor {
 
+  public static final String GET_LATEST_FLAGS_PATH = "/sdk/latest-flags";
   private final String apiKey;
   private final LDConfig config;
   private final CloseableHttpClient client;
@@ -55,12 +56,10 @@ class FeatureRequestor {
     return client;
   }
 
-  Map<String, FeatureFlag> makeAllRequest(boolean latest) throws IOException {
+  Map<String, FeatureFlag> makeAllRequest() throws IOException {
     HttpCacheContext context = HttpCacheContext.create();
 
-    String resource = latest ? "/sdk/latest-flags" : "/sdk/flags";
-
-    HttpGet request = config.getRequest(apiKey, resource);
+    HttpGet request = config.getRequest(apiKey, GET_LATEST_FLAGS_PATH);
 
     CloseableHttpResponse response = null;
     try {

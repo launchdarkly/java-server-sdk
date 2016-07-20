@@ -73,7 +73,7 @@ class StreamProcessor implements UpdateProcessor {
         }
         else if (name.equals(INDIRECT_PUT)) {
           try {
-            store.init(requestor.makeAllRequest(true));
+            store.init(requestor.makeAllRequest());
             if (!initialized.getAndSet(true)) {
               initFuture.completed(null);
               logger.info("Initialized LaunchDarkly client.");
