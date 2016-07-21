@@ -1,5 +1,8 @@
 package com.launchdarkly.client;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,6 +13,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * {@link HashMap}
  */
 public class InMemoryFeatureStore implements FeatureStore {
+  private static final Logger logger = LoggerFactory.getLogger(InMemoryFeatureStore.class);
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private final Map<String, FeatureFlag> features = new HashMap<>();
@@ -31,9 +35,15 @@ public class InMemoryFeatureStore implements FeatureStore {
     try {
       lock.readLock().lock();
       FeatureFlag featureFlag = features.get(key);
-      if (featureFlag == null || featureFlag.isDeleted()) {
+      if (featureFlag == null) {
+        logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
         return null;
       }
+      if (featureFlag.isDeleted()) {
+        logger.debug("[get] Key: " + key + " has been deleted. Returning null");
+        return null;
+      }
+      logger.debug("[get] Key: " + key + " with version: " + featureFlag.getVersion() + " found in feature store.");
       return featureFlag;
     } finally {
       lock.readLock().unlock();
