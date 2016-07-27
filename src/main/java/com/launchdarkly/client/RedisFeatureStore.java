@@ -9,6 +9,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -30,6 +32,7 @@ import java.util.concurrent.TimeUnit;
  *
  */
 public class RedisFeatureStore implements FeatureStore {
+  private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStore.class);
   private static final String DEFAULT_PREFIX = "launchdarkly";
   private static final String INIT_KEY = "$initialized$";
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
@@ -209,11 +212,16 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public FeatureFlag get(String key) {
+    FeatureFlag featureFlag;
     if (cache != null) {
-      return cache.getUnchecked(key);
+      featureFlag = cache.getUnchecked(key);
     } else {
-      return getRedis(key);
+      featureFlag = getRedis(key);
     }
+    if (featureFlag != null) {
+      logger.debug("[get] Key: " + key + " with version: " + featureFlag.getVersion() + " found in feature store.");
+    }
+    return featureFlag;
   }
 
   /**
@@ -379,13 +387,18 @@ public class RedisFeatureStore implements FeatureStore {
       String featureJson = jedis.hget(featuresKey(), key);
 
       if (featureJson == null) {
+        logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
         return null;
       }
 
       Type type = new TypeToken<FeatureFlag>() {}.getType();
       FeatureFlag f = gson.fromJson(featureJson, type);
 
-      return f.isDeleted() ? null : f;
+      if (f.isDeleted()) {
+        logger.debug("[get] Key: " + key + " has been deleted. Returning null");
+        return null;
+      }
+      return f;
     }
   }
 
