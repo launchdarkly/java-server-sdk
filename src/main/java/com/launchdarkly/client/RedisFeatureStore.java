@@ -218,15 +218,9 @@ public class RedisFeatureStore implements FeatureStore {
     } else {
       featureFlag = getRedis(key);
     }
-    if (featureFlag == null) {
-      logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
-      return null;
+    if (featureFlag != null) {
+      logger.debug("[get] Key: " + key + " with version: " + featureFlag.getVersion() + " found in feature store.");
     }
-    if (featureFlag.isDeleted()) {
-      logger.debug("[get] Key: " + key + " has been deleted. Returning null");
-      return null;
-    }
-    logger.debug("[get] Key: " + key + " with version: " + featureFlag.getVersion() + " found in feature store.");
     return featureFlag;
   }
 
@@ -393,13 +387,18 @@ public class RedisFeatureStore implements FeatureStore {
       String featureJson = jedis.hget(featuresKey(), key);
 
       if (featureJson == null) {
+        logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
         return null;
       }
 
       Type type = new TypeToken<FeatureFlag>() {}.getType();
       FeatureFlag f = gson.fromJson(featureJson, type);
 
-      return f.isDeleted() ? null : f;
+      if (f.isDeleted()) {
+        logger.debug("[get] Key: " + key + " has been deleted. Returning null");
+        return null;
+      }
+      return f;
     }
   }
 
