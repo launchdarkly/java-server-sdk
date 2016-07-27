@@ -122,6 +122,9 @@ public class LDClient implements Closeable {
     if (isOffline()) {
       return;
     }
+    if (user == null || user.getKeyAsString().isEmpty()) {
+      logger.warn("Track called with empty/nil user or user key!");
+    }
     boolean processed = eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
@@ -150,17 +153,20 @@ public class LDClient implements Closeable {
     if (isOffline()) {
       return;
     }
+    if (user == null || user.getKeyAsString().isEmpty()) {
+      logger.warn("Identify called with empty/nil user or user key!");
+    }
     boolean processed = eventProcessor.sendEvent(new IdentifyEvent(user));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
   }
 
-  private void sendFlagRequestEvent(String featureKey, LDUser user, JsonElement value, JsonElement defaultValue) {
+  private void sendFlagRequestEvent(String featureKey, LDUser user, JsonElement value, JsonElement defaultValue, Integer version) {
     if (isOffline()) {
       return;
     }
-    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue));
+    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue, version, null));
     if (!processed) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
@@ -290,18 +296,27 @@ public class LDClient implements Closeable {
       return defaultValue;
     }
     JsonElement value = evaluate(featureKey, user, defaultValue);
-    sendFlagRequestEvent(featureKey, user, value, defaultValue);
     return value;
   }
 
   private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue) {
-    if (!initialized()) {
+    if (user == null || user.getKeyAsString().isEmpty()) {
+      logger.warn("Null user or null/empty user key when evaluating flag: " + featureKey + "; returning default value");
+      sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
       return defaultValue;
     }
+
+    if (!initialized()) {
+      logger.warn("Evaluation called before Client has been initialized for feature flag " + featureKey + "; returning default value");
+      sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
+      return defaultValue;
+    }
+
     try {
       FeatureFlag featureFlag = config.featureStore.get(featureKey);
       if (featureFlag == null) {
-        logger.warn("Unknown feature flag " + featureKey + "; returning default value: ");
+        logger.warn("Unknown feature flag " + featureKey + "; returning default value");
+        sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
         return defaultValue;
       }
       if (featureFlag.isOn()) {
@@ -312,16 +327,19 @@ public class LDClient implements Closeable {
             }
           }
           if (evalResult.getValue() != null) {
+            sendFlagRequestEvent(featureKey, user, evalResult.getValue(), defaultValue, featureFlag.getVersion());
             return evalResult.getValue();
           }
       }
       JsonElement offVariation = featureFlag.getOffVariationValue();
       if (offVariation != null) {
+        sendFlagRequestEvent(featureKey, user, offVariation, defaultValue, featureFlag.getVersion());
         return offVariation;
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
     }
+    sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
     return defaultValue;
   }
 
@@ -333,6 +351,7 @@ public class LDClient implements Closeable {
    */
   @Override
   public void close() throws IOException {
+    logger.info("Closing LaunchDarkly Client");
     this.eventProcessor.close();
     if (this.updateProcessor != null) {
       this.updateProcessor.close();

@@ -30,6 +30,7 @@ public class PollingProcessor implements UpdateProcessor {
 
   @Override
   public void close() throws IOException {
+    logger.info("Closing LaunchDarkly PollingProcessor");
     scheduler.shutdown();
   }
 

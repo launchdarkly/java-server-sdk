@@ -1,6 +1,8 @@
 package com.launchdarkly.client;
 
 import org.apache.http.client.utils.URIBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
@@ -23,6 +25,7 @@ import java.util.concurrent.TimeUnit;
  * </pre>
  */
 public class RedisFeatureStoreBuilder {
+    private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStoreBuilder.class);
     protected boolean refreshStaleValues = false;
     protected boolean asyncRefresh = false;
     protected URI uri;
@@ -176,6 +179,7 @@ public class RedisFeatureStoreBuilder {
      * @return the {@link RedisFeatureStore} configured by this builder.
      */
     public RedisFeatureStore build() {
+        logger.info("Creating RedisFeatureStore with uri: " + uri + " and prefix: " + prefix);
         return new RedisFeatureStore(this);
     }
 }

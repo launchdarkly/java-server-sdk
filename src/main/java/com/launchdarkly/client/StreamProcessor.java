@@ -56,43 +56,47 @@ class StreamProcessor implements UpdateProcessor {
       @Override
       public void onMessage(String name, MessageEvent event) throws Exception {
         Gson gson = new Gson();
-        if (name.equals(PUT)) {
-          store.init(FeatureFlag.fromJsonMap(event.getData()));
-          if (!initialized.getAndSet(true)) {
-            initFuture.completed(null);
-            logger.info("Initialized LaunchDarkly client.");
-          }
-        }
-        else if (name.equals(PATCH)) {
-          FeaturePatchData data = gson.fromJson(event.getData(), FeaturePatchData.class);
-          store.upsert(data.key(), data.feature());
-        }
-        else if (name.equals(DELETE)) {
-          FeatureDeleteData data = gson.fromJson(event.getData(), FeatureDeleteData.class);
-          store.delete(data.key(), data.version());
-        }
-        else if (name.equals(INDIRECT_PUT)) {
-          try {
-            store.init(requestor.makeAllRequest());
+        switch (name) {
+          case PUT:
+            store.init(FeatureFlag.fromJsonMap(event.getData()));
             if (!initialized.getAndSet(true)) {
               initFuture.completed(null);
               logger.info("Initialized LaunchDarkly client.");
             }
-          } catch (IOException e) {
-            logger.error("Encountered exception in LaunchDarkly client", e);
+            break;
+          case PATCH: {
+            FeaturePatchData data = gson.fromJson(event.getData(), FeaturePatchData.class);
+            store.upsert(data.key(), data.feature());
+            break;
           }
-        }
-        else if (name.equals(INDIRECT_PATCH)) {
-          String key = event.getData();
-          try {
-            FeatureFlag feature = requestor.makeRequest(key, true);
-            store.upsert(key, feature);
-          } catch (IOException e) {
-            logger.error("Encountered exception in LaunchDarkly client", e);
+          case DELETE: {
+            FeatureDeleteData data = gson.fromJson(event.getData(), FeatureDeleteData.class);
+            store.delete(data.key(), data.version());
+            break;
           }
-        }
-        else {
-          logger.warn("Unexpected event found in stream: " + event.getData());
+          case INDIRECT_PUT:
+            try {
+              store.init(requestor.makeAllRequest());
+              if (!initialized.getAndSet(true)) {
+                initFuture.completed(null);
+                logger.info("Initialized LaunchDarkly client.");
+              }
+            } catch (IOException e) {
+              logger.error("Encountered exception in LaunchDarkly client", e);
+            }
+            break;
+          case INDIRECT_PATCH:
+            String key = event.getData();
+            try {
+              FeatureFlag feature = requestor.makeRequest(key, true);
+              store.upsert(key, feature);
+            } catch (IOException e) {
+              logger.error("Encountered exception in LaunchDarkly client", e);
+            }
+            break;
+          default:
+            logger.warn("Unexpected event found in stream: " + event.getData());
+            break;
         }
       }
 
@@ -112,6 +116,7 @@ class StreamProcessor implements UpdateProcessor {
 
   @Override
   public void close() throws IOException {
+    logger.info("Closing LaunchDarkly StreamProcessor");
     if (es != null) {
       es.close();
     }

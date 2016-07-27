@@ -7,7 +7,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 class FeatureFlag {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
@@ -51,9 +53,6 @@ class FeatureFlag {
   }
 
   EvalResult evaluate(LDUser user, FeatureStore featureStore) throws EvaluationException {
-    if (user == null || user.getKey() == null) {
-      throw new EvaluationException("User or user key is null");
-    }
     List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
     JsonElement value = evaluate(user, featureStore, prereqEvents);
     return new EvalResult(value, prereqEvents);
@@ -84,7 +83,7 @@ class FeatureFlag {
           prereqOk = false;
         }
         //We don't short circuit and also send events for each prereq.
-        events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResult, null));
+        events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResult, null, prereqFeatureFlag.getVersion(), key));
       }
     }
     if (prereqOk) {
