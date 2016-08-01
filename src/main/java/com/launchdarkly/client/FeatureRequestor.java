@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import org.apache.http.HttpStatus;
 import org.apache.http.client.cache.CacheResponseStatus;
 import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.config.RequestConfig;
@@ -67,8 +66,9 @@ class FeatureRequestor {
       response = client.execute(request, context);
 
       logCacheResponse(context.getCacheResponseStatus());
-
-      handleResponseStatus(response.getStatusLine().getStatusCode(), null);
+      if (!Util.handleResponse(logger, request, response)) {
+        throw new IOException("Failed to fetch flags");
+      }
 
       String json = EntityUtils.toString(response.getEntity());
       logger.debug("Got response: " + response.toString());
@@ -77,7 +77,7 @@ class FeatureRequestor {
     finally {
       try {
         if (response != null) response.close();
-      } catch (IOException e) {
+      } catch (IOException ignored) {
       }
     }
   }
@@ -102,26 +102,6 @@ class FeatureRequestor {
     }
   }
 
-  void handleResponseStatus(int status, String featureKey) throws IOException {
-
-    if (status != HttpStatus.SC_OK) {
-      if (status == HttpStatus.SC_UNAUTHORIZED) {
-        logger.error("Invalid API key");
-      } else if (status == HttpStatus.SC_NOT_FOUND) {
-        if (featureKey != null) {
-          logger.error("Unknown feature key: " + featureKey);
-        }
-        else {
-          logger.error("Resource not found");
-        }
-      } else {
-        logger.error("Unexpected status code: " + status);
-      }
-      throw new IOException("Failed to fetch flags");
-    }
-
-  }
-
   FeatureFlag makeRequest(String featureKey, boolean latest) throws IOException {
     HttpCacheContext context = HttpCacheContext.create();
 
@@ -135,14 +115,15 @@ class FeatureRequestor {
 
       logCacheResponse(context.getCacheResponseStatus());
 
-      handleResponseStatus(response.getStatusLine().getStatusCode(), featureKey);
-
+      if (!Util.handleResponse(logger, request, response)) {
+        throw new IOException("Failed to fetch flag");
+      }
       return FeatureFlag.fromJson(EntityUtils.toString(response.getEntity()));
     }
     finally {
       try {
         if (response != null) response.close();
-      } catch (IOException e) {
+      } catch (IOException ignored) {
       }
     }
   }

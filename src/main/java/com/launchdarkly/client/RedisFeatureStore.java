@@ -348,8 +348,8 @@ public class RedisFeatureStore implements FeatureStore {
    * Releases all resources associated with the store. The store must no longer be used once closed.
    * @throws IOException
    */
-  public void close() throws IOException
-  {
+  public void close() throws IOException {
+    logger.info("Closing LaunchDarkly RedisFeatureStore");
     try {
       if (executorService != null) {
         executorService.shutdownNow();

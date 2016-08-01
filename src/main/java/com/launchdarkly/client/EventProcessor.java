@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -93,16 +92,7 @@ class EventProcessor implements Closeable {
 
       try {
         response = client.execute(request);
-
-        int status = response.getStatusLine().getStatusCode();
-
-        if (status >= 300) {
-          if (status == HttpStatus.SC_UNAUTHORIZED) {
-            logger.error("Invalid API key");
-          } else {
-            logger.error("Unexpected status code: " + status);
-          }
-        } else {
+        if (Util.handleResponse(logger, request, response)) {
           logger.debug("Successfully posted " + events.size() + " event(s).");
         }
       } catch (IOException e) {
