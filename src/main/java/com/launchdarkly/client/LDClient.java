@@ -174,19 +174,6 @@ public class LDClient implements Closeable {
   }
 
   /**
-   * Calculates the boolean value of a feature flag for a given user.
-   *
-   * @param featureKey   the unique featureKey for the feature flag
-   * @param user         the end user requesting the flag
-   * @param defaultValue the default value of the flag
-   * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
-   * @deprecated As of version 0.7.0, renamed to {@link #toggle(String, LDUser, boolean)}
-   */
-  public boolean getFlag(String featureKey, LDUser user, boolean defaultValue) {
-    return toggle(featureKey, user, defaultValue);
-  }
-
-  /**
    * Returns a map from feature flag keys to Boolean feature flag values for a given user. The map will contain {@code null}
    * entries for any flags that are off or for any feature flags with non-boolean variations. If the client is offline or
    * has not been initialized, a {@code null} map will be returned.
@@ -227,12 +214,21 @@ public class LDClient implements Closeable {
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
-  public boolean toggle(String featureKey, LDUser user, boolean defaultValue) {
+  public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
     JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
     if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean()) {
       return value.getAsJsonPrimitive().getAsBoolean();
     }
     return false;
+  }
+
+  /**
+   * @deprecated use {@link #boolVariation(String, LDUser, boolean)}
+   */
+  @Deprecated
+  public boolean toggle(String featureKey, LDUser user, boolean defaultValue) {
+    logger.warn("Deprecated method: Toggle() called. Use boolVariation() instead.");
+   return boolVariation(featureKey, user, defaultValue);
   }
 
   /**

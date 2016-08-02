@@ -66,7 +66,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
     testFeatureStore.setFeatureTrue("key");
-    assertTrue("Test flag should be true, but was not.", client.toggle("key", new LDUser("user"), false));
+    assertTrue("Test flag should be true, but was not.", client.boolVariation("key", new LDUser("user"), false));
 
     verifyAll();
   }
@@ -88,7 +88,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
     testFeatureStore.setFeatureFalse("key");
-    assertFalse("Test flag should be false, but was on (the default).", client.toggle("key", new LDUser("user"), true));
+    assertFalse("Test flag should be false, but was on (the default).", client.boolVariation("key", new LDUser("user"), true));
 
     verifyAll();
   }
@@ -111,10 +111,10 @@ public class LDClientTest extends EasyMockSupport {
     client = createMockClient(config);
 
     testFeatureStore.setFeatureTrue("key");
-    assertTrue("Test flag should be true, but was not.", client.toggle("key", new LDUser("user"), false));
+    assertTrue("Test flag should be true, but was not.", client.boolVariation("key", new LDUser("user"), false));
 
     testFeatureStore.setFeatureFalse("key");
-    assertFalse("Test flag should be false, but was on (the default).", client.toggle("key", new LDUser("user"), true));
+    assertFalse("Test flag should be false, but was on (the default).", client.boolVariation("key", new LDUser("user"), true));
 
     verifyAll();
   }
@@ -342,7 +342,7 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   private void assertDefaultValueIsReturned() {
-    boolean result = client.toggle("test", new LDUser("test.key"), true);
+    boolean result = client.boolVariation("test", new LDUser("test.key"), true);
     assertEquals(true, result);
   }
 
