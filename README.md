@@ -29,35 +29,13 @@ Your first feature flag
 2. In your application code, use the feature's key to check wthether the flag is on for each user:
 
         LDUser user = new LDUser(username);
-        boolean showFeature = ldClient.toggle("your.feature.key", user, false);
+        boolean showFeature = ldClient.boolVariation("your.feature.key", user, false);
         if (showFeature) {
           // application code to show the feature 
         }
         else {
           // the code to run if the feature is off
         }
-
-Troubleshooting
----------------
-1. Json parsing exception: java.lang.IllegalStateException: Expected BEGIN_OBJECT but was....ExceptionType: com.google.gson.JsonSyntaxException
-   Make sure your build tool is bringing in the proper version of Gson. The LaunchDarkly SDK may have problems with versions earlier than 2.2.4. To enforce the proper version add this dependency:
-   ```
-   <dependency>
-   	<groupId>com.google.code.gson</groupId>
-   	<artifactId>gson</artifactId>
-   	<version>2.2.4</version>
-   </dependency>
-   ```
-
-1. SSL exceptions when calling toggle():
-   Make sure your build tool is bringing in the proper version of the Apache http client. The LaunchDarkly SDK may have problems with versions earlier than 3.3.6. To enforce the proper version add this dependency:
-   ```
-   <dependency>
-     <groupId>org.apache.httpcomponents</groupId>
-     <artifactId>httpclient</artifactId>
-     <version>4.3.6</version>
-   </dependency>
-   ```
 
 Learn more
 ----------
