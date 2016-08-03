@@ -184,33 +184,42 @@ public class LDClient implements Closeable {
   }
 
   /**
-   * Returns a map from feature flag keys to Boolean feature flag values for a given user. The map will contain {@code null}
-   * entries for any flags that are off or for any feature flags with non-boolean variations. If the client is offline or
-   * has not been initialized, a {@code null} map will be returned.
+   * Returns a map from feature flag keys to {@code JsonElement} feature flag values for a given user.
+   * If the result of a flag's evaluation would have returned the default variation, it will have a null entry
+   * in the map. If the client is offline, has not been initialized, or a null user or user with null/empty user key a {@code null} map will be returned.
    * This method will not send analytics events back to LaunchDarkly.
    * <p>
    * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
    *
    * @param user the end user requesting the feature flags
-   * @return a map from feature flag keys to JsonElement values for the specified user
+   * @return a map from feature flag keys to {@code JsonElement} for the specified user
    */
-  public Map<String, Boolean> allFlags(LDUser user) {
+  public Map<String, JsonElement> allFlags(LDUser user) {
     if (isOffline()) {
+      logger.warn("allFlags() was called when client is in offline mode! Returning null.");
       return null;
     }
 
     if (!initialized()) {
+      logger.warn("allFlags() was called before Client has been initialized! Returning null.");
+      return null;
+    }
+
+    if (user == null || user.getKeyAsString().isEmpty()) {
+      logger.warn("allFlags() was called with null user or null/empty user key! returning null");
       return null;
     }
 
     Map<String, FeatureFlag> flags = this.config.featureStore.all();
-    Map<String, Boolean> result = new HashMap<>();
+    Map<String, JsonElement> result = new HashMap<>();
 
-    for (String key : flags.keySet()) {
-      JsonElement evalResult = evaluate(key, user, null);
-      if (evalResult.isJsonPrimitive() && evalResult.getAsJsonPrimitive().isBoolean()) {
-        result.put(key, evalResult.getAsBoolean());
+    for (Map.Entry<String, FeatureFlag> entry : flags.entrySet()) {
+      try {
+        JsonElement evalResult = entry.getValue().evaluate(user, config.featureStore).getValue();
+          result.put(entry.getKey(), evalResult);
 
+      } catch (EvaluationException e) {
+        logger.error("Exception caught when evaluating all flags:", e);
       }
     }
     return result;
@@ -325,22 +334,15 @@ public class LDClient implements Closeable {
         sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
         return defaultValue;
       }
-      if (featureFlag.isOn()) {
-        FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore);
-          if (!isOffline()) {
-            for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
-              eventProcessor.sendEvent(event);
-            }
-          }
-          if (evalResult.getValue() != null) {
-            sendFlagRequestEvent(featureKey, user, evalResult.getValue(), defaultValue, featureFlag.getVersion());
-            return evalResult.getValue();
-          }
+      FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore);
+      if (!isOffline()) {
+        for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
+          eventProcessor.sendEvent(event);
+        }
       }
-      JsonElement offVariation = featureFlag.getOffVariationValue();
-      if (offVariation != null) {
-        sendFlagRequestEvent(featureKey, user, offVariation, defaultValue, featureFlag.getVersion());
-        return offVariation;
+      if (evalResult.getValue() != null) {
+        sendFlagRequestEvent(featureKey, user, evalResult.getValue(), defaultValue, featureFlag.getVersion());
+        return evalResult.getValue();
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
