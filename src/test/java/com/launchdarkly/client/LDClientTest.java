@@ -341,6 +341,16 @@ public class LDClientTest extends EasyMockSupport {
     verifyAll();
   }
 
+  @Test
+  public void testSecureModeHash() {
+    LDConfig config = new LDConfig.Builder()
+            .offline(true)
+            .build();
+    LDClient client = new LDClient("secret", config);
+    LDUser user = new LDUser.Builder("Message").build();
+    assertEquals("aa747c502a898200f9e4fa21bac68136f886a0e27aec70ba06daf2e2a5cb5597", client.secureModeHash(user));
+  }
+
   private void assertDefaultValueIsReturned() {
     boolean result = client.boolVariation("test", new LDUser("test.key"), true);
     assertEquals(true, result);

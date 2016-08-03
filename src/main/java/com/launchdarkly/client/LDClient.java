@@ -4,13 +4,19 @@ package com.launchdarkly.client;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.http.annotation.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -26,11 +32,14 @@ import java.util.jar.Manifest;
 @ThreadSafe
 public class LDClient implements Closeable {
   private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  private static final String HMAC_ALGORITHM = "HmacSHA256";
+  protected static final String CLIENT_VERSION = getClientVersion();
+
   private final LDConfig config;
+  private final String apiKey;
   private final FeatureRequestor requestor;
   private final EventProcessor eventProcessor;
   private UpdateProcessor updateProcessor;
-  protected static final String CLIENT_VERSION = getClientVersion();
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -51,6 +60,7 @@ public class LDClient implements Closeable {
    */
   public LDClient(String apiKey, LDConfig config) {
     this.config = config;
+    this.apiKey = apiKey;
     this.requestor = createFeatureRequestor(apiKey, config);
     this.eventProcessor = createEventProcessor(apiKey, config);
 
@@ -366,6 +376,25 @@ public class LDClient implements Closeable {
    */
   public boolean isOffline() {
     return config.offline;
+  }
+
+  /**
+   * For more info: <a href=https://github.com/launchdarkly/js-client#secure-mode>https://github.com/launchdarkly/js-client#secure-mode</a>
+   * @param user The User to be hashed along with the api key
+   * @return the hash, or null if the hash could not be calculated.
+     */
+  public String secureModeHash(LDUser user) {
+    if (user == null || user.getKeyAsString().isEmpty()) {
+      return null;
+    }
+    try {
+      Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+      mac.init(new SecretKeySpec(apiKey.getBytes(), HMAC_ALGORITHM));
+      return Hex.encodeHexString(mac.doFinal(user.getKeyAsString().getBytes("UTF8")));
+    } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
+      logger.error("Could not generate secure mode hash", e);
+    }
+    return null;
   }
 
   private static String getClientVersion() {
