@@ -36,7 +36,7 @@ public class LDClient implements Closeable {
   protected static final String CLIENT_VERSION = getClientVersion();
 
   private final LDConfig config;
-  private final String apiKey;
+  private final String sdkKey;
   private final FeatureRequestor requestor;
   private final EventProcessor eventProcessor;
   private UpdateProcessor updateProcessor;
@@ -45,24 +45,24 @@ public class LDClient implements Closeable {
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
    * cases, you should use this constructor.
    *
-   * @param apiKey the API key for your account
+   * @param sdkKey the SDK key for your LaunchDarkly environment
    */
-  public LDClient(String apiKey) {
-    this(apiKey, LDConfig.DEFAULT);
+  public LDClient(String sdkKey) {
+    this(sdkKey, LDConfig.DEFAULT);
   }
 
   /**
    * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
    * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
    *
-   * @param apiKey the API key for your account
+   * @param sdkKey the SDK key for your LaunchDarkly environment
    * @param config a client configuration object
    */
-  public LDClient(String apiKey, LDConfig config) {
+  public LDClient(String sdkKey, LDConfig config) {
     this.config = config;
-    this.apiKey = apiKey;
-    this.requestor = createFeatureRequestor(apiKey, config);
-    this.eventProcessor = createEventProcessor(apiKey, config);
+    this.sdkKey = sdkKey;
+    this.requestor = createFeatureRequestor(sdkKey, config);
+    this.eventProcessor = createEventProcessor(sdkKey, config);
 
     if (config.offline) {
       logger.info("Starting LaunchDarkly client in offline mode");
@@ -76,7 +76,7 @@ public class LDClient implements Closeable {
 
     if (config.stream) {
       logger.info("Enabling streaming API");
-      this.updateProcessor = createStreamProcessor(apiKey, config, requestor);
+      this.updateProcessor = createStreamProcessor(sdkKey, config, requestor);
     } else {
       logger.info("Disabling streaming API");
       this.updateProcessor = createPollingProcessor(config);
@@ -101,18 +101,18 @@ public class LDClient implements Closeable {
   }
 
   @VisibleForTesting
-  protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
-    return new FeatureRequestor(apiKey, config);
+  protected FeatureRequestor createFeatureRequestor(String sdkKey, LDConfig config) {
+    return new FeatureRequestor(sdkKey, config);
   }
 
   @VisibleForTesting
-  protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
-    return new EventProcessor(apiKey, config);
+  protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
+    return new EventProcessor(sdkKey, config);
   }
 
   @VisibleForTesting
-  protected StreamProcessor createStreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
-    return new StreamProcessor(apiKey, config, requestor);
+  protected StreamProcessor createStreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor) {
+    return new StreamProcessor(sdkKey, config, requestor);
   }
 
   @VisibleForTesting
@@ -382,7 +382,7 @@ public class LDClient implements Closeable {
 
   /**
    * For more info: <a href=https://github.com/launchdarkly/js-client#secure-mode>https://github.com/launchdarkly/js-client#secure-mode</a>
-   * @param user The User to be hashed along with the api key
+   * @param user The User to be hashed along with the sdk key
    * @return the hash, or null if the hash could not be calculated.
      */
   public String secureModeHash(LDUser user) {
@@ -391,7 +391,7 @@ public class LDClient implements Closeable {
     }
     try {
       Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-      mac.init(new SecretKeySpec(apiKey.getBytes(), HMAC_ALGORITHM));
+      mac.init(new SecretKeySpec(sdkKey.getBytes(), HMAC_ALGORITHM));
       return Hex.encodeHexString(mac.doFinal(user.getKeyAsString().getBytes("UTF8")));
     } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
       logger.error("Could not generate secure mode hash", e);

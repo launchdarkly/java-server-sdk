@@ -357,14 +357,14 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   private LDClient createMockClient(LDConfig config) {
-    return new LDClient("API_KEY", config) {
+    return new LDClient("SDK_KEY", config) {
       @Override
-      protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
+      protected FeatureRequestor createFeatureRequestor(String sdkKey, LDConfig config) {
         return requestor;
       }
 
       @Override
-      protected StreamProcessor createStreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
+      protected StreamProcessor createStreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor) {
         return streamProcessor;
       }
 
@@ -374,7 +374,7 @@ public class LDClientTest extends EasyMockSupport {
       }
 
       @Override
-      protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
+      protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
         return eventProcessor;
       }
     };
