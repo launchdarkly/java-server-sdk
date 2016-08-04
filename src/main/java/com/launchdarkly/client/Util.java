@@ -43,7 +43,7 @@ class Util {
       return true;
     }
     if (statusCode == HttpStatus.SC_UNAUTHORIZED) {
-      logger.error("[401] Invalid API key when accessing URI: " + request.getURI().toString());
+      logger.error("[401] Invalid SDK key when accessing URI: " + request.getURI().toString());
     } else {
       logger.error("[" + statusCode + "] " + response.getStatusLine().getReasonPhrase() + " When accessing URI: " + request.getURI().toString());
     }

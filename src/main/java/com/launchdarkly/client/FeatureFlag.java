@@ -53,9 +53,19 @@ class FeatureFlag {
   }
 
   EvalResult evaluate(LDUser user, FeatureStore featureStore) throws EvaluationException {
+    if (user == null || user.getKeyAsString().isEmpty()) {
+      logger.warn("Null user or null/empty user key when evaluating flag: " + key + "; returning null");
+      return null;
+    }
     List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
-    JsonElement value = evaluate(user, featureStore, prereqEvents);
-    return new EvalResult(value, prereqEvents);
+    if (isOn()) {
+      JsonElement value = evaluate(user, featureStore, prereqEvents);
+      if (value != null) {
+        return new EvalResult(value, prereqEvents);
+      }
+    }
+    JsonElement offVariation = getOffVariationValue();
+    return new EvalResult(offVariation, prereqEvents);
   }
 
   // Returning either a JsonElement or null indicating prereq failure/error.

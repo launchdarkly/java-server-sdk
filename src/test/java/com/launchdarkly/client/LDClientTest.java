@@ -341,20 +341,30 @@ public class LDClientTest extends EasyMockSupport {
     verifyAll();
   }
 
+  @Test
+  public void testSecureModeHash() {
+    LDConfig config = new LDConfig.Builder()
+            .offline(true)
+            .build();
+    LDClient client = new LDClient("secret", config);
+    LDUser user = new LDUser.Builder("Message").build();
+    assertEquals("aa747c502a898200f9e4fa21bac68136f886a0e27aec70ba06daf2e2a5cb5597", client.secureModeHash(user));
+  }
+
   private void assertDefaultValueIsReturned() {
     boolean result = client.boolVariation("test", new LDUser("test.key"), true);
     assertEquals(true, result);
   }
 
   private LDClient createMockClient(LDConfig config) {
-    return new LDClient("API_KEY", config) {
+    return new LDClient("SDK_KEY", config) {
       @Override
-      protected FeatureRequestor createFeatureRequestor(String apiKey, LDConfig config) {
+      protected FeatureRequestor createFeatureRequestor(String sdkKey, LDConfig config) {
         return requestor;
       }
 
       @Override
-      protected StreamProcessor createStreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
+      protected StreamProcessor createStreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor) {
         return streamProcessor;
       }
 
@@ -364,7 +374,7 @@ public class LDClientTest extends EasyMockSupport {
       }
 
       @Override
-      protected EventProcessor createEventProcessor(String apiKey, LDConfig config) {
+      protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
         return eventProcessor;
       }
     };

@@ -23,16 +23,16 @@ class StreamProcessor implements UpdateProcessor {
 
   private final FeatureStore store;
   private final LDConfig config;
-  private final String apiKey;
+  private final String sdkKey;
   private final FeatureRequestor requestor;
   private EventSource es;
   private AtomicBoolean initialized = new AtomicBoolean(false);
 
 
-  StreamProcessor(String apiKey, LDConfig config, FeatureRequestor requestor) {
+  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor) {
     this.store = config.featureStore;
     this.config = config;
-    this.apiKey = apiKey;
+    this.sdkKey = sdkKey;
     this.requestor = requestor;
   }
 
@@ -41,7 +41,7 @@ class StreamProcessor implements UpdateProcessor {
     final VeryBasicFuture initFuture = new VeryBasicFuture();
 
     Headers headers = new Headers.Builder()
-        .add("Authorization", "api_key " + this.apiKey)
+        .add("Authorization", this.sdkKey)
         .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION)
         .add("Accept", "text/event-stream")
         .build();
@@ -102,7 +102,8 @@ class StreamProcessor implements UpdateProcessor {
 
       @Override
       public void onError(Throwable throwable) {
-        logger.warn("Encountered EventSource error", throwable);
+        logger.error("Encountered EventSource error: " + throwable.getMessage());
+        logger.debug("", throwable);
       }
     };
 

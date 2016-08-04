@@ -62,7 +62,7 @@ public class FeatureFlagTest {
 
     FeatureFlag.EvalResult flagCResult = flagC.evaluate(user, featureStore);
     Assert.assertNotNull(flagCResult);
-    Assert.assertEquals(new JsonPrimitive(0), flagCResult.getValue());
+    Assert.assertEquals(null, flagCResult.getValue());
     Assert.assertEquals(0, flagCResult.getPrerequisiteEvents().size());
   }
 

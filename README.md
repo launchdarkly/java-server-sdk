@@ -18,9 +18,9 @@ Quick setup
 
         import com.launchdarkly.client.*;
 
-2. Create a new LDClient with your API key:
+2. Create a new LDClient with your SDK key:
 
-        LDClient ldClient = new LDClient("YOUR_API_KEY");
+        LDClient ldClient = new LDClient("YOUR_SDK_KEY");
 
 Your first feature flag
 -----------------------

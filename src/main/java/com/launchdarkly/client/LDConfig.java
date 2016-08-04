@@ -376,12 +376,12 @@ public final class LDConfig {
         .setPort(eventsURI.getPort());
   }
 
-  HttpGet getRequest(String apiKey, String path) {
+  HttpGet getRequest(String sdkKey, String path) {
     URIBuilder builder = this.getBuilder().setPath(path);
 
     try {
       HttpGet request = new HttpGet(builder.build());
-      request.addHeader("Authorization", "api_key " + apiKey);
+      request.addHeader("Authorization", sdkKey);
       request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
 
       return request;
@@ -391,27 +391,12 @@ public final class LDConfig {
     }
   }
 
-  HttpPost postRequest(String apiKey, String path) {
-    URIBuilder builder = this.getBuilder().setPath(path);
-
-    try {
-      HttpPost request = new HttpPost(builder.build());
-      request.addHeader("Authorization", "api_key " + apiKey);
-      request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
-
-      return request;
-    } catch (Exception e) {
-      logger.error("Unhandled exception in LaunchDarkly client", e);
-      return null;
-    }
-  }
-
-  HttpPost postEventsRequest(String apiKey, String path) {
+  HttpPost postEventsRequest(String sdkKey, String path) {
     URIBuilder builder = this.getEventsBuilder().setPath(eventsURI.getPath() + path);
 
     try {
       HttpPost request = new HttpPost(builder.build());
-      request.addHeader("Authorization", "api_key " + apiKey);
+      request.addHeader("Authorization", sdkKey);
       request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
 
       return request;
