@@ -55,7 +55,7 @@ class FeatureRequestor {
     return client;
   }
 
-  Map<String, FeatureFlag> makeAllRequest() throws IOException {
+  Map<String, FeatureFlag> getAllFlags() throws IOException {
     HttpCacheContext context = HttpCacheContext.create();
 
     HttpGet request = config.getRequest(sdkKey, GET_LATEST_FLAGS_PATH);
@@ -102,13 +102,9 @@ class FeatureRequestor {
     }
   }
 
-  FeatureFlag makeRequest(String featureKey, boolean latest) throws IOException {
+  FeatureFlag getFlag(String featureKey) throws IOException {
     HttpCacheContext context = HttpCacheContext.create();
-
-    String resource = latest ? "/api/eval/latest-features/" : "/api/eval/features/";
-
-    HttpGet request = config.getRequest(sdkKey,resource + featureKey);
-
+    HttpGet request = config.getRequest(sdkKey, GET_LATEST_FLAGS_PATH + "/" + featureKey);
     CloseableHttpResponse response = null;
     try {
       response = client.execute(request, context);

@@ -132,8 +132,8 @@ public class LDClient implements Closeable {
     if (isOffline()) {
       return;
     }
-    if (user == null || user.getKeyAsString().isEmpty()) {
-      logger.warn("Track called with empty/nil user or user key!");
+    if (user == null || user.getKey() == null) {
+      logger.warn("Track called with null user or null user key!");
     }
     boolean processed = eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
     if (!processed) {
@@ -163,8 +163,8 @@ public class LDClient implements Closeable {
     if (isOffline()) {
       return;
     }
-    if (user == null || user.getKeyAsString().isEmpty()) {
-      logger.warn("Identify called with empty/nil user or user key!");
+    if (user == null || user.getKey() == null) {
+      logger.warn("Identify called with null user or null user key!");
     }
     boolean processed = eventProcessor.sendEvent(new IdentifyEvent(user));
     if (!processed) {
@@ -205,8 +205,8 @@ public class LDClient implements Closeable {
       return null;
     }
 
-    if (user == null || user.getKeyAsString().isEmpty()) {
-      logger.warn("allFlags() was called with null user or null/empty user key! returning null");
+    if (user == null || user.getKey() == null) {
+      logger.warn("allFlags() was called with null user or null user key! returning null");
       return null;
     }
 
@@ -315,8 +315,8 @@ public class LDClient implements Closeable {
   }
 
   private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue) {
-    if (user == null || user.getKeyAsString().isEmpty()) {
-      logger.warn("Null user or null/empty user key when evaluating flag: " + featureKey + "; returning default value");
+    if (user == null || user.getKey() == null) {
+      logger.warn("Null user or null user key when evaluating flag: " + featureKey + "; returning default value");
       sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
       return defaultValue;
     }
@@ -386,7 +386,7 @@ public class LDClient implements Closeable {
    * @return the hash, or null if the hash could not be calculated.
      */
   public String secureModeHash(LDUser user) {
-    if (user == null || user.getKeyAsString().isEmpty()) {
+    if (user == null || user.getKey() == null) {
       return null;
     }
     try {

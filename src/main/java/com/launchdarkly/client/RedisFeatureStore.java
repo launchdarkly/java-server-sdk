@@ -240,8 +240,10 @@ public class RedisFeatureStore implements FeatureStore {
       Type type = new TypeToken<FeatureFlag>() {}.getType();
 
       for (Map.Entry<String, String> entry : featuresJson.entrySet()) {
-        FeatureFlag rep =  gson.fromJson(entry.getValue(), type);
-        result.put(entry.getKey(), rep);
+        FeatureFlag featureFlag =  gson.fromJson(entry.getValue(), type);
+        if (!featureFlag.isDeleted()){
+          result.put(entry.getKey(), featureFlag);
+        }
       }
       return result;
     }

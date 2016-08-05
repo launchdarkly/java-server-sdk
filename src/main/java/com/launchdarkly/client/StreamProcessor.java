@@ -76,7 +76,7 @@ class StreamProcessor implements UpdateProcessor {
           }
           case INDIRECT_PUT:
             try {
-              store.init(requestor.makeAllRequest());
+              store.init(requestor.getAllFlags());
               if (!initialized.getAndSet(true)) {
                 initFuture.completed(null);
                 logger.info("Initialized LaunchDarkly client.");
@@ -88,7 +88,7 @@ class StreamProcessor implements UpdateProcessor {
           case INDIRECT_PATCH:
             String key = event.getData();
             try {
-              FeatureFlag feature = requestor.makeRequest(key, true);
+              FeatureFlag feature = requestor.getFlag(key);
               store.upsert(key, feature);
             } catch (IOException e) {
               logger.error("Encountered exception in LaunchDarkly client", e);
