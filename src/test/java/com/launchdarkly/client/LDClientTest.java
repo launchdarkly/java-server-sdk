@@ -24,7 +24,7 @@ public class LDClientTest extends EasyMockSupport {
   private PollingProcessor pollingProcessor;
   private EventProcessor eventProcessor;
   private Future initFuture;
-  private LDClient client;
+  private LDClientInterface client;
 
   @Before
   public void before() {
@@ -346,7 +346,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
             .offline(true)
             .build();
-    LDClient client = new LDClient("secret", config);
+    LDClientInterface client = new LDClient("secret", config);
     LDUser user = new LDUser.Builder("Message").build();
     assertEquals("aa747c502a898200f9e4fa21bac68136f886a0e27aec70ba06daf2e2a5cb5597", client.secureModeHash(user));
   }
@@ -356,7 +356,7 @@ public class LDClientTest extends EasyMockSupport {
     assertEquals(true, result);
   }
 
-  private LDClient createMockClient(LDConfig config) {
+  private LDClientInterface createMockClient(LDConfig config) {
     return new LDClient("SDK_KEY", config) {
       @Override
       protected FeatureRequestor createFeatureRequestor(String sdkKey, LDConfig config) {
