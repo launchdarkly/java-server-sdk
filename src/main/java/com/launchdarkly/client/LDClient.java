@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
@@ -30,7 +29,7 @@ import java.util.jar.Manifest;
  * a single {@code LDClient} for the lifetime of their application.
  */
 @ThreadSafe
-public class LDClient implements Closeable {
+public class LDClient implements LDClientInterface {
   private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   protected static final String CLIENT_VERSION = getClientVersion();
@@ -96,6 +95,7 @@ public class LDClient implements Closeable {
     }
   }
 
+  @Override
   public boolean initialized() {
     return isOffline() || config.useLdd || updateProcessor.initialized();
   }
@@ -128,6 +128,7 @@ public class LDClient implements Closeable {
    * @param user      the user that performed the event
    * @param data      a JSON object containing additional data associated with the event
    */
+  @Override
   public void track(String eventName, LDUser user, JsonElement data) {
     if (isOffline()) {
       return;
@@ -147,6 +148,7 @@ public class LDClient implements Closeable {
    * @param eventName the name of the event
    * @param user      the user that performed the event
    */
+  @Override
   public void track(String eventName, LDUser user) {
     if (isOffline()) {
       return;
@@ -159,6 +161,7 @@ public class LDClient implements Closeable {
    *
    * @param user the user to register
    */
+  @Override
   public void identify(LDUser user) {
     if (isOffline()) {
       return;
@@ -194,6 +197,7 @@ public class LDClient implements Closeable {
    * @param user the end user requesting the feature flags
    * @return a map from feature flag keys to {@code JsonElement} for the specified user
    */
+  @Override
   public Map<String, JsonElement> allFlags(LDUser user) {
     if (isOffline()) {
       logger.warn("allFlags() was called when client is in offline mode! Returning null.");
@@ -233,17 +237,16 @@ public class LDClient implements Closeable {
    * @param defaultValue the default value of the flag
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
+  @Override
   public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
-    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
-    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean()) {
-      return value.getAsJsonPrimitive().getAsBoolean();
-    }
-    return false;
+    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.Boolean);
+    return value.getAsJsonPrimitive().getAsBoolean();
   }
 
   /**
    * @deprecated use {@link #boolVariation(String, LDUser, boolean)}
    */
+  @Override
   @Deprecated
   public boolean toggle(String featureKey, LDUser user, boolean defaultValue) {
     logger.warn("Deprecated method: Toggle() called. Use boolVariation() instead.");
@@ -258,12 +261,10 @@ public class LDClient implements Closeable {
    * @param defaultValue the default value of the flag
    * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
+  @Override
   public Integer intVariation(String featureKey, LDUser user, int defaultValue) {
-    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
-    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
-      return value.getAsJsonPrimitive().getAsInt();
-    }
-    return null;
+    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.Integer);
+    return value.getAsJsonPrimitive().getAsInt();
   }
 
   /**
@@ -274,12 +275,10 @@ public class LDClient implements Closeable {
    * @param defaultValue the default value of the flag
    * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
+  @Override
   public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
-    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
-    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()) {
-      return value.getAsJsonPrimitive().getAsDouble();
-    }
-    return null;
+    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.Double);
+    return value.getAsJsonPrimitive().getAsDouble();
   }
 
   /**
@@ -290,12 +289,10 @@ public class LDClient implements Closeable {
    * @param defaultValue the default value of the flag
    * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
+  @Override
   public String stringVariation(String featureKey, LDUser user, String defaultValue) {
-    JsonElement value = jsonVariation(featureKey, user, new JsonPrimitive(defaultValue));
-    if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
-      return value.getAsJsonPrimitive().getAsString();
-    }
-    return null;
+    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.String);
+    return value.getAsJsonPrimitive().getAsString();
   }
 
   /**
@@ -306,21 +303,21 @@ public class LDClient implements Closeable {
    * @param defaultValue the default value of the flag
    * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
+  @Override
   public JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue) {
-    if (isOffline()) {
-      return defaultValue;
-    }
-    JsonElement value = evaluate(featureKey, user, defaultValue);
+    JsonElement value = evaluate(featureKey, user, defaultValue, VariationType.Json);
     return value;
   }
 
-  private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue) {
+  private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue, VariationType expectedType) {
     if (user == null || user.getKey() == null) {
       logger.warn("Null user or null user key when evaluating flag: " + featureKey + "; returning default value");
       sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
       return defaultValue;
     }
-
+    if (user.getKeyAsString().isEmpty()) {
+      logger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
+    }
     if (!initialized()) {
       logger.warn("Evaluation called before Client has been initialized for feature flag " + featureKey + "; returning default value");
       sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
@@ -341,6 +338,7 @@ public class LDClient implements Closeable {
         }
       }
       if (evalResult.getValue() != null) {
+        expectedType.assertResultType(evalResult.getValue());
         sendFlagRequestEvent(featureKey, user, evalResult.getValue(), defaultValue, featureFlag.getVersion());
         return evalResult.getValue();
       }
@@ -369,6 +367,7 @@ public class LDClient implements Closeable {
   /**
    * Flushes all pending events
    */
+  @Override
   public void flush() {
     this.eventProcessor.flush();
   }
@@ -376,6 +375,7 @@ public class LDClient implements Closeable {
   /**
    * @return whether the client is in offline mode
    */
+  @Override
   public boolean isOffline() {
     return config.offline;
   }
@@ -385,6 +385,7 @@ public class LDClient implements Closeable {
    * @param user The User to be hashed along with the sdk key
    * @return the hash, or null if the hash could not be calculated.
      */
+  @Override
   public String secureModeHash(LDUser user) {
     if (user == null || user.getKey() == null) {
       return null;
