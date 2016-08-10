@@ -1,8 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.cache.CacheResponseStatus;
 import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.config.RequestConfig;
@@ -17,18 +14,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.Map;
 
 class FeatureRequestor {
 
-  private final String apiKey;
+  public static final String GET_LATEST_FLAGS_PATH = "/sdk/latest-flags";
+  private final String sdkKey;
   private final LDConfig config;
   private final CloseableHttpClient client;
   private static final Logger logger = LoggerFactory.getLogger(FeatureRequestor.class);
 
-  FeatureRequestor(String apiKey, LDConfig config) {
-    this.apiKey = apiKey;
+  FeatureRequestor(String sdkKey, LDConfig config) {
+    this.sdkKey = sdkKey;
     this.config = config;
     this.client = createClient();
   }
@@ -58,13 +55,10 @@ class FeatureRequestor {
     return client;
   }
 
-  Map<String, FeatureRep<?>> makeAllRequest(boolean latest) throws IOException {
-    Gson gson = new Gson();
+  Map<String, FeatureFlag> getAllFlags() throws IOException {
     HttpCacheContext context = HttpCacheContext.create();
 
-    String resource = latest ? "/api/eval/latest-features" : "/api/eval/features";
-
-    HttpGet request = config.getRequest(apiKey, resource);
+    HttpGet request = config.getRequest(sdkKey, GET_LATEST_FLAGS_PATH);
 
     CloseableHttpResponse response = null;
     try {
@@ -72,21 +66,18 @@ class FeatureRequestor {
       response = client.execute(request, context);
 
       logCacheResponse(context.getCacheResponseStatus());
-
-      handleResponseStatus(response.getStatusLine().getStatusCode(), null);
-
-      Type type = new TypeToken<Map<String, FeatureRep<?>>>() {}.getType();
+      if (!Util.handleResponse(logger, request, response)) {
+        throw new IOException("Failed to fetch flags");
+      }
 
       String json = EntityUtils.toString(response.getEntity());
       logger.debug("Got response: " + response.toString());
-      logger.debug("Got Response body: " + json);
-      Map<String, FeatureRep<?>> result = gson.fromJson(json, type);
-      return result;
+      return FeatureFlag.fromJsonMap(json);
     }
     finally {
       try {
         if (response != null) response.close();
-      } catch (IOException e) {
+      } catch (IOException ignored) {
       }
     }
   }
@@ -111,51 +102,24 @@ class FeatureRequestor {
     }
   }
 
-  void handleResponseStatus(int status, String featureKey) throws IOException {
-
-    if (status != HttpStatus.SC_OK) {
-      if (status == HttpStatus.SC_UNAUTHORIZED) {
-        logger.error("Invalid API key");
-      } else if (status == HttpStatus.SC_NOT_FOUND) {
-        if (featureKey != null) {
-          logger.error("Unknown feature key: " + featureKey);
-        }
-        else {
-          logger.error("Resource not found");
-        }
-      } else {
-        logger.error("Unexpected status code: " + status);
-      }
-      throw new IOException("Failed to fetch flag");
-    }
-
-  }
-
-  <T> FeatureRep<T> makeRequest(String featureKey, boolean latest) throws IOException {
-    Gson gson = new Gson();
+  FeatureFlag getFlag(String featureKey) throws IOException {
     HttpCacheContext context = HttpCacheContext.create();
-
-    String resource = latest ? "/api/eval/latest-features/" : "/api/eval/features/";
-
-    HttpGet request = config.getRequest(apiKey,resource + featureKey);
-
+    HttpGet request = config.getRequest(sdkKey, GET_LATEST_FLAGS_PATH + "/" + featureKey);
     CloseableHttpResponse response = null;
     try {
       response = client.execute(request, context);
 
       logCacheResponse(context.getCacheResponseStatus());
 
-      handleResponseStatus(response.getStatusLine().getStatusCode(), featureKey);
-
-      Type type = new TypeToken<FeatureRep<T>>() {}.getType();
-
-      FeatureRep<T> result = gson.fromJson(EntityUtils.toString(response.getEntity()), type);
-      return result;
+      if (!Util.handleResponse(logger, request, response)) {
+        throw new IOException("Failed to fetch flag");
+      }
+      return FeatureFlag.fromJson(EntityUtils.toString(response.getEntity()));
     }
     finally {
       try {
         if (response != null) response.close();
-      } catch (IOException e) {
+      } catch (IOException ignored) {
       }
     }
   }

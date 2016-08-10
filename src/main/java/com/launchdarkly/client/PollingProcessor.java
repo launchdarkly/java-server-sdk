@@ -30,6 +30,7 @@ public class PollingProcessor implements UpdateProcessor {
 
   @Override
   public void close() throws IOException {
+    logger.info("Closing LaunchDarkly PollingProcessor");
     scheduler.shutdown();
   }
 
@@ -47,7 +48,7 @@ public class PollingProcessor implements UpdateProcessor {
       @Override
       public void run() {
         try {
-          store.init(requestor.makeAllRequest(true));
+          store.init(requestor.getAllFlags());
           if (!initialized.getAndSet(true)) {
             logger.info("Initialized LaunchDarkly client.");
             initFuture.completed(null);

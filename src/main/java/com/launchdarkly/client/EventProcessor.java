@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -22,12 +21,12 @@ class EventProcessor implements Closeable {
   private final ScheduledExecutorService scheduler;
   private final Random random = new Random();
   private final BlockingQueue<Event> queue;
-  private final String apiKey;
+  private final String sdkKey;
   private final LDConfig config;
   private final Consumer consumer;
 
-  EventProcessor(String apiKey, LDConfig config) {
-    this.apiKey = apiKey;
+  EventProcessor(String sdkKey, LDConfig config) {
+    this.sdkKey = sdkKey;
     this.queue = new ArrayBlockingQueue<>(config.capacity);
     this.consumer = new Consumer(config);
     this.config = config;
@@ -86,23 +85,14 @@ class EventProcessor implements Closeable {
       Gson gson = new Gson();
       String json = gson.toJson(events);
 
-      HttpPost request = config.postEventsRequest(apiKey, "/bulk");
+      HttpPost request = config.postEventsRequest(sdkKey, "/bulk");
       StringEntity entity = new StringEntity(json, "UTF-8");
       entity.setContentType("application/json");
       request.setEntity(entity);
 
       try {
         response = client.execute(request);
-
-        int status = response.getStatusLine().getStatusCode();
-
-        if (status >= 300) {
-          if (status == HttpStatus.SC_UNAUTHORIZED) {
-            logger.error("Invalid API key");
-          } else {
-            logger.error("Unexpected status code: " + status);
-          }
-        } else {
+        if (Util.handleResponse(logger, request, response)) {
           logger.debug("Successfully posted " + events.size() + " event(s).");
         }
       } catch (IOException e) {

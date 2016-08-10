@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * launch a feature to the top 10% of users on a site.
  */
 public class LDUser {
-  private JsonPrimitive key;
+  private final JsonPrimitive key;
   private JsonPrimitive secondary;
   private JsonPrimitive ip;
   private JsonPrimitive email;
@@ -37,12 +37,10 @@ public class LDUser {
   private Map<String, JsonElement> custom;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
-
-  LDUser() {
-
-  }
-
   protected LDUser(Builder builder) {
+    if (builder.key == null || builder.key.equals("")) {
+      logger.warn("User was created with null/empty key");
+    }
     this.key = builder.key == null ? null : new JsonPrimitive(builder.key);
     this.ip = builder.ip == null ? null : new JsonPrimitive(builder.ip);
     this.country = builder.country == null ? null : new JsonPrimitive(builder.country.getAlpha2());
@@ -66,8 +64,24 @@ public class LDUser {
     this.custom = new HashMap<>();
   }
 
+  protected JsonElement getValueForEvaluation(String attribute) {
+    try {
+      return UserAttribute.valueOf(attribute).get(this);
+    } catch (IllegalArgumentException expected) {
+      return getCustom(attribute);
+    }
+  }
+
   JsonPrimitive getKey() {
     return key;
+  }
+
+  String getKeyAsString() {
+    if (key == null) {
+      return "";
+    } else {
+      return key.getAsString();
+    }
   }
 
   JsonPrimitive getIp() {
@@ -107,11 +121,13 @@ public class LDUser {
   }
 
   JsonElement getCustom(String key) {
-    return custom.get(key);
+    if (custom != null) {
+      return custom.get(key);
+    }
+    return null;
   }
-
   /**
-   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDUser} objects. Builder
+   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link LDUser} objects. Builder
    * calls can be chained, enabling the following pattern:
    * <p>
    * <pre>

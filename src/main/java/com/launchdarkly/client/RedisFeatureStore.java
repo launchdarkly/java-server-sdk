@@ -9,6 +9,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -25,16 +27,17 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A thread-safe, versioned store for {@link com.launchdarkly.client.FeatureRep} objects backed by Redis. Also
+ * A thread-safe, versioned store for {@link FeatureFlag} objects backed by Redis. Also
  * supports an optional in-memory cache configuration that can be used to improve performance.
  *
  */
 public class RedisFeatureStore implements FeatureStore {
+  private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStore.class);
   private static final String DEFAULT_PREFIX = "launchdarkly";
   private static final String INIT_KEY = "$initialized$";
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
   private final JedisPool pool;
-  private LoadingCache<String, FeatureRep<?>> cache;
+  private LoadingCache<String, FeatureFlag> cache;
   private LoadingCache<String, Boolean> initCache;
   private String prefix;
   private ListeningExecutorService executorService;
@@ -152,10 +155,10 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
-  private CacheLoader<String, FeatureRep<?>> createDefaultCacheLoader() {
-    return new CacheLoader<String, FeatureRep<?>>() {
+  private CacheLoader<String, FeatureFlag> createDefaultCacheLoader() {
+    return new CacheLoader<String, FeatureFlag>() {
       @Override
-      public FeatureRep<?> load(String key) throws Exception {
+      public FeatureFlag load(String key) throws Exception {
         return getRedis(key);
       }
     };
@@ -164,14 +167,14 @@ public class RedisFeatureStore implements FeatureStore {
   /**
    * Configures the instance to use a "refresh after write" cache. This will not automatically evict stale values, allowing them to be returned if failures
    * occur when updating them. Optionally set the cache to refresh values asynchronously, which always returns the previously cached value immediately.
-   * @param cacheTimeSecs the length of time in seconds, after a {@link FeatureRep} value is created that it should be refreshed.
+   * @param cacheTimeSecs the length of time in seconds, after a {@link FeatureFlag} value is created that it should be refreshed.
    * @param asyncRefresh makes the refresh asynchronous or not.
    */
   private void createRefreshCache(long cacheTimeSecs, boolean asyncRefresh) {
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CACHE_REFRESH_THREAD_POOL_NAME_FORMAT).setDaemon(true).build();
     ExecutorService parentExecutor = Executors.newSingleThreadExecutor(threadFactory);
     executorService = MoreExecutors.listeningDecorator(parentExecutor);
-    CacheLoader<String, FeatureRep<?>> cacheLoader = createDefaultCacheLoader();
+    CacheLoader<String, FeatureFlag> cacheLoader = createDefaultCacheLoader();
     if (asyncRefresh) {
       cacheLoader = CacheLoader.asyncReloading(cacheLoader, executorService);
     }
@@ -180,7 +183,7 @@ public class RedisFeatureStore implements FeatureStore {
 
   /**
    * Configures the instance to use an "expire after write" cache. This will evict stale values and block while loading the latest from Redis.
-   * @param cacheTimeSecs the length of time in seconds, after a {@link FeatureRep} value is created that it should be automatically removed.
+   * @param cacheTimeSecs the length of time in seconds, after a {@link FeatureFlag} value is created that it should be automatically removed.
    */
   private void createExpiringCache(long cacheTimeSecs) {
     cache = CacheBuilder.newBuilder().expireAfterWrite(cacheTimeSecs, TimeUnit.SECONDS).build(createDefaultCacheLoader());
@@ -198,22 +201,27 @@ public class RedisFeatureStore implements FeatureStore {
   }
 
   /**
-   * Returns the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link com.launchdarkly.client.FeatureRep} has
+   * Returns the {@link FeatureFlag} to which the specified key is mapped, or
+   * null if the key is not associated or the associated {@link FeatureFlag} has
    * been deleted.
    *
-   * @param key the key whose associated {@link com.launchdarkly.client.FeatureRep} is to be returned
-   * @return the {@link com.launchdarkly.client.FeatureRep} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link com.launchdarkly.client.FeatureRep} has
+   * @param key the key whose associated {@link FeatureFlag} is to be returned
+   * @return the {@link FeatureFlag} to which the specified key is mapped, or
+   * null if the key is not associated or the associated {@link FeatureFlag} has
    * been deleted.
    */
   @Override
-  public FeatureRep<?> get(String key) {
+  public FeatureFlag get(String key) {
+    FeatureFlag featureFlag;
     if (cache != null) {
-      return cache.getUnchecked(key);
+      featureFlag = cache.getUnchecked(key);
     } else {
-      return getRedis(key);
+      featureFlag = getRedis(key);
     }
+    if (featureFlag != null) {
+      logger.debug("[get] Key: " + key + " with version: " + featureFlag.getVersion() + " found in feature store.");
+    }
+    return featureFlag;
   }
 
   /**
@@ -223,17 +231,19 @@ public class RedisFeatureStore implements FeatureStore {
    * @return a map of all associated features.
    */
   @Override
-  public Map<String, FeatureRep<?>> all() {
+  public Map<String, FeatureFlag> all() {
     try (Jedis jedis = pool.getResource()) {
       Map<String,String> featuresJson = jedis.hgetAll(featuresKey());
-      Map<String, FeatureRep<?>> result = new HashMap<>();
+      Map<String, FeatureFlag> result = new HashMap<>();
       Gson gson = new Gson();
 
-      Type type = new TypeToken<FeatureRep<?>>() {}.getType();
+      Type type = new TypeToken<FeatureFlag>() {}.getType();
 
       for (Map.Entry<String, String> entry : featuresJson.entrySet()) {
-        FeatureRep<?> rep =  gson.fromJson(entry.getValue(), type);
-        result.put(entry.getKey(), rep);
+        FeatureFlag featureFlag =  gson.fromJson(entry.getValue(), type);
+        if (!featureFlag.isDeleted()){
+          result.put(entry.getKey(), featureFlag);
+        }
       }
       return result;
     }
@@ -246,15 +256,15 @@ public class RedisFeatureStore implements FeatureStore {
    * @param features the features to set the store
    */
   @Override
-  public void init(Map<String, FeatureRep<?>> features) {
+  public void init(Map<String, FeatureFlag> features) {
     try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       Transaction t = jedis.multi();
 
       t.del(featuresKey());
 
-      for (FeatureRep<?> f: features.values()) {
-        t.hset(featuresKey(), f.key, gson.toJson(f));
+      for (FeatureFlag f: features.values()) {
+        t.hset(featuresKey(), f.getKey(), gson.toJson(f));
       }
 
       t.exec();
@@ -274,16 +284,16 @@ public class RedisFeatureStore implements FeatureStore {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
-      FeatureRep<?> feature = getRedis(key);
+      FeatureFlag feature = getRedis(key);
 
-      if (feature != null && feature.version >= version) {
+      if (feature != null && feature.getVersion() >= version) {
         return;
       }
 
-      feature.deleted = true;
-      feature.version = version;
-
-      jedis.hset(featuresKey(), key, gson.toJson(feature));
+      FeatureFlagBuilder newBuilder = new FeatureFlagBuilder(feature);
+      newBuilder.on(false);
+      newBuilder.version(version);
+      jedis.hset(featuresKey(), key, gson.toJson(newBuilder.build()));
 
       if (cache != null) {
         cache.invalidate(key);
@@ -299,14 +309,14 @@ public class RedisFeatureStore implements FeatureStore {
    * @param feature
    */
   @Override
-  public void upsert(String key, FeatureRep<?> feature) {
+  public void upsert(String key, FeatureFlag feature) {
     try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
-      FeatureRep<?> f = getRedis(key);
+      FeatureFlag f = getRedis(key);
 
-      if (f != null && f.version >= feature.version) {
+      if (f != null && f.getVersion() >= feature.getVersion()) {
         return;
       }
 
@@ -340,8 +350,8 @@ public class RedisFeatureStore implements FeatureStore {
    * Releases all resources associated with the store. The store must no longer be used once closed.
    * @throws IOException
    */
-  public void close() throws IOException
-  {
+  public void close() throws IOException {
+    logger.info("Closing LaunchDarkly RedisFeatureStore");
     try {
       if (executorService != null) {
         executorService.shutdownNow();
@@ -373,19 +383,24 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
-  private FeatureRep<?> getRedis(String key) {
+  private FeatureFlag getRedis(String key) {
     try (Jedis jedis = pool.getResource()){
       Gson gson = new Gson();
       String featureJson = jedis.hget(featuresKey(), key);
 
       if (featureJson == null) {
+        logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
         return null;
       }
 
-      Type type = new TypeToken<FeatureRep<?>>() {}.getType();
-      FeatureRep<?> f = gson.fromJson(featureJson, type);
+      Type type = new TypeToken<FeatureFlag>() {}.getType();
+      FeatureFlag f = gson.fromJson(featureJson, type);
 
-      return f.deleted ? null : f;
+      if (f.isDeleted()) {
+        logger.debug("[get] Key: " + key + " has been deleted. Returning null");
+        return null;
+      }
+      return f;
     }
   }
 
