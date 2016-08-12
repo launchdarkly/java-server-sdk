@@ -19,7 +19,7 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "2.0.0-SNAPSHOT"
+    version = "2.0.1"
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
 }
@@ -94,8 +94,13 @@ githubPages {
 
 shadowJar {
     baseName = 'launchdarkly-client'
-    //no classifier means that the fat + shaded jar becomes the default artifact
+    //no classifier means that the shaded jar becomes the default artifact
     classifier = ''
+
+    // Don't shade or include slf4j
+    dependencies{
+        exclude(dependency('org.slf4j:.*:.*'))
+    }
 
     // Shade all jars except for launchdarkly
     relocate('com', 'com.launchdarkly.shaded.com') {
