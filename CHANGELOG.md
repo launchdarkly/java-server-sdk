@@ -3,7 +3,7 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
-## [2.0.0] - 2016-08-08
+## [2.0.1] - 2016-08-12
 ### Removed
 - Removed slf4j from default artifact: [#71](https://github.com/launchdarkly/java-client/issues/71)
 
