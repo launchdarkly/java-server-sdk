@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
@@ -37,7 +38,7 @@ public class RedisFeatureStore implements FeatureStore {
   private static final String INIT_KEY = "$initialized$";
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
   private final JedisPool pool;
-  private LoadingCache<String, FeatureFlag> cache;
+  private LoadingCache<String, Optional<FeatureFlag>> cache;
   private LoadingCache<String, Boolean> initCache;
   private String prefix;
   private ListeningExecutorService executorService;
@@ -155,11 +156,11 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
-  private CacheLoader<String, FeatureFlag> createDefaultCacheLoader() {
-    return new CacheLoader<String, FeatureFlag>() {
+  private CacheLoader<String, Optional<FeatureFlag>> createDefaultCacheLoader() {
+    return new CacheLoader<String, Optional<FeatureFlag>>() {
       @Override
-      public FeatureFlag load(String key) throws Exception {
-        return getRedis(key);
+      public Optional<FeatureFlag> load(String key) throws Exception {
+        return Optional.fromNullable(getRedis(key));
       }
     };
   }
@@ -174,7 +175,7 @@ public class RedisFeatureStore implements FeatureStore {
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CACHE_REFRESH_THREAD_POOL_NAME_FORMAT).setDaemon(true).build();
     ExecutorService parentExecutor = Executors.newSingleThreadExecutor(threadFactory);
     executorService = MoreExecutors.listeningDecorator(parentExecutor);
-    CacheLoader<String, FeatureFlag> cacheLoader = createDefaultCacheLoader();
+    CacheLoader<String, Optional<FeatureFlag>> cacheLoader = createDefaultCacheLoader();
     if (asyncRefresh) {
       cacheLoader = CacheLoader.asyncReloading(cacheLoader, executorService);
     }
@@ -214,7 +215,7 @@ public class RedisFeatureStore implements FeatureStore {
   public FeatureFlag get(String key) {
     FeatureFlag featureFlag;
     if (cache != null) {
-      featureFlag = cache.getUnchecked(key);
+      featureFlag = cache.getUnchecked(key).orNull();
     } else {
       featureFlag = getRedis(key);
     }
