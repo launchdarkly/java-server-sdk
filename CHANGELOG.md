@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.0.2] - 2016-09-13
+### Added
+- Now publishing artifact with 'all' classifier that includes SLF4J for ColdFusion or other systems that need it.
+
 ## [2.0.1] - 2016-08-12
 ### Removed
 - Removed slf4j from default artifact: [#71](https://github.com/launchdarkly/java-client/issues/71)
