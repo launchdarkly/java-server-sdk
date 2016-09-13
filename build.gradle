@@ -19,7 +19,7 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "2.0.1"
+    version = "2.0.2"
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
 }
@@ -110,6 +110,40 @@ shadowJar {
         exclude("com.google.gson.internal.*")
         exclude("com.google.gson.internal.bind.*")
         exclude("com.google.gson.internal.bind.util.*")
+        exclude("com.google.gson.reflect.*")
+        exclude("com.google.gson.stream.*")
+    }
+    relocate('okhttp3', 'com.launchdarkly.shaded.okhttp3')
+    relocate('okio', 'com.launchdarkly.shaded.okio')
+    relocate('org', 'com.launchdarkly.shaded.org') {
+        exclude("org.slf4j.*")
+        exclude("org.slf4j.event.*")
+        exclude("org.slf4j.helpers.*")
+        exclude("org.slf4j.spi.*")
+    }
+    relocate('redis', 'com.launchdarkly.shaded.redis')
+
+    manifest {
+        attributes("Implementation-Version": version)
+    }
+}
+
+task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    baseName = 'launchdarkly-client'
+    classifier = 'all'
+    group = "shadow"
+    description = "Builds a Shaded fat jar including SLF4J"
+    from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
+    configurations = [project.configurations.runtime]
+    exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+
+    // Shade all jars except for launchdarkly
+    relocate('com', 'com.launchdarkly.shaded.com') {
+        exclude("com.launchdarkly.client.*")
+        exclude("com.google.gson.*")
+        exclude("com.google.gson.annotations.*")
+        exclude("com.google.gson.internal.*")
+        exclude("com.google.gson.internal.bind.*")
         exclude("com.google.gson.internal.bind.util.*")
         exclude("com.google.gson.reflect.*")
         exclude("com.google.gson.stream.*")
@@ -127,6 +161,10 @@ shadowJar {
     manifest {
         attributes("Implementation-Version": version)
     }
+}
+
+artifacts {
+    archives shadowJarAll
 }
 
 test {
