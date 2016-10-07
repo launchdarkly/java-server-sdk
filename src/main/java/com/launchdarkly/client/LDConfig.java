@@ -24,7 +24,7 @@ public final class LDConfig {
   private static final long DEFAULT_POLLING_INTERVAL_MILLIS = 1000L;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
   private static final int DEFAULT_SAMPLING_INTERVAL = 0;
-  private static final long DEFAULT_RECONNECT_TIME_MS = 1000;
+  private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
 
   protected static final LDConfig DEFAULT = new Builder().build();
@@ -98,7 +98,7 @@ public final class LDConfig {
     private FeatureStore featureStore = new InMemoryFeatureStore();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
-    private long reconnectTimeMs = DEFAULT_RECONNECT_TIME_MS;
+    private long reconnectTimeMs = DEFAULT_RECONNECT_TIME_MILLIS;
 
     /**
      * Creates a builder with all configuration parameters set to the default
