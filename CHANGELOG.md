@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.0.3] - 2016-10-10
+### Added
+- StreamingProcessor now supports increasing retry delays with jitter. Addresses [https://github.com/launchdarkly/java-client/issues/74[(https://github.com/launchdarkly/java-client/issues/74)
+
 ## [2.0.2] - 2016-09-13
 ### Added
 - Now publishing artifact with 'all' classifier that includes SLF4J for ColdFusion or other systems that need it.
