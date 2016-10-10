@@ -109,6 +109,7 @@ class StreamProcessor implements UpdateProcessor {
 
     es = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
         .headers(headers)
+        .reconnectTimeMs(config.reconnectTimeMs)
         .build();
 
     es.start();
