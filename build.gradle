@@ -32,7 +32,7 @@ dependencies {
     compile "com.google.guava:guava:19.0"
     compile "joda-time:joda-time:2.9.3"
     compile "org.slf4j:slf4j-api:1.7.21"
-    compile group: "com.launchdarkly", name: "okhttp-eventsource", version: "1.0.0-SNAPSHOT", changing: true
+    compile group: "com.launchdarkly", name: "okhttp-eventsource", version: "1.0.0", changing: true
     compile "redis.clients:jedis:2.8.1"
     testCompile "org.easymock:easymock:3.4"
     testCompile 'junit:junit:4.12'

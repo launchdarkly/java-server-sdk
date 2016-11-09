@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
@@ -12,10 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 class StreamProcessor implements UpdateProcessor {
@@ -32,7 +30,7 @@ class StreamProcessor implements UpdateProcessor {
   private final String sdkKey;
   private final FeatureRequestor requestor;
   private final ScheduledExecutorService heartbeatDetectorService;
-  private DateTime lastHeartbeat;
+  private volatile DateTime lastHeartbeat;
   private volatile EventSource es;
   private AtomicBoolean initialized = new AtomicBoolean(false);
 
@@ -42,7 +40,10 @@ class StreamProcessor implements UpdateProcessor {
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = requestor;
-    this.heartbeatDetectorService = Executors.newScheduledThreadPool(1);
+    ThreadFactory threadFactory = new ThreadFactoryBuilder()
+        .setNameFormat("LaunchDarkly-HeartbeatDetector-%d")
+        .build();
+    this.heartbeatDetectorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
     heartbeatDetectorService.scheduleAtFixedRate(new HeartbeatDetector(), 1, 1, TimeUnit.MINUTES);
   }
 
@@ -200,8 +201,10 @@ class StreamProcessor implements UpdateProcessor {
 
     @Override
     public void run() {
-      DateTime fiveMinutesAgo = DateTime.now().minusSeconds(DEAD_CONNECTION_INTERVAL_SECONDS);
-      if (lastHeartbeat.isBefore(fiveMinutesAgo) && es.getState() == ReadyState.OPEN) {
+      DateTime reconnectThresholdTime = DateTime.now().minusSeconds(DEAD_CONNECTION_INTERVAL_SECONDS);
+      // We only want to force the reconnect if the ES connection is open. If not, it's already trying to
+      // connect anyway, or this processor was shut down
+      if (lastHeartbeat.isBefore(reconnectThresholdTime) && es.getState() == ReadyState.OPEN) {
         try {
           logger.info("Stream stopped receiving heartbeats- reconnecting.");
           es.close();
