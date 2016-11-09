@@ -211,6 +211,12 @@ class StreamProcessor implements UpdateProcessor {
           start();
         } catch (IOException e) {
           logger.warn("Encountered exception closing stream connection: " + e.getMessage());
+        } finally {
+          if (es.getState() == ReadyState.SHUTDOWN) {
+            start();
+          } else {
+            logger.warn("Expected ES to be in state SHUTDOWN, but it's currently in state " + es.getState().toString());
+          }
         }
       }
     }
