@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.0.5] - 2016-11-09
+### Changed
+- The StreamProcessor now listens for heartbeats from the streaming API, and will automatically reconnect if heartbeats are not received.
+
 ## [2.0.4] - 2016-10-12
 ### Changed
 - Updated GSON dependency version to 2.7

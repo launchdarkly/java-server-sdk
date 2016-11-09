@@ -61,11 +61,11 @@ class StreamProcessor implements UpdateProcessor {
 
       @Override
       public void onOpen() throws Exception {
-        lastHeartbeat = DateTime.now();
       }
 
       @Override
       public void onMessage(String name, MessageEvent event) throws Exception {
+        lastHeartbeat = DateTime.now();
         Gson gson = new Gson();
         switch (name) {
           case PUT:
@@ -208,14 +208,13 @@ class StreamProcessor implements UpdateProcessor {
         try {
           logger.info("Stream stopped receiving heartbeats- reconnecting.");
           es.close();
-          start();
         } catch (IOException e) {
-          logger.warn("Encountered exception closing stream connection: " + e.getMessage());
+          logger.error("Encountered exception closing stream connection: " + e.getMessage());
         } finally {
           if (es.getState() == ReadyState.SHUTDOWN) {
             start();
           } else {
-            logger.warn("Expected ES to be in state SHUTDOWN, but it's currently in state " + es.getState().toString());
+            logger.error("Expected ES to be in state SHUTDOWN, but it's currently in state " + es.getState().toString());
           }
         }
       }
