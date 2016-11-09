@@ -4,13 +4,18 @@ import com.google.gson.Gson;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
+import com.launchdarkly.eventsource.ReadyState;
 import okhttp3.Headers;
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 class StreamProcessor implements UpdateProcessor {
@@ -20,12 +25,15 @@ class StreamProcessor implements UpdateProcessor {
   private static final String INDIRECT_PUT = "indirect/put";
   private static final String INDIRECT_PATCH = "indirect/patch";
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
+  private static final int DEAD_CONNECTION_INTERVAL_SECONDS = 300;
 
   private final FeatureStore store;
   private final LDConfig config;
   private final String sdkKey;
   private final FeatureRequestor requestor;
-  private EventSource es;
+  private final ScheduledExecutorService heartbeatDetectorService;
+  private DateTime lastHeartbeat;
+  private volatile EventSource es;
   private AtomicBoolean initialized = new AtomicBoolean(false);
 
 
@@ -34,6 +42,8 @@ class StreamProcessor implements UpdateProcessor {
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = requestor;
+    this.heartbeatDetectorService = Executors.newScheduledThreadPool(1);
+    heartbeatDetectorService.scheduleAtFixedRate(new HeartbeatDetector(), 1, 1, TimeUnit.MINUTES);
   }
 
   @Override
@@ -50,7 +60,7 @@ class StreamProcessor implements UpdateProcessor {
 
       @Override
       public void onOpen() throws Exception {
-
+        lastHeartbeat = DateTime.now();
       }
 
       @Override
@@ -101,6 +111,12 @@ class StreamProcessor implements UpdateProcessor {
       }
 
       @Override
+      public void onComment(String comment) {
+        logger.debug("Received a heartbeat");
+        lastHeartbeat = DateTime.now();
+      }
+
+      @Override
       public void onError(Throwable throwable) {
         logger.error("Encountered EventSource error: " + throwable.getMessage());
         logger.debug("", throwable);
@@ -124,6 +140,14 @@ class StreamProcessor implements UpdateProcessor {
     }
     if (store != null) {
       store.close();
+    }
+    if (heartbeatDetectorService != null) {
+      heartbeatDetectorService.shutdownNow();
+      try {
+        heartbeatDetectorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        logger.error("Encountered an exception terminating heartbeat detector: " + e.getMessage());
+      }
     }
   }
 
@@ -170,5 +194,22 @@ class StreamProcessor implements UpdateProcessor {
       return version;
     }
 
+  }
+
+  private final class HeartbeatDetector implements Runnable {
+
+    @Override
+    public void run() {
+      DateTime fiveMinutesAgo = DateTime.now().minusSeconds(DEAD_CONNECTION_INTERVAL_SECONDS);
+      if (lastHeartbeat.isBefore(fiveMinutesAgo) && es.getState() == ReadyState.OPEN) {
+        try {
+          logger.info("Stream stopped receiving heartbeats- reconnecting.");
+          es.close();
+          start();
+        } catch (IOException e) {
+          logger.warn("Encountered exception closing stream connection: " + e.getMessage());
+        }
+      }
+    }
   }
 }
