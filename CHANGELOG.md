@@ -2,6 +2,9 @@
 
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+## [2.0.6] - 2016-11-21
+### Changed
+- RedisFeatureStore: Update Jedis dependency. Improved thread/memory management.
 
 ## [2.0.5] - 2016-11-09
 ### Changed
