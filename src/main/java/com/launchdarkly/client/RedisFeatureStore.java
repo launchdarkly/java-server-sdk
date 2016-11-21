@@ -281,13 +281,17 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void delete(String key, int version) {
-    try (Jedis jedis = pool.getResource()) {
+    Jedis jedis = null;
+    try {
       Gson gson = new Gson();
+      jedis = pool.getResource();
       jedis.watch(featuresKey());
 
       FeatureFlag feature = getRedis(key);
 
       if (feature != null && feature.getVersion() >= version) {
+        logger.warn("Attempted to delete flag: " + key + " version: " + feature.getVersion() +
+            " with a version that is the same or older: " + version);
         return;
       }
 
@@ -298,6 +302,12 @@ public class RedisFeatureStore implements FeatureStore {
 
       if (cache != null) {
         cache.invalidate(key);
+      }
+    }
+    finally {
+      if (jedis != null) {
+        jedis.unwatch();
+        jedis.close();
       }
     }
   }
@@ -311,13 +321,17 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public void upsert(String key, FeatureFlag feature) {
-    try (Jedis jedis = pool.getResource()) {
+    Jedis jedis = null;
+    try {
+      jedis = pool.getResource();
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
       FeatureFlag f = getRedis(key);
 
       if (f != null && f.getVersion() >= feature.getVersion()) {
+        logger.warn("Attempted to update flag: " + key + " version: " + f.getVersion() +
+            " with a version that is the same or older: " + feature.getVersion());
         return;
       }
 
@@ -325,6 +339,11 @@ public class RedisFeatureStore implements FeatureStore {
 
       if (cache != null) {
         cache.invalidate(key);
+      }
+    } finally {
+      if (jedis != null) {
+        jedis.unwatch();
+        jedis.close();
       }
     }
   }
