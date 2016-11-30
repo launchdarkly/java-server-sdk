@@ -105,7 +105,7 @@ public class InMemoryFeatureStore implements FeatureStore {
       FeatureFlag f = features.get(key);
       if (f != null && f.getVersion() < version) {
         FeatureFlagBuilder newBuilder = new FeatureFlagBuilder(f);
-        newBuilder.on(false);
+        newBuilder.deleted(true);
         newBuilder.version(version);
         features.put(key, newBuilder.build());
       } else if (f == null) {

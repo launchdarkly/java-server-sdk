@@ -296,7 +296,7 @@ public class RedisFeatureStore implements FeatureStore {
       }
 
       FeatureFlagBuilder newBuilder = new FeatureFlagBuilder(feature);
-      newBuilder.on(false);
+      newBuilder.deleted(true);
       newBuilder.version(version);
       jedis.hset(featuresKey(), key, gson.toJson(newBuilder.build()));
 
@@ -424,9 +424,8 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
-  private static final JedisPoolConfig getPoolConfig() {
-    JedisPoolConfig config = new JedisPoolConfig();
-    return config;
+  private static JedisPoolConfig getPoolConfig() {
+    return new JedisPoolConfig();
   }
 
 }
