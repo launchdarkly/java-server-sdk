@@ -200,7 +200,7 @@ public class LDClient implements LDClientInterface {
   @Override
   public Map<String, JsonElement> allFlags(LDUser user) {
     if (isOffline()) {
-      logger.warn("allFlags() was called when client is in offline mode!");
+      logger.debug("allFlags() was called when client is in offline mode.");
     }
 
     if (!initialized()) {
