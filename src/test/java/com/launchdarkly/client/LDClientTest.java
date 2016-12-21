@@ -1,12 +1,14 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -14,9 +16,7 @@ import java.util.concurrent.TimeoutException;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class LDClientTest extends EasyMockSupport {
   private FeatureRequestor requestor;
@@ -69,6 +69,23 @@ public class LDClientTest extends EasyMockSupport {
     assertTrue("Test flag should be true, but was not.", client.boolVariation("key", new LDUser("user"), false));
 
     verifyAll();
+  }
+
+  @Test
+  public void testTestOfflineModeAllFlags() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+        .startWaitMillis(10L)
+        .offline(true)
+        .featureStore(testFeatureStore)
+        .build();
+
+    client = new LDClient("", config);//createMockClient(config);
+    testFeatureStore.setFeatureTrue("key");
+    Map<String, JsonElement> allFlags = client.allFlags(new LDUser("user"));
+    assertNotNull("Expected non-nil response from allFlags() when offline mode is set to true", allFlags);
+    assertEquals("Didn't get expected flag count from allFlags() in offline mode", 1, allFlags.size());
+    assertTrue("Test flag should be true, but was not.", allFlags.get("key").getAsBoolean());
   }
 
   @Test
