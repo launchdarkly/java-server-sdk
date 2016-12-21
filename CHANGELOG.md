@@ -2,6 +2,10 @@
 
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+## [2.0.7] - 2016-12-21
+### Changed
+- allFlags() method on client no longer returns null when client is in offline mode.
+
 ## [2.0.6] - 2016-11-21
 ### Changed
 - RedisFeatureStore: Update Jedis dependency. Improved thread/memory management.
