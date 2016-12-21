@@ -205,6 +205,7 @@ public class LDClient implements LDClientInterface {
 
     if (!initialized()) {
       logger.warn("allFlags() was called before Client has been initialized! Returning null.");
+      return null;
     }
 
     if (user == null || user.getKey() == null) {
