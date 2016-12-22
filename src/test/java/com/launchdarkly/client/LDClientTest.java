@@ -74,18 +74,54 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestOfflineModeAllFlags() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(10L)
-        .offline(true)
-        .featureStore(testFeatureStore)
-        .build();
-
-    client = new LDClient("", config);//createMockClient(config);
+    client = createOfflineClient(testFeatureStore);
     testFeatureStore.setFeatureTrue("key");
     Map<String, JsonElement> allFlags = client.allFlags(new LDUser("user"));
     assertNotNull("Expected non-nil response from allFlags() when offline mode is set to true", allFlags);
     assertEquals("Didn't get expected flag count from allFlags() in offline mode", 1, allFlags.size());
     assertTrue("Test flag should be true, but was not.", allFlags.get("key").getAsBoolean());
+  }
+
+  @Test
+  public void testTestOfflineModeStringVariationNullDefault() {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    client = createOfflineClient(testFeatureStore);
+
+    String actual = client.stringVariation("missingKey", new LDUser(""), null);
+    assertNull("Expected null response:", actual);
+
+    String expected = "stringValue";
+    testFeatureStore.setStringValue("key", expected);
+    actual = client.stringVariation("key", new LDUser(""), null);
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testTestOfflineModeDoubleVariationNullDefault() {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    client = createOfflineClient(testFeatureStore);
+
+    Double actual = client.doubleVariation("missingKey", new LDUser(""), null);
+    assertNull("Expected null response:", actual);
+
+    Double expected = 100.0;
+    testFeatureStore.setDoubleValue("key", expected);
+    actual = client.doubleVariation("key", new LDUser(""), null);
+    assertEquals(expected, actual);
+  }
+
+  @Test
+  public void testTestOfflineModeJsonVariationNullDefault() {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    client = createOfflineClient(testFeatureStore);
+
+    JsonElement actual = client.jsonVariation("missingKey", new LDUser(""), null);
+    assertNull("Expected null response:", actual);
+
+    JsonElement expected = new JsonArray();
+    testFeatureStore.setJsonValue("key", expected);
+    actual = client.jsonVariation("key", new LDUser(""), null);
+    assertEquals(expected, actual);
   }
 
   @Test
@@ -395,5 +431,15 @@ public class LDClientTest extends EasyMockSupport {
         return eventProcessor;
       }
     };
+  }
+
+  private LDClient createOfflineClient(FeatureStore featureStore) {
+    LDConfig config = new LDConfig.Builder()
+        .startWaitMillis(10L)
+        .offline(true)
+        .featureStore(featureStore)
+        .build();
+
+    return new LDClient("", config);
   }
 }
