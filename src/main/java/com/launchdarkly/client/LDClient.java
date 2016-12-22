@@ -276,7 +276,11 @@ public class LDClient implements LDClientInterface {
    */
   @Override
   public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
-    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.Double);
+    JsonElement defaultJson = defaultValue == null ? null : new JsonPrimitive(defaultValue);
+    JsonElement value = evaluate(featureKey, user, defaultJson, VariationType.Double);
+    if (value == null) {
+      return null;
+    }
     return value.getAsJsonPrimitive().getAsDouble();
   }
 
@@ -290,7 +294,11 @@ public class LDClient implements LDClientInterface {
    */
   @Override
   public String stringVariation(String featureKey, LDUser user, String defaultValue) {
-    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.String);
+    JsonElement defaultJson = defaultValue == null ? null : new JsonPrimitive(defaultValue);
+    JsonElement value = evaluate(featureKey, user, defaultJson, VariationType.String);
+    if (value == null) {
+      return null;
+    }
     return value.getAsJsonPrimitive().getAsString();
   }
 
