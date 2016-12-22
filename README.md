@@ -11,7 +11,7 @@ Quick setup
         <dependency>
           <groupId>com.launchdarkly</groupId>
           <artifactId>launchdarkly-client</artifactId>
-          <version>2.0.7</version>
+          <version>2.0.8</version>
         </dependency>
 
 1. Import the LaunchDarkly package:
