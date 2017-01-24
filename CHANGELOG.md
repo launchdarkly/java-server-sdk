@@ -2,6 +2,10 @@
 
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+## [2.0.9] - 2017-01-24
+### Changed
+- StreamProcessor uses the proxy configuration specified by LDConfig.
+
 ## [2.0.8] - 2016-12-22
 ### Changed
 - Better handling of null default values.
