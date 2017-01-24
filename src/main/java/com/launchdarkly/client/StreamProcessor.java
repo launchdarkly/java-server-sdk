@@ -7,6 +7,8 @@ import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.ReadyState;
 import okhttp3.Headers;
+
+import org.apache.http.HttpHost;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,11 +126,24 @@ class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    es = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
+    EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
         .headers(headers)
-        .reconnectTimeMs(config.reconnectTimeMs)
-        .build();
+        .reconnectTimeMs(config.reconnectTimeMs);
+    if (config.proxyHost != null) {
+        int proxyPort = config.proxyHost.getPort();
+        if (proxyPort == -1) {
+            String scheme = config.proxyHost.getSchemeName();
+            if (scheme == "http")
+                proxyPort = 80;
+            else if (scheme == "https")
+                proxyPort = 443;
+            else
+                logger.error("Unknown proxy scheme: " + scheme);
+        }
+        builder.proxy(config.proxyHost.getHostName(), proxyPort);
+    }
 
+    es = builder.build();
     es.start();
     return initFuture;
   }
