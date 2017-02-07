@@ -2,6 +2,11 @@
 
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+## [2.0.10] - 2017-02-06
+### Changed
+- Updated okhttp-eventsource dependency to bring in newer okhttp dependency
+- Added more verbose debug level logging when sending events
+
 ## [2.0.9] - 2017-01-24
 ### Changed
 - StreamProcessor uses the proxy configuration specified by LDConfig.

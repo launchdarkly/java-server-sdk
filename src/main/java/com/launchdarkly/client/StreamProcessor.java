@@ -66,6 +66,10 @@ class StreamProcessor implements UpdateProcessor {
       }
 
       @Override
+      public void onClosed() throws Exception {
+      }
+
+      @Override
       public void onMessage(String name, MessageEvent event) throws Exception {
         lastHeartbeat = DateTime.now();
         Gson gson = new Gson();
