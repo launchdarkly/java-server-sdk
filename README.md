@@ -37,6 +37,15 @@ Your first feature flag
           // the code to run if the feature is off
         }
 
+
+Logging
+-------
+The LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). For an example configuration check out the [hello-java](https://github.com/launchdarkly/hello-java) project. 
+
+Be aware of two considerations when enabling the DEBUG log level:
+1. Debug-level logs can be very verbose. It is not recommended that you turn on debug logging in high-volume environments.
+1. Potentially sensitive information is logged including LaunchDarkly users created by you in your usage of this SDK.
+
 Learn more
 ----------
 
