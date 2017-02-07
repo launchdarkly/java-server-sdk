@@ -80,10 +80,10 @@ class EventProcessor implements Closeable {
     }
 
     private void postEvents(List<Event> events) {
-      logger.debug("Posting " + events.size() + " event(s) to " + config.eventsURI);
       CloseableHttpResponse response = null;
       Gson gson = new Gson();
       String json = gson.toJson(events);
+      logger.debug("Posting " + events.size() + " event(s) to " + config.eventsURI + " with payload: " + json);
 
       HttpPost request = config.postEventsRequest(sdkKey, "/bulk");
       StringEntity entity = new StringEntity(json, "UTF-8");
