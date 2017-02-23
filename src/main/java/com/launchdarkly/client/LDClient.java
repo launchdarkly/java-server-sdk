@@ -308,6 +308,24 @@ public class LDClient implements LDClientInterface {
     return value;
   }
 
+  @Override
+  public boolean isFlagKnown(String featureKey) {
+    if (!initialized()) {
+      logger.warn("Evaluation called before Client has been initialized for feature flag " + featureKey + "; returning unknown");
+      return false;
+    }
+
+    try {
+      if (config.featureStore.get(featureKey) != null) {
+        return true;
+      }
+    } catch (Exception e) {
+      logger.error("Encountered exception in LaunchDarkly client", e);
+    }
+
+    return false;
+  }
+
   private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue, VariationType expectedType) {
     if (user == null || user.getKey() == null) {
       logger.warn("Null user or null user key when evaluating flag: " + featureKey + "; returning default value");

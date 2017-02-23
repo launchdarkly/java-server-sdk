@@ -30,6 +30,8 @@ public interface LDClientInterface extends Closeable {
 
   JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue);
 
+  boolean isFlagKnown(String featureKey);
+
   @Override
   void close() throws IOException;
 

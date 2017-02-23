@@ -273,6 +273,49 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
+  public void testIsFlagKnown() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(2);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setIntegerValue("key", 1);
+    assertTrue("Flag is known", client.isFlagKnown("key"));
+    assertFalse("Flag is unknown", client.isFlagKnown("unKnownKey"));
+    verifyAll();
+  }
+
+  @Test
+  public void testIsFlagKnownCallBeforeInitialization() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(false).times(1);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setIntegerValue("key", 1);
+    assertFalse("Flag is marked as unknown", client.isFlagKnown("key"));
+    verifyAll();
+  }
+
+  @Test
   public void testUseLdd() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .useLdd(true)
