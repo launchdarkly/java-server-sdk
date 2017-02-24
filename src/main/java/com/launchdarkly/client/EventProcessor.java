@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -62,7 +63,14 @@ class EventProcessor implements Closeable {
 
     Consumer(LDConfig config) {
       this.config = config;
-      client = HttpClients.custom().setProxy(config.proxyHost).build();
+      RequestConfig requestConfig = RequestConfig.custom()
+          .setConnectTimeout(config.connectTimeout)
+          .setSocketTimeout(config.socketTimeout)
+          .setProxy(config.proxyHost)
+          .build();
+      client = HttpClients.custom()
+          .setDefaultRequestConfig(requestConfig)
+          .build();
     }
 
     @Override
