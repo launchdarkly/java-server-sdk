@@ -2,6 +2,10 @@
 
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+## [2.0.11] - 2017-02-24
+### Changed
+- EventProcessor now respects the connect and socket timeouts configured with LDConfig.
+
 ## [2.0.10] - 2017-02-06
 ### Changed
 - Updated okhttp-eventsource dependency to bring in newer okhttp dependency
