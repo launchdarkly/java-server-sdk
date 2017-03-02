@@ -2,6 +2,11 @@
 
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+## [2.1.0] - 2017-03-02
+### Added
+- LdClientInterface (and its implementation) have a new method: `boolean isFlagKnown(String featureKey)` which checks for a 
+feature flag's existence. Thanks @yuv422!
+
 ## [2.0.11] - 2017-02-24
 ### Changed
 - EventProcessor now respects the connect and socket timeouts configured with LDConfig.

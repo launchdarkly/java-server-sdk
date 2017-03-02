@@ -311,7 +311,7 @@ public class LDClient implements LDClientInterface {
   @Override
   public boolean isFlagKnown(String featureKey) {
     if (!initialized()) {
-      logger.warn("Evaluation called before Client has been initialized for feature flag " + featureKey + "; returning unknown");
+      logger.warn("isFlagKnown called before Client has been initialized for feature flag " + featureKey + "; returning false");
       return false;
     }
 
