@@ -7,7 +7,6 @@ import com.google.gson.JsonPrimitive;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.http.annotation.ThreadSafe;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -344,7 +343,7 @@ public class LDClient implements LDClientInterface {
     try {
       FeatureFlag featureFlag = config.featureStore.get(featureKey);
       if (featureFlag == null) {
-        logger.warn("Unknown feature flag " + featureKey + "; returning default value");
+        logger.debug("Unknown feature flag " + featureKey + "; returning default value");
         sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
         return defaultValue;
       }

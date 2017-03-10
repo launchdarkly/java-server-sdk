@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
