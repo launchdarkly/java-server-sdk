@@ -8,7 +8,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PollingProcessor implements UpdateProcessor {
-  private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
+  private final Logger logger;
 
   private final FeatureRequestor requestor;
   private final LDConfig config;
@@ -19,6 +19,7 @@ public class PollingProcessor implements UpdateProcessor {
   PollingProcessor(LDConfig config, FeatureRequestor requestor) {
     this.requestor = requestor;
     this.config = config;
+    this.logger = config.getLogger(PollingProcessor.class);
     this.store = config.featureStore;
   }
 

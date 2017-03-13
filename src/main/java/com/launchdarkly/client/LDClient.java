@@ -29,7 +29,7 @@ import java.util.jar.Manifest;
  */
 @ThreadSafe
 public class LDClient implements LDClientInterface {
-  private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  private final Logger logger;
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   protected static final String CLIENT_VERSION = getClientVersion();
 
@@ -57,6 +57,7 @@ public class LDClient implements LDClientInterface {
    * @param config a client configuration object
    */
   public LDClient(String sdkKey, LDConfig config) {
+    this.logger = config.getLogger(LDClient.class);
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = createFeatureRequestor(sdkKey, config);

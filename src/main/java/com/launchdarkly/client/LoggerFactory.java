@@ -11,7 +11,13 @@ public class LoggerFactory {
         LoggerFactory.factory.set(factory);
     }
 
+    public static ILoggerFactory instance() {
+        LoggerFactory.factory.compareAndSet(null, new DefaultLoggerFactoryImpl());
+        return LoggerFactory.factory.get();
+    }
+
     public static Logger getLogger(Class<?> className) {
         LoggerFactory.factory.compareAndSet(null, new DefaultLoggerFactoryImpl());
+        return LoggerFactory.factory.get().getLogger(className);
     }
 }

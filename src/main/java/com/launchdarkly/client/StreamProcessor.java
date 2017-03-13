@@ -23,7 +23,7 @@ class StreamProcessor implements UpdateProcessor {
   private static final String DELETE = "delete";
   private static final String INDIRECT_PUT = "indirect/put";
   private static final String INDIRECT_PATCH = "indirect/patch";
-  private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
+  private final Logger logger;
   private static final int DEAD_CONNECTION_INTERVAL_SECONDS = 300;
 
   private final FeatureStore store;
@@ -39,6 +39,7 @@ class StreamProcessor implements UpdateProcessor {
   StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor) {
     this.store = config.featureStore;
     this.config = config;
+    this.logger = config.getLogger(StreamProcessor.class);
     this.sdkKey = sdkKey;
     this.requestor = requestor;
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
