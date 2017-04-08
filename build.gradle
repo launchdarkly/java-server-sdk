@@ -19,20 +19,18 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "2.1.0"
+    version = "2.2.0-SNAPSHOT"
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
 }
 
 dependencies {
-    compile "org.apache.httpcomponents:httpclient:4.5.2"
-    compile "org.apache.httpcomponents:httpclient-cache:4.5.2"
     compile "commons-codec:commons-codec:1.10"
     compile "com.google.code.gson:gson:2.7"
     compile "com.google.guava:guava:19.0"
     compile "joda-time:joda-time:2.9.3"
     compile "org.slf4j:slf4j-api:1.7.21"
-    compile group: "com.launchdarkly", name: "okhttp-eventsource", version: "1.1.1", changing: true
+    compile group: "com.launchdarkly", name: "okhttp-eventsource", version: "1.2.0-SNAPSHOT", changing: true
     compile "redis.clients:jedis:2.9.0"
     testCompile "org.easymock:easymock:3.4"
     testCompile 'junit:junit:4.12'

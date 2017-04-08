@@ -1,13 +1,10 @@
 package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.gson.Gson;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import okhttp3.MediaType;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,19 +55,10 @@ class EventProcessor implements Closeable {
 
   class Consumer implements Runnable {
     private final Logger logger = LoggerFactory.getLogger(Consumer.class);
-    private final CloseableHttpClient client;
     private final LDConfig config;
 
     Consumer(LDConfig config) {
       this.config = config;
-      RequestConfig requestConfig = RequestConfig.custom()
-          .setConnectTimeout(config.connectTimeout)
-          .setSocketTimeout(config.socketTimeout)
-          .setProxy(config.proxyHost)
-          .build();
-      client = HttpClients.custom()
-          .setDefaultRequestConfig(requestConfig)
-          .build();
     }
 
     @Override
@@ -88,29 +76,28 @@ class EventProcessor implements Closeable {
     }
 
     private void postEvents(List<Event> events) {
-      CloseableHttpResponse response = null;
-      Gson gson = new Gson();
-      String json = gson.toJson(events);
+
+      String json = LDConfig.Gson.toJson(events);
       logger.debug("Posting " + events.size() + " event(s) to " + config.eventsURI + " with payload: " + json);
 
-      HttpPost request = config.postEventsRequest(sdkKey, "/bulk");
-      StringEntity entity = new StringEntity(json, "UTF-8");
-      entity.setContentType("application/json");
-      request.setEntity(entity);
+      String content = LDConfig.Gson.toJson(events);
 
-      try {
-        response = client.execute(request);
-        if (Util.handleResponse(logger, request, response)) {
-          logger.debug("Successfully posted " + events.size() + " event(s).");
+      Request request = config.getRequestBuilder(sdkKey)
+          .url(config.eventsURI.toString() + "/bulk")
+          .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), content))
+          .addHeader("Content-Type", "application/json")
+          .build();
+
+      logger.debug("Posting " + events.size() + " event(s) using request: " + request);
+
+      try (Response response = config.httpClient.newCall(request).execute()) {
+        if (!response.isSuccessful()) {
+          logger.info("Got unexpected response when posting events: " + response);
+        } else {
+          logger.debug("Events Response: " + response.code());
         }
       } catch (IOException e) {
-        logger.error("Unhandled exception in LaunchDarkly client attempting to connect to URI: " + config.eventsURI, e);
-      } finally {
-        try {
-          if (response != null) response.close();
-        } catch (IOException e) {
-          logger.error("Unhandled exception in LaunchDarkly client", e);
-        }
+        logger.info("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
       }
     }
   }
