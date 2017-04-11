@@ -2,6 +2,13 @@
 
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+## [2.2.0] - 2017-04-11
+### Added
+- Authentication for proxied http requests is now supported (Basic Auth only)
+
+### Changed
+- Improved Redis connection pool management.
+
 ## [2.1.0] - 2017-03-02
 ### Added
 - LdClientInterface (and its implementation) have a new method: `boolean isFlagKnown(String featureKey)` which checks for a 
