@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
-  static final Gson Gson = new Gson();
+  static final Gson gson = new Gson();
 
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
@@ -266,7 +266,7 @@ public final class LDConfig {
      * Set the host to use as an HTTP proxy for making connections to LaunchDarkly. If this is not set, but
      * {@link #proxyPort(int)} is specified, this will default to <code>localhost</code>.
      * <p>
-     * If neither {@link #proxyHost(String)} or {@link #proxyPort(int)}  are specified,
+     * If neither {@link #proxyHost(String)} nor {@link #proxyPort(int)}  are specified,
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
      *
