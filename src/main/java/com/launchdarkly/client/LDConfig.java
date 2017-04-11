@@ -2,14 +2,19 @@ package com.launchdarkly.client;
 
 import com.google.common.io.Files;
 import com.google.gson.Gson;
+import okhttp3.Authenticator;
 import okhttp3.Cache;
 import okhttp3.ConnectionPool;
+import okhttp3.Credentials;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.Route;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
@@ -46,6 +51,7 @@ public final class LDConfig {
   final int socketTimeoutMillis;
   final int flushInterval;
   final Proxy proxy;
+  final Authenticator proxyAuthenticator;
   final OkHttpClient httpClient;
   final boolean stream;
   final FeatureStore featureStore;
@@ -64,6 +70,7 @@ public final class LDConfig {
     this.socketTimeoutMillis = builder.socketTimeoutMillis;
     this.flushInterval = builder.flushIntervalSeconds;
     this.proxy = builder.proxy();
+    this.proxyAuthenticator = builder.proxyAuthenticator();
     this.streamURI = builder.streamURI;
     this.stream = builder.stream;
     this.featureStore = builder.featureStore;
@@ -91,10 +98,22 @@ public final class LDConfig {
 
     if (proxy != null) {
       httpClientBuilder.proxy(proxy);
+      if (proxyAuthenticator != null) {
+        httpClientBuilder.proxyAuthenticator(proxyAuthenticator);
+        logger.info("Using proxy: " + proxy + " with authentication.");
+      } else {
+        logger.info("Using proxy: " + proxy + " without authentication.");
+      }
     }
 
     httpClient = httpClientBuilder
         .build();
+  }
+
+  Request.Builder getRequestBuilder(String sdkKey) {
+    return new Request.Builder()
+        .addHeader("Authorization", sdkKey)
+        .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
   }
 
   /**
@@ -118,6 +137,8 @@ public final class LDConfig {
     private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
     private String proxyHost = "localhost";
     private int proxyPort = -1;
+    private String proxyUsername = null;
+    private String proxyPassword = null;
     private boolean stream = true;
     private boolean useLdd = false;
     private boolean offline = false;
@@ -290,6 +311,30 @@ public final class LDConfig {
     }
 
     /**
+     * Sets the username for the optional HTTP proxy. Only used when {@link LDConfig.Builder#proxyPassword(String)}
+     * is also called.
+     *
+     * @param username
+     * @return
+     */
+    public Builder proxyUsername(String username) {
+      this.proxyUsername = username;
+      return this;
+    }
+
+    /**
+     * Sets the password for the optional HTTP proxy. Only used when {@link LDConfig.Builder#proxyUsername(String)}
+     * is also called.
+     *
+     * @param password
+     * @return
+     */
+    public Builder proxyPassword(String password) {
+      this.proxyPassword = password;
+      return this;
+    }
+
+    /**
      * Deprecated. Only HTTP proxies are currently supported.
      *
      * @param unused
@@ -352,7 +397,7 @@ public final class LDConfig {
      * Enable event sampling. When set to the default of zero, sampling is disabled and all events
      * are sent back to LaunchDarkly. When set to greater than zero, there is a 1 in
      * <code>samplingInterval</code> chance events will be will be sent.
-     *
+     * <p>
      * <p>Example: if you want 5% sampling rate, set <code>samplingInterval</code> to 20.
      *
      * @param samplingInterval the sampling interval.
@@ -386,6 +431,24 @@ public final class LDConfig {
       }
     }
 
+    Authenticator proxyAuthenticator() {
+      if (this.proxyUsername != null && this.proxyPassword != null) {
+        final String credential = Credentials.basic(proxyUsername, proxyPassword);
+        return new Authenticator() {
+          public Request authenticate(Route route, Response response) throws IOException {
+            if (response.request().header("Proxy-Authorization") != null) {
+              return null; // Give up, we've already failed to authenticate with the proxy.
+            } else {
+              return response.request().newBuilder()
+                  .header("Proxy-Authorization", credential)
+                  .build();
+            }
+          }
+        };
+      }
+      return null;
+    }
+
     /**
      * Build the configured {@link com.launchdarkly.client.LDConfig} object
      *
@@ -394,12 +457,5 @@ public final class LDConfig {
     public LDConfig build() {
       return new LDConfig(this);
     }
-
-  }
-
-  Request.Builder getRequestBuilder(String sdkKey) {
-    return new Request.Builder()
-        .addHeader("Authorization", sdkKey)
-        .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
   }
 }
