@@ -5,7 +5,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.http.annotation.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,11 +27,10 @@ import java.util.jar.Manifest;
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
  * a single {@code LDClient} for the lifetime of their application.
  */
-@ThreadSafe
 public class LDClient implements LDClientInterface {
   private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
   private static final String HMAC_ALGORITHM = "HmacSHA256";
-  protected static final String CLIENT_VERSION = getClientVersion();
+  static final String CLIENT_VERSION = getClientVersion();
 
   private final LDConfig config;
   private final String sdkKey;

@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
 import org.slf4j.Logger;
@@ -14,7 +13,6 @@ import java.util.Map;
 class FeatureFlag {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
 
-  private static final Gson gson = new Gson();
   private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {
   }.getType();
 
@@ -31,11 +29,11 @@ class FeatureFlag {
   private final boolean deleted;
 
   static FeatureFlag fromJson(String json) {
-    return gson.fromJson(json, FeatureFlag.class);
+    return LDConfig.gson.fromJson(json, FeatureFlag.class);
   }
 
   static Map<String, FeatureFlag> fromJsonMap(String json) {
-    return gson.fromJson(json, mapType);
+    return LDConfig.gson.fromJson(json, mapType);
   }
 
   FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets, List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations, boolean deleted) {
