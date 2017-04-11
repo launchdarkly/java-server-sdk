@@ -135,6 +135,9 @@ class StreamProcessor implements UpdateProcessor {
 
     if (config.proxy != null) {
       builder.proxy(config.proxy);
+      if (config.proxyAuthenticator != null) {
+        builder.proxyAuthenticator(config.proxyAuthenticator);
+      }
     }
 
     es = builder.build();

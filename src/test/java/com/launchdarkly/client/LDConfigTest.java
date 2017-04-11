@@ -6,6 +6,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 public class LDConfigTest {
@@ -40,6 +41,7 @@ public class LDConfigTest {
   public void testNoProxyConfigured() {
     LDConfig config = new LDConfig.Builder().build();
     assertNull(config.proxy);
+    assertNull(config.proxyAuthenticator);
   }
 
   @Test
@@ -60,6 +62,37 @@ public class LDConfigTest {
         .proxyPort(4444)
         .build();
     assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost2", 4444)), config.proxy);
+  }
+
+  @Test
+  public void testProxyAuth() {
+    LDConfig config = new LDConfig.Builder()
+        .proxyHost("localhost2")
+        .proxyPort(4444)
+        .proxyUsername("proxyUser")
+        .proxyPassword("proxyPassword")
+        .build();
+    assertNotNull(config.proxy);
+    assertNotNull(config.proxyAuthenticator);
+  }
+
+  @Test
+  public void testProxyAuthPartialConfig() {
+    LDConfig config = new LDConfig.Builder()
+        .proxyHost("localhost2")
+        .proxyPort(4444)
+        .proxyUsername("proxyUser")
+        .build();
+    assertNotNull(config.proxy);
+    assertNull(config.proxyAuthenticator);
+
+    config = new LDConfig.Builder()
+        .proxyHost("localhost2")
+        .proxyPort(4444)
+        .proxyPassword("proxyPassword")
+        .build();
+    assertNotNull(config.proxy);
+    assertNull(config.proxyAuthenticator);
   }
 
   @Test
