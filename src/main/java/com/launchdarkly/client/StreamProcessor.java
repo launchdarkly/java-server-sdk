@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.launchdarkly.eventsource.EventHandler;
@@ -7,8 +8,6 @@ import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.ReadyState;
 import okhttp3.Headers;
-
-import org.apache.http.HttpHost;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +50,7 @@ class StreamProcessor implements UpdateProcessor {
 
   @Override
   public Future<Void> start() {
-    final VeryBasicFuture initFuture = new VeryBasicFuture();
+    final SettableFuture<Void> initFuture = SettableFuture.create();
 
     Headers headers = new Headers.Builder()
         .add("Authorization", this.sdkKey)
@@ -77,7 +76,7 @@ class StreamProcessor implements UpdateProcessor {
           case PUT:
             store.init(FeatureFlag.fromJsonMap(event.getData()));
             if (!initialized.getAndSet(true)) {
-              initFuture.completed(null);
+              initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
             }
             break;
@@ -95,7 +94,7 @@ class StreamProcessor implements UpdateProcessor {
             try {
               store.init(requestor.getAllFlags());
               if (!initialized.getAndSet(true)) {
-                initFuture.completed(null);
+                initFuture.set(null);
                 logger.info("Initialized LaunchDarkly client.");
               }
             } catch (IOException e) {
@@ -133,18 +132,12 @@ class StreamProcessor implements UpdateProcessor {
     EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
         .headers(headers)
         .reconnectTimeMs(config.reconnectTimeMs);
-    if (config.proxyHost != null) {
-        int proxyPort = config.proxyHost.getPort();
-        if (proxyPort == -1) {
-            String scheme = config.proxyHost.getSchemeName();
-            if (scheme == "http")
-                proxyPort = 80;
-            else if (scheme == "https")
-                proxyPort = 443;
-            else
-                logger.error("Unknown proxy scheme: " + scheme);
-        }
-        builder.proxy(config.proxyHost.getHostName(), proxyPort);
+
+    if (config.proxy != null) {
+      builder.proxy(config.proxy);
+      if (config.proxyAuthenticator != null) {
+        builder.proxyAuthenticator(config.proxyAuthenticator);
+      }
     }
 
     es = builder.build();

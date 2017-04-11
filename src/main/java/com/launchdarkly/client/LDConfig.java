@@ -1,31 +1,45 @@
 package com.launchdarkly.client;
 
-import org.apache.http.HttpHost;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.utils.URIBuilder;
+import com.google.common.io.Files;
+import com.google.gson.Gson;
+import okhttp3.Authenticator;
+import okhttp3.Cache;
+import okhttp3.ConnectionPool;
+import okhttp3.Credentials;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.Route;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.net.URI;
+import java.util.concurrent.TimeUnit;
 
 /**
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
- *
  */
 public final class LDConfig {
+  private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
+  static final Gson gson = new Gson();
+
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
   private static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
-  private static final int DEFAULT_CONNECT_TIMEOUT = 2000;
-  private static final int DEFAULT_SOCKET_TIMEOUT = 10000;
-  private static final int DEFAULT_FLUSH_INTERVAL = 5;
+  private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2000;
+  private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;
+  private static final int DEFAULT_FLUSH_INTERVAL_SECONDS = 5;
   private static final long DEFAULT_POLLING_INTERVAL_MILLIS = 1000L;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
   private static final int DEFAULT_SAMPLING_INTERVAL = 0;
+
   private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
-  private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
+  private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
@@ -33,10 +47,12 @@ public final class LDConfig {
   final URI eventsURI;
   final URI streamURI;
   final int capacity;
-  final int connectTimeout;
-  final int socketTimeout;
+  final int connectTimeoutMillis;
+  final int socketTimeoutMillis;
   final int flushInterval;
-  final HttpHost proxyHost;
+  final Proxy proxy;
+  final Authenticator proxyAuthenticator;
+  final OkHttpClient httpClient;
   final boolean stream;
   final FeatureStore featureStore;
   final boolean useLdd;
@@ -50,10 +66,11 @@ public final class LDConfig {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
     this.capacity = builder.capacity;
-    this.connectTimeout = builder.connectTimeout;
-    this.socketTimeout = builder.socketTimeout;
-    this.flushInterval = builder.flushInterval;
-    this.proxyHost = builder.proxyHost();
+    this.connectTimeoutMillis = builder.connectTimeoutMillis;
+    this.socketTimeoutMillis = builder.socketTimeoutMillis;
+    this.flushInterval = builder.flushIntervalSeconds;
+    this.proxy = builder.proxy();
+    this.proxyAuthenticator = builder.proxyAuthenticator();
     this.streamURI = builder.streamURI;
     this.stream = builder.stream;
     this.featureStore = builder.featureStore;
@@ -66,17 +83,47 @@ public final class LDConfig {
     }
     this.startWaitMillis = builder.startWaitMillis;
     this.samplingInterval = builder.samplingInterval;
-    this.reconnectTimeMs = builder.reconnectTimeMs;
+    this.reconnectTimeMs = builder.reconnectTimeMillis;
+
+    File cacheDir = Files.createTempDir();
+    Cache cache = new Cache(cacheDir, MAX_HTTP_CACHE_SIZE_BYTES);
+
+    OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
+        .cache(cache)
+        .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES))
+        .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
+        .readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
+        .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
+        .retryOnConnectionFailure(true);
+
+    if (proxy != null) {
+      httpClientBuilder.proxy(proxy);
+      if (proxyAuthenticator != null) {
+        httpClientBuilder.proxyAuthenticator(proxyAuthenticator);
+        logger.info("Using proxy: " + proxy + " with authentication.");
+      } else {
+        logger.info("Using proxy: " + proxy + " without authentication.");
+      }
+    }
+
+    httpClient = httpClientBuilder
+        .build();
+  }
+
+  Request.Builder getRequestBuilder(String sdkKey) {
+    return new Request.Builder()
+        .addHeader("Authorization", sdkKey)
+        .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
   }
 
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
    * calls can be chained, enabling the following pattern:
-   *
+   * <p>
    * <pre>
    * LDConfig config = new LDConfig.Builder()
-   *      .connectTimeout(3)
-   *      .socketTimeout(3)
+   *      .connectTimeoutMillis(3)
+   *      .socketTimeoutMillis(3)
    *      .build()
    * </pre>
    */
@@ -84,13 +131,14 @@ public final class LDConfig {
     private URI baseURI = DEFAULT_BASE_URI;
     private URI eventsURI = DEFAULT_EVENTS_URI;
     private URI streamURI = DEFAULT_STREAM_URI;
-    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT;
-    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT;
+    private int connectTimeoutMillis = DEFAULT_CONNECT_TIMEOUT_MILLIS;
+    private int socketTimeoutMillis = DEFAULT_SOCKET_TIMEOUT_MILLIS;
     private int capacity = DEFAULT_CAPACITY;
-    private int flushInterval = DEFAULT_FLUSH_INTERVAL;
-    private String proxyHost;
+    private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
+    private String proxyHost = "localhost";
     private int proxyPort = -1;
-    private String proxyScheme;
+    private String proxyUsername = null;
+    private String proxyPassword = null;
     private boolean stream = true;
     private boolean useLdd = false;
     private boolean offline = false;
@@ -98,7 +146,7 @@ public final class LDConfig {
     private FeatureStore featureStore = new InMemoryFeatureStore();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
-    private long reconnectTimeMs = DEFAULT_RECONNECT_TIME_MILLIS;
+    private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -108,6 +156,7 @@ public final class LDConfig {
 
     /**
      * Set the base URL of the LaunchDarkly server for this configuration
+     *
      * @param baseURI the base URL of the LaunchDarkly server for this configuration
      * @return the builder
      */
@@ -118,6 +167,7 @@ public final class LDConfig {
 
     /**
      * Set the events URL of the LaunchDarkly server for this configuration
+     *
      * @param eventsURI the events URL of the LaunchDarkly server for this configuration
      * @return the builder
      */
@@ -128,6 +178,7 @@ public final class LDConfig {
 
     /**
      * Set the base URL of the LaunchDarkly streaming server for this configuration
+     *
      * @param streamURI the base URL of the LaunchDarkly streaming server
      * @return the builder
      */
@@ -143,6 +194,7 @@ public final class LDConfig {
 
     /**
      * Set whether streaming mode should be enabled. By default, streaming is enabled.
+     *
      * @param stream whether streaming mode should be enabled
      * @return the builder
      */
@@ -154,56 +206,56 @@ public final class LDConfig {
     /**
      * Set the connection timeout in seconds for the configuration. This is the time allowed for the underlying HTTP client to connect
      * to the LaunchDarkly server. The default is 2 seconds.
-     *
+     * <p>
      * <p>Both this method and {@link #connectTimeoutMillis(int) connectTimeoutMillis} affect the same property internally.</p>
      *
      * @param connectTimeout the connection timeout in seconds
      * @return the builder
      */
     public Builder connectTimeout(int connectTimeout) {
-      this.connectTimeout = connectTimeout * 1000;
+      this.connectTimeoutMillis = connectTimeout * 1000;
       return this;
     }
 
     /**
      * Set the socket timeout in seconds for the configuration. This is the number of seconds between successive packets that the
      * client will tolerate before flagging an error. The default is 10 seconds.
-     *
+     * <p>
      * <p>Both this method and {@link #socketTimeoutMillis(int) socketTimeoutMillis} affect the same property internally.</p>
      *
      * @param socketTimeout the socket timeout in seconds
      * @return the builder
      */
     public Builder socketTimeout(int socketTimeout) {
-      this.socketTimeout = socketTimeout * 1000;
+      this.socketTimeoutMillis = socketTimeout * 1000;
       return this;
     }
 
     /**
      * Set the connection timeout in milliseconds for the configuration. This is the time allowed for the underlying HTTP client to connect
      * to the LaunchDarkly server. The default is 2000 ms.
-     *
-     * <p>Both this method and {@link #connectTimeout(int) connectTimeout} affect the same property internally.</p>
+     * <p>
+     * <p>Both this method and {@link #connectTimeout(int) connectTimeoutMillis} affect the same property internally.</p>
      *
      * @param connectTimeoutMillis the connection timeout in milliseconds
      * @return the builder
      */
     public Builder connectTimeoutMillis(int connectTimeoutMillis) {
-      this.connectTimeout = connectTimeoutMillis;
+      this.connectTimeoutMillis = connectTimeoutMillis;
       return this;
     }
 
     /**
      * Set the socket timeout in milliseconds for the configuration. This is the number of milliseconds between successive packets that the
      * client will tolerate before flagging an error. The default is 10,000 milliseconds.
-     *
-     * <p>Both this method and {@link #socketTimeout(int) socketTimeout} affect the same property internally.</p>
+     * <p>
+     * <p>Both this method and {@link #socketTimeout(int) socketTimeoutMillis} affect the same property internally.</p>
      *
      * @param socketTimeoutMillis the socket timeout in milliseconds
      * @return the builder
      */
     public Builder socketTimeoutMillis(int socketTimeoutMillis) {
-      this.socketTimeout = socketTimeoutMillis;
+      this.socketTimeoutMillis = socketTimeoutMillis;
       return this;
     }
 
@@ -215,7 +267,7 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder flushInterval(int flushInterval) {
-      this.flushInterval = flushInterval;
+      this.flushIntervalSeconds = flushInterval;
       return this;
     }
 
@@ -233,9 +285,9 @@ public final class LDConfig {
 
     /**
      * Set the host to use as an HTTP proxy for making connections to LaunchDarkly. If this is not set, but
-     * {@link #proxyPort(int)} or  {@link #proxyScheme(String)} are specified, this will default to <code>localhost</code>.
+     * {@link #proxyPort(int)} is specified, this will default to <code>localhost</code>.
      * <p>
-     * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
+     * If neither {@link #proxyHost(String)} nor {@link #proxyPort(int)}  are specified,
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
      *
@@ -248,13 +300,7 @@ public final class LDConfig {
     }
 
     /**
-     * Set the port to use for an HTTP proxy for making connections to LaunchDarkly.  If not set (but {@link #proxyHost(String)}
-     * or {@link #proxyScheme(String)} are specified, the default port for the scheme will be used.
-     * <p>
-     * <p>
-     * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
-     * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
-     * </p>
+     * Set the port to use for an HTTP proxy for making connections to LaunchDarkly. This is required for proxied HTTP connections.
      *
      * @param port
      * @return the builder
@@ -265,19 +311,37 @@ public final class LDConfig {
     }
 
     /**
-     * Set the scheme to use for an HTTP proxy for making connections to LaunchDarkly.  If not set (but {@link #proxyHost(String)}
-     * or {@link #proxyPort(int)} are specified, the default <code>https</code> scheme will be used.
-     * <p>
-     * <p>
-     * If none of {@link #proxyHost(String)}, {@link #proxyPort(int)} or {@link #proxyScheme(String)} are specified,
-     * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
-     * </p>
+     * Sets the username for the optional HTTP proxy. Only used when {@link LDConfig.Builder#proxyPassword(String)}
+     * is also called.
      *
-     * @param scheme
+     * @param username
      * @return the builder
      */
-    public Builder proxyScheme(String scheme) {
-      this.proxyScheme = scheme;
+    public Builder proxyUsername(String username) {
+      this.proxyUsername = username;
+      return this;
+    }
+
+    /**
+     * Sets the password for the optional HTTP proxy. Only used when {@link LDConfig.Builder#proxyUsername(String)}
+     * is also called.
+     *
+     * @param password
+     * @return the builder
+     */
+    public Builder proxyPassword(String password) {
+      this.proxyPassword = password;
+      return this;
+    }
+
+    /**
+     * Deprecated. Only HTTP proxies are currently supported.
+     *
+     * @param unused
+     * @return the builder
+     */
+    @Deprecated
+    public Builder proxyScheme(String unused) {
       return this;
     }
 
@@ -321,7 +385,6 @@ public final class LDConfig {
      * Setting this to 0 will not block and cause the constructor to return immediately.
      * Default value: 5000
      *
-     *
      * @param startWaitMillis milliseconds to wait
      * @return the builder
      */
@@ -334,7 +397,7 @@ public final class LDConfig {
      * Enable event sampling. When set to the default of zero, sampling is disabled and all events
      * are sent back to LaunchDarkly. When set to greater than zero, there is a 1 in
      * <code>samplingInterval</code> chance events will be will be sent.
-     *
+     * <p>
      * <p>Example: if you want 5% sampling rate, set <code>samplingInterval</code> to 20.
      *
      * @param samplingInterval the sampling interval.
@@ -354,19 +417,36 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder reconnectTimeMs(long reconnectTimeMs) {
-      this.reconnectTimeMs = reconnectTimeMs;
+      this.reconnectTimeMillis = reconnectTimeMs;
       return this;
     }
 
 
-    HttpHost proxyHost() {
-      if (this.proxyHost == null && this.proxyPort == -1 && this.proxyScheme == null) {
+    // returns null if none of the proxy bits were configured. Minimum required part: port.
+    Proxy proxy() {
+      if (this.proxyPort == -1) {
         return null;
       } else {
-        String hostname = this.proxyHost == null ? "localhost" : this.proxyHost;
-        String scheme = this.proxyScheme == null ? "https" : this.proxyScheme;
-        return new HttpHost(hostname, this.proxyPort, scheme);
+        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
       }
+    }
+
+    Authenticator proxyAuthenticator() {
+      if (this.proxyUsername != null && this.proxyPassword != null) {
+        final String credential = Credentials.basic(proxyUsername, proxyPassword);
+        return new Authenticator() {
+          public Request authenticate(Route route, Response response) throws IOException {
+            if (response.request().header("Proxy-Authorization") != null) {
+              return null; // Give up, we've already failed to authenticate with the proxy.
+            } else {
+              return response.request().newBuilder()
+                  .header("Proxy-Authorization", credential)
+                  .build();
+            }
+          }
+        };
+      }
+      return null;
     }
 
     /**
@@ -376,51 +456,6 @@ public final class LDConfig {
      */
     public LDConfig build() {
       return new LDConfig(this);
-    }
-
-  }
-
-  private URIBuilder getBuilder() {
-    return new URIBuilder()
-        .setScheme(baseURI.getScheme())
-        .setHost(baseURI.getHost())
-        .setPort(baseURI.getPort());
-  }
-
-  private URIBuilder getEventsBuilder() {
-    return new URIBuilder()
-        .setScheme(eventsURI.getScheme())
-        .setHost(eventsURI.getHost())
-        .setPort(eventsURI.getPort());
-  }
-
-  HttpGet getRequest(String sdkKey, String path) {
-    URIBuilder builder = this.getBuilder().setPath(path);
-
-    try {
-      HttpGet request = new HttpGet(builder.build());
-      request.addHeader("Authorization", sdkKey);
-      request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
-
-      return request;
-    } catch (Exception e) {
-      logger.error("Unhandled exception in LaunchDarkly client", e);
-      return null;
-    }
-  }
-
-  HttpPost postEventsRequest(String sdkKey, String path) {
-    URIBuilder builder = this.getEventsBuilder().setPath(eventsURI.getPath() + path);
-
-    try {
-      HttpPost request = new HttpPost(builder.build());
-      request.addHeader("Authorization", sdkKey);
-      request.addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
-
-      return request;
-    } catch (Exception e) {
-      logger.error("Unhandled exception in LaunchDarkly client", e);
-      return null;
     }
   }
 }

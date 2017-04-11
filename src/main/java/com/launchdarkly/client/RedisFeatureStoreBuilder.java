@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.JedisPoolConfig;
@@ -56,7 +55,7 @@ public class RedisFeatureStoreBuilder {
      * @throws URISyntaxException
      */
     public RedisFeatureStoreBuilder(String scheme, String host, int port, long cacheTimeSecs) throws URISyntaxException {
-        this.uri = new URIBuilder().setScheme(scheme).setHost(host).setPort(port).build();
+        this.uri = new URI(scheme, null, host, port, null, null, null);
         this.cacheTimeSecs = cacheTimeSecs;
     }
 

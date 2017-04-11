@@ -1,11 +1,12 @@
 package com.launchdarkly.client;
 
-import org.apache.http.client.methods.HttpPost;
 import org.junit.Test;
 
-import java.net.URI;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 public class LDConfigTest {
@@ -13,92 +14,85 @@ public class LDConfigTest {
   public void testConnectTimeoutSpecifiedInSeconds() {
     LDConfig config = new LDConfig.Builder().connectTimeout(3).build();
 
-    assertEquals(3000, config.connectTimeout);
+    assertEquals(3000, config.connectTimeoutMillis);
   }
 
   @Test
   public void testConnectTimeoutSpecifiedInMilliseconds() {
     LDConfig config = new LDConfig.Builder().connectTimeoutMillis(3000).build();
 
-    assertEquals(3000, config.connectTimeout);
+    assertEquals(3000, config.connectTimeoutMillis);
   }
   @Test
   public void testSocketTimeoutSpecifiedInSeconds() {
     LDConfig config = new LDConfig.Builder().socketTimeout(3).build();
 
-    assertEquals(3000, config.socketTimeout);
+    assertEquals(3000, config.socketTimeoutMillis);
   }
 
   @Test
   public void testSocketTimeoutSpecifiedInMilliseconds() {
     LDConfig config = new LDConfig.Builder().socketTimeoutMillis(3000).build();
 
-    assertEquals(3000, config.socketTimeout);
+    assertEquals(3000, config.socketTimeoutMillis);
   }
 
   @Test
   public void testNoProxyConfigured() {
     LDConfig config = new LDConfig.Builder().build();
-
-    assertNull(config.proxyHost);
+    assertNull(config.proxy);
+    assertNull(config.proxyAuthenticator);
   }
 
   @Test
-  public void testOnlyProxyPortConfiguredHasPort() {
+  public void testOnlyProxyHostConfiguredIsNull() {
+    LDConfig config = new LDConfig.Builder().proxyHost("bla").build();
+    assertNull(config.proxy);
+  }
+
+  @Test
+  public void testOnlyProxyPortConfiguredHasPortAndDefaultHost() {
     LDConfig config = new LDConfig.Builder().proxyPort(1234).build();
-
-    assertEquals(1234, config.proxyHost.getPort());
+    assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost", 1234)), config.proxy);
+  }
+  @Test
+  public void testProxy() {
+    LDConfig config = new LDConfig.Builder()
+        .proxyHost("localhost2")
+        .proxyPort(4444)
+        .build();
+    assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost2", 4444)), config.proxy);
   }
 
   @Test
-  public void testOnlyProxyPortConfiguredHasDefaultHost() {
-    LDConfig config = new LDConfig.Builder().proxyPort(1234).build();
-
-    assertEquals("localhost", config.proxyHost.getHostName());
+  public void testProxyAuth() {
+    LDConfig config = new LDConfig.Builder()
+        .proxyHost("localhost2")
+        .proxyPort(4444)
+        .proxyUsername("proxyUser")
+        .proxyPassword("proxyPassword")
+        .build();
+    assertNotNull(config.proxy);
+    assertNotNull(config.proxyAuthenticator);
   }
 
   @Test
-  public void testOnlyProxyPortConfiguredHasDefaultScheme() {
-    LDConfig config = new LDConfig.Builder().proxyPort(1234).build();
+  public void testProxyAuthPartialConfig() {
+    LDConfig config = new LDConfig.Builder()
+        .proxyHost("localhost2")
+        .proxyPort(4444)
+        .proxyUsername("proxyUser")
+        .build();
+    assertNotNull(config.proxy);
+    assertNull(config.proxyAuthenticator);
 
-    assertEquals("https", config.proxyHost.getSchemeName());
-  }
-
-  @Test
-  public void testOnlyProxyHostConfiguredHasDefaultPort() {
-    LDConfig config = new LDConfig.Builder().proxyHost("myproxy.example.com").build();
-
-    assertEquals(-1, config.proxyHost.getPort());
-  }
-
-  @Test
-  public void testProxyHostConfiguredHasHost() {
-    LDConfig config = new LDConfig.Builder().proxyHost("myproxy.example.com").build();
-
-    assertEquals("myproxy.example.com", config.proxyHost.getHostName());
-  }
-
-  @Test
-  public void testProxySchemeConfiguredHasScheme() {
-    LDConfig config = new LDConfig.Builder().proxyScheme("http").build();
-
-    assertEquals("http", config.proxyHost.getSchemeName());
-  }
-
-  @Test
-  public void testDefaultEventsUriIsConstructedProperly(){
-    LDConfig config = new LDConfig.Builder().build();
-
-    HttpPost post = config.postEventsRequest("dummy-api-key", "/bulk");
-    assertEquals("https://events.launchdarkly.com/bulk", post.getURI().toString());
-  }
-
-  @Test
-  public void testCustomEventsUriIsConstructedProperly(){
-    LDConfig config = new LDConfig.Builder().eventsURI(URI.create("http://localhost:3000/api/events")).build();
-
-    HttpPost post = config.postEventsRequest("dummy-api-key", "/bulk");
-    assertEquals("http://localhost:3000/api/events/bulk", post.getURI().toString());
+    config = new LDConfig.Builder()
+        .proxyHost("localhost2")
+        .proxyPort(4444)
+        .proxyPassword("proxyPassword")
+        .build();
+    assertNotNull(config.proxy);
+    assertNull(config.proxyAuthenticator);
   }
 
   @Test

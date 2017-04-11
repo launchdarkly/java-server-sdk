@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +39,7 @@ public class PollingProcessor implements UpdateProcessor {
   public Future<Void> start() {
     logger.info("Starting LaunchDarkly polling client with interval: "
         + config.pollingIntervalMillis + " milliseconds");
-    final VeryBasicFuture initFuture = new VeryBasicFuture();
+    final SettableFuture<Void> initFuture = SettableFuture.create();
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setNameFormat("LaunchDarkly-PollingProcessor-%d")
         .build();
@@ -51,7 +52,7 @@ public class PollingProcessor implements UpdateProcessor {
           store.init(requestor.getAllFlags());
           if (!initialized.getAndSet(true)) {
             logger.info("Initialized LaunchDarkly client.");
-            initFuture.completed(null);
+            initFuture.set(null);
           }
         } catch (IOException e) {
           logger.error("Encountered exception in LaunchDarkly client when retrieving update", e);

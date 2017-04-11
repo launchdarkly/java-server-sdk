@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 /**
  * A thread-safe, versioned store for {@link FeatureFlag} objects backed by Redis. Also
  * supports an optional in-memory cache configuration that can be used to improve performance.
- *
  */
 public class RedisFeatureStore implements FeatureStore {
   private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStore.class);
@@ -47,9 +46,9 @@ public class RedisFeatureStore implements FeatureStore {
    * Creates a new store instance that connects to Redis with the provided host, port, prefix, and cache timeout. Uses a default
    * connection pool configuration.
    *
-   * @param host the host for the Redis connection
-   * @param port the port for the Redis connection
-   * @param prefix a namespace prefix for all keys stored in Redis
+   * @param host          the host for the Redis connection
+   * @param port          the port for the Redis connection
+   * @param prefix        a namespace prefix for all keys stored in Redis
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
    * @deprecated as of 1.1. Please use the {@link RedisFeatureStoreBuilder#build()} for a more flexible way of constructing a {@link RedisFeatureStore}.
    */
@@ -62,8 +61,8 @@ public class RedisFeatureStore implements FeatureStore {
    * Creates a new store instance that connects to Redis with the provided URI, prefix, and cache timeout. Uses a default
    * connection pool configuration.
    *
-   * @param uri the URI for the Redis connection
-   * @param prefix a namespace prefix for all keys stored in Redis
+   * @param uri           the URI for the Redis connection
+   * @param prefix        a namespace prefix for all keys stored in Redis
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
    * @deprecated as of 1.1. Please use the {@link RedisFeatureStoreBuilder#build()} for a more flexible way of constructing a {@link RedisFeatureStore}.
    */
@@ -75,11 +74,11 @@ public class RedisFeatureStore implements FeatureStore {
   /**
    * Creates a new store instance that connects to Redis with the provided host, port, prefix, cache timeout, and connection pool settings.
    *
-   * @param host the host for the Redis connection
-   * @param port the port for the Redis connection
-   * @param prefix a namespace prefix for all keys stored in Redis
+   * @param host          the host for the Redis connection
+   * @param port          the port for the Redis connection
+   * @param prefix        a namespace prefix for all keys stored in Redis
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
-   * @param poolConfig an optional pool config for the Jedis connection pool
+   * @param poolConfig    an optional pool config for the Jedis connection pool
    * @deprecated as of 1.1. Please use the {@link RedisFeatureStoreBuilder#build()} for a more flexible way of constructing a {@link RedisFeatureStore}.
    */
   @Deprecated
@@ -93,10 +92,10 @@ public class RedisFeatureStore implements FeatureStore {
   /**
    * Creates a new store instance that connects to Redis with the provided URI, prefix, cache timeout, and connection pool settings.
    *
-   * @param uri the URI for the Redis connection
-   * @param prefix a namespace prefix for all keys stored in Redis
+   * @param uri           the URI for the Redis connection
+   * @param prefix        a namespace prefix for all keys stored in Redis
    * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
-   * @param poolConfig an optional pool config for the Jedis connection pool
+   * @param poolConfig    an optional pool config for the Jedis connection pool
    * @deprecated as of 1.1. Please use the {@link RedisFeatureStoreBuilder#build()} for a more flexible way of constructing a {@link RedisFeatureStore}.
    */
   @Deprecated
@@ -109,7 +108,7 @@ public class RedisFeatureStore implements FeatureStore {
 
   /**
    * Creates a new store instance that connects to Redis based on the provided {@link RedisFeatureStoreBuilder}.
-   *
+   * <p>
    * See the {@link RedisFeatureStoreBuilder} for information on available configuration options and what they do.
    *
    * @param builder the configured builder to construct the store with.
@@ -127,7 +126,6 @@ public class RedisFeatureStore implements FeatureStore {
 
   /**
    * Creates a new store instance that connects to Redis with a default connection (localhost port 6379) and no in-memory cache.
-   *
    */
   public RedisFeatureStore() {
     pool = new JedisPool(getPoolConfig(), "localhost");
@@ -168,8 +166,9 @@ public class RedisFeatureStore implements FeatureStore {
   /**
    * Configures the instance to use a "refresh after write" cache. This will not automatically evict stale values, allowing them to be returned if failures
    * occur when updating them. Optionally set the cache to refresh values asynchronously, which always returns the previously cached value immediately.
+   *
    * @param cacheTimeSecs the length of time in seconds, after a {@link FeatureFlag} value is created that it should be refreshed.
-   * @param asyncRefresh makes the refresh asynchronous or not.
+   * @param asyncRefresh  makes the refresh asynchronous or not.
    */
   private void createRefreshCache(long cacheTimeSecs, boolean asyncRefresh) {
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CACHE_REFRESH_THREAD_POOL_NAME_FORMAT).setDaemon(true).build();
@@ -184,6 +183,7 @@ public class RedisFeatureStore implements FeatureStore {
 
   /**
    * Configures the instance to use an "expire after write" cache. This will evict stale values and block while loading the latest from Redis.
+   *
    * @param cacheTimeSecs the length of time in seconds, after a {@link FeatureFlag} value is created that it should be automatically removed.
    */
   private void createExpiringCache(long cacheTimeSecs) {
@@ -234,15 +234,16 @@ public class RedisFeatureStore implements FeatureStore {
   @Override
   public Map<String, FeatureFlag> all() {
     try (Jedis jedis = pool.getResource()) {
-      Map<String,String> featuresJson = jedis.hgetAll(featuresKey());
+      Map<String, String> featuresJson = jedis.hgetAll(featuresKey());
       Map<String, FeatureFlag> result = new HashMap<>();
       Gson gson = new Gson();
 
-      Type type = new TypeToken<FeatureFlag>() {}.getType();
+      Type type = new TypeToken<FeatureFlag>() {
+      }.getType();
 
       for (Map.Entry<String, String> entry : featuresJson.entrySet()) {
-        FeatureFlag featureFlag =  gson.fromJson(entry.getValue(), type);
-        if (!featureFlag.isDeleted()){
+        FeatureFlag featureFlag = gson.fromJson(entry.getValue(), type);
+        if (!featureFlag.isDeleted()) {
           result.put(entry.getKey(), featureFlag);
         }
       }
@@ -264,7 +265,7 @@ public class RedisFeatureStore implements FeatureStore {
 
       t.del(featuresKey());
 
-      for (FeatureFlag f: features.values()) {
+      for (FeatureFlag f : features.values()) {
         t.hset(featuresKey(), f.getKey(), gson.toJson(f));
       }
 
@@ -276,7 +277,7 @@ public class RedisFeatureStore implements FeatureStore {
    * Deletes the feature associated with the specified key, if it exists and its version
    * is less than or equal to the specified version.
    *
-   * @param key the key of the feature to be deleted
+   * @param key     the key of the feature to be deleted
    * @param version the version for the delete operation
    */
   @Override
@@ -287,7 +288,7 @@ public class RedisFeatureStore implements FeatureStore {
       jedis = pool.getResource();
       jedis.watch(featuresKey());
 
-      FeatureFlag feature = getRedis(key);
+      FeatureFlag feature = getRedis(key, jedis);
 
       if (feature != null && feature.getVersion() >= version) {
         logger.warn("Attempted to delete flag: " + key + " version: " + feature.getVersion() +
@@ -303,8 +304,7 @@ public class RedisFeatureStore implements FeatureStore {
       if (cache != null) {
         cache.invalidate(key);
       }
-    }
-    finally {
+    } finally {
       if (jedis != null) {
         jedis.unwatch();
         jedis.close();
@@ -327,7 +327,7 @@ public class RedisFeatureStore implements FeatureStore {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
-      FeatureFlag f = getRedis(key);
+      FeatureFlag f = getRedis(key, jedis);
 
       if (f != null && f.getVersion() >= feature.getVersion()) {
         logger.warn("Attempted to update flag: " + key + " version: " + f.getVersion() +
@@ -368,6 +368,7 @@ public class RedisFeatureStore implements FeatureStore {
 
   /**
    * Releases all resources associated with the store. The store must no longer be used once closed.
+   *
    * @throws IOException
    */
   public void close() throws IOException {
@@ -404,24 +405,29 @@ public class RedisFeatureStore implements FeatureStore {
   }
 
   private FeatureFlag getRedis(String key) {
-    try (Jedis jedis = pool.getResource()){
-      Gson gson = new Gson();
-      String featureJson = jedis.hget(featuresKey(), key);
-
-      if (featureJson == null) {
-        logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
-        return null;
-      }
-
-      Type type = new TypeToken<FeatureFlag>() {}.getType();
-      FeatureFlag f = gson.fromJson(featureJson, type);
-
-      if (f.isDeleted()) {
-        logger.debug("[get] Key: " + key + " has been deleted. Returning null");
-        return null;
-      }
-      return f;
+    try (Jedis jedis = pool.getResource()) {
+      return getRedis(key, jedis);
     }
+  }
+
+  private FeatureFlag getRedis(String key, Jedis jedis) {
+    Gson gson = new Gson();
+    String featureJson = jedis.hget(featuresKey(), key);
+
+    if (featureJson == null) {
+      logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
+      return null;
+    }
+
+    Type type = new TypeToken<FeatureFlag>() {
+    }.getType();
+    FeatureFlag f = gson.fromJson(featureJson, type);
+
+    if (f.isDeleted()) {
+      logger.debug("[get] Key: " + key + " has been deleted. Returning null");
+      return null;
+    }
+    return f;
   }
 
   private static JedisPoolConfig getPoolConfig() {
