@@ -6,9 +6,6 @@ We encourage pull-requests and other contributions from the community. We've als
 
 Testing Proxy Settings
 ==================
-This is currently a manual process. These instructions are not complete.
-For Mac OS 10.11 using Squid Proxy 3.5.6 (newer versions were found to be problematic)
-
 Installation is your own journey, but your squid.conf file should have auth/access sections that look something like this:
 
 ```
