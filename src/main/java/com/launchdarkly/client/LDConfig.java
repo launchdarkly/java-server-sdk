@@ -315,7 +315,7 @@ public final class LDConfig {
      * is also called.
      *
      * @param username
-     * @return
+     * @return the builder
      */
     public Builder proxyUsername(String username) {
       this.proxyUsername = username;
@@ -327,7 +327,7 @@ public final class LDConfig {
      * is also called.
      *
      * @param password
-     * @return
+     * @return the builder
      */
     public Builder proxyPassword(String password) {
       this.proxyPassword = password;
