@@ -42,7 +42,8 @@ enum Operator {
   },
   matches {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      return uValue.isString() && cValue.isString() && Pattern.matches(cValue.getAsString(), uValue.getAsString());
+      return uValue.isString() && cValue.isString() &&
+              Pattern.compile(cValue.getAsString()).matcher(uValue.getAsString()).find();
     }
   },
   contains {
