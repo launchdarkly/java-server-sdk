@@ -2,6 +2,12 @@
 
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+
+## [2.2.1] - 2017-04-25
+### Fixed
+- [#92](https://github.com/launchdarkly/java-client/issues/92) Regex `matches` targeting rules now include the user if
+a match is found anywhere in the attribute.  Before fixing this bug, the entire attribute needed to match the pattern.
+
 ## [2.2.0] - 2017-04-11
 ### Added
 - Authentication for proxied http requests is now supported (Basic Auth only)
