@@ -24,4 +24,13 @@ public class OperatorTest {
     assertTrue(Operator.greaterThan.apply(b, a));
     assertTrue(Operator.greaterThanOrEqual.apply(b, a));
   }
+
+  @Test
+  public void testRegexComparison(){
+    JsonPrimitive uValue = new JsonPrimitive("hello world");
+    assertTrue(Operator.matches.apply(uValue, new JsonPrimitive("hello.*rld")));
+    assertTrue(Operator.matches.apply(uValue, new JsonPrimitive("hello.*orl")));
+    assertTrue(Operator.matches.apply(uValue, new JsonPrimitive("l+")));
+    assertTrue(Operator.matches.apply(uValue, new JsonPrimitive("(world|planet)")));
+  }
 }
