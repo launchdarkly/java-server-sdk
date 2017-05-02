@@ -34,6 +34,7 @@ public class LDUser {
   private JsonPrimitive lastName;
   private JsonPrimitive anonymous;
   private JsonPrimitive country;
+  private JsonPrimitive hidden;
   private Map<String, JsonElement> custom;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
@@ -51,6 +52,7 @@ public class LDUser {
     this.name = builder.name == null ? null : new JsonPrimitive(builder.name);
     this.avatar = builder.avatar == null ? null : new JsonPrimitive(builder.avatar);
     this.anonymous = builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
+    this.hidden = builder.hidden == null ? null : new JsonPrimitive(builder.hidden);
     this.custom = new HashMap<>(builder.custom);
   }
 
@@ -120,6 +122,8 @@ public class LDUser {
     return anonymous;
   }
 
+  JsonPrimitive getHidden() { return hidden; }
+
   JsonElement getCustom(String key) {
     if (custom != null) {
       return custom.get(key);
@@ -147,6 +151,7 @@ public class LDUser {
     private String name;
     private String avatar;
     private Boolean anonymous;
+    private Boolean hidden;
     private LDCountryCode country;
     private Map<String, JsonElement> custom;
 
@@ -284,6 +289,16 @@ public class LDUser {
      */
     public Builder email(String email) {
       this.email = email;
+      return this;
+    }
+
+    /**
+     * Sets whether the user's attribute data should be hidden (not sent to LaunchDarkly, but used for flag evaluation)
+     * @param hidden
+     * @return the builder
+     */
+    public Builder hidden(Boolean hidden) {
+      this.hidden = hidden;
       return this;
     }
 
