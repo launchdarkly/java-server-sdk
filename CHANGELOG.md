@@ -3,10 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
-## [2.2.2] - 2017-04-28
+## [2.2.2] - 2017-05-05
 ### Fixed
 - In Java 7, connections to LaunchDarkly are now possible using TLSv1.1 and/or TLSv1.2
-- The order of SSE stream events is now preserved. ((launchdarkly/okhttp-eventsource#19)[https://github.com/launchdarkly/okhttp-eventsource/issues/19]
+- The order of SSE stream events is now preserved. ([launchdarkly/okhttp-eventsource#19](https://github.com/launchdarkly/okhttp-eventsource/issues/19))
 
 ## [2.2.1] - 2017-04-25
 ### Fixed
