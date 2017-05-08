@@ -40,7 +40,7 @@ Your first feature flag
 
 Logging
 -------
-The LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). For an example configuration check out the [hello-java](https://github.com/launchdarkly/hello-java) project. 
+The LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). All loggers are namespaced under `com.launchdarkly`. For an example configuration check out the [hello-java](https://github.com/launchdarkly/hello-java) project.
 
 Be aware of two considerations when enabling the DEBUG log level:
 1. Debug-level logs can be very verbose. It is not recommended that you turn on debug logging in high-volume environments.
