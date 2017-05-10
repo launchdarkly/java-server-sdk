@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.2.3] - 2017-05-10
+### Fixed
+- Fixed streaming connection error
+
 ## [2.2.2] - 2017-05-05
 ### Fixed
 - In Java 7, connections to LaunchDarkly are now possible using TLSv1.1 and/or TLSv1.2
