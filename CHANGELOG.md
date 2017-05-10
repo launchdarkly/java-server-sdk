@@ -5,7 +5,7 @@ All notable changes to the LaunchDarkly Java SDK will be documented in this file
 
 ## [2.2.3] - 2017-05-10
 ### Fixed
-- Fixed streaming connection error
+- Fixed issue where stream connection failed to fully establish
 
 ## [2.2.2] - 2017-05-05
 ### Fixed
