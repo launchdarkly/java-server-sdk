@@ -2,6 +2,7 @@ LaunchDarkly SDK for Java
 =========================
 
 ![Circle CI](https://circleci.com/gh/launchdarkly/java-client.png)
+[![Javadocs](http://javadoc.io/badge/com.launchdarkly/launchdarkly-client.svg)](http://javadoc.io/doc/com.launchdarkly/launchdarkly-client)
 
 Quick setup
 -----------
