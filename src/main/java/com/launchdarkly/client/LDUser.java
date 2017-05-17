@@ -87,6 +87,7 @@ public class LDUser {
     };
 
     result.custom = Maps.filterKeys(this.custom, shouldSend);
+    result.hiddenAttrNames.addAll(config.hiddenAttrNames);
 
     return result;
   }
