@@ -1,14 +1,14 @@
 package com.launchdarkly.client;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.Maps;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /**
@@ -36,6 +36,7 @@ public class LDUser {
   private JsonPrimitive country;
   private JsonPrimitive hidden;
   private Map<String, JsonElement> custom;
+  private Set<String> hiddenAttrNames;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
   protected LDUser(Builder builder) {
@@ -54,6 +55,44 @@ public class LDUser {
     this.anonymous = builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
     this.hidden = builder.hidden == null ? null : new JsonPrimitive(builder.hidden);
     this.custom = new HashMap<>(builder.custom);
+    this.hiddenAttrNames = new HashSet<>(builder.hiddenAttrNames);
+  }
+
+  protected LDUser(LDUser user) {
+    this.key = user.key;
+    this.ip = user.ip;
+    this.country = user.country;
+    this.secondary = user.secondary;
+    this.firstName = user.firstName;
+    this.lastName = user.lastName;
+    this.email = user.email;
+    this.name = user.name;
+    this.avatar = user.avatar;
+    this.anonymous = user.anonymous;
+    this.hidden = user.hidden;
+    this.custom = new HashMap<>(user.custom);
+    this.hiddenAttrNames = new HashSet<>(user.hiddenAttrNames);
+  }
+
+  // TODO this needs to hide built-ins too
+  LDUser withHiddenAttrs(final LDConfig config) {
+    LDUser result = new LDUser(this);
+
+
+    Predicate<String> shouldSend = new Predicate<String>() {
+      @Override
+      public boolean apply(String input) {
+        return !hiddenAttrNames.contains(input) && !config.hiddenAttrNames.contains(input);
+      }
+    };
+
+    result.custom = Maps.filterKeys(this.custom, shouldSend);
+
+    return result;
+  }
+
+  boolean hasHiddenAttrNames() {
+    return !hiddenAttrNames.isEmpty();
   }
 
   /**
@@ -130,6 +169,48 @@ public class LDUser {
     }
     return null;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    LDUser ldUser = (LDUser) o;
+
+    if (!key.equals(ldUser.key)) return false;
+    if (secondary != null ? !secondary.equals(ldUser.secondary) : ldUser.secondary != null) return false;
+    if (ip != null ? !ip.equals(ldUser.ip) : ldUser.ip != null) return false;
+    if (email != null ? !email.equals(ldUser.email) : ldUser.email != null) return false;
+    if (name != null ? !name.equals(ldUser.name) : ldUser.name != null) return false;
+    if (avatar != null ? !avatar.equals(ldUser.avatar) : ldUser.avatar != null) return false;
+    if (firstName != null ? !firstName.equals(ldUser.firstName) : ldUser.firstName != null) return false;
+    if (lastName != null ? !lastName.equals(ldUser.lastName) : ldUser.lastName != null) return false;
+    if (anonymous != null ? !anonymous.equals(ldUser.anonymous) : ldUser.anonymous != null) return false;
+    if (country != null ? !country.equals(ldUser.country) : ldUser.country != null) return false;
+    if (hidden != null ? !hidden.equals(ldUser.hidden) : ldUser.hidden != null) return false;
+    if (custom != null ? !custom.equals(ldUser.custom) : ldUser.custom != null) return false;
+    return hiddenAttrNames != null ? hiddenAttrNames.equals(ldUser.hiddenAttrNames) : ldUser.hiddenAttrNames == null;
+
+  }
+
+  @Override
+  public int hashCode() {
+    int result = key.hashCode();
+    result = 31 * result + (secondary != null ? secondary.hashCode() : 0);
+    result = 31 * result + (ip != null ? ip.hashCode() : 0);
+    result = 31 * result + (email != null ? email.hashCode() : 0);
+    result = 31 * result + (name != null ? name.hashCode() : 0);
+    result = 31 * result + (avatar != null ? avatar.hashCode() : 0);
+    result = 31 * result + (firstName != null ? firstName.hashCode() : 0);
+    result = 31 * result + (lastName != null ? lastName.hashCode() : 0);
+    result = 31 * result + (anonymous != null ? anonymous.hashCode() : 0);
+    result = 31 * result + (country != null ? country.hashCode() : 0);
+    result = 31 * result + (hidden != null ? hidden.hashCode() : 0);
+    result = 31 * result + (custom != null ? custom.hashCode() : 0);
+    result = 31 * result + (hiddenAttrNames != null ? hiddenAttrNames.hashCode() : 0);
+    return result;
+  }
+
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link LDUser} objects. Builder
    * calls can be chained, enabling the following pattern:
@@ -154,6 +235,7 @@ public class LDUser {
     private Boolean hidden;
     private LDCountryCode country;
     private Map<String, JsonElement> custom;
+    private Set<String> hiddenAttrNames;
 
     /**
      * Create a builder with the specified key
@@ -163,6 +245,7 @@ public class LDUser {
     public Builder(String key) {
       this.key = key;
       this.custom = new HashMap<>();
+      this.hiddenAttrNames = new HashSet<>();
     }
 
     /**
@@ -409,6 +492,128 @@ public class LDUser {
       custom.put(k, array);
       return this;
     }
+
+
+    /**
+     * Add a {@link java.lang.String}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
+     *   back to LaunchDarkly in analytics events.
+     *
+     * @param k the key for the custom attribute.
+     * @param v the value for the custom attribute
+     * @return the builder
+     */
+    public Builder hiddenCustom(String k, String v) {
+      checkCustomAttribute(k);
+      if (k != null && v != null) {
+        custom.put(k, new JsonPrimitive(v));
+      }
+      hiddenAttrNames.add(k);
+      return this;
+    }
+
+    /**
+     * Add a {@link java.lang.Number}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
+     *   back to LaunchDarkly in analytics events.
+     *
+     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param n the value for the custom attribute
+     * @return the builder
+     */
+    public Builder hiddenCustom(String k, Number n) {
+      checkCustomAttribute(k);
+      if (k != null && n != null) {
+        custom.put(k, new JsonPrimitive(n));
+      }
+      hiddenAttrNames.add(k);
+      return this;
+    }
+
+    /**
+     * Add a {@link java.lang.Boolean}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
+     *   back to LaunchDarkly in analytics events.
+     *
+     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param b the value for the custom attribute
+     * @return the builder
+     */
+    public Builder hiddenCustom(String k, Boolean b) {
+      checkCustomAttribute(k);
+      if (k != null && b != null) {
+        custom.put(k, new JsonPrimitive(b));
+      }
+      hiddenAttrNames.add(k);
+      return this;
+    }
+
+    /**
+     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
+     *   back to LaunchDarkly in analytics events.
+     *
+     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param vs the values for the attribute
+     * @return the builder
+     * @deprecated As of version 0.16.0, renamed to {@link #customString(String, List) customString}
+     */
+    public Builder hiddenCustom(String k, List<String> vs) {
+      checkCustomAttribute(k);
+      hiddenAttrNames.add(k);
+      return this.customString(k, vs);
+    }
+
+    /**
+     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
+     *   back to LaunchDarkly in analytics events.
+     *
+     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param vs the values for the attribute
+     * @return the builder
+     */
+    public Builder hiddenCustomString(String k, List<String> vs) {
+      checkCustomAttribute(k);
+      JsonArray array = new JsonArray();
+      for (String v : vs) {
+        if (v != null) {
+          array.add(new JsonPrimitive(v));
+        }
+      }
+      custom.put(k, array);
+      hiddenAttrNames.add(k);
+      return this;
+    }
+
+    /**
+     * Add a list of {@link java.lang.Integer}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
+     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
+     *   back to LaunchDarkly in analytics events.
+     *
+     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param vs the values for the attribute
+     * @return the builder
+     */
+    public Builder hiddenCustomNumber(String k, List<Number> vs) {
+      checkCustomAttribute(k);
+      JsonArray array = new JsonArray();
+      for (Number v : vs) {
+        if (v != null) {
+          array.add(new JsonPrimitive(v));
+        }
+      }
+      custom.put(k, array);
+      hiddenAttrNames.add(k);
+      return this;
+    }
+
 
     private void checkCustomAttribute(String key) {
       for (UserAttribute a : UserAttribute.values()) {

@@ -18,6 +18,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -58,6 +61,7 @@ public final class LDConfig {
   final boolean useLdd;
   final boolean offline;
   final boolean hideUserData;
+  final Set<String> hiddenAttrNames;
   final long pollingIntervalMillis;
   final long startWaitMillis;
   final int samplingInterval;
@@ -78,6 +82,7 @@ public final class LDConfig {
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
     this.hideUserData = builder.hideUserData;
+    this.hiddenAttrNames = new HashSet<>(builder.hiddenAttrNames);
     if (builder.pollingIntervalMillis < DEFAULT_POLLING_INTERVAL_MILLIS) {
       this.pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     } else {
@@ -150,6 +155,7 @@ public final class LDConfig {
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
+    private Set<String> hiddenAttrNames = new HashSet<>();
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -434,6 +440,15 @@ public final class LDConfig {
       return this;
     }
 
+    /**
+     * TODO
+     * @param names
+     * @return
+     */
+    public Builder hiddenAttrNames(String... names) {
+      this.hiddenAttrNames = new HashSet<>(Arrays.asList(names));
+      return this;
+    }
 
     // returns null if none of the proxy bits were configured. Minimum required part: port.
     Proxy proxy() {

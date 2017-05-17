@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.*;
@@ -45,6 +46,8 @@ class EventProcessor implements Closeable {
     // containing only the key and the hidden attribute
     if (config.hideUserData || (e.user.getHidden() != null && e.user.getHidden().getAsBoolean())) {
       e.user = new LDUser.Builder(e.user.getKeyAsString()).hidden(true).build();
+    } else if (e.user.hasHiddenAttrNames() || !config.hiddenAttrNames.isEmpty()) {
+      e.user = e.user.withHiddenAttrs(config);
     }
 
     return queue.offer(e);
