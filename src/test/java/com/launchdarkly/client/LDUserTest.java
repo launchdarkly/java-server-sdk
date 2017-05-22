@@ -1,9 +1,15 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.reflect.TypeToken;
 import org.junit.Test;
 
+import java.lang.reflect.Type;
+import java.util.Map;
+
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 public class LDUserTest {
@@ -61,18 +67,20 @@ public class LDUserTest {
 
   @Test
   public void testLDUserJsonSerializationContainsCountryAsTwoDigitCode() {
-    Gson gson = new Gson();
+    LDConfig config = LDConfig.DEFAULT;
+    Gson gson = config.gson;
     LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
 
     String jsonStr = gson.toJson(user);
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> json = gson.fromJson(jsonStr, type);
 
-    LDUser deserialized = gson.fromJson(jsonStr, LDUser.class);
-
-    assert(deserialized.getCountry().equals(us));
+    assert(json.get("country").equals(us));
   }
 
   @Test
-  public void testLDUserCopyWithHiddenAttrsProducesEquivalentLDUserIfNoAttrsAreHidden() {
+  public void testLDUserCustomMarshalWithHiddenAttrsProducesEquivalentLDUserIfNoAttrsAreHidden() {
+    LDConfig config = LDConfig.DEFAULT;
     LDUser user = new LDUser.Builder("key")
                             .anonymous(true)
                             .avatar("avatar")
@@ -84,24 +92,34 @@ public class LDUserTest {
                             .custom("foo", 42)
                             .build();
 
-    assert(user.withHiddenAttrs(LDConfig.DEFAULT).equals(user));
+    String jsonStr = new Gson().toJson(user);
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> json = config.gson.fromJson(jsonStr, type);
+    Map<String, JsonElement> hiddenJson = config.gson.fromJson(config.gson.toJson(user), type);
+
+    assertEquals(json, hiddenJson);
   }
 
+
   @Test
-  public void testLDUserCopyWithHiddenAttrsHidesCorrectAttrs() {
+  public void testLDUserCustomMarshalWithHiddenAttrsHidesCorrectAttrs() {
+    LDConfig config = LDConfig.DEFAULT;
     LDUser user = new LDUser.Builder("key")
         .hiddenCustom("foo", 42)
         .custom("bar", 43)
         .build();
 
-    LDUser hidden = user.withHiddenAttrs(LDConfig.DEFAULT);
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> hiddenJson = config.gson.fromJson(config.gson.toJson(user), type);
 
-    assertNull(hidden.getCustom("foo"));
-    assert(hidden.getCustom("bar").equals(new JsonPrimitive(43)));
+    assertNull(hiddenJson.get("custom").getAsJsonObject().get("foo"));
+    assertEquals(hiddenJson.get("key").getAsString(), "key");
+    assertEquals(hiddenJson.get("custom").getAsJsonObject().get("bar"), new JsonPrimitive(43));
   }
 
-  @Test public void testLDUserCopyWithHiddenGlobalAttributesHidesCorrectAttrs() {
-    LDConfig testConfig = new LDConfig.Builder().hiddenAttrNames("foo", "bar").build();
+  @Test
+  public void testLDUserCustomMarshalWithHiddenGlobalAttributesHidesCorrectAttrs() {
+    LDConfig config = new LDConfig.Builder().hiddenAttrNames("foo", "bar").build();
 
     LDUser user = new LDUser.Builder("key")
         .hiddenCustom("foo", 42)
@@ -110,12 +128,13 @@ public class LDUserTest {
         .hiddenCustom("bum", 45)
         .build();
 
-    LDUser hidden = user.withHiddenAttrs(testConfig);
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    String hiddenJsonStr = config.gson.toJson(user);
+    Map<String, JsonElement> hiddenJson = config.gson.fromJson(hiddenJsonStr, type);
 
-    assertNull(hidden.getCustom("foo"));
-    assertNull(hidden.getCustom("bar"));
-    assertNull(hidden.getCustom("bum"));
-    assert(hidden.getCustom("baz").equals(new JsonPrimitive(44)));
-
+    assertNull(hiddenJson.get("custom").getAsJsonObject().get("foo"));
+    assertNull(hiddenJson.get("custom").getAsJsonObject().get("bar"));
+    assertNull(hiddenJson.get("custom").getAsJsonObject().get("bum"));
+    assertEquals(hiddenJson.get("custom").getAsJsonObject().get("baz"), new JsonPrimitive(44));
   }
 }

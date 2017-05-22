@@ -28,12 +28,12 @@ class FeatureFlag {
   private final List<JsonElement> variations;
   private final boolean deleted;
 
-  static FeatureFlag fromJson(String json) {
-    return LDConfig.gson.fromJson(json, FeatureFlag.class);
+  static FeatureFlag fromJson(LDConfig config, String json) {
+    return config.gson.fromJson(json, FeatureFlag.class);
   }
 
-  static Map<String, FeatureFlag> fromJsonMap(String json) {
-    return LDConfig.gson.fromJson(json, mapType);
+  static Map<String, FeatureFlag> fromJsonMap(LDConfig config, String json) {
+    return config.gson.fromJson(json, mapType);
   }
 
   FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets, List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations, boolean deleted) {

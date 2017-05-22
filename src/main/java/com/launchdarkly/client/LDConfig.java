@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.io.Files;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import okhttp3.Authenticator;
 import okhttp3.Cache;
 import okhttp3.ConnectionPool;
@@ -28,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
-  static final Gson gson = new Gson();
+  final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapter(this)).create();
 
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");

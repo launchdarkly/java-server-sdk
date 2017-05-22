@@ -2,12 +2,15 @@ package com.launchdarkly.client;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
+import com.google.gson.*;
+import com.google.gson.internal.Streams;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -35,8 +38,8 @@ public class LDUser {
   private JsonPrimitive anonymous;
   private JsonPrimitive country;
   private JsonPrimitive hidden;
-  private Map<String, JsonElement> custom;
-  private Set<String> hiddenAttrNames;
+  protected Map<String, JsonElement> custom;
+  protected Set<String> hiddenAttrNames;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
   protected LDUser(Builder builder) {
@@ -72,28 +75,6 @@ public class LDUser {
     this.hidden = user.hidden;
     this.custom = new HashMap<>(user.custom);
     this.hiddenAttrNames = new HashSet<>(user.hiddenAttrNames);
-  }
-
-  // TODO this needs to hide built-ins too
-  LDUser withHiddenAttrs(final LDConfig config) {
-    LDUser result = new LDUser(this);
-
-
-    Predicate<String> shouldSend = new Predicate<String>() {
-      @Override
-      public boolean apply(String input) {
-        return !hiddenAttrNames.contains(input) && !config.hiddenAttrNames.contains(input);
-      }
-    };
-
-    result.custom = Maps.filterKeys(this.custom, shouldSend);
-    result.hiddenAttrNames.addAll(config.hiddenAttrNames);
-
-    return result;
-  }
-
-  boolean hasHiddenAttrNames() {
-    return !hiddenAttrNames.isEmpty();
   }
 
   /**
@@ -171,45 +152,97 @@ public class LDUser {
     return null;
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+  public static class UserAdapter extends TypeAdapter<LDUser> {
+    private final LDConfig config;
 
-    LDUser ldUser = (LDUser) o;
+    public UserAdapter(LDConfig config) {
 
-    if (!key.equals(ldUser.key)) return false;
-    if (secondary != null ? !secondary.equals(ldUser.secondary) : ldUser.secondary != null) return false;
-    if (ip != null ? !ip.equals(ldUser.ip) : ldUser.ip != null) return false;
-    if (email != null ? !email.equals(ldUser.email) : ldUser.email != null) return false;
-    if (name != null ? !name.equals(ldUser.name) : ldUser.name != null) return false;
-    if (avatar != null ? !avatar.equals(ldUser.avatar) : ldUser.avatar != null) return false;
-    if (firstName != null ? !firstName.equals(ldUser.firstName) : ldUser.firstName != null) return false;
-    if (lastName != null ? !lastName.equals(ldUser.lastName) : ldUser.lastName != null) return false;
-    if (anonymous != null ? !anonymous.equals(ldUser.anonymous) : ldUser.anonymous != null) return false;
-    if (country != null ? !country.equals(ldUser.country) : ldUser.country != null) return false;
-    if (hidden != null ? !hidden.equals(ldUser.hidden) : ldUser.hidden != null) return false;
-    if (custom != null ? !custom.equals(ldUser.custom) : ldUser.custom != null) return false;
-    return hiddenAttrNames != null ? hiddenAttrNames.equals(ldUser.hiddenAttrNames) : ldUser.hiddenAttrNames == null;
+      this.config = config;
+    }
 
-  }
+    @Override
+    public void write(JsonWriter out, LDUser user) throws IOException {
+      out.beginObject();
+      // The key can never be hidden
+      out.name("key").value(user.getKeyAsString());
+      if (user.getSecondary() != null && !shouldHideAttr("secondary", user)) {
+        out.name("secondary").value(user.getSecondary().getAsString());
+      }
+      if (user.getIp() != null && !shouldHideAttr("ip", user)) {
+        out.name("ip").value(user.getIp().getAsString());
+      }
+      if (user.getEmail() != null && !shouldHideAttr("email", user)) {
+        out.name("email").value(user.getEmail().getAsString());
+      }
+      if (user.getName() != null && !shouldHideAttr("name", user)) {
+        out.name("name").value(user.getName().getAsString());
+      }
+      if (user.getAvatar() != null && !shouldHideAttr("avatar", user)) {
+        out.name("avatar").value(user.getAvatar().getAsString());
+      }
+      if (user.getFirstName() != null && !shouldHideAttr("firstName", user)) {
+        out.name("firstName").value(user.getFirstName().getAsString());
+      }
+      if (user.getLastName() != null && !shouldHideAttr("lastName", user)) {
+        out.name("lastName").value(user.getLastName().getAsString());
+      }
+      if (user.getAnonymous() != null && !shouldHideAttr("anonymous", user)) {
+        out.name("anonymous").value(user.getAnonymous().getAsBoolean());
+      }
+      if (user.getCountry() != null && !shouldHideAttr("country", user)) {
+        out.name("country").value(user.getCountry().getAsString());
+      }
+      // Whether or not all attributes are hidden should never be hidden
+      if (user.getHidden() != null) {
+        out.name("hidden").value(user.getHidden().getAsBoolean());
+      }
+      writeHiddenAttrs(out, user);
+      writeCustomAttrs(out, user);
 
-  @Override
-  public int hashCode() {
-    int result = key.hashCode();
-    result = 31 * result + (secondary != null ? secondary.hashCode() : 0);
-    result = 31 * result + (ip != null ? ip.hashCode() : 0);
-    result = 31 * result + (email != null ? email.hashCode() : 0);
-    result = 31 * result + (name != null ? name.hashCode() : 0);
-    result = 31 * result + (avatar != null ? avatar.hashCode() : 0);
-    result = 31 * result + (firstName != null ? firstName.hashCode() : 0);
-    result = 31 * result + (lastName != null ? lastName.hashCode() : 0);
-    result = 31 * result + (anonymous != null ? anonymous.hashCode() : 0);
-    result = 31 * result + (country != null ? country.hashCode() : 0);
-    result = 31 * result + (hidden != null ? hidden.hashCode() : 0);
-    result = 31 * result + (custom != null ? custom.hashCode() : 0);
-    result = 31 * result + (hiddenAttrNames != null ? hiddenAttrNames.hashCode() : 0);
-    return result;
+      out.endObject();
+    }
+
+    private void writeHiddenAttrs(JsonWriter out, LDUser user) throws IOException {
+      if (user.hiddenAttrNames != null) {
+        Set<String> hiddenNames = new HashSet<String>(user.hiddenAttrNames);
+        hiddenNames.addAll(config.hiddenAttrNames);
+        out.name("hiddenAttrNames");
+        out.beginArray();
+        for (String name : hiddenNames) {
+          out.value(name);
+        }
+        out.endArray();
+      }
+    }
+
+    private boolean shouldHideAttr(String key, LDUser user) {
+      return config.hiddenAttrNames.contains(key) || user.hiddenAttrNames.contains(key);
+    }
+
+    private void writeCustomAttrs(JsonWriter out, LDUser user) throws IOException {
+      if (user.custom != null) {
+        out.name("custom");
+        out.beginObject();
+        for (Map.Entry<String, JsonElement> entry : user.custom.entrySet()) {
+          if (shouldHideAttr(entry.getKey(), user)) {
+            continue;
+          }
+
+          out.name(entry.getKey());
+          // NB: this accesses part of the internal GSON api. However, it's likely
+          // the only way to write a JsonElement directly:
+          // https://groups.google.com/forum/#!topic/google-gson/JpHbpZ9mTOk
+          Streams.write(entry.getValue(),out);
+        }
+        out.endObject();
+      }
+    }
+
+    @Override
+    public LDUser read(JsonReader in) throws IOException {
+      // We never need to unmarshal user objects, so there's no need to implement this
+      return null;
+    }
   }
 
   /**
