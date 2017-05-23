@@ -101,7 +101,7 @@ public class LDUserTest {
   }
 
   @Test
-  public void testLDUserCustomMarshalWithAllPrivateAttributesReturnsKeyAlone() {
+  public void testLDUserCustomMarshalWithAllPrivateAttributesReturnsKey() {
     LDConfig config = new LDConfig.Builder().privateUserData(true).build();
     LDUser user = new LDUser.Builder("key")
         .email("foo@bar.com")
@@ -113,6 +113,7 @@ public class LDUserTest {
 
     assertNull(privateJson.get("custom"));
     assertEquals(privateJson.get("key").getAsString(), "key");
+    assert(privateJson.get("privateAttrs").getAsBoolean());
     assertNull(privateJson.get("email"));
   }
 
