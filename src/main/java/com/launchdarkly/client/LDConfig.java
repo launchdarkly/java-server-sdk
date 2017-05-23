@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.io.Files;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import okhttp3.Authenticator;
 import okhttp3.Cache;
 import okhttp3.ConnectionPool;
@@ -28,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
-  static final Gson gson = new Gson();
+  final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapter(this)).create();
 
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
@@ -60,8 +61,8 @@ public final class LDConfig {
   final FeatureStore featureStore;
   final boolean useLdd;
   final boolean offline;
-  final boolean hideUserData;
-  final Set<String> hiddenAttrNames;
+  final boolean privateUserData;
+  final Set<String> privateAttrNames;
   final long pollingIntervalMillis;
   final long startWaitMillis;
   final int samplingInterval;
@@ -81,8 +82,8 @@ public final class LDConfig {
     this.featureStore = builder.featureStore;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
-    this.hideUserData = builder.hideUserData;
-    this.hiddenAttrNames = new HashSet<>(builder.hiddenAttrNames);
+    this.privateUserData = builder.privateUserData;
+    this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
     if (builder.pollingIntervalMillis < DEFAULT_POLLING_INTERVAL_MILLIS) {
       this.pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     } else {
@@ -149,13 +150,13 @@ public final class LDConfig {
     private boolean stream = true;
     private boolean useLdd = false;
     private boolean offline = false;
-    private boolean hideUserData = false;
+    private boolean privateUserData = false;
     private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
-    private Set<String> hiddenAttrNames = new HashSet<>();
+    private Set<String> privateAttrNames = new HashSet<>();
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -379,11 +380,11 @@ public final class LDConfig {
 
     /**
      * Set whether or not user data (other than the key) should be sent back to LaunchDarkly.
-     * @param hideUserData
+     * @param privateUserData
      * @return the builder
      */
-    public Builder hideUserData(boolean hideUserData) {
-      this.hideUserData = hideUserData;
+    public Builder privateUserData(boolean privateUserData) {
+      this.privateUserData = privateUserData;
       return this;
     }
 
@@ -441,12 +442,15 @@ public final class LDConfig {
     }
 
     /**
-     * TODO
-     * @param names
-     * @return
+     *
+     * Mark a set of attribute names private. Any users sent to LaunchDarkly with this configuration
+     * active will have attributes with these names removed.
+     *
+     * @param names a set of names that will be removed from user data set to LaunchDarkly
+     * @return the builder
      */
-    public Builder hiddenAttrNames(String... names) {
-      this.hiddenAttrNames = new HashSet<>(Arrays.asList(names));
+    public Builder privateAttrNames(String... names) {
+      this.privateAttrNames = new HashSet<>(Arrays.asList(names));
       return this;
     }
 

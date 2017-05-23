@@ -74,7 +74,7 @@ class StreamProcessor implements UpdateProcessor {
         Gson gson = new Gson();
         switch (name) {
           case PUT:
-            store.init(FeatureFlag.fromJsonMap(event.getData()));
+            store.init(FeatureFlag.fromJsonMap(config, event.getData()));
             if (!initialized.getAndSet(true)) {
               initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
