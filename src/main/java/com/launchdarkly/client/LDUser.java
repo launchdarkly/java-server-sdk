@@ -53,7 +53,6 @@ public class LDUser {
     this.name = builder.name == null ? null : new JsonPrimitive(builder.name);
     this.avatar = builder.avatar == null ? null : new JsonPrimitive(builder.avatar);
     this.anonymous = builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
-    this.privateAttrs = builder.privateAttrs == null ? null : new JsonPrimitive(builder.privateAttrs);
     this.custom = new HashMap<>(builder.custom);
     this.privateAttributeNames = new HashSet<>(builder.privateAttrNames);
   }
@@ -140,8 +139,6 @@ public class LDUser {
     return anonymous;
   }
 
-  JsonPrimitive hasPrivateAttrs() { return privateAttrs; }
-
   JsonElement getCustom(String key) {
     if (custom != null) {
       return custom.get(key);
@@ -165,6 +162,7 @@ public class LDUser {
 
 
       if (config.privateUserData) {
+        out.name("privateAttrs").value(true);
         out.endObject();
         return;
       }
@@ -195,10 +193,6 @@ public class LDUser {
       }
       if (user.getCountry() != null && !shouldRedactAttr("country", user)) {
         out.name("country").value(user.getCountry().getAsString());
-      }
-      // Whether or not all attributes are privateAttrs should never be privateAttrs
-      if (user.hasPrivateAttrs() != null) {
-        out.name("privateAttrs").value(user.hasPrivateAttrs().getAsBoolean());
       }
       writePrivateAttrNames(out, user);
       writeCustomAttrs(out, user);
@@ -270,7 +264,6 @@ public class LDUser {
     private String name;
     private String avatar;
     private Boolean anonymous;
-    private Boolean privateAttrs;
     private LDCountryCode country;
     private Map<String, JsonElement> custom;
     private Set<String> privateAttrNames;
@@ -522,17 +515,6 @@ public class LDUser {
     public Builder privateEmail(String email) {
       privateAttrNames.add("email");
       return email(email);
-    }
-
-
-    /**
-     * Sets whether all of the user's attribute data should be private (not sent to LaunchDarkly, but used for flag evaluation)
-     * @param isPrivate
-     * @return the builder
-     */
-    public Builder privateAttrs(Boolean isPrivate) {
-      this.privateAttrs = isPrivate;
-      return this;
     }
 
     /**
