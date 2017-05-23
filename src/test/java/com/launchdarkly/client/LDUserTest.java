@@ -136,4 +136,18 @@ public class LDUserTest {
     assertNull(privateJson.get("custom").getAsJsonObject().get("bum"));
     assertEquals(privateJson.get("custom").getAsJsonObject().get("baz"), new JsonPrimitive(44));
   }
+
+  @Test
+  public void testLDUserCustomMarshalWithBuiltInAttributesRedactsCorrectAttrs() {
+    LDConfig config = LDConfig.DEFAULT;
+    LDUser user = new LDUser.Builder("key")
+        .privateEmail("foo@bar.com")
+        .custom("bar", 43)
+        .build();
+
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
+    assertNull(privateJson.get("email"));
+
+  }
 }

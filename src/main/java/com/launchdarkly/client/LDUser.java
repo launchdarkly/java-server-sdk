@@ -290,9 +290,25 @@ public class LDUser {
       return this;
     }
 
+    /**
+     * Set the IP for a user, and ensures that the IP attribute is not sent back to LaunchDarkly
+     *
+     * @param s the IP address for the user
+     * @return the builder
+     */
+    public Builder privateIp(String s) {
+      privateAttrNames.add("ip");
+      return ip(s);
+    }
+
     public Builder secondary(String s) {
       this.secondary = s;
       return this;
+    }
+
+    public Builder privateSecondary(String s) {
+      privateAttrNames.add("secondary");
+      return secondary(s);
     }
 
     /**
@@ -330,6 +346,19 @@ public class LDUser {
     }
 
     /**
+     * Set the country for a user. The country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
+     * alpha-2 or alpha-3 code. If it is not a valid ISO-3166-1 code, an attempt will be made to look up the country by its name.
+     * If that fails, a warning will be logged, and the country will not be set. The country attribute will not be sent back to LaunchDarkly.
+     *
+     * @param s the country for the user
+     * @return the builder
+     */
+    public Builder privateCountry(String s) {
+      privateAttrNames.add("country");
+      return country(s);
+    }
+
+    /**
      * Set the country for a user.
      *
      * @param country the country for the user
@@ -338,6 +367,17 @@ public class LDUser {
     public Builder country(LDCountryCode country) {
       this.country = country;
       return this;
+    }
+
+    /**
+     * Set the country for a user. The country attribute will not be sent back to LaunchDarkly.
+     *
+     * @param country the country for the user
+     * @return the builder
+     */
+    public Builder privateCountry(LDCountryCode country) {
+      privateAttrNames.add("country");
+      return country(country);
     }
 
     /**
@@ -351,6 +391,19 @@ public class LDUser {
       return this;
     }
 
+
+    /**
+     * Sets the user's first name. The first name attribute will not be sent back to LaunchDarkly.
+     *
+     * @param firstName the user's first name
+     * @return the builder
+     */
+    public Builder privateFirstName(String firstName) {
+      privateAttrNames.add("firstName");
+      return firstName(firstName);
+    }
+
+
     /**
      * Sets whether this user is anonymous
      *
@@ -361,6 +414,18 @@ public class LDUser {
       this.anonymous = anonymous;
       return this;
     }
+
+    /**
+     * Sets whether this user is anonymous. The anonymous attribute will not be sent back to LaunchDarkly.
+     *
+     * @param anonymous whether the user is anonymous
+     * @return the builder
+     */
+    public Builder privateAnonymous(boolean anonymous) {
+      privateAttrNames.add("anonymous");
+      return anonymous(anonymous);
+    }
+
 
     /**
      * Sets the user's last name
@@ -374,6 +439,18 @@ public class LDUser {
     }
 
     /**
+     * Sets the user's last name. The last name attribute will not be sent back to LaunchDarkly.
+     *
+     * @param lastName the user's last name
+     * @return the builder
+     */
+    public Builder privateLastName(String lastName) {
+      privateAttrNames.add("lastName");
+      return lastName(lastName);
+    }
+
+
+    /**
      * Sets the user's full name
      *
      * @param name the user's full name
@@ -382,6 +459,17 @@ public class LDUser {
     public Builder name(String name) {
       this.name = name;
       return this;
+    }
+
+    /**
+     * Sets the user's full name. The name attribute will not be sent back to LaunchDarkly.
+     *
+     * @param name the user's full name
+     * @return the builder
+     */
+    public Builder privateName(String name) {
+      privateAttrNames.add("name");
+      return name(name);
     }
 
     /**
@@ -396,6 +484,18 @@ public class LDUser {
     }
 
     /**
+     * Sets the user's avatar. The avatar attribute will not be sent back to LaunchDarkly.
+     *
+     * @param avatar the user's avatar
+     * @return the builder
+     */
+    public Builder privateAvatar(String avatar) {
+      privateAttrNames.add("avatar");
+      return avatar(avatar);
+    }
+
+
+    /**
      * Sets the user's e-mail address
      *
      * @param email the e-mail address
@@ -405,6 +505,18 @@ public class LDUser {
       this.email = email;
       return this;
     }
+
+    /**
+     * Sets the user's e-mail address. The e-mail address attribute will not be sent back to LaunchDarkly.
+     *
+     * @param email the e-mail address
+     * @return the builder
+     */
+    public Builder privateEmail(String email) {
+      privateAttrNames.add("email");
+      return email(email);
+    }
+
 
     /**
      * Sets whether all of the user's attribute data should be private (not sent to LaunchDarkly, but used for flag evaluation)
