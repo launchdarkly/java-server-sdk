@@ -79,7 +79,7 @@ public class LDUserTest {
   }
 
   @Test
-  public void testLDUserCustomMarshalWithHiddenAttrsProducesEquivalentLDUserIfNoAttrsAreHidden() {
+  public void testLDUserCustomMarshalWithPrivateAttrsProducesEquivalentLDUserIfNoAttrsArePrivate() {
     LDConfig config = LDConfig.DEFAULT;
     LDUser user = new LDUser.Builder("key")
                             .anonymous(true)
@@ -95,46 +95,45 @@ public class LDUserTest {
     String jsonStr = new Gson().toJson(user);
     Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
     Map<String, JsonElement> json = config.gson.fromJson(jsonStr, type);
-    Map<String, JsonElement> hiddenJson = config.gson.fromJson(config.gson.toJson(user), type);
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
 
-    assertEquals(json, hiddenJson);
+    assertEquals(json, privateJson);
   }
 
 
   @Test
-  public void testLDUserCustomMarshalWithHiddenAttrsHidesCorrectAttrs() {
+  public void testLDUserCustomMarshalWithPrivateAttrsRedactsCorrectAttrs() {
     LDConfig config = LDConfig.DEFAULT;
     LDUser user = new LDUser.Builder("key")
-        .hiddenCustom("foo", 42)
+        .privateCustom("foo", 42)
         .custom("bar", 43)
         .build();
 
     Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    Map<String, JsonElement> hiddenJson = config.gson.fromJson(config.gson.toJson(user), type);
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
 
-    assertNull(hiddenJson.get("custom").getAsJsonObject().get("foo"));
-    assertEquals(hiddenJson.get("key").getAsString(), "key");
-    assertEquals(hiddenJson.get("custom").getAsJsonObject().get("bar"), new JsonPrimitive(43));
+    assertNull(privateJson.get("custom").getAsJsonObject().get("foo"));
+    assertEquals(privateJson.get("key").getAsString(), "key");
+    assertEquals(privateJson.get("custom").getAsJsonObject().get("bar"), new JsonPrimitive(43));
   }
 
   @Test
-  public void testLDUserCustomMarshalWithHiddenGlobalAttributesHidesCorrectAttrs() {
-    LDConfig config = new LDConfig.Builder().hiddenAttrNames("foo", "bar").build();
+  public void testLDUserCustomMarshalWithPrivateGlobalAttributesRedactsCorrectAttrs() {
+    LDConfig config = new LDConfig.Builder().privateAttrNames("foo", "bar").build();
 
     LDUser user = new LDUser.Builder("key")
-        .hiddenCustom("foo", 42)
+        .privateCustom("foo", 42)
         .custom("bar", 43)
         .custom("baz", 44)
-        .hiddenCustom("bum", 45)
+        .privateCustom("bum", 45)
         .build();
 
     Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    String hiddenJsonStr = config.gson.toJson(user);
-    Map<String, JsonElement> hiddenJson = config.gson.fromJson(hiddenJsonStr, type);
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
 
-    assertNull(hiddenJson.get("custom").getAsJsonObject().get("foo"));
-    assertNull(hiddenJson.get("custom").getAsJsonObject().get("bar"));
-    assertNull(hiddenJson.get("custom").getAsJsonObject().get("bum"));
-    assertEquals(hiddenJson.get("custom").getAsJsonObject().get("baz"), new JsonPrimitive(44));
+    assertNull(privateJson.get("custom").getAsJsonObject().get("foo"));
+    assertNull(privateJson.get("custom").getAsJsonObject().get("bar"));
+    assertNull(privateJson.get("custom").getAsJsonObject().get("bum"));
+    assertEquals(privateJson.get("custom").getAsJsonObject().get("baz"), new JsonPrimitive(44));
   }
 }
