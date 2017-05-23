@@ -161,8 +161,8 @@ public class LDUser {
       out.name("key").value(user.getKeyAsString());
 
 
-      if (config.privateUserData) {
-        out.name("privateAttrs").value(true);
+      if (config.allAttributesPrivate) {
+        out.name("allAttributesPrivate").value(true);
         out.endObject();
         return;
       }

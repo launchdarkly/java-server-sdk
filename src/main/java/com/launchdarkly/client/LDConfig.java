@@ -61,7 +61,7 @@ public final class LDConfig {
   final FeatureStore featureStore;
   final boolean useLdd;
   final boolean offline;
-  final boolean privateUserData;
+  final boolean allAttributesPrivate;
   final Set<String> privateAttrNames;
   final long pollingIntervalMillis;
   final long startWaitMillis;
@@ -82,7 +82,7 @@ public final class LDConfig {
     this.featureStore = builder.featureStore;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
-    this.privateUserData = builder.privateUserData;
+    this.allAttributesPrivate = builder.allAttributesPrivate;
     this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
     if (builder.pollingIntervalMillis < DEFAULT_POLLING_INTERVAL_MILLIS) {
       this.pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
@@ -150,7 +150,7 @@ public final class LDConfig {
     private boolean stream = true;
     private boolean useLdd = false;
     private boolean offline = false;
-    private boolean privateUserData = false;
+    private boolean allAttributesPrivate = false;
     private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
@@ -379,12 +379,14 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether or not user data (other than the key) should be sent back to LaunchDarkly.
-     * @param privateUserData
+     * Set whether or not user attributes (other than the key) should be sent back to LaunchDarkly. If this is true, all
+     * user attribute values will be private, not just the attributes specified in {@link #privateAttributeNames(String...)}. By default,
+     * this is false.
+     * @param allPrivate
      * @return the builder
      */
-    public Builder privateUserData(boolean privateUserData) {
-      this.privateUserData = privateUserData;
+    public Builder allAttributesPrivate(boolean allPrivate) {
+      this.allAttributesPrivate = allPrivate;
       return this;
     }
 
@@ -449,7 +451,7 @@ public final class LDConfig {
      * @param names a set of names that will be removed from user data set to LaunchDarkly
      * @return the builder
      */
-    public Builder privateAttrNames(String... names) {
+    public Builder privateAttributeNames(String... names) {
       this.privateAttrNames = new HashSet<>(Arrays.asList(names));
       return this;
     }

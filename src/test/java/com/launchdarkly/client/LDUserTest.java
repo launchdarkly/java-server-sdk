@@ -102,7 +102,7 @@ public class LDUserTest {
 
   @Test
   public void testLDUserCustomMarshalWithAllPrivateAttributesReturnsKey() {
-    LDConfig config = new LDConfig.Builder().privateUserData(true).build();
+    LDConfig config = new LDConfig.Builder().allAttributesPrivate(true).build();
     LDUser user = new LDUser.Builder("key")
         .email("foo@bar.com")
         .custom("bar", 43)
@@ -113,7 +113,7 @@ public class LDUserTest {
 
     assertNull(privateJson.get("custom"));
     assertEquals(privateJson.get("key").getAsString(), "key");
-    assert(privateJson.get("privateAttrs").getAsBoolean());
+    assert(privateJson.get("allAttributesPrivate").getAsBoolean());
     assertNull(privateJson.get("email"));
   }
 
@@ -135,7 +135,7 @@ public class LDUserTest {
 
   @Test
   public void testLDUserCustomMarshalWithPrivateGlobalAttributesRedactsCorrectAttrs() {
-    LDConfig config = new LDConfig.Builder().privateAttrNames("foo", "bar").build();
+    LDConfig config = new LDConfig.Builder().privateAttributeNames("foo", "bar").build();
 
     LDUser user = new LDUser.Builder("key")
         .privateCustom("foo", 42)
