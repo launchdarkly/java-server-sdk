@@ -100,6 +100,21 @@ public class LDUserTest {
     assertEquals(json, privateJson);
   }
 
+  @Test
+  public void testLDUserCustomMarshalWithAllPrivateAttributesReturnsKeyAlone() {
+    LDConfig config = new LDConfig.Builder().privateUserData(true).build();
+    LDUser user = new LDUser.Builder("key")
+        .email("foo@bar.com")
+        .custom("bar", 43)
+        .build();
+
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
+
+    assertNull(privateJson.get("custom"));
+    assertEquals(privateJson.get("key").getAsString(), "key");
+    assertNull(privateJson.get("email"));
+  }
 
   @Test
   public void testLDUserCustomMarshalWithPrivateAttrsRedactsCorrectAttrs() {

@@ -160,8 +160,15 @@ public class LDUser {
     @Override
     public void write(JsonWriter out, LDUser user) throws IOException {
       out.beginObject();
-      // The key can never be privateAttrs
+      // The key can never be private
       out.name("key").value(user.getKeyAsString());
+
+
+      if (config.privateUserData) {
+        out.endObject();
+        return;
+      }
+
       if (user.getSecondary() != null && !shouldRedactAttr("secondary", user)) {
         out.name("secondary").value(user.getSecondary().getAsString());
       }
