@@ -1,8 +1,16 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.reflect.TypeToken;
 import org.junit.Test;
+
+import java.lang.reflect.Type;
+import java.util.Map;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class LDUserTest {
 
@@ -59,13 +67,87 @@ public class LDUserTest {
 
   @Test
   public void testLDUserJsonSerializationContainsCountryAsTwoDigitCode() {
-    Gson gson = new Gson();
+    LDConfig config = LDConfig.DEFAULT;
+    Gson gson = config.gson;
     LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
 
     String jsonStr = gson.toJson(user);
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> json = gson.fromJson(jsonStr, type);
 
-    LDUser deserialized = gson.fromJson(jsonStr, LDUser.class);
+    assert(json.get("country").equals(us));
+  }
 
-    assert(deserialized.getCountry().equals(us));
+  @Test
+  public void testLDUserCustomMarshalWithPrivateAttrsProducesEquivalentLDUserIfNoAttrsArePrivate() {
+    LDConfig config = LDConfig.DEFAULT;
+    LDUser user = new LDUser.Builder("key")
+                            .anonymous(true)
+                            .avatar("avatar")
+                            .country(LDCountryCode.AC)
+                            .ip("127.0.0.1")
+                            .firstName("bob")
+                            .lastName("loblaw")
+                            .email("bob@example.com")
+                            .custom("foo", 42)
+                            .build();
+
+    String jsonStr = new Gson().toJson(user);
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> json = config.gson.fromJson(jsonStr, type);
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
+
+    assertEquals(json, privateJson);
+  }
+
+
+  @Test
+  public void testLDUserCustomMarshalWithPrivateAttrsRedactsCorrectAttrs() {
+    LDConfig config = LDConfig.DEFAULT;
+    LDUser user = new LDUser.Builder("key")
+        .privateCustom("foo", 42)
+        .custom("bar", 43)
+        .build();
+
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
+
+    assertNull(privateJson.get("custom").getAsJsonObject().get("foo"));
+    assertEquals(privateJson.get("key").getAsString(), "key");
+    assertEquals(privateJson.get("custom").getAsJsonObject().get("bar"), new JsonPrimitive(43));
+  }
+
+  @Test
+  public void testLDUserCustomMarshalWithPrivateGlobalAttributesRedactsCorrectAttrs() {
+    LDConfig config = new LDConfig.Builder().privateAttrNames("foo", "bar").build();
+
+    LDUser user = new LDUser.Builder("key")
+        .privateCustom("foo", 42)
+        .custom("bar", 43)
+        .custom("baz", 44)
+        .privateCustom("bum", 45)
+        .build();
+
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
+
+    assertNull(privateJson.get("custom").getAsJsonObject().get("foo"));
+    assertNull(privateJson.get("custom").getAsJsonObject().get("bar"));
+    assertNull(privateJson.get("custom").getAsJsonObject().get("bum"));
+    assertEquals(privateJson.get("custom").getAsJsonObject().get("baz"), new JsonPrimitive(44));
+  }
+
+  @Test
+  public void testLDUserCustomMarshalWithBuiltInAttributesRedactsCorrectAttrs() {
+    LDConfig config = LDConfig.DEFAULT;
+    LDUser user = new LDUser.Builder("key")
+        .privateEmail("foo@bar.com")
+        .custom("bar", 43)
+        .build();
+
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
+    assertNull(privateJson.get("email"));
+
   }
 }

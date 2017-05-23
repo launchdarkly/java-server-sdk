@@ -41,12 +41,6 @@ class EventProcessor implements Closeable {
       return true;
     }
 
-    // If all user data is hidden, or this user is marked hidden, replace the user with a new user
-    // containing only the key and the hidden attribute
-    if (config.hideUserData || (e.user.getHidden() != null && e.user.getHidden().getAsBoolean())) {
-      e.user = new LDUser.Builder(e.user.getKeyAsString()).hidden(true).build();
-    }
-
     return queue.offer(e);
   }
 
@@ -84,10 +78,10 @@ class EventProcessor implements Closeable {
 
     private void postEvents(List<Event> events) {
 
-      String json = LDConfig.gson.toJson(events);
+      String json = config.gson.toJson(events);
       logger.debug("Posting " + events.size() + " event(s) to " + config.eventsURI + " with payload: " + json);
 
-      String content = LDConfig.gson.toJson(events);
+      String content = config.gson.toJson(events);
 
       Request request = config.getRequestBuilder(sdkKey)
           .url(config.eventsURI.toString() + "/bulk")
