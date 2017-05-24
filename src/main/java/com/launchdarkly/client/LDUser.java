@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.gson.*;
-import com.google.gson.annotations.SerializedName;
 import com.google.gson.internal.Streams;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -36,8 +35,8 @@ public class LDUser {
   private JsonPrimitive anonymous;
   private JsonPrimitive country;
   protected Map<String, JsonElement> custom;
-  @SerializedName("privateAttrNames")
-  protected Set<String> privateAttributeNames;
+  // This is set as transient as we'll use a custom serializer to marshal it
+  protected transient Set<String> privateAttributeNames;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
   protected LDUser(Builder builder) {
@@ -135,88 +134,109 @@ public class LDUser {
     private final LDConfig config;
 
     public UserAdapter(LDConfig config) {
-
       this.config = config;
     }
 
     @Override
     public void write(JsonWriter out, LDUser user) throws IOException {
+      // Collect the private attribute names
+      Set<String> privateAttributeNames = new HashSet<String>(config.privateAttrNames);
+
       out.beginObject();
       // The key can never be private
       out.name("key").value(user.getKeyAsString());
 
-
-      if (config.allAttributesPrivate) {
-        out.name("privateAttrs").value(true);
-        out.endObject();
-        return;
+      if (user.getSecondary() != null) {
+        if (!checkAndAddPrivate("secondary", user, privateAttributeNames)) {
+          out.name("secondary").value(user.getSecondary().getAsString());
+        }
       }
-
-      if (user.getSecondary() != null && !shouldRedactAttr("secondary", user)) {
-        out.name("secondary").value(user.getSecondary().getAsString());
+      if (user.getIp() != null) {
+        if (!checkAndAddPrivate("ip", user, privateAttributeNames)) {
+          out.name("ip").value(user.getIp().getAsString());
+        }
       }
-      if (user.getIp() != null && !shouldRedactAttr("ip", user)) {
-        out.name("ip").value(user.getIp().getAsString());
+      if (user.getEmail() != null) {
+        if (!checkAndAddPrivate("email", user, privateAttributeNames)) {
+          out.name("email").value(user.getEmail().getAsString());
+        }
       }
-      if (user.getEmail() != null && !shouldRedactAttr("email", user)) {
-        out.name("email").value(user.getEmail().getAsString());
+      if (user.getName() != null) {
+        if  (!checkAndAddPrivate("name", user, privateAttributeNames)) {
+          out.name("name").value(user.getName().getAsString());
+        }
       }
-      if (user.getName() != null && !shouldRedactAttr("name", user)) {
-        out.name("name").value(user.getName().getAsString());
+      if (user.getAvatar() != null) {
+        if (!checkAndAddPrivate("avatar", user, privateAttributeNames)) {
+          out.name("avatar").value(user.getAvatar().getAsString());
+        }
       }
-      if (user.getAvatar() != null && !shouldRedactAttr("avatar", user)) {
-        out.name("avatar").value(user.getAvatar().getAsString());
+      if (user.getFirstName() != null) {
+        if (!checkAndAddPrivate("firstName", user, privateAttributeNames)) {
+          out.name("firstName").value(user.getFirstName().getAsString());
+        }
       }
-      if (user.getFirstName() != null && !shouldRedactAttr("firstName", user)) {
-        out.name("firstName").value(user.getFirstName().getAsString());
+      if (user.getLastName() != null) {
+        if (!checkAndAddPrivate("lastName", user, privateAttributeNames)) {
+          out.name("lastName").value(user.getLastName().getAsString());
+        }
       }
-      if (user.getLastName() != null && !shouldRedactAttr("lastName", user)) {
-        out.name("lastName").value(user.getLastName().getAsString());
+      if (user.getAnonymous() != null) {
+        if (!checkAndAddPrivate("anonymous", user, privateAttributeNames)) {
+          out.name("anonymous").value(user.getAnonymous().getAsBoolean());
+        }
       }
-      if (user.getAnonymous() != null && !shouldRedactAttr("anonymous", user)) {
-        out.name("anonymous").value(user.getAnonymous().getAsBoolean());
+      if (user.getCountry() != null) {
+        if (!checkAndAddPrivate("country", user, privateAttributeNames)) {
+          out.name("country").value(user.getCountry().getAsString());
+        }
       }
-      if (user.getCountry() != null && !shouldRedactAttr("country", user)) {
-        out.name("country").value(user.getCountry().getAsString());
-      }
-      writePrivateAttrNames(out, user);
-      writeCustomAttrs(out, user);
+      writeCustomAttrs(out, user, privateAttributeNames);
+      writePrivateAttrNames(out, privateAttributeNames);
 
       out.endObject();
     }
 
-    private void writePrivateAttrNames(JsonWriter out, LDUser user) throws IOException {
-      if (user.privateAttributeNames != null) {
-        Set<String> redactedNames = new HashSet<String>(user.privateAttributeNames);
-        redactedNames.addAll(config.privateAttrNames);
-        out.name("privateAttrNames");
-        out.beginArray();
-        for (String name : redactedNames) {
-          out.value(name);
-        }
-        out.endArray();
+    private void writePrivateAttrNames(JsonWriter out, Set<String> names) throws IOException {
+      if (names.isEmpty()) {
+        return;
       }
+      out.name("privateAttrs");
+      out.beginArray();
+      for (String name : names) {
+        out.value(name);
+      }
+      out.endArray();
     }
 
-    private boolean shouldRedactAttr(String key, LDUser user) {
-      return config.privateAttrNames.contains(key) || user.privateAttributeNames.contains(key);
+    private boolean checkAndAddPrivate(String key, LDUser user, Set<String> privateAttrs) {
+      boolean result = config.allAttributesPrivate || config.privateAttrNames.contains(key) || user.privateAttributeNames.contains(key);
+      if (result) {
+        privateAttrs.add(key);
+      }
+      return result;
     }
 
-    private void writeCustomAttrs(JsonWriter out, LDUser user) throws IOException {
-      if (user.custom != null) {
-        out.name("custom");
-        out.beginObject();
-        for (Map.Entry<String, JsonElement> entry : user.custom.entrySet()) {
-          if (shouldRedactAttr(entry.getKey(), user)) {
-            continue;
+    private void writeCustomAttrs(JsonWriter out, LDUser user, Set<String> privateAttributeNames) throws IOException {
+      boolean beganObject = false;
+      if (user.custom == null) {
+        return;
+      }
+      for (Map.Entry<String, JsonElement> entry : user.custom.entrySet()) {
+        if (!checkAndAddPrivate(entry.getKey(), user, privateAttributeNames)) {
+          if (!beganObject) {
+            out.name("custom");
+            out.beginObject();
+            beganObject = true;
           }
-
           out.name(entry.getKey());
           // NB: this accesses part of the internal GSON api. However, it's likely
           // the only way to write a JsonElement directly:
           // https://groups.google.com/forum/#!topic/google-gson/JpHbpZ9mTOk
           Streams.write(entry.getValue(),out);
         }
+      }
+      if (beganObject) {
         out.endObject();
       }
     }
