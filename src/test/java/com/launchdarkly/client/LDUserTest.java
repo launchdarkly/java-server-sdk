@@ -113,7 +113,7 @@ public class LDUserTest {
 
     assertNull(privateJson.get("custom"));
     assertEquals(privateJson.get("key").getAsString(), "key");
-    assert(privateJson.get("allAttributesPrivate").getAsBoolean());
+    assert(privateJson.get("privateAttrs").getAsBoolean());
     assertNull(privateJson.get("email"));
   }
 

@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.*;
+import com.google.gson.annotations.SerializedName;
 import com.google.gson.internal.Streams;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -34,8 +35,8 @@ public class LDUser {
   private JsonPrimitive lastName;
   private JsonPrimitive anonymous;
   private JsonPrimitive country;
-  private JsonPrimitive privateAttrs;
   protected Map<String, JsonElement> custom;
+  @SerializedName("privateAttrNames")
   protected Set<String> privateAttributeNames;
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
@@ -55,22 +56,6 @@ public class LDUser {
     this.anonymous = builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
     this.custom = new HashMap<>(builder.custom);
     this.privateAttributeNames = new HashSet<>(builder.privateAttrNames);
-  }
-
-  protected LDUser(LDUser user) {
-    this.key = user.key;
-    this.ip = user.ip;
-    this.country = user.country;
-    this.secondary = user.secondary;
-    this.firstName = user.firstName;
-    this.lastName = user.lastName;
-    this.email = user.email;
-    this.name = user.name;
-    this.avatar = user.avatar;
-    this.anonymous = user.anonymous;
-    this.privateAttrs = user.privateAttrs;
-    this.custom = new HashMap<>(user.custom);
-    this.privateAttributeNames = new HashSet<>(user.privateAttributeNames);
   }
 
   /**
@@ -162,7 +147,7 @@ public class LDUser {
 
 
       if (config.allAttributesPrivate) {
-        out.name("allAttributesPrivate").value(true);
+        out.name("privateAttrs").value(true);
         out.endObject();
         return;
       }
@@ -204,7 +189,7 @@ public class LDUser {
       if (user.privateAttributeNames != null) {
         Set<String> redactedNames = new HashSet<String>(user.privateAttributeNames);
         redactedNames.addAll(config.privateAttrNames);
-        out.name("privateAttributeNames");
+        out.name("privateAttrNames");
         out.beginArray();
         for (String name : redactedNames) {
           out.value(name);
