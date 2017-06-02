@@ -3,8 +3,11 @@ package com.launchdarkly.client;
 import java.util.List;
 
 class Target {
-  private final List<String> values;
-  private final int variation;
+  private List<String> values;
+  private int variation;
+
+  // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
+  Target() {}
 
   Target(List<String> values, int variation) {
     this.values = values;
