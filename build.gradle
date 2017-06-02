@@ -20,7 +20,7 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "{$version}"
+    version = "${version}"
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
 }
