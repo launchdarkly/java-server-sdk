@@ -20,7 +20,7 @@ repositories {
 
 allprojects {
     group = 'com.launchdarkly'
-    version = "2.2.4-SNAPSHOT"
+    version = "{$version}"
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
 }
@@ -183,6 +183,7 @@ signing {
 idea {
     module {
         downloadJavadoc = true
+
         downloadSources = true
     }
 }

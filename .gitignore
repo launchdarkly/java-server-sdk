@@ -13,6 +13,5 @@
 .gradle/
 build/
 bin/
-gradle.properties
 
 classes/
