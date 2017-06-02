@@ -14,7 +14,8 @@ echo "Starting java-client release."
 VERSION=$1
 
 #Update version in gradle.properties file:
-sed  -i '' "s/^version.*$/version=${VERSION}/" gradle.properties
+sed  -i.bak "s/^version.*$/version=${VERSION}/" gradle.properties
+rm -f gradle.properties.bak
 ./gradlew clean test install sourcesJar javadocJar uploadArchives closeAndReleaseRepository
 ./gradlew publishGhPages
 echo "Finished java-client release."
