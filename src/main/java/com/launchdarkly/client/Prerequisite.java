@@ -1,8 +1,11 @@
 package com.launchdarkly.client;
 
 class Prerequisite {
-  private final String key;
-  private final int variation;
+  private String key;
+  private int variation;
+
+  // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
+  Prerequisite() {}
 
   Prerequisite(String key, int variation) {
     this.key = key;
