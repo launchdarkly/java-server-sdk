@@ -3,6 +3,12 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.2.4] - 2017-06-02
+## Changed
+- Improved Gson compatibility (added no-args constructors for classes we deserialize)
+- Automated release process 
+
+
 ## [2.2.3] - 2017-05-10
 ### Fixed
 - Fixed issue where stream connection failed to fully establish
