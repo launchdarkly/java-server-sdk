@@ -16,17 +16,17 @@ class FeatureFlag {
   private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {
   }.getType();
 
-  private final String key;
-  private final int version;
-  private final boolean on;
-  private final List<Prerequisite> prerequisites;
-  private final String salt;
-  private final List<Target> targets;
-  private final List<Rule> rules;
-  private final VariationOrRollout fallthrough;
-  private final Integer offVariation; //optional
-  private final List<JsonElement> variations;
-  private final boolean deleted;
+  private String key;
+  private int version;
+  private boolean on;
+  private List<Prerequisite> prerequisites;
+  private String salt;
+  private List<Target> targets;
+  private List<Rule> rules;
+  private VariationOrRollout fallthrough;
+  private Integer offVariation; //optional
+  private List<JsonElement> variations;
+  private boolean deleted;
 
   static FeatureFlag fromJson(String json) {
     return LDConfig.gson.fromJson(json, FeatureFlag.class);
@@ -35,6 +35,9 @@ class FeatureFlag {
   static Map<String, FeatureFlag> fromJsonMap(String json) {
     return LDConfig.gson.fromJson(json, mapType);
   }
+
+  // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
+  FeatureFlag() {}
 
   FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets, List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations, boolean deleted) {
     this.key = key;
