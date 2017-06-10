@@ -3,6 +3,7 @@ LaunchDarkly SDK for Java
 
 ![Circle CI](https://circleci.com/gh/launchdarkly/java-client.png)
 [![Javadocs](http://javadoc.io/badge/com.launchdarkly/launchdarkly-client.svg)](http://javadoc.io/doc/com.launchdarkly/launchdarkly-client)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Flaunchdarkly%2Fjava-client.svg?type=shield)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Flaunchdarkly%2Fjava-client?ref=badge_shield)
 
 Quick setup
 -----------
