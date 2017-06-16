@@ -90,7 +90,7 @@ public final class LDConfig {
 
     OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
         .cache(cache)
-        .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES))
+        .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
         .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
         .readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
         .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
