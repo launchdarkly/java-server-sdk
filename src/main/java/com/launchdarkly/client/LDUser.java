@@ -126,6 +126,43 @@ public class LDUser {
     }
     return null;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    LDUser ldUser = (LDUser) o;
+
+    if (key != null ? !key.equals(ldUser.key) : ldUser.key != null) return false;
+    if (secondary != null ? !secondary.equals(ldUser.secondary) : ldUser.secondary != null) return false;
+    if (ip != null ? !ip.equals(ldUser.ip) : ldUser.ip != null) return false;
+    if (email != null ? !email.equals(ldUser.email) : ldUser.email != null) return false;
+    if (name != null ? !name.equals(ldUser.name) : ldUser.name != null) return false;
+    if (avatar != null ? !avatar.equals(ldUser.avatar) : ldUser.avatar != null) return false;
+    if (firstName != null ? !firstName.equals(ldUser.firstName) : ldUser.firstName != null) return false;
+    if (lastName != null ? !lastName.equals(ldUser.lastName) : ldUser.lastName != null) return false;
+    if (anonymous != null ? !anonymous.equals(ldUser.anonymous) : ldUser.anonymous != null) return false;
+    if (country != null ? !country.equals(ldUser.country) : ldUser.country != null) return false;
+    return custom != null ? custom.equals(ldUser.custom) : ldUser.custom == null;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = key != null ? key.hashCode() : 0;
+    result = 31 * result + (secondary != null ? secondary.hashCode() : 0);
+    result = 31 * result + (ip != null ? ip.hashCode() : 0);
+    result = 31 * result + (email != null ? email.hashCode() : 0);
+    result = 31 * result + (name != null ? name.hashCode() : 0);
+    result = 31 * result + (avatar != null ? avatar.hashCode() : 0);
+    result = 31 * result + (firstName != null ? firstName.hashCode() : 0);
+    result = 31 * result + (lastName != null ? lastName.hashCode() : 0);
+    result = 31 * result + (anonymous != null ? anonymous.hashCode() : 0);
+    result = 31 * result + (country != null ? country.hashCode() : 0);
+    result = 31 * result + (custom != null ? custom.hashCode() : 0);
+    return result;
+  }
+
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link LDUser} objects. Builder
    * calls can be chained, enabling the following pattern:
