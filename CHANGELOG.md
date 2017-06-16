@@ -3,6 +3,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.2.6] - 2017-06-16
+## Added
+- #96 `LDUser` now has `equals()` and `hashCode()` methods
+
+## Changed
+- #93 `LDClient` now releases resources more quickly when shutting down
+
 ## [2.2.5] - 2017-06-02
 ## Changed
 - Improved Gson compatibility (added no-args constructors for classes we deserialize)
