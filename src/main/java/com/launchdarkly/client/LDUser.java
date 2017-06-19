@@ -198,6 +198,30 @@ public class LDUser {
     }
 
     /**
+    * Create a builder with an existing user
+    *
+    * @param user an existing {@code LDUser}
+    */
+    public Builder(LDUser user) {
+        JsonPrimitive userKey = user.getKey();
+        if (userKey.isJsonNull()) {
+            this.key = null;
+        } else {
+            this.key = user.getKeyAsString();
+        }
+        this.secondary = user.getSecondary() != null ? user.getSecondary().getAsString() : null;
+        this.ip = user.getIp() != null ? user.getIp().getAsString() : null;
+        this.firstName = user.getFirstName() != null ? user.getFirstName().getAsString() : null;
+        this.lastName = user.getLastName() != null ? user.getLastName().getAsString() : null;
+        this.email = user.getEmail() != null ? user.getEmail().getAsString() : null;
+        this.name = user.getName() != null ? user.getName().getAsString() : null;
+        this.avatar = user.getAvatar() != null ? user.getAvatar().getAsString() : null;
+        this.anonymous = user.getAnonymous() != null ? user.getAnonymous().getAsBoolean() : null;
+        this.country = user.getCountry() != null ? LDCountryCode.valueOf(user.getCountry().getAsString()) : null;
+        this.custom = user.custom;
+    }
+    
+    /**
      * Set the IP for a user
      *
      * @param s the IP address for the user
