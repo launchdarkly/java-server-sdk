@@ -20,6 +20,7 @@ public class LDUserTest {
     .avatar("image")
     .anonymous(false)
     .country("US")
+    .custom("org", "LaunchDarkly")
     .build();
     
     assert(user.equals(new LDUser.Builder(user).build()));
