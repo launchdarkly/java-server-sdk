@@ -3,6 +3,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.3.0] - 2017-07-10
+## Added
+- LDUser `Builder` constructor which accepts a previously built user as an initialization parameter.
+
+
 ## [2.2.6] - 2017-06-16
 ## Added
 - #96 `LDUser` now has `equals()` and `hashCode()` methods
