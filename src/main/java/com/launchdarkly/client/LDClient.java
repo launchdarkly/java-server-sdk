@@ -365,7 +365,7 @@ public class LDClient implements LDClientInterface {
   }
 
   /**
-   * Closes the LaunchDarkly client event processing thread and flushes all pending events. This should only
+   * Closes the LaunchDarkly client event processing thread. This should only
    * be called on application shutdown.
    *
    * @throws IOException
