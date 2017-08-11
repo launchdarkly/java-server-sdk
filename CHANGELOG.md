@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.3.1] - 2017-08-11
+## Changed
+- Updated okhttp-eventsource dependency to 1.5.0 to pick up better connection timeout handling.
+
 ## [2.3.0] - 2017-07-10
 ## Added
 - LDUser `Builder` constructor which accepts a previously built user as an initialization parameter.
