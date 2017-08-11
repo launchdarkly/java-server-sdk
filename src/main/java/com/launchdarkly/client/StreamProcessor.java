@@ -131,7 +131,8 @@ class StreamProcessor implements UpdateProcessor {
 
     EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
         .headers(headers)
-        .reconnectTimeMs(config.reconnectTimeMs);
+        .reconnectTimeMs(config.reconnectTimeMs)
+        .connectTimeoutMs(config.connectTimeoutMillis);
 
     if (config.proxy != null) {
       builder.proxy(config.proxy);
