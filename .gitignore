@@ -13,5 +13,5 @@
 .gradle/
 build/
 bin/
-
+out/
 classes/
