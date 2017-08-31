@@ -261,7 +261,7 @@ public final class LDConfig {
 
     /**
      * Set the number of seconds between flushes of the event buffer. Decreasing the flush interval means
-     * that the event buffer is less likely to reach capacity.
+     * that the event buffer is less likely to reach capacity. The default value is 5 seconds.
      *
      * @param flushInterval the flush interval in seconds
      * @return the builder
@@ -273,7 +273,7 @@ public final class LDConfig {
 
     /**
      * Set the capacity of the events buffer. The client buffers up to this many events in memory before flushing. If the capacity is exceeded before the buffer is flushed, events will be discarded.
-     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory.
+     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory. The default value is 10000 elements. The default flush interval (set by flushInterval) is 5 seconds.
      *
      * @param capacity the capacity of the event buffer
      * @return the builder
