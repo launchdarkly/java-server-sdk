@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
@@ -37,6 +38,8 @@ public class LDClient implements LDClientInterface {
   private final FeatureRequestor requestor;
   private final EventProcessor eventProcessor;
   private UpdateProcessor updateProcessor;
+
+  private final AtomicBoolean eventCapacityExceeded = new AtomicBoolean(false);
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -134,10 +137,7 @@ public class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     }
-    boolean processed = eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
-    if (!processed) {
-      logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
-    }
+    sendEvent(new CustomEvent(eventName, user, data));
   }
 
   /**
@@ -167,21 +167,24 @@ public class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Identify called with null user or null user key!");
     }
-    boolean processed = eventProcessor.sendEvent(new IdentifyEvent(user));
-    if (!processed) {
-      logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
-    }
+    sendEvent(new IdentifyEvent(user));
   }
 
   private void sendFlagRequestEvent(String featureKey, LDUser user, JsonElement value, JsonElement defaultValue, Integer version) {
     if (isOffline()) {
       return;
     }
-    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue, version, null));
-    if (!processed) {
+    sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue, version, null));
+    NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
+  }
+
+  private void sendEvent(Event event) {
+    boolean processed = eventProcessor.sendEvent(event);
+    if (processed) {
+      eventCapacityExceeded.compareAndSet(true, false);
+    } else if (eventCapacityExceeded.compareAndSet(false, true)) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
-    NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
   }
 
   /**
