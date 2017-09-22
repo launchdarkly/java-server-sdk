@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.3.2] - 2017-09-22
+## Changed
+- Only log a warning on the first event that overflows the event buffer [#102]
+
 ## [2.3.1] - 2017-08-11
 ## Changed
 - Updated okhttp-eventsource dependency to 1.5.0 to pick up better connection timeout handling.
