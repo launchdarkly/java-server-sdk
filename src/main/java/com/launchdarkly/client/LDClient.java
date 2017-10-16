@@ -161,9 +161,6 @@ public class LDClient implements LDClientInterface {
    */
   @Override
   public void identify(LDUser user) {
-    if (isOffline()) {
-      return;
-    }
     if (user == null || user.getKey() == null) {
       logger.warn("Identify called with null user or null user key!");
     }
@@ -171,20 +168,23 @@ public class LDClient implements LDClientInterface {
   }
 
   private void sendFlagRequestEvent(String featureKey, LDUser user, JsonElement value, JsonElement defaultValue, Integer version) {
-    if (isOffline()) {
-      return;
+    if (sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue, version, null))) {
+      NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
     }
-    sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue, version, null));
-    NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
   }
 
-  private void sendEvent(Event event) {
+  private boolean sendEvent(Event event) {
+    if (isOffline() || !config.sendEvents) {
+      return false;
+    }
+  
     boolean processed = eventProcessor.sendEvent(event);
     if (processed) {
       eventCapacityExceeded.compareAndSet(true, false);
     } else if (eventCapacityExceeded.compareAndSet(false, true)) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
+    return true;
   }
 
   /**
@@ -350,10 +350,8 @@ public class LDClient implements LDClientInterface {
         return defaultValue;
       }
       FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore);
-      if (!isOffline()) {
-        for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
-          eventProcessor.sendEvent(event);
-        }
+      for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
+        sendEvent(event);
       }
       if (evalResult.getValue() != null) {
         expectedType.assertResultType(evalResult.getValue());
