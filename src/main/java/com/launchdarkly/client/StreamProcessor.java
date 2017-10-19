@@ -3,10 +3,13 @@ package com.launchdarkly.client;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
+import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.ReadyState;
+import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+
 import okhttp3.Headers;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -58,6 +61,19 @@ class StreamProcessor implements UpdateProcessor {
         .add("Accept", "text/event-stream")
         .build();
 
+    ConnectionErrorHandler connectionErrorHandler = new ConnectionErrorHandler() {
+      @Override
+      public Action onConnectionError(Throwable t) {
+        if ((t instanceof UnsuccessfulResponseException) &&
+            ((UnsuccessfulResponseException) t).getCode() == 401) {
+          logger.error("Received 401 error, no further streaming connection will be made since SDK key is invalid");
+          heartbeatDetectorService.shutdown();
+          return Action.SHUTDOWN;
+        }
+        return Action.PROCEED;
+      }
+    };
+    
     EventHandler handler = new EventHandler() {
 
       @Override
@@ -130,6 +146,7 @@ class StreamProcessor implements UpdateProcessor {
     };
 
     EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
+        .connectionErrorHandler(connectionErrorHandler)
         .headers(headers)
         .reconnectTimeMs(config.reconnectTimeMs)
         .connectTimeoutMs(config.connectTimeoutMillis);
@@ -218,17 +235,12 @@ class StreamProcessor implements UpdateProcessor {
       // We only want to force the reconnect if the ES connection is open. If not, it's already trying to
       // connect anyway, or this processor was shut down
       if (lastHeartbeat.isBefore(reconnectThresholdTime) && es.getState() == ReadyState.OPEN) {
-        try {
-          logger.info("Stream stopped receiving heartbeats- reconnecting.");
-          es.close();
-        } catch (IOException e) {
-          logger.error("Encountered exception closing stream connection: " + e.getMessage());
-        } finally {
-          if (es.getState() == ReadyState.SHUTDOWN) {
-            start();
-          } else {
-            logger.error("Expected ES to be in state SHUTDOWN, but it's currently in state " + es.getState().toString());
-          }
+        logger.info("Stream stopped receiving heartbeats- reconnecting.");
+        es.close();
+        if (es.getState() == ReadyState.SHUTDOWN) {
+          start();
+        } else {
+          logger.error("Expected ES to be in state SHUTDOWN, but it's currently in state " + es.getState().toString());
         }
       }
     }

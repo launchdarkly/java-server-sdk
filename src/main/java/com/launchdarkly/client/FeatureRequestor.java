@@ -19,17 +19,17 @@ class FeatureRequestor {
     this.config = config;
   }
 
-  Map<String, FeatureFlag> getAllFlags() throws IOException {
+  Map<String, FeatureFlag> getAllFlags() throws IOException, InvalidSDKKeyException {
     String body = get(GET_LATEST_FLAGS_PATH);
     return FeatureFlag.fromJsonMap(body);
   }
 
-  FeatureFlag getFlag(String featureKey) throws IOException {
+  FeatureFlag getFlag(String featureKey) throws IOException, InvalidSDKKeyException {
     String body = get(GET_LATEST_FLAGS_PATH + "/" + featureKey);
     return FeatureFlag.fromJson(body);
   }
 
-  private String get(String path) throws IOException {
+  private String get(String path) throws IOException, InvalidSDKKeyException {
     Request request = config.getRequestBuilder(sdkKey)
         .url(config.baseURI.toString() + path)
         .get()
@@ -43,6 +43,7 @@ class FeatureRequestor {
       if (!response.isSuccessful()) {
         if (response.code() == 401) {
           logger.error("[401] Invalid SDK key when accessing URI: " + request.url());
+          throw new InvalidSDKKeyException();
         }
         throw new IOException("Unexpected response when retrieving Feature Flag(s): " + response + " using url: "
             + request.url() + " with body: " + body);
@@ -53,6 +54,12 @@ class FeatureRequestor {
       logger.debug("Network response: " + response.networkResponse());
 
       return body;
+    }
+  }
+  
+  @SuppressWarnings("serial")
+  public static class InvalidSDKKeyException extends Exception {
+    public InvalidSDKKeyException() {
     }
   }
 }

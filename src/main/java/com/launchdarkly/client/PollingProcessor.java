@@ -54,6 +54,9 @@ public class PollingProcessor implements UpdateProcessor {
             logger.info("Initialized LaunchDarkly client.");
             initFuture.set(null);
           }
+        } catch (FeatureRequestor.InvalidSDKKeyException e) {
+          logger.error("Received 401 error, no further polling requests will be made since SDK key is invalid");
+          scheduler.shutdown();
         } catch (IOException e) {
           logger.error("Encountered exception in LaunchDarkly client when retrieving update", e);
         }
