@@ -25,17 +25,35 @@ allprojects {
     targetCompatibility = 1.7
 }
 
+ext.libraries = [:]
+
+libraries.shaded = [
+    "commons-codec:commons-codec:1.10",
+    "com.google.guava:guava:19.0",
+    "joda-time:joda-time:2.9.3",
+    "com.launchdarkly:okhttp-eventsource:1.5.0",
+    "redis.clients:jedis:2.9.0"
+]
+
+libraries.unshaded = [
+    "com.google.code.gson:gson:2.7",
+    "org.slf4j:slf4j-api:1.7.21"
+]
+
+libraries.testCompile = [
+    "org.easymock:easymock:3.4",
+    "junit:junit:4.12"
+]
+
+libraries.testRuntime = [
+    "ch.qos.logback:logback-classic:1.1.7"
+]
+
 dependencies {
-    compile "commons-codec:commons-codec:1.10"
-    compile "com.google.code.gson:gson:2.7"
-    compile "com.google.guava:guava:19.0"
-    compile "joda-time:joda-time:2.9.3"
-    compile "org.slf4j:slf4j-api:1.7.21"
-    compile group: "com.launchdarkly", name: "okhttp-eventsource", version: "1.5.0", changing: true
-    compile "redis.clients:jedis:2.9.0"
-    testCompile "org.easymock:easymock:3.4"
-    testCompile 'junit:junit:4.12'
-    testRuntime "ch.qos.logback:logback-classic:1.1.7"
+    compile libraries.shaded, libraries.unshaded
+    testCompile libraries.testCompile
+    testRuntime libraries.testRuntime
+    shadow libraries.unshaded
 }
 
 jar {
@@ -49,7 +67,7 @@ jar {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.14-rc-3'
+    gradleVersion = '4.2.1'
 }
 
 buildscript {
@@ -60,7 +78,7 @@ buildscript {
     }
     dependencies {
         classpath 'org.ajoberstar:gradle-git:1.5.0-rc.1'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
         classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.8.0"
     }
 }
@@ -100,6 +118,7 @@ shadowJar {
     // Don't shade or include slf4j
     dependencies{
         exclude(dependency('org.slf4j:.*:.*'))
+        exclude(dependency('com.google.code.gson:.*:.*'))
     }
 
     // Shade all jars except for launchdarkly
