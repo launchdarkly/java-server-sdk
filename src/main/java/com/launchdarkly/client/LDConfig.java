@@ -374,7 +374,7 @@ public final class LDConfig {
     /**
      * Set whether to send events back to LaunchDarkly. By default, the client will send
      * events. This differs from {@link offline} in that it only affects sending
-     * client-side events, not streaming or polling for events from the server.
+     * analytics events, not streaming or polling for events from the server.
      *
      * @param sendEvents when set to false, no events will be sent to LaunchDarkly.
      * @return the builder
