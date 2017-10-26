@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.3.4] - 2017-10-25
+## Changed
+- Removed GSON dependency from default jar (fixes #103)
+
 ## [2.3.3] - 2017-10-19
 ## Changed
 - Removed GSON dependency from default jar (fixes #103)
