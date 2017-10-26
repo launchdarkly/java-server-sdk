@@ -3,6 +3,9 @@ package com.launchdarkly.client;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+
+import junit.framework.AssertionFailedError;
+
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
@@ -411,6 +414,66 @@ public class LDClientTest extends EasyMockSupport {
     assertEquals("aa747c502a898200f9e4fa21bac68136f886a0e27aec70ba06daf2e2a5cb5597", client.secureModeHash(user));
   }
 
+  @Test
+  public void testNoFeatureEventsAreSentWhenSendEventsIsFalse() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .sendEvents(false)
+        .stream(false)
+        .build();
+
+    expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
+    expect(eventProcessor.sendEvent(anyObject(Event.class)))
+      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    replayAll();
+
+    client = createMockClient(config);
+    client.boolVariation("test", new LDUser("test.key"), true);
+
+    verifyAll();
+  }
+
+  @Test
+  public void testNoIdentifyEventsAreSentWhenSendEventsIsFalse() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .sendEvents(false)
+        .stream(false)
+        .build();
+
+    expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
+    expect(eventProcessor.sendEvent(anyObject(Event.class)))
+      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    replayAll();
+
+    client = createMockClient(config);
+    client.identify(new LDUser("test.key"));
+
+    verifyAll();
+  }
+  
+  @Test
+  public void testNoCustomEventsAreSentWhenSendEventsIsFalse() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .sendEvents(false)
+        .stream(false)
+        .build();
+
+    expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
+    expect(eventProcessor.sendEvent(anyObject(Event.class)))
+      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    replayAll();
+
+    client = createMockClient(config);
+    client.track("test", new LDUser("test.key"));
+
+    verifyAll();
+  }
+  
   private void assertDefaultValueIsReturned() {
     boolean result = client.boolVariation("test", new LDUser("test.key"), true);
     assertEquals(true, result);

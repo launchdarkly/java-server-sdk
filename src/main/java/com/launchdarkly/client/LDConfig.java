@@ -57,6 +57,7 @@ public final class LDConfig {
   final FeatureStore featureStore;
   final boolean useLdd;
   final boolean offline;
+  final boolean sendEvents;
   final long pollingIntervalMillis;
   final long startWaitMillis;
   final int samplingInterval;
@@ -76,6 +77,7 @@ public final class LDConfig {
     this.featureStore = builder.featureStore;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
+    this.sendEvents = builder.sendEvents;
     if (builder.pollingIntervalMillis < DEFAULT_POLLING_INTERVAL_MILLIS) {
       this.pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     } else {
@@ -142,6 +144,7 @@ public final class LDConfig {
     private boolean stream = true;
     private boolean useLdd = false;
     private boolean offline = false;
+    private boolean sendEvents = true;
     private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
@@ -365,6 +368,19 @@ public final class LDConfig {
      */
     public Builder offline(boolean offline) {
       this.offline = offline;
+      return this;
+    }
+
+    /**
+     * Set whether to send events back to LaunchDarkly. By default, the client will send
+     * events. This differs from {@link offline} in that it only affects sending
+     * analytics events, not streaming or polling for events from the server.
+     *
+     * @param sendEvents when set to false, no events will be sent to LaunchDarkly.
+     * @return the builder
+     */
+    public Builder sendEvents(boolean sendEvents) {
+      this.sendEvents = sendEvents;
       return this;
     }
 
