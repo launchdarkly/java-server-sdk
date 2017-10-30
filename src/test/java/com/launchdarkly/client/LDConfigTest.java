@@ -106,4 +106,16 @@ public class LDConfigTest {
     LDConfig config = new LDConfig.Builder().pollingIntervalMillis(10001L).build();
     assertEquals(10001L, config.pollingIntervalMillis);
   }
+  
+  @Test
+  public void testSendEventsDefaultsToTrue() {
+    LDConfig config = new LDConfig.Builder().build();
+    assertEquals(true, config.sendEvents);
+  }
+  
+  @Test
+  public void testSendEventsCanBeSetToFalse() {
+    LDConfig config = new LDConfig.Builder().sendEvents(false).build();
+    assertEquals(false, config.sendEvents);
+  }
 }

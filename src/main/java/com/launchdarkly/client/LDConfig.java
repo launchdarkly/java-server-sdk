@@ -63,6 +63,7 @@ public final class LDConfig {
   final boolean offline;
   final boolean allAttributesPrivate;
   final Set<String> privateAttrNames;
+  final boolean sendEvents;
   final long pollingIntervalMillis;
   final long startWaitMillis;
   final int samplingInterval;
@@ -84,6 +85,7 @@ public final class LDConfig {
     this.offline = builder.offline;
     this.allAttributesPrivate = builder.allAttributesPrivate;
     this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
+    this.sendEvents = builder.sendEvents;
     if (builder.pollingIntervalMillis < DEFAULT_POLLING_INTERVAL_MILLIS) {
       this.pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     } else {
@@ -98,7 +100,7 @@ public final class LDConfig {
 
     OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
         .cache(cache)
-        .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES))
+        .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
         .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
         .readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
         .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
@@ -151,6 +153,7 @@ public final class LDConfig {
     private boolean useLdd = false;
     private boolean offline = false;
     private boolean allAttributesPrivate = false;
+    private boolean sendEvents = true;
     private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
@@ -271,7 +274,7 @@ public final class LDConfig {
 
     /**
      * Set the number of seconds between flushes of the event buffer. Decreasing the flush interval means
-     * that the event buffer is less likely to reach capacity.
+     * that the event buffer is less likely to reach capacity. The default value is 5 seconds.
      *
      * @param flushInterval the flush interval in seconds
      * @return the builder
@@ -283,7 +286,7 @@ public final class LDConfig {
 
     /**
      * Set the capacity of the events buffer. The client buffers up to this many events in memory before flushing. If the capacity is exceeded before the buffer is flushed, events will be discarded.
-     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory.
+     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory. The default value is 10000 elements. The default flush interval (set by flushInterval) is 5 seconds.
      *
      * @param capacity the capacity of the event buffer
      * @return the builder
@@ -387,6 +390,19 @@ public final class LDConfig {
      */
     public Builder allAttributesPrivate(boolean allPrivate) {
       this.allAttributesPrivate = allPrivate;
+      return this;
+    }
+
+    /**
+     * Set whether to send events back to LaunchDarkly. By default, the client will send
+     * events. This differs from {@link offline} in that it only affects sending
+     * analytics events, not streaming or polling for events from the server.
+     *
+     * @param sendEvents when set to false, no events will be sent to LaunchDarkly.
+     * @return the builder
+     */
+    public Builder sendEvents(boolean sendEvents) {
+      this.sendEvents = sendEvents;
       return this;
     }
 

@@ -3,6 +3,56 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.3.4] - 2017-10-25
+## Changed
+- Removed GSON dependency from default jar (fixes #103)
+
+## [2.3.3] - 2017-10-19
+## Changed
+- Removed GSON dependency from default jar (fixes #103)
+
+
+## [2.3.2] - 2017-09-22
+## Changed
+- Only log a warning on the first event that overflows the event buffer [#102]
+
+## [2.3.1] - 2017-08-11
+## Changed
+- Updated okhttp-eventsource dependency to 1.5.0 to pick up better connection timeout handling.
+
+## [2.3.0] - 2017-07-10
+## Added
+- LDUser `Builder` constructor which accepts a previously built user as an initialization parameter.
+
+
+## [2.2.6] - 2017-06-16
+## Added
+- #96 `LDUser` now has `equals()` and `hashCode()` methods
+
+## Changed
+- #93 `LDClient` now releases resources more quickly when shutting down
+
+## [2.2.5] - 2017-06-02
+## Changed
+- Improved Gson compatibility (added no-args constructors for classes we deserialize)
+- Automated release process 
+
+
+## [2.2.4] - 2017-06-02
+## Changed
+- Improved Gson compatibility (added no-args constructors for classes we deserialize)
+- Automated release process 
+
+
+## [2.2.3] - 2017-05-10
+### Fixed
+- Fixed issue where stream connection failed to fully establish
+
+## [2.2.2] - 2017-05-05
+### Fixed
+- In Java 7, connections to LaunchDarkly are now possible using TLSv1.1 and/or TLSv1.2
+- The order of SSE stream events is now preserved. ([launchdarkly/okhttp-eventsource#19](https://github.com/launchdarkly/okhttp-eventsource/issues/19))
+
 ## [2.2.1] - 2017-04-25
 ### Fixed
 - [#92](https://github.com/launchdarkly/java-client/issues/92) Regex `matches` targeting rules now include the user if

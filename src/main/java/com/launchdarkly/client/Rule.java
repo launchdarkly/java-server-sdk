@@ -8,7 +8,12 @@ import java.util.List;
  * Invariant: one of the variation or rollout must be non-nil.
  */
 class Rule extends VariationOrRollout {
-  private final List<Clause> clauses;
+  private List<Clause> clauses;
+
+  // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
+  Rule() {
+    super();
+  }
 
   Rule(List<Clause> clauses, Integer variation, Rollout rollout) {
     super(variation, rollout);

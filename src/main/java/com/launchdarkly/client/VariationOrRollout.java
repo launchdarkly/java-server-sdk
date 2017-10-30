@@ -13,8 +13,11 @@ import java.util.List;
 class VariationOrRollout {
   private static final float long_scale = (float) 0xFFFFFFFFFFFFFFFL;
 
-  private final Integer variation;
-  private final Rollout rollout;
+  private Integer variation;
+  private Rollout rollout;
+
+  // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
+  VariationOrRollout() {}
 
   VariationOrRollout(Integer variation, Rollout rollout) {
     this.variation = variation;
@@ -56,8 +59,11 @@ class VariationOrRollout {
   }
 
   static class Rollout {
-    private final List<WeightedVariation> variations;
-    private final String bucketBy;
+    private List<WeightedVariation> variations;
+    private String bucketBy;
+
+    // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
+    Rollout() {}
 
     Rollout(List<WeightedVariation> variations, String bucketBy) {
       this.variations = variations;
@@ -66,8 +72,11 @@ class VariationOrRollout {
   }
 
   static class WeightedVariation {
-    private final int variation;
-    private final int weight;
+    private int variation;
+    private int weight;
+
+    // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
+    WeightedVariation() {}
 
     WeightedVariation(int variation, int weight) {
       this.variation = variation;

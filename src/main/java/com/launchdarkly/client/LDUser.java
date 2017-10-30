@@ -1,9 +1,11 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.gson.*;
 import com.google.gson.internal.Streams;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -130,6 +132,44 @@ public class LDUser {
     return null;
   }
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    LDUser ldUser = (LDUser) o;
+
+    if (key != null ? !key.equals(ldUser.key) : ldUser.key != null) return false;
+    if (secondary != null ? !secondary.equals(ldUser.secondary) : ldUser.secondary != null) return false;
+    if (ip != null ? !ip.equals(ldUser.ip) : ldUser.ip != null) return false;
+    if (email != null ? !email.equals(ldUser.email) : ldUser.email != null) return false;
+    if (name != null ? !name.equals(ldUser.name) : ldUser.name != null) return false;
+    if (avatar != null ? !avatar.equals(ldUser.avatar) : ldUser.avatar != null) return false;
+    if (firstName != null ? !firstName.equals(ldUser.firstName) : ldUser.firstName != null) return false;
+    if (lastName != null ? !lastName.equals(ldUser.lastName) : ldUser.lastName != null) return false;
+    if (anonymous != null ? !anonymous.equals(ldUser.anonymous) : ldUser.anonymous != null) return false;
+    if (country != null ? !country.equals(ldUser.country) : ldUser.country != null) return false;
+    if (custom != null ? !custom.equals(ldUser.custom) : ldUser.custom != null) return false;
+    return privateAttributeNames != null ? privateAttributeNames.equals(ldUser.privateAttributeNames) : ldUser.privateAttributeNames == null;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = key != null ? key.hashCode() : 0;
+    result = 31 * result + (secondary != null ? secondary.hashCode() : 0);
+    result = 31 * result + (ip != null ? ip.hashCode() : 0);
+    result = 31 * result + (email != null ? email.hashCode() : 0);
+    result = 31 * result + (name != null ? name.hashCode() : 0);
+    result = 31 * result + (avatar != null ? avatar.hashCode() : 0);
+    result = 31 * result + (firstName != null ? firstName.hashCode() : 0);
+    result = 31 * result + (lastName != null ? lastName.hashCode() : 0);
+    result = 31 * result + (anonymous != null ? anonymous.hashCode() : 0);
+    result = 31 * result + (country != null ? country.hashCode() : 0);
+    result = 31 * result + (custom != null ? custom.hashCode() : 0);
+    result = 31 * result + (privateAttributeNames != null ? privateAttributeNames.hashCode() : 0);
+    return result;
+  }
+
   public static class UserAdapter extends TypeAdapter<LDUser> {
     private final LDConfig config;
 
@@ -162,7 +202,7 @@ public class LDUser {
         }
       }
       if (user.getName() != null) {
-        if  (!checkAndAddPrivate("name", user, privateAttributeNames)) {
+        if (!checkAndAddPrivate("name", user, privateAttributeNames)) {
           out.name("name").value(user.getName().getAsString());
         }
       }
@@ -233,7 +273,7 @@ public class LDUser {
           // NB: this accesses part of the internal GSON api. However, it's likely
           // the only way to write a JsonElement directly:
           // https://groups.google.com/forum/#!topic/google-gson/JpHbpZ9mTOk
-          Streams.write(entry.getValue(),out);
+          Streams.write(entry.getValue(), out);
         }
       }
       if (beganObject) {
@@ -284,6 +324,31 @@ public class LDUser {
       this.privateAttrNames = new HashSet<>();
     }
 
+    /**
+    * Create a builder with an existing user
+    *
+    * @param user an existing {@code LDUser}
+    */
+    public Builder(LDUser user) {
+        JsonPrimitive userKey = user.getKey();
+        if (userKey.isJsonNull()) {
+            this.key = null;
+        } else {
+            this.key = user.getKeyAsString();
+        }
+        this.secondary = user.getSecondary() != null ? user.getSecondary().getAsString() : null;
+        this.ip = user.getIp() != null ? user.getIp().getAsString() : null;
+        this.firstName = user.getFirstName() != null ? user.getFirstName().getAsString() : null;
+        this.lastName = user.getLastName() != null ? user.getLastName().getAsString() : null;
+        this.email = user.getEmail() != null ? user.getEmail().getAsString() : null;
+        this.name = user.getName() != null ? user.getName().getAsString() : null;
+        this.avatar = user.getAvatar() != null ? user.getAvatar().getAsString() : null;
+        this.anonymous = user.getAnonymous() != null ? user.getAnonymous().getAsBoolean() : null;
+        this.country = user.getCountry() != null ? LDCountryCode.valueOf(user.getCountry().getAsString()) : null;
+        this.custom = ImmutableMap.copyOf(user.custom);
+        this.privateAttrNames = ImmutableSet.copyOf(user.privateAttributeNames);
+    }
+    
     /**
      * Set the IP for a user
      *

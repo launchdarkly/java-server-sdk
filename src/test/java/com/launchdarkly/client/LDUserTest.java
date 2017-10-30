@@ -17,6 +17,24 @@ public class LDUserTest {
   private JsonPrimitive us = new JsonPrimitive(LDCountryCode.US.getAlpha2());
 
   @Test
+  public void testLDUserConstructor() {
+    LDUser user = new LDUser.Builder("key")
+    .secondary("secondary")
+    .ip("127.0.0.1")
+    .firstName("Bob")
+    .lastName("Loblaw")
+    .email("bob@example.com")
+    .name("Bob Loblaw")
+    .avatar("image")
+    .anonymous(false)
+    .country("US")
+    .custom("org", "LaunchDarkly")
+    .build();
+    
+    assert(user.equals(new LDUser.Builder(user).build()));
+  }
+
+  @Test
   public void testValidCountryCodeSetsCountry() {
     LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
 

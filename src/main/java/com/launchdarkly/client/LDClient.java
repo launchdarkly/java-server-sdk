@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
@@ -37,6 +38,8 @@ public class LDClient implements LDClientInterface {
   private final FeatureRequestor requestor;
   private final EventProcessor eventProcessor;
   private UpdateProcessor updateProcessor;
+
+  private final AtomicBoolean eventCapacityExceeded = new AtomicBoolean(false);
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -134,10 +137,7 @@ public class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     }
-    boolean processed = eventProcessor.sendEvent(new CustomEvent(eventName, user, data));
-    if (!processed) {
-      logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
-    }
+    sendEvent(new CustomEvent(eventName, user, data));
   }
 
   /**
@@ -161,27 +161,30 @@ public class LDClient implements LDClientInterface {
    */
   @Override
   public void identify(LDUser user) {
-    if (isOffline()) {
-      return;
-    }
     if (user == null || user.getKey() == null) {
       logger.warn("Identify called with null user or null user key!");
     }
-    boolean processed = eventProcessor.sendEvent(new IdentifyEvent(user));
-    if (!processed) {
-      logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
-    }
+    sendEvent(new IdentifyEvent(user));
   }
 
   private void sendFlagRequestEvent(String featureKey, LDUser user, JsonElement value, JsonElement defaultValue, Integer version) {
-    if (isOffline()) {
-      return;
+    if (sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue, version, null))) {
+      NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
     }
-    boolean processed = eventProcessor.sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue, version, null));
-    if (!processed) {
+  }
+
+  private boolean sendEvent(Event event) {
+    if (isOffline() || !config.sendEvents) {
+      return false;
+    }
+  
+    boolean processed = eventProcessor.sendEvent(event);
+    if (processed) {
+      eventCapacityExceeded.compareAndSet(true, false);
+    } else if (eventCapacityExceeded.compareAndSet(false, true)) {
       logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
     }
-    NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
+    return true;
   }
 
   /**
@@ -347,10 +350,8 @@ public class LDClient implements LDClientInterface {
         return defaultValue;
       }
       FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore);
-      if (!isOffline()) {
-        for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
-          eventProcessor.sendEvent(event);
-        }
+      for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
+        sendEvent(event);
       }
       if (evalResult.getValue() != null) {
         expectedType.assertResultType(evalResult.getValue());
@@ -365,7 +366,7 @@ public class LDClient implements LDClientInterface {
   }
 
   /**
-   * Closes the LaunchDarkly client event processing thread and flushes all pending events. This should only
+   * Closes the LaunchDarkly client event processing thread. This should only
    * be called on application shutdown.
    *
    * @throws IOException
@@ -376,6 +377,18 @@ public class LDClient implements LDClientInterface {
     this.eventProcessor.close();
     if (this.updateProcessor != null) {
       this.updateProcessor.close();
+    }
+    if (this.config.httpClient != null) {
+      if (this.config.httpClient.dispatcher() != null && this.config.httpClient.dispatcher().executorService() != null) {
+        this.config.httpClient.dispatcher().cancelAll();
+        this.config.httpClient.dispatcher().executorService().shutdownNow();
+      }
+      if (this.config.httpClient.connectionPool() != null) {
+        this.config.httpClient.connectionPool().evictAll();
+      }
+      if (this.config.httpClient.cache() != null) {
+        this.config.httpClient.cache().close();
+      }
     }
   }
 
