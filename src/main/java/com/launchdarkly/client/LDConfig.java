@@ -96,6 +96,9 @@ public final class LDConfig {
         .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
         .retryOnConnectionFailure(true);
 
+    // When streaming is enabled, http GETs made by FeatureRequester will
+    // always guarantee a new flag state. So, disable http response caching
+    // when streaming.
     if(!this.stream) {
       File cacheDir = Files.createTempDir();
       Cache cache = new Cache(cacheDir, MAX_HTTP_CACHE_SIZE_BYTES);
