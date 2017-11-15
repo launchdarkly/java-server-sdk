@@ -87,16 +87,23 @@ public final class LDConfig {
     this.samplingInterval = builder.samplingInterval;
     this.reconnectTimeMs = builder.reconnectTimeMillis;
 
-    File cacheDir = Files.createTempDir();
-    Cache cache = new Cache(cacheDir, MAX_HTTP_CACHE_SIZE_BYTES);
+
 
     OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
-        .cache(cache)
         .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
         .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
         .readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
         .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
         .retryOnConnectionFailure(true);
+
+    // When streaming is enabled, http GETs made by FeatureRequester will
+    // always guarantee a new flag state. So, disable http response caching
+    // when streaming.
+    if(!this.stream) {
+      File cacheDir = Files.createTempDir();
+      Cache cache = new Cache(cacheDir, MAX_HTTP_CACHE_SIZE_BYTES);
+      httpClientBuilder.cache(cache);
+    }
 
     if (proxy != null) {
       httpClientBuilder.proxy(proxy);
