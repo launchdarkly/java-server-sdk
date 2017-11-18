@@ -48,9 +48,11 @@ class FeatureRequestor {
             + request.url() + " with body: " + body);
       }
       logger.debug("Get flag(s) response: " + response.toString() + " with body: " + body);
-      logger.debug("Cache hit count: " + config.httpClient.cache().hitCount() + " Cache network Count: " + config.httpClient.cache().networkCount());
-      logger.debug("Cache response: " + response.cacheResponse());
       logger.debug("Network response: " + response.networkResponse());
+      if(!config.stream) {
+        logger.debug("Cache hit count: " + config.httpClient.cache().hitCount() + " Cache network Count: " + config.httpClient.cache().networkCount());
+        logger.debug("Cache response: " + response.cacheResponse());
+      }
 
       return body;
     }
