@@ -67,6 +67,7 @@ public class LDUser {
   public LDUser(String key) {
     this.key = new JsonPrimitive(key);
     this.custom = new HashMap<>();
+    this.privateAttributeNames = new HashSet<String>();
   }
 
   protected JsonElement getValueForEvaluation(String attribute) {
@@ -250,7 +251,7 @@ public class LDUser {
     }
 
     private boolean checkAndAddPrivate(String key, LDUser user, Set<String> privateAttrs) {
-      boolean result = config.allAttributesPrivate || config.privateAttrNames.contains(key) || user.privateAttributeNames.contains(key);
+      boolean result = config.allAttributesPrivate || config.privateAttrNames.contains(key) || (user.privateAttributeNames != null && user.privateAttributeNames.contains(key));
       if (result) {
         privateAttrs.add(key);
       }
