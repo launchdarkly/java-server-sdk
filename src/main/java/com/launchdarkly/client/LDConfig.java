@@ -203,7 +203,8 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether streaming mode should be enabled. By default, streaming is enabled.
+     * Set whether streaming mode should be enabled. By default, streaming is enabled. It should only be
+     * disabled on the advice of LaunchDarkly support.
      *
      * @param stream whether streaming mode should be enabled
      * @return the builder

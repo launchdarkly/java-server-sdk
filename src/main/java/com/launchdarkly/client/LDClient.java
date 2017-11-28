@@ -79,6 +79,7 @@ public class LDClient implements LDClientInterface {
       this.updateProcessor = createStreamProcessor(sdkKey, config, requestor);
     } else {
       logger.info("Disabling streaming API");
+      logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
       this.updateProcessor = createPollingProcessor(config);
     }
 
