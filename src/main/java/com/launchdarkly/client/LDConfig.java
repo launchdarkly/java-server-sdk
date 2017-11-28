@@ -34,7 +34,7 @@ public final class LDConfig {
   private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2000;
   private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;
   private static final int DEFAULT_FLUSH_INTERVAL_SECONDS = 5;
-  private static final long DEFAULT_POLLING_INTERVAL_MILLIS = 1000L;
+  private static final long MIN_POLLING_INTERVAL_MILLIS = 30000L;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
   private static final int DEFAULT_SAMPLING_INTERVAL = 0;
 
@@ -78,8 +78,8 @@ public final class LDConfig {
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
     this.sendEvents = builder.sendEvents;
-    if (builder.pollingIntervalMillis < DEFAULT_POLLING_INTERVAL_MILLIS) {
-      this.pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
+    if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
+      this.pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
     } else {
       this.pollingIntervalMillis = builder.pollingIntervalMillis;
     }
@@ -152,7 +152,7 @@ public final class LDConfig {
     private boolean useLdd = false;
     private boolean offline = false;
     private boolean sendEvents = true;
-    private long pollingIntervalMillis = DEFAULT_POLLING_INTERVAL_MILLIS;
+    private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
