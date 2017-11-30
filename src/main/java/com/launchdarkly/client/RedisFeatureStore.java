@@ -34,11 +34,10 @@ import java.util.concurrent.TimeUnit;
 public class RedisFeatureStore implements FeatureStore {
   private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStore.class);
   private static final String DEFAULT_PREFIX = "launchdarkly";
-  private static final String INIT_KEY = "$initialized$";
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
   private final JedisPool pool;
   private LoadingCache<String, Optional<FeatureFlag>> cache;
-  private LoadingCache<String, Boolean> initCache;
+  private volatile boolean initialized;
   private String prefix;
   private ListeningExecutorService executorService;
 
@@ -86,7 +85,6 @@ public class RedisFeatureStore implements FeatureStore {
     pool = new JedisPool(poolConfig, host, port);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
-    createInitCache(cacheTimeSecs);
   }
 
   /**
@@ -103,7 +101,6 @@ public class RedisFeatureStore implements FeatureStore {
     pool = new JedisPool(poolConfig, uri);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
-    createInitCache(cacheTimeSecs);
   }
 
   /**
@@ -121,7 +118,6 @@ public class RedisFeatureStore implements FeatureStore {
     }
     setPrefix(builder.prefix);
     createCache(builder.cacheTimeSecs, builder.refreshStaleValues, builder.asyncRefresh);
-    createInitCache(builder.cacheTimeSecs);
   }
 
   /**
@@ -188,17 +184,6 @@ public class RedisFeatureStore implements FeatureStore {
    */
   private void createExpiringCache(long cacheTimeSecs) {
     cache = CacheBuilder.newBuilder().expireAfterWrite(cacheTimeSecs, TimeUnit.SECONDS).build(createDefaultCacheLoader());
-  }
-
-  private void createInitCache(long cacheTimeSecs) {
-    if (cacheTimeSecs > 0) {
-      initCache = CacheBuilder.newBuilder().expireAfterWrite(cacheTimeSecs, TimeUnit.SECONDS).build(new CacheLoader<String, Boolean>() {
-        @Override
-        public Boolean load(String key) throws Exception {
-          return getInit();
-        }
-      });
-    }
   }
 
   /**
@@ -271,6 +256,7 @@ public class RedisFeatureStore implements FeatureStore {
 
       t.exec();
     }
+    initialized = true;
   }
 
   /**
@@ -355,15 +341,14 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public boolean initialized() {
-    if (initCache != null) {
-      Boolean initialized = initCache.getUnchecked(INIT_KEY);
-
-      if (initialized != null && initialized) {
-        return true;
-      }
+    if (initialized) {
+      // once we've determined that we're initialized, we can never become uninitialized again
+      return true;
     }
-
-    return getInit();
+    if (getInit()) {
+      initialized = true;
+    }
+    return initialized;
   }
 
   /**

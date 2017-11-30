@@ -98,7 +98,7 @@ public class LDClient implements LDClientInterface {
 
   @Override
   public boolean initialized() {
-    return isOffline() || config.useLdd || updateProcessor.initialized();
+    return isOffline() || config.useLdd || config.featureStore.initialized();
   }
 
   @VisibleForTesting
