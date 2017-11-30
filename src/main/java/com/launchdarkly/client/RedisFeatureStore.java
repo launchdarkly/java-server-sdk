@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A thread-safe, versioned store for {@link FeatureFlag} objects backed by Redis. Also
@@ -37,10 +38,16 @@ public class RedisFeatureStore implements FeatureStore {
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
   private final JedisPool pool;
   private LoadingCache<String, Optional<FeatureFlag>> cache;
-  private volatile boolean initialized;
+  private AtomicReference<InitedState> initedState = new AtomicReference<InitedState>(InitedState.NEVER_CHECKED);
   private String prefix;
   private ListeningExecutorService executorService;
 
+  private static enum InitedState {
+    NEVER_CHECKED,
+    CHECKED_NOT_INITED,
+    INITED
+  }
+  
   /**
    * Creates a new store instance that connects to Redis with the provided host, port, prefix, and cache timeout. Uses a default
    * connection pool configuration.
@@ -256,7 +263,7 @@ public class RedisFeatureStore implements FeatureStore {
 
       t.exec();
     }
-    initialized = true;
+    initedState.set(InitedState.INITED);
   }
 
   /**
@@ -341,14 +348,22 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public boolean initialized() {
-    if (initialized) {
-      // once we've determined that we're initialized, we can never become uninitialized again
+    switch (initedState.get()) {
+    case INITED:
+      // Once we've determined that we're initialized, we can never become uninitialized again
       return true;
+    case CHECKED_NOT_INITED:
+      // We don't want to hit Redis for this question more than once; if we've already checked there
+      // and it wasn't populated, we'll continue to say we're uninited until init() has been called
+      return false;
+    case NEVER_CHECKED:
+      boolean result = getInit();
+      initedState.compareAndSet(InitedState.NEVER_CHECKED,
+          result ? InitedState.INITED : InitedState.CHECKED_NOT_INITED);
+      return result;
+    default:
+      return false;
     }
-    if (getInit()) {
-      initialized = true;
-    }
-    return initialized;
   }
 
   /**
