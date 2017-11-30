@@ -83,15 +83,16 @@ public class LDClient implements LDClientInterface {
     }
 
     Future<Void> startFuture = updateProcessor.start();
-
-    if (config.startWaitMillis > 0L) {
-      logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
-      try {
-        startFuture.get(config.startWaitMillis, TimeUnit.MILLISECONDS);
-      } catch (TimeoutException e) {
-        logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
-      } catch (Exception e) {
-        logger.error("Exception encountered waiting for LaunchDarkly client initialization", e);
+    if (!initialized()) {
+      if (config.startWaitMillis > 0L) {
+        logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
+        try {
+          startFuture.get(config.startWaitMillis, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+          logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
+        } catch (Exception e) {
+          logger.error("Exception encountered waiting for LaunchDarkly client initialization", e);
+        }
       }
     }
   }
