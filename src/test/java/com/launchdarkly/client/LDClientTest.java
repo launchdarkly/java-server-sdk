@@ -55,15 +55,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreSetFeatureTrue() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
 
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(1);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
     replayAll();
 
@@ -94,15 +93,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreSetFalse() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
 
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(1);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
     replayAll();
 
@@ -116,15 +114,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreFlagTrueThenFalse() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
 
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
     replayAll();
 
@@ -142,15 +139,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreIntegerVariation() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
 
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
     replayAll();
 
@@ -166,15 +162,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreDoubleVariation() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
 
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
     replayAll();
 
@@ -190,15 +185,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreStringVariation() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
 
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
     replayAll();
 
@@ -214,15 +208,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreJsonVariationPrimitive() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(4);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(4);
     replayAll();
 
@@ -245,15 +238,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreJsonVariationArray() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
 
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
     replayAll();
 
@@ -278,15 +270,14 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testIsFlagKnown() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
             .featureStore(testFeatureStore)
             .build();
 
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
     replayAll();
 
     client = createMockClient(config);
@@ -308,7 +299,6 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(false).times(1);
     replayAll();
 
     client = createMockClient(config);
@@ -343,7 +333,6 @@ public class LDClientTest extends EasyMockSupport {
         .build();
 
     expect(streamProcessor.start()).andReturn(initFuture);
-    expect(streamProcessor.initialized()).andReturn(false);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
     replayAll();
 
@@ -376,7 +365,6 @@ public class LDClientTest extends EasyMockSupport {
         .build();
 
     expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(false);
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
     replayAll();
 
@@ -396,7 +384,6 @@ public class LDClientTest extends EasyMockSupport {
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
     expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
-    expect(pollingProcessor.initialized()).andReturn(false);
     replayAll();
 
     client = createMockClient(config);

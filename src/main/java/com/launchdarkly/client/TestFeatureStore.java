@@ -19,7 +19,8 @@ public class TestFeatureStore extends InMemoryFeatureStore {
   );
 
   private AtomicInteger version = new AtomicInteger(0);
-
+  private volatile boolean initializedForTests = false;
+  
   /**
    * Sets the value of a boolean feature flag for all users.
    *
@@ -112,5 +113,20 @@ public class TestFeatureStore extends InMemoryFeatureStore {
             .version(version.incrementAndGet())
             .build();
     upsert(key, newFeature);
+  }
+  
+  @Override
+  public void init(java.util.Map<String,FeatureFlag> features) {
+    super.init(features);
+    initializedForTests = true;
+  }
+  
+  @Override
+  public boolean initialized() {
+    return initializedForTests;
+  }
+  
+  public void setInitialized(boolean value) {
+    initializedForTests = value;
   }
 }
