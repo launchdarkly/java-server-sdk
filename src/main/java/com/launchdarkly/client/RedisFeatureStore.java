@@ -35,9 +35,11 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RedisFeatureStore implements FeatureStore {
   private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStore.class);
   private static final String DEFAULT_PREFIX = "launchdarkly";
+  private static final String INIT_KEY = "$initialized$";
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
   private final JedisPool pool;
   private LoadingCache<String, Optional<FeatureFlag>> cache;
+  private final LoadingCache<String, Boolean> initCache = createInitCache();
   private AtomicReference<InitedState> initedState = new AtomicReference<InitedState>(InitedState.NEVER_CHECKED);
   private String prefix;
   private ListeningExecutorService executorService;
@@ -191,6 +193,15 @@ public class RedisFeatureStore implements FeatureStore {
    */
   private void createExpiringCache(long cacheTimeSecs) {
     cache = CacheBuilder.newBuilder().expireAfterWrite(cacheTimeSecs, TimeUnit.SECONDS).build(createDefaultCacheLoader());
+  }
+
+  private LoadingCache<String, Boolean> createInitCache() {
+    return CacheBuilder.newBuilder().build(new CacheLoader<String, Boolean>() {
+      @Override
+      public Boolean load(String key) throws Exception {
+        return getInit();
+      }
+    });
   }
 
   /**
@@ -357,7 +368,10 @@ public class RedisFeatureStore implements FeatureStore {
       // and it wasn't populated, we'll continue to say we're uninited until init() has been called
       return false;
     case NEVER_CHECKED:
-      boolean result = getInit();
+      // The Redis call (in getInit()) is mediated by a LoadingCache so that identical requests from
+      // multiple threads will be coalesced.  Except for this scenario of multiple simultaneous
+      // initialization checks, the cache is normally only used once.
+      boolean result = initCache.getUnchecked(INIT_KEY);
       initedState.compareAndSet(InitedState.NEVER_CHECKED,
           result ? InitedState.INITED : InitedState.CHECKED_NOT_INITED);
       return result;
