@@ -26,7 +26,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A thread-safe, versioned store for {@link FeatureFlag} objects backed by Redis. Also
@@ -40,16 +39,9 @@ public class RedisFeatureStore implements FeatureStore {
   private final JedisPool pool;
   private LoadingCache<String, Optional<FeatureFlag>> cache;
   private final LoadingCache<String, Boolean> initCache = createInitCache();
-  private AtomicReference<InitedState> initedState = new AtomicReference<InitedState>(InitedState.NEVER_CHECKED);
   private String prefix;
   private ListeningExecutorService executorService;
 
-  private static enum InitedState {
-    NEVER_CHECKED,
-    CHECKED_NOT_INITED,
-    INITED
-  }
-  
   /**
    * Creates a new store instance that connects to Redis with the provided host, port, prefix, and cache timeout. Uses a default
    * connection pool configuration.
@@ -274,7 +266,7 @@ public class RedisFeatureStore implements FeatureStore {
 
       t.exec();
     }
-    initedState.set(InitedState.INITED);
+    initCache.put(INIT_KEY, true);
   }
 
   /**
@@ -359,25 +351,10 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public boolean initialized() {
-    switch (initedState.get()) {
-    case INITED:
-      // Once we've determined that we're initialized, we can never become uninitialized again
-      return true;
-    case CHECKED_NOT_INITED:
-      // We don't want to hit Redis for this question more than once; if we've already checked there
-      // and it wasn't populated, we'll continue to say we're uninited until init() has been called
-      return false;
-    case NEVER_CHECKED:
-      // The Redis call (in getInit()) is mediated by a LoadingCache so that identical requests from
-      // multiple threads will be coalesced.  Except for this scenario of multiple simultaneous
-      // initialization checks, the cache is normally only used once.
-      boolean result = initCache.getUnchecked(INIT_KEY);
-      initedState.compareAndSet(InitedState.NEVER_CHECKED,
-          result ? InitedState.INITED : InitedState.CHECKED_NOT_INITED);
-      return result;
-    default:
-      return false;
-    }
+    // The LoadingCache takes care of both coalescing multiple simultaneous requests and memoizing
+    // the result, so we'll only ever query Redis once for this (if at all - the Redis query will
+    // be skipped if the cache was explicitly set by init()).
+    return initCache.getUnchecked(INIT_KEY);
   }
 
   /**
