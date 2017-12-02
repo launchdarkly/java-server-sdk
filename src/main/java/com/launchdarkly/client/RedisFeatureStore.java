@@ -188,6 +188,7 @@ public class RedisFeatureStore implements FeatureStore {
   }
 
   private LoadingCache<String, Boolean> createInitCache() {
+    // Note that this cache does not expire - it's being used only for memoization.
     return CacheBuilder.newBuilder().build(new CacheLoader<String, Boolean>() {
       @Override
       public Boolean load(String key) throws Exception {
