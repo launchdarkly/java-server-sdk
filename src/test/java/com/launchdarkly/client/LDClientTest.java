@@ -328,6 +328,28 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
+  public void testIsFlagKnownCallBeforeInitializationButFeatureStoreIsInited() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(false).times(1);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setIntegerValue("key", 1);
+    assertTrue("Flag is marked as known", client.isFlagKnown("key"));
+    verifyAll();
+  }
+
+  @Test
   public void testUseLdd() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .useLdd(true)
@@ -483,6 +505,29 @@ public class LDClientTest extends EasyMockSupport {
     verifyAll();
   }
   
+  @Test
+  public void testEvaluationCanUseFeatureStoreIfInitializationTimesOut() throws IOException {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
+    LDConfig config = new LDConfig.Builder()
+        .featureStore(testFeatureStore)
+        .startWaitMillis(0L)
+        .stream(true)
+        .build();
+
+    expect(streamProcessor.start()).andReturn(initFuture);
+    expect(streamProcessor.initialized()).andReturn(false);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    replayAll();
+
+    client = createMockClient(config);
+    
+    testFeatureStore.setIntegerValue("key", 1);
+    assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
+    
+    verifyAll();
+  }
+
   private void assertDefaultValueIsReturned() {
     boolean result = client.boolVariation("test", new LDUser("test.key"), true);
     assertEquals(true, result);
