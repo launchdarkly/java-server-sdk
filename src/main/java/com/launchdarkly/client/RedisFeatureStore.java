@@ -271,6 +271,7 @@ public class RedisFeatureStore implements FeatureStore {
 
       t.exec();
     }
+    cache.invalidateAll();
   }
 
   /**
