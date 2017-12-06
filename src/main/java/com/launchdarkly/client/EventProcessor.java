@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 class EventProcessor implements Closeable {
   private final ScheduledExecutorService scheduler;
@@ -56,9 +57,11 @@ class EventProcessor implements Closeable {
   class Consumer implements Runnable {
     private final Logger logger = LoggerFactory.getLogger(Consumer.class);
     private final LDConfig config;
+    private final AtomicBoolean shutdown;
 
     Consumer(LDConfig config) {
       this.config = config;
+      this.shutdown = new AtomicBoolean(false);
     }
 
     @Override
@@ -69,8 +72,7 @@ class EventProcessor implements Closeable {
     public void flush() {
       List<Event> events = new ArrayList<>(queue.size());
       queue.drainTo(events);
-
-      if (!events.isEmpty()) {
+      if (!events.isEmpty() && !shutdown.get()) {
         postEvents(events);
       }
     }
@@ -93,6 +95,11 @@ class EventProcessor implements Closeable {
       try (Response response = config.httpClient.newCall(request).execute()) {
         if (!response.isSuccessful()) {
           logger.info("Got unexpected response when posting events: " + response);
+          if (response.code() == 401) {
+            shutdown.set(true);
+            logger.error("Received 401 error, no further events will be posted since SDK key is invalid");
+            close();
+          }
         } else {
           logger.debug("Events Response: " + response.code());
         }
