@@ -55,6 +55,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreSetFeatureTrue() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -94,6 +95,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreSetFalse() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -116,6 +118,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreFlagTrueThenFalse() throws IOException, InterruptedException, ExecutionException, TimeoutException {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -142,6 +145,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreIntegerVariation() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -166,6 +170,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreDoubleVariation() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -190,6 +195,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreStringVariation() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -214,6 +220,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreJsonVariationPrimitive() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -245,6 +252,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testTestFeatureStoreJsonVariationArray() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -278,6 +286,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void testIsFlagKnown() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
     LDConfig config = new LDConfig.Builder()
             .startWaitMillis(10L)
             .stream(false)
@@ -315,6 +324,28 @@ public class LDClientTest extends EasyMockSupport {
 
     testFeatureStore.setIntegerValue("key", 1);
     assertFalse("Flag is marked as unknown", client.isFlagKnown("key"));
+    verifyAll();
+  }
+
+  @Test
+  public void testIsFlagKnownCallBeforeInitializationButFeatureStoreIsInited() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(false).times(1);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setIntegerValue("key", 1);
+    assertTrue("Flag is marked as known", client.isFlagKnown("key"));
     verifyAll();
   }
 
@@ -474,6 +505,29 @@ public class LDClientTest extends EasyMockSupport {
     verifyAll();
   }
   
+  @Test
+  public void testEvaluationCanUseFeatureStoreIfInitializationTimesOut() throws IOException {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
+    LDConfig config = new LDConfig.Builder()
+        .featureStore(testFeatureStore)
+        .startWaitMillis(0L)
+        .stream(true)
+        .build();
+
+    expect(streamProcessor.start()).andReturn(initFuture);
+    expect(streamProcessor.initialized()).andReturn(false);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    replayAll();
+
+    client = createMockClient(config);
+    
+    testFeatureStore.setIntegerValue("key", 1);
+    assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
+    
+    verifyAll();
+  }
+
   private void assertDefaultValueIsReturned() {
     boolean result = client.boolVariation("test", new LDUser("test.key"), true);
     assertEquals(true, result);
