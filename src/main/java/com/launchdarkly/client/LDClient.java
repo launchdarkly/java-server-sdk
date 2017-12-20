@@ -83,7 +83,6 @@ public class LDClient implements LDClientInterface {
     }
 
     Future<Void> startFuture = updateProcessor.start();
-
     if (config.startWaitMillis > 0L) {
       logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
       try {
@@ -205,8 +204,12 @@ public class LDClient implements LDClientInterface {
     }
 
     if (!initialized()) {
-      logger.warn("allFlags() was called before Client has been initialized! Returning null.");
-      return null;
+      if (config.featureStore.initialized()) {
+        logger.warn("allFlags() was called before client initialized; using last known values from feature store");
+      } else {
+        logger.warn("allFlags() was called before client initialized; feature store unavailable, returning null");
+        return null;
+      }
     }
 
     if (user == null || user.getKey() == null) {
@@ -312,8 +315,12 @@ public class LDClient implements LDClientInterface {
   @Override
   public boolean isFlagKnown(String featureKey) {
     if (!initialized()) {
-      logger.warn("isFlagKnown called before Client has been initialized for feature flag " + featureKey + "; returning false");
-      return false;
+      if (config.featureStore.initialized()) {
+        logger.warn("isFlagKnown called before client initialized for feature flag " + featureKey + "; using last known values from feature store");
+      } else {
+        logger.warn("isFlagKnown called before client initialized for feature flag " + featureKey + "; feature store unavailable, returning false");
+        return false;
+      }
     }
 
     try {
@@ -337,9 +344,13 @@ public class LDClient implements LDClientInterface {
       logger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
     }
     if (!initialized()) {
-      logger.warn("Evaluation called before Client has been initialized for feature flag " + featureKey + "; returning default value");
-      sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
-      return defaultValue;
+      if (config.featureStore.initialized()) {
+        logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; using last known values from feature store");
+      } else {
+        logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; feature store unavailable, returning default value");
+        sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
+        return defaultValue;
+      }
     }
 
     try {

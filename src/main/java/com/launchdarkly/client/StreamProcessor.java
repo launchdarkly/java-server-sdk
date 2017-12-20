@@ -1,21 +1,22 @@
 package com.launchdarkly.client;
 
-import com.google.common.util.concurrent.SettableFuture;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.gson.Gson;
-import com.launchdarkly.eventsource.EventHandler;
-import com.launchdarkly.eventsource.EventSource;
-import com.launchdarkly.eventsource.MessageEvent;
-import com.launchdarkly.eventsource.ReadyState;
-import okhttp3.Headers;
-import org.joda.time.DateTime;
+import java.io.IOException;
+import java.net.URI;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.net.URI;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.gson.Gson;
+import com.launchdarkly.eventsource.ConnectionErrorHandler;
+import com.launchdarkly.eventsource.EventHandler;
+import com.launchdarkly.eventsource.EventSource;
+import com.launchdarkly.eventsource.MessageEvent;
+import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+
+import okhttp3.Headers;
 
 class StreamProcessor implements UpdateProcessor {
   private static final String PUT = "put";
@@ -24,14 +25,12 @@ class StreamProcessor implements UpdateProcessor {
   private static final String INDIRECT_PUT = "indirect/put";
   private static final String INDIRECT_PATCH = "indirect/patch";
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
-  private static final int DEAD_CONNECTION_INTERVAL_SECONDS = 300;
+  private static final int DEAD_CONNECTION_INTERVAL_MS = 300 * 1000;
 
   private final FeatureStore store;
   private final LDConfig config;
   private final String sdkKey;
   private final FeatureRequestor requestor;
-  private final ScheduledExecutorService heartbeatDetectorService;
-  private volatile DateTime lastHeartbeat;
   private volatile EventSource es;
   private AtomicBoolean initialized = new AtomicBoolean(false);
 
@@ -41,11 +40,6 @@ class StreamProcessor implements UpdateProcessor {
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = requestor;
-    ThreadFactory threadFactory = new ThreadFactoryBuilder()
-        .setNameFormat("LaunchDarkly-HeartbeatDetector-%d")
-        .build();
-    this.heartbeatDetectorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
-    heartbeatDetectorService.scheduleAtFixedRate(new HeartbeatDetector(), 1, 1, TimeUnit.MINUTES);
   }
 
   @Override
@@ -58,6 +52,18 @@ class StreamProcessor implements UpdateProcessor {
         .add("Accept", "text/event-stream")
         .build();
 
+    ConnectionErrorHandler connectionErrorHandler = new ConnectionErrorHandler() {
+      @Override
+      public Action onConnectionError(Throwable t) {
+        if ((t instanceof UnsuccessfulResponseException) &&
+            ((UnsuccessfulResponseException) t).getCode() == 401) {
+          logger.error("Received 401 error, no further streaming connection will be made since SDK key is invalid");
+          return Action.SHUTDOWN;
+        }
+        return Action.PROCEED;
+      }
+    };
+    
     EventHandler handler = new EventHandler() {
 
       @Override
@@ -70,7 +76,6 @@ class StreamProcessor implements UpdateProcessor {
 
       @Override
       public void onMessage(String name, MessageEvent event) throws Exception {
-        lastHeartbeat = DateTime.now();
         Gson gson = new Gson();
         switch (name) {
           case PUT:
@@ -119,7 +124,6 @@ class StreamProcessor implements UpdateProcessor {
       @Override
       public void onComment(String comment) {
         logger.debug("Received a heartbeat");
-        lastHeartbeat = DateTime.now();
       }
 
       @Override
@@ -130,9 +134,15 @@ class StreamProcessor implements UpdateProcessor {
     };
 
     EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
+        .connectionErrorHandler(connectionErrorHandler)
         .headers(headers)
         .reconnectTimeMs(config.reconnectTimeMs)
-        .connectTimeoutMs(config.connectTimeoutMillis);
+        .connectTimeoutMs(config.connectTimeoutMillis)
+        .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS);
+    // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
+    // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
+    // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
+    // more than the expected interval between heartbeat signals.
 
     if (config.proxy != null) {
       builder.proxy(config.proxy);
@@ -154,14 +164,6 @@ class StreamProcessor implements UpdateProcessor {
     }
     if (store != null) {
       store.close();
-    }
-    if (heartbeatDetectorService != null) {
-      heartbeatDetectorService.shutdownNow();
-      try {
-        heartbeatDetectorService.awaitTermination(100, TimeUnit.MILLISECONDS);
-      } catch (InterruptedException e) {
-        logger.error("Encountered an exception terminating heartbeat detector: " + e.getMessage());
-      }
     }
   }
 
@@ -208,29 +210,5 @@ class StreamProcessor implements UpdateProcessor {
       return version;
     }
 
-  }
-
-  private final class HeartbeatDetector implements Runnable {
-
-    @Override
-    public void run() {
-      DateTime reconnectThresholdTime = DateTime.now().minusSeconds(DEAD_CONNECTION_INTERVAL_SECONDS);
-      // We only want to force the reconnect if the ES connection is open. If not, it's already trying to
-      // connect anyway, or this processor was shut down
-      if (lastHeartbeat.isBefore(reconnectThresholdTime) && es.getState() == ReadyState.OPEN) {
-        try {
-          logger.info("Stream stopped receiving heartbeats- reconnecting.");
-          es.close();
-        } catch (IOException e) {
-          logger.error("Encountered exception closing stream connection: " + e.getMessage());
-        } finally {
-          if (es.getState() == ReadyState.SHUTDOWN) {
-            start();
-          } else {
-            logger.error("Expected ES to be in state SHUTDOWN, but it's currently in state " + es.getState().toString());
-          }
-        }
-      }
-    }
   }
 }

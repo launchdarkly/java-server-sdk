@@ -38,7 +38,7 @@ public class RedisFeatureStore implements FeatureStore {
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
   private final JedisPool pool;
   private LoadingCache<String, Optional<FeatureFlag>> cache;
-  private LoadingCache<String, Boolean> initCache;
+  private final LoadingCache<String, Boolean> initCache = createInitCache();
   private String prefix;
   private ListeningExecutorService executorService;
 
@@ -86,7 +86,6 @@ public class RedisFeatureStore implements FeatureStore {
     pool = new JedisPool(poolConfig, host, port);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
-    createInitCache(cacheTimeSecs);
   }
 
   /**
@@ -103,7 +102,6 @@ public class RedisFeatureStore implements FeatureStore {
     pool = new JedisPool(poolConfig, uri);
     setPrefix(prefix);
     createCache(cacheTimeSecs);
-    createInitCache(cacheTimeSecs);
   }
 
   /**
@@ -121,7 +119,6 @@ public class RedisFeatureStore implements FeatureStore {
     }
     setPrefix(builder.prefix);
     createCache(builder.cacheTimeSecs, builder.refreshStaleValues, builder.asyncRefresh);
-    createInitCache(builder.cacheTimeSecs);
   }
 
   /**
@@ -190,15 +187,14 @@ public class RedisFeatureStore implements FeatureStore {
     cache = CacheBuilder.newBuilder().expireAfterWrite(cacheTimeSecs, TimeUnit.SECONDS).build(createDefaultCacheLoader());
   }
 
-  private void createInitCache(long cacheTimeSecs) {
-    if (cacheTimeSecs > 0) {
-      initCache = CacheBuilder.newBuilder().expireAfterWrite(cacheTimeSecs, TimeUnit.SECONDS).build(new CacheLoader<String, Boolean>() {
-        @Override
-        public Boolean load(String key) throws Exception {
-          return getInit();
-        }
-      });
-    }
+  private LoadingCache<String, Boolean> createInitCache() {
+    // Note that this cache does not expire - it's being used only for memoization.
+    return CacheBuilder.newBuilder().build(new CacheLoader<String, Boolean>() {
+      @Override
+      public Boolean load(String key) throws Exception {
+        return getInit();
+      }
+    });
   }
 
   /**
@@ -272,6 +268,7 @@ public class RedisFeatureStore implements FeatureStore {
       t.exec();
     }
     cache.invalidateAll();
+    initCache.put(INIT_KEY, true);
   }
 
   /**
@@ -356,15 +353,10 @@ public class RedisFeatureStore implements FeatureStore {
    */
   @Override
   public boolean initialized() {
-    if (initCache != null) {
-      Boolean initialized = initCache.getUnchecked(INIT_KEY);
-
-      if (initialized != null && initialized) {
-        return true;
-      }
-    }
-
-    return getInit();
+    // The LoadingCache takes care of both coalescing multiple simultaneous requests and memoizing
+    // the result, so we'll only ever query Redis once for this (if at all - the Redis query will
+    // be skipped if the cache was explicitly set by init()).
+    return initCache.getUnchecked(INIT_KEY);
   }
 
   /**
