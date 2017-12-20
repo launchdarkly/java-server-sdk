@@ -393,8 +393,8 @@ public final class LDConfig {
     }
 
     /**
-     * Set the polling interval (when streaming is disabled). Values less than the default of 1000
-     * will be set to 1000.
+     * Set the polling interval (when streaming is disabled). Values less than the default of
+     * 30000 will be set to the default.
      *
      * @param pollingIntervalMillis rule update polling interval in milliseconds.
      * @return the builder
