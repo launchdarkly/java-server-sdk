@@ -267,6 +267,7 @@ public class RedisFeatureStore implements FeatureStore {
 
       t.exec();
     }
+    cache.invalidateAll();
     initCache.put(INIT_KEY, true);
   }
 
