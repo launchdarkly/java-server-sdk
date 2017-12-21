@@ -3,6 +3,16 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.4.0] - 2017-12-20
+## Changed
+- Added an option to disable sending analytics events
+- No longer attempt to reconnect if a 401 response is received (this would indicate an invalid SDK key, so retrying won't help)
+- Simplified logic to detect dropped stream connections
+- Increased default polling interval to 30s
+- Use flag data in redis before stream connection is established, if possible (See #107)
+- Avoid creating HTTP cache when streaming mode is enabled (as it won't be useful). This makes it possible to use the SDK in Google App Engine and other environments with no mutable disk access.
+
+
 ## [2.3.4] - 2017-10-25
 ## Changed
 - Removed GSON dependency from default jar (fixes #103)
