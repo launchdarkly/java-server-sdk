@@ -98,13 +98,13 @@ public class LDConfigTest {
   @Test
   public void testMinimumPollingIntervalIsEnforcedProperly(){
     LDConfig config = new LDConfig.Builder().pollingIntervalMillis(10L).build();
-    assertEquals(1000L, config.pollingIntervalMillis);
+    assertEquals(30000L, config.pollingIntervalMillis);
   }
 
   @Test
   public void testPollingIntervalIsEnforcedProperly(){
-    LDConfig config = new LDConfig.Builder().pollingIntervalMillis(10001L).build();
-    assertEquals(10001L, config.pollingIntervalMillis);
+    LDConfig config = new LDConfig.Builder().pollingIntervalMillis(30001L).build();
+    assertEquals(30001L, config.pollingIntervalMillis);
   }
   
   @Test
