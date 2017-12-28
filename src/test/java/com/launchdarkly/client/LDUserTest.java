@@ -138,6 +138,20 @@ public class LDUserTest {
   }
 
   @Test
+  public void testLDUserAnonymousAttributeIsNeverPrivate() {
+    LDConfig config = new LDConfig.Builder().allAttributesPrivate(true).build();
+    LDUser user = new LDUser.Builder("key")
+        .anonymous(true)
+        .build();
+
+    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
+    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
+
+    assertEquals(privateJson.get("anonymous").getAsBoolean(), true);
+    assertNull(privateJson.get("privateAttrs"));
+  }
+
+  @Test
   public void testLDUserCustomMarshalWithPrivateAttrsRedactsCorrectAttrs() {
     LDConfig config = LDConfig.DEFAULT;
     LDUser user = new LDUser.Builder("key")

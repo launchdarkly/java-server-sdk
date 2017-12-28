@@ -223,9 +223,7 @@ public class LDUser {
         }
       }
       if (user.getAnonymous() != null) {
-        if (!checkAndAddPrivate("anonymous", user, privateAttributeNames)) {
-          out.name("anonymous").value(user.getAnonymous().getAsBoolean());
-        }
+        out.name("anonymous").value(user.getAnonymous().getAsBoolean());
       }
       if (user.getCountry() != null) {
         if (!checkAndAddPrivate("country", user, privateAttributeNames)) {
@@ -485,18 +483,6 @@ public class LDUser {
       this.anonymous = anonymous;
       return this;
     }
-
-    /**
-     * Sets whether this user is anonymous. The anonymous attribute will not be sent back to LaunchDarkly.
-     *
-     * @param anonymous whether the user is anonymous
-     * @return the builder
-     */
-    public Builder privateAnonymous(boolean anonymous) {
-      privateAttrNames.add("anonymous");
-      return anonymous(anonymous);
-    }
-
 
     /**
      * Sets the user's last name
