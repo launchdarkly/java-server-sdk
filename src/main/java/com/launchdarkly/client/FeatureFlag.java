@@ -28,12 +28,12 @@ class FeatureFlag {
   private List<JsonElement> variations;
   private boolean deleted;
 
-  static FeatureFlag fromJson(String json) {
-    return LDConfig.gson.fromJson(json, FeatureFlag.class);
+  static FeatureFlag fromJson(LDConfig config, String json) {
+    return config.gson.fromJson(json, FeatureFlag.class);
   }
 
-  static Map<String, FeatureFlag> fromJsonMap(String json) {
-    return LDConfig.gson.fromJson(json, mapType);
+  static Map<String, FeatureFlag> fromJsonMap(LDConfig config, String json) {
+    return config.gson.fromJson(json, mapType);
   }
 
   // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation

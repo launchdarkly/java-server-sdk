@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.io.Files;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import okhttp3.Authenticator;
 import okhttp3.Cache;
 import okhttp3.ConnectionPool;
@@ -18,6 +19,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
-  static final Gson gson = new Gson();
+  final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapter(this)).create();
 
   private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
@@ -57,6 +61,8 @@ public final class LDConfig {
   final FeatureStore featureStore;
   final boolean useLdd;
   final boolean offline;
+  final boolean allAttributesPrivate;
+  final Set<String> privateAttrNames;
   final boolean sendEvents;
   final long pollingIntervalMillis;
   final long startWaitMillis;
@@ -77,6 +83,8 @@ public final class LDConfig {
     this.featureStore = builder.featureStore;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
+    this.allAttributesPrivate = builder.allAttributesPrivate;
+    this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
     this.sendEvents = builder.sendEvents;
     if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
       this.pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
@@ -151,12 +159,14 @@ public final class LDConfig {
     private boolean stream = true;
     private boolean useLdd = false;
     private boolean offline = false;
+    private boolean allAttributesPrivate = false;
     private boolean sendEvents = true;
     private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = new InMemoryFeatureStore();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
+    private Set<String> privateAttrNames = new HashSet<>();
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -380,6 +390,18 @@ public final class LDConfig {
     }
 
     /**
+     * Set whether or not user attributes (other than the key) should be sent back to LaunchDarkly. If this is true, all
+     * user attribute values will be private, not just the attributes specified in {@link #privateAttributeNames(String...)}. By default,
+     * this is false.
+     * @param allPrivate
+     * @return the builder
+     */
+    public Builder allAttributesPrivate(boolean allPrivate) {
+      this.allAttributesPrivate = allPrivate;
+      return this;
+    }
+
+    /**
      * Set whether to send events back to LaunchDarkly. By default, the client will send
      * events. This differs from {@link offline} in that it only affects sending
      * analytics events, not streaming or polling for events from the server.
@@ -445,6 +467,18 @@ public final class LDConfig {
       return this;
     }
 
+    /**
+     *
+     * Mark a set of attribute names private. Any users sent to LaunchDarkly with this configuration
+     * active will have attributes with these names removed.
+     *
+     * @param names a set of names that will be removed from user data set to LaunchDarkly
+     * @return the builder
+     */
+    public Builder privateAttributeNames(String... names) {
+      this.privateAttrNames = new HashSet<>(Arrays.asList(names));
+      return this;
+    }
 
     // returns null if none of the proxy bits were configured. Minimum required part: port.
     Proxy proxy() {

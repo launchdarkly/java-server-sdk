@@ -41,6 +41,7 @@ class EventProcessor implements Closeable {
     if (config.samplingInterval > 0 && random.nextInt(config.samplingInterval) != 0) {
       return true;
     }
+
     return queue.offer(e);
   }
 
@@ -79,10 +80,10 @@ class EventProcessor implements Closeable {
 
     private void postEvents(List<Event> events) {
 
-      String json = LDConfig.gson.toJson(events);
+      String json = config.gson.toJson(events);
       logger.debug("Posting " + events.size() + " event(s) to " + config.eventsURI + " with payload: " + json);
 
-      String content = LDConfig.gson.toJson(events);
+      String content = config.gson.toJson(events);
 
       Request request = config.getRequestBuilder(sdkKey)
           .url(config.eventsURI.toString() + "/bulk")

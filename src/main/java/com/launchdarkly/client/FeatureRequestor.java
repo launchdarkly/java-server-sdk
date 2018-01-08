@@ -21,12 +21,12 @@ class FeatureRequestor {
 
   Map<String, FeatureFlag> getAllFlags() throws IOException, InvalidSDKKeyException {
     String body = get(GET_LATEST_FLAGS_PATH);
-    return FeatureFlag.fromJsonMap(body);
+    return FeatureFlag.fromJsonMap(config, body);
   }
 
   FeatureFlag getFlag(String featureKey) throws IOException, InvalidSDKKeyException {
     String body = get(GET_LATEST_FLAGS_PATH + "/" + featureKey);
-    return FeatureFlag.fromJson(body);
+    return FeatureFlag.fromJson(config, body);
   }
 
   private String get(String path) throws IOException, InvalidSDKKeyException {
