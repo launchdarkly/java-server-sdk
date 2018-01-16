@@ -1,9 +1,8 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonPrimitive;
-import org.joda.time.DateTime;
-
 import java.util.regex.Pattern;
+
+import com.google.gson.JsonPrimitive;
 
 /**
  * Operator value that can be applied to {@link JsonPrimitive} objects. Incompatible types or other errors
@@ -17,13 +16,9 @@ enum Operator {
       if (uValue.equals(cValue)) {
           return true;
       }
-
-      if (uValue.isString() && cValue.isString()) {
-        if (uValue.getAsString().equals(cValue.getAsString()))
-          return true;
-      }
-      if (uValue.isNumber() && cValue.isNumber()) {
-        return uValue.getAsDouble() == cValue.getAsDouble();
+      OperandType type = OperandType.bestGuess(uValue);
+      if (type == OperandType.bestGuess(cValue)) {
+        return compareValues(ComparisonOp.EQ, uValue, cValue, type);
       }
       return false;
     }
@@ -53,47 +48,77 @@ enum Operator {
   },
   lessThan {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() < cValue.getAsDouble();
+      return compareValues(ComparisonOp.LT, uValue, cValue, OperandType.number);
     }
   },
   lessThanOrEqual {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() <= cValue.getAsDouble();
+      return compareValues(ComparisonOp.LTE, uValue, cValue, OperandType.number);
     }
   },
   greaterThan {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() > cValue.getAsDouble();
+      return compareValues(ComparisonOp.GT, uValue, cValue, OperandType.number);
     }
   },
   greaterThanOrEqual {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      return uValue.isNumber() && cValue.isNumber() && uValue.getAsDouble() >= cValue.getAsDouble();
+      return compareValues(ComparisonOp.GTE, uValue, cValue, OperandType.number);
     }
   },
   before {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      DateTime uDateTime = Util.jsonPrimitiveToDateTime(uValue);
-      if (uDateTime != null) {
-        DateTime cDateTime = Util.jsonPrimitiveToDateTime(cValue);
-        if (cDateTime != null) {
-          return uDateTime.isBefore(cDateTime);
-        }
-      }
-      return false;
+      return compareValues(ComparisonOp.LT, uValue, cValue, OperandType.date);
     }
   },
   after {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      DateTime uDateTime = Util.jsonPrimitiveToDateTime(uValue);
-      if (uDateTime != null) {
-        DateTime cDateTime = Util.jsonPrimitiveToDateTime(cValue);
-        if (cDateTime != null) {
-          return uDateTime.isAfter(cDateTime);
+      return compareValues(ComparisonOp.GT, uValue, cValue, OperandType.date);
+    }
+  },
+  semVerEqual {
+    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+      return compareValues(ComparisonOp.EQ, uValue, cValue, OperandType.semVer);
+    }
+  },
+  semVerLessThan {
+    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+      return compareValues(ComparisonOp.LT, uValue, cValue, OperandType.semVer);
+    }
+  },
+  semVerGreaterThan {
+    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+      return compareValues(ComparisonOp.GT, uValue, cValue, OperandType.semVer);
+    }
+  };
+  abstract boolean apply(JsonPrimitive uValue, JsonPrimitive cValue);
+  
+  private static boolean compareValues(ComparisonOp op, JsonPrimitive uValue, JsonPrimitive cValue, OperandType asType) {
+    Object uValueObj = asType.getValueAsType(uValue);
+    Object cValueObj = asType.getValueAsType(cValue);
+    return uValueObj != null && cValueObj != null && op.apply(uValueObj, cValueObj);
+  }
+  
+  private static enum ComparisonOp {
+    EQ,
+    LT,
+    LTE,
+    GT,
+    GTE;
+    
+    @SuppressWarnings("unchecked")
+    public boolean apply(Object a, Object b) {
+      if (a instanceof Comparable && a.getClass() == b.getClass()) {
+        int n = ((Comparable<Object>)a).compareTo(b);
+        switch (this) {
+        case EQ: return (n == 0);
+        case LT: return (n < 0);
+        case LTE: return (n <= 0);
+        case GT: return (n > 0);
+        case GTE: return (n >= 0);
         }
       }
       return false;
     }
-  };
-  abstract boolean apply(JsonPrimitive uValue, JsonPrimitive cValue);
+  }
 }

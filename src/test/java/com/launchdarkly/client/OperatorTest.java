@@ -1,36 +1,18 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonPrimitive;
+import static org.junit.Assert.assertFalse;
+
+import java.util.regex.PatternSyntaxException;
+
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import com.google.gson.JsonPrimitive;
 
+// Any special-case tests that can't be handled by OperatorParameterizedTest.
 public class OperatorTest {
-  @Test
-  public void testNumberComparison() {
-    JsonPrimitive a = new JsonPrimitive(99);
-    JsonPrimitive b = new JsonPrimitive(99.0001);
-
-    assertFalse(Operator.contains.apply(a, b));
-    assertTrue(Operator.lessThan.apply(a, b));
-    assertTrue(Operator.lessThanOrEqual.apply(a, b));
-    assertFalse(Operator.greaterThan.apply(a, b));
-    assertFalse(Operator.greaterThanOrEqual.apply(a, b));
-
-    assertFalse(Operator.contains.apply(b, a));
-    assertFalse(Operator.lessThan.apply(b, a));
-    assertFalse(Operator.lessThanOrEqual.apply(b, a));
-    assertTrue(Operator.greaterThan.apply(b, a));
-    assertTrue(Operator.greaterThanOrEqual.apply(b, a));
-  }
-
-  @Test
-  public void testRegexComparison(){
-    JsonPrimitive uValue = new JsonPrimitive("hello world");
-    assertTrue(Operator.matches.apply(uValue, new JsonPrimitive("hello.*rld")));
-    assertTrue(Operator.matches.apply(uValue, new JsonPrimitive("hello.*orl")));
-    assertTrue(Operator.matches.apply(uValue, new JsonPrimitive("l+")));
-    assertTrue(Operator.matches.apply(uValue, new JsonPrimitive("(world|planet)")));
+  // This is probably not desired behavior, but it is the current behavior
+  @Test(expected = PatternSyntaxException.class)
+  public void testInvalidRegexThrowsException() {
+    assertFalse(Operator.matches.apply(new JsonPrimitive("hello world"), new JsonPrimitive("***not a regex")));    
   }
 }
