@@ -106,6 +106,7 @@ public class OperatorParameterizedTest {
       { Operator.semVerLessThan, js("2.0"), js("2.0.1"), true },
       { Operator.semVerLessThan, js("2.0.1"), js("2.0.0"), false },
       { Operator.semVerLessThan, js("2.0.1"), js("2.0"), false },
+      { Operator.semVerLessThan, js("2.0.0-rc"), js("2.0.0"), true },
       { Operator.semVerLessThan, js("2.0.0-rc"), js("2.0.0-rc.beta"), true },
       { Operator.semVerGreaterThan, js("2.0.1"), js("2.0.0"), true },
       { Operator.semVerGreaterThan, js("2.0.1"), js("2.0"), true },
