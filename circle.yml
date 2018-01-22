@@ -1,4 +1,7 @@
 --- 
+machine:
+  services:
+    - redis
 dependencies: 
   pre: 
     - "cp gradle.properties.example gradle.properties"
