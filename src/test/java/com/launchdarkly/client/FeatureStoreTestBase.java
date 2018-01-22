@@ -33,11 +33,6 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
   }
   
   @Test
-  public void storeNotInitiallyInitialized() {
-    assertFalse(store.initialized());
-  }
-  
-  @Test
   public void storeInitializedAfterInit() {
     initStore();
     assertTrue(store.initialized());
