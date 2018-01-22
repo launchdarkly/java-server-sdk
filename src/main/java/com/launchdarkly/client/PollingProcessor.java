@@ -5,7 +5,11 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -49,7 +53,10 @@ public class PollingProcessor implements UpdateProcessor {
       @Override
       public void run() {
         try {
-          store.init(requestor.getAllFlags());
+          Map<String, FeatureFlag> flags = requestor.getAllFlags();
+          HashMap<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = new HashMap<>();
+          allData.put(FEATURES, flags);
+          store.init(allData);
           if (!initialized.getAndSet(true)) {
             logger.info("Initialized LaunchDarkly client.");
             initFuture.set(null);

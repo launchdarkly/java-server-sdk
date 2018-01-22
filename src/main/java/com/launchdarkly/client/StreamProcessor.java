@@ -1,7 +1,11 @@
 package com.launchdarkly.client;
 
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+
 import java.io.IOException;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -78,26 +82,33 @@ class StreamProcessor implements UpdateProcessor {
       public void onMessage(String name, MessageEvent event) throws Exception {
         Gson gson = new Gson();
         switch (name) {
-          case PUT:
-            store.init(FeatureFlag.fromJsonMap(config, event.getData()));
+          case PUT: {
+            Map<String, FeatureFlag> flags = FeatureFlag.fromJsonMap(config, event.getData());
+            HashMap<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = new HashMap<>();
+            allData.put(FEATURES, flags);
+            store.init(allData);
             if (!initialized.getAndSet(true)) {
               initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
             }
             break;
+          }
           case PATCH: {
             FeaturePatchData data = gson.fromJson(event.getData(), FeaturePatchData.class);
-            store.upsert(data.key(), data.feature());
+            store.upsert(FEATURES, data.feature());
             break;
           }
           case DELETE: {
             FeatureDeleteData data = gson.fromJson(event.getData(), FeatureDeleteData.class);
-            store.delete(data.key(), data.version());
+            store.delete(FEATURES, data.key(), data.version());
             break;
           }
           case INDIRECT_PUT:
             try {
-              store.init(requestor.getAllFlags());
+              Map<String, FeatureFlag> flags = requestor.getAllFlags();
+              HashMap<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = new HashMap<>();
+              allData.put(FEATURES, flags);
+              store.init(allData);
               if (!initialized.getAndSet(true)) {
                 initFuture.set(null);
                 logger.info("Initialized LaunchDarkly client.");
@@ -110,7 +121,7 @@ class StreamProcessor implements UpdateProcessor {
             String key = event.getData();
             try {
               FeatureFlag feature = requestor.getFlag(key);
-              store.upsert(key, feature);
+              store.upsert(FEATURES, feature);
             } catch (IOException e) {
               logger.error("Encountered exception in LaunchDarkly client", e);
             }
@@ -170,10 +181,6 @@ class StreamProcessor implements UpdateProcessor {
   @Override
   public boolean initialized() {
     return initialized.get();
-  }
-
-  FeatureFlag getFeature(String key) {
-    return store.get(key);
   }
 
   private static final class FeaturePatchData {

@@ -10,6 +10,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
@@ -218,7 +221,7 @@ public class LDClient implements LDClientInterface {
       return null;
     }
 
-    Map<String, FeatureFlag> flags = this.config.featureStore.all();
+    Map<String, FeatureFlag> flags = this.config.featureStore.all(FEATURES);
     Map<String, JsonElement> result = new HashMap<>();
 
     for (Map.Entry<String, FeatureFlag> entry : flags.entrySet()) {
@@ -325,7 +328,7 @@ public class LDClient implements LDClientInterface {
     }
 
     try {
-      if (config.featureStore.get(featureKey) != null) {
+      if (config.featureStore.get(FEATURES, featureKey) != null) {
         return true;
       }
     } catch (Exception e) {
@@ -355,7 +358,7 @@ public class LDClient implements LDClientInterface {
     }
 
     try {
-      FeatureFlag featureFlag = config.featureStore.get(featureKey);
+      FeatureFlag featureFlag = config.featureStore.get(FEATURES, featureKey);
       if (featureFlag == null) {
         logger.warn("Unknown feature flag " + featureKey + "; returning default value");
         sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
