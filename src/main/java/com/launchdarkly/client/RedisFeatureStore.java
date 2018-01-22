@@ -325,7 +325,7 @@ public class RedisFeatureStore implements FeatureStore {
       Gson gson = new Gson();
       jedis.watch(featuresKey());
 
-      FeatureFlag f = getRedis(key, jedis);
+      FeatureFlag f = getRedisEvenIfDeleted(key, jedis);
 
       if (f != null && f.getVersion() >= feature.getVersion()) {
         logger.warn("Attempted to update flag: " + key + " version: " + f.getVersion() +
@@ -404,6 +404,15 @@ public class RedisFeatureStore implements FeatureStore {
   }
 
   private FeatureFlag getRedis(String key, Jedis jedis) {
+    FeatureFlag f = getRedisEvenIfDeleted(key, jedis);
+    if (f != null && f.isDeleted()) {
+      logger.debug("[get] Key: " + key + " has been deleted. Returning null");
+      return null;
+    }
+    return f;
+  }
+
+  private FeatureFlag getRedisEvenIfDeleted(String key, Jedis jedis) {
     Gson gson = new Gson();
     String featureJson = jedis.hget(featuresKey(), key);
 
@@ -412,15 +421,7 @@ public class RedisFeatureStore implements FeatureStore {
       return null;
     }
 
-    Type type = new TypeToken<FeatureFlag>() {
-    }.getType();
-    FeatureFlag f = gson.fromJson(featureJson, type);
-
-    if (f.isDeleted()) {
-      logger.debug("[get] Key: " + key + " has been deleted. Returning null");
-      return null;
-    }
-    return f;
+    return gson.fromJson(featureJson, FeatureFlag.class);
   }
 
   private static JedisPoolConfig getPoolConfig() {
