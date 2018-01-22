@@ -298,7 +298,7 @@ public class RedisFeatureStore implements FeatureStore {
       jedis.hset(baseKey, key, gson.toJson(deletedItem));
 
       if (cache != null) {
-        cache.invalidate(new CacheKey(kind, item.getKey()));
+        cache.invalidate(new CacheKey(kind, key));
       }
     } finally {
       if (jedis != null) {
@@ -317,7 +317,7 @@ public class RedisFeatureStore implements FeatureStore {
       String baseKey = itemsKey(kind);
       jedis.watch(baseKey);
 
-      VersionedData old = getRedis(kind, item.getKey(), jedis);
+      VersionedData old = getRedisEvenIfDeleted(kind, item.getKey(), jedis);
 
       if (old != null && old.getVersion() >= item.getVersion()) {
         logger.warn("Attempted to update key: {0} version: {1}" +
@@ -397,6 +397,15 @@ public class RedisFeatureStore implements FeatureStore {
   }
 
   private <T extends VersionedData> T getRedis(VersionedDataKind<T> kind, String key, Jedis jedis) {
+    T item = getRedisEvenIfDeleted(kind, key, jedis);
+    if (item != null && item.isDeleted()) {
+      logger.debug("[get] Key: {0} has been deleted in \"{1}\". Returning null", key, kind.getNamespace());
+      return null;
+    }
+    return item;
+  }
+
+  private <T extends VersionedData> T getRedisEvenIfDeleted(VersionedDataKind<T> kind, String key, Jedis jedis) {
     Gson gson = new Gson();
     String json = jedis.hget(itemsKey(kind), key);
 
@@ -405,13 +414,7 @@ public class RedisFeatureStore implements FeatureStore {
       return null;
     }
 
-    T item = gson.fromJson(json, kind.getItemClass());
-
-    if (item.isDeleted()) {
-      logger.debug("[get] Key: {0} has been deleted. Returning null", key);
-      return null;
-    }
-    return item;
+    return gson.fromJson(json, kind.getItemClass());
   }
 
   private static JedisPoolConfig getPoolConfig() {
