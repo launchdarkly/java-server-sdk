@@ -30,7 +30,7 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
 
 /**
- * A thread-safe, versioned store for {@link FeatureFlag} objects backed by Redis. Also
+ * An implementation of {@link FeatureStore} backed by Redis. Also
  * supports an optional in-memory cache configuration that can be used to improve performance.
  */
 public class RedisFeatureStore implements FeatureStore {
