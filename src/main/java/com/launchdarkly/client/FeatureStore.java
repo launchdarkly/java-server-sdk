@@ -4,15 +4,14 @@ import java.io.Closeable;
 import java.util.Map;
 
 /**
- * A thread-safe, versioned store for {@link FeatureFlag} objects.
- * Implementations should permit concurrent access and updates.
+ * A thread-safe, versioned store for feature flags and related objects received from the
+ * streaming API.  Implementations should permit concurrent access and updates.
  *
  * Delete and upsert requests are versioned-- if the version number in the request is less than
- * the currently stored version of the feature, the request should be ignored.
+ * the currently stored version of the object, the request should be ignored.
  *
  * These semantics support the primary use case for the store, which synchronizes a collection
- * of features based on update messages that may be received out-of-order.
- *
+ * of objects based on update messages that may be received out-of-order.
  */
 public interface FeatureStore extends Closeable {
   /**
