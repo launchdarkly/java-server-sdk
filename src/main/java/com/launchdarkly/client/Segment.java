@@ -6,7 +6,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.base.Optional;
 import com.google.gson.reflect.TypeToken;
 
 public class Segment implements VersionedData {
@@ -20,36 +19,6 @@ public class Segment implements VersionedData {
   private List<SegmentRule> rules;
   private int version;
   private boolean deleted;
-
-  public static enum MatchKind {
-    INCLUDED,
-    EXCLUDED,
-    RULE
-  }
-  
-  public static class MatchResult {
-    private final boolean match;
-    private final Optional<MatchKind> kind;
-    private final Optional<SegmentRule> matchedRule;
-    
-    public MatchResult(boolean match, Optional<MatchKind> kind, Optional<SegmentRule> matchedRule) {
-      this.match = match;
-      this.kind = kind;
-      this.matchedRule = matchedRule;
-    }
-    
-    public boolean isMatch() {
-      return match;
-    }
-    
-    public Optional<MatchKind> getKind() {
-      return kind;
-    }
-    
-    public Optional<SegmentRule> getMatchedRule() {
-      return matchedRule;
-    }
-  }
 
   static Segment fromJson(LDConfig config, String json) {
     return config.gson.fromJson(json, Segment.class);
@@ -100,23 +69,23 @@ public class Segment implements VersionedData {
     return deleted;
   }
   
-  public MatchResult matchUser(LDUser user) {
+  public boolean matchesUser(LDUser user) {
     String key = user.getKeyAsString();
     if (key == null) {
-      return new MatchResult(false, Optional.<MatchKind>absent(), Optional.<SegmentRule>absent());
+      return false;
     }
     if (included.contains(key)) {
-      return new MatchResult(true, Optional.of(MatchKind.INCLUDED), Optional.<SegmentRule>absent());
+      return true;
     }
     if (excluded.contains(key)) {
-      return new MatchResult(false, Optional.of(MatchKind.EXCLUDED), Optional.<SegmentRule>absent());
+      return false;
     }
     for (SegmentRule rule: rules) {
       if (rule.matchUser(user, key, salt)) {
-        return new MatchResult(true, Optional.of(MatchKind.RULE), Optional.of(rule));
+        return true;
       }
     }
-    return new MatchResult(false, Optional.<MatchKind>absent(), Optional.<SegmentRule>absent());
+    return false;
   }
   
   public static class Builder {

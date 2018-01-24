@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -8,7 +7,6 @@ import java.util.Arrays;
 
 import org.junit.Test;
 
-import com.google.common.base.Optional;
 import com.google.gson.JsonPrimitive;
 
 public class SegmentTest {
@@ -24,10 +22,7 @@ public class SegmentTest {
         .build();
     LDUser u = new LDUser.Builder("foo").build();
     
-    Segment.MatchResult r = s.matchUser(u);
-    
-    assertTrue(r.isMatch());
-    assertEquals(Optional.of(Segment.MatchKind.INCLUDED), r.getKind());
+    assertTrue(s.matchesUser(u));
   }
   
   @Test
@@ -39,10 +34,7 @@ public class SegmentTest {
         .build();
     LDUser u = new LDUser.Builder("foo").build();
     
-    Segment.MatchResult r = s.matchUser(u);
-    
-    assertFalse(r.isMatch());
-    assertEquals(Optional.of(Segment.MatchKind.EXCLUDED), r.getKind());
+    assertFalse(s.matchesUser(u));
   }
   
   @Test
@@ -55,10 +47,7 @@ public class SegmentTest {
         .build();
     LDUser u = new LDUser.Builder("foo").build();
     
-    Segment.MatchResult r = s.matchUser(u);
-    
-    assertTrue(r.isMatch());
-    assertEquals(Optional.of(Segment.MatchKind.INCLUDED), r.getKind());
+    assertTrue(s.matchesUser(u));
   }
   
   @Test
@@ -78,11 +67,7 @@ public class SegmentTest {
         .build();
     LDUser u = new LDUser.Builder("foo").email("test@example.com").build();
     
-    Segment.MatchResult r = s.matchUser(u);
-    
-    assertTrue(r.isMatch());
-    assertEquals(Optional.of(Segment.MatchKind.RULE), r.getKind());
-    assertEquals(Optional.of(rule), r.getMatchedRule());
+    assertTrue(s.matchesUser(u));
   }
 
   @Test
@@ -101,11 +86,7 @@ public class SegmentTest {
         .build();
     LDUser u = new LDUser.Builder("foo").email("test@example.com").build();
     
-    Segment.MatchResult r = s.matchUser(u);
-    
-    assertFalse(r.isMatch());
-    assertEquals(Optional.<Segment.MatchKind>absent(), r.getKind());
-    assertEquals(Optional.<SegmentRule>absent(), r.getMatchedRule());
+    assertFalse(s.matchesUser(u));
   }
   
   @Test
@@ -130,11 +111,7 @@ public class SegmentTest {
         .build();
     LDUser u = new LDUser.Builder("foo").email("test@example.com").name("bob").build();
     
-    Segment.MatchResult r = s.matchUser(u);
-    
-    assertTrue(r.isMatch());
-    assertEquals(Optional.of(Segment.MatchKind.RULE), r.getKind());
-    assertEquals(Optional.of(rule), r.getMatchedRule());
+    assertTrue(s.matchesUser(u));
   }
 
   @Test
@@ -159,10 +136,6 @@ public class SegmentTest {
         .build();
     LDUser u = new LDUser.Builder("foo").email("test@example.com").name("bob").build();
     
-    Segment.MatchResult r = s.matchUser(u);
-
-    assertFalse(r.isMatch());
-    assertEquals(Optional.<Segment.MatchKind>absent(), r.getKind());
-    assertEquals(Optional.<SegmentRule>absent(), r.getMatchedRule());
+    assertFalse(s.matchesUser(u));
   }
 }

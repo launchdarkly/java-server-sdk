@@ -62,7 +62,7 @@ class Clause {
         if (j.isString()) {
           Segment segment = store.get(SEGMENTS, j.getAsString());
           if (segment != null) {
-            if (segment.matchUser(user).isMatch()) {
+            if (segment.matchesUser(user)) {
               return maybeNegate(true);
             }
           }
