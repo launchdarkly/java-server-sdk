@@ -234,7 +234,7 @@ public class RedisFeatureStore implements FeatureStore {
       item = getRedis(kind, key);
     }
     if (item != null) {
-      logger.debug("[get] Key: {0} with version: {1} found in \"{2}\".", key, item.getVersion(), kind.getNamespace());
+      logger.debug("[get] Key: {} with version: {} found in \"{}\".", key, item.getVersion(), kind.getNamespace());
     }
     return item;
   }
@@ -288,8 +288,8 @@ public class RedisFeatureStore implements FeatureStore {
       VersionedData item = getRedis(kind, key, jedis);
 
       if (item != null && item.getVersion() >= version) {
-        logger.warn("Attempted to delete key: {0} version: {1}" +
-            " with a version that is the same or older: {2} in \"{3}\"",
+        logger.warn("Attempted to delete key: {} version: {}" +
+            " with a version that is the same or older: {} in \"{}\"",
             key, item.getVersion(), version, kind.getNamespace());
         return;
       }
@@ -320,8 +320,8 @@ public class RedisFeatureStore implements FeatureStore {
       VersionedData old = getRedisEvenIfDeleted(kind, item.getKey(), jedis);
 
       if (old != null && old.getVersion() >= item.getVersion()) {
-        logger.warn("Attempted to update key: {0} version: {1}" +
-            " with a version that is the same or older: {2} in \"{3}\"",
+        logger.warn("Attempted to update key: {} version: {}" +
+            " with a version that is the same or older: {} in \"{}\"",
             item.getKey(), old.getVersion(), item.getVersion(), kind.getNamespace());
         return;
       }
@@ -399,7 +399,7 @@ public class RedisFeatureStore implements FeatureStore {
   private <T extends VersionedData> T getRedis(VersionedDataKind<T> kind, String key, Jedis jedis) {
     T item = getRedisEvenIfDeleted(kind, key, jedis);
     if (item != null && item.isDeleted()) {
-      logger.debug("[get] Key: {0} has been deleted in \"{1}\". Returning null", key, kind.getNamespace());
+      logger.debug("[get] Key: {} has been deleted in \"{}\". Returning null", key, kind.getNamespace());
       return null;
     }
     return item;
@@ -410,7 +410,7 @@ public class RedisFeatureStore implements FeatureStore {
     String json = jedis.hget(itemsKey(kind), key);
 
     if (json == null) {
-      logger.debug("[get] Key: {0} not found in \"{1}\". Returning null", key, kind.getNamespace());
+      logger.debug("[get] Key: {} not found in \"{}\". Returning null", key, kind.getNamespace());
       return null;
     }
 

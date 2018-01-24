@@ -36,25 +36,25 @@ public class InMemoryFeatureStore implements FeatureStore {
       lock.readLock().lock();
       Map<String, VersionedData> items = allData.get(kind);
       if (items == null) {
-        logger.debug("[get] no objects exist for \"{0}\". Returning null", kind.getNamespace());
+        logger.debug("[get] no objects exist for \"{}\". Returning null", kind.getNamespace());
         return null;
       }
       Object o = items.get(key);
       if (o == null) {
-        logger.debug("[get] Key: {0} not found in \"{1}\". Returning null", key, kind.getNamespace());
+        logger.debug("[get] Key: {} not found in \"{}\". Returning null", key, kind.getNamespace());
         return null;
       }
       if (!kind.getItemClass().isInstance(o)) {
-        logger.warn("[get] Unexpected object class {0} found for key: {1} in \"{2}\". Returning null",
+        logger.warn("[get] Unexpected object class {} found for key: {} in \"{}\". Returning null",
             o.getClass().getName(), key, kind.getNamespace());
         return null;
       }
       T item = kind.getItemClass().cast(o);
       if (item.isDeleted()) {
-        logger.debug("[get] Key: {0} has been deleted. Returning null", key);
+        logger.debug("[get] Key: {} has been deleted. Returning null", key);
         return null;
       }
-      logger.debug("[get] Key: {0} with version: {1} found in \"{2}\".", key, item.getVersion(), kind.getNamespace());
+      logger.debug("[get] Key: {} with version: {} found in \"{}\".", key, item.getVersion(), kind.getNamespace());
       return item;
     } finally {
       lock.readLock().unlock();
