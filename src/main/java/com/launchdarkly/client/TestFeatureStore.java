@@ -16,7 +16,7 @@ import com.google.gson.JsonPrimitive;
  * Using this store is useful for testing purposes when you want to have runtime support for turning specific features on or off.
  */
 public class TestFeatureStore extends InMemoryFeatureStore {
-  private static List<JsonElement> TRUE_FALSE_VARIATIONS = Arrays.asList(
+  static List<JsonElement> TRUE_FALSE_VARIATIONS = Arrays.asList(
       (JsonElement) (new JsonPrimitive(true)),
       (JsonElement) (new JsonPrimitive(false))
   );

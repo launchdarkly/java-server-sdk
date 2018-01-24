@@ -102,12 +102,12 @@ class FeatureFlag implements VersionedData {
       }
     }
     if (prereqOk) {
-      return getVariation(evaluateIndex(user));
+      return getVariation(evaluateIndex(user, featureStore));
     }
     return null;
   }
 
-  private Integer evaluateIndex(LDUser user) {
+  private Integer evaluateIndex(LDUser user, FeatureStore store) {
     // Check to see if targets match
     if (targets != null) {
       for (Target target : targets) {
@@ -121,7 +121,7 @@ class FeatureFlag implements VersionedData {
     // Now walk through the rules and see if any match
     if (rules != null) {
       for (Rule rule : rules) {
-        if (rule.matchesUser(user)) {
+        if (rule.matchesUser(store, user)) {
           return rule.variationIndexForUser(user, key, salt);
         }
       }

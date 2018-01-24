@@ -32,4 +32,19 @@ public interface VersionedDataKind<T extends VersionedData> {
       return new FeatureFlagBuilder(key).deleted(true).version(version).build();
     }
   };
+  
+  public static VersionedDataKind<Segment> SEGMENTS = new VersionedDataKind<Segment>() {
+    
+    public String getNamespace() {
+      return "segments";
+    }
+    
+    public Class<Segment> getItemClass() {
+      return Segment.class;
+    }
+    
+    public Segment makeDeletedItem(String key, int version) {
+      return new Segment.Builder(key).deleted(true).version(version).build();
+    }
+  };
 }

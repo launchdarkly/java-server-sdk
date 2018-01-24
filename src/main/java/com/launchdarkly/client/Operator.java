@@ -94,6 +94,13 @@ enum Operator {
       }
       return false;
     }
+  },
+  segmentMatch {
+    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+      // We shouldn't call apply() for this operator, because it is really implemented in
+      // Clause.matchesUser().
+      return false;
+    }
   };
   abstract boolean apply(JsonPrimitive uValue, JsonPrimitive cValue);
 }
