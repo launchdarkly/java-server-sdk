@@ -93,24 +93,20 @@ class StreamProcessor implements UpdateProcessor {
           }
           case PATCH: {
             PatchData data = gson.fromJson(event.getData(), PatchData.class);
-            String featureKey = getFeatureKeyForPath(data.path);
-            if (featureKey != null) {
+            if (FEATURES.getKeyFromStreamApiPath(data.path) != null) {
               store.upsert(FEATURES, gson.fromJson(data.data, FeatureFlag.class));
-            } else {
-              String segmentKey = getSegmentKeyForPath(data.path);
-              if (segmentKey != null) {
-                store.upsert(SEGMENTS, gson.fromJson(data.data, Segment.class));
-              }
+            } else if (SEGMENTS.getKeyFromStreamApiPath(data.path) != null) {
+              store.upsert(SEGMENTS, gson.fromJson(data.data, Segment.class));
             }
             break;
           }
           case DELETE: {
             DeleteData data = gson.fromJson(event.getData(), DeleteData.class);
-            String featureKey = getFeatureKeyForPath(data.path);
+            String featureKey = FEATURES.getKeyFromStreamApiPath(data.path);
             if (featureKey != null) {
               store.delete(FEATURES, featureKey, data.version);
             } else {
-              String segmentKey = getSegmentKeyForPath(data.path);
+              String segmentKey = SEGMENTS.getKeyFromStreamApiPath(data.path);
               if (segmentKey != null) {
                 store.delete(SEGMENTS, segmentKey, data.version);
               }
@@ -132,12 +128,12 @@ class StreamProcessor implements UpdateProcessor {
           case INDIRECT_PATCH:
             String path = event.getData();
             try {
-              String featureKey = getFeatureKeyForPath(path);
+              String featureKey = FEATURES.getKeyFromStreamApiPath(path);
               if (featureKey != null) {
                 FeatureFlag feature = requestor.getFlag(featureKey);
                 store.upsert(FEATURES, feature);
               } else {
-                String segmentKey = getSegmentKeyForPath(path);
+                String segmentKey = SEGMENTS.getKeyFromStreamApiPath(path);
                 if (segmentKey != null) {
                   Segment segment = requestor.getSegment(segmentKey);
                   store.upsert(SEGMENTS, segment);
@@ -204,18 +200,6 @@ class StreamProcessor implements UpdateProcessor {
     return initialized.get();
   }
 
-  private String getFeatureKeyForPath(String path) {
-    return getKeyForPath(path, "/flags/");
-  }
-  
-  private String getSegmentKeyForPath(String path) {
-    return getKeyForPath(path, "/segments/");
-  }
-  
-  private String getKeyForPath(String path, String prefix) {
-    return path.startsWith(prefix) ? path.substring(prefix.length()) : null;
-  }
-  
   private static final class PatchData {
     String path;
     JsonElement data;
