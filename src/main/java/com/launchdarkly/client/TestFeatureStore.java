@@ -120,7 +120,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
   
   @Override
   public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
-      super.init(allData);
+    super.init(allData);
     initializedForTests = true;
   }
   
