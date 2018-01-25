@@ -3,13 +3,6 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
-## [3.0.0]
-## Added
-- Add support for user segments
-
-## Changed
-- Changed FeatureStore interface to support segments
-
 ## [2.5.0] - 2018-01-08
 ## Added
 - Support for specifying [private user attributes](https://docs.launchdarkly.com/docs/private-user-attributes) in order to prevent user attributes from being sent in analytics events back to LaunchDarkly. See the `allAttributesPrivate` and `privateAttributeNames` methods on `LDConfig.Builder` as well as the `privateX` methods on `LDUser.Builder`.
