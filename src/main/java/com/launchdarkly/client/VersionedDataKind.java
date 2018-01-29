@@ -25,7 +25,12 @@ public abstract class VersionedDataKind<T extends VersionedData> {
    */
   public abstract T makeDeletedItem(String key, int version);
   
-  public String getKeyFromStreamApiPath(String path) {
+  /**
+   * Used internally to match data URLs in the streaming API.
+   * @param path path from an API message
+   * @return the parsed key if the path refers to an object of this kind, otherwise null 
+   */
+  String getKeyFromStreamApiPath(String path) {
     return path.startsWith(getStreamApiPath()) ? path.substring(getStreamApiPath().length()) : null;
   }
   
