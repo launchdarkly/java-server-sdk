@@ -357,7 +357,7 @@ public class LDClient implements LDClientInterface {
     try {
       FeatureFlag featureFlag = config.featureStore.get(featureKey);
       if (featureFlag == null) {
-        logger.warn("Unknown feature flag " + featureKey + "; returning default value");
+        logger.info("Unknown feature flag " + featureKey + "; returning default value");
         sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
         return defaultValue;
       }
