@@ -1,5 +1,19 @@
 package com.launchdarkly.client;
 
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -9,26 +23,14 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
 
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
 /**
- * A thread-safe, versioned store for {@link FeatureFlag} objects backed by Redis. Also
+ * An implementation of {@link FeatureStore} backed by Redis. Also
  * supports an optional in-memory cache configuration that can be used to improve performance.
  */
 public class RedisFeatureStore implements FeatureStore {
@@ -37,11 +39,36 @@ public class RedisFeatureStore implements FeatureStore {
   private static final String INIT_KEY = "$initialized$";
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
   private final JedisPool pool;
-  private LoadingCache<String, Optional<FeatureFlag>> cache;
+  private LoadingCache<CacheKey, Optional<VersionedData>> cache;
   private final LoadingCache<String, Boolean> initCache = createInitCache();
   private String prefix;
   private ListeningExecutorService executorService;
 
+  private static class CacheKey {
+    final VersionedDataKind<?> kind;
+    final String key;
+    
+    public CacheKey(VersionedDataKind<?> kind, String key) {
+      this.kind = kind;
+      this.key = key;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof CacheKey) {
+        CacheKey o = (CacheKey) other;
+        return o.kind.getNamespace().equals(this.kind.getNamespace()) &&
+            o.key.equals(this.key);
+      }
+      return false;
+    }
+    
+    @Override
+    public int hashCode() {
+      return kind.getNamespace().hashCode() * 31 + key.hashCode();
+    }
+  }
+  
   /**
    * Creates a new store instance that connects to Redis with the provided host, port, prefix, and cache timeout. Uses a default
    * connection pool configuration.
@@ -151,11 +178,11 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
-  private CacheLoader<String, Optional<FeatureFlag>> createDefaultCacheLoader() {
-    return new CacheLoader<String, Optional<FeatureFlag>>() {
+  private CacheLoader<CacheKey, Optional<VersionedData>> createDefaultCacheLoader() {
+    return new CacheLoader<CacheKey, Optional<VersionedData>>() {
       @Override
-      public Optional<FeatureFlag> load(String key) throws Exception {
-        return Optional.fromNullable(getRedis(key));
+      public Optional<VersionedData> load(CacheKey key) throws Exception {
+        return Optional.<VersionedData>fromNullable(getRedis(key.kind, key.key));
       }
     };
   }
@@ -171,7 +198,7 @@ public class RedisFeatureStore implements FeatureStore {
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CACHE_REFRESH_THREAD_POOL_NAME_FORMAT).setDaemon(true).build();
     ExecutorService parentExecutor = Executors.newSingleThreadExecutor(threadFactory);
     executorService = MoreExecutors.listeningDecorator(parentExecutor);
-    CacheLoader<String, Optional<FeatureFlag>> cacheLoader = createDefaultCacheLoader();
+    CacheLoader<CacheKey, Optional<VersionedData>> cacheLoader = createDefaultCacheLoader();
     if (asyncRefresh) {
       cacheLoader = CacheLoader.asyncReloading(cacheLoader, executorService);
     }
@@ -197,72 +224,50 @@ public class RedisFeatureStore implements FeatureStore {
     });
   }
 
-  /**
-   * Returns the {@link FeatureFlag} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link FeatureFlag} has
-   * been deleted.
-   *
-   * @param key the key whose associated {@link FeatureFlag} is to be returned
-   * @return the {@link FeatureFlag} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link FeatureFlag} has
-   * been deleted.
-   */
+  @SuppressWarnings("unchecked")
   @Override
-  public FeatureFlag get(String key) {
-    FeatureFlag featureFlag;
+  public <T extends VersionedData> T get(VersionedDataKind<T> kind, String key) {
+    T item;
     if (cache != null) {
-      featureFlag = cache.getUnchecked(key).orNull();
+      item = (T) cache.getUnchecked(new CacheKey(kind, key)).orNull();
     } else {
-      featureFlag = getRedis(key);
+      item = getRedis(kind, key);
     }
-    if (featureFlag != null) {
-      logger.debug("[get] Key: " + key + " with version: " + featureFlag.getVersion() + " found in feature store.");
+    if (item != null) {
+      logger.debug("[get] Key: {} with version: {} found in \"{}\".", key, item.getVersion(), kind.getNamespace());
     }
-    return featureFlag;
+    return item;
   }
 
-  /**
-   * Returns a {@link java.util.Map} of all associated features. This implementation does not take advantage
-   * of the in-memory cache, so fetching all features will involve a fetch from Redis.
-   *
-   * @return a map of all associated features.
-   */
   @Override
-  public Map<String, FeatureFlag> all() {
+  public <T extends VersionedData> Map<String, T> all(VersionedDataKind<T> kind) {
     try (Jedis jedis = pool.getResource()) {
-      Map<String, String> featuresJson = jedis.hgetAll(featuresKey());
-      Map<String, FeatureFlag> result = new HashMap<>();
+      Map<String, String> allJson = jedis.hgetAll(itemsKey(kind));
+      Map<String, T> result = new HashMap<>();
       Gson gson = new Gson();
 
-      Type type = new TypeToken<FeatureFlag>() {
-      }.getType();
-
-      for (Map.Entry<String, String> entry : featuresJson.entrySet()) {
-        FeatureFlag featureFlag = gson.fromJson(entry.getValue(), type);
-        if (!featureFlag.isDeleted()) {
-          result.put(entry.getKey(), featureFlag);
+      for (Map.Entry<String, String> entry : allJson.entrySet()) {
+        T item = gson.fromJson(entry.getValue(), kind.getItemClass());
+        if (!item.isDeleted()) {
+          result.put(entry.getKey(), item);
         }
       }
       return result;
     }
   }
 
-  /**
-   * Initializes (or re-initializes) the store with the specified set of features. Any existing entries
-   * will be removed.
-   *
-   * @param features the features to set the store
-   */
   @Override
-  public void init(Map<String, FeatureFlag> features) {
+  public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
     try (Jedis jedis = pool.getResource()) {
       Gson gson = new Gson();
       Transaction t = jedis.multi();
 
-      t.del(featuresKey());
-
-      for (FeatureFlag f : features.values()) {
-        t.hset(featuresKey(), f.getKey(), gson.toJson(f));
+      for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> entry: allData.entrySet()) {
+        String baseKey = itemsKey(entry.getKey()); 
+        t.del(baseKey);
+        for (VersionedData item: entry.getValue().values()) {
+          t.hset(baseKey, item.getKey(), gson.toJson(item));
+        }
       }
 
       t.exec();
@@ -271,36 +276,29 @@ public class RedisFeatureStore implements FeatureStore {
     initCache.put(INIT_KEY, true);
   }
 
-  /**
-   * Deletes the feature associated with the specified key, if it exists and its version
-   * is less than or equal to the specified version.
-   *
-   * @param key     the key of the feature to be deleted
-   * @param version the version for the delete operation
-   */
   @Override
-  public void delete(String key, int version) {
+  public <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version) {
     Jedis jedis = null;
     try {
       Gson gson = new Gson();
       jedis = pool.getResource();
-      jedis.watch(featuresKey());
+      String baseKey = itemsKey(kind);
+      jedis.watch(baseKey);
 
-      FeatureFlag feature = getRedis(key, jedis);
+      VersionedData item = getRedis(kind, key, jedis);
 
-      if (feature != null && feature.getVersion() >= version) {
-        logger.warn("Attempted to delete flag: " + key + " version: " + feature.getVersion() +
-            " with a version that is the same or older: " + version);
+      if (item != null && item.getVersion() >= version) {
+        logger.warn("Attempted to delete key: {} version: {}" +
+            " with a version that is the same or older: {} in \"{}\"",
+            key, item.getVersion(), version, kind.getNamespace());
         return;
       }
 
-      FeatureFlagBuilder newBuilder = new FeatureFlagBuilder(feature);
-      newBuilder.deleted(true);
-      newBuilder.version(version);
-      jedis.hset(featuresKey(), key, gson.toJson(newBuilder.build()));
+      VersionedData deletedItem = kind.makeDeletedItem(key, version);
+      jedis.hset(baseKey, key, gson.toJson(deletedItem));
 
       if (cache != null) {
-        cache.invalidate(key);
+        cache.invalidate(new CacheKey(kind, key));
       }
     } finally {
       if (jedis != null) {
@@ -310,33 +308,28 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
-  /**
-   * Update or insert the feature associated with the specified key, if its version
-   * is less than or equal to the version specified in the argument feature.
-   *
-   * @param key
-   * @param feature
-   */
   @Override
-  public void upsert(String key, FeatureFlag feature) {
+  public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) {
     Jedis jedis = null;
     try {
       jedis = pool.getResource();
       Gson gson = new Gson();
-      jedis.watch(featuresKey());
+      String baseKey = itemsKey(kind);
+      jedis.watch(baseKey);
 
-      FeatureFlag f = getRedisEvenIfDeleted(key, jedis);
+      VersionedData old = getRedisEvenIfDeleted(kind, item.getKey(), jedis);
 
-      if (f != null && f.getVersion() >= feature.getVersion()) {
-        logger.warn("Attempted to update flag: " + key + " version: " + f.getVersion() +
-            " with a version that is the same or older: " + feature.getVersion());
+      if (old != null && old.getVersion() >= item.getVersion()) {
+        logger.warn("Attempted to update key: {} version: {}" +
+            " with a version that is the same or older: {} in \"{}\"",
+            item.getKey(), old.getVersion(), item.getVersion(), kind.getNamespace());
         return;
       }
 
-      jedis.hset(featuresKey(), key, gson.toJson(feature));
+      jedis.hset(baseKey, item.getKey(), gson.toJson(item));
 
       if (cache != null) {
-        cache.invalidate(key);
+        cache.invalidate(new CacheKey(kind, item.getKey()));
       }
     } finally {
       if (jedis != null) {
@@ -387,41 +380,41 @@ public class RedisFeatureStore implements FeatureStore {
     return null;
   }
 
-  private String featuresKey() {
-    return prefix + ":features";
+  private String itemsKey(VersionedDataKind<?> kind) {
+    return prefix + ":" + kind.getNamespace();
   }
 
   private Boolean getInit() {
     try (Jedis jedis = pool.getResource()) {
-      return jedis.exists(featuresKey());
+      return jedis.exists(itemsKey(FEATURES));
     }
   }
 
-  private FeatureFlag getRedis(String key) {
+  private <T extends VersionedData> T getRedis(VersionedDataKind<T> kind, String key) {
     try (Jedis jedis = pool.getResource()) {
-      return getRedis(key, jedis);
+      return getRedis(kind, key, jedis);
     }
   }
 
-  private FeatureFlag getRedis(String key, Jedis jedis) {
-    FeatureFlag f = getRedisEvenIfDeleted(key, jedis);
-    if (f != null && f.isDeleted()) {
-      logger.debug("[get] Key: " + key + " has been deleted. Returning null");
+  private <T extends VersionedData> T getRedis(VersionedDataKind<T> kind, String key, Jedis jedis) {
+    T item = getRedisEvenIfDeleted(kind, key, jedis);
+    if (item != null && item.isDeleted()) {
+      logger.debug("[get] Key: {} has been deleted in \"{}\". Returning null", key, kind.getNamespace());
       return null;
     }
-    return f;
+    return item;
   }
 
-  private FeatureFlag getRedisEvenIfDeleted(String key, Jedis jedis) {
+  private <T extends VersionedData> T getRedisEvenIfDeleted(VersionedDataKind<T> kind, String key, Jedis jedis) {
     Gson gson = new Gson();
-    String featureJson = jedis.hget(featuresKey(), key);
+    String json = jedis.hget(itemsKey(kind), key);
 
-    if (featureJson == null) {
-      logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
+    if (json == null) {
+      logger.debug("[get] Key: {} not found in \"{}\". Returning null", key, kind.getNamespace());
       return null;
     }
 
-    return gson.fromJson(featureJson, FeatureFlag.class);
+    return gson.fromJson(json, kind.getItemClass());
   }
 
   private static JedisPoolConfig getPoolConfig() {

@@ -16,7 +16,7 @@ public class InMemoryFeatureStore implements FeatureStore {
   private static final Logger logger = LoggerFactory.getLogger(InMemoryFeatureStore.class);
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-  private final Map<String, FeatureFlag> features = new HashMap<>();
+  private final Map<VersionedDataKind<?>, Map<String, VersionedData>> allData = new HashMap<>();
   private volatile boolean initialized = false;
 
 
@@ -31,20 +31,31 @@ public class InMemoryFeatureStore implements FeatureStore {
    * been deleted.
    */
   @Override
-  public FeatureFlag get(String key) {
+  public <T extends VersionedData> T get(VersionedDataKind<T> kind, String key) {
     try {
       lock.readLock().lock();
-      FeatureFlag featureFlag = features.get(key);
-      if (featureFlag == null) {
-        logger.debug("[get] Key: " + key + " not found in feature store. Returning null");
+      Map<String, VersionedData> items = allData.get(kind);
+      if (items == null) {
+        logger.debug("[get] no objects exist for \"{}\". Returning null", kind.getNamespace());
         return null;
       }
-      if (featureFlag.isDeleted()) {
-        logger.debug("[get] Key: " + key + " has been deleted. Returning null");
+      Object o = items.get(key);
+      if (o == null) {
+        logger.debug("[get] Key: {} not found in \"{}\". Returning null", key, kind.getNamespace());
         return null;
       }
-      logger.debug("[get] Key: " + key + " with version: " + featureFlag.getVersion() + " found in feature store.");
-      return featureFlag;
+      if (!kind.getItemClass().isInstance(o)) {
+        logger.warn("[get] Unexpected object class {} found for key: {} in \"{}\". Returning null",
+            o.getClass().getName(), key, kind.getNamespace());
+        return null;
+      }
+      T item = kind.getItemClass().cast(o);
+      if (item.isDeleted()) {
+        logger.debug("[get] Key: {} has been deleted. Returning null", key);
+        return null;
+      }
+      logger.debug("[get] Key: {} with version: {} found in \"{}\".", key, item.getVersion(), kind.getNamespace());
+      return item;
     } finally {
       lock.readLock().unlock();
     }
@@ -56,14 +67,16 @@ public class InMemoryFeatureStore implements FeatureStore {
    * @return a map of all associated features.
    */
   @Override
-  public Map<String, FeatureFlag> all() {
+  public <T extends VersionedData> Map<String, T> all(VersionedDataKind<T> kind) {
     try {
       lock.readLock().lock();
-      Map<String, FeatureFlag> fs = new HashMap<>();
-
-      for (Map.Entry<String, FeatureFlag> entry : features.entrySet()) {
-        if (!entry.getValue().isDeleted()) {
-          fs.put(entry.getKey(), entry.getValue());
+      Map<String, T> fs = new HashMap<>();
+      Map<String, VersionedData> items = allData.get(kind);
+      if (items != null) {
+        for (Map.Entry<String, ? extends VersionedData> entry : items.entrySet()) {
+          if (!entry.getValue().isDeleted()) {
+            fs.put(entry.getKey(), kind.getItemClass().cast(entry.getValue()));
+          }
         }
       }
       return fs;
@@ -79,12 +92,15 @@ public class InMemoryFeatureStore implements FeatureStore {
    *
    * @param features the features to set the store
    */
+  @SuppressWarnings("unchecked")
   @Override
-  public void init(Map<String, FeatureFlag> features) {
+  public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
     try {
       lock.writeLock().lock();
-      this.features.clear();
-      this.features.putAll(features);
+      this.allData.clear();
+      for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> entry: allData.entrySet()) {
+        this.allData.put(entry.getKey(), (Map<String, VersionedData>)entry.getValue());
+      }
       initialized = true;
     } finally {
       lock.writeLock().unlock();
@@ -99,21 +115,17 @@ public class InMemoryFeatureStore implements FeatureStore {
    * @param version the version for the delete operation
    */
   @Override
-  public void delete(String key, int version) {
+  public <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version) {
     try {
       lock.writeLock().lock();
-      FeatureFlag f = features.get(key);
-      if (f != null && f.getVersion() < version) {
-        FeatureFlagBuilder newBuilder = new FeatureFlagBuilder(f);
-        newBuilder.deleted(true);
-        newBuilder.version(version);
-        features.put(key, newBuilder.build());
-      } else if (f == null) {
-        f = new FeatureFlagBuilder(key)
-            .deleted(true)
-            .version(version)
-            .build();
-        features.put(key, f);
+      Map<String, VersionedData> items = allData.get(kind);
+      if (items == null) {
+        items = new HashMap<>();
+        allData.put(kind, items);
+      }
+      VersionedData item = items.get(key);
+      if (item == null || item.getVersion() < version) {
+        items.put(key, kind.makeDeletedItem(key, version));
       }
     } finally {
       lock.writeLock().unlock();
@@ -128,13 +140,18 @@ public class InMemoryFeatureStore implements FeatureStore {
    * @param feature
    */
   @Override
-  public void upsert(String key, FeatureFlag feature) {
+  public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) {
     try {
       lock.writeLock().lock();
-      FeatureFlag old = features.get(key);
+      Map<String, VersionedData> items = (Map<String, VersionedData>) allData.get(kind);
+      if (items == null) {
+        items = new HashMap<>();
+        allData.put(kind, items);
+      }
+      VersionedData old = items.get(item.getKey());
 
-      if (old == null || old.getVersion() < feature.getVersion()) {
-        features.put(key, feature);
+      if (old == null || old.getVersion() < item.getVersion()) {
+        items.put(item.getKey(), item);
       }
     } finally {
       lock.writeLock().unlock();

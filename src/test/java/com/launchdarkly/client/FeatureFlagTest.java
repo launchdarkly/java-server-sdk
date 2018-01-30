@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static java.util.Collections.singletonList;
 
 public class FeatureFlagTest {
@@ -26,7 +27,7 @@ public class FeatureFlagTest {
     String keyB = "keyB";
     FeatureFlag f1 = newFlagWithPrereq(keyA, keyB);
 
-    featureStore.upsert(f1.getKey(), f1);
+    featureStore.upsert(FEATURES, f1);
     LDUser user = new LDUser.Builder("userKey").build();
     FeatureFlag.EvalResult actual = f1.evaluate(user, featureStore);
 
@@ -44,9 +45,9 @@ public class FeatureFlagTest {
     FeatureFlag flagB = newFlagWithPrereq(keyB, keyC);
     FeatureFlag flagC = newFlagOff(keyC);
 
-    featureStore.upsert(flagA.getKey(), flagA);
-    featureStore.upsert(flagB.getKey(), flagB);
-    featureStore.upsert(flagC.getKey(), flagC);
+    featureStore.upsert(FEATURES, flagA);
+    featureStore.upsert(FEATURES, flagB);
+    featureStore.upsert(FEATURES, flagC);
 
     LDUser user = new LDUser.Builder("userKey").build();
 

@@ -49,7 +49,8 @@ public class PollingProcessor implements UpdateProcessor {
       @Override
       public void run() {
         try {
-          store.init(requestor.getAllFlags());
+          FeatureRequestor.AllData allData = requestor.getAllData();
+          store.init(FeatureRequestor.toVersionedDataMap(allData));
           if (!initialized.getAndSet(true)) {
             logger.info("Initialized LaunchDarkly client.");
             initFuture.set(null);

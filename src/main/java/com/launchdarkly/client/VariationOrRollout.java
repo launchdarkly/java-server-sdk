@@ -41,7 +41,7 @@ class VariationOrRollout {
     return null;
   }
 
-  private float bucketUser(LDUser user, String key, String attr, String salt) {
+  static float bucketUser(LDUser user, String key, String attr, String salt) {
     JsonElement userValue = user.getValueForEvaluation(attr);
     String idHash;
     if (userValue != null) {

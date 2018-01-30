@@ -90,7 +90,15 @@ enum Operator {
     public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
       return compareValues(ComparisonOp.GT, uValue, cValue, OperandType.semVer);
     }
+  },
+  segmentMatch {
+    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+      // We shouldn't call apply() for this operator, because it is really implemented in
+      // Clause.matchesUser().
+      return false;
+    }
   };
+
   abstract boolean apply(JsonPrimitive uValue, JsonPrimitive cValue);
   
   private static boolean compareValues(ComparisonOp op, JsonPrimitive uValue, JsonPrimitive cValue, OperandType asType) {

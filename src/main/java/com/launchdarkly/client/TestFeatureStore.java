@@ -1,11 +1,14 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
 
 /**
  * A decorated {@link InMemoryFeatureStore} which provides functionality to create (or override) true or false feature flags for all users.
@@ -13,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Using this store is useful for testing purposes when you want to have runtime support for turning specific features on or off.
  */
 public class TestFeatureStore extends InMemoryFeatureStore {
-  private static List<JsonElement> TRUE_FALSE_VARIATIONS = Arrays.asList(
+  static List<JsonElement> TRUE_FALSE_VARIATIONS = Arrays.asList(
       (JsonElement) (new JsonPrimitive(true)),
       (JsonElement) (new JsonPrimitive(false))
   );
@@ -34,7 +37,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
             .variations(TRUE_FALSE_VARIATIONS)
             .version(version.incrementAndGet())
             .build();
-    upsert(key, newFeature);
+    upsert(FEATURES, newFeature);
   }
 
   /**
@@ -112,12 +115,12 @@ public class TestFeatureStore extends InMemoryFeatureStore {
             .variations(Arrays.asList(value))
             .version(version.incrementAndGet())
             .build();
-    upsert(key, newFeature);
+    upsert(FEATURES, newFeature);
   }
   
   @Override
-  public void init(java.util.Map<String,FeatureFlag> features) {
-    super.init(features);
+  public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
+    super.init(allData);
     initializedForTests = true;
   }
   
