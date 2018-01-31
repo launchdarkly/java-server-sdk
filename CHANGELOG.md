@@ -3,6 +3,14 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.5.1] - 2018-01-31
+
+## Changed
+- All threads created by the client are now daemon threads. 
+- Fixed a bug that could result in a previously deleted feature flag appearing to be available again.
+- Reduced the logging level for use of an unknown feature flag from `WARN` to `INFO`.
+
+
 ## [2.5.0] - 2018-01-08
 ## Added
 - Support for specifying [private user attributes](https://docs.launchdarkly.com/docs/private-user-attributes) in order to prevent user attributes from being sent in analytics events back to LaunchDarkly. See the `allAttributesPrivate` and `privateAttributeNames` methods on `LDConfig.Builder` as well as the `privateX` methods on `LDUser.Builder`.
