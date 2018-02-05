@@ -31,7 +31,7 @@ libraries.shaded = [
     "commons-codec:commons-codec:1.10",
     "com.google.guava:guava:19.0",
     "joda-time:joda-time:2.9.3",
-    "com.launchdarkly:okhttp-eventsource:1.6.0",
+    "com.launchdarkly:okhttp-eventsource:1.7.1",
     "redis.clients:jedis:2.9.0",
     "com.vdurmont:semver4j:2.1.0"
 ]
