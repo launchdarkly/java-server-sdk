@@ -1,18 +1,17 @@
 package com.launchdarkly.client;
 
-
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
-import static java.util.Collections.singletonList;
-
-import java.util.Arrays;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
 
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
+import java.util.Arrays;
+
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
+import static java.util.Collections.singletonList;
 
 public class FeatureFlagTest {
 
