@@ -8,7 +8,7 @@ import java.util.Map;
 
 import com.google.gson.reflect.TypeToken;
 
-public class Segment implements VersionedData {
+class Segment implements VersionedData {
 
   private static final Type mapType = new TypeToken<Map<String, Segment>>() { }.getType();
 
