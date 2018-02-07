@@ -16,6 +16,15 @@ class Clause {
   private List<JsonPrimitive> values; //interpreted as an OR of values
   private boolean negate;
 
+  public Clause() { }
+  
+  public Clause(String attribute, Operator op, List<JsonPrimitive> values, boolean negate) {
+    this.attribute = attribute;
+    this.op = op;
+    this.values = values;
+    this.negate = negate;
+  }
+  
   boolean matchesUser(LDUser user) {
     JsonElement userValue = user.getValueForEvaluation(attribute);
     if (userValue == null) {
