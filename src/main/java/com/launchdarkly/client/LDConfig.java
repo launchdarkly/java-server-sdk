@@ -362,8 +362,8 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether this client should use the LaunchDarkly relay in daemon mode, versus subscribing to
-     * the streaming or polling API.
+     * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
+     * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
      *
      * @param useLdd true to use the relay in daemon mode; false to use streaming or polling 
      * @return the builder
