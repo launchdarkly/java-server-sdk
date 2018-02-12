@@ -14,7 +14,7 @@ public interface UpdateProcessor extends Closeable {
 
   /**
    * Returns true once the client has been initialized and will never return false again.
-   * @return
+   * @return true if the client has been initialized
    */
   boolean initialized();
 

@@ -384,7 +384,7 @@ public class LDClient implements LDClientInterface {
    * Closes the LaunchDarkly client event processing thread. This should only
    * be called on application shutdown.
    *
-   * @throws IOException
+   * @throws IOException if an exception is thrown by one of the underlying network services
    */
   @Override
   public void close() throws IOException {

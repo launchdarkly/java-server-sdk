@@ -7,21 +7,27 @@ public abstract class VersionedDataKind<T extends VersionedData> {
   
   /**
    * A short string that serves as the unique name for the collection of these objects, e.g. "features".
+   * @return a namespace string
    */
   public abstract String getNamespace();
   
   /**
    * The Java class for objects of this type.
+   * @return a Java class
    */
   public abstract Class<T> getItemClass();
   
   /**
    * The path prefix for objects of this type in events received from the streaming API.
+   * @return the URL path
    */
   public abstract String getStreamApiPath();
   
   /**
    * Return an instance of this type with the specified key and version, and deleted=true.
+   * @param key the unique key
+   * @param version the version number
+   * @return a new instance
    */
   public abstract T makeDeletedItem(String key, int version);
   
