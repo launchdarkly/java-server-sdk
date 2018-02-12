@@ -9,8 +9,8 @@ import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * A thread-safe, versioned store for {@link FeatureFlag} objects based on a
- * {@link HashMap}
+ * A thread-safe, versioned store for {@link FeatureFlag} objects and related data based on a
+ * {@link HashMap}.
  */
 public class InMemoryFeatureStore implements FeatureStore {
   private static final Logger logger = LoggerFactory.getLogger(InMemoryFeatureStore.class);
@@ -19,17 +19,6 @@ public class InMemoryFeatureStore implements FeatureStore {
   private final Map<VersionedDataKind<?>, Map<String, VersionedData>> allData = new HashMap<>();
   private volatile boolean initialized = false;
 
-
-  /**
-   * Returns the {@link FeatureFlag} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link FeatureFlag} has
-   * been deleted.
-   *
-   * @param key the key whose associated {@link FeatureFlag} is to be returned
-   * @return the {@link FeatureFlag} to which the specified key is mapped, or
-   * null if the key is not associated or the associated {@link FeatureFlag} has
-   * been deleted.
-   */
   @Override
   public <T extends VersionedData> T get(VersionedDataKind<T> kind, String key) {
     try {
@@ -61,11 +50,6 @@ public class InMemoryFeatureStore implements FeatureStore {
     }
   }
 
-  /**
-   * Returns a {@link java.util.Map} of all associated features.
-   *
-   * @return a map of all associated features.
-   */
   @Override
   public <T extends VersionedData> Map<String, T> all(VersionedDataKind<T> kind) {
     try {
@@ -85,13 +69,6 @@ public class InMemoryFeatureStore implements FeatureStore {
     }
   }
 
-
-  /**
-   * Initializes (or re-initializes) the store with the specified set of features. Any existing entries
-   * will be removed.
-   *
-   * @param features the features to set the store
-   */
   @SuppressWarnings("unchecked")
   @Override
   public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
@@ -107,13 +84,6 @@ public class InMemoryFeatureStore implements FeatureStore {
     }
   }
 
-  /**
-   * Deletes the feature associated with the specified key, if it exists and its version
-   * is less than or equal to the specified version.
-   *
-   * @param key     the key of the feature to be deleted
-   * @param version the version for the delete operation
-   */
   @Override
   public <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version) {
     try {
@@ -132,13 +102,6 @@ public class InMemoryFeatureStore implements FeatureStore {
     }
   }
 
-  /**
-   * Update or insert the feature associated with the specified key, if its version
-   * is less than or equal to the version specified in the argument feature.
-   *
-   * @param key
-   * @param feature
-   */
   @Override
   public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) {
     try {
@@ -158,11 +121,6 @@ public class InMemoryFeatureStore implements FeatureStore {
     }
   }
 
-  /**
-   * Returns true if this store has been initialized
-   *
-   * @return true if this store has been initialized
-   */
   @Override
   public boolean initialized() {
     return initialized;
@@ -171,7 +129,7 @@ public class InMemoryFeatureStore implements FeatureStore {
   /**
    * Does nothing; this class does not have any resources to release
    *
-   * @throws IOException
+   * @throws IOException will never happen
    */
   @Override
   public void close() throws IOException {

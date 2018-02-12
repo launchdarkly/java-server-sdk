@@ -339,11 +339,6 @@ public class RedisFeatureStore implements FeatureStore {
     }
   }
 
-  /**
-   * Returns true if this store has been initialized
-   *
-   * @return true if this store has been initialized
-   */
   @Override
   public boolean initialized() {
     // The LoadingCache takes care of both coalescing multiple simultaneous requests and memoizing
@@ -355,7 +350,7 @@ public class RedisFeatureStore implements FeatureStore {
   /**
    * Releases all resources associated with the store. The store must no longer be used once closed.
    *
-   * @throws IOException
+   * @throws IOException if an underlying service threw an exception
    */
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly RedisFeatureStore");

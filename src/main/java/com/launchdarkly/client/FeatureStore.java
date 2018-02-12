@@ -19,6 +19,7 @@ public interface FeatureStore extends Closeable {
    * null if the key is not associated or the associated object has
    * been deleted.
    *
+   * @param <T> class of the object that will be returned
    * @param kind the kind of object to get
    * @param key the key whose associated object is to be returned
    * @return the object to which the specified key is mapped, or
@@ -30,6 +31,7 @@ public interface FeatureStore extends Closeable {
   /**
    * Returns a {@link java.util.Map} of all associated objects of a given kind.
    *
+   * @param <T> class of the objects that will be returned in the map
    * @param kind the kind of objects to get
    * @return a map of all associated object.
    */
@@ -49,6 +51,7 @@ public interface FeatureStore extends Closeable {
    * Deletes the object associated with the specified key, if it exists and its version
    * is less than or equal to the specified version.
    *
+   * @param <T> class of the object to be deleted
    * @param kind the kind of object to delete
    * @param key the key of the object to be deleted
    * @param version the version for the delete operation
@@ -59,8 +62,9 @@ public interface FeatureStore extends Closeable {
    * Update or insert the object associated with the specified key, if its version
    * is less than or equal to the version specified in the argument object.
    *
+   * @param <T> class of the object to be updated
    * @param kind the kind of object to update
-   * @param item
+   * @param item the object to update or insert
    */
   <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item);
 
