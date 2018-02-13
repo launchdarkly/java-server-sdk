@@ -41,23 +41,35 @@ class VariationOrRollout {
     return null;
   }
 
-  private float bucketUser(LDUser user, String key, String attr, String salt) {
+  static float bucketUser(LDUser user, String key, String attr, String salt) {
     JsonElement userValue = user.getValueForEvaluation(attr);
-    String idHash;
-    if (userValue != null) {
-      if (userValue.isJsonPrimitive() && userValue.getAsJsonPrimitive().isString()) {
-        idHash = userValue.getAsString();
-        if (user.getSecondary() != null) {
-          idHash = idHash + "." + user.getSecondary().getAsString();
-        }
-        String hash = DigestUtils.sha1Hex(key + "." + salt + "." + idHash).substring(0, 15);
-        long longVal = Long.parseLong(hash, 16);
-        return (float) longVal / long_scale;
+    String idHash = getBucketableStringValue(userValue);
+    if (idHash != null) {
+      if (user.getSecondary() != null) {
+        idHash = idHash + "." + user.getSecondary().getAsString();
       }
+      String hash = DigestUtils.sha1Hex(key + "." + salt + "." + idHash).substring(0, 15);
+      long longVal = Long.parseLong(hash, 16);
+      return (float) longVal / long_scale;
     }
     return 0F;
   }
 
+  private static String getBucketableStringValue(JsonElement userValue) {
+    if (userValue != null && userValue.isJsonPrimitive()) {
+      if (userValue.getAsJsonPrimitive().isString()) {
+        return userValue.getAsString();
+      }
+      if (userValue.getAsJsonPrimitive().isNumber()) {
+        Number n = userValue.getAsJsonPrimitive().getAsNumber();
+        if (n instanceof Integer) {
+          return userValue.getAsString();
+        }
+      }
+    }
+    return null;
+  }
+  
   static class Rollout {
     private List<WeightedVariation> variations;
     private String bucketBy;

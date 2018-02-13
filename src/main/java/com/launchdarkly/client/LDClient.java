@@ -155,7 +155,7 @@ public class LDClient implements LDClientInterface {
   }
 
   /**
-   * Register the user
+   * Registers the user.
    *
    * @param user the user to register
    */
@@ -440,6 +440,15 @@ public class LDClient implements LDClientInterface {
     return null;
   }
 
+  /**
+   * Returns the current version string of the client library.
+   * @return a version string conforming to Semantic Versioning (http://semver.org)
+   */
+  @Override
+  public String version() {
+    return CLIENT_VERSION;
+  }
+  
   private static String getClientVersion() {
     Class clazz = LDConfig.class;
     String className = clazz.getSimpleName() + ".class";

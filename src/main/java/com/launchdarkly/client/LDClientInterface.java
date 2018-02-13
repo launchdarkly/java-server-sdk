@@ -40,4 +40,6 @@ public interface LDClientInterface extends Closeable {
   boolean isOffline();
 
   String secureModeHash(LDUser user);
+  
+  String version();
 }
