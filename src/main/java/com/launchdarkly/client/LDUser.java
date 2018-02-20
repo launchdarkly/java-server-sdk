@@ -71,10 +71,14 @@ public class LDUser {
   }
 
   protected JsonElement getValueForEvaluation(String attribute) {
+    JsonElement returnVal = getCustom(attribute);
+    if (returnVal != null) {
+      return returnVal;
+    }
     try {
       return UserAttribute.valueOf(attribute).get(this);
     } catch (IllegalArgumentException expected) {
-      return getCustom(attribute);
+      return null;
     }
   }
 
@@ -127,7 +131,7 @@ public class LDUser {
   }
 
   JsonElement getCustom(String key) {
-    if (custom != null) {
+    if (custom != null && !custom.isEmpty()) {
       return custom.get(key);
     }
     return null;
