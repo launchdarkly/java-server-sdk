@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class PollingProcessor implements UpdateProcessor {
+class PollingProcessor implements UpdateProcessor {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
   private final FeatureRequestor requestor;

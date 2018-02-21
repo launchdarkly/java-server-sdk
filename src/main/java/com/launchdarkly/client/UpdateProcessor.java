@@ -4,7 +4,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.Future;
 
-public interface UpdateProcessor extends Closeable {
+interface UpdateProcessor extends Closeable {
 
   /**
    * Starts the client.
