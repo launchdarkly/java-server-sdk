@@ -5,12 +5,14 @@ import com.google.gson.reflect.TypeToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-class FeatureFlag {
+class FeatureFlag implements VersionedData {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
 
   private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {
@@ -76,7 +78,7 @@ class FeatureFlag {
     boolean prereqOk = true;
     if (prerequisites != null) {
       for (Prerequisite prereq : prerequisites) {
-        FeatureFlag prereqFeatureFlag = featureStore.get(prereq.getKey());
+        FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
         JsonElement prereqEvalResult = null;
         if (prereqFeatureFlag == null) {
           logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
@@ -100,12 +102,12 @@ class FeatureFlag {
       }
     }
     if (prereqOk) {
-      return getVariation(evaluateIndex(user));
+      return getVariation(evaluateIndex(user, featureStore));
     }
     return null;
   }
 
-  private Integer evaluateIndex(LDUser user) {
+  private Integer evaluateIndex(LDUser user, FeatureStore store) {
     // Check to see if targets match
     if (targets != null) {
       for (Target target : targets) {
@@ -119,7 +121,7 @@ class FeatureFlag {
     // Now walk through the rules and see if any match
     if (rules != null) {
       for (Rule rule : rules) {
-        if (rule.matchesUser(user)) {
+        if (rule.matchesUser(store, user)) {
           return rule.variationIndexForUser(user, key, salt);
         }
       }
@@ -156,15 +158,15 @@ class FeatureFlag {
     }
   }
 
-  int getVersion() {
+  public int getVersion() {
     return version;
   }
 
-  String getKey() {
+  public String getKey() {
     return key;
   }
 
-  boolean isDeleted() {
+  public boolean isDeleted() {
     return deleted;
   }
 

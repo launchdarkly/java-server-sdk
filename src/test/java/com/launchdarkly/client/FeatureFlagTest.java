@@ -1,14 +1,16 @@
 package com.launchdarkly.client;
 
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
 
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static java.util.Collections.singletonList;
 
 public class FeatureFlagTest {
@@ -26,7 +28,7 @@ public class FeatureFlagTest {
     String keyB = "keyB";
     FeatureFlag f1 = newFlagWithPrereq(keyA, keyB);
 
-    featureStore.upsert(f1.getKey(), f1);
+    featureStore.upsert(FEATURES, f1);
     LDUser user = new LDUser.Builder("userKey").build();
     FeatureFlag.EvalResult actual = f1.evaluate(user, featureStore);
 
@@ -44,9 +46,9 @@ public class FeatureFlagTest {
     FeatureFlag flagB = newFlagWithPrereq(keyB, keyC);
     FeatureFlag flagC = newFlagOff(keyC);
 
-    featureStore.upsert(flagA.getKey(), flagA);
-    featureStore.upsert(flagB.getKey(), flagB);
-    featureStore.upsert(flagC.getKey(), flagC);
+    featureStore.upsert(FEATURES, flagA);
+    featureStore.upsert(FEATURES, flagB);
+    featureStore.upsert(FEATURES, flagC);
 
     LDUser user = new LDUser.Builder("userKey").build();
 
@@ -66,6 +68,30 @@ public class FeatureFlagTest {
     Assert.assertEquals(0, flagCResult.getPrerequisiteEvents().size());
   }
 
+  @Test
+  public void testSegmentMatchClauseRetrievesSegmentFromStore() throws Exception {
+    Segment segment = new Segment.Builder("segkey")
+        .included(Arrays.asList("foo"))
+        .version(1)
+        .build();
+    featureStore.upsert(SEGMENTS, segment);
+    
+    FeatureFlag flag = segmentMatchBooleanFlag("segkey");
+    LDUser user = new LDUser.Builder("foo").build();
+    
+    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
+    Assert.assertEquals(new JsonPrimitive(true), result.getValue());
+  }
+
+  @Test
+  public void testSegmentMatchClauseFallsThroughIfSegmentNotFound() throws Exception {
+    FeatureFlag flag = segmentMatchBooleanFlag("segkey");
+    LDUser user = new LDUser.Builder("foo").build();
+    
+    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
+    Assert.assertEquals(new JsonPrimitive(false), result.getValue());
+  }
+  
   private FeatureFlag newFlagWithPrereq(String featureKey, String prereqKey) {
     return new FeatureFlagBuilder(featureKey)
         .prerequisites(singletonList(new Prerequisite(prereqKey, 0)))
@@ -80,6 +106,17 @@ public class FeatureFlagTest {
         .variations(Arrays.<JsonElement>asList(new JsonPrimitive(0), new JsonPrimitive(1)))
         .fallthrough(new VariationOrRollout(0, null))
         .on(false)
+        .build();
+  }
+  
+  private FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
+    Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(new JsonPrimitive(segmentKey)), false);
+    Rule rule = new Rule(Arrays.asList(clause), 1, null);
+    return new FeatureFlagBuilder("key")
+        .variations(Arrays.<JsonElement>asList(new JsonPrimitive(false), new JsonPrimitive(true)))
+        .fallthrough(new VariationOrRollout(0, null))
+        .on(true)
+        .rules(Arrays.asList(rule))
         .build();
   }
 }

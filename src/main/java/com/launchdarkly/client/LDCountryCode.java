@@ -2257,7 +2257,7 @@ public enum LDCountryCode
    * </p>
    *
    * <table border="1" style="border-collapse: collapse;" cellpadding="5" summary="">
-   * <tr bgcolor="#FF8C00">
+   * <tr style="background-color: #ff8c00;">
    *   <th>CountryCode</th>
    *   <th>Locale</th>
    * </tr>

@@ -1,5 +1,8 @@
 package com.launchdarkly.client;
 
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
+
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.Future;
@@ -10,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
@@ -78,26 +82,41 @@ class StreamProcessor implements UpdateProcessor {
       public void onMessage(String name, MessageEvent event) throws Exception {
         Gson gson = new Gson();
         switch (name) {
-          case PUT:
-            store.init(FeatureFlag.fromJsonMap(config, event.getData()));
+          case PUT: {
+            FeatureRequestor.AllData allData = gson.fromJson(event.getData(), FeatureRequestor.AllData.class); 
+            store.init(FeatureRequestor.toVersionedDataMap(allData));
             if (!initialized.getAndSet(true)) {
               initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
             }
             break;
+          }
           case PATCH: {
-            FeaturePatchData data = gson.fromJson(event.getData(), FeaturePatchData.class);
-            store.upsert(data.key(), data.feature());
+            PatchData data = gson.fromJson(event.getData(), PatchData.class);
+            if (FEATURES.getKeyFromStreamApiPath(data.path) != null) {
+              store.upsert(FEATURES, gson.fromJson(data.data, FeatureFlag.class));
+            } else if (SEGMENTS.getKeyFromStreamApiPath(data.path) != null) {
+              store.upsert(SEGMENTS, gson.fromJson(data.data, Segment.class));
+            }
             break;
           }
           case DELETE: {
-            FeatureDeleteData data = gson.fromJson(event.getData(), FeatureDeleteData.class);
-            store.delete(data.key(), data.version());
+            DeleteData data = gson.fromJson(event.getData(), DeleteData.class);
+            String featureKey = FEATURES.getKeyFromStreamApiPath(data.path);
+            if (featureKey != null) {
+              store.delete(FEATURES, featureKey, data.version);
+            } else {
+              String segmentKey = SEGMENTS.getKeyFromStreamApiPath(data.path);
+              if (segmentKey != null) {
+                store.delete(SEGMENTS, segmentKey, data.version);
+              }
+            }
             break;
           }
           case INDIRECT_PUT:
             try {
-              store.init(requestor.getAllFlags());
+              FeatureRequestor.AllData allData = requestor.getAllData();
+              store.init(FeatureRequestor.toVersionedDataMap(allData));
               if (!initialized.getAndSet(true)) {
                 initFuture.set(null);
                 logger.info("Initialized LaunchDarkly client.");
@@ -107,10 +126,19 @@ class StreamProcessor implements UpdateProcessor {
             }
             break;
           case INDIRECT_PATCH:
-            String key = event.getData();
+            String path = event.getData();
             try {
-              FeatureFlag feature = requestor.getFlag(key);
-              store.upsert(key, feature);
+              String featureKey = FEATURES.getKeyFromStreamApiPath(path);
+              if (featureKey != null) {
+                FeatureFlag feature = requestor.getFlag(featureKey);
+                store.upsert(FEATURES, feature);
+              } else {
+                String segmentKey = SEGMENTS.getKeyFromStreamApiPath(path);
+                if (segmentKey != null) {
+                  Segment segment = requestor.getSegment(segmentKey);
+                  store.upsert(SEGMENTS, segment);
+                }
+              }
             } catch (IOException e) {
               logger.error("Encountered exception in LaunchDarkly client", e);
             }
@@ -133,7 +161,7 @@ class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/flags"))
+    EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/all"))
         .connectionErrorHandler(connectionErrorHandler)
         .headers(headers)
         .reconnectTimeMs(config.reconnectTimeMs)
@@ -172,43 +200,21 @@ class StreamProcessor implements UpdateProcessor {
     return initialized.get();
   }
 
-  FeatureFlag getFeature(String key) {
-    return store.get(key);
-  }
-
-  private static final class FeaturePatchData {
+  private static final class PatchData {
     String path;
-    FeatureFlag data;
+    JsonElement data;
 
-    public FeaturePatchData() {
+    public PatchData() {
 
     }
-
-    String key() {
-      return path.substring(1);
-    }
-
-    FeatureFlag feature() {
-      return data;
-    }
-
   }
 
-  private static final class FeatureDeleteData {
+  private static final class DeleteData {
     String path;
     int version;
 
-    public FeatureDeleteData() {
+    public DeleteData() {
 
     }
-
-    String key() {
-      return path.substring(1);
-    }
-
-    int version() {
-      return version;
-    }
-
   }
 }

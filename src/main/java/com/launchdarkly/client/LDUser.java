@@ -171,7 +171,7 @@ public class LDUser {
     return result;
   }
 
-  public static class UserAdapter extends TypeAdapter<LDUser> {
+  static class UserAdapter extends TypeAdapter<LDUser> {
     private final LDConfig config;
 
     public UserAdapter(LDConfig config) {
@@ -290,7 +290,6 @@ public class LDUser {
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link LDUser} objects. Builder
    * calls can be chained, enabling the following pattern:
-   * <p>
    * <pre>
    * LDUser user = new LDUser.Builder("key")
    *      .country("US")
@@ -313,7 +312,7 @@ public class LDUser {
     private Set<String> privateAttrNames;
 
     /**
-     * Create a builder with the specified key
+     * Creates a builder with the specified key.
      *
      * @param key the unique key for this user
      */
@@ -324,7 +323,7 @@ public class LDUser {
     }
 
     /**
-    * Create a builder with an existing user
+    * Creates a builder based on an existing user.
     *
     * @param user an existing {@code LDUser}
     */
@@ -349,7 +348,7 @@ public class LDUser {
     }
     
     /**
-     * Set the IP for a user
+     * Sets the IP for a user.
      *
      * @param s the IP address for the user
      * @return the builder
@@ -360,7 +359,7 @@ public class LDUser {
     }
 
     /**
-     * Set the IP for a user, and ensures that the IP attribute is not sent back to LaunchDarkly
+     * Sets the IP for a user, and ensures that the IP attribute is not sent back to LaunchDarkly.
      *
      * @param s the IP address for the user
      * @return the builder
@@ -370,18 +369,34 @@ public class LDUser {
       return ip(s);
     }
 
+    /**
+     * Sets the secondary key for a user. This affects
+     * <a href="https://docs.launchdarkly.com/docs/targeting-users#section-targeting-rules-based-on-user-attributes">feature flag targeting</a>
+     * as follows: if you have chosen to bucket users by a specific attribute, the secondary key (if set)
+     * is used to further distinguish between users who are otherwise identical according to that attribute.
+     * @param s the secondary key for the user
+     * @return the builder
+     */
     public Builder secondary(String s) {
       this.secondary = s;
       return this;
     }
 
+    /**
+     * Sets the secondary key for a user, and ensures that the secondary key attribute is not sent back to
+     * LaunchDarkly.
+     * @param s the secondary key for the user
+     * @return the builder
+     */
     public Builder privateSecondary(String s) {
       privateAttrNames.add("secondary");
       return secondary(s);
     }
 
     /**
-     * Set the country for a user. The country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
+     * Set the country for a user.
+     * <p>
+     * The country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
      * alpha-2 or alpha-3 code. If it is not a valid ISO-3166-1 code, an attempt will be made to look up the country by its name.
      * If that fails, a warning will be logged, and the country will not be set.
      *
@@ -415,9 +430,11 @@ public class LDUser {
     }
 
     /**
-     * Set the country for a user. The country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
+     * Set the country for a user, and ensures that the country attribute will not be sent back to LaunchDarkly.
+     * <p>
+     * The country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
      * alpha-2 or alpha-3 code. If it is not a valid ISO-3166-1 code, an attempt will be made to look up the country by its name.
-     * If that fails, a warning will be logged, and the country will not be set. The country attribute will not be sent back to LaunchDarkly.
+     * If that fails, a warning will be logged, and the country will not be set.
      *
      * @param s the country for the user
      * @return the builder
@@ -439,7 +456,7 @@ public class LDUser {
     }
 
     /**
-     * Set the country for a user. The country attribute will not be sent back to LaunchDarkly.
+     * Set the country for a user, and ensures that the country attribute will not be sent back to LaunchDarkly.
      *
      * @param country the country for the user
      * @return the builder
@@ -462,7 +479,7 @@ public class LDUser {
 
 
     /**
-     * Sets the user's first name. The first name attribute will not be sent back to LaunchDarkly.
+     * Sets the user's first name, and ensures that the first name attribute will not be sent back to LaunchDarkly.
      *
      * @param firstName the user's first name
      * @return the builder
@@ -474,7 +491,7 @@ public class LDUser {
 
 
     /**
-     * Sets whether this user is anonymous
+     * Sets whether this user is anonymous.
      *
      * @param anonymous whether the user is anonymous
      * @return the builder
@@ -485,7 +502,7 @@ public class LDUser {
     }
 
     /**
-     * Sets the user's last name
+     * Sets the user's last name.
      *
      * @param lastName the user's last name
      * @return the builder
@@ -496,7 +513,7 @@ public class LDUser {
     }
 
     /**
-     * Sets the user's last name. The last name attribute will not be sent back to LaunchDarkly.
+     * Sets the user's last name, and ensures that the last name attribute will not be sent back to LaunchDarkly.
      *
      * @param lastName the user's last name
      * @return the builder
@@ -508,7 +525,7 @@ public class LDUser {
 
 
     /**
-     * Sets the user's full name
+     * Sets the user's full name.
      *
      * @param name the user's full name
      * @return the builder
@@ -519,7 +536,7 @@ public class LDUser {
     }
 
     /**
-     * Sets the user's full name. The name attribute will not be sent back to LaunchDarkly.
+     * Sets the user's full name, and ensures that the name attribute will not be sent back to LaunchDarkly.
      *
      * @param name the user's full name
      * @return the builder
@@ -530,7 +547,7 @@ public class LDUser {
     }
 
     /**
-     * Sets the user's avatar
+     * Sets the user's avatar.
      *
      * @param avatar the user's avatar
      * @return the builder
@@ -541,7 +558,7 @@ public class LDUser {
     }
 
     /**
-     * Sets the user's avatar. The avatar attribute will not be sent back to LaunchDarkly.
+     * Sets the user's avatar, and ensures that the avatar attribute will not be sent back to LaunchDarkly.
      *
      * @param avatar the user's avatar
      * @return the builder
@@ -553,7 +570,7 @@ public class LDUser {
 
 
     /**
-     * Sets the user's e-mail address
+     * Sets the user's e-mail address.
      *
      * @param email the e-mail address
      * @return the builder
@@ -564,7 +581,7 @@ public class LDUser {
     }
 
     /**
-     * Sets the user's e-mail address. The e-mail address attribute will not be sent back to LaunchDarkly.
+     * Sets the user's e-mail address, and ensures that the e-mail address attribute will not be sent back to LaunchDarkly.
      *
      * @param email the e-mail address
      * @return the builder
@@ -575,11 +592,11 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.String}-valued custom attribute. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored.
+     * Adds a {@link java.lang.String}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute.
+     * @param k the key for the custom attribute
      * @param v the value for the custom attribute
      * @return the builder
      */
@@ -592,11 +609,11 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.Number}-valued custom attribute. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored.
+     * Adds a {@link java.lang.Number}-valued custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param k the key for the custom attribute
      * @param n the value for the custom attribute
      * @return the builder
      */
@@ -610,10 +627,10 @@ public class LDUser {
 
     /**
      * Add a {@link java.lang.Boolean}-valued custom attribute. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored.
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param k the key for the custom attribute
      * @param b the value for the custom attribute
      * @return the builder
      */
@@ -627,25 +644,10 @@ public class LDUser {
 
     /**
      * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored.
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
-     * @param vs the values for the attribute
-     * @return the builder
-     * @deprecated As of version 0.16.0, renamed to {@link #customString(String, List) customString}
-     */
-    public Builder custom(String k, List<String> vs) {
-      checkCustomAttribute(k);
-      return this.customString(k, vs);
-    }
-
-    /**
-     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored.
-     *
-     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param k  the key for the list
      * @param vs the values for the attribute
      * @return the builder
      */
@@ -662,11 +664,11 @@ public class LDUser {
     }
 
     /**
-     * Add a list of {@link java.lang.Integer}-valued custom attributes. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored.
+     * Add a list of {@link java.lang.Number}-valued custom attributes. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param k  the key for the list
      * @param vs the values for the attribute
      * @return the builder
      */
@@ -682,14 +684,13 @@ public class LDUser {
       return this;
     }
 
-
     /**
-     * Add a {@link java.lang.String}-valued custom attribute. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
-     *   back to LaunchDarkly in analytics events.
+     * Add a {@link java.lang.String}-valued custom attribute that will not be sent back to LaunchDarkly.
+     * When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute.
+     * @param k the key for the custom attribute
      * @param v the value for the custom attribute
      * @return the builder
      */
@@ -699,12 +700,12 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.Number}-valued custom attribute. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
-     *   back to LaunchDarkly in analytics events.
+     * Add a {@link java.lang.Number}-valued custom attribute that will not be sent back to LaunchDarkly.
+     * When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param k the key for the custom attribute
      * @param n the value for the custom attribute
      * @return the builder
      */
@@ -714,34 +715,18 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.Boolean}-valued custom attribute. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
-     *   back to LaunchDarkly in analytics events.
+     * Add a {@link java.lang.Boolean}-valued custom attribute that will not be sent back to LaunchDarkly.
+     * When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
      *
-     * @param k the key for the custom attribute. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
+     * @param k the key for the custom attribute
      * @param b the value for the custom attribute
      * @return the builder
      */
     public Builder privateCustom(String k, Boolean b) {
       privateAttrNames.add(k);
       return custom(k, b);
-    }
-
-    /**
-     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
-     *   back to LaunchDarkly in analytics events.
-     *
-     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
-     * @param vs the values for the attribute
-     * @return the builder
-     * @deprecated As of version 0.16.0, renamed to {@link #customString(String, List) customString}
-     */
-    public Builder privateCustom(String k, List<String> vs) {
-      privateAttrNames.add(k);
-      return customString(k, vs);
     }
 
     /**
@@ -774,7 +759,6 @@ public class LDUser {
       return customNumber(k, vs);
     }
 
-
     private void checkCustomAttribute(String key) {
       for (UserAttribute a : UserAttribute.values()) {
         if (a.name().equals(key)) {
@@ -785,7 +769,7 @@ public class LDUser {
     }
 
     /**
-     * Build the configured {@link com.launchdarkly.client.LDUser} object
+     * Builds the configured {@link com.launchdarkly.client.LDUser} object.
      *
      * @return the {@link com.launchdarkly.client.LDUser} configured by this builder
      */
