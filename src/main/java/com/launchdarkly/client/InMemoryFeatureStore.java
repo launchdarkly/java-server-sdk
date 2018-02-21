@@ -10,7 +10,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * A thread-safe, versioned store for {@link FeatureFlag} objects and related data based on a
- * {@link HashMap}.
+ * {@link HashMap}. This is the default implementation of {@link FeatureStore}.
  */
 public class InMemoryFeatureStore implements FeatureStore {
   private static final Logger logger = LoggerFactory.getLogger(InMemoryFeatureStore.class);

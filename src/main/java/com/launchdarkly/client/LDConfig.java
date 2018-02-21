@@ -174,9 +174,9 @@ public final class LDConfig {
     }
 
     /**
-     * Set the base URL of the LaunchDarkly server for this configuration
+     * Set the base URL of the LaunchDarkly server for this configuration.
      *
-     * @param baseURI the base URL of the LaunchDarkly server for this configuration
+     * @param baseURI the base URL of the LaunchDarkly server for this configuration.
      * @return the builder
      */
     public Builder baseURI(URI baseURI) {
@@ -185,7 +185,7 @@ public final class LDConfig {
     }
 
     /**
-     * Set the events URL of the LaunchDarkly server for this configuration
+     * Set the base URL of the LaunchDarkly analytics event server for this configuration.
      *
      * @param eventsURI the events URL of the LaunchDarkly server for this configuration
      * @return the builder
@@ -196,7 +196,7 @@ public final class LDConfig {
     }
 
     /**
-     * Set the base URL of the LaunchDarkly streaming server for this configuration
+     * Set the base URL of the LaunchDarkly streaming server for this configuration.
      *
      * @param streamURI the base URL of the LaunchDarkly streaming server
      * @return the builder
@@ -206,6 +206,13 @@ public final class LDConfig {
       return this;
     }
 
+    /**
+     * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
+     * related data received from LaunchDarkly. The default is {@link InMemoryFeatureStore}, but
+     * you may use {@link RedisFeatureStore} or a custom implementation.
+     * @param store the feature store implementation
+     * @return the builder
+     */
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
       return this;
@@ -349,18 +356,7 @@ public final class LDConfig {
       this.proxyPassword = password;
       return this;
     }
-
-    /**
-     * Deprecated. Only HTTP proxies are currently supported.
-     *
-     * @param unused the proxy scheme
-     * @return the builder
-     */
-    @Deprecated
-    public Builder proxyScheme(String unused) {
-      return this;
-    }
-
+    
     /**
      * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
      * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
@@ -462,8 +458,7 @@ public final class LDConfig {
     }
 
     /**
-     *
-     * Mark a set of attribute names private. Any users sent to LaunchDarkly with this configuration
+     * Marks a set of attribute names private. Any users sent to LaunchDarkly with this configuration
      * active will have attributes with these names removed.
      *
      * @param names a set of names that will be removed from user data set to LaunchDarkly
@@ -502,7 +497,7 @@ public final class LDConfig {
     }
 
     /**
-     * Build the configured {@link com.launchdarkly.client.LDConfig} object
+     * Builds the configured {@link com.launchdarkly.client.LDConfig} object.
      *
      * @return the {@link com.launchdarkly.client.LDConfig} configured by this builder
      */
