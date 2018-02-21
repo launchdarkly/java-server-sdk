@@ -1,7 +1,8 @@
 package com.launchdarkly.client;
 
 /**
- * The descriptor for a specific kind of {@link VersionedData} objects that may exist in a store.
+ * The descriptor for a specific kind of {@link VersionedData} objects that may exist in a {@link FeatureStore}.
+ * @since 3.0.0
  */
 public abstract class VersionedDataKind<T extends VersionedData> {
   

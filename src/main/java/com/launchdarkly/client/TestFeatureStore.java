@@ -49,16 +49,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
   public void setFeatureTrue(String key) {
     setBooleanValue(key, true);
   }
-
-  /**
-   * @deprecated use {@link #setFeatureTrue(String key)}
-   * @param key the feature key
-   */
-  @Deprecated
-  public void turnFeatureOn(String key) {
-    setFeatureTrue(key);
-  }
-
+  
   /**
    * Turns a feature, identified by key, to evaluate to false for every user. If the feature rules already exist in the store then it will override it to be false for every {@link LDUser}.
    * If the feature rule is not currently in the store, it will create one that is false for every {@link LDUser}.
@@ -68,16 +59,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
   public void setFeatureFalse(String key) {
     setBooleanValue(key, false);
   }
-
-  /**
-   * @deprecated use {@link #setFeatureFalse(String key)}
-   * @param key the feature key
-   */
-  @Deprecated
-  public void turnFeatureOff(String key) {
-    setFeatureFalse(key);
-  }
-
+  
   /**
    * Sets the value of an integer multivariate feature flag, for all users.
    * @param key the key of the flag

@@ -6,12 +6,13 @@ import java.util.Map;
 /**
  * A thread-safe, versioned store for feature flags and related objects received from the
  * streaming API.  Implementations should permit concurrent access and updates.
- *
+ * <p>
  * Delete and upsert requests are versioned-- if the version number in the request is less than
  * the currently stored version of the object, the request should be ignored.
- *
+ * <p>
  * These semantics support the primary use case for the store, which synchronizes a collection
  * of objects based on update messages that may be received out-of-order.
+ * @since 3.0.0
  */
 public interface FeatureStore extends Closeable {
   /**
@@ -69,7 +70,7 @@ public interface FeatureStore extends Closeable {
   <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item);
 
   /**
-   * Returns true if this store has been initialized
+   * Returns true if this store has been initialized.
    *
    * @return true if this store has been initialized
    */

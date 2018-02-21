@@ -70,68 +70,6 @@ public class RedisFeatureStore implements FeatureStore {
   }
   
   /**
-   * Creates a new store instance that connects to Redis with the provided host, port, prefix, and cache timeout. Uses a default
-   * connection pool configuration.
-   *
-   * @param host          the host for the Redis connection
-   * @param port          the port for the Redis connection
-   * @param prefix        a namespace prefix for all keys stored in Redis
-   * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
-   * @deprecated as of 1.1. Please use the {@link RedisFeatureStoreBuilder#build()} for a more flexible way of constructing a {@link RedisFeatureStore}.
-   */
-  @Deprecated
-  public RedisFeatureStore(String host, int port, String prefix, long cacheTimeSecs) {
-    this(host, port, prefix, cacheTimeSecs, getPoolConfig());
-  }
-
-  /**
-   * Creates a new store instance that connects to Redis with the provided URI, prefix, and cache timeout. Uses a default
-   * connection pool configuration.
-   *
-   * @param uri           the URI for the Redis connection
-   * @param prefix        a namespace prefix for all keys stored in Redis
-   * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
-   * @deprecated as of 1.1. Please use the {@link RedisFeatureStoreBuilder#build()} for a more flexible way of constructing a {@link RedisFeatureStore}.
-   */
-  @Deprecated
-  public RedisFeatureStore(URI uri, String prefix, long cacheTimeSecs) {
-    this(uri, prefix, cacheTimeSecs, getPoolConfig());
-  }
-
-  /**
-   * Creates a new store instance that connects to Redis with the provided host, port, prefix, cache timeout, and connection pool settings.
-   *
-   * @param host          the host for the Redis connection
-   * @param port          the port for the Redis connection
-   * @param prefix        a namespace prefix for all keys stored in Redis
-   * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
-   * @param poolConfig    an optional pool config for the Jedis connection pool
-   * @deprecated as of 1.1. Please use the {@link RedisFeatureStoreBuilder#build()} for a more flexible way of constructing a {@link RedisFeatureStore}.
-   */
-  @Deprecated
-  public RedisFeatureStore(String host, int port, String prefix, long cacheTimeSecs, JedisPoolConfig poolConfig) {
-    pool = new JedisPool(poolConfig, host, port);
-    setPrefix(prefix);
-    createCache(cacheTimeSecs);
-  }
-
-  /**
-   * Creates a new store instance that connects to Redis with the provided URI, prefix, cache timeout, and connection pool settings.
-   *
-   * @param uri           the URI for the Redis connection
-   * @param prefix        a namespace prefix for all keys stored in Redis
-   * @param cacheTimeSecs an optional timeout for the in-memory cache. If set to 0, no in-memory caching will be performed
-   * @param poolConfig    an optional pool config for the Jedis connection pool
-   * @deprecated as of 1.1. Please use the {@link RedisFeatureStoreBuilder#build()} for a more flexible way of constructing a {@link RedisFeatureStore}.
-   */
-  @Deprecated
-  public RedisFeatureStore(URI uri, String prefix, long cacheTimeSecs, JedisPoolConfig poolConfig) {
-    pool = new JedisPool(poolConfig, uri);
-    setPrefix(prefix);
-    createCache(cacheTimeSecs);
-  }
-
-  /**
    * Creates a new store instance that connects to Redis based on the provided {@link RedisFeatureStoreBuilder}.
    * <p>
    * See the {@link RedisFeatureStoreBuilder} for information on available configuration options and what they do.
