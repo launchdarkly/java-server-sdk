@@ -132,4 +132,6 @@ public interface LDClientInterface extends Closeable {
    * @return the hash, or null if the hash could not be calculated
      */
   String secureModeHash(LDUser user);
+  
+  String version();
 }
