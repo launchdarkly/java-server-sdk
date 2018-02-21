@@ -171,7 +171,7 @@ public class LDUser {
     return result;
   }
 
-  public static class UserAdapter extends TypeAdapter<LDUser> {
+  static class UserAdapter extends TypeAdapter<LDUser> {
     private final LDConfig config;
 
     public UserAdapter(LDConfig config) {
