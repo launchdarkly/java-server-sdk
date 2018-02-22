@@ -3,6 +3,15 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [3.0.1] - 2018-02-22
+### Added
+- Support for a new LaunchDarkly feature: reusable user segments.
+
+### Changed
+- The `FeatureStore` interface has been changed to support user segment data as well as feature flags. Existing code that uses `InMemoryFeatureStore` or `RedisFeatureStore` should work as before, but custom feature store implementations will need to be updated.
+- Removed deprecated methods.
+
+
 ## [3.0.0] - 2018-02-21
 
 _This release was broken and should not be used._
