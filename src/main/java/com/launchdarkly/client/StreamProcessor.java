@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -83,8 +84,8 @@ class StreamProcessor implements UpdateProcessor {
         Gson gson = new Gson();
         switch (name) {
           case PUT: {
-            FeatureRequestor.AllData allData = gson.fromJson(event.getData(), FeatureRequestor.AllData.class); 
-            store.init(FeatureRequestor.toVersionedDataMap(allData));
+            PutData putData = gson.fromJson(event.getData(), PutData.class); 
+            store.init(FeatureRequestor.toVersionedDataMap(putData.data));
             if (!initialized.getAndSet(true)) {
               initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
@@ -161,8 +162,19 @@ class StreamProcessor implements UpdateProcessor {
       }
     };
 
+    es = createEventSource(handler,
+        URI.create(config.streamURI.toASCIIString() + "/all"),
+        connectionErrorHandler,
+        headers);
+    es.start();
+    return initFuture;
+  }
+  
+  @VisibleForTesting
+  protected EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
+                                          Headers headers) {
     EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/all"))
-        .connectionErrorHandler(connectionErrorHandler)
+        .connectionErrorHandler(errorHandler)
         .headers(headers)
         .reconnectTimeMs(config.reconnectTimeMs)
         .connectTimeoutMs(config.connectTimeoutMillis)
@@ -179,11 +191,9 @@ class StreamProcessor implements UpdateProcessor {
       }
     }
 
-    es = builder.build();
-    es.start();
-    return initFuture;
+    return builder.build();
   }
-
+  
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly StreamProcessor");
@@ -200,6 +210,14 @@ class StreamProcessor implements UpdateProcessor {
     return initialized.get();
   }
 
+  private static final class PutData {
+    FeatureRequestor.AllData data;
+    
+    public PutData() {
+      
+    }
+  }
+  
   private static final class PatchData {
     String path;
     JsonElement data;
