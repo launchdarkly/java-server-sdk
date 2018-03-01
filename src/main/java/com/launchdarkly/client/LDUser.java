@@ -71,11 +71,13 @@ public class LDUser {
   }
 
   protected JsonElement getValueForEvaluation(String attribute) {
-    try {
-      return UserAttribute.valueOf(attribute).get(this);
-    } catch (IllegalArgumentException expected) {
-      return getCustom(attribute);
+    // Don't use Enum.valueOf because we don't want to trigger unnecessary exceptions
+    for (UserAttribute builtIn: UserAttribute.values()) {
+      if (builtIn.name().equals(attribute)) {
+        return builtIn.get(this);
+      }
     }
+    return getCustom(attribute);
   }
 
   JsonPrimitive getKey() {
