@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
+
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.lang.reflect.Type;
@@ -198,6 +200,38 @@ public class LDUserTest {
     Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
     Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
     assertNull(privateJson.get("email"));
-
+  }
+  
+  @Test
+  public void getValueGetsBuiltInAttribute() {
+    LDUser user = new LDUser.Builder("key")
+        .name("Jane")
+        .build();
+    assertEquals(new JsonPrimitive("Jane"), user.getValueForEvaluation("name"));
+  }
+  
+  @Test
+  public void getValueGetsCustomAttribute() {
+    LDUser user = new LDUser.Builder("key")
+        .custom("height", 5)
+        .build();
+    assertEquals(new JsonPrimitive(5), user.getValueForEvaluation("height"));
+  }
+  
+  @Test
+  public void getValueGetsBuiltInAttributeEvenIfCustomAttrHasSameName() {
+    LDUser user = new LDUser.Builder("key")
+        .name("Jane")
+        .custom("name", "Joan")
+        .build();
+    assertEquals(new JsonPrimitive("Jane"), user.getValueForEvaluation("name"));
+  }
+  
+  @Test
+  public void getValueReturnsNullIfNotFound() {
+    LDUser user = new LDUser.Builder("key")
+        .name("Jane")
+        .build();
+    assertNull(user.getValueForEvaluation("height"));
   }
 }
