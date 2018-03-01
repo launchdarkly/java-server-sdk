@@ -136,7 +136,6 @@ public final class LDConfig {
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
    * calls can be chained, enabling the following pattern:
-   * <p>
    * <pre>
    * LDConfig config = new LDConfig.Builder()
    *      .connectTimeoutMillis(3)
@@ -175,9 +174,9 @@ public final class LDConfig {
     }
 
     /**
-     * Set the base URL of the LaunchDarkly server for this configuration
+     * Set the base URL of the LaunchDarkly server for this configuration.
      *
-     * @param baseURI the base URL of the LaunchDarkly server for this configuration
+     * @param baseURI the base URL of the LaunchDarkly server for this configuration.
      * @return the builder
      */
     public Builder baseURI(URI baseURI) {
@@ -186,7 +185,7 @@ public final class LDConfig {
     }
 
     /**
-     * Set the events URL of the LaunchDarkly server for this configuration
+     * Set the base URL of the LaunchDarkly analytics event server for this configuration.
      *
      * @param eventsURI the events URL of the LaunchDarkly server for this configuration
      * @return the builder
@@ -197,7 +196,7 @@ public final class LDConfig {
     }
 
     /**
-     * Set the base URL of the LaunchDarkly streaming server for this configuration
+     * Set the base URL of the LaunchDarkly streaming server for this configuration.
      *
      * @param streamURI the base URL of the LaunchDarkly streaming server
      * @return the builder
@@ -207,6 +206,13 @@ public final class LDConfig {
       return this;
     }
 
+    /**
+     * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
+     * related data received from LaunchDarkly. The default is {@link InMemoryFeatureStore}, but
+     * you may use {@link RedisFeatureStore} or a custom implementation.
+     * @param store the feature store implementation
+     * @return the builder
+     */
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
       return this;
@@ -227,7 +233,6 @@ public final class LDConfig {
     /**
      * Set the connection timeout in seconds for the configuration. This is the time allowed for the underlying HTTP client to connect
      * to the LaunchDarkly server. The default is 2 seconds.
-     * <p>
      * <p>Both this method and {@link #connectTimeoutMillis(int) connectTimeoutMillis} affect the same property internally.</p>
      *
      * @param connectTimeout the connection timeout in seconds
@@ -241,7 +246,6 @@ public final class LDConfig {
     /**
      * Set the socket timeout in seconds for the configuration. This is the number of seconds between successive packets that the
      * client will tolerate before flagging an error. The default is 10 seconds.
-     * <p>
      * <p>Both this method and {@link #socketTimeoutMillis(int) socketTimeoutMillis} affect the same property internally.</p>
      *
      * @param socketTimeout the socket timeout in seconds
@@ -255,7 +259,6 @@ public final class LDConfig {
     /**
      * Set the connection timeout in milliseconds for the configuration. This is the time allowed for the underlying HTTP client to connect
      * to the LaunchDarkly server. The default is 2000 ms.
-     * <p>
      * <p>Both this method and {@link #connectTimeout(int) connectTimeoutMillis} affect the same property internally.</p>
      *
      * @param connectTimeoutMillis the connection timeout in milliseconds
@@ -269,7 +272,6 @@ public final class LDConfig {
     /**
      * Set the socket timeout in milliseconds for the configuration. This is the number of milliseconds between successive packets that the
      * client will tolerate before flagging an error. The default is 10,000 milliseconds.
-     * <p>
      * <p>Both this method and {@link #socketTimeout(int) socketTimeoutMillis} affect the same property internally.</p>
      *
      * @param socketTimeoutMillis the socket timeout in milliseconds
@@ -312,7 +314,7 @@ public final class LDConfig {
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
      * </p>
      *
-     * @param host
+     * @param host the proxy hostname
      * @return the builder
      */
     public Builder proxyHost(String host) {
@@ -323,7 +325,7 @@ public final class LDConfig {
     /**
      * Set the port to use for an HTTP proxy for making connections to LaunchDarkly. This is required for proxied HTTP connections.
      *
-     * @param port
+     * @param port the proxy port
      * @return the builder
      */
     public Builder proxyPort(int port) {
@@ -335,7 +337,7 @@ public final class LDConfig {
      * Sets the username for the optional HTTP proxy. Only used when {@link LDConfig.Builder#proxyPassword(String)}
      * is also called.
      *
-     * @param username
+     * @param username the proxy username
      * @return the builder
      */
     public Builder proxyUsername(String username) {
@@ -347,30 +349,19 @@ public final class LDConfig {
      * Sets the password for the optional HTTP proxy. Only used when {@link LDConfig.Builder#proxyUsername(String)}
      * is also called.
      *
-     * @param password
+     * @param password the proxy password
      * @return the builder
      */
     public Builder proxyPassword(String password) {
       this.proxyPassword = password;
       return this;
     }
-
+    
     /**
-     * Deprecated. Only HTTP proxies are currently supported.
+     * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
+     * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
      *
-     * @param unused
-     * @return the builder
-     */
-    @Deprecated
-    public Builder proxyScheme(String unused) {
-      return this;
-    }
-
-    /**
-     * Set whether this client should subscribe to the streaming API, or whether the LaunchDarkly daemon is in use
-     * instead
-     *
-     * @param useLdd
+     * @param useLdd true to use the relay in daemon mode; false to use streaming or polling 
      * @return the builder
      */
     public Builder useLdd(boolean useLdd) {
@@ -381,7 +372,7 @@ public final class LDConfig {
     /**
      * Set whether this client is offline.
      *
-     * @param offline when set to true no calls to LaunchDarkly will be made.
+     * @param offline when set to true no calls to LaunchDarkly will be made
      * @return the builder
      */
     public Builder offline(boolean offline) {
@@ -390,10 +381,10 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether or not user attributes (other than the key) should be sent back to LaunchDarkly. If this is true, all
+     * Set whether or not user attributes (other than the key) should be hidden from LaunchDarkly. If this is true, all
      * user attribute values will be private, not just the attributes specified in {@link #privateAttributeNames(String...)}. By default,
      * this is false.
-     * @param allPrivate
+     * @param allPrivate true if all user attributes should be private
      * @return the builder
      */
     public Builder allAttributesPrivate(boolean allPrivate) {
@@ -406,7 +397,7 @@ public final class LDConfig {
      * events. This differs from {@link offline} in that it only affects sending
      * analytics events, not streaming or polling for events from the server.
      *
-     * @param sendEvents when set to false, no events will be sent to LaunchDarkly.
+     * @param sendEvents when set to false, no events will be sent to LaunchDarkly
      * @return the builder
      */
     public Builder sendEvents(boolean sendEvents) {
@@ -418,7 +409,7 @@ public final class LDConfig {
      * Set the polling interval (when streaming is disabled). Values less than the default of
      * 30000 will be set to the default.
      *
-     * @param pollingIntervalMillis rule update polling interval in milliseconds.
+     * @param pollingIntervalMillis rule update polling interval in milliseconds
      * @return the builder
      */
     public Builder pollingIntervalMillis(long pollingIntervalMillis) {
@@ -443,7 +434,6 @@ public final class LDConfig {
      * Enable event sampling. When set to the default of zero, sampling is disabled and all events
      * are sent back to LaunchDarkly. When set to greater than zero, there is a 1 in
      * <code>samplingInterval</code> chance events will be will be sent.
-     * <p>
      * <p>Example: if you want 5% sampling rate, set <code>samplingInterval</code> to 20.
      *
      * @param samplingInterval the sampling interval.
@@ -468,8 +458,7 @@ public final class LDConfig {
     }
 
     /**
-     *
-     * Mark a set of attribute names private. Any users sent to LaunchDarkly with this configuration
+     * Marks a set of attribute names private. Any users sent to LaunchDarkly with this configuration
      * active will have attributes with these names removed.
      *
      * @param names a set of names that will be removed from user data set to LaunchDarkly
@@ -508,7 +497,7 @@ public final class LDConfig {
     }
 
     /**
-     * Build the configured {@link com.launchdarkly.client.LDConfig} object
+     * Builds the configured {@link com.launchdarkly.client.LDConfig} object.
      *
      * @return the {@link com.launchdarkly.client.LDConfig} configured by this builder
      */

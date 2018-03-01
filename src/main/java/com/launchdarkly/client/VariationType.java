@@ -3,7 +3,7 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
 
-public enum VariationType {
+enum VariationType {
   Boolean {
     @Override
     void assertResultType(JsonElement result) throws EvaluationException {

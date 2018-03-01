@@ -4,7 +4,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.Future;
 
-public interface UpdateProcessor extends Closeable {
+interface UpdateProcessor extends Closeable {
 
   /**
    * Starts the client.
@@ -14,7 +14,7 @@ public interface UpdateProcessor extends Closeable {
 
   /**
    * Returns true once the client has been initialized and will never return false again.
-   * @return
+   * @return true if the client has been initialized
    */
   boolean initialized();
 
