@@ -3,6 +3,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [2.6.1] - 2018-03-01
+### Fixed
+- Improved performance when evaluating flags with custom attributes, by avoiding an unnecessary caught exception (thanks, [rbalamohan](https://github.com/launchdarkly/java-client/issues/113)).
+
+
 ## [2.6.0] - 2018-02-12
 ## Added
 - Adds support for a future LaunchDarkly feature, coming soon: semantic version user attributes.
