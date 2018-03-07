@@ -41,6 +41,7 @@ libraries.unshaded = [
 ]
 
 libraries.testCompile = [
+    "com.squareup.okhttp3:mockwebserver:3.10.0",
     "org.easymock:easymock:3.4",
     "junit:junit:4.12"
 ]

@@ -40,6 +40,7 @@ public class LDClient implements LDClientInterface {
   private final String sdkKey;
   private final FeatureRequestor requestor;
   private final EventProcessor eventProcessor;
+  private final EventFactory eventFactory = EventFactory.DEFAULT;
   private UpdateProcessor updateProcessor;
 
   private final AtomicBoolean eventCapacityExceeded = new AtomicBoolean(false);
@@ -132,7 +133,7 @@ public class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     }
-    sendEvent(new CustomEvent(eventName, user, data));
+    sendEvent(eventFactory.newCustomEvent(eventName, user, data));
   }
 
   @Override
@@ -148,12 +149,12 @@ public class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Identify called with null user or null user key!");
     }
-    sendEvent(new IdentifyEvent(user));
+    sendEvent(eventFactory.newIdentifyEvent(user));
   }
 
-  private void sendFlagRequestEvent(String featureKey, LDUser user, JsonElement value, JsonElement defaultValue, Integer version) {
-    if (sendEvent(new FeatureRequestEvent(featureKey, user, value, defaultValue, version, null))) {
-      NewRelicReflector.annotateTransaction(featureKey, String.valueOf(value));
+  private void sendFlagRequestEvent(FeatureRequestEvent event) {
+    if (sendEvent(event)) {
+      NewRelicReflector.annotateTransaction(event.key, String.valueOf(event.value));
     }
   }
 
@@ -196,7 +197,7 @@ public class LDClient implements LDClientInterface {
 
     for (Map.Entry<String, FeatureFlag> entry : flags.entrySet()) {
       try {
-        JsonElement evalResult = entry.getValue().evaluate(user, config.featureStore).getValue();
+        JsonElement evalResult = entry.getValue().evaluate(user, config.featureStore, eventFactory).getResult().getValue();
           result.put(entry.getKey(), evalResult);
 
       } catch (EvaluationException e) {
@@ -261,7 +262,7 @@ public class LDClient implements LDClientInterface {
   private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue, VariationType expectedType) {
     if (user == null || user.getKey() == null) {
       logger.warn("Null user or null user key when evaluating flag: " + featureKey + "; returning default value");
-      sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
+      sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
       return defaultValue;
     }
     if (user.getKeyAsString().isEmpty()) {
@@ -272,7 +273,7 @@ public class LDClient implements LDClientInterface {
         logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; using last known values from feature store");
       } else {
         logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; feature store unavailable, returning default value");
-        sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
         return defaultValue;
       }
     }
@@ -281,22 +282,22 @@ public class LDClient implements LDClientInterface {
       FeatureFlag featureFlag = config.featureStore.get(FEATURES, featureKey);
       if (featureFlag == null) {
         logger.info("Unknown feature flag " + featureKey + "; returning default value");
-        sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
         return defaultValue;
       }
-      FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore);
+      FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore, eventFactory);
       for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
         sendEvent(event);
       }
-      if (evalResult.getValue() != null) {
-        expectedType.assertResultType(evalResult.getValue());
-        sendFlagRequestEvent(featureKey, user, evalResult.getValue(), defaultValue, featureFlag.getVersion());
-        return evalResult.getValue();
+      if (evalResult.getResult() != null && evalResult.getResult().getValue() != null) {
+        expectedType.assertResultType(evalResult.getResult().getValue());
+        sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult.getResult(), defaultValue));
+        return evalResult.getResult().getValue();
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);
     }
-    sendFlagRequestEvent(featureKey, user, defaultValue, defaultValue, null);
+    sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
     return defaultValue;
   }
 

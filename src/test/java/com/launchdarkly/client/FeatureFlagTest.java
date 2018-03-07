@@ -30,9 +30,9 @@ public class FeatureFlagTest {
 
     featureStore.upsert(FEATURES, f1);
     LDUser user = new LDUser.Builder("userKey").build();
-    FeatureFlag.EvalResult actual = f1.evaluate(user, featureStore);
+    FeatureFlag.EvalResult actual = f1.evaluate(user, featureStore, EventFactory.DEFAULT);
 
-    Assert.assertNull(actual.getValue());
+    Assert.assertNull(actual.getResult().getValue());
     Assert.assertNotNull(actual.getPrerequisiteEvents());
     Assert.assertEquals(0, actual.getPrerequisiteEvents().size());
   }
@@ -52,19 +52,19 @@ public class FeatureFlagTest {
 
     LDUser user = new LDUser.Builder("userKey").build();
 
-    FeatureFlag.EvalResult flagAResult = flagA.evaluate(user, featureStore);
+    FeatureFlag.EvalResult flagAResult = flagA.evaluate(user, featureStore, EventFactory.DEFAULT);
     Assert.assertNotNull(flagAResult);
-    Assert.assertNull(flagAResult.getValue());
+    Assert.assertNull(flagAResult.getResult().getValue());
     Assert.assertEquals(2, flagAResult.getPrerequisiteEvents().size());
 
-    FeatureFlag.EvalResult flagBResult = flagB.evaluate(user, featureStore);
+    FeatureFlag.EvalResult flagBResult = flagB.evaluate(user, featureStore, EventFactory.DEFAULT);
     Assert.assertNotNull(flagBResult);
-    Assert.assertNull(flagBResult.getValue());
+    Assert.assertNull(flagBResult.getResult().getValue());
     Assert.assertEquals(1, flagBResult.getPrerequisiteEvents().size());
 
-    FeatureFlag.EvalResult flagCResult = flagC.evaluate(user, featureStore);
+    FeatureFlag.EvalResult flagCResult = flagC.evaluate(user, featureStore, EventFactory.DEFAULT);
     Assert.assertNotNull(flagCResult);
-    Assert.assertEquals(null, flagCResult.getValue());
+    Assert.assertNull(null, flagCResult.getResult().getValue());
     Assert.assertEquals(0, flagCResult.getPrerequisiteEvents().size());
   }
 
@@ -79,8 +79,9 @@ public class FeatureFlagTest {
     FeatureFlag flag = segmentMatchBooleanFlag("segkey");
     LDUser user = new LDUser.Builder("foo").build();
     
-    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
-    Assert.assertEquals(new JsonPrimitive(true), result.getValue());
+    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore, EventFactory.DEFAULT);
+    Assert.assertNotNull(result.getResult());
+    Assert.assertEquals(new JsonPrimitive(true), result.getResult().getValue());
   }
 
   @Test
@@ -88,8 +89,9 @@ public class FeatureFlagTest {
     FeatureFlag flag = segmentMatchBooleanFlag("segkey");
     LDUser user = new LDUser.Builder("foo").build();
     
-    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
-    Assert.assertEquals(new JsonPrimitive(false), result.getValue());
+    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore, EventFactory.DEFAULT);
+    Assert.assertNotNull(result.getResult());
+    Assert.assertEquals(new JsonPrimitive(false), result.getResult().getValue());
   }
   
   private FeatureFlag newFlagWithPrereq(String featureKey, String prereqKey) {

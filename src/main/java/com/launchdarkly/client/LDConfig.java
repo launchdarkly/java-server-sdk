@@ -41,7 +41,8 @@ public final class LDConfig {
   private static final long MIN_POLLING_INTERVAL_MILLIS = 30000L;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
   private static final int DEFAULT_SAMPLING_INTERVAL = 0;
-
+  private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
+  private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
   private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -68,7 +69,9 @@ public final class LDConfig {
   final long startWaitMillis;
   final int samplingInterval;
   final long reconnectTimeMs;
-
+  final int userKeysCapacity;
+  final int userKeysFlushInterval;
+  
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
@@ -94,9 +97,9 @@ public final class LDConfig {
     this.startWaitMillis = builder.startWaitMillis;
     this.samplingInterval = builder.samplingInterval;
     this.reconnectTimeMs = builder.reconnectTimeMillis;
-
-
-
+    this.userKeysCapacity = builder.userKeysCapacity;
+    this.userKeysFlushInterval = builder.userKeysFlushInterval;
+    
     OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
         .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
         .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
@@ -166,7 +169,9 @@ public final class LDConfig {
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
     private Set<String> privateAttrNames = new HashSet<>();
-
+    private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
+    private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
+    
     /**
      * Creates a builder with all configuration parameters set to the default
      */
@@ -466,6 +471,30 @@ public final class LDConfig {
      */
     public Builder privateAttributeNames(String... names) {
       this.privateAttrNames = new HashSet<>(Arrays.asList(names));
+      return this;
+    }
+
+    /**
+     * Sets the number of user keys that the event processor can remember at any one time, so that
+     * duplicate user details will not be sent in analytics events.
+     * 
+     * @param capacity the maximum number of user keys to remember
+     * @return the builder
+     */
+    public Builder userKeysCapacity(int capacity) {
+      this.userKeysCapacity = capacity;
+      return this;
+    }
+
+    /**
+     * Set the interval in seconds at which the event processor will reset its set of known user keys. The
+     * default value is five minutes.
+     *
+     * @param flushInterval the flush interval in seconds
+     * @return the builder
+     */
+    public Builder userKeysFlushInterval(int flushInterval) {
+      this.flushIntervalSeconds = flushInterval;
       return this;
     }
 
