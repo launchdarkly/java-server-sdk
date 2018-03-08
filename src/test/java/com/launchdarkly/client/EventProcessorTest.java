@@ -5,18 +5,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.google.gson.reflect.TypeToken;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.lang.reflect.Type;
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -26,8 +22,6 @@ public class EventProcessorTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
   private static final Gson gson = new Gson();
-  private static final Type listOfMapsType = new TypeToken<List<Map<String, JsonElement>>>() {
-  }.getType();
 
   private final LDConfig.Builder configBuilder = new LDConfig.Builder();
   private final MockWebServer server = new MockWebServer();
@@ -53,12 +47,13 @@ public class EventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
     
-    List<Map<String, JsonElement>> output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents();
     assertEquals(1, output.size());
-    Map<String, JsonElement> ieo = output.get(0);
-    assertEquals(new JsonPrimitive("identify"), ieo.get("kind"));
-    assertEquals(new JsonPrimitive((double)e.creationDate), ieo.get("creationDate"));
-    assertUserMatches(user, ieo.get("user"));
+    JsonObject expected = new JsonObject();
+    expected.addProperty("kind", "identify");
+    expected.addProperty("creationDate", e.creationDate);
+    expected.add("user", makeUserJson(user));
+    assertEquals(expected, output.get(0));
   }
   
   @Test
@@ -69,7 +64,7 @@ public class EventProcessorTest {
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
-    List<Map<String, JsonElement>> output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents();
     assertEquals(2, output.size());
     assertIndexEventMatches(output.get(0), fe);
     assertFeatureEventMatches(output.get(1), fe, flag, false);
@@ -84,7 +79,7 @@ public class EventProcessorTest {
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
-    List<Map<String, JsonElement>> output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents();
     assertEquals(2, output.size());
     assertIndexEventMatches(output.get(0), fe);
     assertFeatureEventMatches(output.get(1), fe, flag, true);
@@ -102,7 +97,7 @@ public class EventProcessorTest {
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
     
-    List<Map<String, JsonElement>> output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents();
     assertEquals(3, output.size());
     assertIndexEventMatches(output.get(0), fe1);
     assertFeatureEventMatches(output.get(1), fe1, flag1, false);    
@@ -121,13 +116,14 @@ public class EventProcessorTest {
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
     
-    List<Map<String, JsonElement>> output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents();
     assertEquals(2, output.size());
     assertIndexEventMatches(output.get(0), fe1);
-    Map<String, JsonElement> seo = output.get(1);
-    assertEquals(new JsonPrimitive("summary"), seo.get("kind"));
-    assertEquals(new JsonPrimitive((double)fe1.creationDate), seo.get("startDate"));
-    assertEquals(new JsonPrimitive((double)fe2.creationDate), seo.get("endDate"));
+    
+    JsonObject seo = output.get(1).getAsJsonObject();
+    assertEquals("summary", seo.get("kind").getAsString());
+    assertEquals(fe1.creationDate, seo.get("startDate").getAsLong());
+    assertEquals(fe2.creationDate, seo.get("endDate").getAsLong());
     JsonArray counters = seo.get("counters").getAsJsonArray();
     assertEquals(2, counters.size());
   }
@@ -140,14 +136,17 @@ public class EventProcessorTest {
     Event ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
     ep.sendEvent(ce);
 
-    List<Map<String, JsonElement>> output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents();
     assertEquals(2, output.size());
     assertIndexEventMatches(output.get(0), ce);
-    Map<String, JsonElement> ceo = output.get(1);
-    assertEquals(new JsonPrimitive("custom"), ceo.get("kind"));
-    assertEquals(new JsonPrimitive((double)ce.creationDate), ceo.get("creationDate"));
-    assertEquals(new JsonPrimitive("eventkey"), ceo.get("key"));
-    assertEquals(new JsonPrimitive(user.getKeyAsString()), ceo.get("userKey"));
+    
+    JsonObject expected = new JsonObject();
+    expected.addProperty("kind", "custom");
+    expected.addProperty("creationDate", ce.creationDate);
+    expected.addProperty("key", "eventkey");
+    expected.addProperty("userKey", user.getKeyAsString());
+    expected.add("data", data);
+    assertEquals(expected, output.get(1));
   }
   
   @Test
@@ -163,34 +162,41 @@ public class EventProcessorTest {
     assertEquals(SDK_KEY, req.getHeader("Authorization"));
   }
   
-  private List<Map<String, JsonElement>> flushAndGetEvents() throws Exception {
+  private JsonArray flushAndGetEvents() throws Exception {
     server.enqueue(new MockResponse());
     ep.flush();
     RecordedRequest req = server.takeRequest();
-    return gson.fromJson(req.getBody().readUtf8(), listOfMapsType);
+    return gson.fromJson(req.getBody().readUtf8(), JsonElement.class).getAsJsonArray();
+  }
+  
+  private JsonElement makeUserJson(LDUser user) {
+    // need to use the gson instance from the config object, which has a custom serializer
+    return configBuilder.build().gson.toJsonTree(user);
   }
   
   private void assertUserMatches(LDUser user, JsonElement userJson) {
-    assertEquals(configBuilder.build().gson.toJsonTree(user), userJson);
+    assertEquals(makeUserJson(user), userJson);
   }
 
-  private void assertIndexEventMatches(Map<String, JsonElement> eventOutput, Event sourceEvent) {
-    assertEquals(new JsonPrimitive("index"), eventOutput.get("kind"));
-    assertEquals(new JsonPrimitive((double)sourceEvent.creationDate), eventOutput.get("creationDate"));
-    assertUserMatches(sourceEvent.user, eventOutput.get("user"));
+  private void assertIndexEventMatches(JsonElement eventOutput, Event sourceEvent) {
+    JsonObject o = eventOutput.getAsJsonObject();
+    assertEquals("index", o.get("kind").getAsString());
+    assertEquals(sourceEvent.creationDate, o.get("creationDate").getAsLong());
+    assertUserMatches(sourceEvent.user, o.get("user"));
   }
   
-  private void assertFeatureEventMatches(Map<String, JsonElement> eventOutput, Event sourceEvent, FeatureFlag flag, boolean debug) {
-    assertEquals(new JsonPrimitive("feature"), eventOutput.get("kind"));
-    assertEquals(new JsonPrimitive((double)sourceEvent.creationDate), eventOutput.get("creationDate"));
-    assertEquals(new JsonPrimitive(flag.getKey()), eventOutput.get("key"));
-    assertEquals(new JsonPrimitive((double)flag.getVersion()), eventOutput.get("version"));
-    assertEquals(new JsonPrimitive("value"), eventOutput.get("value"));
-    assertEquals(new JsonPrimitive(sourceEvent.user.getKeyAsString()), eventOutput.get("userKey"));
+  private void assertFeatureEventMatches(JsonElement eventOutput, Event sourceEvent, FeatureFlag flag, boolean debug) {
+    JsonObject o = eventOutput.getAsJsonObject();
+    assertEquals("feature", o.get("kind").getAsString());
+    assertEquals(sourceEvent.creationDate, o.get("creationDate").getAsLong());
+    assertEquals(flag.getKey(), o.get("key").getAsString());
+    assertEquals(flag.getVersion(), o.get("version").getAsInt());
+    assertEquals("value", o.get("value").getAsString());
+    assertEquals(sourceEvent.user.getKeyAsString(), o.get("userKey").getAsString());
     if (debug) {
-      assertEquals(new JsonPrimitive(true), eventOutput.get("debug"));
+      assertTrue(o.get("debug").getAsBoolean());
     } else {
-      assertNull(eventOutput.get("debug"));
+      assertNull(o.get("debug"));
     }
   }
 }
