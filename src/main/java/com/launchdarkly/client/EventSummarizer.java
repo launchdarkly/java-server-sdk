@@ -4,29 +4,26 @@ import com.google.gson.JsonElement;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Manages the state of summarizable information for the EventProcessor, including the
  * event counters and user deduplication.
  */
 class EventSummarizer {
-  private Map<CounterKey, CounterValue> counters;
+  private final Map<CounterKey, CounterValue> counters;
   private long startDate;
   private long endDate;
   private long lastKnownPastTime;
-  private Set<String> userKeysSeen;
-  private int userKeysCapacity;
+  private final SimpleLRUCache<String, String> userKeys;
   
   EventSummarizer(LDConfig config) {
     this.counters = new HashMap<>();
     this.startDate = 0;
     this.endDate = 0;
-    this.userKeysSeen = new HashSet<>();
-    this.userKeysCapacity = config.userKeysCapacity;
+    this.userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
   }
   
   /**
@@ -39,20 +36,14 @@ class EventSummarizer {
       return false;
     }
     String key = user.getKeyAsString();
-    if (userKeysSeen.contains(key)) {
-      return true;
-    }
-    if (userKeysSeen.size() < userKeysCapacity) {
-      userKeysSeen.add(key);
-    }
-    return false;
+    return userKeys.put(key, key) != null;
   }
   
   /**
    * Reset the set of users we've seen.
    */
   void resetUsers() {
-    userKeysSeen.clear();
+    userKeys.clear();
   }
   
   /**
@@ -152,6 +143,22 @@ class EventSummarizer {
     @Override
     public int hashCode() {
       return key.hashCode() + (variation + (version * 31) * 31);
+    }
+  }
+  
+  @SuppressWarnings("serial")
+  private static class SimpleLRUCache<K, V> extends LinkedHashMap<K, V> {
+    // http://chriswu.me/blog/a-lru-cache-in-10-lines-of-java/
+    private final int capacity;
+    
+    SimpleLRUCache(int capacity) {
+      super(16, 0.75f, true);
+      this.capacity = capacity;
+    }
+    
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+      return size() > capacity;
     }
   }
   

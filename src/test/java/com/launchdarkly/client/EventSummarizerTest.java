@@ -39,7 +39,7 @@ public class EventSummarizerTest {
   }
   
   @Test
-  public void usersNotDeduplicatedIfCapacityExceeded() {
+  public void oldestUserForgottenIfCapacityExceeded() {
     LDConfig config = new LDConfig.Builder().userKeysCapacity(2).build();
     EventSummarizer es = new EventSummarizer(config);
     LDUser user1 = new LDUser.Builder("key1").build();
@@ -48,7 +48,9 @@ public class EventSummarizerTest {
     es.noticeUser(user1);
     es.noticeUser(user2);
     es.noticeUser(user3);
-    assertFalse(es.noticeUser(user3));
+    assertTrue(es.noticeUser(user3));
+    assertTrue(es.noticeUser(user2));
+    assertFalse(es.noticeUser(user1));
   }
   
   @Test
