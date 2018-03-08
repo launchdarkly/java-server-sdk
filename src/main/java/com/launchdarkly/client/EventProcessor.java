@@ -132,15 +132,16 @@ class EventProcessor implements Closeable {
 
     public void flush() {
       List<EventOutput> events = new ArrayList<>(queue.size());
-      EventSummarizer.SummaryOutput summary;
+      EventSummarizer.EventsState snapshot;
       lock.lock();
       try {
         queue.drainTo(events);
-        summary = summarizer.flush();
+        snapshot = summarizer.snapshot();
       } finally {
         lock.unlock();
       }
-      if (!summary.counters.isEmpty()) {
+      if (!snapshot.counters.isEmpty()) {
+        EventSummarizer.SummaryOutput summary = summarizer.output(snapshot);
         SummaryEventOutput seo = new SummaryEventOutput(summary.startDate, summary.endDate, summary.counters);
         events.add(seo);
       }

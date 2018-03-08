@@ -13,16 +13,12 @@ import java.util.Map;
  * event counters and user deduplication.
  */
 class EventSummarizer {
-  private final Map<CounterKey, CounterValue> counters;
-  private long startDate;
-  private long endDate;
+  private EventsState eventsState;
   private long lastKnownPastTime;
   private final SimpleLRUCache<String, String> userKeys;
   
   EventSummarizer(LDConfig config) {
-    this.counters = new HashMap<>();
-    this.startDate = 0;
-    this.endDate = 0;
+    this.eventsState = new EventsState();
     this.userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
   }
   
@@ -70,23 +66,9 @@ class EventSummarizer {
         return false;
       }
     }
-    
-    CounterKey key = new CounterKey(fe.key, (fe.variation == null) ? 0 : fe.variation.intValue(),
-        (fe.version == null) ? 0 : fe.version.intValue());
-    
-    CounterValue value = counters.get(key);
-    if (value != null) {
-      value.increment();
-    } else {
-      counters.put(key, new CounterValue(1, fe.value));
-    }
-    
-    if (startDate == 0 || fe.creationDate < startDate) {
-      startDate = fe.creationDate;
-    }
-    if (fe.creationDate > endDate) {
-      endDate = fe.creationDate;
-    }
+        
+    eventsState.incrementCounter(fe.key, fe.variation, fe.version, fe.value);
+    eventsState.noteTimestamp(fe.creationDate);
     
     return true;
   }
@@ -102,9 +84,24 @@ class EventSummarizer {
     }
   }
   
-  SummaryOutput flush() {
-    List<CounterData> countersOut = new ArrayList<>(counters.size());
-    for (Map.Entry<CounterKey, CounterValue> entry: counters.entrySet()) {
+  /**
+   * Returns a snapshot of the current summarized event data, and resets this state.
+   * @return the previous event state
+   */
+  EventsState snapshot() {
+    EventsState ret = eventsState;
+    eventsState = new EventsState();
+    return ret;
+  }
+
+  /**
+   * Transforms the summary data into the format used for event sending.
+   * @param snapshot the data obtained from {@link #snapshot()}
+   * @return the formatted output
+   */
+  SummaryOutput output(EventsState snapshot) {
+    List<CounterData> countersOut = new ArrayList<>(snapshot.counters.size());
+    for (Map.Entry<CounterKey, CounterValue> entry: snapshot.counters.entrySet()) {
       CounterData c = new CounterData(entry.getKey().key,
           entry.getValue().flagValue,
           entry.getKey().version == 0 ? null : entry.getKey().version,
@@ -112,12 +109,38 @@ class EventSummarizer {
           entry.getKey().version == 0 ? true : null);
       countersOut.add(c);
     }
-    counters.clear();
+    return new SummaryOutput(snapshot.startDate, snapshot.endDate, countersOut);
+  }
+  
+  static class EventsState {
+    final Map<CounterKey, CounterValue> counters;
+    long startDate;
+    long endDate;
     
-    SummaryOutput ret = new SummaryOutput(startDate, endDate, countersOut);
-    startDate = 0;
-    endDate = 0;
-    return ret;
+    EventsState() {
+      counters = new HashMap<CounterKey, CounterValue>();
+    }
+    
+    void incrementCounter(String flagKey, Integer variation, Integer version, JsonElement flagValue) {
+      CounterKey key = new CounterKey(flagKey, (variation == null) ? 0 : variation.intValue(),
+          (version == null) ? 0 : version.intValue());
+
+      CounterValue value = counters.get(key);
+      if (value != null) {
+        value.increment();
+      } else {
+        counters.put(key, new CounterValue(1, flagValue));
+      }
+    }
+    
+    void noteTimestamp(long time) {
+      if (startDate == 0 || time < startDate) {
+        startDate = time;
+      }
+      if (time > endDate) {
+        endDate = time;
+      }
+    }
   }
   
   private static class CounterKey {

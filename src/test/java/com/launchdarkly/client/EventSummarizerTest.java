@@ -96,7 +96,7 @@ public class EventSummarizerTest {
     es.summarizeEvent(event1);
     es.summarizeEvent(event2);
     es.summarizeEvent(event3);
-    EventSummarizer.SummaryOutput data = es.flush();
+    EventSummarizer.SummaryOutput data = es.output(es.snapshot());
     
     assertEquals(1000, data.startDate);
     assertEquals(2000, data.endDate);
@@ -122,7 +122,7 @@ public class EventSummarizerTest {
     es.summarizeEvent(event3);
     es.summarizeEvent(event4);
     es.summarizeEvent(event5);
-    EventSummarizer.SummaryOutput data = es.flush();
+    EventSummarizer.SummaryOutput data = es.output(es.snapshot());
     
     assertEquals(4, data.counters.size());
     EventSummarizer.CounterData result1 = findCounter(data.counters, flag1.getKey(), "value1");
