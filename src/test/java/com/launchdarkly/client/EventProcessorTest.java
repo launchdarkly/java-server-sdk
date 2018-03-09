@@ -6,13 +6,18 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
+import org.hamcrest.Matcher;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static com.launchdarkly.client.TestUtils.hasJsonProperty;
+import static com.launchdarkly.client.TestUtils.isJsonArray;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -41,6 +46,7 @@ public class EventProcessorTest {
     server.shutdown();
   }
   
+  @SuppressWarnings("unchecked")
   @Test
   public void testIdentifyEventIsQueued() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
@@ -48,86 +54,98 @@ public class EventProcessorTest {
     ep.sendEvent(e);
     
     JsonArray output = flushAndGetEvents();
-    assertEquals(1, output.size());
-    JsonObject expected = new JsonObject();
-    expected.addProperty("kind", "identify");
-    expected.addProperty("creationDate", e.creationDate);
-    expected.add("user", makeUserJson(user));
-    assertEquals(expected, output.get(0));
+    assertThat(output, hasItems(
+        allOf(
+          hasJsonProperty("kind", "identify"),
+          hasJsonProperty("creationDate", (double)e.creationDate),
+          hasJsonProperty("user", makeUserJson(user))
+        )));
   }
   
+  @SuppressWarnings("unchecked")
   @Test
   public void testIndividualFeatureEventIsQueuedWithIndexEvent() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents();
-    assertEquals(2, output.size());
-    assertIndexEventMatches(output.get(0), fe);
-    assertFeatureEventMatches(output.get(1), fe, flag, false);
+    assertThat(output, hasItems(
+        isIndexEvent(fe),
+        isFeatureEvent(fe, flag, false)
+    ));
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   public void testDebugFlagIsSetIfFlagIsTemporarilyInDebugMode() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     long futureTime = System.currentTimeMillis() + 1000000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
-    Event fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents();
-    assertEquals(2, output.size());
-    assertIndexEventMatches(output.get(0), fe);
-    assertFeatureEventMatches(output.get(1), fe, flag, true);
+    assertThat(output, hasItems(
+        isIndexEvent(fe),
+        isFeatureEvent(fe, flag, true)
+    ));
   }
   
+  @SuppressWarnings("unchecked")
   @Test
   public void testTwoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).trackEvents(true).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).trackEvents(true).build();
-    Event fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
-    Event fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    JsonElement value = new JsonPrimitive("value");
+    FeatureRequestEvent fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), value), null);
+    FeatureRequestEvent fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), value), null);
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
     
     JsonArray output = flushAndGetEvents();
-    assertEquals(3, output.size());
-    assertIndexEventMatches(output.get(0), fe1);
-    assertFeatureEventMatches(output.get(1), fe1, flag1, false);    
-    assertFeatureEventMatches(output.get(2), fe2, flag2, false);
+    assertThat(output, hasItems(
+        isIndexEvent(fe1),
+        isFeatureEvent(fe1, flag1, false),
+        isFeatureEvent(fe2, flag2, false),
+        isSummaryEvent(fe1.creationDate, fe2.creationDate)
+    ));
   }
   
+  @SuppressWarnings("unchecked")
   @Test
   public void nonTrackedEventsAreSummarized() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).build();
+    JsonElement value = new JsonPrimitive("value");
     Event fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+        new FeatureFlag.VariationAndValue(new Integer(1), value), null);
     Event fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+        new FeatureFlag.VariationAndValue(new Integer(1), value), null);
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
     
     JsonArray output = flushAndGetEvents();
-    assertEquals(2, output.size());
-    assertIndexEventMatches(output.get(0), fe1);
-    
-    JsonObject seo = output.get(1).getAsJsonObject();
-    assertEquals("summary", seo.get("kind").getAsString());
-    assertEquals(fe1.creationDate, seo.get("startDate").getAsLong());
-    assertEquals(fe2.creationDate, seo.get("endDate").getAsLong());
-    JsonArray counters = seo.get("counters").getAsJsonArray();
-    assertEquals(2, counters.size());
+    assertThat(output, hasItems(
+        isIndexEvent(fe1),
+        allOf(
+            isSummaryEvent(fe1.creationDate, fe2.creationDate),
+            hasSummaryCounters(allOf(
+                hasItem(isSummaryEventCounter(flag1, value, 1)),
+                hasItem(isSummaryEventCounter(flag2, value, 1))
+            )
+        ))
+    ));
   }
   
+  @SuppressWarnings("unchecked")
   @Test
   public void customEventIsQueuedWithUser() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
@@ -137,16 +155,16 @@ public class EventProcessorTest {
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents();
-    assertEquals(2, output.size());
-    assertIndexEventMatches(output.get(0), ce);
-    
-    JsonObject expected = new JsonObject();
-    expected.addProperty("kind", "custom");
-    expected.addProperty("creationDate", ce.creationDate);
-    expected.addProperty("key", "eventkey");
-    expected.addProperty("userKey", user.getKeyAsString());
-    expected.add("data", data);
-    assertEquals(expected, output.get(1));
+    assertThat(output, hasItems(
+        isIndexEvent(ce),
+        allOf(
+            hasJsonProperty("kind", "custom"),
+            hasJsonProperty("creationDate", (double)ce.creationDate),
+            hasJsonProperty("key", "eventkey"),
+            hasJsonProperty("userkey", user.getKeyAsString()),
+            hasJsonProperty("data", data)
+        )
+    ));
   }
   
   @Test
@@ -159,7 +177,7 @@ public class EventProcessorTest {
     ep.flush();
     RecordedRequest req = server.takeRequest();
     
-    assertEquals(SDK_KEY, req.getHeader("Authorization"));
+    assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
   }
   
   private JsonArray flushAndGetEvents() throws Exception {
@@ -174,29 +192,44 @@ public class EventProcessorTest {
     return configBuilder.build().gson.toJsonTree(user);
   }
   
-  private void assertUserMatches(LDUser user, JsonElement userJson) {
-    assertEquals(makeUserJson(user), userJson);
+  private Matcher<JsonElement> isIndexEvent(Event sourceEvent) {
+    return allOf(
+        hasJsonProperty("kind", "index"),
+        hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
+        hasJsonProperty("user", makeUserJson(sourceEvent.user))
+    );
   }
 
-  private void assertIndexEventMatches(JsonElement eventOutput, Event sourceEvent) {
-    JsonObject o = eventOutput.getAsJsonObject();
-    assertEquals("index", o.get("kind").getAsString());
-    assertEquals(sourceEvent.creationDate, o.get("creationDate").getAsLong());
-    assertUserMatches(sourceEvent.user, o.get("user"));
+  @SuppressWarnings("unchecked")
+  private Matcher<JsonElement> isFeatureEvent(FeatureRequestEvent sourceEvent, FeatureFlag flag, boolean debug) {
+    return allOf(
+        hasJsonProperty("kind", "feature"),
+        hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
+        hasJsonProperty("key", flag.getKey()),
+        hasJsonProperty("version", (double)flag.getVersion()),
+        hasJsonProperty("value", sourceEvent.value),
+        hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
+        hasJsonProperty("debug", debug ? new JsonPrimitive(true) : null)
+    );
+  }
+
+  private Matcher<JsonElement> isSummaryEvent(long startDate, long endDate) {
+    return allOf(
+        hasJsonProperty("kind", "summary"),
+        hasJsonProperty("startDate", (double)startDate),
+        hasJsonProperty("endDate", (double)endDate)
+    );
   }
   
-  private void assertFeatureEventMatches(JsonElement eventOutput, Event sourceEvent, FeatureFlag flag, boolean debug) {
-    JsonObject o = eventOutput.getAsJsonObject();
-    assertEquals("feature", o.get("kind").getAsString());
-    assertEquals(sourceEvent.creationDate, o.get("creationDate").getAsLong());
-    assertEquals(flag.getKey(), o.get("key").getAsString());
-    assertEquals(flag.getVersion(), o.get("version").getAsInt());
-    assertEquals("value", o.get("value").getAsString());
-    assertEquals(sourceEvent.user.getKeyAsString(), o.get("userKey").getAsString());
-    if (debug) {
-      assertTrue(o.get("debug").getAsBoolean());
-    } else {
-      assertNull(o.get("debug"));
-    }
+  private Matcher<JsonElement> hasSummaryCounters(Matcher<Iterable<? super JsonElement>> matcher) {
+    return hasJsonProperty("counters", isJsonArray(matcher));
+  }
+  
+  private Matcher<JsonElement> isSummaryEventCounter(FeatureFlag flag, JsonElement value, int count) {
+    return allOf(
+        hasJsonProperty("version", (double)flag.getVersion()),
+        hasJsonProperty("value", value),
+        hasJsonProperty("count", (double)count)
+    );
   }
 }

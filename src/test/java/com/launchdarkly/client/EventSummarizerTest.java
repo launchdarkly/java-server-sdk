@@ -4,12 +4,10 @@ import com.google.gson.JsonPrimitive;
 
 import org.junit.Test;
 
-import java.util.Objects;
-
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class EventSummarizerTest {
@@ -54,33 +52,21 @@ public class EventSummarizerTest {
   }
   
   @Test
-  public void summarizeEventReturnsFalseForIdentifyEvent() {
+  public void summarizeEventDoesNothingForIdentifyEvent() {
     EventSummarizer es = new EventSummarizer(defaultConfig);
-    Event event = new IdentifyEvent(user);
-    assertFalse(es.summarizeEvent(event));
+    EventSummarizer.EventsState snapshot = es.snapshot();
+    es.summarizeEvent(eventFactory.newIdentifyEvent(user));
+    
+    assertEquals(snapshot, es.snapshot());
   }
   
   @Test
-  public void summarizeEventReturnsFalseForCustomEvent() {
+  public void summarizeEventDoesNothingForCustomEvent() {
     EventSummarizer es = new EventSummarizer(defaultConfig);
-    Event event = new CustomEvent("whatever", user, null);
-    assertFalse(es.summarizeEvent(event));
-  }
-  
-  @Test
-  public void summarizeEventReturnsTrueForFeatureEventWithTrackEventsFalse() {
-    EventSummarizer es = new EventSummarizer(defaultConfig);
-    FeatureFlag flag = new FeatureFlagBuilder("key").build();
-    Event event = eventFactory.newFeatureRequestEvent(flag, user, null, null);
-    assertTrue(es.summarizeEvent(event));
-  }
-  
-  @Test
-  public void summarizeEventReturnsFalseForFeatureEventWithTrackEventsTrue() {
-    EventSummarizer es = new EventSummarizer(defaultConfig);
-    FeatureFlag flag = new FeatureFlagBuilder("key").trackEvents(true).build();
-    Event event = eventFactory.newFeatureRequestEvent(flag, user, null, null);
-    assertFalse(es.summarizeEvent(event));
+    EventSummarizer.EventsState snapshot = es.snapshot();
+    es.summarizeEvent(eventFactory.newCustomEvent("whatever", user, null));
+    
+    assertEquals(snapshot, es.snapshot());
   }
   
   @Test
@@ -124,40 +110,14 @@ public class EventSummarizerTest {
     es.summarizeEvent(event5);
     EventSummarizer.SummaryOutput data = es.output(es.snapshot());
     
-    assertEquals(4, data.counters.size());
-    EventSummarizer.CounterData result1 = findCounter(data.counters, flag1.getKey(), "value1");
-    assertNotNull(result1);
-    assertEquals(flag1.getKey(), result1.key);
-    assertEquals(new Integer(flag1.getVersion()), result1.version);
-    assertEquals(2, result1.count);
-    assertNull(result1.unknown);
-    EventSummarizer.CounterData result2 = findCounter(data.counters, flag1.getKey(), "value2");
-    assertNotNull(result2);
-    assertEquals(flag1.getKey(), result2.key);
-    assertEquals(new Integer(flag1.getVersion()), result2.version);
-    assertEquals(1, result2.count);
-    assertNull(result2.unknown);
-    EventSummarizer.CounterData result3 = findCounter(data.counters, flag2.getKey(), "value99");
-    assertNotNull(result3);
-    assertEquals(flag2.getKey(), result3.key);
-    assertEquals(new Integer(flag2.getVersion()), result3.version);
-    assertEquals(1, result3.count);
-    assertNull(result3.unknown);
-    EventSummarizer.CounterData result4 = findCounter(data.counters, unknownFlagKey, null);
-    assertNotNull(result4);
-    assertEquals(unknownFlagKey, result4.key);
-    assertNull(result4.version);
-    assertEquals(1, result4.count);
-    assertEquals(Boolean.TRUE, result4.unknown);
-  }
-  
-  private EventSummarizer.CounterData findCounter(Iterable<EventSummarizer.CounterData> counters, String key, String value) {
-    JsonPrimitive jv = value == null ? null : new JsonPrimitive(value);
-    for (EventSummarizer.CounterData c: counters) {
-      if (c.key.equals(key) && Objects.equals(c.value, jv)) {
-        return c;
-      }
-    }
-    return null;
+    EventSummarizer.CounterData expected1 = new EventSummarizer.CounterData(flag1.getKey(),
+        new JsonPrimitive("value1"), flag1.getVersion(), 2, null);
+    EventSummarizer.CounterData expected2 = new EventSummarizer.CounterData(flag1.getKey(),
+        new JsonPrimitive("value2"), flag1.getVersion(), 1, null);
+    EventSummarizer.CounterData expected3 = new EventSummarizer.CounterData(flag2.getKey(),
+        new JsonPrimitive("value99"), flag2.getVersion(), 1, null);
+    EventSummarizer.CounterData expected4 = new EventSummarizer.CounterData(unknownFlagKey,
+        null, null, 1, true);
+    assertThat(data.counters, containsInAnyOrder(expected1, expected2, expected3, expected4));
   }
 }
