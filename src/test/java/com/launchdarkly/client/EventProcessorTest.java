@@ -161,7 +161,7 @@ public class EventProcessorTest {
             hasJsonProperty("kind", "custom"),
             hasJsonProperty("creationDate", (double)ce.creationDate),
             hasJsonProperty("key", "eventkey"),
-            hasJsonProperty("userkey", user.getKeyAsString()),
+            hasJsonProperty("userKey", user.getKeyAsString()),
             hasJsonProperty("data", data)
         )
     ));
