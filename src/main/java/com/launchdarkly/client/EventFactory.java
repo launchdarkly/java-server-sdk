@@ -29,7 +29,7 @@ abstract class EventFactory {
   }
   
   public IdentifyEvent newIdentifyEvent(LDUser user) {
-    return new IdentifyEvent(getTimestamp(), user.getKeyAsString(), user);
+    return new IdentifyEvent(getTimestamp(), user);
   }
   
   public static class DefaultEventFactory extends EventFactory {

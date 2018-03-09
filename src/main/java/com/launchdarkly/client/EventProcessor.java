@@ -4,10 +4,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
 
-import okhttp3.MediaType;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,83 +13,164 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
+
+import okhttp3.MediaType;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 class EventProcessor implements Closeable {
+  private static final Logger logger = LoggerFactory.getLogger(EventProcessor.class);
   private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+  private static final int CHANNEL_BLOCK_MILLIS = 1000;
   
   private final ScheduledExecutorService scheduler;
-  private final Random random = new Random();
-  private final BlockingQueue<EventOutput> queue;
+  private final Thread mainThread;
+  private final BlockingQueue<EventProcessorMessage> inputChannel;
+  private final ArrayList<Event> buffer;
   private final String sdkKey;
   private final LDConfig config;
-  private final Consumer consumer;
   private final EventSummarizer summarizer;
-  private AtomicLong lastKnownPastTime = new AtomicLong(0);
-  private final ReentrantLock lock = new ReentrantLock();
+  private final Random random = new Random();
+  private final AtomicLong lastKnownPastTime = new AtomicLong(0);
+  private final AtomicBoolean capacityExceeded = new AtomicBoolean(false);
+  private final AtomicBoolean stopped = new AtomicBoolean(false);
   
   EventProcessor(String sdkKey, LDConfig config) {
     this.sdkKey = sdkKey;
-    this.queue = new ArrayBlockingQueue<>(config.capacity);
-    this.consumer = new Consumer(config);
+    this.inputChannel = new ArrayBlockingQueue<>(config.capacity);
+    this.buffer = new ArrayList<>(config.capacity);
     this.summarizer = new EventSummarizer(config);
     this.config = config;
+    
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setDaemon(true)
         .setNameFormat("LaunchDarkly-EventProcessor-%d")
         .build();
-    this.scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
     
-    this.scheduler.scheduleAtFixedRate(consumer, 0, config.flushInterval, TimeUnit.SECONDS);
-    Runnable userKeysFlusher = new Runnable() {
+    this.scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
+    Runnable flusher = new Runnable() {
       public void run() {
-        lock.lock();
-        try {
-          summarizer.resetUsers();
-        } finally {
-          lock.unlock();
-        }
+        postMessageAsync(MessageType.FLUSH, null);
       }
     };
-    this.scheduler.scheduleAtFixedRate(userKeysFlusher, 0, config.userKeysFlushInterval, TimeUnit.SECONDS);
+    this.scheduler.scheduleAtFixedRate(flusher, config.flushInterval, config.flushInterval, TimeUnit.SECONDS);
+    Runnable userKeysFlusher = new Runnable() {
+      public void run() {
+        postMessageAsync(MessageType.FLUSH_USERS, null);
+      }
+    };
+    this.scheduler.scheduleAtFixedRate(userKeysFlusher, config.userKeysFlushInterval, config.userKeysFlushInterval,
+        TimeUnit.SECONDS);
+    
+    mainThread = threadFactory.newThread(new MainLoop());
+    mainThread.start();
+  }
+  
+  void sendEventAsync(Event e) {
+    postMessageAsync(MessageType.EVENT, e);
+  }
+  
+  boolean sendEvent(Event e) {
+    return postMessageAndWait(MessageType.EVENT, e);
   }
 
-  boolean sendEvent(Event e) {
-    lock.lock();
-    try {
-      // For each user we haven't seen before, we add an index event - unless this is already
-      // an identify event for that user.
-      if (e.user != null && !summarizer.noticeUser(e.user)) {
-        if (!(e instanceof IdentifyEvent)) {
-          IndexEventOutput ie = new IndexEventOutput(e.creationDate, e.user);
-          if (!queue.offer(ie)) {
-            return false;
+  /**
+   * This task drains the input queue as quickly as possible. Everything here is done on a single
+   * thread so we don't have to synchronize on our internal structures; when it's time to flush,
+   * dispatchFlush will fire off another task to do the part that takes longer.
+   */
+  private class MainLoop implements Runnable {
+    public void run() {
+      while (!stopped.get()) {
+        try {
+          EventProcessorMessage message = inputChannel.take();
+          logger.debug("Processing: {}", message);
+          switch(message.type) {
+          case EVENT:
+            message.setResult(dispatchEvent(message.event));
+            break;
+          case FLUSH:
+            dispatchFlush(message);
+          case FLUSH_USERS:
+            summarizer.resetUsers();
           }
+        } catch (InterruptedException e) {
         }
       }
-      
-      // Always record the event in the summarizer.
-      summarizer.summarizeEvent(e);
-
-      if (shouldTrackFullEvent(e)) {
-        if (config.samplingInterval > 0 && random.nextInt(config.samplingInterval) != 0) {
-          return true;
-        }
-  
-        EventOutput eventOutput = createEventOutput(e);
-        if (eventOutput == null) {
-          return false;
-        } else {
-          return queue.offer(eventOutput);
-        }
-      }
-      return true;
-    } finally {
-      lock.unlock();
     }
+  }
+  
+  private void postMessageAsync(MessageType type, Event event) {
+    postToChannel(new EventProcessorMessage(type, event, null));
+  }
+  
+  private boolean postMessageAndWait(MessageType type, Event event) {
+    EventProcessorMessage message = new EventProcessorMessage(type, event, new AtomicBoolean());
+    postToChannel(message);
+    return message.waitForResult();
+  }
+  
+  private void postToChannel(EventProcessorMessage message) {
+    while (true) {
+      try {
+        if (inputChannel.offer(message, CHANNEL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
+          break;
+        } else {
+          // This doesn't mean that the output event buffer is full, but rather that the main thread is
+          // seriously backed up with not-yet-processed events. We shouldn't see this.
+          logger.warn("Events are being produced faster than they can be processed");
+        }
+      } catch (InterruptedException ex) {
+      }
+    }
+  }
+  
+  boolean dispatchEvent(Event e) {
+    // For each user we haven't seen before, we add an index event - unless this is already
+    // an identify event for that user.
+    if (e.user != null && !summarizer.noticeUser(e.user)) {
+      if (!(e instanceof IdentifyEvent)) {
+        IndexEvent ie = new IndexEvent(e.creationDate, e.user);
+        if (!queueEvent(ie)) {
+          return false;
+        }
+      }
+    }
+    
+    // Always record the event in the summarizer.
+    summarizer.summarizeEvent(e);
+
+    if (shouldTrackFullEvent(e)) {
+      // Sampling interval applies only to fully-tracked events.
+      if (config.samplingInterval > 0 && random.nextInt(config.samplingInterval) != 0) {
+        return true;
+      }
+      // Queue the event as-is; we'll transform it into an output event when we're flushing
+      // (to avoid doing that work on our main thread).
+      return queueEvent(e);
+    }
+    return true;
+  }
+  
+  private boolean queueEvent(Event e) {
+    if (buffer.size() >= config.capacity) {
+      if (capacityExceeded.compareAndSet(false, true)) {
+        logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
+      }
+      return false;
+    }
+    capacityExceeded.set(false);
+    buffer.add(e);
+    return true;
   }
   
   private boolean shouldTrackFullEvent(Event e) {
@@ -122,14 +199,17 @@ class EventProcessor implements Closeable {
     String userKey = e.user == null ? null : e.user.getKeyAsString();
     if (e instanceof FeatureRequestEvent) {
       FeatureRequestEvent fe = (FeatureRequestEvent)e;
+      boolean isDebug = (!fe.trackEvents && fe.debugEventsUntilDate != null);
       return new FeatureRequestEventOutput(fe.creationDate, fe.key, userKey,
           fe.variation, fe.version, fe.value, fe.defaultVal, fe.prereqOf,
-          (!fe.trackEvents && fe.debugEventsUntilDate != null) ? Boolean.TRUE : null);
+          isDebug ? Boolean.TRUE : null);
     } else if (e instanceof IdentifyEvent) {
       return new IdentifyEventOutput(e.creationDate, e.user);
     } else if (e instanceof CustomEvent) {
       CustomEvent ce = (CustomEvent)e;
-      return new CustomEventOutput(e.creationDate, ce.key, userKey, ce.data);
+      return new CustomEventOutput(ce.creationDate, ce.key, userKey, ce.data);
+    } else if (e instanceof IndexEvent) {
+      return (IndexEvent)e;
     } else {
       return null;
     }
@@ -137,69 +217,67 @@ class EventProcessor implements Closeable {
 
   @Override
   public void close() throws IOException {
-    scheduler.shutdown();
     this.flush();
+    scheduler.shutdown();
+    stopped.set(true);
+    mainThread.interrupt();
   }
 
   public void flush() {
-    this.consumer.flush();
+    postMessageAndWait(MessageType.FLUSH, null);
   }
 
-  class Consumer implements Runnable {
-    private final Logger logger = LoggerFactory.getLogger(Consumer.class);
-    private final LDConfig config;
-    private final AtomicBoolean shutdown;
-
-    Consumer(LDConfig config) {
-      this.config = config;
-      this.shutdown = new AtomicBoolean(false);
+  private void dispatchFlush(EventProcessorMessage message) {
+    Event[] events = buffer.toArray(new Event[buffer.size()]);
+    buffer.clear();
+    EventSummarizer.EventsState snapshot = summarizer.snapshot();
+    this.scheduler.schedule(new FlushTask(events, snapshot, message), 0, TimeUnit.SECONDS);
+  }
+  
+  class FlushTask implements Runnable {
+    private final Logger logger = LoggerFactory.getLogger(FlushTask.class);
+    private final Event[] events;
+    private final EventSummarizer.EventsState snapshot;
+    private final EventProcessorMessage message;
+    
+    FlushTask(Event[] events, EventSummarizer.EventsState snapshot, EventProcessorMessage message) {
+      this.events = events;
+      this.snapshot = snapshot;
+      this.message = message;
     }
-
-    @Override
+    
     public void run() {
-      flush();
-    }
-
-    public void flush() {
-      List<EventOutput> events = new ArrayList<>(queue.size());
-      EventSummarizer.EventsState snapshot;
-      lock.lock();
-      try {
-        queue.drainTo(events);
-        snapshot = summarizer.snapshot();
-      } finally {
-        lock.unlock();
+      List<EventOutput> eventsOut = new ArrayList<>(events.length + 1);
+      for (Event event: events) {
+        eventsOut.add(createEventOutput(event));
       }
       if (!snapshot.counters.isEmpty()) {
         EventSummarizer.SummaryOutput summary = summarizer.output(snapshot);
         SummaryEventOutput seo = new SummaryEventOutput(summary.startDate, summary.endDate, summary.counters);
-        events.add(seo);
+        eventsOut.add(seo);
       }
-      if (!events.isEmpty() && !shutdown.get()) {
-        postEvents(events);
+      if (!eventsOut.isEmpty()) {
+        postEvents(eventsOut);
       }
+      message.setResult(true);
     }
-
-    private void postEvents(List<EventOutput> events) {
-
-      String json = config.gson.toJson(events);
-      logger.debug("Posting " + events.size() + " event(s) to " + config.eventsURI + " with payload: " + json);
-
-      String content = config.gson.toJson(events);
+    
+    private void postEvents(List<EventOutput> eventsOut) {
+      String json = config.gson.toJson(eventsOut);
+      logger.debug("Posting {} event(s) to {} with payload: {}",
+          eventsOut.size(), config.eventsURI, json);
 
       Request request = config.getRequestBuilder(sdkKey)
           .url(config.eventsURI.toString() + "/bulk")
-          .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), content))
+          .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
           .addHeader("Content-Type", "application/json")
           .build();
-
-      logger.debug("Posting " + events.size() + " event(s) using request: " + request);
 
       try (Response response = config.httpClient.newCall(request).execute()) {
         if (!response.isSuccessful()) {
           logger.info("Got unexpected response when posting events: " + response);
           if (response.code() == 401) {
-            shutdown.set(true);
+            stopped.set(true);
             logger.error("Received 401 error, no further events will be posted since SDK key is invalid");
             close();
           }
@@ -216,6 +294,54 @@ class EventProcessor implements Closeable {
       } catch (IOException e) {
         logger.info("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
       }
+    }
+  }
+  
+  private static enum MessageType {
+    EVENT,
+    FLUSH,
+    FLUSH_USERS
+  }
+  
+  private static class EventProcessorMessage {
+    private final MessageType type;
+    private final Event event;
+    private final AtomicBoolean reply; // if non-null, used to signal back to caller
+    
+    private EventProcessorMessage(MessageType type, Event event, AtomicBoolean reply) {
+      this.type = type;
+      this.event = event;
+      this.reply = reply;
+    }
+    
+    void setResult(boolean result) {
+      if (reply != null) {
+        synchronized(reply) {
+          reply.set(result);
+          reply.notifyAll();
+        }
+      }
+    }
+    
+    boolean waitForResult() {
+      if (reply == null) {
+        return false;
+      }
+      while (true) {
+        try {
+          synchronized(reply) {
+            reply.wait();
+            return reply.get();
+          }
+        }
+        catch (InterruptedException ex) {
+        }
+      }
+    }
+    
+    @Override
+    public String toString() {
+      return (event == null) ? type.toString() : (type + ": " + event.getClass().getSimpleName());
     }
   }
   
@@ -250,15 +376,14 @@ class EventProcessor implements Closeable {
   }
 
   @SuppressWarnings("unused")
-  private static class IdentifyEventOutput implements EventOutput {
+  private static class IdentifyEventOutput extends Event implements EventOutput {
     private final String kind;
-    private final long creationDate;
-    private final LDUser user;
+    private final String key;
     
     IdentifyEventOutput(long creationDate, LDUser user) {
+      super(creationDate, user);
       this.kind = "identify";
-      this.creationDate = creationDate;
-      this.user = user;
+      this.key = user.getKeyAsString();
     }
   }
   
@@ -280,15 +405,12 @@ class EventProcessor implements Closeable {
   }
   
   @SuppressWarnings("unused")
-  private static class IndexEventOutput implements EventOutput {
+  private static class IndexEvent extends Event implements EventOutput {
     private final String kind;
-    private final long creationDate;
-    private final LDUser user;
     
-    IndexEventOutput(long creationDate, LDUser user) {
+    IndexEvent(long creationDate, LDUser user) {
+      super(creationDate, user);
       this.kind = "index";
-      this.creationDate = creationDate;
-      this.user = user;
     }
   }
   

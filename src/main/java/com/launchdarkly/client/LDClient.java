@@ -162,13 +162,7 @@ public class LDClient implements LDClientInterface {
     if (isOffline() || !config.sendEvents) {
       return false;
     }
-  
-    boolean processed = eventProcessor.sendEvent(event);
-    if (processed) {
-      eventCapacityExceeded.compareAndSet(true, false);
-    } else if (eventCapacityExceeded.compareAndSet(false, true)) {
-      logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
-    }
+    eventProcessor.sendEventAsync(event);
     return true;
   }
 

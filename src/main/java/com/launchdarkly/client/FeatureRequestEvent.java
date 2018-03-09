@@ -1,27 +1,21 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
-import com.google.gson.annotations.SerializedName;
 
 class FeatureRequestEvent extends Event {
-  Integer variation;
-  
-  JsonElement value;
-  @SerializedName("default")
-  JsonElement defaultVal;
-
-  @SerializedName("version")
-  Integer version;
-
-  @SerializedName("prereqOf")
-  String prereqOf;
-
+  final String key;
+  final Integer variation;
+  final JsonElement value;
+  final JsonElement defaultVal;
+  final Integer version;
+  final String prereqOf;
   boolean trackEvents;
-  Long debugEventsUntilDate;
+  final Long debugEventsUntilDate;
   
   FeatureRequestEvent(long timestamp, String key, LDUser user, Integer version, Integer variation, JsonElement value,
       JsonElement defaultVal, String prereqOf, boolean trackEvents, Long debugEventsUntilDate) {
-    super(timestamp, "feature", key, user);
+    super(timestamp, user);
+    this.key = key;
     this.version = version;
     this.variation = variation;
     this.value = value;
