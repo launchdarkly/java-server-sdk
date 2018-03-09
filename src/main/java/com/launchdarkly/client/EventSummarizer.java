@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Manages the state of summarizable information for the EventProcessor, including the
@@ -14,7 +15,6 @@ import java.util.Map;
  */
 class EventSummarizer {
   private EventsState eventsState;
-  private long lastKnownPastTime;
   private final SimpleLRUCache<String, String> userKeys;
   
   EventSummarizer(LDConfig config) {
@@ -43,44 +43,14 @@ class EventSummarizer {
   }
   
   /**
-   * Check whether this is a kind of event that we should summarize; if so, add it to our
-   * counters and return true. False means that the event should be sent individually.
+   * Adds this event to our counters, if it is a type of event we need to count.
    * @param event an event
-   * @return true if we summarized the event
    */
-  boolean summarizeEvent(Event event) {
-    if (!(event instanceof FeatureRequestEvent)) {
-      return false;
-    }
-    FeatureRequestEvent fe = (FeatureRequestEvent)event;
-    if (fe.trackEvents) {
-      return false;
-    }
-    
-    if (fe.debugEventsUntilDate != null) {
-      // The "last known past time" comes from the last HTTP response we got from the server.
-      // In case the client's time is set wrong, at least we know that any expiration date
-      // earlier than that point is definitely in the past.
-      if (fe.debugEventsUntilDate > lastKnownPastTime &&
-          fe.debugEventsUntilDate > System.currentTimeMillis()) {
-        return false;
-      }
-    }
-        
-    eventsState.incrementCounter(fe.key, fe.variation, fe.version, fe.value);
-    eventsState.noteTimestamp(fe.creationDate);
-    
-    return true;
-  }
-  
-  /**
-   * Marks the given timestamp (received from the server) as being in the past, in case the
-   * client-side time is unreliable.
-   * @param t a timestamp
-   */
-  void setLastKnownPastTime(long t) {
-    if (lastKnownPastTime < t) {
-      lastKnownPastTime = t;
+  void summarizeEvent(Event event) {
+    if (event instanceof FeatureRequestEvent) {
+      FeatureRequestEvent fe = (FeatureRequestEvent)event;
+      eventsState.incrementCounter(fe.key, fe.variation, fe.version, fe.value);
+      eventsState.noteTimestamp(fe.creationDate);
     }
   }
   
@@ -112,6 +82,22 @@ class EventSummarizer {
     return new SummaryOutput(snapshot.startDate, snapshot.endDate, countersOut);
   }
   
+  @SuppressWarnings("serial")
+  private static class SimpleLRUCache<K, V> extends LinkedHashMap<K, V> {
+    // http://chriswu.me/blog/a-lru-cache-in-10-lines-of-java/
+    private final int capacity;
+    
+    SimpleLRUCache(int capacity) {
+      super(16, 0.75f, true);
+      this.capacity = capacity;
+    }
+    
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+      return size() > capacity;
+    }
+  }
+
   static class EventsState {
     final Map<CounterKey, CounterValue> counters;
     long startDate;
@@ -141,8 +127,22 @@ class EventSummarizer {
         endDate = time;
       }
     }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof EventsState) {
+        EventsState o = (EventsState)other;
+        return o.counters.equals(counters) && startDate == o.startDate && endDate == o.endDate;
+      }
+      return true;
+    }
+    
+    @Override
+    public int hashCode() {
+      return counters.hashCode() + 31 * ((int)startDate + 31 * (int)endDate);
+    }
   }
-  
+
   private static class CounterKey {
     private final String key;
     private final int variation;
@@ -165,23 +165,7 @@ class EventSummarizer {
     
     @Override
     public int hashCode() {
-      return key.hashCode() + (variation + (version * 31) * 31);
-    }
-  }
-  
-  @SuppressWarnings("serial")
-  private static class SimpleLRUCache<K, V> extends LinkedHashMap<K, V> {
-    // http://chriswu.me/blog/a-lru-cache-in-10-lines-of-java/
-    private final int capacity;
-    
-    SimpleLRUCache(int capacity) {
-      super(16, 0.75f, true);
-      this.capacity = capacity;
-    }
-    
-    @Override
-    protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
-      return size() > capacity;
+      return key.hashCode() + 31 * (variation + 31 * version);
     }
   }
   
@@ -206,12 +190,33 @@ class EventSummarizer {
     final int count;
     final Boolean unknown;
     
-    private CounterData(String key, JsonElement value, Integer version, int count, Boolean unknown) {
+    CounterData(String key, JsonElement value, Integer version, int count, Boolean unknown) {
       this.key = key;
       this.value = value;
       this.version = version;
       this.count = count;
       this.unknown = unknown;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof CounterData) {
+        CounterData o = (CounterData)other;
+        return o.key.equals(key) && Objects.equals(value, o.value) && Objects.equals(version, o.version) &&
+            o.count == count && Objects.deepEquals(unknown, o.unknown);
+      }
+      return false;
+    }
+    
+    @Override
+    public int hashCode() {
+      return key.hashCode() + 31 * (Objects.hashCode(value) + 31 * (Objects.hashCode(version) + 31 *
+          (count + 31 * (Objects.hashCode(unknown)))));
+    }
+    
+    @Override
+    public String toString() {
+      return "{" + key + ", " + value + ", " + version + ", " + count + ", " + unknown + "}";
     }
   }
   
@@ -220,10 +225,29 @@ class EventSummarizer {
     final long endDate;
     final List<CounterData> counters;
     
-    private SummaryOutput(long startDate, long endDate, List<CounterData> counters) {
+    SummaryOutput(long startDate, long endDate, List<CounterData> counters) {
       this.startDate = startDate;
       this.endDate = endDate;
       this.counters = counters;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof SummaryOutput) {
+        SummaryOutput o = (SummaryOutput)other;
+        return o.startDate == startDate && o.endDate == endDate && o.counters.equals(counters);
+      }
+      return false;
+    }
+    
+    @Override
+    public int hashCode() {
+      return counters.hashCode() + 31 * ((int)startDate + 31 * (int)endDate);
+    }
+    
+    @Override
+    public String toString() {
+      return "{" + startDate + ", " + endDate + ", " + counters + "}";
     }
   }
 }

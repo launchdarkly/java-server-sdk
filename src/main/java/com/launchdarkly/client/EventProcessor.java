@@ -13,14 +13,18 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 class EventProcessor implements Closeable {
+  private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+  
   private final ScheduledExecutorService scheduler;
   private final Random random = new Random();
   private final BlockingQueue<EventOutput> queue;
@@ -28,6 +32,7 @@ class EventProcessor implements Closeable {
   private final LDConfig config;
   private final Consumer consumer;
   private final EventSummarizer summarizer;
+  private AtomicLong lastKnownPastTime = new AtomicLong(0);
   private final ReentrantLock lock = new ReentrantLock();
   
   EventProcessor(String sdkKey, LDConfig config) {
@@ -59,9 +64,10 @@ class EventProcessor implements Closeable {
   boolean sendEvent(Event e) {
     lock.lock();
     try {
-      if (!(e instanceof IdentifyEvent)) {
-        // identify events don't get deduplicated and always include the full user data
-        if (e.user != null && !summarizer.noticeUser(e.user)) {
+      // For each user we haven't seen before, we add an index event - unless this is already
+      // an identify event for that user.
+      if (e.user != null && !summarizer.noticeUser(e.user)) {
+        if (!(e instanceof IdentifyEvent)) {
           IndexEventOutput ie = new IndexEventOutput(e.creationDate, e.user);
           if (!queue.offer(ie)) {
             return false;
@@ -69,22 +75,46 @@ class EventProcessor implements Closeable {
         }
       }
       
-      if (summarizer.summarizeEvent(e)) {
-        return true;
-      }
-      
-      if (config.samplingInterval > 0 && random.nextInt(config.samplingInterval) != 0) {
-        return true;
-      }
+      // Always record the event in the summarizer.
+      summarizer.summarizeEvent(e);
+
+      if (shouldTrackFullEvent(e)) {
+        if (config.samplingInterval > 0 && random.nextInt(config.samplingInterval) != 0) {
+          return true;
+        }
   
-      EventOutput eventOutput = createEventOutput(e);
-      if (eventOutput == null) {
-        return false;
-      } else {
-        return queue.offer(eventOutput);
-      }      
+        EventOutput eventOutput = createEventOutput(e);
+        if (eventOutput == null) {
+          return false;
+        } else {
+          return queue.offer(eventOutput);
+        }
+      }
+      return true;
     } finally {
       lock.unlock();
+    }
+  }
+  
+  private boolean shouldTrackFullEvent(Event e) {
+    if (e instanceof FeatureRequestEvent) {
+      FeatureRequestEvent fe = (FeatureRequestEvent)e;
+      if (fe.trackEvents) {
+        return true;
+      }
+      if (fe.debugEventsUntilDate != null) {
+        // The "last known past time" comes from the last HTTP response we got from the server.
+        // In case the client's time is set wrong, at least we know that any expiration date
+        // earlier than that point is definitely in the past.
+        long lastPast = lastKnownPastTime.get();
+        if ((lastPast != 0 && fe.debugEventsUntilDate > lastPast) ||
+            fe.debugEventsUntilDate > System.currentTimeMillis()) {
+          return true;
+        }
+      }
+      return false;
+    } else {
+      return true;
     }
   }
   
@@ -175,6 +205,13 @@ class EventProcessor implements Closeable {
           }
         } else {
           logger.debug("Events Response: " + response.code());
+          try {
+            String dateStr = response.header("Date");
+            if (dateStr != null) {
+              lastKnownPastTime.set(HTTP_DATE_FORMAT.parse(dateStr).getTime());
+            }
+          } catch (Exception e) {
+          }
         }
       } catch (IOException e) {
         logger.info("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
