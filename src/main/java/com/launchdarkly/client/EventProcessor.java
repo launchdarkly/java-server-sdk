@@ -317,6 +317,7 @@ class EventProcessor implements Closeable {
     
     void setResult(boolean result) {
       if (reply != null) {
+        logger.debug("completed: " + this);
         synchronized(reply) {
           reply.set(result);
           reply.notifyAll();
