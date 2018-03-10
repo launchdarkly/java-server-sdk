@@ -1,5 +1,9 @@
 package com.launchdarkly.client;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -9,6 +13,8 @@ import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.js;
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -36,7 +42,7 @@ public class FeatureFlagTest {
     assertEquals(js("off"), result.getValue());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
-  
+
   @Test
   public void flagReturnsNullIfFlagIsOffAndOffVariationIsUnspecified() throws Exception {
     FeatureFlag f = new FeatureFlagBuilder("feature")
@@ -64,7 +70,7 @@ public class FeatureFlagTest {
     assertEquals(js("off"), result.getValue());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
-
+  
   @Test
   public void flagReturnsOffVariationAndEventIfPrerequisiteIsNotMet() throws Exception {
     FeatureFlag f0 = new FeatureFlagBuilder("feature0")
@@ -81,7 +87,7 @@ public class FeatureFlagTest {
         .variations(js("nogo"), js("go"))
         .version(2)
         .build();
-    featureStore.upsert(f1.getKey(), f1);        
+    featureStore.upsert(FEATURES, f1);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore);
     
     assertEquals(js("off"), result.getValue());
@@ -111,7 +117,7 @@ public class FeatureFlagTest {
         .variations(js("nogo"), js("go"))
         .version(2)
         .build();
-    featureStore.upsert(f1.getKey(), f1);        
+    featureStore.upsert(FEATURES, f1);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore);
     
     assertEquals(js("fall"), result.getValue());
@@ -148,8 +154,8 @@ public class FeatureFlagTest {
         .variations(js("nogo"), js("go"))
         .version(3)
         .build();
-    featureStore.upsert(f1.getKey(), f1);        
-    featureStore.upsert(f2.getKey(), f2);        
+    featureStore.upsert(FEATURES, f1);        
+    featureStore.upsert(FEATURES, f2);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore);
     
     assertEquals(js("fall"), result.getValue());    
@@ -238,5 +244,40 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(jbool(false), f.evaluate(user, featureStore).getValue());
+  }
+  
+  @Test
+  public void testSegmentMatchClauseRetrievesSegmentFromStore() throws Exception {
+    Segment segment = new Segment.Builder("segkey")
+        .included(Arrays.asList("foo"))
+        .version(1)
+        .build();
+    featureStore.upsert(SEGMENTS, segment);
+    
+    FeatureFlag flag = segmentMatchBooleanFlag("segkey");
+    LDUser user = new LDUser.Builder("foo").build();
+    
+    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
+    Assert.assertEquals(new JsonPrimitive(true), result.getValue());
+  }
+
+  @Test
+  public void testSegmentMatchClauseFallsThroughIfSegmentNotFound() throws Exception {
+    FeatureFlag flag = segmentMatchBooleanFlag("segkey");
+    LDUser user = new LDUser.Builder("foo").build();
+    
+    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
+    Assert.assertEquals(new JsonPrimitive(false), result.getValue());
+  }
+ 
+  private FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
+    Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(new JsonPrimitive(segmentKey)), false);
+    Rule rule = new Rule(Arrays.asList(clause), 1, null);
+    return new FeatureFlagBuilder("key")
+        .variations(Arrays.<JsonElement>asList(new JsonPrimitive(false), new JsonPrimitive(true)))
+        .fallthrough(new VariationOrRollout(0, null))
+        .on(true)
+        .rules(Arrays.asList(rule))
+        .build();
   }
 }

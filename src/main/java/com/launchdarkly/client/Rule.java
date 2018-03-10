@@ -20,9 +20,9 @@ class Rule extends VariationOrRollout {
     this.clauses = clauses;
   }
 
-  boolean matchesUser(LDUser user) {
+  boolean matchesUser(FeatureStore store, LDUser user) {
     for (Clause clause : clauses) {
-      if (!clause.matchesUser(user)) {
+      if (!clause.matchesUser(store, user)) {
         return false;
       }
     }

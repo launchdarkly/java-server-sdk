@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class PollingProcessor implements UpdateProcessor {
+class PollingProcessor implements UpdateProcessor {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
   private final FeatureRequestor requestor;
@@ -49,7 +49,8 @@ public class PollingProcessor implements UpdateProcessor {
       @Override
       public void run() {
         try {
-          store.init(requestor.getAllFlags());
+          FeatureRequestor.AllData allData = requestor.getAllData();
+          store.init(FeatureRequestor.toVersionedDataMap(allData));
           if (!initialized.getAndSet(true)) {
             logger.info("Initialized LaunchDarkly client.");
             initFuture.set(null);

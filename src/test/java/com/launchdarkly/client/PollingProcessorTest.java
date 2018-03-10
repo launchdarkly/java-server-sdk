@@ -20,8 +20,8 @@ public class PollingProcessorTest extends EasyMockSupport {
     FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
     PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor);
 
-    expect(requestor.getAllFlags())
-        .andReturn(new HashMap<String, FeatureFlag>())
+    expect(requestor.getAllData())
+        .andReturn(new FeatureRequestor.AllData(new HashMap<String, FeatureFlag>(), new HashMap<String, Segment>()))
         .once();
     replayAll();
 
@@ -37,7 +37,7 @@ public class PollingProcessorTest extends EasyMockSupport {
     FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
     PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor);
 
-    expect(requestor.getAllFlags())
+    expect(requestor.getAllData())
         .andThrow(new IOException("This exception is part of a test and yes you should be seeing it."))
         .once();
     replayAll();

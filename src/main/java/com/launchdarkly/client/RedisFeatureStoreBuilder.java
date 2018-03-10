@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
  * {@link RedisFeatureStoreBuilder} calls can be chained, enabling the following pattern:
  *
  * <pre>
- * RedisFeatureStoreBuilder builder = new RedisFeatureStoreBuilder("host", 443, 60)
+ * RedisFeatureStore store = new RedisFeatureStoreBuilder("host", 443, 60)
  *      .refreshStaleValues(true)
  *      .asyncRefresh(true)
  *      .socketTimeout(200)
@@ -52,7 +52,7 @@ public class RedisFeatureStoreBuilder {
      * @param host the hostname to connect to
      * @param port the port to connect to
      * @param cacheTimeSecs the cache time in seconds. See {@link RedisFeatureStoreBuilder#cacheTime(long, TimeUnit)} for more information.
-     * @throws URISyntaxException
+     * @throws URISyntaxException if the URI is not valid
      */
     public RedisFeatureStoreBuilder(String scheme, String host, int port, long cacheTimeSecs) throws URISyntaxException {
         this.uri = new URI(scheme, null, host, port, null, null, null);
@@ -110,7 +110,7 @@ public class RedisFeatureStoreBuilder {
     /**
      * Optionally configures the namespace prefix for all keys stored in Redis.
      *
-     * @param prefix
+     * @param prefix the namespace prefix
      * @return the builder
      */
     public RedisFeatureStoreBuilder prefix(String prefix) {

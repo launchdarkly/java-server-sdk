@@ -11,12 +11,15 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.*;
@@ -346,6 +349,50 @@ public class LDClientTest extends EasyMockSupport {
 
     testFeatureStore.setIntegerValue("key", 1);
     assertTrue("Flag is marked as known", client.isFlagKnown("key"));
+    verifyAll();
+  }
+
+  @Test
+  public void testFeatureMatchesUserBySegment() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
+    LDConfig config = new LDConfig.Builder()
+            .startWaitMillis(10L)
+            .stream(false)
+            .featureStore(testFeatureStore)
+            .build();
+
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
+    expect(pollingProcessor.start()).andReturn(initFuture);
+    expect(pollingProcessor.initialized()).andReturn(true).times(1);
+    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(1);
+    replayAll();
+
+    client = createMockClient(config);
+
+    Segment segment = new Segment.Builder("segment1")
+        .version(1)
+        .included(Arrays.asList("user"))
+        .build();
+    testFeatureStore.upsert(SEGMENTS, segment);
+    
+    Clause clause = new Clause(
+        "",
+        Operator.segmentMatch,
+        Arrays.asList(new JsonPrimitive("segment1")),
+        false);
+    Rule rule = new Rule(Arrays.asList(clause), 0, null);
+    FeatureFlag feature = new FeatureFlagBuilder("test-feature")
+        .version(1)
+        .rules(Arrays.asList(rule))
+        .variations(TestFeatureStore.TRUE_FALSE_VARIATIONS)
+        .on(true)
+        .fallthrough(new VariationOrRollout(1, null))
+        .build();
+    testFeatureStore.upsert(FEATURES, feature);
+    
+    assertTrue(client.boolVariation("test-feature", new LDUser("user"), false));
+
     verifyAll();
   }
 
