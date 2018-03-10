@@ -11,7 +11,9 @@ import java.util.Objects;
 
 /**
  * Manages the state of summarizable information for the EventProcessor, including the
- * event counters and user deduplication.
+ * event counters and user deduplication. Note that the methods of this class are
+ * deliberately not thread-safe, because they should always be called from EventProcessor's
+ * single event-processing thread.
  */
 class EventSummarizer {
   private EventsState eventsState;
