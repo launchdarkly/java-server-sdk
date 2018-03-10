@@ -48,7 +48,7 @@ public class EventProcessorTest {
   
   @SuppressWarnings("unchecked")
   @Test
-  public void testIdentifyEventIsQueued() throws Exception {
+  public void identifyEventIsQueued() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
@@ -64,7 +64,7 @@ public class EventProcessorTest {
   
   @SuppressWarnings("unchecked")
   @Test
-  public void testIndividualFeatureEventIsQueuedWithIndexEvent() throws Exception {
+  public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
@@ -80,7 +80,7 @@ public class EventProcessorTest {
 
   @SuppressWarnings("unchecked")
   @Test
-  public void testDebugFlagIsSetIfFlagIsTemporarilyInDebugMode() throws Exception {
+  public void debugFlagIsSetIfFlagIsTemporarilyInDebugMode() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     long futureTime = System.currentTimeMillis() + 1000000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
@@ -97,7 +97,7 @@ public class EventProcessorTest {
   
   @SuppressWarnings("unchecked")
   @Test
-  public void testTwoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
+  public void twoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).trackEvents(true).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).trackEvents(true).build();
