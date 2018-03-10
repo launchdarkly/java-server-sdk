@@ -217,6 +217,7 @@ class EventProcessor implements Closeable {
 
   @Override
   public void close() throws IOException {
+    logger.debug("Shutting down event processor");
     this.flush();
     scheduler.shutdown();
     stopped.set(true);
@@ -341,7 +342,8 @@ class EventProcessor implements Closeable {
     
     @Override
     public String toString() {
-      return (event == null) ? type.toString() : (type + ": " + event.getClass().getSimpleName());
+      return ((event == null) ? type.toString() : (type + ": " + event.getClass().getSimpleName())) +
+          (reply == null ? "" : " (sync)");
     }
   }
   
