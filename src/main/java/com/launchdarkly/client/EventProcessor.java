@@ -94,7 +94,6 @@ class EventProcessor implements Closeable {
       while (!stopped.get()) {
         try {
           EventProcessorMessage message = inputChannel.take();
-          logger.debug("Processing: {}", message);
           switch(message.type) {
           case EVENT:
             message.setResult(dispatchEvent(message.event));
@@ -218,15 +217,9 @@ class EventProcessor implements Closeable {
 
   @Override
   public void close() throws IOException {
-    logger.debug("Shutting down event processor");
     this.flush();
-    try {
-      scheduler.shutdown();
-    } catch (Exception e) {
-      logger.warn("failed to shut down scheduler: " + e);
-    }
+    scheduler.shutdown();
     stopped.set(true);
-    logger.debug("Stopped: " + stopped.get());
     mainThread.interrupt();
   }
 
@@ -325,7 +318,6 @@ class EventProcessor implements Closeable {
     void setResult(boolean value) {
       result.set(value);
       if (reply != null) {
-        logger.debug("completed: " + this);
         reply.release();
       }
     }
@@ -337,7 +329,6 @@ class EventProcessor implements Closeable {
       while (true) {
         try {
           reply.acquire();
-          logger.debug("received result for " + this);
           return result.get();
         }
         catch (InterruptedException ex) {
