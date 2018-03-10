@@ -221,6 +221,7 @@ class EventProcessor implements Closeable {
     this.flush();
     scheduler.shutdown();
     stopped.set(true);
+    logger.debug("Stopped: " + stopped.get());
     mainThread.interrupt();
   }
 
