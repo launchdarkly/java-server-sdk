@@ -1,14 +1,11 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
-
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
 
+import static com.launchdarkly.client.TestUtil.booleanFlagWithClauses;
 import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.jint;
@@ -213,7 +210,7 @@ public class FeatureFlagTest {
   @Test
   public void clauseCanMatchBuiltInAttribute() throws Exception {
     Clause clause = new Clause("name", Operator.in, Arrays.asList(js("Bob")), false);
-    FeatureFlag f = TestUtil.booleanFlagWithClauses(clause);
+    FeatureFlag f = booleanFlagWithClauses(clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(jbool(true), f.evaluate(user, featureStore).getValue());
@@ -222,7 +219,7 @@ public class FeatureFlagTest {
   @Test
   public void clauseCanMatchCustomAttribute() throws Exception {
     Clause clause = new Clause("legs", Operator.in, Arrays.asList(jint(4)), false);
-    FeatureFlag f = TestUtil.booleanFlagWithClauses(clause);
+    FeatureFlag f = booleanFlagWithClauses(clause);
     LDUser user = new LDUser.Builder("key").custom("legs", 4).build();
     
     assertEquals(jbool(true), f.evaluate(user, featureStore).getValue());
@@ -231,7 +228,7 @@ public class FeatureFlagTest {
   @Test
   public void clauseReturnsFalseForMissingAttribute() throws Exception {
     Clause clause = new Clause("legs", Operator.in, Arrays.asList(jint(4)), false);
-    FeatureFlag f = TestUtil.booleanFlagWithClauses(clause);
+    FeatureFlag f = booleanFlagWithClauses(clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(jbool(false), f.evaluate(user, featureStore).getValue());
@@ -240,7 +237,7 @@ public class FeatureFlagTest {
   @Test
   public void clauseCanBeNegated() throws Exception {
     Clause clause = new Clause("name", Operator.in, Arrays.asList(js("Bob")), true);
-    FeatureFlag f = TestUtil.booleanFlagWithClauses(clause);
+    FeatureFlag f = booleanFlagWithClauses(clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(jbool(false), f.evaluate(user, featureStore).getValue());
@@ -258,7 +255,7 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("foo").build();
     
     FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
-    Assert.assertEquals(new JsonPrimitive(true), result.getValue());
+    assertEquals(jbool(true), result.getValue());
   }
 
   @Test
@@ -267,17 +264,11 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("foo").build();
     
     FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
-    Assert.assertEquals(new JsonPrimitive(false), result.getValue());
+    assertEquals(jbool(false), result.getValue());
   }
  
   private FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
-    Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(new JsonPrimitive(segmentKey)), false);
-    Rule rule = new Rule(Arrays.asList(clause), 1, null);
-    return new FeatureFlagBuilder("key")
-        .variations(Arrays.<JsonElement>asList(new JsonPrimitive(false), new JsonPrimitive(true)))
-        .fallthrough(new VariationOrRollout(0, null))
-        .on(true)
-        .rules(Arrays.asList(rule))
-        .build();
+    Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(js(segmentKey)), false);
+    return booleanFlagWithClauses(clause);
   }
 }
