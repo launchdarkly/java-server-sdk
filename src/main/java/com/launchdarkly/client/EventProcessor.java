@@ -17,6 +17,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -110,11 +111,11 @@ class EventProcessor implements Closeable {
   }
   
   private void postMessageAsync(MessageType type, Event event) {
-    postToChannel(new EventProcessorMessage(type, event, null));
+    postToChannel(new EventProcessorMessage(type, event, false));
   }
   
   private boolean postMessageAndWait(MessageType type, Event event) {
-    EventProcessorMessage message = new EventProcessorMessage(type, event, new AtomicBoolean());
+    EventProcessorMessage message = new EventProcessorMessage(type, event, true);
     postToChannel(message);
     return message.waitForResult();
   }
@@ -219,7 +220,11 @@ class EventProcessor implements Closeable {
   public void close() throws IOException {
     logger.debug("Shutting down event processor");
     this.flush();
-    scheduler.shutdown();
+    try {
+      scheduler.shutdown();
+    } catch (Exception e) {
+      logger.warn("failed to shut down scheduler: " + e);
+    }
     stopped.set(true);
     logger.debug("Stopped: " + stopped.get());
     mainThread.interrupt();
@@ -308,21 +313,20 @@ class EventProcessor implements Closeable {
   private static class EventProcessorMessage {
     private final MessageType type;
     private final Event event;
-    private final AtomicBoolean reply; // if non-null, used to signal back to caller
+    private final AtomicBoolean result = new AtomicBoolean(false);
+    private final Semaphore reply;
     
-    private EventProcessorMessage(MessageType type, Event event, AtomicBoolean reply) {
+    private EventProcessorMessage(MessageType type, Event event, boolean sync) {
       this.type = type;
       this.event = event;
-      this.reply = reply;
+      reply = sync ? new Semaphore(0) : null;
     }
     
-    void setResult(boolean result) {
+    void setResult(boolean value) {
+      result.set(value);
       if (reply != null) {
         logger.debug("completed: " + this);
-        synchronized(reply) {
-          reply.set(result);
-          reply.notifyAll();
-        }
+        reply.release();
       }
     }
     
@@ -332,10 +336,9 @@ class EventProcessor implements Closeable {
       }
       while (true) {
         try {
-          synchronized(reply) {
-            reply.wait();
-            return reply.get();
-          }
+          reply.acquire();
+          logger.debug("received result for " + this);
+          return result.get();
         }
         catch (InterruptedException ex) {
         }
