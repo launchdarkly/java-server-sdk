@@ -26,7 +26,7 @@ public class PollingProcessorTest extends EasyMockSupport {
     replayAll();
 
     Future<Void> initFuture = pollingProcessor.start();
-    initFuture.get(100, TimeUnit.MILLISECONDS);
+    initFuture.get(1000, TimeUnit.MILLISECONDS);
     assertTrue(pollingProcessor.initialized());
     pollingProcessor.close();
     verifyAll();
@@ -44,7 +44,7 @@ public class PollingProcessorTest extends EasyMockSupport {
 
     Future<Void> initFuture = pollingProcessor.start();
     try {
-      initFuture.get(100L, TimeUnit.MILLISECONDS);
+      initFuture.get(200L, TimeUnit.MILLISECONDS);
       fail("Expected Timeout, instead initFuture.get() returned.");
     } catch (TimeoutException ignored) {
     }
