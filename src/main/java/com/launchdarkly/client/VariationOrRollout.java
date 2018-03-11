@@ -1,9 +1,11 @@
 package com.launchdarkly.client;
 
 
+import com.google.common.hash.Hashing;
 import com.google.gson.JsonElement;
 import org.apache.commons.codec.digest.DigestUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -48,8 +50,10 @@ class VariationOrRollout {
       if (user.getSecondary() != null) {
         idHash = idHash + "." + user.getSecondary().getAsString();
       }
-      String hash = DigestUtils.sha1Hex(key + "." + salt + "." + idHash).substring(0, 15);
-      long longVal = Long.parseLong(hash, 16);
+      String murmur3Hash = Hashing.murmur3_128()
+          .hashString((key + "." + salt + "." + idHash), StandardCharsets.UTF_8)
+          .toString().substring(0, 15);
+      long longVal = Long.parseLong(murmur3Hash, 16);
       return (float) longVal / long_scale;
     }
     return 0F;
