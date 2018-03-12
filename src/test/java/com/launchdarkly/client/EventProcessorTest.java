@@ -80,7 +80,7 @@ public class EventProcessorTest {
 
   @SuppressWarnings("unchecked")
   @Test
-  public void debugFlagIsSetIfFlagIsTemporarilyInDebugMode() throws Exception {
+  public void eventKindIsDebugIfFlagIsTemporarilyInDebugMode() throws Exception {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     long futureTime = System.currentTimeMillis() + 1000000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
@@ -200,16 +200,14 @@ public class EventProcessorTest {
     );
   }
 
-  @SuppressWarnings("unchecked")
   private Matcher<JsonElement> isFeatureEvent(FeatureRequestEvent sourceEvent, FeatureFlag flag, boolean debug) {
     return allOf(
-        hasJsonProperty("kind", "feature"),
+        hasJsonProperty("kind", debug ? "debug" : "feature"),
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
         hasJsonProperty("key", flag.getKey()),
         hasJsonProperty("version", (double)flag.getVersion()),
         hasJsonProperty("value", sourceEvent.value),
-        hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
-        hasJsonProperty("debug", debug ? new JsonPrimitive(true) : null)
+        hasJsonProperty("userKey", sourceEvent.user.getKeyAsString())
     );
   }
 

@@ -202,7 +202,7 @@ class EventProcessor implements Closeable {
       boolean isDebug = (!fe.trackEvents && fe.debugEventsUntilDate != null);
       return new FeatureRequestEventOutput(fe.creationDate, fe.key, userKey,
           fe.variation, fe.version, fe.value, fe.defaultVal, fe.prereqOf,
-          isDebug ? Boolean.TRUE : null);
+          isDebug);
     } else if (e instanceof IdentifyEvent) {
       return new IdentifyEventOutput(e.creationDate, e.user);
     } else if (e instanceof CustomEvent) {
@@ -356,11 +356,10 @@ class EventProcessor implements Closeable {
     private final JsonElement value;
     @SerializedName("default") private final JsonElement defaultVal;
     private final String prereqOf;
-    private final Boolean debug;
     
     FeatureRequestEventOutput(long creationDate, String key, String userKey, Integer variation,
-        Integer version, JsonElement value, JsonElement defaultVal, String prereqOf, Boolean debug) {
-      this.kind = "feature";
+        Integer version, JsonElement value, JsonElement defaultVal, String prereqOf, boolean debug) {
+      this.kind = debug ? "debug" : "feature";
       this.creationDate = creationDate;
       this.key = key;
       this.userKey = userKey;
@@ -369,7 +368,6 @@ class EventProcessor implements Closeable {
       this.value = value;
       this.defaultVal = defaultVal;
       this.prereqOf = prereqOf;
-      this.debug = debug;
     }
   }
 
