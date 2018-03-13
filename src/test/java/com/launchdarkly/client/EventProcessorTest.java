@@ -18,6 +18,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.nullValue;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -74,7 +75,23 @@ public class EventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(fe),
-        isFeatureEvent(fe, flag, false)
+        isFeatureEvent(fe, flag, false, false)
+    ));
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void featureEventCanContainInlineUser() throws Exception {
+    configBuilder.inlineUsersInEvents(true);
+    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
+    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    JsonArray output = flushAndGetEvents();
+    assertThat(output, hasItems(
+        isFeatureEvent(fe, flag, false, true)
     ));
   }
 
@@ -91,7 +108,7 @@ public class EventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(fe),
-        isFeatureEvent(fe, flag, true)
+        isFeatureEvent(fe, flag, true, false)
     ));
   }
   
@@ -112,8 +129,8 @@ public class EventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(fe1),
-        isFeatureEvent(fe1, flag1, false),
-        isFeatureEvent(fe2, flag2, false),
+        isFeatureEvent(fe1, flag1, false, false),
+        isFeatureEvent(fe2, flag2, false, false),
         isSummaryEvent(fe1.creationDate, fe2.creationDate)
     ));
   }
@@ -153,19 +170,29 @@ public class EventProcessorTest {
     ep = new EventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    Event ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(ce),
-        allOf(
-            hasJsonProperty("kind", "custom"),
-            hasJsonProperty("creationDate", (double)ce.creationDate),
-            hasJsonProperty("key", "eventkey"),
-            hasJsonProperty("userKey", user.getKeyAsString()),
-            hasJsonProperty("data", data)
-        )
+        isCustomEvent(ce, false)
+    ));
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void customEventCanContainInlineUser() throws Exception {
+    configBuilder.inlineUsersInEvents(true);
+    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    JsonObject data = new JsonObject();
+    data.addProperty("thing", "stuff");
+    CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    ep.sendEvent(ce);
+
+    JsonArray output = flushAndGetEvents();
+    assertThat(output, hasItems(
+        isCustomEvent(ce, true)
     ));
   }
   
@@ -202,17 +229,34 @@ public class EventProcessorTest {
     );
   }
 
-  private Matcher<JsonElement> isFeatureEvent(FeatureRequestEvent sourceEvent, FeatureFlag flag, boolean debug) {
+  @SuppressWarnings("unchecked")
+  private Matcher<JsonElement> isFeatureEvent(FeatureRequestEvent sourceEvent, FeatureFlag flag, boolean debug, boolean inlineUsers) {
     return allOf(
         hasJsonProperty("kind", debug ? "debug" : "feature"),
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
         hasJsonProperty("key", flag.getKey()),
         hasJsonProperty("version", (double)flag.getVersion()),
         hasJsonProperty("value", sourceEvent.value),
-        hasJsonProperty("userKey", sourceEvent.user.getKeyAsString())
+        inlineUsers ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
+          hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
+        inlineUsers ? hasJsonProperty("user", makeUserJson(sourceEvent.user)) :
+          hasJsonProperty("user", nullValue(JsonElement.class))
     );
   }
 
+  private Matcher<JsonElement> isCustomEvent(CustomEvent sourceEvent, boolean inlineUsers) {
+    return allOf(
+        hasJsonProperty("kind", "custom"),
+        hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
+        hasJsonProperty("key", "eventkey"),
+        inlineUsers ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
+          hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
+        inlineUsers ? hasJsonProperty("user", makeUserJson(sourceEvent.user)) :
+          hasJsonProperty("user", nullValue(JsonElement.class)),
+        hasJsonProperty("data", sourceEvent.data)
+    );
+  }
+  
   private Matcher<JsonElement> isSummaryEvent(long startDate, long endDate) {
     return allOf(
         hasJsonProperty("kind", "summary"),

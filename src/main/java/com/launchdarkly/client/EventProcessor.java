@@ -105,6 +105,9 @@ class EventProcessor implements Closeable {
             summarizer.resetUsers();
           }
         } catch (InterruptedException e) {
+        } catch (Exception e) {
+          logger.error("Unexpected error in event processor: " + e);
+          logger.debug(e.getMessage(), e);
         }
       }
     }
@@ -138,7 +141,7 @@ class EventProcessor implements Closeable {
   boolean dispatchEvent(Event e) {
     // For each user we haven't seen before, we add an index event - unless this is already
     // an identify event for that user.
-    if (e.user != null && !summarizer.noticeUser(e.user)) {
+    if (!config.inlineUsersInEvents && e.user != null && !summarizer.noticeUser(e.user)) {
       if (!(e instanceof IdentifyEvent)) {
         IndexEvent ie = new IndexEvent(e.creationDate, e.user);
         if (!queueEvent(ie)) {
@@ -201,14 +204,19 @@ class EventProcessor implements Closeable {
     if (e instanceof FeatureRequestEvent) {
       FeatureRequestEvent fe = (FeatureRequestEvent)e;
       boolean isDebug = (!fe.trackEvents && fe.debugEventsUntilDate != null);
-      return new FeatureRequestEventOutput(fe.creationDate, fe.key, userKey,
+      return new FeatureRequestEventOutput(fe.creationDate, fe.key,
+          config.inlineUsersInEvents ? null : userKey,
+          config.inlineUsersInEvents ? e.user : null,
           fe.variation, fe.version, fe.value, fe.defaultVal, fe.prereqOf,
           isDebug);
     } else if (e instanceof IdentifyEvent) {
       return new IdentifyEventOutput(e.creationDate, e.user);
     } else if (e instanceof CustomEvent) {
       CustomEvent ce = (CustomEvent)e;
-      return new CustomEventOutput(ce.creationDate, ce.key, userKey, ce.data);
+      return new CustomEventOutput(ce.creationDate, ce.key,
+          config.inlineUsersInEvents ? null : userKey,
+          config.inlineUsersInEvents ? e.user : null,
+          ce.data);
     } else if (e instanceof IndexEvent) {
       return (IndexEvent)e;
     } else {
@@ -248,19 +256,24 @@ class EventProcessor implements Closeable {
     }
     
     public void run() {
-      List<EventOutput> eventsOut = new ArrayList<>(events.length + 1);
-      for (Event event: events) {
-        eventsOut.add(createEventOutput(event));
+      try {
+        List<EventOutput> eventsOut = new ArrayList<>(events.length + 1);
+        for (Event event: events) {
+          eventsOut.add(createEventOutput(event));
+        }
+        if (!snapshot.counters.isEmpty()) {
+          EventSummarizer.SummaryOutput summary = summarizer.output(snapshot);
+          SummaryEventOutput seo = new SummaryEventOutput(summary.startDate, summary.endDate, summary.features);
+          eventsOut.add(seo);
+        }
+        if (!eventsOut.isEmpty()) {
+          postEvents(eventsOut);
+        }
+        message.setResult(true);
+      } catch (Exception e) {
+        logger.error("Unexpected error in event processor: " + e);
+        logger.debug(e.getMessage(), e);
       }
-      if (!snapshot.counters.isEmpty()) {
-        EventSummarizer.SummaryOutput summary = summarizer.output(snapshot);
-        SummaryEventOutput seo = new SummaryEventOutput(summary.startDate, summary.endDate, summary.features);
-        eventsOut.add(seo);
-      }
-      if (!eventsOut.isEmpty()) {
-        postEvents(eventsOut);
-      }
-      message.setResult(true);
     }
     
     private void postEvents(List<EventOutput> eventsOut) {
@@ -352,18 +365,20 @@ class EventProcessor implements Closeable {
     private final long creationDate;
     private final String key;
     private final String userKey;
+    private final LDUser user;
     private final Integer variation;
     private final Integer version;
     private final JsonElement value;
     @SerializedName("default") private final JsonElement defaultVal;
     private final String prereqOf;
     
-    FeatureRequestEventOutput(long creationDate, String key, String userKey, Integer variation,
+    FeatureRequestEventOutput(long creationDate, String key, String userKey, LDUser user, Integer variation,
         Integer version, JsonElement value, JsonElement defaultVal, String prereqOf, boolean debug) {
       this.kind = debug ? "debug" : "feature";
       this.creationDate = creationDate;
       this.key = key;
       this.userKey = userKey;
+      this.user = user;
       this.variation = variation;
       this.version = version;
       this.value = value;
@@ -390,13 +405,15 @@ class EventProcessor implements Closeable {
     private final long creationDate;
     private final String key;
     private final String userKey;
+    private final LDUser user;
     private final JsonElement data;
     
-    CustomEventOutput(long creationDate, String key, String userKey, JsonElement data) {
+    CustomEventOutput(long creationDate, String key, String userKey, LDUser user, JsonElement data) {
       this.kind = "custom";
       this.creationDate = creationDate;
       this.key = key;
       this.userKey = userKey;
+      this.user = user;
       this.data = data;
     }
   }

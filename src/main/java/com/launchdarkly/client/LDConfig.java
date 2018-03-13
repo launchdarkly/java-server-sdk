@@ -71,6 +71,7 @@ public final class LDConfig {
   final long reconnectTimeMs;
   final int userKeysCapacity;
   final int userKeysFlushInterval;
+  final boolean inlineUsersInEvents;
   
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -99,6 +100,7 @@ public final class LDConfig {
     this.reconnectTimeMs = builder.reconnectTimeMillis;
     this.userKeysCapacity = builder.userKeysCapacity;
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
+    this.inlineUsersInEvents = builder.inlineUsersInEvents;
     
     OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
         .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
@@ -171,6 +173,7 @@ public final class LDConfig {
     private Set<String> privateAttrNames = new HashSet<>();
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
     private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
+    private boolean inlineUsersInEvents = false;
     
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -498,6 +501,18 @@ public final class LDConfig {
       return this;
     }
 
+    /**
+     * Sets whether to include full user details in every analytics event. The default is false (events will
+     * only include the user key, except for one "index" event that provides the full details for the user).
+     * 
+     * @param inlineUsersInEvents true if you want full user details in each event
+     * @return the builder
+     */
+    public Builder inlineUsersInEvents(boolean inlineUsersInEvents) {
+      this.inlineUsersInEvents = inlineUsersInEvents;
+      return this;
+    }
+    
     // returns null if none of the proxy bits were configured. Minimum required part: port.
     Proxy proxy() {
       if (this.proxyPort == -1) {
