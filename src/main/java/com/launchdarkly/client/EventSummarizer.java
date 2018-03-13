@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
+import com.google.gson.annotations.SerializedName;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,7 +52,7 @@ class EventSummarizer {
   void summarizeEvent(Event event) {
     if (event instanceof FeatureRequestEvent) {
       FeatureRequestEvent fe = (FeatureRequestEvent)event;
-      eventsState.incrementCounter(fe.key, fe.variation, fe.version, fe.value);
+      eventsState.incrementCounter(fe.key, fe.variation, fe.version, fe.value, fe.defaultVal);
       eventsState.noteTimestamp(fe.creationDate);
     }
   }
@@ -72,16 +73,20 @@ class EventSummarizer {
    * @return the formatted output
    */
   SummaryOutput output(EventsState snapshot) {
-    List<CounterData> countersOut = new ArrayList<>(snapshot.counters.size());
+    Map<String, FlagSummaryData> flagsOut = new HashMap<>();
     for (Map.Entry<CounterKey, CounterValue> entry: snapshot.counters.entrySet()) {
-      CounterData c = new CounterData(entry.getKey().key,
-          entry.getValue().flagValue,
+      FlagSummaryData fsd = flagsOut.get(entry.getKey().key);
+      if (fsd == null) {
+        fsd = new FlagSummaryData(entry.getValue().defaultVal, new ArrayList<CounterData>());
+        flagsOut.put(entry.getKey().key, fsd);
+      }
+      CounterData c = new CounterData(entry.getValue().flagValue,
           entry.getKey().version == 0 ? null : entry.getKey().version,
           entry.getValue().count,
           entry.getKey().version == 0 ? true : null);
-      countersOut.add(c);
+      fsd.counters.add(c);
     }
-    return new SummaryOutput(snapshot.startDate, snapshot.endDate, countersOut);
+    return new SummaryOutput(snapshot.startDate, snapshot.endDate, flagsOut);
   }
   
   @SuppressWarnings("serial")
@@ -109,7 +114,7 @@ class EventSummarizer {
       counters = new HashMap<CounterKey, CounterValue>();
     }
     
-    void incrementCounter(String flagKey, Integer variation, Integer version, JsonElement flagValue) {
+    void incrementCounter(String flagKey, Integer variation, Integer version, JsonElement flagValue, JsonElement defaultVal) {
       CounterKey key = new CounterKey(flagKey, (variation == null) ? 0 : variation.intValue(),
           (version == null) ? 0 : version.intValue());
 
@@ -117,7 +122,7 @@ class EventSummarizer {
       if (value != null) {
         value.increment();
       } else {
-        counters.put(key, new CounterValue(1, flagValue));
+        counters.put(key, new CounterValue(1, flagValue, defaultVal));
       }
     }
     
@@ -173,11 +178,13 @@ class EventSummarizer {
   
   private static class CounterValue {
     private int count;
-    private JsonElement flagValue;
+    private final JsonElement flagValue;
+    private final JsonElement defaultVal;
     
-    CounterValue(int count, JsonElement flagValue) {
+    CounterValue(int count, JsonElement flagValue, JsonElement defaultVal) {
       this.count = count;
       this.flagValue = flagValue;
+      this.defaultVal = defaultVal;
     }
     
     void increment() {
@@ -185,15 +192,42 @@ class EventSummarizer {
     }
   }
   
+  static class FlagSummaryData {
+    @SerializedName("default") final JsonElement defaultVal;
+    final List<CounterData> counters;
+    
+    FlagSummaryData(JsonElement defaultVal, List<CounterData> counters) {
+      this.defaultVal = defaultVal;
+      this.counters = counters;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof FlagSummaryData) {
+        FlagSummaryData o = (FlagSummaryData)other;
+        return Objects.equals(defaultVal, o.defaultVal) && counters.equals(o.counters);
+      }
+      return false;
+    }
+    
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(defaultVal) + 31 * counters.hashCode();
+    }
+    
+    @Override
+    public String toString() {
+      return "{" + defaultVal + ", " + counters + "}";
+    }
+  }
+  
   static class CounterData {
-    final String key;
     final JsonElement value;
     final Integer version;
     final int count;
     final Boolean unknown;
     
-    CounterData(String key, JsonElement value, Integer version, int count, Boolean unknown) {
-      this.key = key;
+    CounterData(JsonElement value, Integer version, int count, Boolean unknown) {
       this.value = value;
       this.version = version;
       this.count = count;
@@ -204,7 +238,7 @@ class EventSummarizer {
     public boolean equals(Object other) {
       if (other instanceof CounterData) {
         CounterData o = (CounterData)other;
-        return o.key.equals(key) && Objects.equals(value, o.value) && Objects.equals(version, o.version) &&
+        return Objects.equals(value, o.value) && Objects.equals(version, o.version) &&
             o.count == count && Objects.deepEquals(unknown, o.unknown);
       }
       return false;
@@ -212,44 +246,44 @@ class EventSummarizer {
     
     @Override
     public int hashCode() {
-      return key.hashCode() + 31 * (Objects.hashCode(value) + 31 * (Objects.hashCode(version) + 31 *
-          (count + 31 * (Objects.hashCode(unknown)))));
+      return Objects.hashCode(value) + 31 * (Objects.hashCode(version) + 31 *
+          (count + 31 * (Objects.hashCode(unknown))));
     }
     
     @Override
     public String toString() {
-      return "{" + key + ", " + value + ", " + version + ", " + count + ", " + unknown + "}";
+      return "{" + value + ", " + version + ", " + count + ", " + unknown + "}";
     }
   }
   
   static class SummaryOutput {
     final long startDate;
     final long endDate;
-    final List<CounterData> counters;
+    final Map<String, FlagSummaryData> features;
     
-    SummaryOutput(long startDate, long endDate, List<CounterData> counters) {
+    SummaryOutput(long startDate, long endDate, Map<String, FlagSummaryData> features) {
       this.startDate = startDate;
       this.endDate = endDate;
-      this.counters = counters;
+      this.features = features;
     }
     
     @Override
     public boolean equals(Object other) {
       if (other instanceof SummaryOutput) {
         SummaryOutput o = (SummaryOutput)other;
-        return o.startDate == startDate && o.endDate == endDate && o.counters.equals(counters);
+        return o.startDate == startDate && o.endDate == endDate && o.features.equals(features);
       }
       return false;
     }
     
     @Override
     public int hashCode() {
-      return counters.hashCode() + 31 * ((int)startDate + 31 * (int)endDate);
+      return features.hashCode() + 31 * ((int)startDate + 31 * (int)endDate);
     }
     
     @Override
     public String toString() {
-      return "{" + startDate + ", " + endDate + ", " + counters + "}";
+      return "{" + startDate + ", " + endDate + ", " + features + "}";
     }
   }
 }

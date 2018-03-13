@@ -125,10 +125,12 @@ public class EventProcessorTest {
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).build();
     JsonElement value = new JsonPrimitive("value");
+    JsonElement default1 = new JsonPrimitive("default1");
+    JsonElement default2 = new JsonPrimitive("default2");
     Event fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(new Integer(1), value), null);
+        new FeatureFlag.VariationAndValue(new Integer(1), value), default1);
     Event fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-        new FeatureFlag.VariationAndValue(new Integer(1), value), null);
+        new FeatureFlag.VariationAndValue(new Integer(1), value), default2);
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
     
@@ -137,11 +139,11 @@ public class EventProcessorTest {
         isIndexEvent(fe1),
         allOf(
             isSummaryEvent(fe1.creationDate, fe2.creationDate),
-            hasSummaryCounters(allOf(
-                hasItem(isSummaryEventCounter(flag1, value, 1)),
-                hasItem(isSummaryEventCounter(flag2, value, 1))
-            )
-        ))
+            hasSummaryFlag(flag1.getKey(), default1,
+                hasItem(isSummaryEventCounter(flag1, value, 1))),
+            hasSummaryFlag(flag2.getKey(), default2,
+                hasItem(isSummaryEventCounter(flag2, value, 1)))
+        )
     ));
   }
   
@@ -219,8 +221,12 @@ public class EventProcessorTest {
     );
   }
   
-  private Matcher<JsonElement> hasSummaryCounters(Matcher<Iterable<? super JsonElement>> matcher) {
-    return hasJsonProperty("counters", isJsonArray(matcher));
+  private Matcher<JsonElement> hasSummaryFlag(String key, JsonElement defaultVal, Matcher<Iterable<? super JsonElement>> counters) {
+    return hasJsonProperty("features",
+        hasJsonProperty(key, allOf(
+          hasJsonProperty("default", defaultVal),
+          hasJsonProperty("counters", isJsonArray(counters))
+    )));
   }
   
   private Matcher<JsonElement> isSummaryEventCounter(FeatureFlag flag, JsonElement value, int count) {

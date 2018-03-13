@@ -1,11 +1,18 @@
 package com.launchdarkly.client;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.EventSummarizer.CounterData;
 
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -94,15 +101,18 @@ public class EventSummarizerTest {
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").version(11).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(22).build();
     String unknownFlagKey = "badkey";
+    JsonElement default1 = new JsonPrimitive("default1");
+    JsonElement default2 = new JsonPrimitive("default2");
+    JsonElement default3 = new JsonPrimitive("default3");
     Event event1 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value1")), null);
+        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value1")), default1);
     Event event2 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(2, new JsonPrimitive("value2")), null);
+        new FeatureFlag.VariationAndValue(2, new JsonPrimitive("value2")), default1);
     Event event3 = eventFactory.newFeatureRequestEvent(flag2, user,
-        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value99")), null);
+        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value99")), default2);
     Event event4 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value1")), null);
-    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, null);
+        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value1")), default1);
+    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, default3);
     es.summarizeEvent(event1);
     es.summarizeEvent(event2);
     es.summarizeEvent(event3);
@@ -110,14 +120,28 @@ public class EventSummarizerTest {
     es.summarizeEvent(event5);
     EventSummarizer.SummaryOutput data = es.output(es.snapshot());
     
-    EventSummarizer.CounterData expected1 = new EventSummarizer.CounterData(flag1.getKey(),
+    data.features.get(flag1.getKey()).counters.sort(new CounterValueComparator());
+    EventSummarizer.CounterData expected1 = new EventSummarizer.CounterData(
         new JsonPrimitive("value1"), flag1.getVersion(), 2, null);
-    EventSummarizer.CounterData expected2 = new EventSummarizer.CounterData(flag1.getKey(),
+    EventSummarizer.CounterData expected2 = new EventSummarizer.CounterData(
         new JsonPrimitive("value2"), flag1.getVersion(), 1, null);
-    EventSummarizer.CounterData expected3 = new EventSummarizer.CounterData(flag2.getKey(),
+    EventSummarizer.CounterData expected3 = new EventSummarizer.CounterData(
         new JsonPrimitive("value99"), flag2.getVersion(), 1, null);
-    EventSummarizer.CounterData expected4 = new EventSummarizer.CounterData(unknownFlagKey,
-        null, null, 1, true);
-    assertThat(data.counters, containsInAnyOrder(expected1, expected2, expected3, expected4));
+    EventSummarizer.CounterData expected4 = new EventSummarizer.CounterData(
+        default3, null, 1, true);
+    Map<String, EventSummarizer.FlagSummaryData> expectedFeatures = new HashMap<>();
+    expectedFeatures.put(flag1.getKey(), new EventSummarizer.FlagSummaryData(default1,
+        Arrays.asList(expected1, expected2)));
+    expectedFeatures.put(flag2.getKey(), new EventSummarizer.FlagSummaryData(default2,
+        Arrays.asList(expected3)));
+    expectedFeatures.put(unknownFlagKey, new EventSummarizer.FlagSummaryData(default3,
+        Arrays.asList(expected4)));
+    assertThat(data.features, equalTo(expectedFeatures));
+  }
+  
+  private static class CounterValueComparator implements Comparator<EventSummarizer.CounterData> {
+    public int compare(CounterData o1, CounterData o2) {
+      return o1.value.getAsString().compareTo(o2.value.getAsString());
+    }
   }
 }

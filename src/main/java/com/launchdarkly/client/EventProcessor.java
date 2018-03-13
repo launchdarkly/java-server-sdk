@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -253,7 +254,7 @@ class EventProcessor implements Closeable {
       }
       if (!snapshot.counters.isEmpty()) {
         EventSummarizer.SummaryOutput summary = summarizer.output(snapshot);
-        SummaryEventOutput seo = new SummaryEventOutput(summary.startDate, summary.endDate, summary.counters);
+        SummaryEventOutput seo = new SummaryEventOutput(summary.startDate, summary.endDate, summary.features);
         eventsOut.add(seo);
       }
       if (!eventsOut.isEmpty()) {
@@ -415,13 +416,13 @@ class EventProcessor implements Closeable {
     private final String kind;
     private final long startDate;
     private final long endDate;
-    private final List<EventSummarizer.CounterData> counters;
+    private final Map<String, EventSummarizer.FlagSummaryData> features;
     
-    SummaryEventOutput(long startDate, long endDate, List<EventSummarizer.CounterData> counters) {
+    SummaryEventOutput(long startDate, long endDate, Map<String, EventSummarizer.FlagSummaryData> features) {
       this.kind = "summary";
       this.startDate = startDate;
       this.endDate = endDate;
-      this.counters = counters;
+      this.features = features;
     }
   }
 }
