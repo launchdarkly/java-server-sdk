@@ -490,7 +490,7 @@ public final class LDConfig {
     }
 
     /**
-     * Set the interval in seconds at which the event processor will reset its set of known user keys. The
+     * Sets the interval in seconds at which the event processor will reset its set of known user keys. The
      * default value is five minutes.
      *
      * @param flushInterval the flush interval in seconds
