@@ -31,7 +31,7 @@ public class EventProcessorTest {
 
   private final LDConfig.Builder configBuilder = new LDConfig.Builder();
   private final MockWebServer server = new MockWebServer();
-  private EventProcessor ep;
+  private DefaultEventProcessor ep;
   
   @Before
   public void setup() throws Exception {
@@ -50,7 +50,7 @@ public class EventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void identifyEventIsQueued() throws Exception {
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
     
@@ -66,7 +66,7 @@ public class EventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
@@ -83,7 +83,7 @@ public class EventProcessorTest {
   @Test
   public void featureEventCanContainInlineUser() throws Exception {
     configBuilder.inlineUsersInEvents(true);
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
@@ -98,7 +98,7 @@ public class EventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void eventKindIsDebugIfFlagIsTemporarilyInDebugMode() throws Exception {
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     long futureTime = System.currentTimeMillis() + 1000000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
     FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
@@ -115,7 +115,7 @@ public class EventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void twoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).trackEvents(true).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).trackEvents(true).build();
     JsonElement value = new JsonPrimitive("value");
@@ -138,7 +138,7 @@ public class EventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void nonTrackedEventsAreSummarized() throws Exception {
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).build();
     JsonElement value = new JsonPrimitive("value");
@@ -167,7 +167,7 @@ public class EventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void customEventIsQueuedWithUser() throws Exception {
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
     CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
@@ -184,7 +184,7 @@ public class EventProcessorTest {
   @Test
   public void customEventCanContainInlineUser() throws Exception {
     configBuilder.inlineUsersInEvents(true);
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
     CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
@@ -198,7 +198,7 @@ public class EventProcessorTest {
   
   @Test
   public void sdkKeyIsSent() throws Exception {
-    ep = new EventProcessor(SDK_KEY, configBuilder.build());
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
     

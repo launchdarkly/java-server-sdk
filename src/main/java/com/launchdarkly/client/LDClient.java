@@ -1,17 +1,12 @@
 package com.launchdarkly.client;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -23,9 +18,13 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
@@ -42,8 +41,6 @@ public class LDClient implements LDClientInterface {
   private final EventProcessor eventProcessor;
   private final EventFactory eventFactory = EventFactory.DEFAULT;
   private UpdateProcessor updateProcessor;
-
-  private final AtomicBoolean eventCapacityExceeded = new AtomicBoolean(false);
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -66,7 +63,11 @@ public class LDClient implements LDClientInterface {
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = createFeatureRequestor(sdkKey, config);
-    this.eventProcessor = createEventProcessor(sdkKey, config);
+    if (config.offline || !config.sendEvents) {
+      this.eventProcessor = new NullEventProcessor();
+    } else {
+      this.eventProcessor = createEventProcessor(sdkKey, config);
+    }
 
     if (config.offline) {
       logger.info("Starting LaunchDarkly client in offline mode");
@@ -112,7 +113,7 @@ public class LDClient implements LDClientInterface {
 
   @VisibleForTesting
   protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-    return new EventProcessor(sdkKey, config);
+    return new DefaultEventProcessor(sdkKey, config);
   }
 
   @VisibleForTesting
@@ -133,7 +134,7 @@ public class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     }
-    sendEvent(eventFactory.newCustomEvent(eventName, user, data));
+    eventProcessor.sendEvent(eventFactory.newCustomEvent(eventName, user, data));
   }
 
   @Override
@@ -149,21 +150,12 @@ public class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Identify called with null user or null user key!");
     }
-    sendEvent(eventFactory.newIdentifyEvent(user));
+    eventProcessor.sendEvent(eventFactory.newIdentifyEvent(user));
   }
 
   private void sendFlagRequestEvent(FeatureRequestEvent event) {
-    if (sendEvent(event)) {
-      NewRelicReflector.annotateTransaction(event.key, String.valueOf(event.value));
-    }
-  }
-
-  private boolean sendEvent(Event event) {
-    if (isOffline() || !config.sendEvents) {
-      return false;
-    }
-    eventProcessor.sendEventAsync(event);
-    return true;
+    eventProcessor.sendEvent(event);
+    NewRelicReflector.annotateTransaction(event.key, String.valueOf(event.value));
   }
 
   @Override
@@ -281,7 +273,7 @@ public class LDClient implements LDClientInterface {
       }
       FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore, eventFactory);
       for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
-        sendEvent(event);
+        eventProcessor.sendEvent(event);
       }
       if (evalResult.getResult() != null && evalResult.getResult().getValue() != null) {
         expectedType.assertResultType(evalResult.getResult().getValue());

@@ -4,9 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 
-import junit.framework.AssertionFailedError;
-
-import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,7 +21,12 @@ import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import junit.framework.AssertionFailedError;
 
 public class LDClientTest extends EasyMockSupport {
   private FeatureRequestor requestor;
@@ -580,7 +582,7 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   private void expectEventsSent(int count) {
-    eventProcessor.sendEventAsync(anyObject(Event.class));
+    eventProcessor.sendEvent(anyObject(Event.class));
     if (count > 0) {
       expectLastCall().times(count);
     } else {
