@@ -238,17 +238,21 @@ class EventProcessor implements Closeable {
   private void dispatchFlush(EventProcessorMessage message) {
     Event[] events = buffer.toArray(new Event[buffer.size()]);
     buffer.clear();
-    EventSummarizer.EventsState snapshot = summarizer.snapshot();
-    this.scheduler.schedule(new FlushTask(events, snapshot, message), 0, TimeUnit.SECONDS);
+    EventSummarizer.SummaryState snapshot = summarizer.snapshot();
+    if (events.length > 0 || !snapshot.isEmpty()) {
+      this.scheduler.schedule(new FlushTask(events, snapshot, message), 0, TimeUnit.SECONDS);      
+    } else {
+      message.setResult(true);
+    }
   }
   
   class FlushTask implements Runnable {
     private final Logger logger = LoggerFactory.getLogger(FlushTask.class);
     private final Event[] events;
-    private final EventSummarizer.EventsState snapshot;
+    private final EventSummarizer.SummaryState snapshot;
     private final EventProcessorMessage message;
     
-    FlushTask(Event[] events, EventSummarizer.EventsState snapshot, EventProcessorMessage message) {
+    FlushTask(Event[] events, EventSummarizer.SummaryState snapshot, EventProcessorMessage message) {
       this.events = events;
       this.snapshot = snapshot;
       this.message = message;
@@ -260,7 +264,7 @@ class EventProcessor implements Closeable {
         for (Event event: events) {
           eventsOut.add(createEventOutput(event));
         }
-        if (!snapshot.counters.isEmpty()) {
+        if (!snapshot.isEmpty()) {
           EventSummarizer.SummaryOutput summary = summarizer.output(snapshot);
           SummaryEventOutput seo = new SummaryEventOutput(summary.startDate, summary.endDate, summary.features);
           eventsOut.add(seo);
@@ -268,11 +272,11 @@ class EventProcessor implements Closeable {
         if (!eventsOut.isEmpty()) {
           postEvents(eventsOut);
         }
-        message.setResult(true);
       } catch (Exception e) {
         logger.error("Unexpected error in event processor: " + e);
         logger.debug(e.getMessage(), e);
       }
+      message.setResult(true);
     }
     
     private void postEvents(List<EventOutput> eventsOut) {

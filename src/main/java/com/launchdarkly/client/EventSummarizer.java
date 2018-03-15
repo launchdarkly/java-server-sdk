@@ -17,11 +17,11 @@ import java.util.Objects;
  * single event-processing thread.
  */
 class EventSummarizer {
-  private EventsState eventsState;
+  private SummaryState eventsState;
   private final SimpleLRUCache<String, String> userKeys;
   
   EventSummarizer(LDConfig config) {
-    this.eventsState = new EventsState();
+    this.eventsState = new SummaryState();
     this.userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
   }
   
@@ -61,9 +61,9 @@ class EventSummarizer {
    * Returns a snapshot of the current summarized event data, and resets this state.
    * @return the previous event state
    */
-  EventsState snapshot() {
-    EventsState ret = eventsState;
-    eventsState = new EventsState();
+  SummaryState snapshot() {
+    SummaryState ret = eventsState;
+    eventsState = new SummaryState();
     return ret;
   }
 
@@ -72,7 +72,7 @@ class EventSummarizer {
    * @param snapshot the data obtained from {@link #snapshot()}
    * @return the formatted output
    */
-  SummaryOutput output(EventsState snapshot) {
+  SummaryOutput output(SummaryState snapshot) {
     Map<String, FlagSummaryData> flagsOut = new HashMap<>();
     for (Map.Entry<CounterKey, CounterValue> entry: snapshot.counters.entrySet()) {
       FlagSummaryData fsd = flagsOut.get(entry.getKey().key);
@@ -105,13 +105,17 @@ class EventSummarizer {
     }
   }
 
-  static class EventsState {
+  static class SummaryState {
     final Map<CounterKey, CounterValue> counters;
     long startDate;
     long endDate;
     
-    EventsState() {
+    SummaryState() {
       counters = new HashMap<CounterKey, CounterValue>();
+    }
+    
+    boolean isEmpty() {
+      return counters.isEmpty();
     }
     
     void incrementCounter(String flagKey, Integer variation, Integer version, JsonElement flagValue, JsonElement defaultVal) {
@@ -137,8 +141,8 @@ class EventSummarizer {
     
     @Override
     public boolean equals(Object other) {
-      if (other instanceof EventsState) {
-        EventsState o = (EventsState)other;
+      if (other instanceof SummaryState) {
+        SummaryState o = (SummaryState)other;
         return o.counters.equals(counters) && startDate == o.startDate && endDate == o.endDate;
       }
       return true;

@@ -61,7 +61,7 @@ public class EventSummarizerTest {
   @Test
   public void summarizeEventDoesNothingForIdentifyEvent() {
     EventSummarizer es = new EventSummarizer(defaultConfig);
-    EventSummarizer.EventsState snapshot = es.snapshot();
+    EventSummarizer.SummaryState snapshot = es.snapshot();
     es.summarizeEvent(eventFactory.newIdentifyEvent(user));
     
     assertEquals(snapshot, es.snapshot());
@@ -70,7 +70,7 @@ public class EventSummarizerTest {
   @Test
   public void summarizeEventDoesNothingForCustomEvent() {
     EventSummarizer es = new EventSummarizer(defaultConfig);
-    EventSummarizer.EventsState snapshot = es.snapshot();
+    EventSummarizer.SummaryState snapshot = es.snapshot();
     es.summarizeEvent(eventFactory.newCustomEvent("whatever", user, null));
     
     assertEquals(snapshot, es.snapshot());
