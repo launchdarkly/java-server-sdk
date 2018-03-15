@@ -9,7 +9,7 @@ class FeatureRequestEvent extends Event {
   final JsonElement defaultVal;
   final Integer version;
   final String prereqOf;
-  boolean trackEvents;
+  final boolean trackEvents;
   final Long debugEventsUntilDate;
   
   FeatureRequestEvent(long timestamp, String key, LDUser user, Integer version, Integer variation, JsonElement value,

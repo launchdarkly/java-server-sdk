@@ -1,8 +1,8 @@
 package com.launchdarkly.client;
 
 class Event {
-  long creationDate;
-  LDUser user;
+  final long creationDate;
+  final LDUser user;
 
   Event(long creationDate, LDUser user) {
     this.creationDate = creationDate;
