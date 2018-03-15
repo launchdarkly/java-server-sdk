@@ -81,10 +81,6 @@ class DefaultEventProcessor implements EventProcessor {
     postMessageAsync(MessageType.EVENT, e);
   }
   
-  public boolean sendEventAndWait(Event e) {
-    return postMessageAndWait(MessageType.EVENT, e);
-  }
-
   @Override
   public void flush() {
     postMessageAndWait(MessageType.FLUSH, null);
