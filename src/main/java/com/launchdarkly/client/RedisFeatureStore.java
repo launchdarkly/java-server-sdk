@@ -120,7 +120,9 @@ public class RedisFeatureStore implements FeatureStore {
     return new CacheLoader<CacheKey, Optional<VersionedData>>() {
       @Override
       public Optional<VersionedData> load(CacheKey key) throws Exception {
-        return Optional.<VersionedData>fromNullable(getRedis(key.kind, key.key));
+        try (Jedis jedis = pool.getResource()) {
+          return Optional.<VersionedData>fromNullable(getRedisEvenIfDeleted(key.kind, key.key, jedis));
+        }
       }
     };
   }
@@ -169,7 +171,13 @@ public class RedisFeatureStore implements FeatureStore {
     if (cache != null) {
       item = (T) cache.getUnchecked(new CacheKey(kind, key)).orNull();
     } else {
-      item = getRedis(kind, key);
+      try (Jedis jedis = pool.getResource()) {
+        item = getRedisEvenIfDeleted(kind, key, jedis);
+      }
+    }
+    if (item != null && item.isDeleted()) {
+      logger.debug("[get] Key: {} has been deleted in \"{}\". Returning null", key, kind.getNamespace());
+      return null;
     }
     if (item != null) {
       logger.debug("[get] Key: {} with version: {} found in \"{}\".", key, item.getVersion(), kind.getNamespace());
@@ -310,21 +318,6 @@ public class RedisFeatureStore implements FeatureStore {
     try (Jedis jedis = pool.getResource()) {
       return jedis.exists(itemsKey(FEATURES));
     }
-  }
-
-  private <T extends VersionedData> T getRedis(VersionedDataKind<T> kind, String key) {
-    try (Jedis jedis = pool.getResource()) {
-      return getRedis(kind, key, jedis);
-    }
-  }
-
-  private <T extends VersionedData> T getRedis(VersionedDataKind<T> kind, String key, Jedis jedis) {
-    T item = getRedisEvenIfDeleted(kind, key, jedis);
-    if (item != null && item.isDeleted()) {
-      logger.debug("[get] Key: {} has been deleted in \"{}\". Returning null", key, kind.getNamespace());
-      return null;
-    }
-    return item;
   }
 
   private <T extends VersionedData> T getRedisEvenIfDeleted(VersionedDataKind<T> kind, String key, Jedis jedis) {
