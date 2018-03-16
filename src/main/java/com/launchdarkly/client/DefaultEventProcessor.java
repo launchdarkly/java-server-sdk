@@ -106,7 +106,8 @@ class DefaultEventProcessor implements EventProcessor {
           EventProcessorMessage message = inputChannel.take();
           switch(message.type) {
           case EVENT:
-            message.setResult(dispatchEvent(message.event));
+            dispatchEvent(message.event);
+            message.completed();
             break;
           case FLUSH:
             dispatchFlush(message);
@@ -126,10 +127,10 @@ class DefaultEventProcessor implements EventProcessor {
     postToChannel(new EventProcessorMessage(type, event, false));
   }
   
-  private boolean postMessageAndWait(MessageType type, Event event) {
+  private void postMessageAndWait(MessageType type, Event event) {
     EventProcessorMessage message = new EventProcessorMessage(type, event, true);
     postToChannel(message);
-    return message.waitForResult();
+    message.waitForCompletion();
   }
   
   private void postToChannel(EventProcessorMessage message) {
@@ -239,7 +240,7 @@ class DefaultEventProcessor implements EventProcessor {
     if (events.length > 0 || !snapshot.isEmpty()) {
       this.scheduler.schedule(new FlushTask(events, snapshot, message), 0, TimeUnit.SECONDS);      
     } else {
-      message.setResult(true);
+      message.completed();
     }
   }
   
@@ -273,7 +274,7 @@ class DefaultEventProcessor implements EventProcessor {
         logger.error("Unexpected error in event processor: " + e);
         logger.debug(e.getMessage(), e);
       }
-      message.setResult(true);
+      message.completed();
     }
     
     private void postEvents(List<EventOutput> eventsOut) {
@@ -320,7 +321,6 @@ class DefaultEventProcessor implements EventProcessor {
   private static class EventProcessorMessage {
     private final MessageType type;
     private final Event event;
-    private final AtomicBoolean result = new AtomicBoolean(false);
     private final Semaphore reply;
     
     private EventProcessorMessage(MessageType type, Event event, boolean sync) {
@@ -329,21 +329,20 @@ class DefaultEventProcessor implements EventProcessor {
       reply = sync ? new Semaphore(0) : null;
     }
     
-    void setResult(boolean value) {
-      result.set(value);
+    void completed() {
       if (reply != null) {
         reply.release();
       }
     }
     
-    boolean waitForResult() {
+    void waitForCompletion() {
       if (reply == null) {
-        return false;
+        return;
       }
       while (true) {
         try {
           reply.acquire();
-          return result.get();
+          return;
         }
         catch (InterruptedException ex) {
         }
