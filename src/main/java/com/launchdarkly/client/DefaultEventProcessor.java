@@ -148,15 +148,13 @@ class DefaultEventProcessor implements EventProcessor {
     }
   }
   
-  private boolean dispatchEvent(Event e) {
+  private void dispatchEvent(Event e) {
     // For each user we haven't seen before, we add an index event - unless this is already
     // an identify event for that user.
     if (!config.inlineUsersInEvents && e.user != null && !summarizer.noticeUser(e.user)) {
       if (!(e instanceof IdentifyEvent)) {
         IndexEvent ie = new IndexEvent(e.creationDate, e.user);
-        if (!queueEvent(ie)) {
-          return false;
-        }
+        queueEvent(ie);
       }
     }
     
@@ -166,25 +164,23 @@ class DefaultEventProcessor implements EventProcessor {
     if (shouldTrackFullEvent(e)) {
       // Sampling interval applies only to fully-tracked events.
       if (config.samplingInterval > 0 && random.nextInt(config.samplingInterval) != 0) {
-        return true;
+        return;
       }
       // Queue the event as-is; we'll transform it into an output event when we're flushing
       // (to avoid doing that work on our main thread).
-      return queueEvent(e);
+      queueEvent(e);
     }
-    return true;
   }
   
-  private boolean queueEvent(Event e) {
+  private void queueEvent(Event e) {
     if (buffer.size() >= config.capacity) {
       if (capacityExceeded.compareAndSet(false, true)) {
         logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
       }
-      return false;
+    } else {
+      capacityExceeded.set(false);
+      buffer.add(e);
     }
-    capacityExceeded.set(false);
-    buffer.add(e);
-    return true;
   }
   
   private boolean shouldTrackFullEvent(Event e) {
