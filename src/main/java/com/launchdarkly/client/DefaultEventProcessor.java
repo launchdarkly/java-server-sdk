@@ -42,8 +42,8 @@ class DefaultEventProcessor implements EventProcessor {
   private final EventSummarizer summarizer;
   private final Random random = new Random();
   private final AtomicLong lastKnownPastTime = new AtomicLong(0);
-  private final AtomicBoolean capacityExceeded = new AtomicBoolean(false);
   private final AtomicBoolean stopped = new AtomicBoolean(false);
+  private boolean capacityExceeded = false;
   
   DefaultEventProcessor(String sdkKey, LDConfig config) {
     this.sdkKey = sdkKey;
@@ -174,11 +174,12 @@ class DefaultEventProcessor implements EventProcessor {
   
   private void queueEvent(Event e) {
     if (buffer.size() >= config.capacity) {
-      if (capacityExceeded.compareAndSet(false, true)) {
+      if (!capacityExceeded) { // don't need AtomicBoolean, this is only checked on one thread
+        capacityExceeded = true;
         logger.warn("Exceeded event queue capacity. Increase capacity to avoid dropping events.");
       }
     } else {
-      capacityExceeded.set(false);
+      capacityExceeded = false;
       buffer.add(e);
     }
   }
