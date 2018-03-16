@@ -19,6 +19,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertEquals;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -194,6 +195,14 @@ public class DefaultEventProcessorTest {
     assertThat(output, hasItems(
         isCustomEvent(ce, true)
     ));
+  }
+  
+  @Test
+  public void nothingIsSentIfThereAreNoEvents() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    ep.flush();
+    
+    assertEquals(0, server.getRequestCount());
   }
   
   @Test
