@@ -24,7 +24,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
-public class EventProcessorTest {
+public class DefaultEventProcessorTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
   private static final Gson gson = new Gson();
