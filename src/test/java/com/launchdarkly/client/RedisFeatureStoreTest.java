@@ -23,39 +23,61 @@ public class RedisFeatureStoreTest extends FeatureStoreTestBase<RedisFeatureStor
   }
   
   @Test
-  public void handlesUpsertRaceConditionAgainstExternalClient() {
+  public void handlesUpsertRaceConditionAgainstExternalClientWithLowerVersion() {
     final Jedis otherClient = new Jedis("localhost");
-    final Gson gson = new Gson();
     try {
-      final FeatureFlag feature1 = new FeatureFlagBuilder("foo").version(1).build();
-      FeatureFlag finalVer = new FeatureFlagBuilder(feature1).version(10).build();
+      final FeatureFlag flag = new FeatureFlagBuilder("foo").version(1).build();
+      initStoreWithSingleFeature(store, flag);
       
-      Map<String, FeatureFlag> flags = singletonMap(feature1.getKey(), feature1);
-      Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = new HashMap<>();
-      allData.put(FEATURES, flags);
-      store.init(allData);
+      store.setUpdateListener(makeConcurrentModifier(otherClient, flag, 2, 4));
       
-      RedisFeatureStore.UpdateListener concurrentModHook = new RedisFeatureStore.UpdateListener() {
-        int tries = 0;
-        FeatureFlag intermediateVer = feature1;
-        
-        @Override
-        public void aboutToUpdate(String baseKey, String itemKey) {
-          if (tries < 3) {
-            tries++;
-            intermediateVer = new FeatureFlagBuilder(intermediateVer)
-                .version(intermediateVer.getVersion() + 1).build();
-            otherClient.hset(baseKey, "foo", gson.toJson(intermediateVer));
-          }
-        }
-      };
-      store.setUpdateListener(concurrentModHook);
-      
-      store.upsert(FEATURES, finalVer);
+      FeatureFlag myVer = new FeatureFlagBuilder(flag).version(10).build();
+      store.upsert(FEATURES, myVer);
       FeatureFlag result = store.get(FEATURES, feature1.getKey());
-      Assert.assertEquals(finalVer.getVersion(), result.getVersion());
+      Assert.assertEquals(myVer.getVersion(), result.getVersion());
     } finally {
       otherClient.close();
     }
+  }
+  
+  @Test
+  public void handlesUpsertRaceConditionAgainstExternalClientWithHigherVersion() {
+    final Jedis otherClient = new Jedis("localhost");
+    try {
+      final FeatureFlag flag = new FeatureFlagBuilder("foo").version(1).build();
+      initStoreWithSingleFeature(store, flag);
+      
+      store.setUpdateListener(makeConcurrentModifier(otherClient, flag, 3, 3));
+      
+      FeatureFlag myVer = new FeatureFlagBuilder(flag).version(2).build();
+      store.upsert(FEATURES, myVer);
+      FeatureFlag result = store.get(FEATURES, feature1.getKey());
+      Assert.assertEquals(3, result.getVersion());
+    } finally {
+      otherClient.close();
+    }
+  }
+  
+  private void initStoreWithSingleFeature(RedisFeatureStore store, FeatureFlag flag) {
+    Map<String, FeatureFlag> flags = singletonMap(flag.getKey(), flag);
+    Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = new HashMap<>();
+    allData.put(FEATURES, flags);
+    store.init(allData);
+  }
+  
+  private RedisFeatureStore.UpdateListener makeConcurrentModifier(final Jedis otherClient, final FeatureFlag flag,
+    final int startVersion, final int endVersion) {
+    final Gson gson = new Gson();
+    return new RedisFeatureStore.UpdateListener() {
+      int versionCounter = startVersion;
+      @Override
+      public void aboutToUpdate(String baseKey, String itemKey) {
+        if (versionCounter <= endVersion) {
+          FeatureFlag newVer = new FeatureFlagBuilder(flag).version(versionCounter).build();
+          versionCounter++;
+          otherClient.hset(baseKey, flag.getKey(), gson.toJson(newVer));
+        }
+      }
+    };
   }
 }
