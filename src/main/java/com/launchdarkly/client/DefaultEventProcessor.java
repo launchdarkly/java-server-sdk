@@ -30,7 +30,7 @@ import okhttp3.Response;
 
 class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
-  private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+  static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
   private static final int CHANNEL_BLOCK_MILLIS = 1000;
   
   private final ScheduledExecutorService scheduler;
@@ -193,9 +193,10 @@ class DefaultEventProcessor implements EventProcessor {
       if (fe.debugEventsUntilDate != null) {
         // The "last known past time" comes from the last HTTP response we got from the server.
         // In case the client's time is set wrong, at least we know that any expiration date
-        // earlier than that point is definitely in the past.
+        // earlier than that point is definitely in the past.  If there's any discrepancy, we
+        // want to err on the side of cutting off event debugging sooner.
         long lastPast = lastKnownPastTime.get();
-        if ((lastPast != 0 && fe.debugEventsUntilDate > lastPast) ||
+        if (fe.debugEventsUntilDate > lastPast &&
             fe.debugEventsUntilDate > System.currentTimeMillis()) {
           return true;
         }

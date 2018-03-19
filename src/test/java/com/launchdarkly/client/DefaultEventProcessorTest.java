@@ -11,6 +11,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Date;
+
 import static com.launchdarkly.client.TestUtils.hasJsonProperty;
 import static com.launchdarkly.client.TestUtils.isJsonArray;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,6 +34,7 @@ public class DefaultEventProcessorTest {
 
   private final LDConfig.Builder configBuilder = new LDConfig.Builder();
   private final MockWebServer server = new MockWebServer();
+  private Long serverTimestamp; 
   private DefaultEventProcessor ep;
   
   @Before
@@ -110,6 +113,64 @@ public class DefaultEventProcessorTest {
     assertThat(output, hasItems(
         isIndexEvent(fe),
         isFeatureEvent(fe, flag, true, false)
+    ));
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
+  public void debugModeExpiresBasedOnClientTimeIfClientTimeIsLaterThanServerTime() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    
+    // Pick a server time that is somewhat behind the client time
+    long serverTime = System.currentTimeMillis() - 20000;
+    
+    // Send and flush an event we don't care about, just to set the last server time
+    serverTimestamp = serverTime;
+    ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
+    flushAndGetEvents();
+    
+    // Now send an event with debug mode on, with a "debug until" time that is further in
+    // the future than the server time, but in the past compared to the client.
+    long debugUntil = serverTime + 1000;
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
+    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    // Should get a summary event only, not a full feature event
+    JsonArray output = flushAndGetEvents();
+    assertThat(output, hasItems(
+        isIndexEvent(fe),
+        isSummaryEvent(fe.creationDate, fe.creationDate)
+    ));
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void debugModeExpiresBasedOnServerTimeIfServerTimeIsLaterThanClientTime() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    
+    // Pick a server time that is somewhat ahead of the client time
+    long serverTime = System.currentTimeMillis() + 20000;
+    
+    // Send and flush an event we don't care about, just to set the last server time
+    serverTimestamp = serverTime;
+    ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
+    flushAndGetEvents();
+    
+    // Now send an event with debug mode on, with a "debug until" time that is further in
+    // the future than the client time, but in the past compared to the server.
+    long debugUntil = serverTime - 1000;
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
+    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    // Should get a summary event only, not a full feature event
+    JsonArray output = flushAndGetEvents();
+    assertThat(output, hasItems(
+        isIndexEvent(fe),
+        isSummaryEvent(fe.creationDate, fe.creationDate)
     ));
   }
   
@@ -219,7 +280,11 @@ public class DefaultEventProcessorTest {
   }
   
   private JsonArray flushAndGetEvents() throws Exception {
-    server.enqueue(new MockResponse());
+    MockResponse response = new MockResponse();
+    if (serverTimestamp != null) {
+      response.addHeader("Date", DefaultEventProcessor.HTTP_DATE_FORMAT.format(new Date(serverTimestamp)));
+    }
+    server.enqueue(response);
     ep.flush();
     RecordedRequest req = server.takeRequest();
     return gson.fromJson(req.getBody().readUtf8(), JsonElement.class).getAsJsonArray();
