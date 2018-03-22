@@ -75,9 +75,11 @@ class Clause {
   }
   
   private boolean matchAny(JsonPrimitive userValue) {
-    for (JsonPrimitive v : values) {
-      if (op.apply(userValue, v)) {
-        return true;
+    if (op != null) {
+      for (JsonPrimitive v : values) {
+        if (op.apply(userValue, v)) {
+          return true;
+        }
       }
     }
     return false;

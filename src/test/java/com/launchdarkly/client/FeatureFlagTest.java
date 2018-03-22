@@ -244,6 +244,34 @@ public class FeatureFlagTest {
   }
   
   @Test
+  public void clauseWithNullOperatorDoesNotMatch() throws Exception {
+    // Operator will be null if it failed to be unmarshaled from JSON, i.e. it's not a supported enum value
+    Clause badClause = new Clause("name", null, Arrays.asList(js("Bob")), false);
+    FeatureFlag f = booleanFlagWithClauses(badClause);
+    LDUser user = new LDUser.Builder("key").name("Bob").build();
+    
+    assertEquals(jbool(false), f.evaluate(user, featureStore).getValue());
+  }
+  
+  @Test
+  public void clauseWithNullOperatorDoesNotStopSubsequentRuleFromMatching() throws Exception {
+    Clause badClause = new Clause("name", null, Arrays.asList(js("Bob")), false);
+    Rule badRule = new Rule(Arrays.asList(badClause), 1, null);
+    Clause goodClause = new Clause("name", Operator.in, Arrays.asList(js("Bob")), false);
+    Rule goodRule = new Rule(Arrays.asList(goodClause), 1, null);
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .rules(Arrays.asList(badRule, goodRule))
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(0)
+        .variations(jbool(false), jbool(true))
+        .build();
+    LDUser user = new LDUser.Builder("key").name("Bob").build();
+    
+    assertEquals(jbool(true), f.evaluate(user, featureStore).getValue());
+  }
+  
+  @Test
   public void testSegmentMatchClauseRetrievesSegmentFromStore() throws Exception {
     Segment segment = new Segment.Builder("segkey")
         .included(Arrays.asList("foo"))
