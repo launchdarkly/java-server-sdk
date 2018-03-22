@@ -12,6 +12,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.client.TestUtil.hasJsonProperty;
 import static com.launchdarkly.client.TestUtil.isJsonArray;
@@ -36,7 +37,6 @@ public class DefaultEventProcessorTest {
 
   private final LDConfig.Builder configBuilder = new LDConfig.Builder();
   private final MockWebServer server = new MockWebServer();
-  private Long serverTimestamp; 
   private DefaultEventProcessor ep;
   
   @Before
@@ -60,12 +60,12 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
     
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
         allOf(
           hasJsonProperty("kind", "identify"),
           hasJsonProperty("creationDate", (double)e.creationDate),
-          hasJsonProperty("user", makeUserJson(user))
+          hasJsonProperty("user", userJson)
         )));
   }
   
@@ -77,7 +77,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
     
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
         allOf(
           hasJsonProperty("kind", "identify"),
@@ -95,14 +95,32 @@ public class DefaultEventProcessorTest {
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
-        isIndexEvent(fe),
+        isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, false, null),
         isSummaryEvent()
     ));
   }
 
+  @SuppressWarnings("unchecked")
+  @Test
+  public void userIsFilteredInIndexEvent() throws Exception {
+    configBuilder.allAttributesPrivate(true);
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
+    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    JsonArray output = flushAndGetEvents(new MockResponse());
+    assertThat(output, hasItems(
+        isIndexEvent(fe, filteredUserJson),
+        isFeatureEvent(fe, flag, false, null),
+        isSummaryEvent()
+    ));
+  }
+  
   @SuppressWarnings("unchecked")
   @Test
   public void featureEventCanContainInlineUser() throws Exception {
@@ -113,7 +131,7 @@ public class DefaultEventProcessorTest {
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
         isFeatureEvent(fe, flag, false, userJson),
         isSummaryEvent()
@@ -130,7 +148,7 @@ public class DefaultEventProcessorTest {
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
         isFeatureEvent(fe, flag, false, filteredUserJson),
         isSummaryEvent()
@@ -147,9 +165,9 @@ public class DefaultEventProcessorTest {
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
-        isIndexEvent(fe),
+        isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, true, null),
         isSummaryEvent()
     ));
@@ -164,9 +182,8 @@ public class DefaultEventProcessorTest {
     long serverTime = System.currentTimeMillis() - 20000;
     
     // Send and flush an event we don't care about, just to set the last server time
-    serverTimestamp = serverTime;
     ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
-    flushAndGetEvents();
+    flushAndGetEvents(addDateHeader(new MockResponse(), serverTime));
     
     // Now send an event with debug mode on, with a "debug until" time that is further in
     // the future than the server time, but in the past compared to the client.
@@ -177,9 +194,9 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     // Should get a summary event only, not a full feature event
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
-        isIndexEvent(fe),
+        isIndexEvent(fe, userJson),
         isSummaryEvent(fe.creationDate, fe.creationDate)
     ));
   }
@@ -193,9 +210,8 @@ public class DefaultEventProcessorTest {
     long serverTime = System.currentTimeMillis() + 20000;
     
     // Send and flush an event we don't care about, just to set the last server time
-    serverTimestamp = serverTime;
     ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
-    flushAndGetEvents();
+    flushAndGetEvents(addDateHeader(new MockResponse(), serverTime));
     
     // Now send an event with debug mode on, with a "debug until" time that is further in
     // the future than the client time, but in the past compared to the server.
@@ -206,9 +222,9 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     // Should get a summary event only, not a full feature event
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
-        isIndexEvent(fe),
+        isIndexEvent(fe, userJson),
         isSummaryEvent(fe.creationDate, fe.creationDate)
     ));
   }
@@ -227,9 +243,9 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
     
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
-        isIndexEvent(fe1),
+        isIndexEvent(fe1, userJson),
         isFeatureEvent(fe1, flag1, false, null),
         isFeatureEvent(fe2, flag2, false, null),
         isSummaryEvent(fe1.creationDate, fe2.creationDate)
@@ -252,9 +268,9 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
     
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
-        isIndexEvent(fe1),
+        isIndexEvent(fe1, userJson),
         allOf(
             isSummaryEvent(fe1.creationDate, fe2.creationDate),
             hasSummaryFlag(flag1.getKey(), default1,
@@ -274,9 +290,9 @@ public class DefaultEventProcessorTest {
     CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
     ep.sendEvent(ce);
 
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
-        isIndexEvent(ce),
+        isIndexEvent(ce, userJson),
         isCustomEvent(ce, null)
     ));
   }
@@ -291,7 +307,7 @@ public class DefaultEventProcessorTest {
     CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
     ep.sendEvent(ce);
 
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
         isCustomEvent(ce, userJson)
     ));
@@ -307,7 +323,7 @@ public class DefaultEventProcessorTest {
     CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
     ep.sendEvent(ce);
 
-    JsonArray output = flushAndGetEvents();
+    JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
         isCustomEvent(ce, filteredUserJson)
     ));
@@ -334,27 +350,35 @@ public class DefaultEventProcessorTest {
     assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
   }
   
-  private JsonArray flushAndGetEvents() throws Exception {
-    MockResponse response = new MockResponse();
-    if (serverTimestamp != null) {
-      response.addHeader("Date", DefaultEventProcessor.HTTP_DATE_FORMAT.format(new Date(serverTimestamp)));
-    }
+  @Test
+  public void noMorePayloadsAreSentAfter401Error() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+    ep.sendEvent(e);
+    flushAndGetEvents(new MockResponse().setResponseCode(401));
+    
+    ep.sendEvent(e);
+    ep.flush();
+    RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
+    assertThat(req, nullValue(RecordedRequest.class));
+  }
+
+  private MockResponse addDateHeader(MockResponse response, long timestamp) {
+    return response.addHeader("Date", DefaultEventProcessor.HTTP_DATE_FORMAT.format(new Date(timestamp)));
+  }
+  
+  private JsonArray flushAndGetEvents(MockResponse response) throws Exception {
     server.enqueue(response);
     ep.flush();
     RecordedRequest req = server.takeRequest();
     return gson.fromJson(req.getBody().readUtf8(), JsonElement.class).getAsJsonArray();
   }
   
-  private JsonElement makeUserJson(LDUser user) {
-    // need to use the gson instance from the config object, which has a custom serializer
-    return configBuilder.build().gson.toJsonTree(user);
-  }
-  
-  private Matcher<JsonElement> isIndexEvent(Event sourceEvent) {
+  private Matcher<JsonElement> isIndexEvent(Event sourceEvent, JsonElement user) {
     return allOf(
         hasJsonProperty("kind", "index"),
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
-        hasJsonProperty("user", makeUserJson(sourceEvent.user))
+        hasJsonProperty("user", user)
     );
   }
 

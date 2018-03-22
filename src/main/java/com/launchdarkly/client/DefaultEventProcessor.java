@@ -78,12 +78,16 @@ class DefaultEventProcessor implements EventProcessor {
   
   @Override
   public void sendEvent(Event e) {
-    postMessageAsync(MessageType.EVENT, e);
+    if (!stopped.get()) {
+      postMessageAsync(MessageType.EVENT, e);
+    }
   }
   
   @Override
   public void flush() {
-    postMessageAndWait(MessageType.FLUSH, null);
+    if (!stopped.get()) {
+      postMessageAndWait(MessageType.FLUSH, null);
+    }
   }
 
   @Override
