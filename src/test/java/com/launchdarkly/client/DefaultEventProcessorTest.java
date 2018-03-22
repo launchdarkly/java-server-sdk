@@ -13,8 +13,8 @@ import org.junit.Test;
 
 import java.util.Date;
 
-import static com.launchdarkly.client.TestUtils.hasJsonProperty;
-import static com.launchdarkly.client.TestUtils.isJsonArray;
+import static com.launchdarkly.client.TestUtil.hasJsonProperty;
+import static com.launchdarkly.client.TestUtil.isJsonArray;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
