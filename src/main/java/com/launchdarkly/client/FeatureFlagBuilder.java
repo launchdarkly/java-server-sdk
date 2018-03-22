@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.JsonElement;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 class FeatureFlagBuilder {
@@ -86,6 +87,10 @@ class FeatureFlagBuilder {
   FeatureFlagBuilder variations(List<JsonElement> variations) {
     this.variations = variations;
     return this;
+  }
+
+  FeatureFlagBuilder variations(JsonElement... variations) {
+    return variations(Arrays.asList(variations));
   }
 
   FeatureFlagBuilder trackEvents(boolean trackEvents) {

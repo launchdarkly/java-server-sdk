@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
  * {@link RedisFeatureStoreBuilder} calls can be chained, enabling the following pattern:
  *
  * <pre>
- * RedisFeatureStoreBuilder builder = new RedisFeatureStoreBuilder("host", 443, 60)
+ * RedisFeatureStore store = new RedisFeatureStoreBuilder("host", 443, 60)
  *      .refreshStaleValues(true)
  *      .asyncRefresh(true)
  *      .socketTimeout(200)
