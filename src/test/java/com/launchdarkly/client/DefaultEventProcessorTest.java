@@ -98,7 +98,8 @@ public class DefaultEventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(fe),
-        isFeatureEvent(fe, flag, false, null)
+        isFeatureEvent(fe, flag, false, null),
+        isSummaryEvent()
     ));
   }
 
@@ -114,7 +115,8 @@ public class DefaultEventProcessorTest {
     
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
-        isFeatureEvent(fe, flag, false, userJson)
+        isFeatureEvent(fe, flag, false, userJson),
+        isSummaryEvent()
     ));
   }
 
@@ -130,7 +132,8 @@ public class DefaultEventProcessorTest {
     
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
-        isFeatureEvent(fe, flag, false, filteredUserJson)
+        isFeatureEvent(fe, flag, false, filteredUserJson),
+        isSummaryEvent()
     ));
   }
   
@@ -147,7 +150,8 @@ public class DefaultEventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(fe),
-        isFeatureEvent(fe, flag, true, null)
+        isFeatureEvent(fe, flag, true, null),
+        isSummaryEvent()
     ));
   }
   
@@ -381,7 +385,11 @@ public class DefaultEventProcessorTest {
         hasJsonProperty("data", sourceEvent.data)
     );
   }
-  
+
+  private Matcher<JsonElement> isSummaryEvent() {
+    return hasJsonProperty("kind", "summary");
+  }
+
   private Matcher<JsonElement> isSummaryEvent(long startDate, long endDate) {
     return allOf(
         hasJsonProperty("kind", "summary"),
