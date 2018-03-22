@@ -31,6 +31,8 @@ public class DefaultEventProcessorTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
   private static final Gson gson = new Gson();
+  private static final JsonElement userJson = gson.fromJson("{\"key\":\"userkey\",\"name\":\"Red\"}", JsonElement.class);
+  private static final JsonElement filteredUserJson = gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
 
   private final LDConfig.Builder configBuilder = new LDConfig.Builder();
   private final MockWebServer server = new MockWebServer();
@@ -69,6 +71,23 @@ public class DefaultEventProcessorTest {
   
   @SuppressWarnings("unchecked")
   @Test
+  public void userIsFilteredInIdentifyEvent() throws Exception {
+    configBuilder.allAttributesPrivate(true);
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+    ep.sendEvent(e);
+    
+    JsonArray output = flushAndGetEvents();
+    assertThat(output, hasItems(
+        allOf(
+          hasJsonProperty("kind", "identify"),
+          hasJsonProperty("creationDate", (double)e.creationDate),
+          hasJsonProperty("user", filteredUserJson)
+        )));    
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
   public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
@@ -79,7 +98,7 @@ public class DefaultEventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(fe),
-        isFeatureEvent(fe, flag, false, false)
+        isFeatureEvent(fe, flag, false, null)
     ));
   }
 
@@ -95,10 +114,26 @@ public class DefaultEventProcessorTest {
     
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
-        isFeatureEvent(fe, flag, false, true)
+        isFeatureEvent(fe, flag, false, userJson)
     ));
   }
 
+  @SuppressWarnings("unchecked")
+  @Test
+  public void userIsFilteredInFeatureEvent() throws Exception {
+    configBuilder.inlineUsersInEvents(true).allAttributesPrivate(true);
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
+    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    JsonArray output = flushAndGetEvents();
+    assertThat(output, hasItems(
+        isFeatureEvent(fe, flag, false, filteredUserJson)
+    ));
+  }
+  
   @SuppressWarnings("unchecked")
   @Test
   public void eventKindIsDebugIfFlagIsTemporarilyInDebugMode() throws Exception {
@@ -112,7 +147,7 @@ public class DefaultEventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(fe),
-        isFeatureEvent(fe, flag, true, false)
+        isFeatureEvent(fe, flag, true, null)
     ));
   }
   
@@ -191,8 +226,8 @@ public class DefaultEventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(fe1),
-        isFeatureEvent(fe1, flag1, false, false),
-        isFeatureEvent(fe2, flag2, false, false),
+        isFeatureEvent(fe1, flag1, false, null),
+        isFeatureEvent(fe2, flag2, false, null),
         isSummaryEvent(fe1.creationDate, fe2.creationDate)
     ));
   }
@@ -238,7 +273,7 @@ public class DefaultEventProcessorTest {
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
         isIndexEvent(ce),
-        isCustomEvent(ce, false)
+        isCustomEvent(ce, null)
     ));
   }
 
@@ -254,7 +289,23 @@ public class DefaultEventProcessorTest {
 
     JsonArray output = flushAndGetEvents();
     assertThat(output, hasItems(
-        isCustomEvent(ce, true)
+        isCustomEvent(ce, userJson)
+    ));
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
+  public void userIsFilteredInCustomEvent() throws Exception {
+    configBuilder.inlineUsersInEvents(true).allAttributesPrivate(true);
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    JsonObject data = new JsonObject();
+    data.addProperty("thing", "stuff");
+    CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    ep.sendEvent(ce);
+
+    JsonArray output = flushAndGetEvents();
+    assertThat(output, hasItems(
+        isCustomEvent(ce, filteredUserJson)
     ));
   }
   
@@ -304,28 +355,28 @@ public class DefaultEventProcessorTest {
   }
 
   @SuppressWarnings("unchecked")
-  private Matcher<JsonElement> isFeatureEvent(FeatureRequestEvent sourceEvent, FeatureFlag flag, boolean debug, boolean inlineUsers) {
+  private Matcher<JsonElement> isFeatureEvent(FeatureRequestEvent sourceEvent, FeatureFlag flag, boolean debug, JsonElement inlineUser) {
     return allOf(
         hasJsonProperty("kind", debug ? "debug" : "feature"),
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
         hasJsonProperty("key", flag.getKey()),
         hasJsonProperty("version", (double)flag.getVersion()),
         hasJsonProperty("value", sourceEvent.value),
-        inlineUsers ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
+        (inlineUser != null) ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
           hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
-        inlineUsers ? hasJsonProperty("user", makeUserJson(sourceEvent.user)) :
+        (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
           hasJsonProperty("user", nullValue(JsonElement.class))
     );
   }
 
-  private Matcher<JsonElement> isCustomEvent(CustomEvent sourceEvent, boolean inlineUsers) {
+  private Matcher<JsonElement> isCustomEvent(CustomEvent sourceEvent, JsonElement inlineUser) {
     return allOf(
         hasJsonProperty("kind", "custom"),
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
         hasJsonProperty("key", "eventkey"),
-        inlineUsers ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
+        (inlineUser != null) ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
           hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
-        inlineUsers ? hasJsonProperty("user", makeUserJson(sourceEvent.user)) :
+        (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
           hasJsonProperty("user", nullValue(JsonElement.class)),
         hasJsonProperty("data", sourceEvent.data)
     );
