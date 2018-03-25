@@ -3,6 +3,8 @@ package com.launchdarkly.client;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
+import com.launchdarkly.client.EventSummarizer.CounterKey;
+import com.launchdarkly.client.EventSummarizer.CounterValue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -235,10 +238,27 @@ class DefaultEventProcessor implements EventProcessor {
     }
   }
 
+  private EventOutput createSummaryEvent(EventSummarizer.EventSummary summary) {
+    Map<String, SummaryEventFlag> flagsOut = new HashMap<>();
+    for (Map.Entry<CounterKey, CounterValue> entry: summary.counters.entrySet()) {
+      SummaryEventFlag fsd = flagsOut.get(entry.getKey().key);
+      if (fsd == null) {
+        fsd = new SummaryEventFlag(entry.getValue().defaultVal, new ArrayList<SummaryEventCounter>());
+        flagsOut.put(entry.getKey().key, fsd);
+      }
+      SummaryEventCounter c = new SummaryEventCounter(entry.getValue().flagValue,
+          entry.getKey().version == 0 ? null : entry.getKey().version,
+          entry.getValue().count,
+          entry.getKey().version == 0 ? true : null);
+      fsd.counters.add(c);
+    }
+    return new SummaryEventOutput(summary.startDate, summary.endDate, flagsOut);
+  }
+  
   private void dispatchFlush(EventProcessorMessage message) {
     Event[] events = buffer.toArray(new Event[buffer.size()]);
     buffer.clear();
-    EventSummarizer.SummaryState snapshot = summarizer.snapshot();
+    EventSummarizer.EventSummary snapshot = summarizer.snapshot();
     if (events.length > 0 || !snapshot.isEmpty()) {
       this.scheduler.schedule(new FlushTask(events, snapshot, message), 0, TimeUnit.SECONDS);      
     } else {
@@ -249,10 +269,10 @@ class DefaultEventProcessor implements EventProcessor {
   private class FlushTask implements Runnable {
     private final Logger logger = LoggerFactory.getLogger(FlushTask.class);
     private final Event[] events;
-    private final EventSummarizer.SummaryState snapshot;
+    private final EventSummarizer.EventSummary snapshot;
     private final EventProcessorMessage message;
     
-    FlushTask(Event[] events, EventSummarizer.SummaryState snapshot, EventProcessorMessage message) {
+    FlushTask(Event[] events, EventSummarizer.EventSummary snapshot, EventProcessorMessage message) {
       this.events = events;
       this.snapshot = snapshot;
       this.message = message;
@@ -265,9 +285,7 @@ class DefaultEventProcessor implements EventProcessor {
           eventsOut.add(createEventOutput(event));
         }
         if (!snapshot.isEmpty()) {
-          EventSummarizer.SummaryOutput summary = summarizer.output(snapshot);
-          SummaryEventOutput seo = new SummaryEventOutput(summary.startDate, summary.endDate, summary.features);
-          eventsOut.add(seo);
+          eventsOut.add(createSummaryEvent(snapshot));
         }
         if (!eventsOut.isEmpty()) {
           postEvents(eventsOut);
@@ -442,13 +460,39 @@ class DefaultEventProcessor implements EventProcessor {
     private final String kind;
     private final long startDate;
     private final long endDate;
-    private final Map<String, EventSummarizer.FlagSummaryData> features;
+    private final Map<String, SummaryEventFlag> features;
     
-    SummaryEventOutput(long startDate, long endDate, Map<String, EventSummarizer.FlagSummaryData> features) {
+    SummaryEventOutput(long startDate, long endDate, Map<String, SummaryEventFlag> features) {
       this.kind = "summary";
       this.startDate = startDate;
       this.endDate = endDate;
       this.features = features;
+    }
+  }
+
+  @SuppressWarnings("unused")
+  private static class SummaryEventFlag {
+    @SerializedName("default") final JsonElement defaultVal;
+    final List<SummaryEventCounter> counters;
+    
+    SummaryEventFlag(JsonElement defaultVal, List<SummaryEventCounter> counters) {
+      this.defaultVal = defaultVal;
+      this.counters = counters;
+    }
+  }
+  
+  @SuppressWarnings("unused")
+  private static class SummaryEventCounter {
+    final JsonElement value;
+    final Integer version;
+    final int count;
+    final Boolean unknown;
+    
+    SummaryEventCounter(JsonElement value, Integer version, int count, Boolean unknown) {
+      this.value = value;
+      this.version = version;
+      this.count = count;
+      this.unknown = unknown;
     }
   }
 }

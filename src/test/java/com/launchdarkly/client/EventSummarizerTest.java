@@ -1,16 +1,11 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
-import com.launchdarkly.client.EventSummarizer.CounterData;
-
 import org.junit.Test;
 
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.launchdarkly.client.TestUtil.js;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
@@ -61,7 +56,7 @@ public class EventSummarizerTest {
   @Test
   public void summarizeEventDoesNothingForIdentifyEvent() {
     EventSummarizer es = new EventSummarizer(defaultConfig);
-    EventSummarizer.SummaryState snapshot = es.snapshot();
+    EventSummarizer.EventSummary snapshot = es.snapshot();
     es.summarizeEvent(eventFactory.newIdentifyEvent(user));
     
     assertEquals(snapshot, es.snapshot());
@@ -70,7 +65,7 @@ public class EventSummarizerTest {
   @Test
   public void summarizeEventDoesNothingForCustomEvent() {
     EventSummarizer es = new EventSummarizer(defaultConfig);
-    EventSummarizer.SummaryState snapshot = es.snapshot();
+    EventSummarizer.EventSummary snapshot = es.snapshot();
     es.summarizeEvent(eventFactory.newCustomEvent("whatever", user, null));
     
     assertEquals(snapshot, es.snapshot());
@@ -89,7 +84,7 @@ public class EventSummarizerTest {
     es.summarizeEvent(event1);
     es.summarizeEvent(event2);
     es.summarizeEvent(event3);
-    EventSummarizer.SummaryOutput data = es.output(es.snapshot());
+    EventSummarizer.EventSummary data = es.snapshot();
     
     assertEquals(1000, data.startDate);
     assertEquals(2000, data.endDate);
@@ -101,47 +96,31 @@ public class EventSummarizerTest {
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").version(11).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(22).build();
     String unknownFlagKey = "badkey";
-    JsonElement default1 = new JsonPrimitive("default1");
-    JsonElement default2 = new JsonPrimitive("default2");
-    JsonElement default3 = new JsonPrimitive("default3");
     Event event1 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value1")), default1);
+        new FeatureFlag.VariationAndValue(1, js("value1")), js("default1"));
     Event event2 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(2, new JsonPrimitive("value2")), default1);
+        new FeatureFlag.VariationAndValue(2, js("value2")), js("default1"));
     Event event3 = eventFactory.newFeatureRequestEvent(flag2, user,
-        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value99")), default2);
+        new FeatureFlag.VariationAndValue(1, js("value99")), js("default2"));
     Event event4 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(1, new JsonPrimitive("value1")), default1);
-    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, default3);
+        new FeatureFlag.VariationAndValue(1, js("value1")), js("default1"));
+    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, js("default3"));
     es.summarizeEvent(event1);
     es.summarizeEvent(event2);
     es.summarizeEvent(event3);
     es.summarizeEvent(event4);
     es.summarizeEvent(event5);
-    EventSummarizer.SummaryOutput data = es.output(es.snapshot());
+    EventSummarizer.EventSummary data = es.snapshot();
     
-    data.features.get(flag1.getKey()).counters.sort(new CounterValueComparator());
-    EventSummarizer.CounterData expected1 = new EventSummarizer.CounterData(
-        new JsonPrimitive("value1"), flag1.getVersion(), 2, null);
-    EventSummarizer.CounterData expected2 = new EventSummarizer.CounterData(
-        new JsonPrimitive("value2"), flag1.getVersion(), 1, null);
-    EventSummarizer.CounterData expected3 = new EventSummarizer.CounterData(
-        new JsonPrimitive("value99"), flag2.getVersion(), 1, null);
-    EventSummarizer.CounterData expected4 = new EventSummarizer.CounterData(
-        default3, null, 1, true);
-    Map<String, EventSummarizer.FlagSummaryData> expectedFeatures = new HashMap<>();
-    expectedFeatures.put(flag1.getKey(), new EventSummarizer.FlagSummaryData(default1,
-        Arrays.asList(expected1, expected2)));
-    expectedFeatures.put(flag2.getKey(), new EventSummarizer.FlagSummaryData(default2,
-        Arrays.asList(expected3)));
-    expectedFeatures.put(unknownFlagKey, new EventSummarizer.FlagSummaryData(default3,
-        Arrays.asList(expected4)));
-    assertThat(data.features, equalTo(expectedFeatures));
-  }
-  
-  private static class CounterValueComparator implements Comparator<EventSummarizer.CounterData> {
-    public int compare(CounterData o1, CounterData o2) {
-      return o1.value.getAsString().compareTo(o2.value.getAsString());
-    }
+    Map<EventSummarizer.CounterKey, EventSummarizer.CounterValue> expected = new HashMap<>();
+    expected.put(new EventSummarizer.CounterKey(flag1.getKey(), 1, flag1.getVersion()),
+        new EventSummarizer.CounterValue(2, js("value1"), js("default1")));
+    expected.put(new EventSummarizer.CounterKey(flag1.getKey(), 2, flag1.getVersion()),
+        new EventSummarizer.CounterValue(1, js("value2"), js("default1")));
+    expected.put(new EventSummarizer.CounterKey(flag2.getKey(), 1, flag2.getVersion()),
+        new EventSummarizer.CounterValue(1, js("value99"), js("default2")));
+    expected.put(new EventSummarizer.CounterKey(unknownFlagKey, 0, 0),
+        new EventSummarizer.CounterValue(1, js("default3"), js("default3")));
+    assertThat(data.counters, equalTo(expected));
   }
 }

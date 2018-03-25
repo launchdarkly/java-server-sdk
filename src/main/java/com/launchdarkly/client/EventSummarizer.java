@@ -1,12 +1,9 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
-import com.google.gson.annotations.SerializedName;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -17,11 +14,11 @@ import java.util.Objects;
  * single event-processing thread.
  */
 class EventSummarizer {
-  private SummaryState eventsState;
+  private EventSummary eventsState;
   private final SimpleLRUCache<String, String> userKeys;
   
   EventSummarizer(LDConfig config) {
-    this.eventsState = new SummaryState();
+    this.eventsState = new EventSummary();
     this.userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
   }
   
@@ -61,34 +58,12 @@ class EventSummarizer {
    * Returns a snapshot of the current summarized event data, and resets this state.
    * @return the previous event state
    */
-  SummaryState snapshot() {
-    SummaryState ret = eventsState;
-    eventsState = new SummaryState();
+  EventSummary snapshot() {
+    EventSummary ret = eventsState;
+    eventsState = new EventSummary();
     return ret;
   }
 
-  /**
-   * Transforms the summary data into the format used for event sending.
-   * @param snapshot the data obtained from {@link #snapshot()}
-   * @return the formatted output
-   */
-  SummaryOutput output(SummaryState snapshot) {
-    Map<String, FlagSummaryData> flagsOut = new HashMap<>();
-    for (Map.Entry<CounterKey, CounterValue> entry: snapshot.counters.entrySet()) {
-      FlagSummaryData fsd = flagsOut.get(entry.getKey().key);
-      if (fsd == null) {
-        fsd = new FlagSummaryData(entry.getValue().defaultVal, new ArrayList<CounterData>());
-        flagsOut.put(entry.getKey().key, fsd);
-      }
-      CounterData c = new CounterData(entry.getValue().flagValue,
-          entry.getKey().version == 0 ? null : entry.getKey().version,
-          entry.getValue().count,
-          entry.getKey().version == 0 ? true : null);
-      fsd.counters.add(c);
-    }
-    return new SummaryOutput(snapshot.startDate, snapshot.endDate, flagsOut);
-  }
-  
   @SuppressWarnings("serial")
   private static class SimpleLRUCache<K, V> extends LinkedHashMap<K, V> {
     // http://chriswu.me/blog/a-lru-cache-in-10-lines-of-java/
@@ -105,12 +80,12 @@ class EventSummarizer {
     }
   }
 
-  static class SummaryState {
+  static class EventSummary {
     final Map<CounterKey, CounterValue> counters;
     long startDate;
     long endDate;
     
-    SummaryState() {
+    EventSummary() {
       counters = new HashMap<CounterKey, CounterValue>();
     }
     
@@ -141,8 +116,8 @@ class EventSummarizer {
     
     @Override
     public boolean equals(Object other) {
-      if (other instanceof SummaryState) {
-        SummaryState o = (SummaryState)other;
+      if (other instanceof EventSummary) {
+        EventSummary o = (EventSummary)other;
         return o.counters.equals(counters) && startDate == o.startDate && endDate == o.endDate;
       }
       return true;
@@ -154,10 +129,10 @@ class EventSummarizer {
     }
   }
 
-  private static class CounterKey {
-    private final String key;
-    private final int variation;
-    private final int version;
+  static class CounterKey {
+    final String key;
+    final int variation;
+    final int version;
     
     CounterKey(String key, int variation, int version) {
       this.key = key;
@@ -178,12 +153,17 @@ class EventSummarizer {
     public int hashCode() {
       return key.hashCode() + 31 * (variation + 31 * version);
     }
+    
+    @Override
+    public String toString() {
+      return "(" + key + "," + variation + "," + version + ")";
+    }
   }
   
-  private static class CounterValue {
-    private int count;
-    private final JsonElement flagValue;
-    private final JsonElement defaultVal;
+  static class CounterValue {
+    int count;
+    final JsonElement flagValue;
+    final JsonElement defaultVal;
     
     CounterValue(int count, JsonElement flagValue, JsonElement defaultVal) {
       this.count = count;
@@ -194,100 +174,20 @@ class EventSummarizer {
     void increment() {
       count = count + 1;
     }
-  }
-  
-  static class FlagSummaryData {
-    @SerializedName("default") final JsonElement defaultVal;
-    final List<CounterData> counters;
-    
-    FlagSummaryData(JsonElement defaultVal, List<CounterData> counters) {
-      this.defaultVal = defaultVal;
-      this.counters = counters;
-    }
     
     @Override
-    public boolean equals(Object other) {
-      if (other instanceof FlagSummaryData) {
-        FlagSummaryData o = (FlagSummaryData)other;
-        return Objects.equals(defaultVal, o.defaultVal) && counters.equals(o.counters);
+    public boolean equals(Object other)
+    {
+      if (other instanceof CounterValue) {
+        CounterValue o = (CounterValue)other;
+        return count == o.count && Objects.equals(flagValue, o.flagValue) &&
+            Objects.equals(defaultVal, o.defaultVal);
       }
       return false;
     }
-    
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(defaultVal) + 31 * counters.hashCode();
-    }
-    
     @Override
     public String toString() {
-      return "{" + defaultVal + ", " + counters + "}";
-    }
-  }
-  
-  static class CounterData {
-    final JsonElement value;
-    final Integer version;
-    final int count;
-    final Boolean unknown;
-    
-    CounterData(JsonElement value, Integer version, int count, Boolean unknown) {
-      this.value = value;
-      this.version = version;
-      this.count = count;
-      this.unknown = unknown;
-    }
-    
-    @Override
-    public boolean equals(Object other) {
-      if (other instanceof CounterData) {
-        CounterData o = (CounterData)other;
-        return Objects.equals(value, o.value) && Objects.equals(version, o.version) &&
-            o.count == count && Objects.deepEquals(unknown, o.unknown);
-      }
-      return false;
-    }
-    
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(value) + 31 * (Objects.hashCode(version) + 31 *
-          (count + 31 * (Objects.hashCode(unknown))));
-    }
-    
-    @Override
-    public String toString() {
-      return "{" + value + ", " + version + ", " + count + ", " + unknown + "}";
-    }
-  }
-  
-  static class SummaryOutput {
-    final long startDate;
-    final long endDate;
-    final Map<String, FlagSummaryData> features;
-    
-    SummaryOutput(long startDate, long endDate, Map<String, FlagSummaryData> features) {
-      this.startDate = startDate;
-      this.endDate = endDate;
-      this.features = features;
-    }
-    
-    @Override
-    public boolean equals(Object other) {
-      if (other instanceof SummaryOutput) {
-        SummaryOutput o = (SummaryOutput)other;
-        return o.startDate == startDate && o.endDate == endDate && o.features.equals(features);
-      }
-      return false;
-    }
-    
-    @Override
-    public int hashCode() {
-      return features.hashCode() + 31 * ((int)startDate + 31 * (int)endDate);
-    }
-    
-    @Override
-    public String toString() {
-      return "{" + startDate + ", " + endDate + ", " + features + "}";
+      return "(" + count + "," + flagValue + "," + defaultVal + ")";
     }
   }
 }
