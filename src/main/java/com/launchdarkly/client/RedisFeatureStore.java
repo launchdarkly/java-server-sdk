@@ -246,7 +246,7 @@ public class RedisFeatureStore implements FeatureStore {
         VersionedData oldItem = getRedisEvenIfDeleted(kind, newItem.getKey(), jedis);
   
         if (oldItem != null && oldItem.getVersion() >= newItem.getVersion()) {
-          logger.warn("Attempted to {} key: {} version: {}" +
+          logger.debug("Attempted to {} key: {} version: {}" +
               " with a version that is the same or older: {} in \"{}\"",
               newItem.isDeleted() ? "delete" : "update",
               newItem.getKey(), oldItem.getVersion(), newItem.getVersion(), kind.getNamespace());
