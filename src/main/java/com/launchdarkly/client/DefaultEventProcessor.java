@@ -40,7 +40,8 @@ class DefaultEventProcessor implements EventProcessor {
   private final EventConsumer consumer;
   private final ThreadFactory threadFactory;
   private final ScheduledExecutorService scheduler;
-
+  private final AtomicBoolean inputCapacityExceeded = new AtomicBoolean(false);
+  
   DefaultEventProcessor(String sdkKey, LDConfig config) {
     inputChannel = new ArrayBlockingQueue<>(config.capacity);
 
@@ -98,11 +99,14 @@ class DefaultEventProcessor implements EventProcessor {
     while (true) {
       try {
         if (inputChannel.offer(message, CHANNEL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
+          inputCapacityExceeded.set(false);
           break;
         } else {
           // This doesn't mean that the output event buffer is full, but rather that the main thread is
           // seriously backed up with not-yet-processed events. We shouldn't see this.
-          logger.warn("Events are being produced faster than they can be processed");
+          if (inputCapacityExceeded.compareAndSet(false, true)) {
+            logger.warn("Events are being produced faster than they can be processed");
+          }
         }
       } catch (InterruptedException ex) {
       }
