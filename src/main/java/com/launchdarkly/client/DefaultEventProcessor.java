@@ -189,7 +189,7 @@ class DefaultEventProcessor implements EventProcessor {
             synchronizeForTesting();
             break;
           case SHUTDOWN:
-            finishAllPendingFlushes();
+            doShutdown();
             running = false;
           }
           message.completed();
@@ -201,7 +201,7 @@ class DefaultEventProcessor implements EventProcessor {
       }
     }
     
-    private void finishAllPendingFlushes() {
+    private void doShutdown() {
       flushWorkersPool.shutdown();
       try {
         while (!flushWorkersPool.awaitTermination(CHANNEL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
@@ -209,6 +209,8 @@ class DefaultEventProcessor implements EventProcessor {
         }
       } catch (InterruptedException e) {
       }
+      // Note that we don't close the HTTP client here, because it's shared by other components
+      // via the LDConfig.  The LDClient will dispose of it.
     }
 
     private void synchronizeForTesting() {
