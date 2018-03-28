@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -32,8 +33,10 @@ public class DefaultEventProcessorTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
   private static final Gson gson = new Gson();
-  private static final JsonElement userJson = gson.fromJson("{\"key\":\"userkey\",\"name\":\"Red\"}", JsonElement.class);
-  private static final JsonElement filteredUserJson = gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
+  private static final JsonElement userJson =
+      gson.fromJson("{\"key\":\"userkey\",\"name\":\"Red\"}", JsonElement.class);
+  private static final JsonElement filteredUserJson =
+      gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
 
   private final LDConfig.Builder configBuilder = new LDConfig.Builder();
   private final MockWebServer server = new MockWebServer();
@@ -61,12 +64,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(e);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        allOf(
-          hasJsonProperty("kind", "identify"),
-          hasJsonProperty("creationDate", (double)e.creationDate),
-          hasJsonProperty("user", userJson)
-        )));
+    assertThat(output, hasItems(isIdentifyEvent(e, userJson)));
   }
   
   @SuppressWarnings("unchecked")
@@ -78,12 +76,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(e);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        allOf(
-          hasJsonProperty("kind", "identify"),
-          hasJsonProperty("creationDate", (double)e.creationDate),
-          hasJsonProperty("user", filteredUserJson)
-        )));    
+    assertThat(output, hasItems(isIdentifyEvent(e, filteredUserJson)));    
   }
   
   @SuppressWarnings("unchecked")
@@ -308,9 +301,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isCustomEvent(ce, userJson)
-    ));
+    assertThat(output, hasItems(isCustomEvent(ce, userJson)));
   }
   
   @SuppressWarnings("unchecked")
@@ -324,15 +315,26 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isCustomEvent(ce, filteredUserJson)
-    ));
+    assertThat(output, hasItems(isCustomEvent(ce, filteredUserJson)));
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
+  public void closingEventProcessorForcesSynchronousFlush() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+    ep.sendEvent(e);
+
+    server.enqueue(new MockResponse());
+    ep.close();
+    JsonArray output = getEventsFromLastRequest();
+    assertThat(output, hasItems(isIdentifyEvent(e, userJson)));
   }
   
   @Test
   public void nothingIsSentIfThereAreNoEvents() throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
-    ep.flush();
+    ep.close();
     
     assertEquals(0, server.getRequestCount());
   }
@@ -344,7 +346,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(e);
     
     server.enqueue(new MockResponse());
-    ep.flush();
+    ep.close();
     RecordedRequest req = server.takeRequest();
     
     assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
@@ -359,6 +361,7 @@ public class DefaultEventProcessorTest {
     
     ep.sendEvent(e);
     ep.flush();
+    ep.waitUntilInactive();
     RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
     assertThat(req, nullValue(RecordedRequest.class));
   }
@@ -370,10 +373,24 @@ public class DefaultEventProcessorTest {
   private JsonArray flushAndGetEvents(MockResponse response) throws Exception {
     server.enqueue(response);
     ep.flush();
-    RecordedRequest req = server.takeRequest();
+    ep.waitUntilInactive();
+    return getEventsFromLastRequest();
+  }
+  
+  private JsonArray getEventsFromLastRequest() throws Exception {
+    RecordedRequest req = server.takeRequest(0, TimeUnit.MILLISECONDS);
+    assertNotNull(req);
     return gson.fromJson(req.getBody().readUtf8(), JsonElement.class).getAsJsonArray();
   }
   
+  private Matcher<JsonElement> isIdentifyEvent(Event sourceEvent, JsonElement user) {
+    return allOf(
+        hasJsonProperty("kind", "identify"),
+        hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
+        hasJsonProperty("user", user)
+    );
+  }
+
   private Matcher<JsonElement> isIndexEvent(Event sourceEvent, JsonElement user) {
     return allOf(
         hasJsonProperty("kind", "index"),

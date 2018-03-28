@@ -7,16 +7,33 @@ import java.io.Closeable;
  */
 interface EventProcessor extends Closeable {
   /**
-   * Processes an event. This method is asynchronous; the event may be sent later in the background
-   * at an interval set by {@link LDConfig#flushInterval}, or due to a call to {@link #flush()}.
+   * Records an event asynchronously.
    * @param e an event
    */
   void sendEvent(Event e);
   
   /**
-   * Finishes processing any events that have been buffered. In the default implementation, this means
-   * sending the events to LaunchDarkly. This method is synchronous; when it returns, you can assume
-   * that all events queued prior to the {@link #flush()} have now been delivered.
+   * Specifies that any buffered events should be sent as soon as possible, rather than waiting
+   * for the next flush interval. This method is asynchronous, so events still may not be sent
+   * until a later time. However, calling {@link Closeable#close()} will synchronously deliver
+   * any events that were not yet delivered prior to shutting down.
    */
   void flush();
+  
+  /**
+   * Stub implementation of {@link EventProcessor} for when we don't want to send any events.
+   */
+  static class NullEventProcessor implements EventProcessor {
+    @Override
+    public void sendEvent(Event e) {
+    }
+    
+    @Override
+    public void flush() {
+    }
+    
+    @Override
+    public void close() {
+    }
+  }
 }

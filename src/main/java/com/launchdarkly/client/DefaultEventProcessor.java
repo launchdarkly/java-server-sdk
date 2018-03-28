@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
@@ -18,12 +19,14 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import okhttp3.MediaType;
@@ -37,9 +40,9 @@ class DefaultEventProcessor implements EventProcessor {
   private static final int CHANNEL_BLOCK_MILLIS = 1000;
   
   private final BlockingQueue<EventProcessorMessage> inputChannel;
-  private final EventConsumer consumer;
   private final ThreadFactory threadFactory;
   private final ScheduledExecutorService scheduler;
+  private final AtomicBoolean closed = new AtomicBoolean(false);
   private final AtomicBoolean inputCapacityExceeded = new AtomicBoolean(false);
   
   DefaultEventProcessor(String sdkKey, LDConfig config) {
@@ -51,7 +54,7 @@ class DefaultEventProcessor implements EventProcessor {
         .build();
     scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
-    consumer = new EventConsumer(sdkKey, config, inputChannel, threadFactory, scheduler);
+    new EventConsumer(sdkKey, config, inputChannel, threadFactory);
 
     Runnable flusher = new Runnable() {
       public void run() {
@@ -75,14 +78,22 @@ class DefaultEventProcessor implements EventProcessor {
   
   @Override
   public void flush() {
-    postMessageAndWait(MessageType.FLUSH, null);
+    postMessageAsync(MessageType.FLUSH, null);
   }
 
   @Override
   public void close() throws IOException {
-    this.flush();
-    consumer.close();
-    scheduler.shutdown();
+    if (closed.compareAndSet(false, true)) {
+      postMessageAsync(MessageType.FLUSH, null);
+      postMessageAndWait(MessageType.SHUTDOWN, null);
+      scheduler.shutdown();
+    }
+  }
+  
+  @VisibleForTesting
+  void waitUntilInactive() throws IOException {
+    // Waits until there are no pending events or flushes
+    postMessageAndWait(MessageType.SYNC, null);
   }
   
   private void postMessageAsync(MessageType type, Event event) {
@@ -118,29 +129,34 @@ class DefaultEventProcessor implements EventProcessor {
    * on its own thread.
    */
   private static class EventConsumer {
+    private static final int MAX_FLUSH_THREADS = 5;
+    
     private final String sdkKey;
     private final LDConfig config;
     private final BlockingQueue<EventProcessorMessage> inputChannel;
-    private final ScheduledExecutorService scheduler;
+    private final ExecutorService flushWorkersPool;
+    private final AtomicInteger flushWorkersActive;
     private final Thread mainThread;
     private final ArrayList<Event> buffer;
     private final EventSummarizer summarizer;
+    private final SimpleLRUCache<String, String> userKeys;
     private final Random random = new Random();
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
-    private final AtomicBoolean shutdown = new AtomicBoolean(false);
     private boolean capacityExceeded = false;
 
     private EventConsumer(String sdkKey, LDConfig config,
                           BlockingQueue<EventProcessorMessage> inputChannel,
-                          ThreadFactory threadFactory, ScheduledExecutorService scheduler) {
+                          ThreadFactory threadFactory) {
       this.sdkKey = sdkKey;
       this.config = config;
       this.inputChannel = inputChannel;
-      this.scheduler = scheduler;
+      this.flushWorkersPool = Executors.newFixedThreadPool(MAX_FLUSH_THREADS, threadFactory);
+      this.flushWorkersActive = new AtomicInteger(0);
       this.buffer = new ArrayList<>(config.capacity);
-      this.summarizer = new EventSummarizer(config);
-            
+      this.summarizer = new EventSummarizer();
+      this.userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
+
       mainThread = threadFactory.newThread(new Runnable() {
         public void run() {
           runMainLoop();
@@ -149,30 +165,34 @@ class DefaultEventProcessor implements EventProcessor {
       mainThread.start();
     }
     
-    void close() {
-      shutdown.set(true);
-      mainThread.interrupt();
-    }
-    
     /**
      * This task drains the input queue as quickly as possible. Everything here is done on a single
      * thread so we don't have to synchronize on our internal structures; when it's time to flush,
      * dispatchFlush will fire off another task to do the part that takes longer.
      */
     private void runMainLoop() {
-      while (!shutdown.get()) {
+      boolean running = true;
+      while (running) {
         try {
           EventProcessorMessage message = inputChannel.take();
           switch(message.type) {
           case EVENT:
-            dispatchEvent(message.event);
-            message.completed();
+            processEvent(message.event);
             break;
           case FLUSH:
-            dispatchFlush(message);
+            startFlush();
+            break;
           case FLUSH_USERS:
-            summarizer.resetUsers();
+            userKeys.clear();
+            break;
+          case SYNC:
+            synchronizeForTesting();
+            break;
+          case SHUTDOWN:
+            finishAllPendingFlushes();
+            running = false;
           }
+          message.completed();
         } catch (InterruptedException e) {
         } catch (Exception e) {
           logger.error("Unexpected error in event processor: " + e);
@@ -181,14 +201,38 @@ class DefaultEventProcessor implements EventProcessor {
       }
     }
     
-    private void dispatchEvent(Event e) {
+    private void finishAllPendingFlushes() {
+      flushWorkersPool.shutdown();
+      try {
+        while (!flushWorkersPool.awaitTermination(CHANNEL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
+          logger.debug("Waiting for event flush tasks to terminate");
+        }
+      } catch (InterruptedException e) {
+      }
+    }
+
+    private void synchronizeForTesting() {
+      while (true) {
+        try {
+          synchronized(flushWorkersActive) {
+            if (flushWorkersActive.get() == 0) {
+              return;
+            } else {
+              flushWorkersActive.wait();
+            }
+          }
+        } catch (InterruptedException e) {}
+      }
+    }
+    
+    private void processEvent(Event e) {
       if (disabled.get()) {
         return;
       }
       
       // For each user we haven't seen before, we add an index event - unless this is already
       // an identify event for that user.
-      if (!config.inlineUsersInEvents && e.user != null && !summarizer.noticeUser(e.user)) {
+      if (!config.inlineUsersInEvents && e.user != null && !noticeUser(e.user)) {
         if (!(e instanceof IdentifyEvent)) {
           IndexEvent ie = new IndexEvent(e.creationDate, e.user);
           addToBuffer(ie);
@@ -207,6 +251,15 @@ class DefaultEventProcessor implements EventProcessor {
         // (to avoid doing that work on our main thread).
         addToBuffer(e);
       }
+    }
+    
+    // Add to the set of users we've noticed, and return true if the user was already known to us.
+    private boolean noticeUser(LDUser user) {
+      if (user == null || user.getKey() == null) {
+        return false;
+      }
+      String key = user.getKeyAsString();
+      return userKeys.put(key, key) != null;
     }
     
     private void addToBuffer(Event e) {
@@ -244,26 +297,19 @@ class DefaultEventProcessor implements EventProcessor {
       }
     }
 
-    private void dispatchFlush(EventProcessorMessage message) {
+    private void startFlush() {
       if (disabled.get()) {
-        message.completed();
         return;
       }
       
       Event[] events = buffer.toArray(new Event[buffer.size()]);
       buffer.clear();
       EventSummarizer.EventSummary snapshot = summarizer.snapshot();
-      if (events.length == 0 && snapshot.isEmpty()) {
-        message.completed();
-      } else {
-        EventResponseListener listener = new EventResponseListener() {
-          public void onEventResponseReceived(Response response) {
-            handleResponse(response);
-          }
-        };
-        EventPayloadSender task = new EventPayloadSender(events, snapshot, message,
-            listener, sdkKey, config);
-        scheduler.schedule(task, 0, TimeUnit.SECONDS);      
+      
+      if (events.length != 0 || !snapshot.isEmpty()) {
+        flushWorkersActive.incrementAndGet();
+        EventPayloadSender task = new EventPayloadSender(this, events, snapshot);
+        flushWorkersPool.execute(task);      
       }
     }
     
@@ -286,10 +332,6 @@ class DefaultEventProcessor implements EventProcessor {
     }
   }
 
-  private interface EventResponseListener {
-    void onEventResponseReceived(Response response);
-  }
-  
   /**
    * Transforms the internal event data into the JSON event payload format and sends it off.
    * This is done on a separate worker thread.
@@ -297,21 +339,14 @@ class DefaultEventProcessor implements EventProcessor {
   private static class EventPayloadSender implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(EventPayloadSender.class);
 
+    private final EventConsumer consumer;
     private final Event[] events;
     private final EventSummarizer.EventSummary summary;
-    private final EventProcessorMessage message;
-    private final EventResponseListener listener;
-    private final String sdkKey;
-    private final LDConfig config;
     
-    EventPayloadSender(Event[] events, EventSummarizer.EventSummary summary, EventProcessorMessage message,
-                       EventResponseListener listener, String sdkKey, LDConfig config) {
+    EventPayloadSender(EventConsumer consumer, Event[] events, EventSummarizer.EventSummary summary) {
+      this.consumer = consumer;
       this.events = events;
       this.summary = summary;
-      this.message = message;
-      this.listener = listener;
-      this.sdkKey = sdkKey;
-      this.config = config;
     }
     
     public void run() {
@@ -321,7 +356,10 @@ class DefaultEventProcessor implements EventProcessor {
         logger.error("Unexpected error in event processor: " + e);
         logger.debug(e.getMessage(), e);
       } finally {
-        message.completed();
+        synchronized(consumer.flushWorkersActive) {
+          consumer.flushWorkersActive.decrementAndGet();
+          consumer.flushWorkersActive.notify();
+        }
       }
     }
     
@@ -334,20 +372,18 @@ class DefaultEventProcessor implements EventProcessor {
         eventsOut.add(createSummaryEvent(summary));
       }
 
-      String json = config.gson.toJson(eventsOut);
+      String json = consumer.config.gson.toJson(eventsOut);
       logger.debug("Posting {} event(s) to {} with payload: {}",
-          eventsOut.size(), config.eventsURI, json);
+          eventsOut.size(), consumer.config.eventsURI, json);
 
-      Request request = config.getRequestBuilder(sdkKey)
-          .url(config.eventsURI.toString() + "/bulk")
+      Request request = consumer.config.getRequestBuilder(consumer.sdkKey)
+          .url(consumer.config.eventsURI.toString() + "/bulk")
           .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
           .addHeader("Content-Type", "application/json")
           .build();
 
-      try (Response response = config.httpClient.newCall(request).execute()) {
-        if (listener != null) {
-          listener.onEventResponseReceived(response);
-        }
+      try (Response response = consumer.config.httpClient.newCall(request).execute()) {
+        consumer.handleResponse(response);
       } catch (IOException e) {
         logger.info("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
       }
@@ -359,16 +395,16 @@ class DefaultEventProcessor implements EventProcessor {
         FeatureRequestEvent fe = (FeatureRequestEvent)e;
         boolean isDebug = (!fe.trackEvents && fe.debugEventsUntilDate != null);
         return new FeatureRequestEventOutput(fe.creationDate, fe.key,
-            config.inlineUsersInEvents ? null : userKey,
-            config.inlineUsersInEvents ? e.user : null,
+            consumer.config.inlineUsersInEvents ? null : userKey,
+            consumer.config.inlineUsersInEvents ? e.user : null,
             fe.version, fe.value, fe.defaultVal, fe.prereqOf, isDebug);
       } else if (e instanceof IdentifyEvent) {
         return new IdentifyEventOutput(e.creationDate, e.user);
       } else if (e instanceof CustomEvent) {
         CustomEvent ce = (CustomEvent)e;
         return new CustomEventOutput(ce.creationDate, ce.key,
-            config.inlineUsersInEvents ? null : userKey,
-            config.inlineUsersInEvents ? e.user : null,
+            consumer.config.inlineUsersInEvents ? null : userKey,
+            consumer.config.inlineUsersInEvents ? e.user : null,
             ce.data);
       } else if (e instanceof IndexEvent) {
         return new IndexEventOutput(e.creationDate, e.user);
@@ -386,9 +422,9 @@ class DefaultEventProcessor implements EventProcessor {
           flagsOut.put(entry.getKey().key, fsd);
         }
         SummaryEventCounter c = new SummaryEventCounter(entry.getValue().flagValue,
-            entry.getKey().version == 0 ? null : entry.getKey().version,
+            entry.getKey().version,
             entry.getValue().count,
-            entry.getKey().version == 0 ? true : null);
+            entry.getKey().version == null ? true : null);
         fsd.counters.add(c);
       }
       return new SummaryEventOutput(summary.startDate, summary.endDate, flagsOut);
@@ -398,7 +434,9 @@ class DefaultEventProcessor implements EventProcessor {
   private static enum MessageType {
     EVENT,
     FLUSH,
-    FLUSH_USERS
+    FLUSH_USERS,
+    SYNC,
+    SHUTDOWN
   }
   
   private static class EventProcessorMessage {
@@ -498,7 +536,6 @@ class DefaultEventProcessor implements EventProcessor {
     }
   }
   
-  @SuppressWarnings("unused")
   private static class IndexEvent extends Event {
     IndexEvent(long creationDate, LDUser user) {
       super(creationDate, user);
@@ -533,7 +570,6 @@ class DefaultEventProcessor implements EventProcessor {
     }
   }
 
-  @SuppressWarnings("unused")
   private static class SummaryEventFlag {
     @SerializedName("default") final JsonElement defaultVal;
     final List<SummaryEventCounter> counters;

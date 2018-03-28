@@ -64,7 +64,7 @@ public class LDClient implements LDClientInterface {
     this.sdkKey = sdkKey;
     this.requestor = createFeatureRequestor(sdkKey, config);
     if (config.offline || !config.sendEvents) {
-      this.eventProcessor = new NullEventProcessor();
+      this.eventProcessor = new EventProcessor.NullEventProcessor();
     } else {
       this.eventProcessor = createEventProcessor(sdkKey, config);
     }
