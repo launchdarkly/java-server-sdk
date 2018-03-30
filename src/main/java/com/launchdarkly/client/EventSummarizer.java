@@ -31,13 +31,18 @@ class EventSummarizer {
   }
   
   /**
-   * Returns a snapshot of the current summarized event data, and resets this state.
-   * @return the previous event state
+   * Returns a snapshot of the current summarized event data.
+   * @return the summary state
    */
   EventSummary snapshot() {
-    EventSummary ret = eventsState;
+    return new EventSummary(eventsState);
+  }
+  
+  /**
+   * Resets the summary counters.
+   */
+  void clear() {
     eventsState = new EventSummary();
-    return ret;
   }
   
   static class EventSummary {
@@ -46,7 +51,13 @@ class EventSummarizer {
     long endDate;
     
     EventSummary() {
-      counters = new HashMap<CounterKey, CounterValue>();
+      counters = new HashMap<>();
+    }
+
+    EventSummary(EventSummary from) {
+      counters = new HashMap<>(from.counters);
+      startDate = from.startDate;
+      endDate = from.endDate;
     }
     
     boolean isEmpty() {

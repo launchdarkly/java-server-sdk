@@ -6,11 +6,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
 import com.launchdarkly.client.EventSummarizer.CounterKey;
 import com.launchdarkly.client.EventSummarizer.CounterValue;
+import com.launchdarkly.client.EventSummarizer.EventSummary;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -73,20 +75,24 @@ class DefaultEventProcessor implements EventProcessor {
   
   @Override
   public void sendEvent(Event e) {
-    postMessageAsync(MessageType.EVENT, e);
+    if (!closed.get()) {
+      postMessageAsync(MessageType.EVENT, e);
+    }
   }
   
   @Override
   public void flush() {
-    postMessageAsync(MessageType.FLUSH, null);
+    if (!closed.get()) {
+      postMessageAsync(MessageType.FLUSH, null);
+    }
   }
 
   @Override
   public void close() throws IOException {
     if (closed.compareAndSet(false, true)) {
+      scheduler.shutdown();
       postMessageAsync(MessageType.FLUSH, null);
       postMessageAndWait(MessageType.SHUTDOWN, null);
-      scheduler.shutdown();
     }
   }
   
@@ -134,15 +140,17 @@ class DefaultEventProcessor implements EventProcessor {
     private final String sdkKey;
     private final LDConfig config;
     private final BlockingQueue<EventProcessorMessage> inputChannel;
-    private final ExecutorService flushWorkersPool;
     private final AtomicInteger flushWorkersActive;
     private final Thread mainThread;
+    private final List<Thread> flushWorkerThreads;
+    private final BlockingQueue<FlushPayload> payloadQueue;
     private final ArrayList<Event> buffer;
     private final EventSummarizer summarizer;
     private final SimpleLRUCache<String, String> userKeys;
     private final Random random = new Random();
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
+    private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
     private boolean capacityExceeded = false;
 
     private EventConsumer(String sdkKey, LDConfig config,
@@ -151,18 +159,35 @@ class DefaultEventProcessor implements EventProcessor {
       this.sdkKey = sdkKey;
       this.config = config;
       this.inputChannel = inputChannel;
-      this.flushWorkersPool = Executors.newFixedThreadPool(MAX_FLUSH_THREADS, threadFactory);
       this.flushWorkersActive = new AtomicInteger(0);
       this.buffer = new ArrayList<>(config.capacity);
       this.summarizer = new EventSummarizer();
       this.userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
 
+      // This queue only holds one element; it represents a flush task that has not yet been
+      // picked up by any worker, so if we try to push another one and are refused, it means
+      // all the workers are busy.
+      this.payloadQueue = new ArrayBlockingQueue<>(1);
+      
       mainThread = threadFactory.newThread(new Runnable() {
         public void run() {
           runMainLoop();
         }
       });
+      mainThread.setDaemon(true);
       mainThread.start();
+      
+      flushWorkerThreads = new ArrayList<>();
+      for (int i = 0; i < MAX_FLUSH_THREADS; i++) {
+        Thread workerThread = threadFactory.newThread(new Runnable() {
+          public void run() {
+            runFlushWorker();
+          }
+        });
+        workerThread.setDaemon(true);
+        workerThread.start();
+        flushWorkerThreads.add(workerThread);
+      }
     }
     
     /**
@@ -171,8 +196,7 @@ class DefaultEventProcessor implements EventProcessor {
      * dispatchFlush will fire off another task to do the part that takes longer.
      */
     private void runMainLoop() {
-      boolean running = true;
-      while (running) {
+      while (true) {
         try {
           EventProcessorMessage message = inputChannel.take();
           switch(message.type) {
@@ -180,17 +204,19 @@ class DefaultEventProcessor implements EventProcessor {
             processEvent(message.event);
             break;
           case FLUSH:
-            startFlush();
+            triggerFlush();
             break;
           case FLUSH_USERS:
             userKeys.clear();
             break;
           case SYNC:
-            synchronizeForTesting();
+            waitUntilAllFlushWorkersInactive();
+            message.completed();
             break;
           case SHUTDOWN:
             doShutdown();
-            running = false;
+            message.completed();
+            return;
           }
           message.completed();
         } catch (InterruptedException e) {
@@ -202,18 +228,47 @@ class DefaultEventProcessor implements EventProcessor {
     }
     
     private void doShutdown() {
-      flushWorkersPool.shutdown();
-      try {
-        while (!flushWorkersPool.awaitTermination(CHANNEL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
-          logger.debug("Waiting for event flush tasks to terminate");
-        }
-      } catch (InterruptedException e) {
+      waitUntilAllFlushWorkersInactive();
+      disabled.set(true); // In case there are any more messages, we want to ignore them
+      shuttingDown.set(true);
+      for (Thread t: flushWorkerThreads) {
+        // Wake up the worker if it's waiting, so it'll notice shuttingDown is true and terminate
+        t.interrupt();
       }
       // Note that we don't close the HTTP client here, because it's shared by other components
       // via the LDConfig.  The LDClient will dispose of it.
     }
 
-    private void synchronizeForTesting() {
+    private void runFlushWorker() {
+      while (!shuttingDown.get()) {
+        FlushPayload payload = null;
+        try {
+          payload = payloadQueue.take();
+        } catch (InterruptedException e) {
+          continue;
+        }
+        try {
+          doFlush(payload);
+        } catch (Exception e) {
+          logger.error("Unexpected error in event processor: " + e);
+          logger.debug(e.getMessage(), e);
+        }        
+        flushWorkerFinishedWork();
+      }
+    }
+    
+    private void flushWorkerStartingWork() {
+      flushWorkersActive.incrementAndGet();
+    }
+    
+    private void flushWorkerFinishedWork() {
+      synchronized(flushWorkersActive) {
+        flushWorkersActive.decrementAndGet();
+        flushWorkersActive.notify();
+      }
+    }
+    
+    private void waitUntilAllFlushWorkersInactive() {
       while (true) {
         try {
           synchronized(flushWorkersActive) {
@@ -299,93 +354,57 @@ class DefaultEventProcessor implements EventProcessor {
       }
     }
 
-    private void startFlush() {
+    private void triggerFlush() {
       if (disabled.get()) {
         return;
       }
       
       Event[] events = buffer.toArray(new Event[buffer.size()]);
-      buffer.clear();
-      EventSummarizer.EventSummary snapshot = summarizer.snapshot();
+      EventSummarizer.EventSummary summary = summarizer.snapshot();
       
-      if (events.length != 0 || !snapshot.isEmpty()) {
-        flushWorkersActive.incrementAndGet();
-        EventPayloadSender task = new EventPayloadSender(this, events, snapshot);
-        flushWorkersPool.execute(task);      
-      }
-    }
-    
-    private void handleResponse(Response response) {
-      logger.debug("Events Response: " + response.code());
-      try {
-        String dateStr = response.header("Date");
-        if (dateStr != null) {
-          lastKnownPastTime.set(HTTP_DATE_FORMAT.parse(dateStr).getTime());
-        }
-      } catch (Exception e) {
-      }
-      if (!response.isSuccessful()) {
-        logger.info("Got unexpected response when posting events: " + response);
-        if (response.code() == 401) {
-          disabled.set(true);
-          logger.error("Received 401 error, no further events will be posted since SDK key is invalid");
-        }
-      }
-    }
-  }
-
-  /**
-   * Transforms the internal event data into the JSON event payload format and sends it off.
-   * This is done on a separate worker thread.
-   */
-  private static class EventPayloadSender implements Runnable {
-    private static final Logger logger = LoggerFactory.getLogger(EventPayloadSender.class);
-
-    private final EventConsumer consumer;
-    private final Event[] events;
-    private final EventSummarizer.EventSummary summary;
-    
-    EventPayloadSender(EventConsumer consumer, Event[] events, EventSummarizer.EventSummary summary) {
-      this.consumer = consumer;
-      this.events = events;
-      this.summary = summary;
-    }
-    
-    public void run() {
-      try {
-        doSend();
-      } catch (Exception e) {
-        logger.error("Unexpected error in event processor: " + e);
-        logger.debug(e.getMessage(), e);
-      } finally {
-        synchronized(consumer.flushWorkersActive) {
-          consumer.flushWorkersActive.decrementAndGet();
-          consumer.flushWorkersActive.notify();
+      if (events.length != 0 || !summary.isEmpty()) {
+        flushWorkerStartingWork();
+        FlushPayload payload = new FlushPayload(events, summary);
+        if (payloadQueue.offer(payload)) {
+          // These events now belong to the next available flush worker, so drop them from the consumer
+          buffer.clear();
+          summarizer.clear();
+        } else {
+          logger.debug("Skipped flushing because all workers are busy");
+          // All the workers are busy so we can't flush now; keep the events in the consumer
+          flushWorkerFinishedWork();
         }
       }
     }
     
-    private void doSend() throws Exception {
-      List<EventOutput> eventsOut = new ArrayList<>(events.length + 1);
-      for (Event event: events) {
+    // Runs on a flush worker thread
+    private void doFlush(FlushPayload payload) {
+      if (payload.events.length == 0 && payload.summary.isEmpty()) {
+        return;
+      }
+      List<EventOutput> eventsOut = new ArrayList<>(payload.events.length + 1);
+      for (Event event: payload.events) {
         eventsOut.add(createEventOutput(event));
       }
-      if (!summary.isEmpty()) {
-        eventsOut.add(createSummaryEvent(summary));
+      if (!payload.summary.isEmpty()) {
+        eventsOut.add(createSummaryEvent(payload.summary));
       }
 
-      String json = consumer.config.gson.toJson(eventsOut);
+      String json = config.gson.toJson(eventsOut);
       logger.debug("Posting {} event(s) to {} with payload: {}",
-          eventsOut.size(), consumer.config.eventsURI, json);
+          eventsOut.size(), config.eventsURI, json);
 
-      Request request = consumer.config.getRequestBuilder(consumer.sdkKey)
-          .url(consumer.config.eventsURI.toString() + "/bulk")
+      Request request = config.getRequestBuilder(sdkKey)
+          .url(config.eventsURI.toString() + "/bulk")
           .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
           .addHeader("Content-Type", "application/json")
           .build();
 
-      try (Response response = consumer.config.httpClient.newCall(request).execute()) {
-        consumer.handleResponse(response);
+      long startTime = System.currentTimeMillis();
+      try (Response response = config.httpClient.newCall(request).execute()) {
+        long endTime = System.currentTimeMillis();
+        logger.debug("Event delivery took {} ms, response status {}", endTime - startTime, response.code());
+        handleResponse(response);
       } catch (IOException e) {
         logger.info("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
       }
@@ -397,16 +416,16 @@ class DefaultEventProcessor implements EventProcessor {
         FeatureRequestEvent fe = (FeatureRequestEvent)e;
         boolean isDebug = (!fe.trackEvents && fe.debugEventsUntilDate != null);
         return new FeatureRequestEventOutput(fe.creationDate, fe.key,
-            consumer.config.inlineUsersInEvents ? null : userKey,
-            consumer.config.inlineUsersInEvents ? e.user : null,
+            config.inlineUsersInEvents ? null : userKey,
+            config.inlineUsersInEvents ? e.user : null,
             fe.version, fe.value, fe.defaultVal, fe.prereqOf, isDebug);
       } else if (e instanceof IdentifyEvent) {
         return new IdentifyEventOutput(e.creationDate, e.user);
       } else if (e instanceof CustomEvent) {
         CustomEvent ce = (CustomEvent)e;
         return new CustomEventOutput(ce.creationDate, ce.key,
-            consumer.config.inlineUsersInEvents ? null : userKey,
-            consumer.config.inlineUsersInEvents ? e.user : null,
+            config.inlineUsersInEvents ? null : userKey,
+            config.inlineUsersInEvents ? e.user : null,
             ce.data);
       } else if (e instanceof IndexEvent) {
         return new IndexEventOutput(e.creationDate, e.user);
@@ -430,6 +449,23 @@ class DefaultEventProcessor implements EventProcessor {
         fsd.counters.add(c);
       }
       return new SummaryEventOutput(summary.startDate, summary.endDate, flagsOut);
+    }
+    
+    private void handleResponse(Response response) {
+      String dateStr = response.header("Date");
+      if (dateStr != null) {
+        try {
+          lastKnownPastTime.set(HTTP_DATE_FORMAT.parse(dateStr).getTime());
+        } catch (ParseException e) {
+        }
+      }
+      if (!response.isSuccessful()) {
+        logger.info("Got unexpected response when posting events: " + response);
+        if (response.code() == 401) {
+          disabled.set(true);
+          logger.error("Received 401 error, no further events will be posted since SDK key is invalid");
+        }
+      }
     }
   }
   
@@ -476,6 +512,16 @@ class DefaultEventProcessor implements EventProcessor {
     public String toString() {
       return ((event == null) ? type.toString() : (type + ": " + event.getClass().getSimpleName())) +
           (reply == null ? "" : " (sync)");
+    }
+  }
+  
+  private static class FlushPayload {
+    final Event[] events;
+    final EventSummary summary;
+    
+    FlushPayload(Event[] events, EventSummary summary) {
+      this.events = events;
+      this.summary = summary;
     }
   }
   
