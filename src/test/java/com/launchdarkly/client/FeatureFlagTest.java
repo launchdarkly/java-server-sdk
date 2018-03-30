@@ -1,11 +1,8 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -267,7 +264,7 @@ public class FeatureFlagTest {
     FeatureFlag f = booleanFlagWithClauses(badClause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(false), f.evaluate(user, featureStore).getValue());
+    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test
@@ -285,7 +282,7 @@ public class FeatureFlagTest {
         .build();
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(true), f.evaluate(user, featureStore).getValue());
+    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test
