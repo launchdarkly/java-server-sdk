@@ -13,7 +13,7 @@ Quick setup
         <dependency>
           <groupId>com.launchdarkly</groupId>
           <artifactId>launchdarkly-client</artifactId>
-          <version>3.0.2</version>
+          <version>3.0.3</version>
         </dependency>
 
 1. Import the LaunchDarkly package:
