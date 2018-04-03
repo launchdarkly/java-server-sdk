@@ -113,14 +113,12 @@ abstract class EventOutput {
     @SerializedName("default") final JsonElement defaultVal;
     final List<SummaryEventCounter> counters;
     
-    @SuppressWarnings("unused")
     SummaryEventFlag(JsonElement defaultVal, List<SummaryEventCounter> counters) {
       this.defaultVal = defaultVal;
       this.counters = counters;
     }
   }
   
-  @SuppressWarnings("unused")
   static final class SummaryEventCounter {
     final JsonElement value;
     final Integer version;
