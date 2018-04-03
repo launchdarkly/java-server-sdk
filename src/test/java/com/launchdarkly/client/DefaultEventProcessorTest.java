@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.DefaultEventProcessor.EventDispatcher;
 
 import org.hamcrest.Matcher;
 import org.junit.After;
@@ -367,7 +368,7 @@ public class DefaultEventProcessorTest {
   }
 
   private MockResponse addDateHeader(MockResponse response, long timestamp) {
-    return response.addHeader("Date", DefaultEventProcessor.HTTP_DATE_FORMAT.format(new Date(timestamp)));
+    return response.addHeader("Date", EventDispatcher.HTTP_DATE_FORMAT.format(new Date(timestamp)));
   }
   
   private JsonArray flushAndGetEvents(MockResponse response) throws Exception {

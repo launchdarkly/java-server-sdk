@@ -13,7 +13,8 @@ import java.util.Map;
 /**
  * Base class for data structures that we send in an event payload, which are somewhat
  * different in shape from the originating events. Also defines all of its own subclasses
- * and the class that constructs them.
+ * and the class that constructs them. These are implementation details used only by
+ * DefaultEventProcessor and related classes, so they are all package-private.
  */
 abstract class EventOutput {
   @SuppressWarnings("unused")

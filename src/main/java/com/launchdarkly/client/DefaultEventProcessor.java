@@ -31,7 +31,6 @@ import okhttp3.Response;
 
 final class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
-  static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
   private static final int CHANNEL_BLOCK_MILLIS = 1000;
   
   private final BlockingQueue<EventProcessorMessage> inputChannel;
@@ -171,8 +170,9 @@ final class DefaultEventProcessor implements EventProcessor {
    * Takes messages from the input queue, updating the event buffer and summary counters
    * on its own thread.
    */
-  private static final class EventDispatcher {
+  static final class EventDispatcher {
     private static final int MAX_FLUSH_THREADS = 5;
+    static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
     
     private final LDConfig config;
     private final List<SendEventsTask> flushWorkers;
