@@ -367,7 +367,7 @@ final class DefaultEventProcessor implements EventProcessor {
         }
       }
       if (!response.isSuccessful()) {
-        logger.info("Got unexpected response when posting events: " + response);
+        logger.warn("Unexpected response status when posting events: {}", response.code());
         if (response.code() == 401) {
           disabled.set(true);
           logger.error("Received 401 error, no further events will be posted since SDK key is invalid");
