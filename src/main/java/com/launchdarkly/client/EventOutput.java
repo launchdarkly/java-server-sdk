@@ -144,7 +144,7 @@ abstract class EventOutput {
     List<EventOutput> makeOutputEvents(Event[] events, EventSummarizer.EventSummary summary) {
       List<EventOutput> eventsOut = new ArrayList<>(events.length + 1);
       for (Event event: events) {
-        eventsOut.add(createEventOutput(event));
+        eventsOut.add(createOutputEvent(event));
       }
       if (!summary.isEmpty()) {
         eventsOut.add(createSummaryEvent(summary));
@@ -152,7 +152,7 @@ abstract class EventOutput {
       return eventsOut;
     }
     
-    private EventOutput createEventOutput(Event e) {
+    private EventOutput createOutputEvent(Event e) {
       String userKey = e.user == null ? null : e.user.getKeyAsString();
       if (e instanceof Event.FeatureRequest) {
         Event.FeatureRequest fe = (Event.FeatureRequest)e;
