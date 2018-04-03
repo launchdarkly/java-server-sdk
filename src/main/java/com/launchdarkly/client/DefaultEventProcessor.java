@@ -90,7 +90,6 @@ final class DefaultEventProcessor implements EventProcessor {
   
   @VisibleForTesting
   void waitUntilInactive() throws IOException {
-    // Waits until there are no pending events or flushes
     postMessageAndWait(MessageType.SYNC, null);
   }
   
@@ -162,7 +161,7 @@ final class DefaultEventProcessor implements EventProcessor {
     }
     
     @Override
-    public String toString() {
+    public String toString() { // for debugging only
       return ((event == null) ? type.toString() : (type + ": " + event.getClass().getSimpleName())) +
           (reply == null ? "" : " (sync)");
     }
@@ -177,7 +176,7 @@ final class DefaultEventProcessor implements EventProcessor {
     
     private final LDConfig config;
     private final List<SendEventsTask> flushWorkers;
-    private final AtomicInteger activeFlushWorkersCount;
+    private final AtomicInteger busyFlushWorkersCount;
     private final Random random = new Random();
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
@@ -186,7 +185,7 @@ final class DefaultEventProcessor implements EventProcessor {
                             final BlockingQueue<EventProcessorMessage> inputChannel,
                             ThreadFactory threadFactory) {
       this.config = config;
-      this.activeFlushWorkersCount = new AtomicInteger(0);
+      this.busyFlushWorkersCount = new AtomicInteger(0);
 
       // This queue only holds one element; it represents a flush task that has not yet been
       // picked up by any worker, so if we try to push another one and are refused, it means
@@ -212,7 +211,7 @@ final class DefaultEventProcessor implements EventProcessor {
         };
       for (int i = 0; i < MAX_FLUSH_THREADS; i++) {
         SendEventsTask task = new SendEventsTask(sdkKey, config, listener, payloadQueue,
-            activeFlushWorkersCount, threadFactory);
+            busyFlushWorkersCount, threadFactory);
         flushWorkers.add(task);
       }
     }
@@ -220,7 +219,7 @@ final class DefaultEventProcessor implements EventProcessor {
     /**
      * This task drains the input queue as quickly as possible. Everything here is done on a single
      * thread so we don't have to synchronize on our internal structures; when it's time to flush,
-     * dispatchFlush will fire off another task to do the part that takes longer.
+     * triggerFlush will hand the events off to another task.
      */
     private void runMainLoop(BlockingQueue<EventProcessorMessage> inputChannel,
         EventBuffer buffer, SimpleLRUCache<String, String> userKeys,
@@ -269,11 +268,11 @@ final class DefaultEventProcessor implements EventProcessor {
     private void waitUntilAllFlushWorkersInactive() {
       while (true) {
         try {
-          synchronized(activeFlushWorkersCount) {
-            if (activeFlushWorkersCount.get() == 0) {
+          synchronized(busyFlushWorkersCount) {
+            if (busyFlushWorkersCount.get() == 0) {
               return;
             } else {
-              activeFlushWorkersCount.wait();
+              busyFlushWorkersCount.wait();
             }
           }
         } catch (InterruptedException e) {}
@@ -345,16 +344,16 @@ final class DefaultEventProcessor implements EventProcessor {
         return;
       }
       FlushPayload payload = buffer.getPayload();
-      activeFlushWorkersCount.incrementAndGet();
+      busyFlushWorkersCount.incrementAndGet();
       if (payloadQueue.offer(payload)) {
         // These events now belong to the next available flush worker, so drop them from our state
         buffer.clear();
       } else {
         logger.debug("Skipped flushing because all workers are busy");
         // All the workers are busy so we can't flush now; keep the events in our state
-        synchronized(activeFlushWorkersCount) {
-          activeFlushWorkersCount.decrementAndGet();
-          activeFlushWorkersCount.notify();
+        synchronized(busyFlushWorkersCount) {
+          busyFlushWorkersCount.decrementAndGet();
+          busyFlushWorkersCount.notify();
         }
       }
     }
@@ -489,11 +488,13 @@ final class DefaultEventProcessor implements EventProcessor {
     
     private void postEvents(List<EventOutput> eventsOut) {
       String json = config.gson.toJson(eventsOut);
+      String uriStr = config.eventsURI.toString() + "/bulk";
+      
       logger.debug("Posting {} event(s) to {} with payload: {}",
-          eventsOut.size(), config.eventsURI, json);
+          eventsOut.size(), uriStr, json);
 
       Request request = config.getRequestBuilder(sdkKey)
-          .url(config.eventsURI.toString() + "/bulk")
+          .url(uriStr)
           .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
           .addHeader("Content-Type", "application/json")
           .build();
