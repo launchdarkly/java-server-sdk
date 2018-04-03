@@ -153,7 +153,7 @@ public class LDClient implements LDClientInterface {
     eventProcessor.sendEvent(eventFactory.newIdentifyEvent(user));
   }
 
-  private void sendFlagRequestEvent(FeatureRequestEvent event) {
+  private void sendFlagRequestEvent(Event.FeatureRequest event) {
     eventProcessor.sendEvent(event);
     NewRelicReflector.annotateTransaction(event.key, String.valueOf(event.value));
   }
@@ -272,7 +272,7 @@ public class LDClient implements LDClientInterface {
         return defaultValue;
       }
       FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore, eventFactory);
-      for (FeatureRequestEvent event : evalResult.getPrerequisiteEvents()) {
+      for (Event.FeatureRequest event : evalResult.getPrerequisiteEvents()) {
         eventProcessor.sendEvent(event);
       }
       if (evalResult.getResult() != null && evalResult.getResult().getValue() != null) {

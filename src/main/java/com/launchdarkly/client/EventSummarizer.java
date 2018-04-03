@@ -11,7 +11,7 @@ import java.util.Objects;
  * methods of this class are deliberately not thread-safe, because they should always
  * be called from EventProcessor's single message-processing thread.
  */
-class EventSummarizer {
+final class EventSummarizer {
   private EventSummary eventsState;
   
   EventSummarizer() {
@@ -23,8 +23,8 @@ class EventSummarizer {
    * @param event an event
    */
   void summarizeEvent(Event event) {
-    if (event instanceof FeatureRequestEvent) {
-      FeatureRequestEvent fe = (FeatureRequestEvent)event;
+    if (event instanceof Event.FeatureRequest) {
+      Event.FeatureRequest fe = (Event.FeatureRequest)event;
       eventsState.incrementCounter(fe.key, fe.variation, fe.version, fe.value, fe.defaultVal);
       eventsState.noteTimestamp(fe.creationDate);
     }
@@ -45,7 +45,7 @@ class EventSummarizer {
     eventsState = new EventSummary();
   }
   
-  static class EventSummary {
+  static final class EventSummary {
     final Map<CounterKey, CounterValue> counters;
     long startDate;
     long endDate;
@@ -99,7 +99,7 @@ class EventSummarizer {
     }
   }
 
-  static class CounterKey {
+  static final class CounterKey {
     final String key;
     final Integer variation;
     final Integer version;
@@ -131,7 +131,7 @@ class EventSummarizer {
     }
   }
   
-  static class CounterValue {
+  static final class CounterValue {
     int count;
     final JsonElement flagValue;
     final JsonElement defaultVal;

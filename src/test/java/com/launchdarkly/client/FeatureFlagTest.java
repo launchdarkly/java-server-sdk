@@ -94,7 +94,7 @@ public class FeatureFlagTest {
     assertEquals(js("off"), result.getResult().getValue());
     
     assertEquals(1, result.getPrerequisiteEvents().size());
-    FeatureRequestEvent event = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
     assertEquals(f1.getKey(), event.key);
     assertEquals(js("nogo"), event.value);
     assertEquals(f1.getVersion(), event.version.intValue());
@@ -123,7 +123,7 @@ public class FeatureFlagTest {
     assertEquals(js("fall"), result.getResult().getValue());
     assertEquals(1, result.getPrerequisiteEvents().size());
     
-    FeatureRequestEvent event = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
     assertEquals(f1.getKey(), event.key);
     assertEquals(js("go"), event.value);
     assertEquals(f1.getVersion(), event.version.intValue());
@@ -160,13 +160,13 @@ public class FeatureFlagTest {
     assertEquals(js("fall"), result.getResult().getValue());    
     assertEquals(2, result.getPrerequisiteEvents().size());
     
-    FeatureRequestEvent event0 = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event0 = result.getPrerequisiteEvents().get(0);
     assertEquals(f2.getKey(), event0.key);
     assertEquals(js("go"), event0.value);
     assertEquals(f2.getVersion(), event0.version.intValue());
     assertEquals(f1.getKey(), event0.prereqOf);
 
-    FeatureRequestEvent event1 = result.getPrerequisiteEvents().get(1);
+    Event.FeatureRequest event1 = result.getPrerequisiteEvents().get(1);
     assertEquals(f1.getKey(), event1.key);
     assertEquals(js("go"), event1.value);
     assertEquals(f1.getVersion(), event1.version.intValue());

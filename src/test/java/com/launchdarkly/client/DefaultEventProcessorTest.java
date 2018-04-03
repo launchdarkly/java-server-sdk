@@ -84,7 +84,7 @@ public class DefaultEventProcessorTest {
   public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
-    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
@@ -102,7 +102,7 @@ public class DefaultEventProcessorTest {
     configBuilder.allAttributesPrivate(true);
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
-    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
@@ -120,7 +120,7 @@ public class DefaultEventProcessorTest {
     configBuilder.inlineUsersInEvents(true);
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
-    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
@@ -137,7 +137,7 @@ public class DefaultEventProcessorTest {
     configBuilder.inlineUsersInEvents(true).allAttributesPrivate(true);
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
-    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
@@ -154,7 +154,7 @@ public class DefaultEventProcessorTest {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     long futureTime = System.currentTimeMillis() + 1000000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
-    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
@@ -182,7 +182,7 @@ public class DefaultEventProcessorTest {
     // the future than the server time, but in the past compared to the client.
     long debugUntil = serverTime + 1000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
-    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
@@ -210,7 +210,7 @@ public class DefaultEventProcessorTest {
     // the future than the client time, but in the past compared to the server.
     long debugUntil = serverTime - 1000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
-    FeatureRequestEvent fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
     ep.sendEvent(fe);
     
@@ -229,9 +229,9 @@ public class DefaultEventProcessorTest {
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).trackEvents(true).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).trackEvents(true).build();
     JsonElement value = new JsonPrimitive("value");
-    FeatureRequestEvent fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
+    Event.FeatureRequest fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
         new FeatureFlag.VariationAndValue(new Integer(1), value), null);
-    FeatureRequestEvent fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
+    Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
         new FeatureFlag.VariationAndValue(new Integer(1), value), null);
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
@@ -280,7 +280,7 @@ public class DefaultEventProcessorTest {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
@@ -297,7 +297,7 @@ public class DefaultEventProcessorTest {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
@@ -311,7 +311,7 @@ public class DefaultEventProcessorTest {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    CustomEvent ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
@@ -400,7 +400,7 @@ public class DefaultEventProcessorTest {
   }
 
   @SuppressWarnings("unchecked")
-  private Matcher<JsonElement> isFeatureEvent(FeatureRequestEvent sourceEvent, FeatureFlag flag, boolean debug, JsonElement inlineUser) {
+  private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, FeatureFlag flag, boolean debug, JsonElement inlineUser) {
     return allOf(
         hasJsonProperty("kind", debug ? "debug" : "feature"),
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
@@ -414,7 +414,7 @@ public class DefaultEventProcessorTest {
     );
   }
 
-  private Matcher<JsonElement> isCustomEvent(CustomEvent sourceEvent, JsonElement inlineUser) {
+  private Matcher<JsonElement> isCustomEvent(Event.Custom sourceEvent, JsonElement inlineUser) {
     return allOf(
         hasJsonProperty("kind", "custom"),
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
