@@ -11,8 +11,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Subclass for data structures that we send in an event payload. Also defines all of its own
- * subclasses and the class that constructs them.
+ * Base class for data structures that we send in an event payload, which are somewhat
+ * different in shape from the originating events. Also defines all of its own subclasses
+ * and the class that constructs them.
  */
 abstract class EventOutput {
   @SuppressWarnings("unused")
