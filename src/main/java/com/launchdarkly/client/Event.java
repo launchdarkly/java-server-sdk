@@ -46,9 +46,10 @@ class Event {
     final String prereqOf;
     final boolean trackEvents;
     final Long debugEventsUntilDate;
+    final boolean debug;
     
     FeatureRequest(long timestamp, String key, LDUser user, Integer version, Integer variation, JsonElement value,
-        JsonElement defaultVal, String prereqOf, boolean trackEvents, Long debugEventsUntilDate) {
+        JsonElement defaultVal, String prereqOf, boolean trackEvents, Long debugEventsUntilDate, boolean debug) {
       super(timestamp, user);
       this.key = key;
       this.version = version;
@@ -58,6 +59,7 @@ class Event {
       this.prereqOf = prereqOf;
       this.trackEvents = trackEvents;
       this.debugEventsUntilDate = debugEventsUntilDate;
+      this.debug = debug;
     }
   }
 
