@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.launchdarkly.client.Util.getRequestBuilder;
+
 import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -495,7 +497,7 @@ final class DefaultEventProcessor implements EventProcessor {
       logger.debug("Posting {} event(s) to {} with payload: {}",
           eventsOut.size(), uriStr, json);
 
-      Request request = config.getRequestBuilder(sdkKey)
+      Request request = getRequestBuilder(sdkKey)
           .url(uriStr)
           .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
           .addHeader("Content-Type", "application/json")
