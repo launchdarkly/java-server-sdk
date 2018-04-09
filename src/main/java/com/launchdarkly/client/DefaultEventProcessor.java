@@ -32,6 +32,8 @@ import okhttp3.Response;
 final class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
   private static final int CHANNEL_BLOCK_MILLIS = 1000;
+  private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
+  private static final String EVENT_SCHEMA_VERSION = "2";
   
   private final BlockingQueue<EventProcessorMessage> inputChannel;
   private final ScheduledExecutorService scheduler;
@@ -497,6 +499,7 @@ final class DefaultEventProcessor implements EventProcessor {
           .url(uriStr)
           .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
           .addHeader("Content-Type", "application/json")
+          .addHeader(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION)
           .build();
 
       long startTime = System.currentTimeMillis();
