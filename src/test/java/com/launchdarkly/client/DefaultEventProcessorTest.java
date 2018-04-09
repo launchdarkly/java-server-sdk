@@ -131,7 +131,7 @@ public class DefaultEventProcessorTest {
         isSummaryEvent()
     ));
   }
-
+  
   @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInFeatureEvent() throws Exception {
@@ -147,6 +147,23 @@ public class DefaultEventProcessorTest {
         isFeatureEvent(fe, flag, false, filteredUserJson),
         isSummaryEvent()
     ));
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
+  public void indexEventIsStillGeneratedIfInlineUsersIsTrueButFeatureEventIsNotTracked() throws Exception {
+    configBuilder.inlineUsersInEvents(true);
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(false).build();
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    JsonArray output = flushAndGetEvents(new MockResponse());
+    assertThat(output, hasItems(
+        isIndexEvent(fe, userJson),
+        isSummaryEvent()
+    ));    
   }
   
   @SuppressWarnings("unchecked")
