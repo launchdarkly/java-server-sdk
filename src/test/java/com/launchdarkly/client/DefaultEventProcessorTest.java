@@ -8,6 +8,7 @@ import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.DefaultEventProcessor.EventDispatcher;
 
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,6 +23,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -404,6 +406,25 @@ public class DefaultEventProcessorTest {
     assertThat(req, nullValue(RecordedRequest.class));
   }
 
+  @Test
+  public void flushIsRetriedOnceAfter5xxError() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+    ep.sendEvent(e);
+    
+    server.enqueue(new MockResponse().setResponseCode(503));
+    server.enqueue(new MockResponse().setResponseCode(503));
+    
+    ep.flush();
+    ep.waitUntilInactive();
+    RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
+    assertThat(req, notNullValue(RecordedRequest.class));
+    req = server.takeRequest(0, TimeUnit.SECONDS);
+    assertThat(req, notNullValue(RecordedRequest.class));
+    req = server.takeRequest(0, TimeUnit.SECONDS);
+    assertThat(req, nullValue(RecordedRequest.class)); // only 2 requests total
+  }
+  
   private MockResponse addDateHeader(MockResponse response, long timestamp) {
     return response.addHeader("Date", EventDispatcher.HTTP_DATE_FORMAT.format(new Date(timestamp)));
   }

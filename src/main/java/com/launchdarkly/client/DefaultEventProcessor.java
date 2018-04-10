@@ -380,12 +380,9 @@ final class DefaultEventProcessor implements EventProcessor {
         } catch (ParseException e) {
         }
       }
-      if (!response.isSuccessful()) {
-        logger.warn("Unexpected response status when posting events: {}", response.code());
-        if (response.code() == 401) {
-          disabled.set(true);
-          logger.error("Received 401 error, no further events will be posted since SDK key is invalid");
-        }
+      if (response.code() == 401) {
+        disabled.set(true);
+        logger.error("Received 401 error, no further events will be posted since SDK key is invalid");
       }
     }
   }
@@ -507,20 +504,36 @@ final class DefaultEventProcessor implements EventProcessor {
       logger.debug("Posting {} event(s) to {} with payload: {}",
           eventsOut.size(), uriStr, json);
 
-      Request request = getRequestBuilder(sdkKey)
-          .url(uriStr)
-          .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
-          .addHeader("Content-Type", "application/json")
-          .addHeader(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION)
-          .build();
-
-      long startTime = System.currentTimeMillis();
-      try (Response response = config.httpClient.newCall(request).execute()) {
-        long endTime = System.currentTimeMillis();
-        logger.debug("Event delivery took {} ms, response status {}", endTime - startTime, response.code());
-        responseListener.handleResponse(response);
-      } catch (IOException e) {
-        logger.info("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
+      for (int attempt = 0; attempt < 2; attempt++) {
+        if (attempt == 1) {
+          logger.warn("Will retry posting events after 1 second");
+          try {
+            Thread.sleep(1000);
+          } catch (InterruptedException e) {}
+        }
+        Request request = getRequestBuilder(sdkKey)
+            .url(uriStr)
+            .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
+            .addHeader("Content-Type", "application/json")
+            .addHeader(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION)
+            .build();
+  
+        long startTime = System.currentTimeMillis();
+        try (Response response = config.httpClient.newCall(request).execute()) {
+          long endTime = System.currentTimeMillis();
+          logger.debug("Event delivery took {} ms, response status {}", endTime - startTime, response.code());
+          if (!response.isSuccessful()) {
+            logger.warn("Unexpected response status when posting events: {}", response.code());
+            if (response.code() >= 500) {
+              continue;
+            }
+          }
+          responseListener.handleResponse(response);
+          break;
+        } catch (IOException e) {
+          logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
+          continue;
+        }
       }
     }
   }
