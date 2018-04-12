@@ -293,31 +293,37 @@ final class DefaultEventProcessor implements EventProcessor {
 
       // Decide whether to add the event to the payload. Feature events may be added twice, once for
       // the event (if tracked) and once for debugging.
-      boolean willAddFullEvent = false;
+      boolean addIndexEvent = false,
+          addFullEvent = false;
       Event debugEvent = null;
+      
       if (e instanceof Event.FeatureRequest) {
         if (shouldSampleEvent()) {
           Event.FeatureRequest fe = (Event.FeatureRequest)e;
-          willAddFullEvent = fe.trackEvents;
+          addFullEvent = fe.trackEvents;
           if (shouldDebugEvent(fe)) {
             debugEvent = EventFactory.DEFAULT.newDebugEvent(fe);
           }
         }
       } else {
-        willAddFullEvent = shouldSampleEvent();
+        addFullEvent = shouldSampleEvent();
       }
       
       // For each user we haven't seen before, we add an index event - unless this is already
       // an identify event for that user.
-      if (!(willAddFullEvent && config.inlineUsersInEvents)) {
-        if (e.user != null && !noticeUser(e.user, userKeys)) {
+      if (!addFullEvent || !config.inlineUsersInEvents) {
+        if (e.user != null && e.user.getKey() != null && !noticeUser(e.user, userKeys)) {
           if (!(e instanceof Event.Identify)) {
-            Event.Index ie = new Event.Index(e.creationDate, e.user);
-            buffer.add(ie);
+            addIndexEvent = true;
           }          
         }
       }
-      if (willAddFullEvent) {
+      
+      if (addIndexEvent) {
+        Event.Index ie = new Event.Index(e.creationDate, e.user);
+        buffer.add(ie);
+      }
+      if (addFullEvent) {
         buffer.add(e);
       }
       if (debugEvent != null) {
