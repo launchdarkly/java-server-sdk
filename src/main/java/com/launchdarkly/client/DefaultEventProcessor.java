@@ -511,7 +511,7 @@ final class DefaultEventProcessor implements EventProcessor {
           eventsOut.size(), uriStr, json);
 
       for (int attempt = 0; attempt < 2; attempt++) {
-        if (attempt == 1) {
+        if (attempt > 0) {
           logger.warn("Will retry posting events after 1 second");
           try {
             Thread.sleep(1000);
