@@ -246,14 +246,6 @@ public class LDClient implements LDClientInterface {
   }
 
   private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue, VariationType expectedType) {
-    if (user == null || user.getKey() == null) {
-      logger.warn("Null user or null user key when evaluating flag: " + featureKey + "; returning default value");
-      sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
-      return defaultValue;
-    }
-    if (user.getKeyAsString().isEmpty()) {
-      logger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
-    }
     if (!initialized()) {
       if (config.featureStore.initialized()) {
         logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; using last known values from feature store");
@@ -271,6 +263,14 @@ public class LDClient implements LDClientInterface {
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
         return defaultValue;
       }
+      if (user == null || user.getKey() == null) {
+        logger.warn("Null user or null user key when evaluating flag: " + featureKey + "; returning default value");
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue));
+        return defaultValue;
+      }
+      if (user.getKeyAsString().isEmpty()) {
+        logger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
+      }
       FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, config.featureStore, eventFactory);
       for (Event.FeatureRequest event : evalResult.getPrerequisiteEvents()) {
         eventProcessor.sendEvent(event);
@@ -279,6 +279,9 @@ public class LDClient implements LDClientInterface {
         expectedType.assertResultType(evalResult.getResult().getValue());
         sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult.getResult(), defaultValue));
         return evalResult.getResult().getValue();
+      } else {
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue));
+        return defaultValue;
       }
     } catch (Exception e) {
       logger.error("Encountered exception in LaunchDarkly client", e);

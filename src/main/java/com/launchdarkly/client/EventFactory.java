@@ -13,6 +13,11 @@ abstract class EventFactory {
         defaultVal, null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(), false);
   }
   
+  public Event.FeatureRequest newDefaultFeatureRequestEvent(FeatureFlag flag, LDUser user, JsonElement defaultValue) {
+    return new Event.FeatureRequest(getTimestamp(), flag.getKey(), user, flag.getVersion(),
+        null, defaultValue, defaultValue, null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(), false);
+  }
+  
   public Event.FeatureRequest newUnknownFeatureRequestEvent(String key, LDUser user, JsonElement defaultValue) {
     return new Event.FeatureRequest(getTimestamp(), key, user, null, null, defaultValue, defaultValue, null, false, null, false);
   }
