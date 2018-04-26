@@ -82,12 +82,6 @@ public final class LDClient implements LDClientInterface {
         Components.defaultEventProcessor() : config.eventProcessorFactory;
     this.eventProcessor = epFactory.createEventProcessor(sdkKey, config);
     
-    if (config.offline) {
-      logger.info("Starting LaunchDarkly client in offline mode");
-    } else if (config.useLdd) {
-      logger.info("Starting LaunchDarkly in LDD mode. Skipping direct feature retrieval.");
-    }
-
     UpdateProcessorFactory upFactory = config.updateProcessorFactory == null ?
         Components.defaultUpdateProcessor() : config.updateProcessorFactory;
     this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, config, featureStore);
