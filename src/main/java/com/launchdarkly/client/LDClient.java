@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 
@@ -30,7 +29,7 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
  * a single {@code LDClient} for the lifetime of their application.
  */
-public class LDClient implements LDClientInterface {
+public final class LDClient implements LDClientInterface {
   private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   static final String CLIENT_VERSION = getClientVersion();
@@ -79,7 +78,9 @@ public class LDClient implements LDClientInterface {
       this.shouldCloseFeatureStore = true;
     }
     
-    this.eventProcessor = createEventProcessor(sdkKey, config);
+    EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
+        Components.defaultEventProcessor() : config.eventProcessorFactory;
+    this.eventProcessor = epFactory.createEventProcessor(sdkKey, config);
     
     if (config.offline) {
       logger.info("Starting LaunchDarkly client in offline mode");
@@ -87,7 +88,9 @@ public class LDClient implements LDClientInterface {
       logger.info("Starting LaunchDarkly in LDD mode. Skipping direct feature retrieval.");
     }
 
-    this.updateProcessor = createUpdateProcessor(sdkKey, config, featureStore);
+    UpdateProcessorFactory upFactory = config.updateProcessorFactory == null ?
+        Components.defaultUpdateProcessor() : config.updateProcessorFactory;
+    this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, config, featureStore);
     Future<Void> startFuture = updateProcessor.start();
     if (config.startWaitMillis > 0L) {
       if (!config.offline && !config.useLdd) {
@@ -108,20 +111,6 @@ public class LDClient implements LDClientInterface {
     return updateProcessor.initialized();
   }
   
-  @VisibleForTesting
-  protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-    EventProcessorFactory factory = config.eventProcessorFactory == null ?
-        Components.defaultEventProcessor() : config.eventProcessorFactory;
-    return factory.createEventProcessor(sdkKey, config);
-  }
-
-  @VisibleForTesting
-  protected UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
-    UpdateProcessorFactory factory = config.updateProcessorFactory == null ?
-        Components.defaultUpdateProcessor() : config.updateProcessorFactory;
-    return factory.createUpdateProcessor(sdkKey, config, featureStore);
-  }
-    
   @Override
   public void track(String eventName, LDUser user, JsonElement data) {
     if (isOffline()) {
