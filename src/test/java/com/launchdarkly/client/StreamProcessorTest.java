@@ -15,6 +15,7 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.concurrent.Future;
 
+import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.expect;
@@ -48,7 +49,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Before
   public void setup() {
     featureStore = new InMemoryFeatureStore();
-    configBuilder = new LDConfig.Builder().featureStore(featureStore);
+    configBuilder = new LDConfig.Builder().featureStoreFactory(specificFeatureStore(featureStore));
     mockRequestor = createStrictMock(FeatureRequestor.class);
     mockEventSource = createStrictMock(EventSource.class);
   }
@@ -296,7 +297,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config) {
-    return new StreamProcessor(sdkKey, config, mockRequestor) {
+    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore) {
       @Override
       protected EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
                                               Headers headers) {

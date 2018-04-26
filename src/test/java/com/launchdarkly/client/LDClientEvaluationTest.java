@@ -3,25 +3,29 @@ package com.launchdarkly.client;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import org.easymock.EasyMockSupport;
 import org.junit.Test;
 
 import java.util.Arrays;
 
 import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.js;
+import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class LDClientEvaluationTest extends EasyMockSupport {
+public class LDClientEvaluationTest {
   private static final LDUser user = new LDUser("userkey");
   
   private TestFeatureStore featureStore = new TestFeatureStore();
-  private LDConfig config = new LDConfig.Builder().featureStore(featureStore).build();
-  private LDClientInterface client = createTestClient(config);
+  private LDConfig config = new LDConfig.Builder()
+      .featureStoreFactory(specificFeatureStore(featureStore))
+      .eventProcessorFactory(Components.nullEventProcessor())
+      .updateProcessorFactory(Components.nullUpdateProcessor())
+      .build();
+  private LDClientInterface client = new LDClient("SDK_KEY", config);
   
   @Test
   public void boolVariationReturnsFlagValue() throws Exception {
@@ -107,19 +111,5 @@ public class LDClientEvaluationTest extends EasyMockSupport {
     featureStore.upsert(FEATURES, feature);
     
     assertTrue(client.boolVariation("test-feature", user, false));
-  }
-  
-  private LDClientInterface createTestClient(LDConfig config) {
-    return new LDClient("SDK_KEY", config) {
-      @Override
-      protected UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config) {
-        return new UpdateProcessor.NullUpdateProcessor();
-      }
-
-      @Override
-      protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-        return new EventProcessor.NullEventProcessor();
-      }
-    };
   }
 }

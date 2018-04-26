@@ -8,12 +8,54 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.hamcrest.Matchers.equalTo;
 
 public class TestUtil {
 
+  public static FeatureStoreFactory specificFeatureStore(final FeatureStore store) {
+    return new FeatureStoreFactory() {
+      public FeatureStore createFeatureStore() {
+        return store;
+      }
+    };
+  }
+  
+  public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {
+    return new EventProcessorFactory() {
+      public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
+        return ep;
+      }
+    };
+  }
+  
+  public static UpdateProcessorFactory specificUpdateProcessor(final UpdateProcessor up) {
+    return new UpdateProcessorFactory() {
+      public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
+        return up;
+      }
+    };
+  }
+  
+  public static class TestEventProcessor implements EventProcessor {
+    List<Event> events = new ArrayList<>();
+
+    @Override
+    public void close() throws IOException {}
+
+    @Override
+    public void sendEvent(Event e) {
+      events.add(e);
+    }
+
+    @Override
+    public void flush() {}
+  }
+  
   public static JsonPrimitive js(String s) {
     return new JsonPrimitive(s);
   }

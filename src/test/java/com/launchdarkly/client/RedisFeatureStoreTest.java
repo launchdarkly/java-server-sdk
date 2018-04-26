@@ -8,6 +8,6 @@ public class RedisFeatureStoreTest extends FeatureStoreTestBase<RedisFeatureStor
 
   @Before
   public void setup() {
-    store = new RedisFeatureStoreBuilder(URI.create("redis://localhost:6379"), 10).build();
+    store = new RedisFeatureStoreBuilder(URI.create("redis://localhost:6379")).build();
   }
 }

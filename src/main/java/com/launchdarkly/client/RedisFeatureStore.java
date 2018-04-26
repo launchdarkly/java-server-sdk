@@ -1,19 +1,5 @@
 package com.launchdarkly.client;
 
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-
-import java.io.IOException;
-import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -23,6 +9,19 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -35,7 +34,6 @@ import redis.clients.jedis.Transaction;
  */
 public class RedisFeatureStore implements FeatureStore {
   private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStore.class);
-  private static final String DEFAULT_PREFIX = "launchdarkly";
   private static final String INIT_KEY = "$initialized$";
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "RedisFeatureStore-cache-refresher-pool-%d";
   private final JedisPool pool;
@@ -82,28 +80,19 @@ public class RedisFeatureStore implements FeatureStore {
     } else {
       this.pool = new JedisPool(builder.poolConfig, builder.uri, builder.connectTimeout, builder.socketTimeout);
     }
-    setPrefix(builder.prefix);
+    this.prefix = (builder.prefix == null || builder.prefix.isEmpty()) ?
+        RedisFeatureStoreBuilder.DEFAULT_PREFIX :
+        builder.prefix;
     createCache(builder.cacheTimeSecs, builder.refreshStaleValues, builder.asyncRefresh);
   }
 
   /**
    * Creates a new store instance that connects to Redis with a default connection (localhost port 6379) and no in-memory cache.
+   * @deprecated Please use {@link Components#redisFeatureStore()} instead.
    */
   public RedisFeatureStore() {
     pool = new JedisPool(getPoolConfig(), "localhost");
-    this.prefix = DEFAULT_PREFIX;
-  }
-
-  private void setPrefix(String prefix) {
-    if (prefix == null || prefix.isEmpty()) {
-      this.prefix = DEFAULT_PREFIX;
-    } else {
-      this.prefix = prefix;
-    }
-  }
-
-  private void createCache(long cacheTimeSecs) {
-    createCache(cacheTimeSecs, false, false);
+    this.prefix = RedisFeatureStoreBuilder.DEFAULT_PREFIX;
   }
 
   private void createCache(long cacheTimeSecs, boolean refreshStaleValues, boolean asyncRefresh) {

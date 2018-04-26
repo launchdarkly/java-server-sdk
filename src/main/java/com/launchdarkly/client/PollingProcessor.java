@@ -18,10 +18,10 @@ class PollingProcessor implements UpdateProcessor {
   private AtomicBoolean initialized = new AtomicBoolean(false);
   private ScheduledExecutorService scheduler = null;
 
-  PollingProcessor(LDConfig config, FeatureRequestor requestor) {
+  PollingProcessor(LDConfig config, FeatureRequestor requestor, FeatureStore featureStore) {
     this.requestor = requestor;
     this.config = config;
-    this.store = config.featureStore;
+    this.store = featureStore;
   }
 
   @Override

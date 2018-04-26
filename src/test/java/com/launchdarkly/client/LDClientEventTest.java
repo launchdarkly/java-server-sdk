@@ -6,16 +6,15 @@ import com.google.gson.JsonPrimitive;
 
 import org.junit.Test;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.jdouble;
 import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.js;
+import static com.launchdarkly.client.TestUtil.specificEventProcessor;
+import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -24,9 +23,13 @@ public class LDClientEventTest {
   private static final LDUser user = new LDUser("userkey");
   
   private TestFeatureStore featureStore = new TestFeatureStore();
-  private TestEventProcessor eventSink = new TestEventProcessor();
-  private LDConfig config = new LDConfig.Builder().featureStore(featureStore).build();
-  private LDClientInterface client = createTestClient(config);
+  private TestUtil.TestEventProcessor eventSink = new TestUtil.TestEventProcessor();
+  private LDConfig config = new LDConfig.Builder()
+      .featureStoreFactory(specificFeatureStore(featureStore))
+      .eventProcessorFactory(specificEventProcessor(eventSink))
+      .updateProcessorFactory(Components.nullUpdateProcessor())
+      .build();
+  private LDClientInterface client = new LDClient("SDK_KEY", config);
   
   @Test
   public void identifySendsEvent() throws Exception {
@@ -217,34 +220,5 @@ public class LDClientEventTest {
     assertEquals(defaultVal, fe.value);
     assertEquals(defaultVal, fe.defaultVal);
     assertEquals(prereqOf, fe.prereqOf);
-  }
-  
-  private static class TestEventProcessor implements EventProcessor {
-    List<Event> events = new ArrayList<>();
-
-    @Override
-    public void close() throws IOException {}
-
-    @Override
-    public void sendEvent(Event e) {
-      events.add(e);
-    }
-
-    @Override
-    public void flush() {}
-  }
-  
-  private LDClientInterface createTestClient(LDConfig config) {
-    return new LDClient("SDK_KEY", config) {
-      @Override
-      protected UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config) {
-        return new UpdateProcessor.NullUpdateProcessor();
-      }
-
-      @Override
-      protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-        return eventSink;
-      }
-    };
   }
 }
