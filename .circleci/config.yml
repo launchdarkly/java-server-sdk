@@ -15,10 +15,17 @@ jobs:
       - run:
           name: Save test results
           command: |
-            mkdir -p ~/junit/
+            mkdir -p ~/junit/;
             find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
           when: always
       - store_test_results:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+      - run: Upload FOSSA analysis (from master only)
+        command: |
+          if [[ ( -n "$FOSSA_API_KEY" ) && ( "$CIRCLE_BRANCH" == "master" ) ]]; then
+            curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | sudo bash;
+            fossa init;
+            FOSSA_API_KEY=$FOSSA_API_KEY fossa -p java-client;
+          fi
