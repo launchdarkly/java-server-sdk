@@ -295,9 +295,9 @@ public class DefaultEventProcessorTest {
     JsonElement default1 = new JsonPrimitive("default1");
     JsonElement default2 = new JsonPrimitive("default2");
     Event fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(new Integer(1), value), default1);
+        new FeatureFlag.VariationAndValue(new Integer(2), value), default1);
     Event fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-        new FeatureFlag.VariationAndValue(new Integer(1), value), default2);
+        new FeatureFlag.VariationAndValue(new Integer(2), value), default2);
     ep.sendEvent(fe1);
     ep.sendEvent(fe2);
     
@@ -307,9 +307,9 @@ public class DefaultEventProcessorTest {
         allOf(
             isSummaryEvent(fe1.creationDate, fe2.creationDate),
             hasSummaryFlag(flag1.getKey(), default1,
-                hasItem(isSummaryEventCounter(flag1, value, 1))),
+                hasItem(isSummaryEventCounter(flag1, 2, value, 1))),
             hasSummaryFlag(flag2.getKey(), default2,
-                hasItem(isSummaryEventCounter(flag2, value, 1)))
+                hasItem(isSummaryEventCounter(flag2, 2, value, 1)))
         )
     ));
   }
@@ -465,6 +465,7 @@ public class DefaultEventProcessorTest {
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
         hasJsonProperty("key", flag.getKey()),
         hasJsonProperty("version", (double)flag.getVersion()),
+        hasJsonProperty("variation", sourceEvent.variation),
         hasJsonProperty("value", sourceEvent.value),
         (inlineUser != null) ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
           hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
@@ -506,8 +507,9 @@ public class DefaultEventProcessorTest {
     )));
   }
   
-  private Matcher<JsonElement> isSummaryEventCounter(FeatureFlag flag, JsonElement value, int count) {
+  private Matcher<JsonElement> isSummaryEventCounter(FeatureFlag flag, Integer variation, JsonElement value, int count) {
     return allOf(
+        hasJsonProperty("variation", variation),
         hasJsonProperty("version", (double)flag.getVersion()),
         hasJsonProperty("value", value),
         hasJsonProperty("count", (double)count)
