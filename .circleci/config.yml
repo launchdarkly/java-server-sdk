@@ -25,7 +25,7 @@ jobs:
       - run:
           name: Upload FOSSA analysis (from master only)
           command: |
-            if [[ ( -n "$FOSSA_API_KEY" ) && ( "$CIRCLE_BRANCH" == "master" ) ]]; then
+            if [[ ( -n "$FOSSA_API_KEY" ) ]]; then
               curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | sudo bash;
               fossa init;
               FOSSA_API_KEY=$FOSSA_API_KEY fossa -p java-client;
