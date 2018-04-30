@@ -131,7 +131,7 @@ public class DefaultEventProcessorTest {
         isSummaryEvent()
     ));
   }
-
+  
   @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInFeatureEvent() throws Exception {
@@ -151,6 +151,23 @@ public class DefaultEventProcessorTest {
   
   @SuppressWarnings("unchecked")
   @Test
+  public void indexEventIsStillGeneratedIfInlineUsersIsTrueButFeatureEventIsNotTracked() throws Exception {
+    configBuilder.inlineUsersInEvents(true);
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(false).build();
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    JsonArray output = flushAndGetEvents(new MockResponse());
+    assertThat(output, hasItems(
+        isIndexEvent(fe, userJson),
+        isSummaryEvent()
+    ));    
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
   public void eventKindIsDebugIfFlagIsTemporarilyInDebugMode() throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     long futureTime = System.currentTimeMillis() + 1000000;
@@ -162,7 +179,27 @@ public class DefaultEventProcessorTest {
     JsonArray output = flushAndGetEvents(new MockResponse());
     assertThat(output, hasItems(
         isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, true, null),
+        isFeatureEvent(fe, flag, true, userJson),
+        isSummaryEvent()
+    ));
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
+  public void eventCanBeBothTrackedAndDebugged() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    long futureTime = System.currentTimeMillis() + 1000000;
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true)
+        .debugEventsUntilDate(futureTime).build();
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        new FeatureFlag.VariationAndValue(new Integer(1), new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    JsonArray output = flushAndGetEvents(new MockResponse());
+    assertThat(output, hasItems(
+        isIndexEvent(fe, userJson),
+        isFeatureEvent(fe, flag, false, null),
+        isFeatureEvent(fe, flag, true, userJson),
         isSummaryEvent()
     ));
   }

@@ -155,11 +155,11 @@ abstract class EventOutput {
       String userKey = e.user == null ? null : e.user.getKeyAsString();
       if (e instanceof Event.FeatureRequest) {
         Event.FeatureRequest fe = (Event.FeatureRequest)e;
-        boolean isDebug = (!fe.trackEvents && fe.debugEventsUntilDate != null);
+        boolean inlineThisUser = inlineUsers || fe.debug;
         return new EventOutput.FeatureRequest(fe.creationDate, fe.key,
-            inlineUsers ? null : userKey,
-            inlineUsers ? e.user : null,
-            fe.version, fe.value, fe.defaultVal, fe.prereqOf, isDebug);
+            inlineThisUser ? null : userKey,
+            inlineThisUser ? e.user : null,
+            fe.version, fe.value, fe.defaultVal, fe.prereqOf, fe.debug);
       } else if (e instanceof Event.Identify) {
         return new EventOutput.Identify(e.creationDate, e.user);
       } else if (e instanceof Event.Custom) {

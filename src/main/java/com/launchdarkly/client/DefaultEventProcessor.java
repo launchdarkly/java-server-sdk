@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.launchdarkly.client.Util.getRequestBuilder;
+
 import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -32,6 +34,8 @@ import okhttp3.Response;
 final class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
   private static final int CHANNEL_BLOCK_MILLIS = 1000;
+  private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
+  private static final String EVENT_SCHEMA_VERSION = "2";
   
   private final BlockingQueue<EventProcessorMessage> inputChannel;
   private final ScheduledExecutorService scheduler;
@@ -283,27 +287,47 @@ final class DefaultEventProcessor implements EventProcessor {
       if (disabled.get()) {
         return;
       }
-      
-      // For each user we haven't seen before, we add an index event - unless this is already
-      // an identify event for that user.
-      if (!config.inlineUsersInEvents && e.user != null && !noticeUser(e.user, userKeys)) {
-        if (!(e instanceof Event.Identify)) {
-          Event.Index ie = new Event.Index(e.creationDate, e.user);
-          buffer.add(ie);
-        }
-      }
-      
+
       // Always record the event in the summarizer.
       buffer.addToSummary(e);
 
-      if (shouldTrackFullEvent(e)) {
-        // Sampling interval applies only to fully-tracked events.
-        if (config.samplingInterval > 0 && random.nextInt(config.samplingInterval) != 0) {
-          return;
+      // Decide whether to add the event to the payload. Feature events may be added twice, once for
+      // the event (if tracked) and once for debugging.
+      boolean addIndexEvent = false,
+          addFullEvent = false;
+      Event debugEvent = null;
+      
+      if (e instanceof Event.FeatureRequest) {
+        if (shouldSampleEvent()) {
+          Event.FeatureRequest fe = (Event.FeatureRequest)e;
+          addFullEvent = fe.trackEvents;
+          if (shouldDebugEvent(fe)) {
+            debugEvent = EventFactory.DEFAULT.newDebugEvent(fe);
+          }
         }
-        // Queue the event as-is; we'll transform it into an output event when we're flushing
-        // (to avoid doing that work on our main thread).
+      } else {
+        addFullEvent = shouldSampleEvent();
+      }
+      
+      // For each user we haven't seen before, we add an index event - unless this is already
+      // an identify event for that user.
+      if (!addFullEvent || !config.inlineUsersInEvents) {
+        if (e.user != null && e.user.getKey() != null && !noticeUser(e.user, userKeys)) {
+          if (!(e instanceof Event.Identify)) {
+            addIndexEvent = true;
+          }          
+        }
+      }
+      
+      if (addIndexEvent) {
+        Event.Index ie = new Event.Index(e.creationDate, e.user);
+        buffer.add(ie);
+      }
+      if (addFullEvent) {
         buffer.add(e);
+      }
+      if (debugEvent != null) {
+        buffer.add(debugEvent);
       }
     }
     
@@ -316,29 +340,25 @@ final class DefaultEventProcessor implements EventProcessor {
       return userKeys.put(key, key) != null;
     }
     
-    private boolean shouldTrackFullEvent(Event e) {
-      if (e instanceof Event.FeatureRequest) {
-        Event.FeatureRequest fe = (Event.FeatureRequest)e;
-        if (fe.trackEvents) {
+    private boolean shouldSampleEvent() {
+      return config.samplingInterval <= 0 || random.nextInt(config.samplingInterval) == 0;
+    }
+    
+    private boolean shouldDebugEvent(Event.FeatureRequest fe) {
+      if (fe.debugEventsUntilDate != null) {
+        // The "last known past time" comes from the last HTTP response we got from the server.
+        // In case the client's time is set wrong, at least we know that any expiration date
+        // earlier than that point is definitely in the past.  If there's any discrepancy, we
+        // want to err on the side of cutting off event debugging sooner.
+        long lastPast = lastKnownPastTime.get();
+        if (fe.debugEventsUntilDate > lastPast &&
+            fe.debugEventsUntilDate > System.currentTimeMillis()) {
           return true;
         }
-        if (fe.debugEventsUntilDate != null) {
-          // The "last known past time" comes from the last HTTP response we got from the server.
-          // In case the client's time is set wrong, at least we know that any expiration date
-          // earlier than that point is definitely in the past.  If there's any discrepancy, we
-          // want to err on the side of cutting off event debugging sooner.
-          long lastPast = lastKnownPastTime.get();
-          if (fe.debugEventsUntilDate > lastPast &&
-              fe.debugEventsUntilDate > System.currentTimeMillis()) {
-            return true;
-          }
-        }
-        return false;
-      } else {
-        return true;
       }
+      return false;      
     }
-
+    
     private void triggerFlush(EventBuffer buffer, BlockingQueue<FlushPayload> payloadQueue) {
       if (disabled.get() || buffer.isEmpty()) {
         return;
@@ -493,10 +513,11 @@ final class DefaultEventProcessor implements EventProcessor {
       logger.debug("Posting {} event(s) to {} with payload: {}",
           eventsOut.size(), uriStr, json);
 
-      Request request = config.getRequestBuilder(sdkKey)
+      Request request = getRequestBuilder(sdkKey)
           .url(uriStr)
           .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
           .addHeader("Content-Type", "application/json")
+          .addHeader(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION)
           .build();
 
       long startTime = System.currentTimeMillis();
