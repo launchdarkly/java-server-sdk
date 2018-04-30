@@ -4,8 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 
-import junit.framework.AssertionFailedError;
-
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,7 +20,13 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
-import static org.junit.Assert.*;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import junit.framework.AssertionFailedError;
 
 public class LDClientTest extends EasyMockSupport {
   private FeatureRequestor requestor;
@@ -68,7 +72,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(1);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expectEventsSent(1);
     replayAll();
 
     client = createMockClient(config);
@@ -108,7 +112,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(1);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expectEventsSent(1);
     replayAll();
 
     client = createMockClient(config);
@@ -131,7 +135,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    expectEventsSent(2);
     replayAll();
 
     client = createMockClient(config);
@@ -158,7 +162,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    expectEventsSent(2);
     replayAll();
 
     client = createMockClient(config);
@@ -183,7 +187,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    expectEventsSent(2);
     replayAll();
 
     client = createMockClient(config);
@@ -208,7 +212,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    expectEventsSent(2);
     replayAll();
 
     client = createMockClient(config);
@@ -233,7 +237,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(4);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(4);
+    expectEventsSent(4);
     replayAll();
 
     client = createMockClient(config);
@@ -265,7 +269,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
+    expectEventsSent(2);
     replayAll();
 
     client = createMockClient(config);
@@ -365,7 +369,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).times(1);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(1);
+    expectEventsSent(1);
     replayAll();
 
     client = createMockClient(config);
@@ -405,7 +409,7 @@ public class LDClientTest extends EasyMockSupport {
     client = createMockClient(config);
     // Asserting 2 things here: no pollingProcessor or streamingProcessor activity
     // and sending of event:
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expectEventsSent(1);
     replayAll();
 
     assertDefaultValueIsReturned();
@@ -422,7 +426,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(streamProcessor.start()).andReturn(initFuture);
     expect(streamProcessor.initialized()).andReturn(false);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expectEventsSent(1);
     replayAll();
 
     client = createMockClient(config);
@@ -455,7 +459,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(false);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expectEventsSent(1);
     replayAll();
 
     client = createMockClient(config);
@@ -473,7 +477,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expectEventsSent(1);
     expect(pollingProcessor.initialized()).andReturn(false);
     replayAll();
 
@@ -502,8 +506,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
-    expect(eventProcessor.sendEvent(anyObject(Event.class)))
-      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    expectEventsSent(0);
     replayAll();
 
     client = createMockClient(config);
@@ -522,8 +525,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
-    expect(eventProcessor.sendEvent(anyObject(Event.class)))
-      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    expectEventsSent(0);
     replayAll();
 
     client = createMockClient(config);
@@ -542,8 +544,7 @@ public class LDClientTest extends EasyMockSupport {
     expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
     expect(pollingProcessor.start()).andReturn(initFuture);
     expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
-    expect(eventProcessor.sendEvent(anyObject(Event.class)))
-      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    expectEventsSent(0);
     replayAll();
 
     client = createMockClient(config);
@@ -564,7 +565,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(streamProcessor.start()).andReturn(initFuture);
     expect(streamProcessor.initialized()).andReturn(false);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    expectEventsSent(1);
     replayAll();
 
     client = createMockClient(config);
@@ -580,6 +581,15 @@ public class LDClientTest extends EasyMockSupport {
     assertEquals(true, result);
   }
 
+  private void expectEventsSent(int count) {
+    eventProcessor.sendEvent(anyObject(Event.class));
+    if (count > 0) {
+      expectLastCall().times(count);
+    } else {
+      expectLastCall().andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    }
+  }
+  
   private LDClientInterface createMockClient(LDConfig config) {
     return new LDClient("SDK_KEY", config) {
       @Override
