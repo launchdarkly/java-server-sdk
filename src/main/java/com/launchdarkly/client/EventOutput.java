@@ -40,16 +40,18 @@ abstract class EventOutput {
     private final String userKey;
     private final LDUser user;
     private final Integer version;
+    private final Integer variation;
     private final JsonElement value;
     @SerializedName("default") private final JsonElement defaultVal;
     private final String prereqOf;
     
     FeatureRequest(long creationDate, String key, String userKey, LDUser user,
-        Integer version, JsonElement value, JsonElement defaultVal, String prereqOf, boolean debug) {
+        Integer version, Integer variation, JsonElement value, JsonElement defaultVal, String prereqOf, boolean debug) {
       super(debug ? "debug" : "feature", creationDate);
       this.key = key;
       this.userKey = userKey;
       this.user = user;
+      this.variation = variation;
       this.version = version;
       this.value = value;
       this.defaultVal = defaultVal;
@@ -120,12 +122,14 @@ abstract class EventOutput {
   }
   
   static final class SummaryEventCounter {
+    final Integer variation;
     final JsonElement value;
     final Integer version;
     final int count;
     final Boolean unknown;
     
-    SummaryEventCounter(JsonElement value, Integer version, int count, Boolean unknown) {
+    SummaryEventCounter(Integer variation, JsonElement value, Integer version, int count, Boolean unknown) {
+      this.variation = variation;
       this.value = value;
       this.version = version;
       this.count = count;
@@ -159,7 +163,7 @@ abstract class EventOutput {
         return new EventOutput.FeatureRequest(fe.creationDate, fe.key,
             inlineThisUser ? null : userKey,
             inlineThisUser ? e.user : null,
-            fe.version, fe.value, fe.defaultVal, fe.prereqOf, fe.debug);
+            fe.version, fe.variation, fe.value, fe.defaultVal, fe.prereqOf, fe.debug);
       } else if (e instanceof Event.Identify) {
         return new EventOutput.Identify(e.creationDate, e.user);
       } else if (e instanceof Event.Custom) {
@@ -183,7 +187,9 @@ abstract class EventOutput {
           fsd = new SummaryEventFlag(entry.getValue().defaultVal, new ArrayList<SummaryEventCounter>());
           flagsOut.put(entry.getKey().key, fsd);
         }
-        SummaryEventCounter c = new SummaryEventCounter(entry.getValue().flagValue,
+        SummaryEventCounter c = new SummaryEventCounter(
+            entry.getKey().variation,
+            entry.getValue().flagValue,
             entry.getKey().version,
             entry.getValue().count,
             entry.getKey().version == null ? true : null);
