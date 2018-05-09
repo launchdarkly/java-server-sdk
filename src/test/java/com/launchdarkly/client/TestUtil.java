@@ -21,6 +21,10 @@ public class TestUtil {
   public static JsonPrimitive jint(int n) {
     return new JsonPrimitive(n);
   }
+
+  public static JsonPrimitive jdouble(double d) {
+    return new JsonPrimitive(d);
+  }
   
   public static JsonPrimitive jbool(boolean b) {
     return new JsonPrimitive(b);

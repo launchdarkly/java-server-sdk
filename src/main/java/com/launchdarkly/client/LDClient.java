@@ -37,10 +37,9 @@ public class LDClient implements LDClientInterface {
 
   private final LDConfig config;
   private final String sdkKey;
-  private final FeatureRequestor requestor;
-  private final EventProcessor eventProcessor;
+  final EventProcessor eventProcessor;
+  final UpdateProcessor updateProcessor;
   private final EventFactory eventFactory = EventFactory.DEFAULT;
-  private UpdateProcessor updateProcessor;
 
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -62,34 +61,18 @@ public class LDClient implements LDClientInterface {
   public LDClient(String sdkKey, LDConfig config) {
     this.config = config;
     this.sdkKey = sdkKey;
-    this.requestor = createFeatureRequestor(sdkKey, config);
-    if (config.offline || !config.sendEvents) {
-      this.eventProcessor = new EventProcessor.NullEventProcessor();
-    } else {
-      this.eventProcessor = createEventProcessor(sdkKey, config);
-    }
-
+    
+    this.eventProcessor = createEventProcessor(sdkKey, config);
+    
     if (config.offline) {
       logger.info("Starting LaunchDarkly client in offline mode");
-      return;
-    }
-
-    if (config.useLdd) {
+    } else if (config.useLdd) {
       logger.info("Starting LaunchDarkly in LDD mode. Skipping direct feature retrieval.");
-      return;
     }
 
-    if (config.stream) {
-      logger.info("Enabling streaming API");
-      this.updateProcessor = createStreamProcessor(sdkKey, config, requestor);
-    } else {
-      logger.info("Disabling streaming API");
-      logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
-      this.updateProcessor = createPollingProcessor(config);
-    }
-
+    this.updateProcessor = createUpdateProcessor(sdkKey, config);
     Future<Void> startFuture = updateProcessor.start();
-    if (config.startWaitMillis > 0L) {
+    if (!config.offline && !config.useLdd && config.startWaitMillis > 0L) {
       logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
       try {
         startFuture.get(config.startWaitMillis, TimeUnit.MILLISECONDS);
@@ -103,29 +86,35 @@ public class LDClient implements LDClientInterface {
 
   @Override
   public boolean initialized() {
-    return isOffline() || config.useLdd || updateProcessor.initialized();
-  }
-
-  @VisibleForTesting
-  protected FeatureRequestor createFeatureRequestor(String sdkKey, LDConfig config) {
-    return new FeatureRequestor(sdkKey, config);
-  }
-
-  @VisibleForTesting
-  protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-    return new DefaultEventProcessor(sdkKey, config);
-  }
-
-  @VisibleForTesting
-  protected StreamProcessor createStreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor) {
-    return new StreamProcessor(sdkKey, config, requestor);
-  }
-
-  @VisibleForTesting
-  protected PollingProcessor createPollingProcessor(LDConfig config) {
-    return new PollingProcessor(config, requestor);
+    return updateProcessor.initialized();
   }
   
+  @VisibleForTesting
+  protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
+    if (config.offline || !config.sendEvents) {
+      return new EventProcessor.NullEventProcessor();
+    } else {
+      return new DefaultEventProcessor(sdkKey, config);
+    }
+  }
+
+  @VisibleForTesting
+  protected UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config) {
+    if (config.offline || config.useLdd) {
+      return new UpdateProcessor.NullUpdateProcessor();
+    } else {
+      FeatureRequestor requestor = new FeatureRequestor(sdkKey, config);
+      if (config.stream) {
+        logger.info("Enabling streaming API");
+        return new StreamProcessor(sdkKey, config, requestor);
+      } else {
+        logger.info("Disabling streaming API");
+        logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
+        return new PollingProcessor(config, requestor);
+      }
+    }
+  }
+    
   @Override
   public void track(String eventName, LDUser user, JsonElement data) {
     if (isOffline()) {
@@ -294,9 +283,7 @@ public class LDClient implements LDClientInterface {
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly Client");
     this.eventProcessor.close();
-    if (this.updateProcessor != null) {
-      this.updateProcessor.close();
-    }
+    this.updateProcessor.close();
     if (this.config.httpClient != null) {
       if (this.config.httpClient.dispatcher() != null && this.config.httpClient.dispatcher().executorService() != null) {
         this.config.httpClient.dispatcher().cancelAll();
