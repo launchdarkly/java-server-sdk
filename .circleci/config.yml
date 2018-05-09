@@ -1,0 +1,24 @@
+version: 2
+jobs:
+  build:
+    branches:
+      ignore:
+        - gh-pages
+    docker:
+      - image: circleci/java
+      - image: redis
+    steps:
+      - checkout
+      - run: cp gradle.properties.example gradle.properties
+      - run: ./gradlew dependencies
+      - run: ./gradlew test
+      - run:
+          name: Save test results
+          command: |
+            mkdir -p ~/junit/
+            find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
+          when: always
+      - store_test_results:
+          path: ~/junit
+      - store_artifacts:
+          path: ~/junit

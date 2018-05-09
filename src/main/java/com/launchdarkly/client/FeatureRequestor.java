@@ -1,16 +1,18 @@
 package com.launchdarkly.client;
 
-import okhttp3.Request;
-import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.launchdarkly.client.Util.getRequestBuilder;
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
+
+import okhttp3.Request;
+import okhttp3.Response;
 
 class FeatureRequestor {
   private static final Logger logger = LoggerFactory.getLogger(FeatureRequestor.class);
@@ -68,7 +70,7 @@ class FeatureRequestor {
   }
   
   private String get(String path) throws IOException, InvalidSDKKeyException {
-    Request request = config.getRequestBuilder(sdkKey)
+    Request request = getRequestBuilder(sdkKey)
         .url(config.baseURI.toString() + path)
         .get()
         .build();

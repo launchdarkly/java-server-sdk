@@ -62,7 +62,7 @@ class FeatureFlag implements VersionedData {
   }
 
   EvalResult evaluate(LDUser user, FeatureStore featureStore, EventFactory eventFactory) throws EvaluationException {
-    List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
+    List<Event.FeatureRequest> prereqEvents = new ArrayList<>();
 
     if (user == null || user.getKey() == null) {
       logger.warn("Null user or null user key when evaluating flag: " + key + "; returning null");
@@ -79,7 +79,7 @@ class FeatureFlag implements VersionedData {
   }
 
   // Returning either a JsonElement or null indicating prereq failure/error.
-  private VariationAndValue evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events,
+  private VariationAndValue evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
       EventFactory eventFactory) throws EvaluationException {
     boolean prereqOk = true;
     if (prerequisites != null) {
@@ -229,9 +229,9 @@ class FeatureFlag implements VersionedData {
   
   static class EvalResult {
     private final VariationAndValue result;
-    private final List<FeatureRequestEvent> prerequisiteEvents;
+    private final List<Event.FeatureRequest> prerequisiteEvents;
 
-    private EvalResult(VariationAndValue result, List<FeatureRequestEvent> prerequisiteEvents) {
+    private EvalResult(VariationAndValue result, List<Event.FeatureRequest> prerequisiteEvents) {
       this.result = result;
       this.prerequisiteEvents = prerequisiteEvents;
     }
@@ -240,7 +240,7 @@ class FeatureFlag implements VersionedData {
       return result;
     }
 
-    List<FeatureRequestEvent> getPrerequisiteEvents() {
+    List<Event.FeatureRequest> getPrerequisiteEvents() {
       return prerequisiteEvents;
     }
   }

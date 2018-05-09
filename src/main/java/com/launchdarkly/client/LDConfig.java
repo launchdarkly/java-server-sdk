@@ -138,12 +138,6 @@ public final class LDConfig {
         .build();
   }
 
-  Request.Builder getRequestBuilder(String sdkKey) {
-    return new Request.Builder()
-        .addHeader("Authorization", sdkKey)
-        .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
-  }
-
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
    * calls can be chained, enabling the following pattern:

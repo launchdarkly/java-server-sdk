@@ -11,7 +11,7 @@ import java.util.Objects;
  * methods of this class are deliberately not thread-safe, because they should always
  * be called from EventProcessor's single message-processing thread.
  */
-class EventSummarizer {
+final class EventSummarizer {
   private EventSummary eventsState;
   
   EventSummarizer() {
@@ -23,30 +23,41 @@ class EventSummarizer {
    * @param event an event
    */
   void summarizeEvent(Event event) {
-    if (event instanceof FeatureRequestEvent) {
-      FeatureRequestEvent fe = (FeatureRequestEvent)event;
+    if (event instanceof Event.FeatureRequest) {
+      Event.FeatureRequest fe = (Event.FeatureRequest)event;
       eventsState.incrementCounter(fe.key, fe.variation, fe.version, fe.value, fe.defaultVal);
       eventsState.noteTimestamp(fe.creationDate);
     }
   }
   
   /**
-   * Returns a snapshot of the current summarized event data, and resets this state.
-   * @return the previous event state
+   * Returns a snapshot of the current summarized event data.
+   * @return the summary state
    */
   EventSummary snapshot() {
-    EventSummary ret = eventsState;
-    eventsState = new EventSummary();
-    return ret;
+    return new EventSummary(eventsState);
   }
   
-  static class EventSummary {
+  /**
+   * Resets the summary counters.
+   */
+  void clear() {
+    eventsState = new EventSummary();
+  }
+  
+  static final class EventSummary {
     final Map<CounterKey, CounterValue> counters;
     long startDate;
     long endDate;
     
     EventSummary() {
-      counters = new HashMap<CounterKey, CounterValue>();
+      counters = new HashMap<>();
+    }
+
+    EventSummary(EventSummary from) {
+      counters = new HashMap<>(from.counters);
+      startDate = from.startDate;
+      endDate = from.endDate;
     }
     
     boolean isEmpty() {
@@ -88,7 +99,7 @@ class EventSummarizer {
     }
   }
 
-  static class CounterKey {
+  static final class CounterKey {
     final String key;
     final Integer variation;
     final Integer version;
@@ -120,7 +131,7 @@ class EventSummarizer {
     }
   }
   
-  static class CounterValue {
+  static final class CounterValue {
     int count;
     final JsonElement flagValue;
     final JsonElement defaultVal;

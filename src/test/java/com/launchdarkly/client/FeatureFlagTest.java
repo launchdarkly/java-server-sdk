@@ -1,5 +1,8 @@
 package com.launchdarkly.client;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -13,6 +16,7 @@ import static com.launchdarkly.client.TestUtil.js;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 public class FeatureFlagTest {
@@ -90,7 +94,7 @@ public class FeatureFlagTest {
     assertEquals(js("off"), result.getResult().getValue());
     
     assertEquals(1, result.getPrerequisiteEvents().size());
-    FeatureRequestEvent event = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
     assertEquals(f1.getKey(), event.key);
     assertEquals(js("nogo"), event.value);
     assertEquals(f1.getVersion(), event.version.intValue());
@@ -119,7 +123,7 @@ public class FeatureFlagTest {
     assertEquals(js("fall"), result.getResult().getValue());
     assertEquals(1, result.getPrerequisiteEvents().size());
     
-    FeatureRequestEvent event = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
     assertEquals(f1.getKey(), event.key);
     assertEquals(js("go"), event.value);
     assertEquals(f1.getVersion(), event.version.intValue());
@@ -156,13 +160,13 @@ public class FeatureFlagTest {
     assertEquals(js("fall"), result.getResult().getValue());    
     assertEquals(2, result.getPrerequisiteEvents().size());
     
-    FeatureRequestEvent event0 = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event0 = result.getPrerequisiteEvents().get(0);
     assertEquals(f2.getKey(), event0.key);
     assertEquals(js("go"), event0.value);
     assertEquals(f2.getVersion(), event0.version.intValue());
     assertEquals(f1.getKey(), event0.prereqOf);
 
-    FeatureRequestEvent event1 = result.getPrerequisiteEvents().get(1);
+    Event.FeatureRequest event1 = result.getPrerequisiteEvents().get(1);
     assertEquals(f1.getKey(), event1.key);
     assertEquals(js("go"), event1.value);
     assertEquals(f1.getVersion(), event1.version.intValue());
@@ -237,6 +241,48 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
+  }
+  
+  @Test
+  public void clauseWithUnsupportedOperatorStringIsUnmarshalledWithNullOperator() throws Exception {
+    // This just verifies that GSON will give us a null in this case instead of throwing an exception,
+    // so we fail as gracefully as possible if a new operator type has been added in the application
+    // and the SDK hasn't been upgraded yet.
+    String badClauseJson = "{\"attribute\":\"name\",\"operator\":\"doesSomethingUnsupported\",\"values\":[\"x\"]}";
+    Gson gson = new Gson();
+    Clause clause = gson.fromJson(badClauseJson, Clause.class);
+    assertNotNull(clause);
+    
+    JsonElement json = gson.toJsonTree(clause);
+    String expectedJson = "{\"attribute\":\"name\",\"values\":[\"x\"],\"negate\":false}";
+    assertEquals(gson.fromJson(expectedJson, JsonElement.class), json);
+  }
+  
+  @Test
+  public void clauseWithNullOperatorDoesNotMatch() throws Exception {
+    Clause badClause = new Clause("name", null, Arrays.asList(js("Bob")), false);
+    FeatureFlag f = booleanFlagWithClauses(badClause);
+    LDUser user = new LDUser.Builder("key").name("Bob").build();
+    
+    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
+  }
+  
+  @Test
+  public void clauseWithNullOperatorDoesNotStopSubsequentRuleFromMatching() throws Exception {
+    Clause badClause = new Clause("name", null, Arrays.asList(js("Bob")), false);
+    Rule badRule = new Rule(Arrays.asList(badClause), 1, null);
+    Clause goodClause = new Clause("name", Operator.in, Arrays.asList(js("Bob")), false);
+    Rule goodRule = new Rule(Arrays.asList(goodClause), 1, null);
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .rules(Arrays.asList(badRule, goodRule))
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(0)
+        .variations(jbool(false), jbool(true))
+        .build();
+    LDUser user = new LDUser.Builder("key").name("Bob").build();
+    
+    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test

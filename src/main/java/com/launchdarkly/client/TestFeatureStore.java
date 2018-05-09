@@ -14,7 +14,10 @@ import com.google.gson.JsonPrimitive;
  * A decorated {@link InMemoryFeatureStore} which provides functionality to create (or override) true or false feature flags for all users.
  * <p>
  * Using this store is useful for testing purposes when you want to have runtime support for turning specific features on or off.
+ *
+ * @deprecated Will be replaced by a file-based test fixture.
  */
+@Deprecated
 public class TestFeatureStore extends InMemoryFeatureStore {
   static List<JsonElement> TRUE_FALSE_VARIATIONS = Arrays.asList(
       (JsonElement) (new JsonPrimitive(true)),

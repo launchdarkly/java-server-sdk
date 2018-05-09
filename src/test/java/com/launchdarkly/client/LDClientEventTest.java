@@ -37,8 +37,8 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     Event e = eventSink.events.get(0);
-    assertEquals(IdentifyEvent.class, e.getClass());
-    IdentifyEvent ie = (IdentifyEvent)e;
+    assertEquals(Event.Identify.class, e.getClass());
+    Event.Identify ie = (Event.Identify)e;
     assertEquals(user.getKey(), ie.user.getKey());
   }
   
@@ -48,8 +48,8 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     Event e = eventSink.events.get(0);
-    assertEquals(CustomEvent.class, e.getClass());
-    CustomEvent ce = (CustomEvent)e;
+    assertEquals(Event.Custom.class, e.getClass());
+    Event.Custom ce = (Event.Custom)e;
     assertEquals(user.getKey(), ce.user.getKey());
     assertEquals("eventkey", ce.key);
     assertNull(ce.data);
@@ -63,8 +63,8 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     Event e = eventSink.events.get(0);
-    assertEquals(CustomEvent.class, e.getClass());
-    CustomEvent ce = (CustomEvent)e;
+    assertEquals(Event.Custom.class, e.getClass());
+    Event.Custom ce = (Event.Custom)e;
     assertEquals(user.getKey(), ce.user.getKey());
     assertEquals("eventkey", ce.key);
     assertEquals(data, ce.data);
@@ -201,8 +201,8 @@ public class LDClientEventTest {
   
   private void checkFeatureEvent(Event e, FeatureFlag flag, JsonElement value, JsonElement defaultVal,
       String prereqOf) {
-    assertEquals(FeatureRequestEvent.class, e.getClass());
-    FeatureRequestEvent fe = (FeatureRequestEvent)e;
+    assertEquals(Event.FeatureRequest.class, e.getClass());
+    Event.FeatureRequest fe = (Event.FeatureRequest)e;
     assertEquals(flag.getKey(), fe.key);
     assertEquals(user.getKey(), fe.user.getKey());
     assertEquals(new Integer(flag.getVersion()), fe.version);
@@ -212,8 +212,8 @@ public class LDClientEventTest {
   }
 
   private void checkUnknownFeatureEvent(Event e, String key, JsonElement defaultVal, String prereqOf) {
-    assertEquals(FeatureRequestEvent.class, e.getClass());
-    FeatureRequestEvent fe = (FeatureRequestEvent)e;
+    assertEquals(Event.FeatureRequest.class, e.getClass());
+    Event.FeatureRequest fe = (Event.FeatureRequest)e;
     assertEquals(key, fe.key);
     assertEquals(user.getKey(), fe.user.getKey());
     assertNull(fe.version);
