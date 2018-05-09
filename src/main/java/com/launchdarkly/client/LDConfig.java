@@ -59,7 +59,10 @@ public final class LDConfig {
   final Authenticator proxyAuthenticator;
   final OkHttpClient httpClient;
   final boolean stream;
-  final FeatureStore featureStore;
+  final FeatureStore deprecatedFeatureStore;
+  final FeatureStoreFactory featureStoreFactory;
+  final EventProcessorFactory eventProcessorFactory;
+  final UpdateProcessorFactory updateProcessorFactory;
   final boolean useLdd;
   final boolean offline;
   final boolean allAttributesPrivate;
@@ -84,7 +87,10 @@ public final class LDConfig {
     this.proxyAuthenticator = builder.proxyAuthenticator();
     this.streamURI = builder.streamURI;
     this.stream = builder.stream;
-    this.featureStore = builder.featureStore;
+    this.deprecatedFeatureStore = builder.featureStore;
+    this.featureStoreFactory = builder.featureStoreFactory;
+    this.eventProcessorFactory = builder.eventProcessorFactory;
+    this.updateProcessorFactory = builder.updateProcessorFactory;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
     this.allAttributesPrivate = builder.allAttributesPrivate;
@@ -160,7 +166,10 @@ public final class LDConfig {
     private boolean allAttributesPrivate = false;
     private boolean sendEvents = true;
     private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
-    private FeatureStore featureStore = new InMemoryFeatureStore();
+    private FeatureStore featureStore = null;
+    private FeatureStoreFactory featureStoreFactory = Components.inMemoryFeatureStore();
+    private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
+    private UpdateProcessorFactory updateProcessorFactory = Components.defaultUpdateProcessor();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
@@ -214,12 +223,53 @@ public final class LDConfig {
      * you may use {@link RedisFeatureStore} or a custom implementation.
      * @param store the feature store implementation
      * @return the builder
+     * @deprecated Please use {@link #featureStoreFactory}.
      */
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
       return this;
     }
 
+    /**
+     * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
+     * related data received from LaunchDarkly, using a factory object. The default is
+     * {@link Components#inMemoryFeatureStore()}, but you may use {@link Components#redisFeatureStore()}
+     * or a custom implementation.
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.0.0
+     */
+    public Builder featureStoreFactory(FeatureStoreFactory factory) {
+      this.featureStoreFactory = factory;
+      return this;
+    }
+    
+    /**
+     * Sets the implementation of {@link EventProcessor} to be used for processing analytics events,
+     * using a factory object. The default is {@link Components#defaultEventProcessor()}, but
+     * you may choose to use a custom implementation (for instance, a test fixture).
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.0.0
+     */
+    public Builder eventProcessorFactory(EventProcessorFactory factory) {
+      this.eventProcessorFactory = factory;
+      return this;
+    }
+    
+    /**
+     * Sets the implementation of {@link UpdateProcessor} to be used for receiving feature flag data,
+     * using a factory object. The default is {@link Components#defaultUpdateProcessor()}, but
+     * you may choose to use a custom implementation (for instance, a test fixture).
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.0.0
+     */
+    public Builder updateProcessorFactory(UpdateProcessorFactory factory) {
+      this.updateProcessorFactory = factory;
+      return this;
+    }
+    
     /**
      * Set whether streaming mode should be enabled. By default, streaming is enabled. It should only be
      * disabled on the advice of LaunchDarkly support.

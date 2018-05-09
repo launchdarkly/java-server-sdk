@@ -4,8 +4,9 @@ import java.io.Closeable;
 
 /**
  * Interface for an object that can send or store analytics events.
+ * @since 4.0.0
  */
-interface EventProcessor extends Closeable {
+public interface EventProcessor extends Closeable {
   /**
    * Records an event asynchronously.
    * @param e an event
@@ -23,7 +24,7 @@ interface EventProcessor extends Closeable {
   /**
    * Stub implementation of {@link EventProcessor} for when we don't want to send any events.
    */
-  static class NullEventProcessor implements EventProcessor {
+  static final class NullEventProcessor implements EventProcessor {
     @Override
     public void sendEvent(Event e) {
     }

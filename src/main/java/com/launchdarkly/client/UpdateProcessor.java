@@ -6,8 +6,12 @@ import java.util.concurrent.Future;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
-interface UpdateProcessor extends Closeable {
-
+/**
+ * Interface for an object that receives updates to feature flags, user segments, and anything
+ * else that might come from LaunchDarkly, and passes them to a {@link FeatureStore}.
+ * @since 4.0.0
+ */
+public interface UpdateProcessor extends Closeable {
   /**
    * Starts the client.
    * @return {@link Future}'s completion status indicates the client has been initialized.
@@ -22,7 +26,7 @@ interface UpdateProcessor extends Closeable {
 
   void close() throws IOException;
 
-  static class NullUpdateProcessor implements UpdateProcessor {
+  static final class NullUpdateProcessor implements UpdateProcessor {
     @Override
     public Future<Void> start() {
       return immediateFuture(null);

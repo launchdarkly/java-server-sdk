@@ -40,8 +40,8 @@ class StreamProcessor implements UpdateProcessor {
   private AtomicBoolean initialized = new AtomicBoolean(false);
 
 
-  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor) {
-    this.store = config.featureStore;
+  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore) {
+    this.store = featureStore;
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = requestor;

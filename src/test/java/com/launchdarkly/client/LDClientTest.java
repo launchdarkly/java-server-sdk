@@ -10,6 +10,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
@@ -88,9 +89,8 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void noWaitForUpdateProcessorIfWaitMillisIsZero() throws Exception {
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(0L)
-        .build();
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWaitMillis(0L);
 
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(false);
@@ -104,9 +104,8 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void willWaitForUpdateProcessorIfWaitMillisIsNonZero() throws Exception {
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(10L)
-        .build();
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWaitMillis(10L);
 
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(null);
@@ -121,9 +120,8 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void updateProcessorCanTimeOut() throws Exception {
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(10L)
-        .build();
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWaitMillis(10L);
 
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
@@ -138,9 +136,8 @@ public class LDClientTest extends EasyMockSupport {
   
   @Test
   public void clientCatchesRuntimeExceptionFromUpdateProcessor() throws Exception {
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(10L)
-        .build();
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWaitMillis(10L);
 
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new RuntimeException());
@@ -157,10 +154,9 @@ public class LDClientTest extends EasyMockSupport {
   public void isFlagKnownReturnsTrueForExistingFlag() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
+    LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStore(testFeatureStore)
-            .build();
+            .featureStoreFactory(specificFeatureStore(testFeatureStore));
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(true).times(1);
     replayAll();
@@ -176,10 +172,9 @@ public class LDClientTest extends EasyMockSupport {
   public void isFlagKnownReturnsFalseForUnknownFlag() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
+    LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStore(testFeatureStore)
-            .build();
+            .featureStoreFactory(specificFeatureStore(testFeatureStore));
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(true).times(1);
     replayAll();
@@ -194,10 +189,9 @@ public class LDClientTest extends EasyMockSupport {
   public void isFlagKnownReturnsFalseIfStoreAndClientAreNotInitialized() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     testFeatureStore.setInitialized(false);
-    LDConfig config = new LDConfig.Builder()
+    LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStore(testFeatureStore)
-            .build();
+            .featureStoreFactory(specificFeatureStore(testFeatureStore));
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(false).times(1);
     replayAll();
@@ -213,10 +207,9 @@ public class LDClientTest extends EasyMockSupport {
   public void isFlagKnownUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
+    LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStore(testFeatureStore)
-            .build();
+            .featureStoreFactory(specificFeatureStore(testFeatureStore));
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(false).times(1);
     replayAll();
@@ -232,10 +225,9 @@ public class LDClientTest extends EasyMockSupport {
   public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-        .featureStore(testFeatureStore)
-        .startWaitMillis(0L)
-        .build();
+    LDConfig.Builder config = new LDConfig.Builder()
+        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .startWaitMillis(0L);
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(false);
     expectEventsSent(1);
@@ -258,17 +250,9 @@ public class LDClientTest extends EasyMockSupport {
     }
   }
   
-  private LDClientInterface createMockClient(LDConfig config) {
-    return new LDClient("SDK_KEY", config) {
-      @Override
-      protected UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config) {
-        return LDClientTest.this.updateProcessor;
-      }
-
-      @Override
-      protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-        return LDClientTest.this.eventProcessor;
-      }
-    };
+  private LDClientInterface createMockClient(LDConfig.Builder config) {
+    config.updateProcessorFactory(TestUtil.specificUpdateProcessor(updateProcessor));
+    config.eventProcessorFactory(TestUtil.specificEventProcessor(eventProcessor));
+    return new LDClient("SDK_KEY", config.build());
   }
 }

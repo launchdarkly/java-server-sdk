@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
+import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -43,7 +44,7 @@ public class LDClientLddModeTest {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .useLdd(true)
-        .featureStore(testFeatureStore)
+        .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .build();
     testFeatureStore.setFeatureTrue("key");
     try (LDClient client = new LDClient("SDK_KEY", config)) {
