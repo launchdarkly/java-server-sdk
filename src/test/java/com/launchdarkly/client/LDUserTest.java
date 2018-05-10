@@ -5,7 +5,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
 
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.lang.reflect.Type;

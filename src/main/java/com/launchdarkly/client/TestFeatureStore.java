@@ -14,7 +14,10 @@ import com.google.gson.JsonPrimitive;
  * A decorated {@link InMemoryFeatureStore} which provides functionality to create (or override) true or false feature flags for all users.
  * <p>
  * Using this store is useful for testing purposes when you want to have runtime support for turning specific features on or off.
+ *
+ * @deprecated Will be replaced by a file-based test fixture.
  */
+@Deprecated
 public class TestFeatureStore extends InMemoryFeatureStore {
   static List<JsonElement> TRUE_FALSE_VARIATIONS = Arrays.asList(
       (JsonElement) (new JsonPrimitive(true)),
@@ -30,7 +33,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param key the key of the feature flag
    * @param value the new value of the feature flag
    */
-  public void setBooleanValue(String key, Boolean value) {
+  public FeatureFlag setBooleanValue(String key, Boolean value) {
     FeatureFlag newFeature = new FeatureFlagBuilder(key)
             .on(false)
             .offVariation(value ? 0 : 1)
@@ -38,6 +41,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
             .version(version.incrementAndGet())
             .build();
     upsert(FEATURES, newFeature);
+    return newFeature;
   }
 
   /**
@@ -46,8 +50,8 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    *
    * @param key the key of the feature flag to evaluate to true
    */
-  public void setFeatureTrue(String key) {
-    setBooleanValue(key, true);
+  public FeatureFlag setFeatureTrue(String key) {
+    return setBooleanValue(key, true);
   }
   
   /**
@@ -56,8 +60,8 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    *
    * @param key the key of the feature flag to evaluate to false
    */
-  public void setFeatureFalse(String key) {
-    setBooleanValue(key, false);
+  public FeatureFlag setFeatureFalse(String key) {
+    return setBooleanValue(key, false);
   }
   
   /**
@@ -65,8 +69,8 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param key the key of the flag
    * @param value the new value of the flag
      */
-  public void setIntegerValue(String key, Integer value) {
-    setJsonValue(key, new JsonPrimitive(value));
+  public FeatureFlag setIntegerValue(String key, Integer value) {
+    return setJsonValue(key, new JsonPrimitive(value));
   }
 
   /**
@@ -74,8 +78,8 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param key the key of the flag
    * @param value the new value of the flag
      */
-  public void setDoubleValue(String key, Double value) {
-    setJsonValue(key, new JsonPrimitive(value));
+  public FeatureFlag setDoubleValue(String key, Double value) {
+    return setJsonValue(key, new JsonPrimitive(value));
   }
 
   /**
@@ -83,8 +87,8 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param key the key of the flag
    * @param value the new value of the flag
      */
-  public void setStringValue(String key, String value) {
-    setJsonValue(key, new JsonPrimitive(value));
+  public FeatureFlag setStringValue(String key, String value) {
+    return setJsonValue(key, new JsonPrimitive(value));
   }
 
   /**
@@ -92,7 +96,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param key the key of the flag
    * @param value the new value of the flag
      */
-  public void setJsonValue(String key, JsonElement value) {
+  public FeatureFlag setJsonValue(String key, JsonElement value) {
     FeatureFlag newFeature = new FeatureFlagBuilder(key)
             .on(false)
             .offVariation(0)
@@ -100,6 +104,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
             .version(version.incrementAndGet())
             .build();
     upsert(FEATURES, newFeature);
+    return newFeature;
   }
   
   @Override

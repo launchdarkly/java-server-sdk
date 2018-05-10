@@ -28,6 +28,8 @@ class FeatureFlag implements VersionedData {
   private VariationOrRollout fallthrough;
   private Integer offVariation; //optional
   private List<JsonElement> variations;
+  private boolean trackEvents;
+  private Long debugEventsUntilDate;
   private boolean deleted;
 
   static FeatureFlag fromJson(LDConfig config, String json) {
@@ -41,7 +43,9 @@ class FeatureFlag implements VersionedData {
   // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
   FeatureFlag() {}
 
-  FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets, List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations, boolean deleted) {
+  FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
+      List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations,
+      boolean trackEvents, Long debugEventsUntilDate, boolean deleted) {
     this.key = key;
     this.version = version;
     this.on = on;
@@ -52,11 +56,13 @@ class FeatureFlag implements VersionedData {
     this.fallthrough = fallthrough;
     this.offVariation = offVariation;
     this.variations = variations;
+    this.trackEvents = trackEvents;
+    this.debugEventsUntilDate = debugEventsUntilDate;
     this.deleted = deleted;
   }
 
-  EvalResult evaluate(LDUser user, FeatureStore featureStore) throws EvaluationException {
-    List<FeatureRequestEvent> prereqEvents = new ArrayList<>();
+  EvalResult evaluate(LDUser user, FeatureStore featureStore, EventFactory eventFactory) throws EvaluationException {
+    List<Event.FeatureRequest> prereqEvents = new ArrayList<>();
 
     if (user == null || user.getKey() == null) {
       logger.warn("Null user or null user key when evaluating flag: " + key + "; returning null");
@@ -64,45 +70,40 @@ class FeatureFlag implements VersionedData {
     }
 
     if (isOn()) {
-      JsonElement value = evaluate(user, featureStore, prereqEvents);
-      if (value != null) {
-        return new EvalResult(value, prereqEvents);
+      VariationAndValue result = evaluate(user, featureStore, prereqEvents, eventFactory);
+      if (result != null) {
+        return new EvalResult(result, prereqEvents);
       }
     }
-    JsonElement offVariation = getOffVariationValue();
-    return new EvalResult(offVariation, prereqEvents);
+    return new EvalResult(new VariationAndValue(offVariation, getOffVariationValue()), prereqEvents);
   }
 
   // Returning either a JsonElement or null indicating prereq failure/error.
-  private JsonElement evaluate(LDUser user, FeatureStore featureStore, List<FeatureRequestEvent> events) throws EvaluationException {
+  private VariationAndValue evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
+      EventFactory eventFactory) throws EvaluationException {
     boolean prereqOk = true;
     if (prerequisites != null) {
       for (Prerequisite prereq : prerequisites) {
         FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
-        JsonElement prereqEvalResult = null;
+        VariationAndValue prereqEvalResult = null;
         if (prereqFeatureFlag == null) {
           logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
           return null;
         } else if (prereqFeatureFlag.isOn()) {
-          prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events);
-          try {
-            JsonElement variation = prereqFeatureFlag.getVariation(prereq.getVariation());
-            if (prereqEvalResult == null || variation == null || !prereqEvalResult.equals(variation)) {
-              prereqOk = false;
-            }
-          } catch (EvaluationException err) {
-            logger.warn("Error evaluating prerequisites: " + err.getMessage());
+          prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
+          if (prereqEvalResult == null || prereqEvalResult.getVariation() != prereq.getVariation()) {
             prereqOk = false;
           }
         } else {
           prereqOk = false;
         }
         //We don't short circuit and also send events for each prereq.
-        events.add(new FeatureRequestEvent(prereqFeatureFlag.getKey(), user, prereqEvalResult, null, prereqFeatureFlag.getVersion(), key));
+        events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
       }
     }
     if (prereqOk) {
-      return getVariation(evaluateIndex(user, featureStore));
+      Integer index = evaluateIndex(user, featureStore);
+      return new VariationAndValue(index, getVariation(index));
     }
     return null;
   }
@@ -166,6 +167,14 @@ class FeatureFlag implements VersionedData {
     return key;
   }
 
+  public boolean isTrackEvents() {
+    return trackEvents;
+  }
+  
+  public Long getDebugEventsUntilDate() {
+    return debugEventsUntilDate;
+  }
+  
   public boolean isDeleted() {
     return deleted;
   }
@@ -200,20 +209,38 @@ class FeatureFlag implements VersionedData {
 
   Integer getOffVariation() { return offVariation; }
 
-  static class EvalResult {
+  static class VariationAndValue {
+    private final Integer variation;
     private final JsonElement value;
-    private final List<FeatureRequestEvent> prerequisiteEvents;
 
-    private EvalResult(JsonElement value, List<FeatureRequestEvent> prerequisiteEvents) {
+    VariationAndValue(Integer variation, JsonElement value) {
+      this.variation = variation;
       this.value = value;
-      this.prerequisiteEvents = prerequisiteEvents;
     }
-
+    
+    Integer getVariation() {
+      return variation;
+    }
+    
     JsonElement getValue() {
       return value;
     }
+  }
+  
+  static class EvalResult {
+    private final VariationAndValue result;
+    private final List<Event.FeatureRequest> prerequisiteEvents;
 
-    List<FeatureRequestEvent> getPrerequisiteEvents() {
+    private EvalResult(VariationAndValue result, List<Event.FeatureRequest> prerequisiteEvents) {
+      this.result = result;
+      this.prerequisiteEvents = prerequisiteEvents;
+    }
+
+    VariationAndValue getResult() {
+      return result;
+    }
+
+    List<Event.FeatureRequest> getPrerequisiteEvents() {
       return prerequisiteEvents;
     }
   }
