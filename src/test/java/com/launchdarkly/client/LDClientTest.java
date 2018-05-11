@@ -1,570 +1,236 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
-
-import junit.framework.AssertionFailedError;
-
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.net.URI;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
+import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
-import static org.junit.Assert.*;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import junit.framework.AssertionFailedError;
+
+/**
+ * See also LDClientEvaluationTest, etc. This file contains mostly tests for the startup logic.
+ */
 public class LDClientTest extends EasyMockSupport {
-  private FeatureRequestor requestor;
-  private StreamProcessor streamProcessor;
-  private PollingProcessor pollingProcessor;
+  private UpdateProcessor updateProcessor;
   private EventProcessor eventProcessor;
-  private Future initFuture;
+  private Future<Void> initFuture;
   private LDClientInterface client;
 
+  @SuppressWarnings("unchecked")
   @Before
   public void before() {
-    requestor = createStrictMock(FeatureRequestor.class);
-    streamProcessor = createStrictMock(StreamProcessor.class);
-    pollingProcessor = createStrictMock(PollingProcessor.class);
+    updateProcessor = createStrictMock(UpdateProcessor.class);
     eventProcessor = createStrictMock(EventProcessor.class);
     initFuture = createStrictMock(Future.class);
   }
 
   @Test
-  public void testOffline() throws IOException {
+  public void clientHasDefaultEventProcessorIfSendEventsIsTrue() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .offline(true)
-        .build();
-
-    client = createMockClient(config);
-    replayAll();
-
-    assertDefaultValueIsReturned();
-    assertTrue(client.initialized());
-    verifyAll();
-  }
-
-  @Test
-  public void testTestFeatureStoreSetFeatureTrue() throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(1);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
-    replayAll();
-
-    client = createMockClient(config);
-    testFeatureStore.setFeatureTrue("key");
-    assertTrue("Test flag should be true, but was not.", client.boolVariation("key", new LDUser("user"), false));
-
-    verifyAll();
-  }
-
-  @Test
-  public void testTestOfflineModeAllFlags() throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(10L)
-        .offline(true)
-        .featureStore(testFeatureStore)
-        .build();
-
-    client = new LDClient("", config);//createMockClient(config);
-    testFeatureStore.setFeatureTrue("key");
-    Map<String, JsonElement> allFlags = client.allFlags(new LDUser("user"));
-    assertNotNull("Expected non-nil response from allFlags() when offline mode is set to true", allFlags);
-    assertEquals("Didn't get expected flag count from allFlags() in offline mode", 1, allFlags.size());
-    assertTrue("Test flag should be true, but was not.", allFlags.get("key").getAsBoolean());
-  }
-
-  @Test
-  public void testTestFeatureStoreSetFalse() throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(1);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
-    replayAll();
-
-    client = createMockClient(config);
-    testFeatureStore.setFeatureFalse("key");
-    assertFalse("Test flag should be false, but was on (the default).", client.boolVariation("key", new LDUser("user"), true));
-
-    verifyAll();
-  }
-
-  @Test
-  public void testTestFeatureStoreFlagTrueThenFalse() throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
-    replayAll();
-
-    client = createMockClient(config);
-
-    testFeatureStore.setFeatureTrue("key");
-    assertTrue("Test flag should be true, but was not.", client.boolVariation("key", new LDUser("user"), false));
-
-    testFeatureStore.setFeatureFalse("key");
-    assertFalse("Test flag should be false, but was on (the default).", client.boolVariation("key", new LDUser("user"), true));
-
-    verifyAll();
-  }
-
-  @Test
-  public void testTestFeatureStoreIntegerVariation() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
-    replayAll();
-
-    client = createMockClient(config);
-
-    testFeatureStore.setIntegerValue("key", 1);
-    assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
-    testFeatureStore.setIntegerValue("key", 42);
-    assertEquals(new Integer(42), client.intVariation("key", new LDUser("user"), 1));
-    verifyAll();
-  }
-
-  @Test
-  public void testTestFeatureStoreDoubleVariation() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
-    replayAll();
-
-    client = createMockClient(config);
-
-    testFeatureStore.setDoubleValue("key", 1d);
-    assertEquals(new Double(1), client.doubleVariation("key", new LDUser("user"), 0d));
-    testFeatureStore.setDoubleValue("key", 42d);
-    assertEquals(new Double(42), client.doubleVariation("key", new LDUser("user"), 1d));
-    verifyAll();
-  }
-
-  @Test
-  public void testTestFeatureStoreStringVariation() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
-    replayAll();
-
-    client = createMockClient(config);
-
-    testFeatureStore.setStringValue("key", "apples");
-    assertEquals("apples", client.stringVariation("key", new LDUser("user"), "oranges"));
-    testFeatureStore.setStringValue("key", "bananas");
-    assertEquals("bananas", client.stringVariation("key", new LDUser("user"), "apples"));
-    verifyAll();
-  }
-
-  @Test
-  public void testTestFeatureStoreJsonVariationPrimitive() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(4);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(4);
-    replayAll();
-
-    client = createMockClient(config);
-
-    // Character
-    testFeatureStore.setJsonValue("key", new JsonPrimitive('a'));
-    assertEquals(new JsonPrimitive('a'), client.jsonVariation("key", new LDUser("user"), new JsonPrimitive('b')));
-    testFeatureStore.setJsonValue("key", new JsonPrimitive('b'));
-    assertEquals(new JsonPrimitive('b'), client.jsonVariation("key", new LDUser("user"), new JsonPrimitive('z')));
-
-    // Long
-    testFeatureStore.setJsonValue("key", new JsonPrimitive(1L));
-    assertEquals(new JsonPrimitive(1l), client.jsonVariation("key", new LDUser("user"), new JsonPrimitive(0L)));
-    testFeatureStore.setJsonValue("key", new JsonPrimitive(42L));
-    assertEquals(new JsonPrimitive(42L), client.jsonVariation("key", new LDUser("user"), new JsonPrimitive(0L)));
-    verifyAll();
-  }
-
-  @Test
-  public void testTestFeatureStoreJsonVariationArray() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(2);
-    replayAll();
-
-    client = createMockClient(config);
-
-    // JsonArray
-    JsonArray array = new JsonArray();
-    array.add("red");
-    array.add("blue");
-    array.add("green");
-    testFeatureStore.setJsonValue("key", array);
-    assertEquals(array, client.jsonVariation("key", new LDUser("user"), new JsonArray()));
-
-    JsonArray array2 = new JsonArray();
-    array2.addAll(array);
-    array2.add("yellow");
-    testFeatureStore.setJsonValue("key", array2);
-    assertEquals(array2, client.jsonVariation("key", new LDUser("user"), new JsonArray()));
-    verifyAll();
-  }
-
-  @Test
-  public void testIsFlagKnown() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(2);
-    replayAll();
-
-    client = createMockClient(config);
-
-    testFeatureStore.setIntegerValue("key", 1);
-    assertTrue("Flag is known", client.isFlagKnown("key"));
-    assertFalse("Flag is unknown", client.isFlagKnown("unKnownKey"));
-    verifyAll();
-  }
-
-  @Test
-  public void testIsFlagKnownCallBeforeInitialization() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(false).times(1);
-    replayAll();
-
-    client = createMockClient(config);
-
-    testFeatureStore.setIntegerValue("key", 1);
-    assertFalse("Flag is marked as unknown", client.isFlagKnown("key"));
-    verifyAll();
-  }
-
-  @Test
-  public void testIsFlagKnownCallBeforeInitializationButFeatureStoreIsInited() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(false).times(1);
-    replayAll();
-
-    client = createMockClient(config);
-
-    testFeatureStore.setIntegerValue("key", 1);
-    assertTrue("Flag is marked as known", client.isFlagKnown("key"));
-    verifyAll();
-  }
-
-  @Test
-  public void testFeatureMatchesUserBySegment() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-            .startWaitMillis(10L)
-            .stream(false)
-            .featureStore(testFeatureStore)
-            .build();
-
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(new Object());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).times(1);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true).times(1);
-    replayAll();
-
-    client = createMockClient(config);
-
-    Segment segment = new Segment.Builder("segment1")
-        .version(1)
-        .included(Arrays.asList("user"))
-        .build();
-    testFeatureStore.upsert(SEGMENTS, segment);
-    
-    Clause clause = new Clause(
-        "",
-        Operator.segmentMatch,
-        Arrays.asList(new JsonPrimitive("segment1")),
-        false);
-    Rule rule = new Rule(Arrays.asList(clause), 0, null);
-    FeatureFlag feature = new FeatureFlagBuilder("test-feature")
-        .version(1)
-        .rules(Arrays.asList(rule))
-        .variations(TestFeatureStore.TRUE_FALSE_VARIATIONS)
-        .on(true)
-        .fallthrough(new VariationOrRollout(1, null))
-        .build();
-    testFeatureStore.upsert(FEATURES, feature);
-    
-    assertTrue(client.boolVariation("test-feature", new LDUser("user"), false));
-
-    verifyAll();
-  }
-
-  @Test
-  public void testUseLdd() throws IOException {
-    LDConfig config = new LDConfig.Builder()
-        .useLdd(true)
-        .build();
-
-    client = createMockClient(config);
-    // Asserting 2 things here: no pollingProcessor or streamingProcessor activity
-    // and sending of event:
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
-    replayAll();
-
-    assertDefaultValueIsReturned();
-    assertTrue(client.initialized());
-    verifyAll();
-  }
-
-  @Test
-  public void testStreamingNoWait() throws IOException {
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(0L)
-        .stream(true)
-        .build();
-
-    expect(streamProcessor.start()).andReturn(initFuture);
-    expect(streamProcessor.initialized()).andReturn(false);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
-    replayAll();
-
-    client = createMockClient(config);
-    assertDefaultValueIsReturned();
-
-    verifyAll();
-  }
-
-  @Test
-  public void testStreamingWait() throws Exception {
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(10L)
-        .stream(true)
-        .build();
-
-    expect(streamProcessor.start()).andReturn(initFuture);
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    replayAll();
-
-    client = createMockClient(config);
-    verifyAll();
-  }
-
-  @Test
-  public void testPollingNoWait() throws IOException {
-    LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(0L)
         .stream(false)
+        .baseURI(URI.create("/fake"))
+        .startWaitMillis(0)
+        .sendEvents(true)
         .build();
-
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(false);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
-    replayAll();
-
-    client = createMockClient(config);
-    assertDefaultValueIsReturned();
-
-    verifyAll();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
+    }
   }
-
+  
   @Test
-  public void testPollingWait() throws Exception {
+  public void clientHasNullEventProcessorIfSendEventsIsFalse() throws IOException {
     LDConfig config = new LDConfig.Builder()
-        .startWaitMillis(10L)
         .stream(false)
-        .build();
-
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
-    expect(pollingProcessor.initialized()).andReturn(false);
-    replayAll();
-
-    client = createMockClient(config);
-    assertDefaultValueIsReturned();
-    verifyAll();
-  }
-
-  @Test
-  public void testSecureModeHash() {
-    LDConfig config = new LDConfig.Builder()
-            .offline(true)
-            .build();
-    LDClientInterface client = new LDClient("secret", config);
-    LDUser user = new LDUser.Builder("Message").build();
-    assertEquals("aa747c502a898200f9e4fa21bac68136f886a0e27aec70ba06daf2e2a5cb5597", client.secureModeHash(user));
-  }
-
-  @Test
-  public void testNoFeatureEventsAreSentWhenSendEventsIsFalse() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+        .baseURI(URI.create("/fake"))
+        .startWaitMillis(0)
         .sendEvents(false)
-        .stream(false)
         .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      assertEquals(EventProcessor.NullEventProcessor.class, client.eventProcessor.getClass());
+    }
+  }
+  
+  @Test
+  public void streamingClientHasStreamProcessor() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .stream(true)
+        .streamURI(URI.create("/fake"))
+        .startWaitMillis(0)
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      assertEquals(StreamProcessor.class, client.updateProcessor.getClass());
+    }
+  }
 
-    expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
-    expect(eventProcessor.sendEvent(anyObject(Event.class)))
-      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+  @Test
+  public void pollingClientHasPollingProcessor() throws IOException {
+    LDConfig config = new LDConfig.Builder()
+        .stream(false)
+        .baseURI(URI.create("/fake"))
+        .startWaitMillis(0)
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      assertEquals(PollingProcessor.class, client.updateProcessor.getClass());
+    }
+  }
+
+  @Test
+  public void noWaitForUpdateProcessorIfWaitMillisIsZero() throws Exception {
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWaitMillis(0L);
+
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(updateProcessor.initialized()).andReturn(false);
     replayAll();
 
     client = createMockClient(config);
-    client.boolVariation("test", new LDUser("test.key"), true);
+    assertFalse(client.initialized());
 
     verifyAll();
   }
 
   @Test
-  public void testNoIdentifyEventsAreSentWhenSendEventsIsFalse() throws Exception {
-    LDConfig config = new LDConfig.Builder()
-        .sendEvents(false)
-        .stream(false)
-        .build();
+  public void willWaitForUpdateProcessorIfWaitMillisIsNonZero() throws Exception {
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWaitMillis(10L);
 
-    expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
-    expect(eventProcessor.sendEvent(anyObject(Event.class)))
-      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(null);
+    expect(updateProcessor.initialized()).andReturn(false);
     replayAll();
 
     client = createMockClient(config);
-    client.identify(new LDUser("test.key"));
+    assertFalse(client.initialized());
+
+    verifyAll();
+  }
+
+  @Test
+  public void updateProcessorCanTimeOut() throws Exception {
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWaitMillis(10L);
+
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
+    expect(updateProcessor.initialized()).andReturn(false);
+    replayAll();
+
+    client = createMockClient(config);
+    assertFalse(client.initialized());
 
     verifyAll();
   }
   
   @Test
-  public void testNoCustomEventsAreSentWhenSendEventsIsFalse() throws Exception {
-    LDConfig config = new LDConfig.Builder()
-        .sendEvents(false)
-        .stream(false)
-        .build();
+  public void clientCatchesRuntimeExceptionFromUpdateProcessor() throws Exception {
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWaitMillis(10L);
 
-    expect(initFuture.get(5000L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    expect(pollingProcessor.start()).andReturn(initFuture);
-    expect(pollingProcessor.initialized()).andReturn(true).anyTimes();
-    expect(eventProcessor.sendEvent(anyObject(Event.class)))
-      .andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new RuntimeException());
+    expect(updateProcessor.initialized()).andReturn(false);
     replayAll();
 
     client = createMockClient(config);
-    client.track("test", new LDUser("test.key"));
+    assertFalse(client.initialized());
 
+    verifyAll();
+  }
+
+  @Test
+  public void isFlagKnownReturnsTrueForExistingFlag() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
+    LDConfig.Builder config = new LDConfig.Builder()
+            .startWaitMillis(0)
+            .featureStoreFactory(specificFeatureStore(testFeatureStore));
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(updateProcessor.initialized()).andReturn(true).times(1);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setIntegerValue("key", 1);
+    assertTrue(client.isFlagKnown("key"));
+    verifyAll();
+  }
+
+  @Test
+  public void isFlagKnownReturnsFalseForUnknownFlag() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
+    LDConfig.Builder config = new LDConfig.Builder()
+            .startWaitMillis(0)
+            .featureStoreFactory(specificFeatureStore(testFeatureStore));
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(updateProcessor.initialized()).andReturn(true).times(1);
+    replayAll();
+
+    client = createMockClient(config);
+
+    assertFalse(client.isFlagKnown("key"));
+    verifyAll();
+  }
+
+  @Test
+  public void isFlagKnownReturnsFalseIfStoreAndClientAreNotInitialized() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(false);
+    LDConfig.Builder config = new LDConfig.Builder()
+            .startWaitMillis(0)
+            .featureStoreFactory(specificFeatureStore(testFeatureStore));
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(updateProcessor.initialized()).andReturn(false).times(1);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setIntegerValue("key", 1);
+    assertFalse(client.isFlagKnown("key"));
+    verifyAll();
+  }
+
+  @Test
+  public void isFlagKnownUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
+    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    testFeatureStore.setInitialized(true);
+    LDConfig.Builder config = new LDConfig.Builder()
+            .startWaitMillis(0)
+            .featureStoreFactory(specificFeatureStore(testFeatureStore));
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(updateProcessor.initialized()).andReturn(false).times(1);
+    replayAll();
+
+    client = createMockClient(config);
+
+    testFeatureStore.setIntegerValue("key", 1);
+    assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
   
   @Test
-  public void testEvaluationCanUseFeatureStoreIfInitializationTimesOut() throws IOException {
+  public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
     TestFeatureStore testFeatureStore = new TestFeatureStore();
     testFeatureStore.setInitialized(true);
-    LDConfig config = new LDConfig.Builder()
-        .featureStore(testFeatureStore)
-        .startWaitMillis(0L)
-        .stream(true)
-        .build();
-
-    expect(streamProcessor.start()).andReturn(initFuture);
-    expect(streamProcessor.initialized()).andReturn(false);
-    expect(eventProcessor.sendEvent(anyObject(Event.class))).andReturn(true);
+    LDConfig.Builder config = new LDConfig.Builder()
+        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .startWaitMillis(0L);
+    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(updateProcessor.initialized()).andReturn(false);
+    expectEventsSent(1);
     replayAll();
 
     client = createMockClient(config);
@@ -575,32 +241,18 @@ public class LDClientTest extends EasyMockSupport {
     verifyAll();
   }
 
-  private void assertDefaultValueIsReturned() {
-    boolean result = client.boolVariation("test", new LDUser("test.key"), true);
-    assertEquals(true, result);
+  private void expectEventsSent(int count) {
+    eventProcessor.sendEvent(anyObject(Event.class));
+    if (count > 0) {
+      expectLastCall().times(count);
+    } else {
+      expectLastCall().andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
+    }
   }
-
-  private LDClientInterface createMockClient(LDConfig config) {
-    return new LDClient("SDK_KEY", config) {
-      @Override
-      protected FeatureRequestor createFeatureRequestor(String sdkKey, LDConfig config) {
-        return requestor;
-      }
-
-      @Override
-      protected StreamProcessor createStreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor) {
-        return streamProcessor;
-      }
-
-      @Override
-      protected PollingProcessor createPollingProcessor(LDConfig config) {
-        return pollingProcessor;
-      }
-
-      @Override
-      protected EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-        return eventProcessor;
-      }
-    };
+  
+  private LDClientInterface createMockClient(LDConfig.Builder config) {
+    config.updateProcessorFactory(TestUtil.specificUpdateProcessor(updateProcessor));
+    config.eventProcessorFactory(TestUtil.specificEventProcessor(eventProcessor));
+    return new LDClient("SDK_KEY", config.build());
   }
 }

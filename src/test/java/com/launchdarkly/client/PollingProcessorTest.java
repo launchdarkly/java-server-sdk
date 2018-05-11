@@ -18,7 +18,7 @@ public class PollingProcessorTest extends EasyMockSupport {
   @Test
   public void testConnectionOk() throws Exception {
     FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
-    PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor);
+    PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore());
 
     expect(requestor.getAllData())
         .andReturn(new FeatureRequestor.AllData(new HashMap<String, FeatureFlag>(), new HashMap<String, Segment>()))
@@ -26,7 +26,7 @@ public class PollingProcessorTest extends EasyMockSupport {
     replayAll();
 
     Future<Void> initFuture = pollingProcessor.start();
-    initFuture.get(100, TimeUnit.MILLISECONDS);
+    initFuture.get(1000, TimeUnit.MILLISECONDS);
     assertTrue(pollingProcessor.initialized());
     pollingProcessor.close();
     verifyAll();
@@ -35,7 +35,7 @@ public class PollingProcessorTest extends EasyMockSupport {
   @Test
   public void testConnectionProblem() throws Exception {
     FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
-    PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor);
+    PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore());
 
     expect(requestor.getAllData())
         .andThrow(new IOException("This exception is part of a test and yes you should be seeing it."))
@@ -44,7 +44,7 @@ public class PollingProcessorTest extends EasyMockSupport {
 
     Future<Void> initFuture = pollingProcessor.start();
     try {
-      initFuture.get(100L, TimeUnit.MILLISECONDS);
+      initFuture.get(200L, TimeUnit.MILLISECONDS);
       fail("Expected Timeout, instead initFuture.get() returned.");
     } catch (TimeoutException ignored) {
     }

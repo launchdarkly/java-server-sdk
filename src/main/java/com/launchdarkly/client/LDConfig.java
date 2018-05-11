@@ -41,7 +41,8 @@ public final class LDConfig {
   private static final long MIN_POLLING_INTERVAL_MILLIS = 30000L;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
   private static final int DEFAULT_SAMPLING_INTERVAL = 0;
-
+  private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
+  private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
   private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -58,7 +59,10 @@ public final class LDConfig {
   final Authenticator proxyAuthenticator;
   final OkHttpClient httpClient;
   final boolean stream;
-  final FeatureStore featureStore;
+  final FeatureStore deprecatedFeatureStore;
+  final FeatureStoreFactory featureStoreFactory;
+  final EventProcessorFactory eventProcessorFactory;
+  final UpdateProcessorFactory updateProcessorFactory;
   final boolean useLdd;
   final boolean offline;
   final boolean allAttributesPrivate;
@@ -68,7 +72,10 @@ public final class LDConfig {
   final long startWaitMillis;
   final int samplingInterval;
   final long reconnectTimeMs;
-
+  final int userKeysCapacity;
+  final int userKeysFlushInterval;
+  final boolean inlineUsersInEvents;
+  
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
@@ -80,7 +87,10 @@ public final class LDConfig {
     this.proxyAuthenticator = builder.proxyAuthenticator();
     this.streamURI = builder.streamURI;
     this.stream = builder.stream;
-    this.featureStore = builder.featureStore;
+    this.deprecatedFeatureStore = builder.featureStore;
+    this.featureStoreFactory = builder.featureStoreFactory;
+    this.eventProcessorFactory = builder.eventProcessorFactory;
+    this.updateProcessorFactory = builder.updateProcessorFactory;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
     this.allAttributesPrivate = builder.allAttributesPrivate;
@@ -94,9 +104,10 @@ public final class LDConfig {
     this.startWaitMillis = builder.startWaitMillis;
     this.samplingInterval = builder.samplingInterval;
     this.reconnectTimeMs = builder.reconnectTimeMillis;
-
-
-
+    this.userKeysCapacity = builder.userKeysCapacity;
+    this.userKeysFlushInterval = builder.userKeysFlushInterval;
+    this.inlineUsersInEvents = builder.inlineUsersInEvents;
+    
     OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
         .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
         .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
@@ -127,12 +138,6 @@ public final class LDConfig {
         .build();
   }
 
-  Request.Builder getRequestBuilder(String sdkKey) {
-    return new Request.Builder()
-        .addHeader("Authorization", sdkKey)
-        .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
-  }
-
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
    * calls can be chained, enabling the following pattern:
@@ -161,12 +166,18 @@ public final class LDConfig {
     private boolean allAttributesPrivate = false;
     private boolean sendEvents = true;
     private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
-    private FeatureStore featureStore = new InMemoryFeatureStore();
+    private FeatureStore featureStore = null;
+    private FeatureStoreFactory featureStoreFactory = Components.inMemoryFeatureStore();
+    private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
+    private UpdateProcessorFactory updateProcessorFactory = Components.defaultUpdateProcessor();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
     private Set<String> privateAttrNames = new HashSet<>();
-
+    private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
+    private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
+    private boolean inlineUsersInEvents = false;
+    
     /**
      * Creates a builder with all configuration parameters set to the default
      */
@@ -212,12 +223,53 @@ public final class LDConfig {
      * you may use {@link RedisFeatureStore} or a custom implementation.
      * @param store the feature store implementation
      * @return the builder
+     * @deprecated Please use {@link #featureStoreFactory}.
      */
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
       return this;
     }
 
+    /**
+     * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
+     * related data received from LaunchDarkly, using a factory object. The default is
+     * {@link Components#inMemoryFeatureStore()}, but you may use {@link Components#redisFeatureStore()}
+     * or a custom implementation.
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.0.0
+     */
+    public Builder featureStoreFactory(FeatureStoreFactory factory) {
+      this.featureStoreFactory = factory;
+      return this;
+    }
+    
+    /**
+     * Sets the implementation of {@link EventProcessor} to be used for processing analytics events,
+     * using a factory object. The default is {@link Components#defaultEventProcessor()}, but
+     * you may choose to use a custom implementation (for instance, a test fixture).
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.0.0
+     */
+    public Builder eventProcessorFactory(EventProcessorFactory factory) {
+      this.eventProcessorFactory = factory;
+      return this;
+    }
+    
+    /**
+     * Sets the implementation of {@link UpdateProcessor} to be used for receiving feature flag data,
+     * using a factory object. The default is {@link Components#defaultUpdateProcessor()}, but
+     * you may choose to use a custom implementation (for instance, a test fixture).
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.0.0
+     */
+    public Builder updateProcessorFactory(UpdateProcessorFactory factory) {
+      this.updateProcessorFactory = factory;
+      return this;
+    }
+    
     /**
      * Set whether streaming mode should be enabled. By default, streaming is enabled. It should only be
      * disabled on the advice of LaunchDarkly support.
@@ -469,6 +521,42 @@ public final class LDConfig {
       return this;
     }
 
+    /**
+     * Sets the number of user keys that the event processor can remember at any one time, so that
+     * duplicate user details will not be sent in analytics events.
+     * 
+     * @param capacity the maximum number of user keys to remember
+     * @return the builder
+     */
+    public Builder userKeysCapacity(int capacity) {
+      this.userKeysCapacity = capacity;
+      return this;
+    }
+
+    /**
+     * Sets the interval in seconds at which the event processor will reset its set of known user keys. The
+     * default value is five minutes.
+     *
+     * @param flushInterval the flush interval in seconds
+     * @return the builder
+     */
+    public Builder userKeysFlushInterval(int flushInterval) {
+      this.flushIntervalSeconds = flushInterval;
+      return this;
+    }
+
+    /**
+     * Sets whether to include full user details in every analytics event. The default is false (events will
+     * only include the user key, except for one "index" event that provides the full details for the user).
+     * 
+     * @param inlineUsersInEvents true if you want full user details in each event
+     * @return the builder
+     */
+    public Builder inlineUsersInEvents(boolean inlineUsersInEvents) {
+      this.inlineUsersInEvents = inlineUsersInEvents;
+      return this;
+    }
+    
     // returns null if none of the proxy bits were configured. Minimum required part: port.
     Proxy proxy() {
       if (this.proxyPort == -1) {

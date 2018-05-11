@@ -1,11 +1,8 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -41,9 +38,9 @@ public class FeatureFlagTest {
         .fallthrough(fallthroughVariation(0))
         .variations(js("fall"), js("off"), js("on"))
         .build();
-    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore);
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("off"), result.getValue());
+    assertEquals(js("off"), result.getResult().getValue());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
 
@@ -54,9 +51,9 @@ public class FeatureFlagTest {
         .fallthrough(fallthroughVariation(0))
         .variations(js("fall"), js("off"), js("on"))
         .build();
-    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore);
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertNull(result.getValue());
+    assertNull(result.getResult().getValue());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -69,9 +66,9 @@ public class FeatureFlagTest {
         .offVariation(1)
         .variations(js("fall"), js("off"), js("on"))
         .build();
-    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore);
+    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("off"), result.getValue());
+    assertEquals(js("off"), result.getResult().getValue());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -92,14 +89,13 @@ public class FeatureFlagTest {
         .version(2)
         .build();
     featureStore.upsert(FEATURES, f1);        
-    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore);
+    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("off"), result.getValue());
+    assertEquals(js("off"), result.getResult().getValue());
     
     assertEquals(1, result.getPrerequisiteEvents().size());
-    FeatureRequestEvent event = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
     assertEquals(f1.getKey(), event.key);
-    assertEquals("feature", event.kind);
     assertEquals(js("nogo"), event.value);
     assertEquals(f1.getVersion(), event.version.intValue());
     assertEquals(f0.getKey(), event.prereqOf);
@@ -122,14 +118,13 @@ public class FeatureFlagTest {
         .version(2)
         .build();
     featureStore.upsert(FEATURES, f1);        
-    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore);
+    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("fall"), result.getValue());
+    assertEquals(js("fall"), result.getResult().getValue());
     assertEquals(1, result.getPrerequisiteEvents().size());
     
-    FeatureRequestEvent event = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
     assertEquals(f1.getKey(), event.key);
-    assertEquals("feature", event.kind);
     assertEquals(js("go"), event.value);
     assertEquals(f1.getVersion(), event.version.intValue());
     assertEquals(f0.getKey(), event.prereqOf);
@@ -160,21 +155,19 @@ public class FeatureFlagTest {
         .build();
     featureStore.upsert(FEATURES, f1);        
     featureStore.upsert(FEATURES, f2);        
-    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore);
+    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("fall"), result.getValue());    
+    assertEquals(js("fall"), result.getResult().getValue());    
     assertEquals(2, result.getPrerequisiteEvents().size());
     
-    FeatureRequestEvent event0 = result.getPrerequisiteEvents().get(0);
+    Event.FeatureRequest event0 = result.getPrerequisiteEvents().get(0);
     assertEquals(f2.getKey(), event0.key);
-    assertEquals("feature", event0.kind);
     assertEquals(js("go"), event0.value);
     assertEquals(f2.getVersion(), event0.version.intValue());
     assertEquals(f1.getKey(), event0.prereqOf);
 
-    FeatureRequestEvent event1 = result.getPrerequisiteEvents().get(1);
+    Event.FeatureRequest event1 = result.getPrerequisiteEvents().get(1);
     assertEquals(f1.getKey(), event1.key);
-    assertEquals("feature", event1.kind);
     assertEquals(js("go"), event1.value);
     assertEquals(f1.getVersion(), event1.version.intValue());
     assertEquals(f0.getKey(), event1.prereqOf);
@@ -190,9 +183,9 @@ public class FeatureFlagTest {
         .variations(js("fall"), js("off"), js("on"))
         .build();
     LDUser user = new LDUser.Builder("userkey").build();
-    FeatureFlag.EvalResult result = f.evaluate(user, featureStore);
+    FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("on"), result.getValue());
+    assertEquals(js("on"), result.getResult().getValue());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -208,9 +201,9 @@ public class FeatureFlagTest {
         .variations(js("fall"), js("off"), js("on"))
         .build();
     LDUser user = new LDUser.Builder("userkey").build();
-    FeatureFlag.EvalResult result = f.evaluate(user, featureStore);
+    FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("on"), result.getValue());
+    assertEquals(js("on"), result.getResult().getValue());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -220,7 +213,7 @@ public class FeatureFlagTest {
     FeatureFlag f = booleanFlagWithClauses(clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(true), f.evaluate(user, featureStore).getValue());
+    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test
@@ -229,7 +222,7 @@ public class FeatureFlagTest {
     FeatureFlag f = booleanFlagWithClauses(clause);
     LDUser user = new LDUser.Builder("key").custom("legs", 4).build();
     
-    assertEquals(jbool(true), f.evaluate(user, featureStore).getValue());
+    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test
@@ -238,7 +231,7 @@ public class FeatureFlagTest {
     FeatureFlag f = booleanFlagWithClauses(clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(false), f.evaluate(user, featureStore).getValue());
+    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test
@@ -247,7 +240,7 @@ public class FeatureFlagTest {
     FeatureFlag f = booleanFlagWithClauses(clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(false), f.evaluate(user, featureStore).getValue());
+    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test
@@ -271,7 +264,7 @@ public class FeatureFlagTest {
     FeatureFlag f = booleanFlagWithClauses(badClause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(false), f.evaluate(user, featureStore).getValue());
+    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test
@@ -289,7 +282,7 @@ public class FeatureFlagTest {
         .build();
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(true), f.evaluate(user, featureStore).getValue());
+    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
   }
   
   @Test
@@ -303,8 +296,8 @@ public class FeatureFlagTest {
     FeatureFlag flag = segmentMatchBooleanFlag("segkey");
     LDUser user = new LDUser.Builder("foo").build();
     
-    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
-    assertEquals(jbool(true), result.getValue());
+    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore, EventFactory.DEFAULT);
+    assertEquals(jbool(true), result.getResult().getValue());
   }
 
   @Test
@@ -312,8 +305,8 @@ public class FeatureFlagTest {
     FeatureFlag flag = segmentMatchBooleanFlag("segkey");
     LDUser user = new LDUser.Builder("foo").build();
     
-    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore);
-    assertEquals(jbool(false), result.getValue());
+    FeatureFlag.EvalResult result = flag.evaluate(user, featureStore, EventFactory.DEFAULT);
+    assertEquals(jbool(false), result.getResult().getValue());
   }
  
   private FeatureFlag segmentMatchBooleanFlag(String segmentKey) {

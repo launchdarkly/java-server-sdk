@@ -182,6 +182,11 @@ public class LDUser {
 
     @Override
     public void write(JsonWriter out, LDUser user) throws IOException {
+      if (user == null) {
+        out.value((String)null);
+        return;
+      }
+      
       // Collect the private attribute names
       Set<String> privateAttributeNames = new HashSet<String>(config.privateAttrNames);
 
