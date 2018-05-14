@@ -1,7 +1,10 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
 
@@ -10,6 +13,10 @@ import org.junit.Test;
 import java.lang.reflect.Type;
 import java.util.Map;
 
+import static com.launchdarkly.client.TestUtil.jbool;
+import static com.launchdarkly.client.TestUtil.jdouble;
+import static com.launchdarkly.client.TestUtil.jint;
+import static com.launchdarkly.client.TestUtil.js;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -232,5 +239,45 @@ public class LDUserTest {
         .name("Jane")
         .build();
     assertNull(user.getValueForEvaluation("height"));
+  }
+  
+  @Test
+  public void canAddCustomAttrWithListOfStrings() {
+    LDUser user = new LDUser.Builder("key")
+        .customString("foo", ImmutableList.of("a", "b"))
+        .build();
+    JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", js("a"), js("b"));
+    JsonObject jo = LDConfig.DEFAULT.gson.toJsonTree(user).getAsJsonObject();
+    assertEquals(expectedAttr, jo.get("custom"));
+  }
+  
+  @Test
+  public void canAddCustomAttrWithListOfNumbers() {
+    LDUser user = new LDUser.Builder("key")
+        .customNumber("foo", ImmutableList.<Number>of(new Integer(1), new Double(2)))
+        .build();
+    JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", jint(1), jdouble(2));
+    JsonObject jo = LDConfig.DEFAULT.gson.toJsonTree(user).getAsJsonObject();
+    assertEquals(expectedAttr, jo.get("custom"));
+  }
+
+  @Test
+  public void canAddCustomAttrWithListOfMixedValues() {
+    LDUser user = new LDUser.Builder("key")
+        .customValues("foo", ImmutableList.<JsonElement>of(js("a"), jint(1), jbool(true)))
+        .build();
+    JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", js("a"), jint(1), jbool(true));
+    JsonObject jo = LDConfig.DEFAULT.gson.toJsonTree(user).getAsJsonObject();
+    assertEquals(expectedAttr, jo.get("custom"));
+  }
+  
+  private JsonElement makeCustomAttrWithListOfValues(String name, JsonElement... values) {
+    JsonObject ret = new JsonObject();
+    JsonArray a = new JsonArray();
+    for (JsonElement v: values) {
+      a.add(v);
+    }
+    ret.add(name, a);
+    return ret;
   }
 }
