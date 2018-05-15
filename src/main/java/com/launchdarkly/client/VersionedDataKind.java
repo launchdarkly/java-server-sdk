@@ -1,7 +1,14 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * The descriptor for a specific kind of {@link VersionedData} objects that may exist in a {@link FeatureStore}.
+ * You will not need to refer to this type unless you are directly manipulating a {@code FeatureStore}
+ * or writing your own {@code FeatureStore} implementation. If you are implementing a custom store, for
+ * maximum forward compatibility you should only refer to {@link VersionedData}, {@link VersionedDataKind},
+ * and {@link VersionedDataKind#ALL}, and avoid any dependencies on specific type descriptor instances
+ * or any specific fields of the types they describe.
  * @since 3.0.0
  */
 public abstract class VersionedDataKind<T extends VersionedData> {
@@ -41,7 +48,9 @@ public abstract class VersionedDataKind<T extends VersionedData> {
     return path.startsWith(getStreamApiPath()) ? path.substring(getStreamApiPath().length()) : null;
   }
   
-  
+  /**
+   * The {@link VersionedDataKind} instance that describes feature flag data.
+   */
   public static VersionedDataKind<FeatureFlag> FEATURES = new VersionedDataKind<FeatureFlag>() {
     
     public String getNamespace() {
@@ -61,6 +70,9 @@ public abstract class VersionedDataKind<T extends VersionedData> {
     }
   };
   
+  /**
+   * The {@link VersionedDataKind} instance that describes user segment data.
+   */
   public static VersionedDataKind<Segment> SEGMENTS = new VersionedDataKind<Segment>() {
     
     public String getNamespace() {
@@ -79,4 +91,10 @@ public abstract class VersionedDataKind<T extends VersionedData> {
       return new Segment.Builder(key).deleted(true).version(version).build();
     }
   };
+  
+  /**
+   * A list of all existing instances of {@link VersionedDataKind}.
+   * @since 4.1.0
+   */
+  public static Iterable<VersionedDataKind<?>> ALL = ImmutableList.of(FEATURES, SEGMENTS);
 }
