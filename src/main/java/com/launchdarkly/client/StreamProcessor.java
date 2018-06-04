@@ -173,7 +173,7 @@ class StreamProcessor implements UpdateProcessor {
   @VisibleForTesting
   protected EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
                                           Headers headers) {
-    EventSource.Builder builder = new EventSource.Builder(handler, URI.create(config.streamURI.toASCIIString() + "/all"))
+    EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
         .connectionErrorHandler(errorHandler)
         .headers(headers)
         .reconnectTimeMs(config.reconnectTimeMs)
