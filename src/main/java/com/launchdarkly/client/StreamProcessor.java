@@ -1,17 +1,5 @@
 package com.launchdarkly.client;
 
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
-
-import java.io.IOException;
-import java.net.URI;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -21,9 +9,20 @@ import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
+
 import okhttp3.Headers;
 
-class StreamProcessor implements UpdateProcessor {
+final class StreamProcessor implements UpdateProcessor {
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
@@ -36,15 +35,21 @@ class StreamProcessor implements UpdateProcessor {
   private final LDConfig config;
   private final String sdkKey;
   private final FeatureRequestor requestor;
+  private final EventSourceCreator eventSourceCreator;
   private volatile EventSource es;
-  private AtomicBoolean initialized = new AtomicBoolean(false);
+  private final AtomicBoolean initialized = new AtomicBoolean(false);
 
-
-  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore) {
+  public static interface EventSourceCreator {
+    EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
+  }
+  
+  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore,
+      EventSourceCreator eventSourceCreator) {
     this.store = featureStore;
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = requestor;
+    this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
   }
 
   @Override
@@ -162,36 +167,12 @@ class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    es = createEventSource(handler,
+    es = eventSourceCreator.createEventSource(handler,
         URI.create(config.streamURI.toASCIIString() + "/all"),
         connectionErrorHandler,
         headers);
     es.start();
     return initFuture;
-  }
-  
-  @VisibleForTesting
-  protected EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
-                                          Headers headers) {
-    EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
-        .connectionErrorHandler(errorHandler)
-        .headers(headers)
-        .reconnectTimeMs(config.reconnectTimeMs)
-        .connectTimeoutMs(config.connectTimeoutMillis)
-        .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS);
-    // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
-    // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
-    // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
-    // more than the expected interval between heartbeat signals.
-
-    if (config.proxy != null) {
-      builder.proxy(config.proxy);
-      if (config.proxyAuthenticator != null) {
-        builder.proxyAuthenticator(config.proxyAuthenticator);
-      }
-    }
-
-    return builder.build();
   }
   
   @Override
@@ -233,6 +214,30 @@ class StreamProcessor implements UpdateProcessor {
 
     public DeleteData() {
 
+    }
+  }
+  
+  private class DefaultEventSourceCreator implements EventSourceCreator {
+    public EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
+      EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
+          .connectionErrorHandler(errorHandler)
+          .headers(headers)
+          .reconnectTimeMs(config.reconnectTimeMs)
+          .connectTimeoutMs(config.connectTimeoutMillis)
+          .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS);
+      // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
+      // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
+      // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
+      // more than the expected interval between heartbeat signals.
+
+      if (config.proxy != null) {
+        builder.proxy(config.proxy);
+        if (config.proxyAuthenticator != null) {
+          builder.proxyAuthenticator(config.proxyAuthenticator);
+        }
+      }
+
+      return builder.build();
     }
   }
 }

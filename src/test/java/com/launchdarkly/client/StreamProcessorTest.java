@@ -297,18 +297,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config) {
-    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore) {
-      @Override
-      protected EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
-                                              Headers headers) {
-        
-        StreamProcessorTest.this.eventHandler = handler;
-        StreamProcessorTest.this.actualStreamUri = streamUri;
-        StreamProcessorTest.this.errorHandler = errorHandler;
-        StreamProcessorTest.this.headers = headers;
-        return mockEventSource;
-      }
-    };
+    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore, new StubEventSourceCreator());
   }
   
   private String featureJson(String key, int version) {
@@ -335,5 +324,16 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   private void assertSegmentInStore(Segment segment) {
     assertEquals(segment.getVersion(), featureStore.get(SEGMENTS, segment.getKey()).getVersion());
+  }
+  
+  private class StubEventSourceCreator implements StreamProcessor.EventSourceCreator {
+    public EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
+        Headers headers) {  
+      StreamProcessorTest.this.eventHandler = handler;
+      StreamProcessorTest.this.actualStreamUri = streamUri;
+      StreamProcessorTest.this.errorHandler = errorHandler;
+      StreamProcessorTest.this.headers = headers;
+      return mockEventSource;
+    }
   }
 }
