@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -23,6 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import okhttp3.Headers;
 
@@ -296,6 +299,24 @@ public class StreamProcessorTest extends EasyMockSupport {
     assertEquals(ConnectionErrorHandler.Action.SHUTDOWN, action);
   }
 
+  @Test
+  public void processorSignalsImmediateFailureAfter401Error() throws Exception {
+    UnsuccessfulResponseException e = new UnsuccessfulResponseException(401);
+    long startTime = System.currentTimeMillis();
+    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    Future<Void> initFuture = sp.start();
+    
+    errorHandler.onConnectionError(e);
+    try {
+      initFuture.get(10, TimeUnit.SECONDS);
+    } catch (TimeoutException ignored) {
+      fail("Should not have timed out");
+    }
+    assertTrue((System.currentTimeMillis() - startTime) < 9000);
+    assertTrue(initFuture.isDone());
+    assertFalse(sp.initialized());
+  }
+  
   private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config) {
     return new StreamProcessor(sdkKey, config, mockRequestor, featureStore, new StubEventSourceCreator());
   }

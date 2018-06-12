@@ -53,4 +53,28 @@ public class PollingProcessorTest extends EasyMockSupport {
     pollingProcessor.close();
     verifyAll();
   }
+  
+  @Test
+  public void signalsImmediateFailureOn401Error() throws Exception {
+    FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
+    PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore());
+
+    expect(requestor.getAllData())
+        .andThrow(new FeatureRequestor.InvalidSDKKeyException())
+        .once();
+    replayAll();
+
+    long startTime = System.currentTimeMillis();
+    Future<Void> initFuture = pollingProcessor.start();
+    try {
+      initFuture.get(10, TimeUnit.SECONDS);
+    } catch (TimeoutException ignored) {
+      fail("Should not have timed out");
+    }
+    assertTrue((System.currentTimeMillis() - startTime) < 9000);
+    assertTrue(initFuture.isDone());
+    assertFalse(pollingProcessor.initialized());
+    pollingProcessor.close();
+    verifyAll();
+  }
 }
