@@ -68,6 +68,7 @@ final class StreamProcessor implements UpdateProcessor {
         if ((t instanceof UnsuccessfulResponseException) &&
             ((UnsuccessfulResponseException) t).getCode() == 401) {
           logger.error("Received 401 error, no further streaming connection will be made since SDK key is invalid");
+          initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
           return Action.SHUTDOWN;
         }
         return Action.PROCEED;

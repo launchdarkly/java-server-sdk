@@ -97,6 +97,9 @@ public final class LDClient implements LDClientInterface {
       } catch (Exception e) {
         logger.error("Exception encountered waiting for LaunchDarkly client initialization", e);
       }
+      if (!updateProcessor.initialized()) {
+        logger.warn("LaunchDarkly client was not successfully initialized");
+      }
     }
   }
 
