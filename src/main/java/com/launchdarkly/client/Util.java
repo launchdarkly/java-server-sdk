@@ -35,7 +35,7 @@ class Util {
   
   /**
    * Tests whether an HTTP error status represents a condition that might resolve on its own if we retry.
-   * @param statusCode
+   * @param statusCode the HTTP status
    * @return true if retrying makes sense; false if it should be considered a permanent failure
    */
   static boolean isHttpErrorRecoverable(int statusCode) {
@@ -51,7 +51,14 @@ class Util {
     return true;
   }
   
-  static String httpErrorMessage(int statusCode, String context) {
+  /**
+   * Builds an appropriate log message for an HTTP error status.
+   * @param statusCode the HTTP status
+   * @param context description of what we were trying to do
+   * @param recoverableMessage description of our behavior if the error is recoverable; typically "will retry"
+   * @return a message string
+   */
+  static String httpErrorMessage(int statusCode, String context, String recoverableMessage) {
     StringBuilder sb = new StringBuilder();
     sb.append("Received HTTP error ").append(statusCode);
     switch (statusCode) {
@@ -59,8 +66,8 @@ class Util {
     case 403:
       sb.append(" (invalid SDK key)");
     }
-    sb.append(" for ").append(context);
-    sb.append(isHttpErrorRecoverable(statusCode) ? " - will retry " : " - will not retry");
+    sb.append(" for ").append(context).append(" - ");
+    sb.append(isHttpErrorRecoverable(statusCode) ? recoverableMessage : "giving up permanently");
     return sb.toString();
   }
 }

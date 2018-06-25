@@ -390,7 +390,10 @@ final class DefaultEventProcessor implements EventProcessor {
       }
       if (!isHttpErrorRecoverable(response.code())) {
         disabled.set(true);
-        logger.error(httpErrorMessage(response.code(), "posting events"));
+        logger.error(httpErrorMessage(response.code(), "posting events", "some events were dropped"));
+        // It's "some events were dropped" because we're not going to retry *this* request any more times -
+        // we only get to this point if we have used up our retry attempts. So the last batch of events was
+        // lost, even though we will still try to post *other* events in the future.
       }
     }
   }

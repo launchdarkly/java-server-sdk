@@ -64,7 +64,7 @@ class PollingProcessor implements UpdateProcessor {
             initFuture.set(null);
           }
         } catch (HttpErrorException e) {
-          logger.error(httpErrorMessage(e.getStatus(), "polling request"));
+          logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
           if (!isHttpErrorRecoverable(e.getStatus())) {
             scheduler.shutdown();
             initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited

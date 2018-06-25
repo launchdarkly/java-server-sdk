@@ -69,7 +69,7 @@ final class StreamProcessor implements UpdateProcessor {
       public Action onConnectionError(Throwable t) {
         if (t instanceof UnsuccessfulResponseException) {
           int status = ((UnsuccessfulResponseException)t).getCode();
-          logger.error(httpErrorMessage(status, "streaming connection"));
+          logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
           if (!isHttpErrorRecoverable(status)) {
             initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
             return Action.SHUTDOWN;
