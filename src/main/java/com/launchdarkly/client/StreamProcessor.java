@@ -17,6 +17,8 @@ import java.net.URI;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.launchdarkly.client.Util.httpErrorMessage;
+import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
@@ -65,11 +67,13 @@ final class StreamProcessor implements UpdateProcessor {
     ConnectionErrorHandler connectionErrorHandler = new ConnectionErrorHandler() {
       @Override
       public Action onConnectionError(Throwable t) {
-        if ((t instanceof UnsuccessfulResponseException) &&
-            ((UnsuccessfulResponseException) t).getCode() == 401) {
-          logger.error("Received 401 error, no further streaming connection will be made since SDK key is invalid");
-          initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
-          return Action.SHUTDOWN;
+        if (t instanceof UnsuccessfulResponseException) {
+          int status = ((UnsuccessfulResponseException)t).getCode();
+          logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
+          if (!isHttpErrorRecoverable(status)) {
+            initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
+            return Action.SHUTDOWN;
+          }
         }
         return Action.PROCEED;
       }
