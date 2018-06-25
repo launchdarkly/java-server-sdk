@@ -8,7 +8,6 @@ import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.DefaultEventProcessor.EventDispatcher;
 
 import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -391,13 +390,43 @@ public class DefaultEventProcessorTest {
     
     assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
   }
+
+  @Test
+  public void http401ErrorIsUnrecoverable() throws Exception {
+    testUnrecoverableHttpError(401);
+  }
+
+  @Test
+  public void http403ErrorIsUnrecoverable() throws Exception {
+    testUnrecoverableHttpError(403);
+  }
+
+  // Cannot test our retry logic for 408, because OkHttp insists on doing its own retry on 408 so that
+  // we never actually see that response status.
+//  @Test
+//  public void http408ErrorIsRecoverable() throws Exception {
+//    testRecoverableHttpError(408);
+//  }
+
+  @Test
+  public void http429ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(429);
+  }
+
+  @Test
+  public void http500ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(500);
+  }
   
   @Test
-  public void noMorePayloadsAreSentAfter401Error() throws Exception {
+  public void flushIsRetriedOnceAfter5xxError() throws Exception {
+  }
+  
+  private void testUnrecoverableHttpError(int status) throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
-    flushAndGetEvents(new MockResponse().setResponseCode(401));
+    flushAndGetEvents(new MockResponse().setResponseCode(status));
     
     ep.sendEvent(e);
     ep.flush();
@@ -405,15 +434,16 @@ public class DefaultEventProcessorTest {
     RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
     assertThat(req, nullValue(RecordedRequest.class));
   }
-
-  @Test
-  public void flushIsRetriedOnceAfter5xxError() throws Exception {
+  
+  private void testRecoverableHttpError(int status) throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
     
-    server.enqueue(new MockResponse().setResponseCode(503));
-    server.enqueue(new MockResponse().setResponseCode(503));
+    server.enqueue(new MockResponse().setResponseCode(status));
+    server.enqueue(new MockResponse().setResponseCode(status));
+    server.enqueue(new MockResponse());
+    // need two responses because flush will be retried one time
     
     ep.flush();
     ep.waitUntilInactive();

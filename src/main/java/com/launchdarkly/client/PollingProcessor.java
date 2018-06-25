@@ -2,12 +2,20 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.concurrent.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.launchdarkly.client.Util.httpErrorMessage;
+import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 
 class PollingProcessor implements UpdateProcessor {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
@@ -55,10 +63,12 @@ class PollingProcessor implements UpdateProcessor {
             logger.info("Initialized LaunchDarkly client.");
             initFuture.set(null);
           }
-        } catch (FeatureRequestor.InvalidSDKKeyException e) {
-          logger.error("Received 401 error, no further polling requests will be made since SDK key is invalid");
-          scheduler.shutdown();
-          initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
+        } catch (HttpErrorException e) {
+          logger.error(httpErrorMessage(e.getStatus(), "polling request"));
+          if (!isHttpErrorRecoverable(e.getStatus())) {
+            scheduler.shutdown();
+            initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
+          }
         } catch (IOException e) {
           logger.error("Encountered exception in LaunchDarkly client when retrieving update", e);
         }

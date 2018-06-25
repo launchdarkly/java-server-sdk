@@ -32,4 +32,35 @@ class Util {
         .addHeader("Authorization", sdkKey)
         .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
   }
+  
+  /**
+   * Tests whether an HTTP error status represents a condition that might resolve on its own if we retry.
+   * @param statusCode
+   * @return true if retrying makes sense; false if it should be considered a permanent failure
+   */
+  static boolean isHttpErrorRecoverable(int statusCode) {
+    if (statusCode >= 400 && statusCode < 500) {
+      switch (statusCode) {
+      case 408: // request timeout
+      case 429: // too many requests
+        return true;
+      default:
+        return false; // all other 4xx errors are unrecoverable
+      }
+    }
+    return true;
+  }
+  
+  static String httpErrorMessage(int statusCode, String context) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Received HTTP error ").append(statusCode);
+    switch (statusCode) {
+    case 401:
+    case 403:
+      sb.append(" (invalid SDK key)");
+    }
+    sb.append(" for ").append(context);
+    sb.append(isHttpErrorRecoverable(statusCode) ? " - will retry " : " - will not retry");
+    return sb.toString();
+  }
 }

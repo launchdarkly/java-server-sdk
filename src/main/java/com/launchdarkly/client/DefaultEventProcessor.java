@@ -25,6 +25,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.launchdarkly.client.Util.getRequestBuilder;
+import static com.launchdarkly.client.Util.httpErrorMessage;
+import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 
 import okhttp3.MediaType;
 import okhttp3.Request;
@@ -386,9 +388,9 @@ final class DefaultEventProcessor implements EventProcessor {
         } catch (ParseException e) {
         }
       }
-      if (response.code() == 401) {
+      if (!isHttpErrorRecoverable(response.code())) {
         disabled.set(true);
-        logger.error("Received 401 error, no further events will be posted since SDK key is invalid");
+        logger.error(httpErrorMessage(response.code(), "posting events"));
       }
     }
   }
@@ -530,7 +532,7 @@ final class DefaultEventProcessor implements EventProcessor {
           logger.debug("Event delivery took {} ms, response status {}", endTime - startTime, response.code());
           if (!response.isSuccessful()) {
             logger.warn("Unexpected response status when posting events: {}", response.code());
-            if (response.code() >= 500) {
+            if (isHttpErrorRecoverable(response.code())) {
               continue;
             }
           }

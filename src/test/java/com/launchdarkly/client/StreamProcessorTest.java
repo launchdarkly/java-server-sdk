@@ -282,31 +282,41 @@ public class StreamProcessorTest extends EasyMockSupport {
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new IOException());
     assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
   }
-
+  
   @Test
-  public void streamWillReconnectAfterHttp500Error() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(500);
-    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
-    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+  public void http401ErrorIsUnrecoverable() throws Exception {
+    testUnrecoverableHttpError(401);
   }
 
   @Test
-  public void streamWillCloseAfterHttp401Error() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(401);
-    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
-    assertEquals(ConnectionErrorHandler.Action.SHUTDOWN, action);
+  public void http403ErrorIsUnrecoverable() throws Exception {
+    testUnrecoverableHttpError(403);
   }
 
   @Test
-  public void processorSignalsImmediateFailureAfter401Error() throws Exception {
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(401);
+  public void http408ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(408);
+  }
+
+  @Test
+  public void http429ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(429);
+  }
+
+  @Test
+  public void http500ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(500);
+  }
+  
+  private void testUnrecoverableHttpError(int status) throws Exception {
+    UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
     long startTime = System.currentTimeMillis();
     StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
     Future<Void> initFuture = sp.start();
     
-    errorHandler.onConnectionError(e);
+    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
+    assertEquals(ConnectionErrorHandler.Action.SHUTDOWN, action);
+    
     try {
       initFuture.get(10, TimeUnit.SECONDS);
     } catch (TimeoutException ignored) {
@@ -314,6 +324,25 @@ public class StreamProcessorTest extends EasyMockSupport {
     }
     assertTrue((System.currentTimeMillis() - startTime) < 9000);
     assertTrue(initFuture.isDone());
+    assertFalse(sp.initialized());
+  }
+  
+  private void testRecoverableHttpError(int status) throws Exception {
+    UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
+    long startTime = System.currentTimeMillis();
+    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    Future<Void> initFuture = sp.start();
+    
+    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
+    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+    
+    try {
+      initFuture.get(200, TimeUnit.MILLISECONDS);
+      fail("Expected timeout");
+    } catch (TimeoutException ignored) {
+    }
+    assertTrue((System.currentTimeMillis() - startTime) >= 200);
+    assertFalse(initFuture.isDone());
     assertFalse(sp.initialized());
   }
   
