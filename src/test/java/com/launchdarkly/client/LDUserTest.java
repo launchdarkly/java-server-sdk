@@ -19,6 +19,7 @@ import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.js;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class LDUserTest {
 
@@ -239,6 +240,25 @@ public class LDUserTest {
         .name("Jane")
         .build();
     assertNull(user.getValueForEvaluation("height"));
+  }
+  
+  @Test
+  public void canAddCustomAttrWithJsonValue() {
+    JsonElement value = new JsonPrimitive("x");
+    LDUser user = new LDUser.Builder("key")
+        .custom("foo", value)
+        .build();
+    assertEquals(value, user.getCustom("foo"));
+  }
+  
+  @Test
+  public void canAddPrivateCustomAttrWithJsonValue() {
+    JsonElement value = new JsonPrimitive("x");
+    LDUser user = new LDUser.Builder("key")
+        .privateCustom("foo", value)
+        .build();
+    assertEquals(value, user.getCustom("foo"));
+    assertTrue(user.privateAttributeNames.contains("foo"));
   }
   
   @Test
