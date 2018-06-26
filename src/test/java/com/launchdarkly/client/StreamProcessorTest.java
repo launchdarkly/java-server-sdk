@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -23,6 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import okhttp3.Headers;
 
@@ -279,36 +282,72 @@ public class StreamProcessorTest extends EasyMockSupport {
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new IOException());
     assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
   }
-
+  
   @Test
-  public void streamWillReconnectAfterHttp500Error() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(500);
-    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
-    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+  public void http401ErrorIsUnrecoverable() throws Exception {
+    testUnrecoverableHttpError(401);
   }
 
   @Test
-  public void streamWillCloseAfterHttp401Error() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(401);
+  public void http403ErrorIsUnrecoverable() throws Exception {
+    testUnrecoverableHttpError(403);
+  }
+
+  @Test
+  public void http408ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(408);
+  }
+
+  @Test
+  public void http429ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(429);
+  }
+
+  @Test
+  public void http500ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(500);
+  }
+  
+  private void testUnrecoverableHttpError(int status) throws Exception {
+    UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
+    long startTime = System.currentTimeMillis();
+    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    Future<Void> initFuture = sp.start();
+    
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
     assertEquals(ConnectionErrorHandler.Action.SHUTDOWN, action);
+    
+    try {
+      initFuture.get(10, TimeUnit.SECONDS);
+    } catch (TimeoutException ignored) {
+      fail("Should not have timed out");
+    }
+    assertTrue((System.currentTimeMillis() - startTime) < 9000);
+    assertTrue(initFuture.isDone());
+    assertFalse(sp.initialized());
   }
-
+  
+  private void testRecoverableHttpError(int status) throws Exception {
+    UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
+    long startTime = System.currentTimeMillis();
+    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    Future<Void> initFuture = sp.start();
+    
+    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
+    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+    
+    try {
+      initFuture.get(200, TimeUnit.MILLISECONDS);
+      fail("Expected timeout");
+    } catch (TimeoutException ignored) {
+    }
+    assertTrue((System.currentTimeMillis() - startTime) >= 200);
+    assertFalse(initFuture.isDone());
+    assertFalse(sp.initialized());
+  }
+  
   private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config) {
-    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore) {
-      @Override
-      protected EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
-                                              Headers headers) {
-        
-        StreamProcessorTest.this.eventHandler = handler;
-        StreamProcessorTest.this.actualStreamUri = streamUri;
-        StreamProcessorTest.this.errorHandler = errorHandler;
-        StreamProcessorTest.this.headers = headers;
-        return mockEventSource;
-      }
-    };
+    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore, new StubEventSourceCreator());
   }
   
   private String featureJson(String key, int version) {
@@ -335,5 +374,16 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   private void assertSegmentInStore(Segment segment) {
     assertEquals(segment.getVersion(), featureStore.get(SEGMENTS, segment.getKey()).getVersion());
+  }
+  
+  private class StubEventSourceCreator implements StreamProcessor.EventSourceCreator {
+    public EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
+        Headers headers) {  
+      StreamProcessorTest.this.eventHandler = handler;
+      StreamProcessorTest.this.actualStreamUri = streamUri;
+      StreamProcessorTest.this.errorHandler = errorHandler;
+      StreamProcessorTest.this.headers = headers;
+      return mockEventSource;
+    }
   }
 }

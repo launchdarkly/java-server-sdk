@@ -113,7 +113,7 @@ public final class LDConfig {
         .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
         .readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
         .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
-        .retryOnConnectionFailure(true);
+        .retryOnConnectionFailure(false); // we will implement our own retry logic
 
     // When streaming is enabled, http GETs made by FeatureRequester will
     // always guarantee a new flag state. So, disable http response caching

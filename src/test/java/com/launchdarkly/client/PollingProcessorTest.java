@@ -53,4 +53,71 @@ public class PollingProcessorTest extends EasyMockSupport {
     pollingProcessor.close();
     verifyAll();
   }
+  
+  @Test
+  public void http401ErrorIsUnrecoverable() throws Exception {
+    testUnrecoverableHttpError(401);
+  }
+
+  @Test
+  public void http403ErrorIsUnrecoverable() throws Exception {
+    testUnrecoverableHttpError(403);
+  }
+
+  @Test
+  public void http408ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(408);
+  }
+
+  @Test
+  public void http429ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(429);
+  }
+
+  @Test
+  public void http500ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(500);
+  }
+  
+  private void testUnrecoverableHttpError(int status) throws Exception {
+    FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
+    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore())) {  
+      expect(requestor.getAllData())
+          .andThrow(new HttpErrorException(status))
+          .once();
+      replayAll();
+  
+      long startTime = System.currentTimeMillis();
+      Future<Void> initFuture = pollingProcessor.start();
+      try {
+        initFuture.get(10, TimeUnit.SECONDS);
+      } catch (TimeoutException ignored) {
+        fail("Should not have timed out");
+      }
+      assertTrue((System.currentTimeMillis() - startTime) < 9000);
+      assertTrue(initFuture.isDone());
+      assertFalse(pollingProcessor.initialized());
+      verifyAll();
+    }
+  }
+  
+  private void testRecoverableHttpError(int status) throws Exception {
+    FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
+    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore())) {
+      expect(requestor.getAllData())
+          .andThrow(new HttpErrorException(status))
+          .once();
+      replayAll();
+  
+      Future<Void> initFuture = pollingProcessor.start();
+      try {
+        initFuture.get(200, TimeUnit.MILLISECONDS);
+        fail("expected timeout");
+      } catch (TimeoutException ignored) {
+      }
+      assertFalse(initFuture.isDone());
+      assertFalse(pollingProcessor.initialized());
+      verifyAll();
+    }
+  }
 }

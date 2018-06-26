@@ -113,7 +113,7 @@ public abstract class Components {
         FeatureRequestor requestor = new FeatureRequestor(sdkKey, config);
         if (config.stream) {
           logger.info("Enabling streaming API");
-          return new StreamProcessor(sdkKey, config, requestor, featureStore);
+          return new StreamProcessor(sdkKey, config, requestor, featureStore, null);
         } else {
           logger.info("Disabling streaming API");
           logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");

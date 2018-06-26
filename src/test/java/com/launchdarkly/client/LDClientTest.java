@@ -109,7 +109,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(null);
-    expect(updateProcessor.initialized()).andReturn(false);
+    expect(updateProcessor.initialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
@@ -125,7 +125,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    expect(updateProcessor.initialized()).andReturn(false);
+    expect(updateProcessor.initialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
@@ -141,7 +141,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new RuntimeException());
-    expect(updateProcessor.initialized()).andReturn(false);
+    expect(updateProcessor.initialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
