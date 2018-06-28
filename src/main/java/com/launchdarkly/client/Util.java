@@ -41,6 +41,7 @@ class Util {
   static boolean isHttpErrorRecoverable(int statusCode) {
     if (statusCode >= 400 && statusCode < 500) {
       switch (statusCode) {
+      case 400: // bad request
       case 408: // request timeout
       case 429: // too many requests
         return true;
