@@ -7,9 +7,9 @@ abstract class EventFactory {
   
   protected abstract long getTimestamp();
   
-  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, FeatureFlag.VariationAndValue result, JsonElement defaultVal) {
+  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, EvaluationDetails<JsonElement> result, JsonElement defaultVal) {
     return new Event.FeatureRequest(getTimestamp(), flag.getKey(), user, flag.getVersion(),
-        result == null ? null : result.getVariation(), result == null ? null : result.getValue(),
+        result == null ? null : result.getVariationIndex(), result == null ? null : result.getValue(),
         defaultVal, null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(), false);
   }
   
@@ -22,10 +22,10 @@ abstract class EventFactory {
     return new Event.FeatureRequest(getTimestamp(), key, user, null, null, defaultValue, defaultValue, null, false, null, false);
   }
   
-  public Event.FeatureRequest newPrerequisiteFeatureRequestEvent(FeatureFlag prereqFlag, LDUser user, FeatureFlag.VariationAndValue result,
+  public Event.FeatureRequest newPrerequisiteFeatureRequestEvent(FeatureFlag prereqFlag, LDUser user, EvaluationDetails<JsonElement> result,
       FeatureFlag prereqOf) {
     return new Event.FeatureRequest(getTimestamp(), prereqFlag.getKey(), user, prereqFlag.getVersion(),
-        result == null ? null : result.getVariation(), result == null ? null : result.getValue(),
+        result == null ? null : result.getVariationIndex(), result == null ? null : result.getValue(),
         null, prereqOf.getKey(), prereqFlag.isTrackEvents(), prereqFlag.getDebugEventsUntilDate(), false);
   }
 

@@ -11,7 +11,9 @@ import org.hamcrest.TypeSafeDiagnosingMatcher;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.hamcrest.Matchers.equalTo;
 
@@ -23,6 +25,12 @@ public class TestUtil {
         return store;
       }
     };
+  }
+  
+  public static FeatureStore initedFeatureStore() {
+    FeatureStore store = new InMemoryFeatureStore();
+    store.init(Collections.<VersionedDataKind<?>, Map<String, ? extends VersionedData>>emptyMap());
+    return store;
   }
   
   public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {
@@ -76,9 +84,9 @@ public class TestUtil {
     return new VariationOrRollout(variation, null);
   }
   
-  public static FeatureFlag booleanFlagWithClauses(Clause... clauses) {
-    Rule rule = new Rule(Arrays.asList(clauses), 1, null);
-    return new FeatureFlagBuilder("feature")
+  public static FeatureFlag booleanFlagWithClauses(String key, Clause... clauses) {
+    Rule rule = new Rule(null, Arrays.asList(clauses), 1, null);
+    return new FeatureFlagBuilder(key)
         .on(true)
         .rules(Arrays.asList(rule))
         .fallthrough(fallthroughVariation(0))
@@ -87,6 +95,14 @@ public class TestUtil {
         .build();
   }
 
+  public static FeatureFlag flagWithValue(String key, JsonElement value) {
+    return new FeatureFlagBuilder(key)
+        .on(false)
+        .offVariation(0)
+        .variations(value)
+        .build();
+  }
+  
   public static Matcher<JsonElement> hasJsonProperty(final String name, JsonElement value) {
     return hasJsonProperty(name, equalTo(value));
   }

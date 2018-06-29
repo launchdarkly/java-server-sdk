@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.EvaluationDetails.Reason;
 
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -165,7 +166,7 @@ public final class LDClient implements LDClientInterface {
 
     for (Map.Entry<String, FeatureFlag> entry : flags.entrySet()) {
       try {
-        JsonElement evalResult = entry.getValue().evaluate(user, featureStore, eventFactory).getResult().getValue();
+        JsonElement evalResult = entry.getValue().evaluate(user, featureStore, eventFactory).getDetails().getValue();
           result.put(entry.getKey(), evalResult);
 
       } catch (EvaluationException e) {
@@ -177,34 +178,54 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
-    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.Boolean);
-    return value.getAsJsonPrimitive().getAsBoolean();
+    return evaluate(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.Boolean);
   }
 
   @Override
   public Integer intVariation(String featureKey, LDUser user, int defaultValue) {
-    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.Integer);
-    return value.getAsJsonPrimitive().getAsInt();
+    return evaluate(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.Integer);
   }
 
   @Override
   public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
-    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.Double);
-    return value.getAsJsonPrimitive().getAsDouble();
+    return evaluate(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.Double);
   }
 
   @Override
   public String stringVariation(String featureKey, LDUser user, String defaultValue) {
-    JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.String);
-    return value.getAsJsonPrimitive().getAsString();
+    return evaluate(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.String);
   }
 
   @Override
   public JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue) {
-    JsonElement value = evaluate(featureKey, user, defaultValue, VariationType.Json);
-    return value;
+    return evaluate(featureKey, user, defaultValue, defaultValue, VariationType.Json);
   }
 
+  @Override
+  public EvaluationDetails<Boolean> boolVariationDetails(String featureKey, LDUser user, boolean defaultValue) {
+     return evaluateDetail(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.Boolean);
+  }
+
+  @Override
+  public EvaluationDetails<Integer> intVariationDetails(String featureKey, LDUser user, int defaultValue) {
+     return evaluateDetail(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.Integer);
+  }
+
+  @Override
+  public EvaluationDetails<Double> doubleVariationDetails(String featureKey, LDUser user, double defaultValue) {
+     return evaluateDetail(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.Double);
+  }
+
+  @Override
+  public EvaluationDetails<String> stringVariationDetails(String featureKey, LDUser user, String defaultValue) {
+     return evaluateDetail(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.String);
+  }
+
+  @Override
+  public EvaluationDetails<JsonElement> jsonVariationDetails(String featureKey, LDUser user, JsonElement defaultValue) {
+     return evaluateDetail(featureKey, user, defaultValue, defaultValue, VariationType.Json);
+  }
+  
   @Override
   public boolean isFlagKnown(String featureKey) {
     if (!initialized()) {
@@ -227,14 +248,36 @@ public final class LDClient implements LDClientInterface {
     return false;
   }
 
-  private JsonElement evaluate(String featureKey, LDUser user, JsonElement defaultValue, VariationType expectedType) {
+  private <T> T evaluate(String featureKey, LDUser user, T defaultValue, JsonElement defaultJson, VariationType<T> expectedType) {
+    return evaluateDetail(featureKey, user, defaultValue, defaultJson, expectedType).getValue();
+  }
+  
+  private <T> EvaluationDetails<T> evaluateDetail(String featureKey, LDUser user, T defaultValue,
+      JsonElement defaultJson, VariationType<T> expectedType) {
+    EvaluationDetails<JsonElement> details = evaluateInternal(featureKey, user, defaultJson);
+    T resultValue;
+    if (details.getReason() == Reason.DEFAULT) {
+      resultValue = defaultValue;
+    } else {
+      try {
+        resultValue = expectedType.coerceValue(details.getValue());
+      } catch (EvaluationException e) {
+        logger.error("Encountered exception in LaunchDarkly client: " + e);
+        resultValue = defaultValue;
+      }
+    }
+    return new EvaluationDetails<T>(details.getReason(), details.getVariationIndex(), resultValue,
+        details.getMatchIndex(), details.getMatchId());
+  }
+  
+  private EvaluationDetails<JsonElement> evaluateInternal(String featureKey, LDUser user, JsonElement defaultValue) {
     if (!initialized()) {
       if (featureStore.initialized()) {
         logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; using last known values from feature store");
       } else {
         logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; feature store unavailable, returning default value");
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
-        return defaultValue;
+        return EvaluationDetails.defaultValue(defaultValue);
       }
     }
 
@@ -243,12 +286,12 @@ public final class LDClient implements LDClientInterface {
       if (featureFlag == null) {
         logger.info("Unknown feature flag " + featureKey + "; returning default value");
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
-        return defaultValue;
+        return EvaluationDetails.defaultValue(defaultValue);
       }
       if (user == null || user.getKey() == null) {
         logger.warn("Null user or null user key when evaluating flag: " + featureKey + "; returning default value");
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue));
-        return defaultValue;
+        return EvaluationDetails.defaultValue(defaultValue);
       }
       if (user.getKeyAsString().isEmpty()) {
         logger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
@@ -257,19 +300,19 @@ public final class LDClient implements LDClientInterface {
       for (Event.FeatureRequest event : evalResult.getPrerequisiteEvents()) {
         eventProcessor.sendEvent(event);
       }
-      if (evalResult.getResult() != null && evalResult.getResult().getValue() != null) {
-        expectedType.assertResultType(evalResult.getResult().getValue());
-        sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult.getResult(), defaultValue));
-        return evalResult.getResult().getValue();
+      if (evalResult.getDetails() != null && evalResult.getDetails().getValue() != null) {
+        sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult.getDetails(), defaultValue));
+        return evalResult.getDetails();
       } else {
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue));
-        return defaultValue;
+        return EvaluationDetails.defaultValue(defaultValue);
       }
     } catch (Exception e) {
-      logger.error("Encountered exception in LaunchDarkly client", e);
+      logger.error("Encountered exception in LaunchDarkly client: " + e);
+      logger.debug(e.getMessage(), e);
     }
     sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue));
-    return defaultValue;
+    return EvaluationDetails.defaultValue(defaultValue);
   }
 
   @Override

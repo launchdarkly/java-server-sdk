@@ -7,6 +7,10 @@ import org.junit.Test;
 
 import java.util.Arrays;
 
+import static com.launchdarkly.client.TestUtil.booleanFlagWithClauses;
+import static com.launchdarkly.client.TestUtil.flagWithValue;
+import static com.launchdarkly.client.TestUtil.jbool;
+import static com.launchdarkly.client.TestUtil.jdouble;
 import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.js;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
@@ -19,7 +23,7 @@ import static org.junit.Assert.assertTrue;
 public class LDClientEvaluationTest {
   private static final LDUser user = new LDUser("userkey");
   
-  private TestFeatureStore featureStore = new TestFeatureStore();
+  private FeatureStore featureStore = TestUtil.initedFeatureStore();
   private LDConfig config = new LDConfig.Builder()
       .featureStoreFactory(specificFeatureStore(featureStore))
       .eventProcessorFactory(Components.nullEventProcessor())
@@ -29,7 +33,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void boolVariationReturnsFlagValue() throws Exception {
-    featureStore.setFeatureTrue("key");
+    featureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
 
     assertTrue(client.boolVariation("key", user, false));
   }
@@ -41,7 +45,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void intVariationReturnsFlagValue() throws Exception {
-    featureStore.setIntegerValue("key", 2);
+    featureStore.upsert(FEATURES, flagWithValue("key", jint(2)));
 
     assertEquals(new Integer(2), client.intVariation("key", user, 1));
   }
@@ -53,7 +57,7 @@ public class LDClientEvaluationTest {
 
   @Test
   public void doubleVariationReturnsFlagValue() throws Exception {
-    featureStore.setDoubleValue("key", 2.5d);
+    featureStore.upsert(FEATURES, flagWithValue("key", jdouble(2.5d)));
 
     assertEquals(new Double(2.5d), client.doubleVariation("key", user, 1.0d));
   }
@@ -65,7 +69,7 @@ public class LDClientEvaluationTest {
 
   @Test
   public void stringVariationReturnsFlagValue() throws Exception {
-    featureStore.setStringValue("key", "b");
+    featureStore.upsert(FEATURES, flagWithValue("key", js("b")));
 
     assertEquals("b", client.stringVariation("key", user, "a"));
   }
@@ -79,7 +83,7 @@ public class LDClientEvaluationTest {
   public void jsonVariationReturnsFlagValue() throws Exception {
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    featureStore.setJsonValue("key", data);
+    featureStore.upsert(FEATURES, flagWithValue("key", data));
     
     assertEquals(data, client.jsonVariation("key", user, jint(42)));
   }
@@ -100,16 +104,9 @@ public class LDClientEvaluationTest {
     featureStore.upsert(SEGMENTS, segment);
     
     Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(js("segment1")), false);
-    Rule rule = new Rule(Arrays.asList(clause), 0, null);
-    FeatureFlag feature = new FeatureFlagBuilder("test-feature")
-        .version(1)
-        .rules(Arrays.asList(rule))
-        .variations(TestFeatureStore.TRUE_FALSE_VARIATIONS)
-        .on(true)
-        .fallthrough(new VariationOrRollout(1, null))
-        .build();
+    FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     featureStore.upsert(FEATURES, feature);
     
-    assertTrue(client.boolVariation("test-feature", user, false));
+    assertTrue(client.boolVariation("feature", user, false));
   }
 }
