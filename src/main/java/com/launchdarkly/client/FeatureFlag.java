@@ -2,17 +2,16 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
-import com.launchdarkly.client.EvaluationDetails.Reason;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 class FeatureFlag implements VersionedData {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
@@ -76,16 +75,16 @@ class FeatureFlag implements VersionedData {
       return new EvalResult(details, prereqEvents);
     }
     
-    EvaluationDetails<JsonElement> details = EvaluationDetails.off(offVariation, getOffVariationValue());
+    EvaluationDetails<JsonElement> details = new EvaluationDetails<>(EvaluationReason.off(), offVariation, getOffVariationValue());
     return new EvalResult(details, prereqEvents);
   }
 
   // Returning either a JsonElement or null indicating prereq failure/error.
   private EvaluationDetails<JsonElement> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
       EventFactory eventFactory) throws EvaluationException {
-    EvaluationDetails<JsonElement> prereqErrorResult = checkPrerequisites(user, featureStore, events, eventFactory);
-    if (prereqErrorResult != null) {
-      return prereqErrorResult;
+    EvaluationReason prereqFailureReason = checkPrerequisites(user, featureStore, events, eventFactory);
+    if (prereqFailureReason != null) {
+      return new EvaluationDetails<>(prereqFailureReason, offVariation, getOffVariationValue());
     }
     
     // Check to see if targets match
@@ -94,8 +93,8 @@ class FeatureFlag implements VersionedData {
         Target target = targets.get(i);
         for (String v : target.getValues()) {
           if (v.equals(user.getKey().getAsString())) {
-            return new EvaluationDetails<JsonElement>(Reason.TARGET_MATCH,
-                target.getVariation(), getVariation(target.getVariation()), i, null);
+            return new EvaluationDetails<>(EvaluationReason.targetMatch(i),
+                target.getVariation(), getVariation(target.getVariation()));
           }
         }
       }
@@ -106,26 +105,26 @@ class FeatureFlag implements VersionedData {
         Rule rule = rules.get(i);
         if (rule.matchesUser(featureStore, user)) {
           int index = rule.variationIndexForUser(user, key, salt);
-          return new EvaluationDetails<JsonElement>(Reason.RULE_MATCH,
-              index, getVariation(index), i, rule.getId());
+          return new EvaluationDetails<>(EvaluationReason.ruleMatch(i, rule.getId()),
+              index, getVariation(index));
         }
       }
     }
     // Walk through the fallthrough and see if it matches
     int index = fallthrough.variationIndexForUser(user, key, salt);
-    return EvaluationDetails.fallthrough(index, getVariation(index));
+    return new EvaluationDetails<>(EvaluationReason.fallthrough(), index, getVariation(index));
   }
 
-  // Checks prerequisites if any; returns null if successful, or an EvaluationDetails if we have to
+  // Checks prerequisites if any; returns null if successful, or an EvaluationReason if we have to
   // short-circuit due to a prerequisite failure.
-  private EvaluationDetails<JsonElement> checkPrerequisites(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
+  private EvaluationReason checkPrerequisites(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
       EventFactory eventFactory) throws EvaluationException {
     if (prerequisites == null) {
       return null;
     }
-    EvaluationDetails<JsonElement> ret = null;
-    boolean prereqOk = true;
+    List<String> failedPrereqs = null;
     for (int i = 0; i < prerequisites.size(); i++) {
+      boolean prereqOk = true;
       Prerequisite prereq = prerequisites.get(i);
       FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
       EvaluationDetails<JsonElement> prereqEvalResult = null;
@@ -140,18 +139,21 @@ class FeatureFlag implements VersionedData {
       } else {
         prereqOk = false;
       }
-      // We continue to evaluate all prerequisites even if one failed, but set the result to the first failure if any.
+      // We continue to evaluate all prerequisites even if one failed.
       if (prereqFeatureFlag != null) {
         events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
       }
       if (!prereqOk) {
-        if (ret == null) {
-          ret = new EvaluationDetails<JsonElement>(Reason.PREREQUISITE_FAILED,
-              offVariation, getOffVariationValue(), i, prereq.getKey());
+        if (failedPrereqs == null) {
+          failedPrereqs = new ArrayList<>();
         }
+        failedPrereqs.add(prereq.getKey());
       }
     }
-    return ret;
+    if (failedPrereqs != null && !failedPrereqs.isEmpty()) {
+      return EvaluationReason.prerequisitesFailed(failedPrereqs);
+    }
+    return null;
   }
 
   JsonElement getOffVariationValue() throws EvaluationException {

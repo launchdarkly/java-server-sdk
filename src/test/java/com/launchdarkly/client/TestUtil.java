@@ -103,6 +103,10 @@ public class TestUtil {
         .build();
   }
   
+  public static EvaluationDetails<JsonElement> simpleEvaluation(int variation, JsonElement value) {
+    return new EvaluationDetails<>(EvaluationReason.fallthrough(), 0, value);
+  }
+  
   public static Matcher<JsonElement> hasJsonProperty(final String name, JsonElement value) {
     return hasJsonProperty(name, equalTo(value));
   }

@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
-import com.launchdarkly.client.EvaluationDetails.Reason;
 
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -256,7 +255,7 @@ public final class LDClient implements LDClientInterface {
       JsonElement defaultJson, VariationType<T> expectedType) {
     EvaluationDetails<JsonElement> details = evaluateInternal(featureKey, user, defaultJson);
     T resultValue;
-    if (details.getReason() == Reason.DEFAULT) {
+    if (details.getReason().getKind() == EvaluationReason.Kind.DEFAULT) {
       resultValue = defaultValue;
     } else {
       try {
@@ -266,8 +265,7 @@ public final class LDClient implements LDClientInterface {
         resultValue = defaultValue;
       }
     }
-    return new EvaluationDetails<T>(details.getReason(), details.getVariationIndex(), resultValue,
-        details.getMatchIndex(), details.getMatchId());
+    return new EvaluationDetails<T>(details.getReason(), details.getVariationIndex(), resultValue);
   }
   
   private EvaluationDetails<JsonElement> evaluateInternal(String featureKey, LDUser user, JsonElement defaultValue) {
