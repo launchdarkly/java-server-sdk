@@ -104,7 +104,7 @@ public class TestUtil {
   }
   
   public static EvaluationDetails<JsonElement> simpleEvaluation(int variation, JsonElement value) {
-    return new EvaluationDetails<>(EvaluationReason.fallthrough(), 0, value);
+    return new EvaluationDetails<>(EvaluationReason.fallthrough(), variation, value);
   }
   
   public static Matcher<JsonElement> hasJsonProperty(final String name, JsonElement value) {
