@@ -9,6 +9,7 @@ import org.junit.Test;
 import java.util.Arrays;
 
 import static com.launchdarkly.client.TestUtil.fallthroughVariation;
+import static com.launchdarkly.client.TestUtil.flagWithValue;
 import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.jdouble;
 import static com.launchdarkly.client.TestUtil.jint;
@@ -22,7 +23,7 @@ import static org.junit.Assert.assertNull;
 public class LDClientEventTest {
   private static final LDUser user = new LDUser("userkey");
   
-  private TestFeatureStore featureStore = new TestFeatureStore();
+  private FeatureStore featureStore = TestUtil.initedFeatureStore();
   private TestUtil.TestEventProcessor eventSink = new TestUtil.TestEventProcessor();
   private LDConfig config = new LDConfig.Builder()
       .featureStoreFactory(specificFeatureStore(featureStore))
@@ -72,7 +73,8 @@ public class LDClientEventTest {
 
   @Test
   public void boolVariationSendsEvent() throws Exception {
-    FeatureFlag flag = featureStore.setFeatureTrue("key");
+    FeatureFlag flag = flagWithValue("key", jbool(true));
+    featureStore.upsert(FEATURES, flag);
 
     client.boolVariation("key", user, false);
     assertEquals(1, eventSink.events.size());
@@ -88,7 +90,8 @@ public class LDClientEventTest {
 
   @Test
   public void intVariationSendsEvent() throws Exception {
-    FeatureFlag flag = featureStore.setIntegerValue("key", 2);
+    FeatureFlag flag = flagWithValue("key", jint(2));
+    featureStore.upsert(FEATURES, flag);
 
     client.intVariation("key", user, 1);
     assertEquals(1, eventSink.events.size());
@@ -104,7 +107,8 @@ public class LDClientEventTest {
 
   @Test
   public void doubleVariationSendsEvent() throws Exception {
-    FeatureFlag flag = featureStore.setDoubleValue("key", 2.5d);
+    FeatureFlag flag = flagWithValue("key", jdouble(2.5d));
+    featureStore.upsert(FEATURES, flag);
 
     client.doubleVariation("key", user, 1.0d);
     assertEquals(1, eventSink.events.size());
@@ -120,7 +124,8 @@ public class LDClientEventTest {
   
   @Test
   public void stringVariationSendsEvent() throws Exception {
-    FeatureFlag flag = featureStore.setStringValue("key", "b");
+    FeatureFlag flag = flagWithValue("key", js("b"));
+    featureStore.upsert(FEATURES, flag);
 
     client.stringVariation("key", user, "a");
     assertEquals(1, eventSink.events.size());
@@ -138,7 +143,8 @@ public class LDClientEventTest {
   public void jsonVariationSendsEvent() throws Exception {
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    FeatureFlag flag = featureStore.setJsonValue("key", data);
+    FeatureFlag flag = flagWithValue("key", data);
+    featureStore.upsert(FEATURES, flag);
     JsonElement defaultVal = new JsonPrimitive(42);
     
     client.jsonVariation("key", user, defaultVal);
