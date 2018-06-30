@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 class FeatureFlag implements VersionedData {
@@ -66,25 +67,24 @@ class FeatureFlag implements VersionedData {
     List<Event.FeatureRequest> prereqEvents = new ArrayList<>();
 
     if (user == null || user.getKey() == null) {
-      logger.warn("Null user or null user key when evaluating flag: " + key + "; returning null");
-      return new EvalResult(null, prereqEvents);
+      // this should have been prevented by LDClient.evaluateInternal
+      throw new EvaluationException("null user or null user key");
     }
 
     if (isOn()) {
-      EvaluationDetails<JsonElement> details = evaluate(user, featureStore, prereqEvents, eventFactory);
+      EvaluationDetail<JsonElement> details = evaluate(user, featureStore, prereqEvents, eventFactory);
       return new EvalResult(details, prereqEvents);
     }
     
-    EvaluationDetails<JsonElement> details = new EvaluationDetails<>(EvaluationReason.off(), offVariation, getOffVariationValue());
+    EvaluationDetail<JsonElement> details = new EvaluationDetail<>(EvaluationReason.off(), offVariation, getOffVariationValue());
     return new EvalResult(details, prereqEvents);
   }
 
-  // Returning either a JsonElement or null indicating prereq failure/error.
-  private EvaluationDetails<JsonElement> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
+  private EvaluationDetail<JsonElement> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
       EventFactory eventFactory) throws EvaluationException {
     EvaluationReason prereqFailureReason = checkPrerequisites(user, featureStore, events, eventFactory);
     if (prereqFailureReason != null) {
-      return new EvaluationDetails<>(prereqFailureReason, offVariation, getOffVariationValue());
+      return new EvaluationDetail<>(prereqFailureReason, offVariation, getOffVariationValue());
     }
     
     // Check to see if targets match
@@ -93,7 +93,7 @@ class FeatureFlag implements VersionedData {
         Target target = targets.get(i);
         for (String v : target.getValues()) {
           if (v.equals(user.getKey().getAsString())) {
-            return new EvaluationDetails<>(EvaluationReason.targetMatch(i),
+            return new EvaluationDetail<>(EvaluationReason.targetMatch(),
                 target.getVariation(), getVariation(target.getVariation()));
           }
         }
@@ -105,14 +105,14 @@ class FeatureFlag implements VersionedData {
         Rule rule = rules.get(i);
         if (rule.matchesUser(featureStore, user)) {
           int index = rule.variationIndexForUser(user, key, salt);
-          return new EvaluationDetails<>(EvaluationReason.ruleMatch(i, rule.getId()),
+          return new EvaluationDetail<>(EvaluationReason.ruleMatch(i, rule.getId()),
               index, getVariation(index));
         }
       }
     }
     // Walk through the fallthrough and see if it matches
     int index = fallthrough.variationIndexForUser(user, key, salt);
-    return new EvaluationDetails<>(EvaluationReason.fallthrough(), index, getVariation(index));
+    return new EvaluationDetail<>(EvaluationReason.fallthrough(), index, getVariation(index));
   }
 
   // Checks prerequisites if any; returns null if successful, or an EvaluationReason if we have to
@@ -127,7 +127,7 @@ class FeatureFlag implements VersionedData {
       boolean prereqOk = true;
       Prerequisite prereq = prerequisites.get(i);
       FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
-      EvaluationDetails<JsonElement> prereqEvalResult = null;
+      EvaluationDetail<JsonElement> prereqEvalResult = null;
       if (prereqFeatureFlag == null) {
         logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
         prereqOk = false;
@@ -237,15 +237,17 @@ class FeatureFlag implements VersionedData {
   }
   
   static class EvalResult {
-    private final EvaluationDetails<JsonElement> details;
+    private final EvaluationDetail<JsonElement> details;
     private final List<Event.FeatureRequest> prerequisiteEvents;
 
-    private EvalResult(EvaluationDetails<JsonElement> details, List<Event.FeatureRequest> prerequisiteEvents) {
+    private EvalResult(EvaluationDetail<JsonElement> details, List<Event.FeatureRequest> prerequisiteEvents) {
+      checkNotNull(details);
+      checkNotNull(prerequisiteEvents);
       this.details = details;
       this.prerequisiteEvents = prerequisiteEvents;
     }
 
-    EvaluationDetails<JsonElement> getDetails() {
+    EvaluationDetail<JsonElement> getDetails() {
       return details;
     }
 

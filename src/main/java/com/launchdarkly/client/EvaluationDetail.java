@@ -2,26 +2,28 @@ package com.launchdarkly.client;
 
 import com.google.common.base.Objects;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * An object returned by the "variation detail" methods such as {@link LDClientInterface#boolVariationDetails(String, LDUser, boolean),
  * combining the result of a flag evaluation with an explanation of how it was calculated.
  * @since 4.3.0
  */
-public class EvaluationDetails<T> {
+public class EvaluationDetail<T> {
 
   private final EvaluationReason reason;
   private final Integer variationIndex;
   private final T value;
   
-  public EvaluationDetails(EvaluationReason reason, Integer variationIndex, T value) {
-    super();
+  public EvaluationDetail(EvaluationReason reason, Integer variationIndex, T value) {
+    checkNotNull(reason);
     this.reason = reason;
     this.variationIndex = variationIndex;
     this.value = value;
   }
   
-  static <T> EvaluationDetails<T> defaultValue(T value) {
-    return new EvaluationDetails<>(EvaluationReason.defaultValue(), null, value);
+  static <T> EvaluationDetail<T> error(EvaluationReason.ErrorKind errorKind, T defaultValue) {
+    return new EvaluationDetail<>(EvaluationReason.error(errorKind), null, defaultValue);
   }
   
   /**
@@ -52,9 +54,9 @@ public class EvaluationDetails<T> {
   
   @Override
   public boolean equals(Object other) {
-    if (other instanceof EvaluationDetails) {
+    if (other instanceof EvaluationDetail) {
       @SuppressWarnings("unchecked")
-      EvaluationDetails<T> o = (EvaluationDetails<T>)other;
+      EvaluationDetail<T> o = (EvaluationDetail<T>)other;
       return Objects.equal(reason, o.reason) && variationIndex == o.variationIndex && Objects.equal(value, o.value);
     }
     return false;

@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
@@ -14,6 +15,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 import static org.hamcrest.Matchers.equalTo;
 
@@ -48,7 +50,56 @@ public class TestUtil {
       }
     };
   }
+
+  public static FeatureStore featureStoreThatThrowsException(final RuntimeException e) {
+    return new FeatureStore() {
+      @Override
+      public void close() throws IOException { }
+
+      @Override
+      public <T extends VersionedData> T get(VersionedDataKind<T> kind, String key) {
+        throw e;
+      }
+
+      @Override
+      public <T extends VersionedData> Map<String, T> all(VersionedDataKind<T> kind) {
+        throw e;
+      }
+
+      @Override
+      public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) { }
+
+      @Override
+      public <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version) { }
+
+      @Override
+      public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) { }
+
+      @Override
+      public boolean initialized() {
+        return true;
+      }      
+    };
+  }
   
+  public static UpdateProcessor failedUpdateProcessor() {
+    return new UpdateProcessor() {
+      @Override
+      public Future<Void> start() {
+        return SettableFuture.create();
+      }
+
+      @Override
+      public boolean initialized() {
+        return false;
+      }
+
+      @Override
+      public void close() throws IOException {
+      }          
+    };
+  }
+    
   public static class TestEventProcessor implements EventProcessor {
     List<Event> events = new ArrayList<>();
 
@@ -103,8 +154,8 @@ public class TestUtil {
         .build();
   }
   
-  public static EvaluationDetails<JsonElement> simpleEvaluation(int variation, JsonElement value) {
-    return new EvaluationDetails<>(EvaluationReason.fallthrough(), variation, value);
+  public static EvaluationDetail<JsonElement> simpleEvaluation(int variation, JsonElement value) {
+    return new EvaluationDetail<>(EvaluationReason.fallthrough(), variation, value);
   }
   
   public static Matcher<JsonElement> hasJsonProperty(final String name, JsonElement value) {

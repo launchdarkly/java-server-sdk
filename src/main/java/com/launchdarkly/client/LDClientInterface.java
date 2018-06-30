@@ -105,10 +105,10 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetails} object
+   * @return an {@link EvaluationDetail} object
    * @since 2.3.0
    */
-  EvaluationDetails<Boolean> boolVariationDetails(String featureKey, LDUser user, boolean defaultValue);
+  EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue);
   
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -116,10 +116,10 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetails} object
+   * @return an {@link EvaluationDetail} object
    * @since 2.3.0
    */
-  EvaluationDetails<Integer> intVariationDetails(String featureKey, LDUser user, int defaultValue);
+  EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue);
   
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -127,10 +127,10 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetails} object
+   * @return an {@link EvaluationDetail} object
    * @since 2.3.0
    */
-  EvaluationDetails<Double> doubleVariationDetails(String featureKey, LDUser user, double defaultValue);
+  EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue);
 
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -138,10 +138,10 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetails} object
+   * @return an {@link EvaluationDetail} object
    * @since 2.3.0
    */
-  EvaluationDetails<String> stringVariationDetails(String featureKey, LDUser user, String defaultValue);
+  EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue);
 
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -149,10 +149,10 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetails} object
+   * @return an {@link EvaluationDetail} object
    * @since 2.3.0
    */
-  EvaluationDetails<JsonElement> jsonVariationDetails(String featureKey, LDUser user, JsonElement defaultValue);
+  EvaluationDetail<JsonElement> jsonVariationDetail(String featureKey, LDUser user, JsonElement defaultValue);
   
   /**
    * Returns true if the specified feature flag currently exists.

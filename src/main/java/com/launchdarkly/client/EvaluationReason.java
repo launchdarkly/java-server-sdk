@@ -5,6 +5,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Describes the reason that a flag evaluation produced a particular value. This is returned by
  * methods such as {@link LDClientInterface#boolVariationDetails(String, LDUser, boolean).
@@ -16,6 +18,10 @@ import java.util.Objects;
  */
 public abstract class EvaluationReason {
 
+  /**
+   * Enumerated type defining the possible values of {@link EvaluationReason#getKind()}.
+   * @since 4.3.0
+   */
   public static enum Kind {
     /**
      * Indicates that the flag was off and therefore returned its configured off value.
@@ -39,10 +45,38 @@ public abstract class EvaluationReason {
      */
     FALLTHROUGH,
     /**
-     * Indicates that the default value (passed as a parameter to one of the {@code variation} methods)
-     * was returned. This normally indicates an error condition.
+     * Indicates that the flag could not be evaluated, e.g. because it does not exist or due to an unexpected
+     * error. In this case the result value will be the default value that the caller passed to the client.
      */
-    DEFAULT;
+    ERROR;
+  }
+  
+  /**
+   * Enumerated type defining the possible values of {@link EvaluationReason.Error#getErrorKind()}.
+   * @since 4.3.0
+   */
+  public static enum ErrorKind {
+    /**
+     * Indicates that the caller tried to evaluate a flag before the client had successfully initialized.
+     */
+    CLIENT_NOT_READY,
+    /**
+     * Indicates that the caller provided a flag key that did not match any known flag.
+     */
+    FLAG_NOT_FOUND,
+    /**
+     * Indicates that the caller passed {@code null} for the user parameter, or the user lacked a key.
+     */
+    USER_NOT_SPECIFIED,
+    /**
+     * Indicates that the result value was not of the requested type, e.g. you called
+     * {@link LDClientInterface#boolVariationDetail(String, LDUser, boolean)} but the value was an integer.
+     */
+    WRONG_TYPE,
+    /**
+     * Indicates that an unexpected exception stopped flag evaluation; check the log for details.
+     */
+    EXCEPTION
   }
   
   /**
@@ -68,8 +102,8 @@ public abstract class EvaluationReason {
   /**
    * Returns an instance of {@link TargetMatch}.
    */
-  public static TargetMatch targetMatch(int targetIndex) {
-    return new TargetMatch(targetIndex);
+  public static TargetMatch targetMatch() {
+    return TargetMatch.instance;
   }
   
   /**
@@ -94,15 +128,16 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Returns an instance of {@link Default}.
+   * Returns an instance of {@link Error}.
    */
-  public static Default defaultValue() {
-    return Default.instance;
+  public static Error error(ErrorKind errorKind) {
+    return new Error(errorKind);
   }
   
   /**
    * Subclass of {@link EvaluationReason} that indicates that the flag was off and therefore returned
    * its configured off value.
+   * @since 4.3.0
    */
   public static class Off extends EvaluationReason {
     public Kind getKind() {
@@ -115,44 +150,19 @@ public abstract class EvaluationReason {
   /**
    * Subclass of {@link EvaluationReason} that indicates that the user key was specifically targeted
    * for this flag.
+   * @since 4.3.0
    */
   public static class TargetMatch extends EvaluationReason {
-    private final int targetIndex;
-    
-    private TargetMatch(int targetIndex) {
-      this.targetIndex = targetIndex;
-    }
-    
     public Kind getKind() {
       return Kind.TARGET_MATCH;
     }
     
-    public int getTargetIndex() {
-      return targetIndex;
-    }
-    
-    @Override
-    public boolean equals(Object other) {
-      if (other instanceof TargetMatch) {
-        TargetMatch o = (TargetMatch)other;
-        return targetIndex == o.targetIndex;
-      }
-      return false;
-    }
-    
-    @Override
-    public int hashCode() {
-      return targetIndex;
-    }
-    
-    @Override
-    public String toString() {
-      return getKind().name() + "(" + targetIndex + ")";
-    }
+    private static final TargetMatch instance = new TargetMatch();
   }
   
   /**
    * Subclass of {@link EvaluationReason} that indicates that the user matched one of the flag's rules.
+   * @since 4.3.0
    */
   public static class RuleMatch extends EvaluationReason {
     private final int ruleIndex;
@@ -198,11 +208,13 @@ public abstract class EvaluationReason {
   /**
    * Subclass of {@link EvaluationReason} that indicates that the flag was considered off because it
    * had at least one prerequisite flag that either was off or did not return the desired variation.
+   * @since 4.3.0
    */
   public static class PrerequisitesFailed extends EvaluationReason {
     private final ImmutableList<String> prerequisiteKeys;
     
     private PrerequisitesFailed(Iterable<String> prerequisiteKeys) {
+      checkNotNull(prerequisiteKeys);
       this.prerequisiteKeys = ImmutableList.copyOf(prerequisiteKeys);
     }
     
@@ -237,6 +249,7 @@ public abstract class EvaluationReason {
   /**
    * Subclass of {@link EvaluationReason} that indicates that the flag was on but the user did not
    * match any targets or rules.
+   * @since 4.3.0
    */
   public static class Fallthrough extends EvaluationReason {
     public Kind getKind() {
@@ -247,14 +260,38 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Subclass of {@link EvaluationReason} that indicates that the default value (passed as a parameter
-   * to one of the {@code variation} methods) was returned. This normally indicates an error condition.
+   * Subclass of {@link EvaluationReason} that indicates that the flag could not be evaluated.
+   * @since 4.3.0
    */
-  public static class Default extends EvaluationReason {
-    public Kind getKind() {
-      return Kind.DEFAULT;
+  public static class Error extends EvaluationReason {
+    private final ErrorKind errorKind;
+    
+    private Error(ErrorKind errorKind) {
+      checkNotNull(errorKind);
+      this.errorKind = errorKind;
     }
     
-    private static final Default instance = new Default();
+    public Kind getKind() {
+      return Kind.ERROR;
+    }
+    
+    public ErrorKind getErrorKind() {
+      return errorKind;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof Error && errorKind == ((Error) other).errorKind;
+    }
+    
+    @Override
+    public int hashCode() {
+      return errorKind.hashCode();
+    }
+    
+    @Override
+    public String toString() {
+      return getKind().name() + "(" + errorKind.name() + ")";
+    }
   }
 }
