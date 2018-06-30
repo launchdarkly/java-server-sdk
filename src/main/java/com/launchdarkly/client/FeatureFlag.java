@@ -89,8 +89,7 @@ class FeatureFlag implements VersionedData {
     
     // Check to see if targets match
     if (targets != null) {
-      for (int i = 0; i < targets.size(); i++) {
-        Target target = targets.get(i);
+      for (Target target: targets) {
         for (String v : target.getValues()) {
           if (v.equals(user.getKey().getAsString())) {
             return new EvaluationDetail<>(EvaluationReason.targetMatch(),
