@@ -282,6 +282,11 @@ public class StreamProcessorTest extends EasyMockSupport {
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new IOException());
     assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
   }
+
+  @Test
+  public void http400ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(400);
+  }
   
   @Test
   public void http401ErrorIsUnrecoverable() throws Exception {
