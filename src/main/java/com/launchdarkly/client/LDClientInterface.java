@@ -58,7 +58,7 @@ public interface LDClientInterface extends Closeable {
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
   boolean boolVariation(String featureKey, LDUser user, boolean defaultValue);
-
+  
   /**
    * Calculates the integer value of a feature flag for a given user.
    *
@@ -99,6 +99,61 @@ public interface LDClientInterface extends Closeable {
    */
   JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue);
 
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue);
+  
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue);
+  
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue);
+
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue);
+
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<JsonElement> jsonVariationDetail(String featureKey, LDUser user, JsonElement defaultValue);
+  
   /**
    * Returns true if the specified feature flag currently exists.
    * @param featureKey the unique key for the feature flag

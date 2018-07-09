@@ -2,15 +2,17 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 class FeatureFlag implements VersionedData {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
@@ -65,70 +67,92 @@ class FeatureFlag implements VersionedData {
     List<Event.FeatureRequest> prereqEvents = new ArrayList<>();
 
     if (user == null || user.getKey() == null) {
-      logger.warn("Null user or null user key when evaluating flag: " + key + "; returning null");
-      return new EvalResult(null, prereqEvents);
+      // this should have been prevented by LDClient.evaluateInternal
+      throw new EvaluationException("null user or null user key");
     }
 
     if (isOn()) {
-      VariationAndValue result = evaluate(user, featureStore, prereqEvents, eventFactory);
-      if (result != null) {
-        return new EvalResult(result, prereqEvents);
-      }
+      EvaluationDetail<JsonElement> details = evaluate(user, featureStore, prereqEvents, eventFactory);
+      return new EvalResult(details, prereqEvents);
     }
-    return new EvalResult(new VariationAndValue(offVariation, getOffVariationValue()), prereqEvents);
+    
+    EvaluationDetail<JsonElement> details = new EvaluationDetail<>(EvaluationReason.off(), offVariation, getOffVariationValue());
+    return new EvalResult(details, prereqEvents);
   }
 
-  // Returning either a JsonElement or null indicating prereq failure/error.
-  private VariationAndValue evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
+  private EvaluationDetail<JsonElement> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
       EventFactory eventFactory) throws EvaluationException {
-    boolean prereqOk = true;
-    if (prerequisites != null) {
-      for (Prerequisite prereq : prerequisites) {
-        FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
-        VariationAndValue prereqEvalResult = null;
-        if (prereqFeatureFlag == null) {
-          logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
-          return null;
-        } else if (prereqFeatureFlag.isOn()) {
-          prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
-          if (prereqEvalResult == null || prereqEvalResult.getVariation() != prereq.getVariation()) {
-            prereqOk = false;
-          }
-        } else {
-          prereqOk = false;
-        }
-        //We don't short circuit and also send events for each prereq.
-        events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
-      }
+    EvaluationReason prereqFailureReason = checkPrerequisites(user, featureStore, events, eventFactory);
+    if (prereqFailureReason != null) {
+      return new EvaluationDetail<>(prereqFailureReason, offVariation, getOffVariationValue());
     }
-    if (prereqOk) {
-      Integer index = evaluateIndex(user, featureStore);
-      return new VariationAndValue(index, getVariation(index));
-    }
-    return null;
-  }
-
-  private Integer evaluateIndex(LDUser user, FeatureStore store) {
+    
     // Check to see if targets match
     if (targets != null) {
-      for (Target target : targets) {
+      for (Target target: targets) {
         for (String v : target.getValues()) {
           if (v.equals(user.getKey().getAsString())) {
-            return target.getVariation();
+            return new EvaluationDetail<>(EvaluationReason.targetMatch(),
+                target.getVariation(), getVariation(target.getVariation()));
           }
         }
       }
     }
     // Now walk through the rules and see if any match
     if (rules != null) {
-      for (Rule rule : rules) {
-        if (rule.matchesUser(store, user)) {
-          return rule.variationIndexForUser(user, key, salt);
+      for (int i = 0; i < rules.size(); i++) {
+        Rule rule = rules.get(i);
+        if (rule.matchesUser(featureStore, user)) {
+          int index = rule.variationIndexForUser(user, key, salt);
+          return new EvaluationDetail<>(EvaluationReason.ruleMatch(i, rule.getId()),
+              index, getVariation(index));
         }
       }
     }
     // Walk through the fallthrough and see if it matches
-    return fallthrough.variationIndexForUser(user, key, salt);
+    int index = fallthrough.variationIndexForUser(user, key, salt);
+    return new EvaluationDetail<>(EvaluationReason.fallthrough(), index, getVariation(index));
+  }
+
+  // Checks prerequisites if any; returns null if successful, or an EvaluationReason if we have to
+  // short-circuit due to a prerequisite failure.
+  private EvaluationReason checkPrerequisites(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
+      EventFactory eventFactory) throws EvaluationException {
+    if (prerequisites == null) {
+      return null;
+    }
+    List<String> failedPrereqs = null;
+    for (int i = 0; i < prerequisites.size(); i++) {
+      boolean prereqOk = true;
+      Prerequisite prereq = prerequisites.get(i);
+      FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
+      EvaluationDetail<JsonElement> prereqEvalResult = null;
+      if (prereqFeatureFlag == null) {
+        logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
+        prereqOk = false;
+      } else if (prereqFeatureFlag.isOn()) {
+        prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
+        if (prereqEvalResult == null || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
+          prereqOk = false;
+        }
+      } else {
+        prereqOk = false;
+      }
+      // We continue to evaluate all prerequisites even if one failed.
+      if (prereqFeatureFlag != null) {
+        events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
+      }
+      if (!prereqOk) {
+        if (failedPrereqs == null) {
+          failedPrereqs = new ArrayList<>();
+        }
+        failedPrereqs.add(prereq.getKey());
+      }
+    }
+    if (failedPrereqs != null && !failedPrereqs.isEmpty()) {
+      return EvaluationReason.prerequisitesFailed(failedPrereqs);
+    }
+    return null;
   }
 
   JsonElement getOffVariationValue() throws EvaluationException {
@@ -207,37 +231,23 @@ class FeatureFlag implements VersionedData {
     return variations;
   }
 
-  Integer getOffVariation() { return offVariation; }
-
-  static class VariationAndValue {
-    private final Integer variation;
-    private final JsonElement value;
-
-    VariationAndValue(Integer variation, JsonElement value) {
-      this.variation = variation;
-      this.value = value;
-    }
-    
-    Integer getVariation() {
-      return variation;
-    }
-    
-    JsonElement getValue() {
-      return value;
-    }
+  Integer getOffVariation() {
+    return offVariation;
   }
   
   static class EvalResult {
-    private final VariationAndValue result;
+    private final EvaluationDetail<JsonElement> details;
     private final List<Event.FeatureRequest> prerequisiteEvents;
 
-    private EvalResult(VariationAndValue result, List<Event.FeatureRequest> prerequisiteEvents) {
-      this.result = result;
+    private EvalResult(EvaluationDetail<JsonElement> details, List<Event.FeatureRequest> prerequisiteEvents) {
+      checkNotNull(details);
+      checkNotNull(prerequisiteEvents);
+      this.details = details;
       this.prerequisiteEvents = prerequisiteEvents;
     }
 
-    VariationAndValue getResult() {
-      return result;
+    EvaluationDetail<JsonElement> getDetails() {
+      return details;
     }
 
     List<Event.FeatureRequest> getPrerequisiteEvents() {
