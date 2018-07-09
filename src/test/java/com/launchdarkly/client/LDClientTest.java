@@ -10,7 +10,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.launchdarkly.client.TestUtil.flagWithValue;
+import static com.launchdarkly.client.TestUtil.initedFeatureStore;
+import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
@@ -152,8 +156,7 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void isFlagKnownReturnsTrueForExistingFlag() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
+    FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
             .featureStoreFactory(specificFeatureStore(testFeatureStore));
@@ -163,15 +166,14 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testFeatureStore.setIntegerValue("key", 1);
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", jint(1)));
     assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
 
   @Test
   public void isFlagKnownReturnsFalseForUnknownFlag() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
+    FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
             .featureStoreFactory(specificFeatureStore(testFeatureStore));
@@ -187,8 +189,7 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void isFlagKnownReturnsFalseIfStoreAndClientAreNotInitialized() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(false);
+    FeatureStore testFeatureStore = new InMemoryFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
             .featureStoreFactory(specificFeatureStore(testFeatureStore));
@@ -198,15 +199,14 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testFeatureStore.setIntegerValue("key", 1);
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", jint(1)));
     assertFalse(client.isFlagKnown("key"));
     verifyAll();
   }
 
   @Test
   public void isFlagKnownUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
+    FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
             .featureStoreFactory(specificFeatureStore(testFeatureStore));
@@ -216,15 +216,14 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testFeatureStore.setIntegerValue("key", 1);
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", jint(1)));
     assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
   
   @Test
   public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
-    testFeatureStore.setInitialized(true);
+    FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .startWaitMillis(0L);
@@ -235,7 +234,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
     
-    testFeatureStore.setIntegerValue("key", 1);
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", jint(1)));
     assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
     
     verifyAll();
