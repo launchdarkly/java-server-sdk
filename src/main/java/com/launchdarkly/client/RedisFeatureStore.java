@@ -259,6 +259,7 @@ public class RedisFeatureStore implements FeatureStore {
         if (cache != null) {
           cache.invalidate(new CacheKey(kind, newItem.getKey()));
         }
+        return;
       } finally {
         if (jedis != null) {
           jedis.unwatch();
