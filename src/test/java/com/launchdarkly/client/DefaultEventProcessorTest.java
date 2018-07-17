@@ -392,6 +392,11 @@ public class DefaultEventProcessorTest {
   }
 
   @Test
+  public void http400ErrorIsRecoverable() throws Exception {
+    testRecoverableHttpError(400);
+  }
+
+  @Test
   public void http401ErrorIsUnrecoverable() throws Exception {
     testUnrecoverableHttpError(401);
   }
