@@ -20,6 +20,11 @@ public class EventSummarizerTest {
     protected long getTimestamp() {
       return eventTimestamp;
     }
+    
+    @Override
+    protected boolean isIncludeReasons() {
+      return false;
+    }
   };
   
   @Test
@@ -73,7 +78,7 @@ public class EventSummarizerTest {
         simpleEvaluation(1, js("value99")), js("default2"));
     Event event4 = eventFactory.newFeatureRequestEvent(flag1, user,
         simpleEvaluation(1, js("value1")), js("default1"));
-    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, js("default3"));
+    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, js("default3"), EvaluationReason.ErrorKind.FLAG_NOT_FOUND);
     es.summarizeEvent(event1);
     es.summarizeEvent(event2);
     es.summarizeEvent(event3);

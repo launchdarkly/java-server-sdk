@@ -110,6 +110,8 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link RuleMatch}.
+   * @param ruleIndex the rule index
+   * @param ruleId the rule identifier
    * @return a reason object
    */
   public static RuleMatch ruleMatch(int ruleIndex, String ruleId) {
@@ -118,6 +120,7 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link PrerequisitesFailed}.
+   * @param prerequisiteKeys the list of flag keys of prerequisites that failed 
    * @return a reason object
    */
   public static PrerequisitesFailed prerequisitesFailed(Iterable<String> prerequisiteKeys) {
@@ -134,6 +137,7 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link Error}.
+   * @param errorKind describes the type of error
    * @return a reason object
    */
   public static Error error(ErrorKind errorKind) {
