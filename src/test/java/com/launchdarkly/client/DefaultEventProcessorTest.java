@@ -153,6 +153,24 @@ public class DefaultEventProcessorTest {
   
   @SuppressWarnings("unchecked")
   @Test
+  public void featureEventCanContainReason() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
+    EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
+    Event.FeatureRequest fe = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(flag, user,
+        new EvaluationDetail<JsonElement>(reason, 1, new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+    
+    JsonArray output = flushAndGetEvents(new MockResponse());
+    assertThat(output, hasItems(
+        isIndexEvent(fe, userJson),
+        isFeatureEvent(fe, flag, false, null, reason),
+        isSummaryEvent()
+    ));
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
   public void indexEventIsStillGeneratedIfInlineUsersIsTrueButFeatureEventIsNotTracked() throws Exception {
     configBuilder.inlineUsersInEvents(true);
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
@@ -494,8 +512,13 @@ public class DefaultEventProcessorTest {
     );
   }
 
-  @SuppressWarnings("unchecked")
   private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, FeatureFlag flag, boolean debug, JsonElement inlineUser) {
+    return isFeatureEvent(sourceEvent, flag, debug, inlineUser, null);
+  }
+
+  @SuppressWarnings("unchecked")
+  private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, FeatureFlag flag, boolean debug, JsonElement inlineUser,
+      EvaluationReason reason) {
     return allOf(
         hasJsonProperty("kind", debug ? "debug" : "feature"),
         hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
@@ -506,7 +529,9 @@ public class DefaultEventProcessorTest {
         (inlineUser != null) ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
           hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
         (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
-          hasJsonProperty("user", nullValue(JsonElement.class))
+          hasJsonProperty("user", nullValue(JsonElement.class)),
+        (reason == null) ? hasJsonProperty("reason", nullValue(JsonElement.class)) :
+          hasJsonProperty("reason", gson.toJsonTree(reason))
     );
   }
 
