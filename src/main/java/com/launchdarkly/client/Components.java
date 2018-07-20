@@ -18,6 +18,7 @@ public abstract class Components {
   
   /**
    * Returns a factory for the default in-memory implementation of {@link FeatureStore}.
+   * @return a factory object
    */
   public static FeatureStoreFactory inMemoryFeatureStore() {
     return inMemoryFeatureStoreFactory;
@@ -26,6 +27,7 @@ public abstract class Components {
   /**
    * Returns a factory with builder methods for creating a Redis-backed implementation of {@link FeatureStore},
    * using {@link RedisFeatureStoreBuilder#DEFAULT_URI}.
+   * @return a factory/builder object
    */
   public static RedisFeatureStoreBuilder redisFeatureStore() {
     return new RedisFeatureStoreBuilder();
@@ -34,6 +36,8 @@ public abstract class Components {
   /**
    * Returns a factory with builder methods for creating a Redis-backed implementation of {@link FeatureStore},
    * specifying the Redis URI.
+   * @param redisUri the URI of the Redis host
+   * @return a factory/builder object
    */
   public static RedisFeatureStoreBuilder redisFeatureStore(URI redisUri) {
     return new RedisFeatureStoreBuilder(redisUri);
@@ -43,6 +47,7 @@ public abstract class Components {
    * Returns a factory for the default implementation of {@link EventProcessor}, which
    * forwards all analytics events to LaunchDarkly (unless the client is offline or you have
    * set {@link LDConfig.Builder#sendEvents(boolean)} to {@code false}).
+   * @return a factory object
    */
   public static EventProcessorFactory defaultEventProcessor() {
     return defaultEventProcessorFactory;
@@ -51,6 +56,7 @@ public abstract class Components {
   /**
    * Returns a factory for a null implementation of {@link EventProcessor}, which will discard
    * all analytics events and not send them to LaunchDarkly, regardless of any other configuration.
+   * @return a factory object
    */
   public static EventProcessorFactory nullEventProcessor() {
     return nullEventProcessorFactory;
@@ -60,6 +66,7 @@ public abstract class Components {
    * Returns a factory for the default implementation of {@link UpdateProcessor}, which receives
    * feature flag data from LaunchDarkly using either streaming or polling as configured (or does
    * nothing if the client is offline, or in LDD mode).
+   * @return a factory object
    */
   public static UpdateProcessorFactory defaultUpdateProcessor() {
     return defaultUpdateProcessorFactory;
@@ -68,6 +75,7 @@ public abstract class Components {
   /**
    * Returns a factory for a null implementation of {@link UpdateProcessor}, which does not
    * connect to LaunchDarkly, regardless of any other configuration.
+   * @return a factory object
    */
   public static UpdateProcessorFactory nullUpdateProcessor() {
     return nullUpdateProcessorFactory;
