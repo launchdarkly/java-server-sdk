@@ -101,7 +101,8 @@ public interface LDClientInterface extends Closeable {
 
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined.
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
@@ -112,7 +113,8 @@ public interface LDClientInterface extends Closeable {
   
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined.
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
@@ -123,7 +125,8 @@ public interface LDClientInterface extends Closeable {
   
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined.
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
@@ -134,7 +137,8 @@ public interface LDClientInterface extends Closeable {
 
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined.
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
@@ -145,7 +149,8 @@ public interface LDClientInterface extends Closeable {
 
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined.
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
