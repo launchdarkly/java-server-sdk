@@ -5,7 +5,7 @@ import com.google.common.base.Objects;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * An object returned by the "variation detail" methods such as {@link LDClientInterface#boolVariationDetails(String, LDUser, boolean),
+ * An object returned by the "variation detail" methods such as {@link LDClientInterface#boolVariationDetail(String, LDUser, boolean)},
  * combining the result of a flag evaluation with an explanation of how it was calculated.
  * @since 4.3.0
  */

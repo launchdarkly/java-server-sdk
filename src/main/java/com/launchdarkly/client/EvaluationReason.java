@@ -9,7 +9,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Describes the reason that a flag evaluation produced a particular value. This is returned by
- * methods such as {@link LDClientInterface#boolVariationDetails(String, LDUser, boolean).
+ * methods such as {@link LDClientInterface#boolVariationDetail(String, LDUser, boolean)}.
  * 
  * Note that this is an enum-like class hierarchy rather than an enum, because some of the
  * possible reasons have their own properties.
@@ -94,6 +94,7 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link Off}.
+   * @return a reason object
    */
   public static Off off() {
     return Off.instance;
@@ -101,6 +102,7 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link TargetMatch}.
+   * @return a reason object
    */
   public static TargetMatch targetMatch() {
     return TargetMatch.instance;
@@ -108,6 +110,7 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link RuleMatch}.
+   * @return a reason object
    */
   public static RuleMatch ruleMatch(int ruleIndex, String ruleId) {
     return new RuleMatch(ruleIndex, ruleId);
@@ -115,6 +118,7 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link PrerequisitesFailed}.
+   * @return a reason object
    */
   public static PrerequisitesFailed prerequisitesFailed(Iterable<String> prerequisiteKeys) {
     return new PrerequisitesFailed(prerequisiteKeys);
@@ -122,6 +126,7 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link Fallthrough}.
+   * @return a reason object
    */
   public static Fallthrough fallthrough() {
     return Fallthrough.instance;
@@ -129,6 +134,7 @@ public abstract class EvaluationReason {
   
   /**
    * Returns an instance of {@link Error}.
+   * @return a reason object
    */
   public static Error error(ErrorKind errorKind) {
     return new Error(errorKind);
