@@ -231,11 +231,13 @@ public class FeatureFlagTest {
   
   @Test
   public void flagMatchesUserFromRules() throws Exception {
-    Clause clause = new Clause("key", Operator.in, Arrays.asList(js("userkey")), false);
-    Rule rule = new Rule("ruleid", Arrays.asList(clause), 2, null);
+    Clause clause0 = new Clause("key", Operator.in, Arrays.asList(js("wrongkey")), false);
+    Clause clause1 = new Clause("key", Operator.in, Arrays.asList(js("userkey")), false);
+    Rule rule0 = new Rule("ruleid0", Arrays.asList(clause0), 2, null);
+    Rule rule1 = new Rule("ruleid1", Arrays.asList(clause1), 2, null);
     FeatureFlag f = new FeatureFlagBuilder("feature")
         .on(true)
-        .rules(Arrays.asList(rule))
+        .rules(Arrays.asList(rule0, rule1))
         .fallthrough(fallthroughVariation(0))
         .offVariation(1)
         .variations(js("fall"), js("off"), js("on"))
@@ -243,7 +245,7 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("userkey").build();
     FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(new EvaluationDetail<>(EvaluationReason.ruleMatch(0, "ruleid"), 2, js("on")), result.getDetails());
+    assertEquals(new EvaluationDetail<>(EvaluationReason.ruleMatch(1, "ruleid1"), 2, js("on")), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
