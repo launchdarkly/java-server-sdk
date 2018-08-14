@@ -211,7 +211,7 @@ public abstract class EvaluationReason {
     
     @Override
     public String toString() {
-      return getKind().name() + "(" + (ruleId == null ? String.valueOf(ruleIndex) : ruleId + ")");
+      return getKind().name() + "(" + ruleIndex + (ruleId == null ? "" : ("," + ruleId)) + ")";
     }
   }
   
