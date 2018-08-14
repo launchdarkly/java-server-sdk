@@ -79,18 +79,26 @@ public abstract class EvaluationReason {
     EXCEPTION
   }
   
+  private final Kind kind;
+  
   /**
    * Returns an enum indicating the general category of the reason.
    * @return a {@link Kind} value
    */
-  public abstract Kind getKind();
+  public Kind getKind()
+  {
+    return kind;
+  }
   
   @Override
   public String toString() {
     return getKind().name();
   }
 
-  private EvaluationReason() { }
+  protected EvaluationReason(Kind kind)
+  {
+    this.kind = kind;
+  }
   
   /**
    * Returns an instance of {@link Off}.
@@ -150,8 +158,8 @@ public abstract class EvaluationReason {
    * @since 4.3.0
    */
   public static class Off extends EvaluationReason {
-    public Kind getKind() {
-      return Kind.OFF;
+    private Off() {
+      super(Kind.OFF);
     }
     
     private static final Off instance = new Off();
@@ -163,8 +171,9 @@ public abstract class EvaluationReason {
    * @since 4.3.0
    */
   public static class TargetMatch extends EvaluationReason {
-    public Kind getKind() {
-      return Kind.TARGET_MATCH;
+    private TargetMatch()
+    {
+      super(Kind.TARGET_MATCH);
     }
     
     private static final TargetMatch instance = new TargetMatch();
@@ -179,12 +188,9 @@ public abstract class EvaluationReason {
     private final String ruleId;
     
     private RuleMatch(int ruleIndex, String ruleId) {
+      super(Kind.RULE_MATCH);
       this.ruleIndex = ruleIndex;
       this.ruleId = ruleId;
-    }
-    
-    public Kind getKind() {
-      return Kind.RULE_MATCH;
     }
     
     public int getRuleIndex() {
@@ -224,12 +230,9 @@ public abstract class EvaluationReason {
     private final ImmutableList<String> prerequisiteKeys;
     
     private PrerequisitesFailed(Iterable<String> prerequisiteKeys) {
+      super(Kind.PREREQUISITES_FAILED);
       checkNotNull(prerequisiteKeys);
       this.prerequisiteKeys = ImmutableList.copyOf(prerequisiteKeys);
-    }
-    
-    public Kind getKind() {
-      return Kind.PREREQUISITES_FAILED;
     }
     
     public Iterable<String> getPrerequisiteKeys() {
@@ -262,8 +265,9 @@ public abstract class EvaluationReason {
    * @since 4.3.0
    */
   public static class Fallthrough extends EvaluationReason {
-    public Kind getKind() {
-      return Kind.FALLTHROUGH;
+    private Fallthrough()
+    {
+      super(Kind.FALLTHROUGH);
     }
     
     private static final Fallthrough instance = new Fallthrough();
@@ -277,12 +281,9 @@ public abstract class EvaluationReason {
     private final ErrorKind errorKind;
     
     private Error(ErrorKind errorKind) {
+      super(Kind.ERROR);
       checkNotNull(errorKind);
       this.errorKind = errorKind;
-    }
-    
-    public Kind getKind() {
-      return Kind.ERROR;
     }
     
     public ErrorKind getErrorKind() {
