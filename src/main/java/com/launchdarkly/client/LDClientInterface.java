@@ -47,8 +47,8 @@ public interface LDClientInterface extends Closeable {
    * @param user the end user requesting the feature flags
    * @return a map from feature flag keys to {@code JsonElement} for the specified user
    * 
-   * @deprecated Use {@link #allFlagsState} instead. Current versions of the client-side SDK will not generate analytics
-   * events correctly if you pass the result of {@code allFlags()}.
+   * @deprecated Use {@link #allFlagsState} instead. Current versions of the client-side SDK (2.0.0 and later)
+   * will not generate analytics events correctly if you pass the result of {@code allFlags()}.
    */
   @Deprecated
   Map<String, JsonElement> allFlags(LDUser user);
