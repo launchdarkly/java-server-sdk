@@ -12,7 +12,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -142,39 +141,49 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public Map<String, JsonElement> allFlags(LDUser user) {
-    if (isOffline()) {
-      logger.debug("allFlags() was called when client is in offline mode.");
+    FeatureFlagsState state = allFlagsState(user);
+    if (!state.isValid()) {
+      return null;
     }
+    return state.toValuesMap();
+  }
 
+  @Override
+  public FeatureFlagsState allFlagsState(LDUser user) {
+    FeatureFlagsState.Builder builder = new FeatureFlagsState.Builder();
+    
+    if (isOffline()) {
+      logger.debug("allFlagsState() was called when client is in offline mode.");
+    }
+    
     if (!initialized()) {
       if (featureStore.initialized()) {
-        logger.warn("allFlags() was called before client initialized; using last known values from feature store");
+        logger.warn("allFlagsState() was called before client initialized; using last known values from feature store");
       } else {
-        logger.warn("allFlags() was called before client initialized; feature store unavailable, returning null");
-        return null;
+        logger.warn("allFlagsState() was called before client initialized; feature store unavailable, returning no data");
+        return builder.valid(false).build();
       }
     }
 
     if (user == null || user.getKey() == null) {
-      logger.warn("allFlags() was called with null user or null user key! returning null");
-      return null;
+      logger.warn("allFlagsState() was called with null user or null user key! returning no data");
+      return builder.valid(false).build();
     }
 
     Map<String, FeatureFlag> flags = featureStore.all(FEATURES);
-    Map<String, JsonElement> result = new HashMap<>();
-
     for (Map.Entry<String, FeatureFlag> entry : flags.entrySet()) {
       try {
-        JsonElement evalResult = entry.getValue().evaluate(user, featureStore, eventFactory).getResult().getValue();
-          result.put(entry.getKey(), evalResult);
-
+        FeatureFlag.VariationAndValue eval = entry.getValue().evaluate(user, featureStore, EventFactory.DEFAULT).getResult();
+        builder.addFlag(entry.getValue(), eval);
       } catch (EvaluationException e) {
-        logger.error("Exception caught when evaluating all flags:", e);
+        logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
+        logger.debug(e.toString(), e);
+        builder.addFlag(entry.getValue(), new FeatureFlag.VariationAndValue(null, null));
       }
     }
-    return result;
+    return builder.build();
   }
-
+  
   @Override
   public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
     JsonElement value = evaluate(featureKey, user, new JsonPrimitive(defaultValue), VariationType.Boolean);
