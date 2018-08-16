@@ -182,41 +182,6 @@ public class LDClientEvaluationTest {
   }
 
   @Test
-  public void allFlagsStateReturnsStateWithReasons() throws Exception {
-    FeatureFlag flag1 = new FeatureFlagBuilder("key1")
-        .version(100)
-        .trackEvents(false)
-        .on(false)
-        .offVariation(0)
-        .variations(js("value1"))
-        .build();
-    FeatureFlag flag2 = new FeatureFlagBuilder("key2")
-        .version(200)
-        .trackEvents(true)
-        .debugEventsUntilDate(1000L)
-        .on(true)
-        .fallthrough(fallthroughVariation(1))
-        .variations(js("off"), js("value2"))
-        .build();
-    featureStore.upsert(FEATURES, flag1);
-    featureStore.upsert(FEATURES, flag2);
-
-    FeatureFlagsState state = client.allFlagsState(user);
-    assertTrue(state.isValid());
-    
-    String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
-        "\"$flagsState\":{" +
-          "\"key1\":{" +
-            "\"variation\":0,\"version\":100,\"trackEvents\":false" +
-          "},\"key2\":{" +
-            "\"variation\":1,\"version\":200,\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
-          "}" +
-        "}}";
-    JsonElement expected = gson.fromJson(json, JsonElement.class);
-    assertEquals(expected, gson.fromJson(state.toJsonString(), JsonElement.class));
-  }
-  
-  @Test
   public void allFlagsStateReturnsEmptyStateForNullUser() throws Exception {
     featureStore.setStringValue("key", "value");
 
