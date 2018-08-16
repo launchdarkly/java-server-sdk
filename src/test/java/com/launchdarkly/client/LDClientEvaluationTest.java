@@ -1,14 +1,18 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Map;
 
 import static com.launchdarkly.client.TestUtil.booleanFlagWithClauses;
 import static com.launchdarkly.client.TestUtil.failedUpdateProcessor;
+import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.TestUtil.featureStoreThatThrowsException;
 import static com.launchdarkly.client.TestUtil.flagWithValue;
 import static com.launchdarkly.client.TestUtil.jbool;
@@ -21,12 +25,16 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class LDClientEvaluationTest {
   private static final LDUser user = new LDUser("userkey");
   
   private FeatureStore featureStore = TestUtil.initedFeatureStore();
+  private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
+  private static final Gson gson = new Gson();
+
   private LDConfig config = new LDConfig.Builder()
       .featureStoreFactory(specificFeatureStore(featureStore))
       .eventProcessorFactory(Components.nullEventProcessor())
@@ -170,5 +178,119 @@ public class LDClientEvaluationTest {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.EXCEPTION, false);
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }
+  }
+  
+  @SuppressWarnings("deprecation")
+  @Test
+  public void allFlagsReturnsFlagValues() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key1", js("value1")));
+    featureStore.upsert(FEATURES, flagWithValue("key2", js("value2")));
+    
+    Map<String, JsonElement> result = client.allFlags(user);
+    assertEquals(ImmutableMap.<String, JsonElement>of("key1", js("value1"), "key2", js("value2")), result);
+  }
+  
+  @SuppressWarnings("deprecation")
+  @Test
+  public void allFlagsReturnsNullForNullUser() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", js("value")));
+    
+    assertNull(client.allFlags(null));
+  }
+  
+  @SuppressWarnings("deprecation")
+  @Test
+  public void allFlagsReturnsNullForNullUserKey() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", js("value")));
+
+    assertNull(client.allFlags(userWithNullKey));
+  }
+  
+  @Test
+  public void allFlagsStateReturnsState() throws Exception {
+    FeatureFlag flag1 = new FeatureFlagBuilder("key1")
+        .version(100)
+        .trackEvents(false)
+        .on(false)
+        .offVariation(0)
+        .variations(js("value1"))
+        .build();
+    FeatureFlag flag2 = new FeatureFlagBuilder("key2")
+        .version(200)
+        .trackEvents(true)
+        .debugEventsUntilDate(1000L)
+        .on(true)
+        .fallthrough(fallthroughVariation(1))
+        .variations(js("off"), js("value2"))
+        .build();
+    featureStore.upsert(FEATURES, flag1);
+    featureStore.upsert(FEATURES, flag2);
+
+    FeatureFlagsState state = client.allFlagsState(user);
+    assertTrue(state.isValid());
+    
+    String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
+        "\"$flagsState\":{" +
+          "\"key1\":{" +
+            "\"variation\":0,\"version\":100,\"trackEvents\":false" +
+          "},\"key2\":{" +
+            "\"variation\":1,\"version\":200,\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
+          "}" +
+        "}}";
+    JsonElement expected = gson.fromJson(json, JsonElement.class);
+    assertEquals(expected, gson.fromJson(state.toJsonString(), JsonElement.class));
+  }
+
+  @Test
+  public void allFlagsStateReturnsStateWithReasons() throws Exception {
+    FeatureFlag flag1 = new FeatureFlagBuilder("key1")
+        .version(100)
+        .trackEvents(false)
+        .on(false)
+        .offVariation(0)
+        .variations(js("value1"))
+        .build();
+    FeatureFlag flag2 = new FeatureFlagBuilder("key2")
+        .version(200)
+        .trackEvents(true)
+        .debugEventsUntilDate(1000L)
+        .on(true)
+        .fallthrough(fallthroughVariation(1))
+        .variations(js("off"), js("value2"))
+        .build();
+    featureStore.upsert(FEATURES, flag1);
+    featureStore.upsert(FEATURES, flag2);
+
+    FeatureFlagsState state = client.allFlagsState(user, FlagsStateOption.withReasons(true));
+    assertTrue(state.isValid());
+    
+    String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
+        "\"$flagsState\":{" +
+          "\"key1\":{" +
+            "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"},\"trackEvents\":false" +
+          "},\"key2\":{" +
+            "\"variation\":1,\"version\":200,\"reason\":{\"kind\":\"FALLTHROUGH\"},\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
+          "}" +
+        "}}";
+    JsonElement expected = gson.fromJson(json, JsonElement.class);
+    assertEquals(expected, gson.fromJson(state.toJsonString(), JsonElement.class));
+  }
+  
+  @Test
+  public void allFlagsStateReturnsEmptyStateForNullUser() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", js("value")));
+
+    FeatureFlagsState state = client.allFlagsState(null);
+    assertFalse(state.isValid());
+    assertEquals(0, state.toValuesMap().size());
+  }
+  
+  @Test
+  public void allFlagsStateReturnsEmptyStateForNullUserKey() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", js("value")));
+
+    FeatureFlagsState state = client.allFlagsState(userWithNullKey);
+    assertFalse(state.isValid());
+    assertEquals(0, state.toValuesMap().size());
   }
 }

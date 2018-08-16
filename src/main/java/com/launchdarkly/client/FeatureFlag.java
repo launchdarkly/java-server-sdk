@@ -68,7 +68,8 @@ class FeatureFlag implements VersionedData {
 
     if (user == null || user.getKey() == null) {
       // this should have been prevented by LDClient.evaluateInternal
-      throw new EvaluationException("null user or null user key");
+      logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", key);
+      return new EvalResult(EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, null), prereqEvents);
     }
 
     if (isOn()) {

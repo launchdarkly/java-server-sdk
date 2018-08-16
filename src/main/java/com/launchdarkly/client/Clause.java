@@ -38,7 +38,7 @@ class Clause {
       JsonArray array = userValue.getAsJsonArray();
       for (JsonElement jsonElement : array) {
         if (!jsonElement.isJsonPrimitive()) {
-          logger.error("Invalid custom attribute value in user object: " + jsonElement);
+          logger.error("Invalid custom attribute value in user object for user key \"{}\": {}", user.getKey(), jsonElement);
           return false;
         }
         if (matchAny(jsonElement.getAsJsonPrimitive())) {
@@ -49,8 +49,8 @@ class Clause {
     } else if (userValue.isJsonPrimitive()) {
       return maybeNegate(matchAny(userValue.getAsJsonPrimitive()));
     }
-    logger.warn("Got unexpected user attribute type: " + userValue.getClass().getName() + " for user key: "
-        + user.getKey() + " and attribute: " + attribute);
+    logger.warn("Got unexpected user attribute type \"{}\" for user key \"{}\" and attribute \"{}\"",
+        userValue.getClass().getName(), user.getKey(), attribute);
     return false;
   }
 
