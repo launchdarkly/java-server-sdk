@@ -3,6 +3,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.2.1] - 2018-07-16
+### Fixed:
+- Should not permanently give up on posting events if the server returns a 400 error.
+- Fixed a bug in the Redis store that caused an unnecessary extra Redis query (and a debug-level log message about updating a flag with the same version) after every update of a flag.
+
 ## [4.2.0] - 2018-06-26
 ### Added:
 - New overloads of `LDUser.Builder.custom` and `LDUser.Builder.privateCustom` allow you to set a custom attribute value to any JSON element.

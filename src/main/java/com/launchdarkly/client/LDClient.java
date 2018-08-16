@@ -94,7 +94,8 @@ public final class LDClient implements LDClientInterface {
       } catch (TimeoutException e) {
         logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
       } catch (Exception e) {
-        logger.error("Exception encountered waiting for LaunchDarkly client initialization", e);
+        logger.error("Exception encountered waiting for LaunchDarkly client initialization: {}", e.toString());
+        logger.debug(e.toString(), e);
       }
       if (!updateProcessor.initialized()) {
         logger.warn("LaunchDarkly client was not successfully initialized");
@@ -167,7 +168,8 @@ public final class LDClient implements LDClientInterface {
         JsonElement evalResult = entry.getValue().evaluate(user, featureStore, EventFactory.DEFAULT).getDetails().getValue();
         result.put(entry.getKey(), evalResult);
       } catch (EvaluationException e) {
-        logger.error("Exception caught when evaluating all flags:", e);
+        logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
+        logger.debug(e.toString(), e);
       }
     }
     return result;
@@ -232,9 +234,9 @@ public final class LDClient implements LDClientInterface {
   public boolean isFlagKnown(String featureKey) {
     if (!initialized()) {
       if (featureStore.initialized()) {
-        logger.warn("isFlagKnown called before client initialized for feature flag " + featureKey + "; using last known values from feature store");
+        logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; using last known values from feature store", featureKey);
       } else {
-        logger.warn("isFlagKnown called before client initialized for feature flag " + featureKey + "; feature store unavailable, returning false");
+        logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; feature store unavailable, returning false", featureKey);
         return false;
       }
     }
@@ -244,7 +246,8 @@ public final class LDClient implements LDClientInterface {
         return true;
       }
     } catch (Exception e) {
-      logger.error("Encountered exception in LaunchDarkly client", e);
+      logger.error("Encountered exception while calling isFlagKnown for feature flag \"{}\": {}", e.toString());
+      logger.debug(e.toString(), e);
     }
 
     return false;
@@ -274,25 +277,26 @@ public final class LDClient implements LDClientInterface {
   private EvaluationDetail<JsonElement> evaluateInternal(String featureKey, LDUser user, JsonElement defaultValue, EventFactory eventFactory) {
     if (!initialized()) {
       if (featureStore.initialized()) {
-        logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; using last known values from feature store");
+        logger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from feature store", featureKey);
       } else {
-        logger.warn("Evaluation called before client initialized for feature flag " + featureKey + "; feature store unavailable, returning default value");
+        logger.warn("Evaluation called before client initialized for feature flag \"{}\"; feature store unavailable, returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
             EvaluationReason.ErrorKind.CLIENT_NOT_READY));
         return EvaluationDetail.error(EvaluationReason.ErrorKind.CLIENT_NOT_READY, defaultValue);
       }
     }
 
+    FeatureFlag featureFlag = null;
     try {
-      FeatureFlag featureFlag = featureStore.get(FEATURES, featureKey);
+      featureFlag = featureStore.get(FEATURES, featureKey);
       if (featureFlag == null) {
-        logger.info("Unknown feature flag " + featureKey + "; returning default value");
+        logger.info("Unknown feature flag \"{}\"; returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
             EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
         return EvaluationDetail.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, defaultValue);
       }
       if (user == null || user.getKey() == null) {
-        logger.warn("Null user or null user key when evaluating flag: " + featureKey + "; returning default value");
+        logger.warn("Null user or null user key when evaluating flag \"{}\"; returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
             EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
         return EvaluationDetail.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
@@ -300,26 +304,22 @@ public final class LDClient implements LDClientInterface {
       if (user.getKeyAsString().isEmpty()) {
         logger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
       }
-      FeatureFlag.EvalResult evalResult;
-      try {
-        evalResult = featureFlag.evaluate(user, featureStore, eventFactory);
-      } catch (Exception e) {
-        logger.error("Encountered exception in LaunchDarkly client: " + e);
-        logger.debug(e.getMessage(), e);;
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
-            EvaluationReason.ErrorKind.EXCEPTION));
-        return EvaluationDetail.error(EvaluationReason.ErrorKind.EXCEPTION, defaultValue);
-      }
+      FeatureFlag.EvalResult evalResult = featureFlag.evaluate(user, featureStore, eventFactory);
       for (Event.FeatureRequest event : evalResult.getPrerequisiteEvents()) {
         eventProcessor.sendEvent(event);
       }
       sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult.getDetails(), defaultValue));
       return evalResult.getDetails();
     } catch (Exception e) {
-      logger.error("Encountered exception in LaunchDarkly client: " + e);
-      logger.debug(e.getMessage(), e);
-      sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
-          EvaluationReason.ErrorKind.EXCEPTION));
+      logger.error("Encountered exception while evaluating feature flag \"{}\": {}", featureKey, e.toString());
+      logger.debug(e.toString(), e);
+      if (featureFlag == null) {
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION));
+      } else {
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION));
+      }
       return EvaluationDetail.error(EvaluationReason.ErrorKind.EXCEPTION, defaultValue);
     }
   }
@@ -366,7 +366,8 @@ public final class LDClient implements LDClientInterface {
       mac.init(new SecretKeySpec(sdkKey.getBytes(), HMAC_ALGORITHM));
       return Hex.encodeHexString(mac.doFinal(user.getKeyAsString().getBytes("UTF8")));
     } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
-      logger.error("Could not generate secure mode hash", e);
+      logger.error("Could not generate secure mode hash: {}", e.toString());
+      logger.debug(e.toString(), e);
     }
     return null;
   }

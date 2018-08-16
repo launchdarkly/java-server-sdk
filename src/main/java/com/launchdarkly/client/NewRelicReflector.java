@@ -28,7 +28,8 @@ final class NewRelicReflector {
       try {
         addCustomParameter.invoke(null, featureKey, value);
       } catch (Exception e) {
-        logger.error("Unexpected error in LaunchDarkly NewRelic integration");
+        logger.error("Unexpected error in LaunchDarkly NewRelic integration: {}", e.toString());
+        logger.debug(e.toString(), e);
       }
     }
    }

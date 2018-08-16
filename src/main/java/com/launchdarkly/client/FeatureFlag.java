@@ -68,7 +68,8 @@ class FeatureFlag implements VersionedData {
 
     if (user == null || user.getKey() == null) {
       // this should have been prevented by LDClient.evaluateInternal
-      throw new EvaluationException("null user or null user key");
+      logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", key);
+      return new EvalResult(EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, null), prereqEvents);
     }
 
     if (isOn()) {
@@ -128,7 +129,7 @@ class FeatureFlag implements VersionedData {
       FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
       EvaluationDetail<JsonElement> prereqEvalResult = null;
       if (prereqFeatureFlag == null) {
-        logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
+        logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), key);
         prereqOk = false;
       } else if (prereqFeatureFlag.isOn()) {
         prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
