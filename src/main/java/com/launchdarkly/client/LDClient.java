@@ -167,7 +167,7 @@ public final class LDClient implements LDClientInterface {
       try {
         JsonElement evalResult = entry.getValue().evaluate(user, featureStore, EventFactory.DEFAULT).getDetails().getValue();
         result.put(entry.getKey(), evalResult);
-      } catch (EvaluationException e) {
+      } catch (Exception e) {
         logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
         logger.debug(e.toString(), e);
       }
