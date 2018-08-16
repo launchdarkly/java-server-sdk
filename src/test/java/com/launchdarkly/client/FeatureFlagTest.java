@@ -86,6 +86,77 @@ public class FeatureFlagTest {
   }
   
   @Test
+  public void flagReturnsFallthroughIfFlagIsOnAndThereAreNoRules() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(fallthroughVariation(0))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(new EvaluationDetail<>(EvaluationReason.fallthrough(), 0, js("fall")), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void flagReturnsErrorIfFallthroughHasTooHighVariation() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(fallthroughVariation(999))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void flagReturnsErrorIfFallthroughHasNegativeVariation() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(fallthroughVariation(-1))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void flagReturnsErrorIfFallthroughHasNeitherVariationNorRollout() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(new VariationOrRollout(null, null))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+  
+  @Test
+  public void flagReturnsErrorIfFallthroughHasEmptyRolloutVariationList() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(new VariationOrRollout(null,
+            new VariationOrRollout.Rollout(ImmutableList.<VariationOrRollout.WeightedVariation>of(), null)))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+  
+  @Test
   public void flagReturnsOffVariationIfPrerequisiteIsNotFound() throws Exception {
     FeatureFlag f0 = new FeatureFlagBuilder("feature0")
         .on(true)
