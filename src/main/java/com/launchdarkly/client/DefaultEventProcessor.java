@@ -255,8 +255,8 @@ final class DefaultEventProcessor implements EventProcessor {
           message.completed();
         } catch (InterruptedException e) {
         } catch (Exception e) {
-          logger.error("Unexpected error in event processor: " + e);
-          logger.debug(e.getMessage(), e);
+          logger.error("Unexpected error in event processor: {}", e.toString());
+          logger.debug(e.toString(), e);
         }
       }
     }
@@ -493,8 +493,8 @@ final class DefaultEventProcessor implements EventProcessor {
             postEvents(eventsOut);
           }
         } catch (Exception e) {
-          logger.error("Unexpected error in event processor: " + e);
-          logger.debug(e.getMessage(), e);
+          logger.error("Unexpected error in event processor: {}", e.toString());
+          logger.debug(e.toString(), e);
         }
         synchronized (activeFlushWorkersCount) {
           activeFlushWorkersCount.decrementAndGet();

@@ -65,7 +65,7 @@ class FeatureFlag implements VersionedData {
     List<Event.FeatureRequest> prereqEvents = new ArrayList<>();
 
     if (user == null || user.getKey() == null) {
-      logger.warn("Null user or null user key when evaluating flag: " + key + "; returning null");
+      logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", key);
       return new EvalResult(null, prereqEvents);
     }
 
@@ -87,7 +87,7 @@ class FeatureFlag implements VersionedData {
         FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
         VariationAndValue prereqEvalResult = null;
         if (prereqFeatureFlag == null) {
-          logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
+          logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), key);
           return null;
         } else if (prereqFeatureFlag.isOn()) {
           prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
