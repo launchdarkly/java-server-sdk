@@ -129,7 +129,7 @@ class FeatureFlag implements VersionedData {
       FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
       EvaluationDetail<JsonElement> prereqEvalResult = null;
       if (prereqFeatureFlag == null) {
-        logger.error("Could not retrieve prerequisite flag: " + prereq.getKey() + " when evaluating: " + key);
+        logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), key);
         prereqOk = false;
       } else if (prereqFeatureFlag.isOn()) {
         prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);

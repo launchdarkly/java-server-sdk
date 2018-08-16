@@ -323,9 +323,11 @@ public final class LDClient implements LDClientInterface {
       logger.error("Encountered exception while evaluating feature flag \"{}\": {}", featureKey, e.toString());
       logger.debug(e.toString(), e);
       if (featureFlag == null) {
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue, EvaluationReason.ErrorKind.EXCEPTION));
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION));
       } else {
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue, EvaluationReason.ErrorKind.EXCEPTION));
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION));
       }
       return EvaluationDetail.error(EvaluationReason.ErrorKind.EXCEPTION, defaultValue);
     }
