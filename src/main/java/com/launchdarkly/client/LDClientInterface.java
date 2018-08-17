@@ -55,7 +55,8 @@ public interface LDClientInterface extends Closeable {
 
   /**
    * Returns an object that encapsulates the state of all feature flags for a given user, including the flag
-   * values and, optionally, their {@link EvaluationReason}s.
+   * values and also metadata that can be used on the front end. This method does not send analytics events
+   * back to LaunchDarkly.
    * <p>
    * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
    *  
