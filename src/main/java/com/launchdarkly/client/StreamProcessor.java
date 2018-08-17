@@ -133,7 +133,8 @@ final class StreamProcessor implements UpdateProcessor {
                 logger.info("Initialized LaunchDarkly client.");
               }
             } catch (IOException e) {
-              logger.error("Encountered exception in LaunchDarkly client", e);
+              logger.error("Encountered exception in LaunchDarkly client: {}", e.toString());
+              logger.debug(e.toString(), e);
             }
             break;
           case INDIRECT_PATCH:
@@ -151,7 +152,8 @@ final class StreamProcessor implements UpdateProcessor {
                 }
               }
             } catch (IOException e) {
-              logger.error("Encountered exception in LaunchDarkly client", e);
+              logger.error("Encountered exception in LaunchDarkly client: {}", e.toString());
+              logger.debug(e.toString(), e);
             }
             break;
           default:
@@ -167,8 +169,8 @@ final class StreamProcessor implements UpdateProcessor {
 
       @Override
       public void onError(Throwable throwable) {
-        logger.error("Encountered EventSource error: " + throwable.getMessage());
-        logger.debug("", throwable);
+        logger.error("Encountered EventSource error: {}" + throwable.toString());
+        logger.debug(throwable.toString(), throwable);
       }
     };
 

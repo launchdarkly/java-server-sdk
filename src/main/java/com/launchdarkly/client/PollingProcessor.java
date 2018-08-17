@@ -70,7 +70,8 @@ class PollingProcessor implements UpdateProcessor {
             initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
           }
         } catch (IOException e) {
-          logger.error("Encountered exception in LaunchDarkly client when retrieving update", e);
+          logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
+          logger.debug(e.toString(), e);
         }
       }
     }, 0L, config.pollingIntervalMillis, TimeUnit.MILLISECONDS);
