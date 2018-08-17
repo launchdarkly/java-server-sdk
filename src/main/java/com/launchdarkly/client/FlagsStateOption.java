@@ -6,25 +6,16 @@ package com.launchdarkly.client;
  */
 public abstract class FlagsStateOption {
   /**
-   * Specifies whether {@link EvaluationReason} data should be captured in the state object. By default, it is not.
-   * @param value true if evaluation reasons should be stored
-   * @return an option object
+   * Specifies that {@link EvaluationReason} data should be captured in the state object. By default, it is not.
    */
-  public static FlagsStateOption withReasons(boolean value) {
-    return new WithReasons(value);
-  }
+  public static final FlagsStateOption WITH_REASONS = new WithReasons();
   
-  private static class WithReasons extends FlagsStateOption {
-    final boolean value;
-    WithReasons(boolean value) {
-      this.value = value;
-    }
-  }
-  
-  static boolean isWithReasons(FlagsStateOption[] options) {
+  private static class WithReasons extends FlagsStateOption { }
+
+  static boolean hasOption(FlagsStateOption[] options, FlagsStateOption option) {
     for (FlagsStateOption o: options) {
-      if (o instanceof WithReasons) {
-        return ((WithReasons)o).value;
+      if (o.equals(option)) {
+        return true;
       }
     }
     return false;

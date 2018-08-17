@@ -100,7 +100,7 @@ public class FeatureFlagsState {
     private boolean valid = true;
 
     Builder(FlagsStateOption... options) {
-      saveReasons = FlagsStateOption.isWithReasons(options);
+      saveReasons = FlagsStateOption.hasOption(options, FlagsStateOption.WITH_REASONS);
     }
     
     Builder valid(boolean valid) {

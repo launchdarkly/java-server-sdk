@@ -33,7 +33,7 @@ public class FeatureFlagsStateTest {
   public void canGetFlagReason() {
     EvaluationDetail<JsonElement> eval = new EvaluationDetail<JsonElement>(EvaluationReason.off(), 1, js("value"));
     FeatureFlag flag = new FeatureFlagBuilder("key").build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.withReasons(true))
+    FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag, eval).build();
     
     assertEquals(EvaluationReason.off(), state.getFlagReason("key"));
@@ -74,7 +74,7 @@ public class FeatureFlagsStateTest {
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").version(100).trackEvents(false).build();
     EvaluationDetail<JsonElement> eval2 = new EvaluationDetail<JsonElement>(EvaluationReason.fallthrough(), 1, js("value2"));
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.withReasons(true))
+    FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
     
     String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +

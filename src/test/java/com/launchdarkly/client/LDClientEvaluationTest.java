@@ -261,7 +261,7 @@ public class LDClientEvaluationTest {
     featureStore.upsert(FEATURES, flag1);
     featureStore.upsert(FEATURES, flag2);
 
-    FeatureFlagsState state = client.allFlagsState(user, FlagsStateOption.withReasons(true));
+    FeatureFlagsState state = client.allFlagsState(user, FlagsStateOption.WITH_REASONS);
     assertTrue(state.isValid());
     
     String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
