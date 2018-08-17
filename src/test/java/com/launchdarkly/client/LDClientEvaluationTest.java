@@ -182,6 +182,26 @@ public class LDClientEvaluationTest {
   }
 
   @Test
+  public void allFlagsStateCanFilterForOnlyClientSideFlags() {
+    FeatureFlag flag1 = new FeatureFlagBuilder("server-side-1").build();
+    FeatureFlag flag2 = new FeatureFlagBuilder("server-side-2").build();
+    FeatureFlag flag3 = new FeatureFlagBuilder("client-side-1").clientSide(true)
+        .variations(js("value1")).offVariation(0).build();
+    FeatureFlag flag4 = new FeatureFlagBuilder("client-side-2").clientSide(true)
+        .variations(js("value2")).offVariation(0).build();
+    featureStore.upsert(FEATURES, flag1);
+    featureStore.upsert(FEATURES, flag2);
+    featureStore.upsert(FEATURES, flag3);
+    featureStore.upsert(FEATURES, flag4);
+
+    FeatureFlagsState state = client.allFlagsState(user, FlagsStateOption.CLIENT_SIDE_ONLY);
+    assertTrue(state.isValid());
+    
+    Map<String, JsonElement> allValues = state.toValuesMap();
+    assertEquals(ImmutableMap.<String, JsonElement>of("client-side-1", js("value1"), "client-side-2", js("value2")), allValues);
+  }
+  
+  @Test
   public void allFlagsStateReturnsEmptyStateForNullUser() throws Exception {
     featureStore.setStringValue("key", "value");
 

@@ -28,6 +28,7 @@ class FeatureFlag implements VersionedData {
   private VariationOrRollout fallthrough;
   private Integer offVariation; //optional
   private List<JsonElement> variations;
+  private boolean clientSide;
   private boolean trackEvents;
   private Long debugEventsUntilDate;
   private boolean deleted;
@@ -45,7 +46,7 @@ class FeatureFlag implements VersionedData {
 
   FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
       List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations,
-      boolean trackEvents, Long debugEventsUntilDate, boolean deleted) {
+      boolean clientSide, boolean trackEvents, Long debugEventsUntilDate, boolean deleted) {
     this.key = key;
     this.version = version;
     this.on = on;
@@ -56,6 +57,7 @@ class FeatureFlag implements VersionedData {
     this.fallthrough = fallthrough;
     this.offVariation = offVariation;
     this.variations = variations;
+    this.clientSide = clientSide;
     this.trackEvents = trackEvents;
     this.debugEventsUntilDate = debugEventsUntilDate;
     this.deleted = deleted;
@@ -209,6 +211,10 @@ class FeatureFlag implements VersionedData {
 
   Integer getOffVariation() { return offVariation; }
 
+  boolean isClientSide() {
+    return clientSide;
+  }
+  
   static class VariationAndValue {
     private final Integer variation;
     private final JsonElement value;
