@@ -73,8 +73,8 @@ public class FeatureFlagsState {
   
   /**
    * Returns a JSON representation of the entire state map (as a Gson object), in the format used by
-   * the LaunchDarkly JavaScript SDK. Use this method if you are passing data to the front end that
-   * will be used to "bootstrap" the JavaScript client.
+   * the LaunchDarkly JavaScript SDK. Use this method if you are passing data to the front end in
+   * order to "bootstrap" the JavaScript client.
    * <p>
    * Do not rely on the exact shape of this data, as it may change in future to support the needs of
    * the JavaScript client.
