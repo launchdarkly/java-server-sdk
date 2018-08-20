@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -62,6 +63,9 @@ public class FeatureFlagsState {
   /**
    * Returns a map of flag keys to flag values. If a flag would have evaluated to the default value,
    * its value will be null.
+   * <p>
+   * Do not use this method if you are passing data to the front end to "bootstrap" the JavaScript client.
+   * Instead, use {@link #toJson()}.
    * @return an immutable map of flag keys to JSON values
    */
   public Map<String, JsonElement> toValuesMap() {
@@ -69,16 +73,21 @@ public class FeatureFlagsState {
   }
   
   /**
-   * Returns a JSON string representation of the entire state map, in the format used by the
-   * LaunchDarkly JavaScript SDK. Use this method if you are passing data to the front end that
+   * Returns a JSON representation of the entire state map (as a Gson object), in the format used by
+   * the LaunchDarkly JavaScript SDK. Use this method if you are passing data to the front end that
    * will be used to "bootstrap" the JavaScript client.
+   * <p>
+   * Do not rely on the exact shape of this data, as it may change in future to support the needs of
+   * the JavaScript client.
    * @return a JSON representation of the state object
    */
-  public String toJsonString() {
-    Map<String, Object> outerMap = new HashMap<>();
-    outerMap.putAll(flagValues);
-    outerMap.put("$flagsState", flagMetadata);
-    return gson.toJson(outerMap);
+  public JsonElement toJson() {
+    JsonObject outerMap = new JsonObject();
+    for (Map.Entry<String, JsonElement> entry: flagValues.entrySet()) {
+      outerMap.add(entry.getKey(), entry.getValue());
+    }
+    outerMap.add("$flagsState", gson.toJsonTree(flagMetadata));
+    return outerMap;
   }
   
   static class Builder {

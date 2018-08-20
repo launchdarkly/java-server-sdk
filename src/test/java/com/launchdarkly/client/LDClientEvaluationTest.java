@@ -178,7 +178,7 @@ public class LDClientEvaluationTest {
           "}" +
         "}}";
     JsonElement expected = gson.fromJson(json, JsonElement.class);
-    assertEquals(expected, gson.fromJson(state.toJsonString(), JsonElement.class));
+    assertEquals(expected, state.toJson());
   }
 
   @Test
