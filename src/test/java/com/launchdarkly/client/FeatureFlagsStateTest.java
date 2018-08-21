@@ -58,8 +58,24 @@ public class FeatureFlagsStateTest {
           "},\"key2\":{" +
             "\"variation\":1,\"version\":200,\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
           "}" +
-        "}}";
+        "}," +
+        "\"$valid\":true" +
+      "}";
     JsonElement expected = gson.fromJson(json, JsonElement.class);
-    assertEquals(expected, gson.fromJson(state.toJsonString(), JsonElement.class));
+    assertEquals(expected, gson.toJsonTree(state));
+  }
+  
+  @Test
+  public void canConvertFromJson() {
+    FeatureFlag.VariationAndValue eval1 = new FeatureFlag.VariationAndValue(0, js("value1"));
+    FeatureFlag flag1 = new FeatureFlagBuilder("key1").version(100).trackEvents(false).build();
+    FeatureFlag.VariationAndValue eval2 = new FeatureFlag.VariationAndValue(1, js("value2"));
+    FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
+    FeatureFlagsState state = new FeatureFlagsState.Builder()
+        .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
+    
+    String json = gson.toJson(state);
+    FeatureFlagsState state1 = gson.fromJson(json, FeatureFlagsState.class);
+    assertEquals(state, state1);
   }
 }

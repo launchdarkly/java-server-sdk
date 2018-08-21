@@ -47,14 +47,16 @@ public interface LDClientInterface extends Closeable {
    * @param user the end user requesting the feature flags
    * @return a map from feature flag keys to {@code JsonElement} for the specified user
    * 
-   * @deprecated Use {@link #allFlagsState} instead. Current versions of the client-side SDK (2.0.0 and later)
-   * will not generate analytics events correctly if you pass the result of {@code allFlags()}.
+   * @deprecated Use {@link #allFlagsState} instead. Current versions of the client-side SDK will not
+   * generate analytics events correctly if you pass the result of {@code allFlags()}.
    */
   @Deprecated
   Map<String, JsonElement> allFlags(LDUser user);
 
   /**
-   * Returns an object that encapsulates the state of all feature flags for a given user.
+   * Returns an object that encapsulates the state of all feature flags for a given user, including the flag
+   * values and also metadata that can be used on the front end. This method does not send analytics events
+   * back to LaunchDarkly.
    * <p>
    * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
    *  
