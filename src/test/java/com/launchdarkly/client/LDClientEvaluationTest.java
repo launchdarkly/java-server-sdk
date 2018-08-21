@@ -176,9 +176,11 @@ public class LDClientEvaluationTest {
           "},\"key2\":{" +
             "\"variation\":1,\"version\":200,\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
           "}" +
-        "}}";
+        "}," +
+        "\"$valid\":true" +
+      "}";
     JsonElement expected = gson.fromJson(json, JsonElement.class);
-    assertEquals(expected, state.toJson());
+    assertEquals(expected, gson.toJsonTree(state));
   }
 
   @Test
