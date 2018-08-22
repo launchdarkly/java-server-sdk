@@ -205,7 +205,7 @@ public abstract class EvaluationReason {
     public boolean equals(Object other) {
       if (other instanceof RuleMatch) {
         RuleMatch o = (RuleMatch)other;
-        return ruleIndex == o.ruleIndex && Objects.equals(ruleId,  o.ruleId);
+        return ruleIndex == o.ruleIndex && Objects.equals(ruleId, o.ruleId);
       }
       return false;
     }
