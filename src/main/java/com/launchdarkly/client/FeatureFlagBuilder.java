@@ -17,6 +17,7 @@ class FeatureFlagBuilder {
   private VariationOrRollout fallthrough;
   private Integer offVariation;
   private List<JsonElement> variations = new ArrayList<>();
+  private boolean clientSide;
   private boolean trackEvents;
   private Long debugEventsUntilDate;
   private boolean deleted;
@@ -37,12 +38,12 @@ class FeatureFlagBuilder {
       this.fallthrough = f.getFallthrough();
       this.offVariation = f.getOffVariation();
       this.variations = f.getVariations();
+      this.clientSide = f.isClientSide();
       this.trackEvents = f.isTrackEvents();
       this.debugEventsUntilDate = f.getDebugEventsUntilDate();
       this.deleted = f.isDeleted();
     }
   }
-
 
   FeatureFlagBuilder version(int version) {
     this.version = version;
@@ -93,6 +94,11 @@ class FeatureFlagBuilder {
     return variations(Arrays.asList(variations));
   }
 
+  FeatureFlagBuilder clientSide(boolean clientSide) {
+    this.clientSide = clientSide;
+    return this;
+  }
+  
   FeatureFlagBuilder trackEvents(boolean trackEvents) {
     this.trackEvents = trackEvents;
     return this;
@@ -110,6 +116,6 @@ class FeatureFlagBuilder {
 
   FeatureFlag build() {
     return new FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
-        trackEvents, debugEventsUntilDate, deleted);
+        clientSide, trackEvents, debugEventsUntilDate, deleted);
   }
 }

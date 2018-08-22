@@ -30,6 +30,7 @@ class FeatureFlag implements VersionedData {
   private VariationOrRollout fallthrough;
   private Integer offVariation; //optional
   private List<JsonElement> variations;
+  private boolean clientSide;
   private boolean trackEvents;
   private Long debugEventsUntilDate;
   private boolean deleted;
@@ -47,7 +48,7 @@ class FeatureFlag implements VersionedData {
 
   FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
       List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations,
-      boolean trackEvents, Long debugEventsUntilDate, boolean deleted) {
+      boolean clientSide, boolean trackEvents, Long debugEventsUntilDate, boolean deleted) {
     this.key = key;
     this.version = version;
     this.on = on;
@@ -58,12 +59,13 @@ class FeatureFlag implements VersionedData {
     this.fallthrough = fallthrough;
     this.offVariation = offVariation;
     this.variations = variations;
+    this.clientSide = clientSide;
     this.trackEvents = trackEvents;
     this.debugEventsUntilDate = debugEventsUntilDate;
     this.deleted = deleted;
   }
 
-  EvalResult evaluate(LDUser user, FeatureStore featureStore, EventFactory eventFactory) throws EvaluationException {
+  EvalResult evaluate(LDUser user, FeatureStore featureStore, EventFactory eventFactory) {
     List<Event.FeatureRequest> prereqEvents = new ArrayList<>();
 
     if (user == null || user.getKey() == null) {
@@ -77,15 +79,14 @@ class FeatureFlag implements VersionedData {
       return new EvalResult(details, prereqEvents);
     }
     
-    EvaluationDetail<JsonElement> details = new EvaluationDetail<>(EvaluationReason.off(), offVariation, getOffVariationValue());
-    return new EvalResult(details, prereqEvents);
+    return new EvalResult(getOffValue(EvaluationReason.off()), prereqEvents);
   }
 
   private EvaluationDetail<JsonElement> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
-      EventFactory eventFactory) throws EvaluationException {
+      EventFactory eventFactory) {
     EvaluationReason prereqFailureReason = checkPrerequisites(user, featureStore, events, eventFactory);
     if (prereqFailureReason != null) {
-      return new EvaluationDetail<>(prereqFailureReason, offVariation, getOffVariationValue());
+      return getOffValue(prereqFailureReason);
     }
     
     // Check to see if targets match
@@ -93,8 +94,7 @@ class FeatureFlag implements VersionedData {
       for (Target target: targets) {
         for (String v : target.getValues()) {
           if (v.equals(user.getKey().getAsString())) {
-            return new EvaluationDetail<>(EvaluationReason.targetMatch(),
-                target.getVariation(), getVariation(target.getVariation()));
+            return getVariation(target.getVariation(), EvaluationReason.targetMatch());
           }
         }
       }
@@ -104,21 +104,18 @@ class FeatureFlag implements VersionedData {
       for (int i = 0; i < rules.size(); i++) {
         Rule rule = rules.get(i);
         if (rule.matchesUser(featureStore, user)) {
-          int index = rule.variationIndexForUser(user, key, salt);
-          return new EvaluationDetail<>(EvaluationReason.ruleMatch(i, rule.getId()),
-              index, getVariation(index));
+          return getValueForVariationOrRollout(rule, user, EvaluationReason.ruleMatch(i, rule.getId()));
         }
       }
     }
     // Walk through the fallthrough and see if it matches
-    int index = fallthrough.variationIndexForUser(user, key, salt);
-    return new EvaluationDetail<>(EvaluationReason.fallthrough(), index, getVariation(index));
+    return getValueForVariationOrRollout(fallthrough, user, EvaluationReason.fallthrough());
   }
 
   // Checks prerequisites if any; returns null if successful, or an EvaluationReason if we have to
   // short-circuit due to a prerequisite failure.
   private EvaluationReason checkPrerequisites(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
-      EventFactory eventFactory) throws EvaluationException {
+      EventFactory eventFactory) {
     if (prerequisites == null) {
       return null;
     }
@@ -156,34 +153,30 @@ class FeatureFlag implements VersionedData {
     return null;
   }
 
-  JsonElement getOffVariationValue() throws EvaluationException {
-    if (offVariation == null) {
-      return null;
+  private EvaluationDetail<JsonElement> getVariation(int variation, EvaluationReason reason) {
+    if (variation < 0 || variation >= variations.size()) {
+      logger.error("Data inconsistency in feature flag \"{}\": invalid variation index", key);
+      return EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null);
     }
-
-    if (offVariation >= variations.size()) {
-      throw new EvaluationException("Invalid off variation index");
-    }
-
-    return variations.get(offVariation);
+    return new EvaluationDetail<JsonElement>(reason, variation, variations.get(variation));
   }
 
-  private JsonElement getVariation(Integer index) throws EvaluationException {
-    // If the supplied index is null, then rules didn't match, and we want to return
-    // the off variation
+  private EvaluationDetail<JsonElement> getOffValue(EvaluationReason reason) {
+    if (offVariation == null) { // off variation unspecified - return default value
+      return new EvaluationDetail<JsonElement>(reason, null, null);
+    }
+    return getVariation(offVariation, reason);
+  }
+  
+  private EvaluationDetail<JsonElement> getValueForVariationOrRollout(VariationOrRollout vr, LDUser user, EvaluationReason reason) {
+    Integer index = vr.variationIndexForUser(user, key, salt);
     if (index == null) {
-      return null;
+      logger.error("Data inconsistency in feature flag \"{}\": variation/rollout object with no variation or rollout", key);
+      return EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null); 
     }
-    // If the index doesn't refer to a valid variation, that's an unexpected exception and we will
-    // return the default variation
-    else if (index >= variations.size()) {
-      throw new EvaluationException("Invalid index");
-    }
-    else {
-      return variations.get(index);
-    }
+    return getVariation(index, reason);
   }
-
+  
   public int getVersion() {
     return version;
   }
@@ -235,7 +228,11 @@ class FeatureFlag implements VersionedData {
   Integer getOffVariation() {
     return offVariation;
   }
-  
+
+  boolean isClientSide() {
+    return clientSide;
+  }
+    
   static class EvalResult {
     private final EvaluationDetail<JsonElement> details;
     private final List<Event.FeatureRequest> prerequisiteEvents;

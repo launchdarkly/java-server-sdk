@@ -47,6 +47,7 @@ public abstract class EvaluationReason {
     /**
      * Indicates that the flag could not be evaluated, e.g. because it does not exist or due to an unexpected
      * error. In this case the result value will be the default value that the caller passed to the client.
+     * Check the errorKind property for more details on the problem.
      */
     ERROR;
   }
@@ -65,6 +66,11 @@ public abstract class EvaluationReason {
      */
     FLAG_NOT_FOUND,
     /**
+     * Indicates that there was an internal inconsistency in the flag data, e.g. a rule specified a nonexistent
+     * variation. An error message will always be logged in this case.
+     */
+    MALFORMED_FLAG,
+    /**
      * Indicates that the caller passed {@code null} for the user parameter, or the user lacked a key.
      */
     USER_NOT_SPECIFIED,
@@ -74,7 +80,8 @@ public abstract class EvaluationReason {
      */
     WRONG_TYPE,
     /**
-     * Indicates that an unexpected exception stopped flag evaluation; check the log for details.
+     * Indicates that an unexpected exception stopped flag evaluation. An error message will always be logged
+     * in this case.
      */
     EXCEPTION
   }

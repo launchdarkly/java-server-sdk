@@ -12,7 +12,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -142,39 +141,54 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public Map<String, JsonElement> allFlags(LDUser user) {
-    if (isOffline()) {
-      logger.debug("allFlags() was called when client is in offline mode.");
+    FeatureFlagsState state = allFlagsState(user);
+    if (!state.isValid()) {
+      return null;
     }
+    return state.toValuesMap();
+  }
 
+  @Override
+  public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
+    FeatureFlagsState.Builder builder = new FeatureFlagsState.Builder();
+    
+    if (isOffline()) {
+      logger.debug("allFlagsState() was called when client is in offline mode.");
+    }
+    
     if (!initialized()) {
       if (featureStore.initialized()) {
-        logger.warn("allFlags() was called before client initialized; using last known values from feature store");
+        logger.warn("allFlagsState() was called before client initialized; using last known values from feature store");
       } else {
-        logger.warn("allFlags() was called before client initialized; feature store unavailable, returning null");
-        return null;
+        logger.warn("allFlagsState() was called before client initialized; feature store unavailable, returning no data");
+        return builder.valid(false).build();
       }
     }
 
     if (user == null || user.getKey() == null) {
-      logger.warn("allFlags() was called with null user or null user key! returning null");
-      return null;
+      logger.warn("allFlagsState() was called with null user or null user key! returning no data");
+      return builder.valid(false).build();
     }
 
+    boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
     Map<String, FeatureFlag> flags = featureStore.all(FEATURES);
-    Map<String, JsonElement> result = new HashMap<>();
-
     for (Map.Entry<String, FeatureFlag> entry : flags.entrySet()) {
+      FeatureFlag flag = entry.getValue();
+      if (clientSideOnly && !flag.isClientSide()) {
+        continue;
+      }
       try {
-        JsonElement evalResult = entry.getValue().evaluate(user, featureStore, EventFactory.DEFAULT).getDetails().getValue();
-        result.put(entry.getKey(), evalResult);
-      } catch (EvaluationException e) {
+        EvaluationDetail<JsonElement> result = flag.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails();
+        builder.addFlag(flag, result);
+      } catch (Exception e) {
         logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
         logger.debug(e.toString(), e);
+        builder.addFlag(entry.getValue(), EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.EXCEPTION, null));
       }
     }
-    return result;
+    return builder.build();
   }
-
+  
   @Override
   public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
     return evaluate(featureKey, user, defaultValue, new JsonPrimitive(defaultValue), VariationType.Boolean);
