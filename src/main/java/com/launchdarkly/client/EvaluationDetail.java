@@ -2,8 +2,6 @@ package com.launchdarkly.client;
 
 import com.google.common.base.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 /**
  * An object returned by the "variation detail" methods such as {@link LDClientInterface#boolVariationDetail(String, LDUser, boolean)},
  * combining the result of a flag evaluation with an explanation of how it was calculated.
@@ -16,7 +14,6 @@ public class EvaluationDetail<T> {
   private final T value;
   
   public EvaluationDetail(EvaluationReason reason, Integer variationIndex, T value) {
-    checkNotNull(reason);
     this.reason = reason;
     this.variationIndex = variationIndex;
     this.value = value;
