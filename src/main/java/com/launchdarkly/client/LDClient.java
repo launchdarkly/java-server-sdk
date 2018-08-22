@@ -170,12 +170,17 @@ public final class LDClient implements LDClientInterface {
       return builder.valid(false).build();
     }
 
+    boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
     Map<String, FeatureFlag> flags = featureStore.all(FEATURES);
     for (Map.Entry<String, FeatureFlag> entry : flags.entrySet()) {
+      FeatureFlag flag = entry.getValue();
+      if (clientSideOnly && !flag.isClientSide()) {
+        continue;
+      }
       try {
-        EvaluationDetail<JsonElement> eval = entry.getValue().evaluate(user, featureStore, EventFactory.DEFAULT).getDetails();
-        builder.addFlag(entry.getValue(), eval);
-      } catch (EvaluationException e) {
+        EvaluationDetail<JsonElement> result = flag.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails();
+        builder.addFlag(flag, result);
+      } catch (Exception e) {
         logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
         logger.debug(e.toString(), e);
         builder.addFlag(entry.getValue(), EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.EXCEPTION, null));

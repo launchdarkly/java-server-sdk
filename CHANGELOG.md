@@ -3,6 +3,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.2.2] - 2018-08-17
+### Fixed:
+- When logging errors related to the evaluation of a specific flag, the log message now always includes the flag key.
+- Exception stacktraces are now logged only at DEBUG level. Previously, some were being logged at ERROR level.
+
 ## [4.2.1] - 2018-07-16
 ### Fixed:
 - Should not permanently give up on posting events if the server returns a 400 error.
