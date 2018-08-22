@@ -150,7 +150,7 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public FeatureFlagsState allFlagsState(LDUser user) {
+  public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
     FeatureFlagsState.Builder builder = new FeatureFlagsState.Builder();
     
     if (isOffline()) {
@@ -171,8 +171,13 @@ public final class LDClient implements LDClientInterface {
       return builder.valid(false).build();
     }
 
+    boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
     Map<String, FeatureFlag> flags = featureStore.all(FEATURES);
     for (Map.Entry<String, FeatureFlag> entry : flags.entrySet()) {
+      FeatureFlag flag = entry.getValue();
+      if (clientSideOnly && !flag.isClientSide()) {
+        continue;
+      }
       try {
         FeatureFlag.VariationAndValue eval = entry.getValue().evaluate(user, featureStore, EventFactory.DEFAULT).getResult();
         builder.addFlag(entry.getValue(), eval);

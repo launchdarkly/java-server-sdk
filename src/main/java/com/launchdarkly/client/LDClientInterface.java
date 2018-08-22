@@ -61,10 +61,12 @@ public interface LDClientInterface extends Closeable {
    * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
    *  
    * @param user the end user requesting the feature flags
+   * @param options optional {@link FlagsStateOption} values affecting how the state is computed - for
+   * instance, to filter the set of flags to only include the client-side-enabled ones
    * @return a {@link FeatureFlagsState} object (will never be null; see {@link FeatureFlagsState#isValid()}
    * @since 4.3.0
    */
-  FeatureFlagsState allFlagsState(LDUser user);
+  FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options);
   
   /**
    * Calculates the value of a feature flag for a given user.
