@@ -28,6 +28,10 @@ public abstract class EvaluationReason {
      */
     OFF,
     /**
+     * Indicates that the flag was on but the user did not match any targets or rules. 
+     */
+    FALLTHROUGH,
+    /**
      * Indicates that the user key was specifically targeted for this flag.
      */
     TARGET_MATCH,
@@ -40,10 +44,6 @@ public abstract class EvaluationReason {
      * that either was off or did not return the desired variation.
      */
     PREREQUISITES_FAILED,
-    /**
-     * Indicates that the flag was on but the user did not match any targets or rules. 
-     */
-    FALLTHROUGH,
     /**
      * Indicates that the flag could not be evaluated, e.g. because it does not exist or due to an unexpected
      * error. In this case the result value will be the default value that the caller passed to the client.

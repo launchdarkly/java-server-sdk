@@ -18,6 +18,14 @@ public class EvaluationReasonTest {
     assertJsonEqual(json, gson.toJson(reason));
     assertEquals("OFF", reason.toString());
   }
+
+  @Test
+  public void testFallthroughSerialization() {
+    EvaluationReason reason = EvaluationReason.fallthrough();
+    String json = "{\"kind\":\"FALLTHROUGH\"}";
+    assertJsonEqual(json, gson.toJson(reason));
+    assertEquals("FALLTHROUGH", reason.toString());
+  }
   
   @Test
   public void testTargetMatchSerialization() {
@@ -41,14 +49,6 @@ public class EvaluationReasonTest {
     String json = "{\"kind\":\"PREREQUISITES_FAILED\",\"prerequisiteKeys\":[\"key1\",\"key2\"]}";
     assertJsonEqual(json, gson.toJson(reason));
     assertEquals("PREREQUISITES_FAILED(key1,key2)", reason.toString());
-  }
-  
-  @Test
-  public void testFallthrougSerialization() {
-    EvaluationReason reason = EvaluationReason.fallthrough();
-    String json = "{\"kind\":\"FALLTHROUGH\"}";
-    assertJsonEqual(json, gson.toJson(reason));
-    assertEquals("FALLTHROUGH", reason.toString());
   }
   
   @Test
