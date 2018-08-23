@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
@@ -61,8 +63,8 @@ public class LDUser {
     this.name = builder.name == null ? null : new JsonPrimitive(builder.name);
     this.avatar = builder.avatar == null ? null : new JsonPrimitive(builder.avatar);
     this.anonymous = builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
-    this.custom = new HashMap<>(builder.custom);
-    this.privateAttributeNames = new HashSet<>(builder.privateAttrNames);
+    this.custom = ImmutableMap.copyOf(builder.custom);
+    this.privateAttributeNames = ImmutableSet.copyOf(builder.privateAttrNames);
   }
 
   /**
