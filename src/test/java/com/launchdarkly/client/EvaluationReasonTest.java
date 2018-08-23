@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 
@@ -44,11 +43,11 @@ public class EvaluationReasonTest {
   }
   
   @Test
-  public void testPrerequisitesFailedSerialization() {
-    EvaluationReason reason = EvaluationReason.prerequisitesFailed(ImmutableList.of("key1", "key2"));
-    String json = "{\"kind\":\"PREREQUISITES_FAILED\",\"prerequisiteKeys\":[\"key1\",\"key2\"]}";
+  public void testPrerequisiteFailedSerialization() {
+    EvaluationReason reason = EvaluationReason.prerequisiteFailed("key");
+    String json = "{\"kind\":\"PREREQUISITE_FAILED\",\"prerequisiteKey\":\"key\"}";
     assertJsonEqual(json, gson.toJson(reason));
-    assertEquals("PREREQUISITES_FAILED(key1,key2)", reason.toString());
+    assertEquals("PREREQUISITE_FAILED(key)", reason.toString());
   }
   
   @Test

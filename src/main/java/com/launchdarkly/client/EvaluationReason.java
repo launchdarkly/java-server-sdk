@@ -1,8 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -43,7 +40,7 @@ public abstract class EvaluationReason {
      * Indicates that the flag was considered off because it had at least one prerequisite flag
      * that either was off or did not return the desired variation.
      */
-    PREREQUISITES_FAILED,
+    PREREQUISITE_FAILED,
     /**
      * Indicates that the flag could not be evaluated, e.g. because it does not exist or due to an unexpected
      * error. In this case the result value will be the default value that the caller passed to the client.
@@ -134,12 +131,12 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Returns an instance of {@link PrerequisitesFailed}.
-   * @param prerequisiteKeys the list of flag keys of prerequisites that failed 
+   * Returns an instance of {@link PrerequisiteFailed}.
+   * @param prerequisiteKey the flag key of the prerequisite that failed 
    * @return a reason object
    */
-  public static PrerequisitesFailed prerequisitesFailed(Iterable<String> prerequisiteKeys) {
-    return new PrerequisitesFailed(prerequisiteKeys);
+  public static PrerequisiteFailed prerequisiteFailed(String prerequisiteKey) {
+    return new PrerequisiteFailed(prerequisiteKey);
   }
   
   /**
@@ -233,36 +230,32 @@ public abstract class EvaluationReason {
    * had at least one prerequisite flag that either was off or did not return the desired variation.
    * @since 4.3.0
    */
-  public static class PrerequisitesFailed extends EvaluationReason {
-    private final ImmutableList<String> prerequisiteKeys;
+  public static class PrerequisiteFailed extends EvaluationReason {
+    private final String prerequisiteKey;
     
-    private PrerequisitesFailed(Iterable<String> prerequisiteKeys) {
-      super(Kind.PREREQUISITES_FAILED);
-      checkNotNull(prerequisiteKeys);
-      this.prerequisiteKeys = ImmutableList.copyOf(prerequisiteKeys);
+    private PrerequisiteFailed(String prerequisiteKey) {
+      super(Kind.PREREQUISITE_FAILED);
+      this.prerequisiteKey = checkNotNull(prerequisiteKey);
     }
     
-    public Iterable<String> getPrerequisiteKeys() {
-      return prerequisiteKeys;
+    public String getPrerequisiteKey() {
+      return prerequisiteKey;
     }
     
     @Override
     public boolean equals(Object other) {
-      if (other instanceof PrerequisitesFailed) {
-        PrerequisitesFailed o = (PrerequisitesFailed)other;
-        return prerequisiteKeys.equals(o.prerequisiteKeys);
-      }
-      return false;
+      return (other instanceof PrerequisiteFailed) &&
+          ((PrerequisiteFailed)other).prerequisiteKey.equals(prerequisiteKey);
     }
     
     @Override
     public int hashCode() {
-      return prerequisiteKeys.hashCode();
+      return prerequisiteKey.hashCode();
     }
     
     @Override
     public String toString() {
-      return getKind().name() + "(" + Joiner.on(",").join(prerequisiteKeys) + ")";
+      return getKind().name() + "(" + prerequisiteKey + ")";
     }
   }
   
