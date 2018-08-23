@@ -30,6 +30,15 @@ public class FeatureFlagsStateTest {
   }
   
   @Test
+  public void flagCanHaveNullValue() {
+    EvaluationDetail<JsonElement> eval = new EvaluationDetail<JsonElement>(null, 1, null);
+    FeatureFlag flag = new FeatureFlagBuilder("key").build();
+    FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
+    
+    assertNull(state.getFlagValue("key"));
+  }
+
+  @Test
   public void canConvertToValuesMap() {
     EvaluationDetail<JsonElement> eval1 = new EvaluationDetail<JsonElement>(null, 0, js("value1"));
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").build();

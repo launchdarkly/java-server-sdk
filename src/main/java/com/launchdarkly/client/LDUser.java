@@ -1,16 +1,22 @@
 package com.launchdarkly.client;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.gson.*;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.TypeAdapter;
 import com.google.gson.internal.Streams;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.google.common.collect.ImmutableMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -350,8 +356,8 @@ public class LDUser {
         this.avatar = user.getAvatar() != null ? user.getAvatar().getAsString() : null;
         this.anonymous = user.getAnonymous() != null ? user.getAnonymous().getAsBoolean() : null;
         this.country = user.getCountry() != null ? LDCountryCode.valueOf(user.getCountry().getAsString()) : null;
-        this.custom = ImmutableMap.copyOf(user.custom);
-        this.privateAttrNames = ImmutableSet.copyOf(user.privateAttributeNames);
+        this.custom = new HashMap<>(user.custom);
+        this.privateAttrNames = new HashSet<>(user.privateAttributeNames);
     }
     
     /**
