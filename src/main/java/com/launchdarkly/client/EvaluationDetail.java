@@ -49,6 +49,15 @@ public class EvaluationDetail<T> {
     return value;
   }
   
+  /**
+   * Returns true if the flag evaluation returned the default value, rather than one of the flag's
+   * variations.
+   * @return true if this is the default value
+   */
+  public boolean isDefaultValue() {
+    return variationIndex == null;
+  }
+  
   @Override
   public boolean equals(Object other) {
     if (other instanceof EvaluationDetail) {
