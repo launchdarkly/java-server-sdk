@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -344,7 +343,7 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     checkFeatureEvent(eventSink.events.get(0), f0, js("off"), js("default"), null,
-        EvaluationReason.prerequisitesFailed(ImmutableList.of("feature1")));
+        EvaluationReason.prerequisiteFailed("feature1"));
   }
   
   private void checkFeatureEvent(Event e, FeatureFlag flag, JsonElement value, JsonElement defaultVal,

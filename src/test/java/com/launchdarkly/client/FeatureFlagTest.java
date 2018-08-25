@@ -167,7 +167,7 @@ public class FeatureFlagTest {
         .build();
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    EvaluationReason expectedReason = EvaluationReason.prerequisitesFailed(ImmutableList.of("feature1"));
+    EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
     assertEquals(new EvaluationDetail<>(expectedReason, 1, js("off")), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
@@ -191,7 +191,7 @@ public class FeatureFlagTest {
     featureStore.upsert(FEATURES, f1);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    EvaluationReason expectedReason = EvaluationReason.prerequisitesFailed(ImmutableList.of("feature1"));
+    EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
     assertEquals(new EvaluationDetail<>(expectedReason, 1, js("off")), result.getDetails());
     
     assertEquals(1, result.getPrerequisiteEvents().size());
@@ -272,44 +272,6 @@ public class FeatureFlagTest {
     assertEquals(js("go"), event1.value);
     assertEquals(f1.getVersion(), event1.version.intValue());
     assertEquals(f0.getKey(), event1.prereqOf);
-  }
-  
-  @Test
-  public void multiplePrerequisiteFailuresAreAllRecorded() throws Exception {
-    FeatureFlag f0 = new FeatureFlagBuilder("feature0")
-        .on(true)
-        .prerequisites(Arrays.asList(new Prerequisite("feature1", 0), new Prerequisite("feature2", 0)))
-        .fallthrough(fallthroughVariation(0))
-        .offVariation(1)
-        .variations(js("fall"), js("off"), js("on"))
-        .version(1)
-        .build();
-    FeatureFlag f1 = new FeatureFlagBuilder("feature1")
-        .on(true)
-        .fallthrough(fallthroughVariation(1))
-        .variations(js("nogo"), js("go"))
-        .version(2)
-        .build();
-    FeatureFlag f2 = new FeatureFlagBuilder("feature2")
-        .on(true)
-        .fallthrough(fallthroughVariation(1))
-        .variations(js("nogo"), js("go"))
-        .version(3)
-        .build();
-    featureStore.upsert(FEATURES, f1);        
-    featureStore.upsert(FEATURES, f2);        
-    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
-
-    EvaluationReason expectedReason = EvaluationReason.prerequisitesFailed(ImmutableList.of("feature1", "feature2"));
-    assertEquals(new EvaluationDetail<>(expectedReason, 1, js("off")), result.getDetails());
-    
-    assertEquals(2, result.getPrerequisiteEvents().size());
-    
-    Event.FeatureRequest event0 = result.getPrerequisiteEvents().get(0);
-    assertEquals(f1.getKey(), event0.key);
-    
-    Event.FeatureRequest event1 = result.getPrerequisiteEvents().get(1);
-    assertEquals(f2.getKey(), event1.key);
   }
   
   @Test

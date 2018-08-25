@@ -119,7 +119,6 @@ class FeatureFlag implements VersionedData {
     if (prerequisites == null) {
       return null;
     }
-    List<String> failedPrereqs = null;
     for (int i = 0; i < prerequisites.size(); i++) {
       boolean prereqOk = true;
       Prerequisite prereq = prerequisites.get(i);
@@ -141,14 +140,8 @@ class FeatureFlag implements VersionedData {
         events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
       }
       if (!prereqOk) {
-        if (failedPrereqs == null) {
-          failedPrereqs = new ArrayList<>();
-        }
-        failedPrereqs.add(prereq.getKey());
+        return EvaluationReason.prerequisiteFailed(prereq.getKey());
       }
-    }
-    if (failedPrereqs != null && !failedPrereqs.isEmpty()) {
-      return EvaluationReason.prerequisitesFailed(failedPrereqs);
     }
     return null;
   }
