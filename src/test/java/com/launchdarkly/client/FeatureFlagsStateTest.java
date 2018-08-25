@@ -15,7 +15,7 @@ public class FeatureFlagsStateTest {
   
   @Test
   public void canGetFlagValue() {
-    EvaluationDetail<JsonElement> eval = new EvaluationDetail<JsonElement>(null, 1, js("value"));
+    EvaluationDetail<JsonElement> eval = new EvaluationDetail<JsonElement>(EvaluationReason.off(), 1, js("value"));
     FeatureFlag flag = new FeatureFlagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
@@ -28,7 +28,33 @@ public class FeatureFlagsStateTest {
     
     assertNull(state.getFlagValue("key"));
   }
-  
+
+  @Test
+  public void canGetFlagReason() {
+    EvaluationDetail<JsonElement> eval = new EvaluationDetail<JsonElement>(EvaluationReason.off(), 1, js("value"));
+    FeatureFlag flag = new FeatureFlagBuilder("key").build();
+    FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
+        .addFlag(flag, eval).build();
+    
+    assertEquals(EvaluationReason.off(), state.getFlagReason("key"));
+  }
+
+  @Test
+  public void unknownFlagReturnsNullReason() {
+    FeatureFlagsState state = new FeatureFlagsState.Builder().build();
+    
+    assertNull(state.getFlagReason("key"));
+  }
+
+  @Test
+  public void reasonIsNullIfReasonsWereNotRecorded() {
+    EvaluationDetail<JsonElement> eval = new EvaluationDetail<JsonElement>(EvaluationReason.off(), 1, js("value"));
+    FeatureFlag flag = new FeatureFlagBuilder("key").build();
+    FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
+    
+    assertNull(state.getFlagReason("key"));
+  }
+
   @Test
   public void flagCanHaveNullValue() {
     EvaluationDetail<JsonElement> eval = new EvaluationDetail<JsonElement>(null, 1, null);
@@ -40,9 +66,9 @@ public class FeatureFlagsStateTest {
 
   @Test
   public void canConvertToValuesMap() {
-    EvaluationDetail<JsonElement> eval1 = new EvaluationDetail<JsonElement>(null, 0, js("value1"));
+    EvaluationDetail<JsonElement> eval1 = new EvaluationDetail<JsonElement>(EvaluationReason.off(), 0, js("value1"));
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").build();
-    EvaluationDetail<JsonElement> eval2 = new EvaluationDetail<JsonElement>(null, 1, js("value2"));
+    EvaluationDetail<JsonElement> eval2 = new EvaluationDetail<JsonElement>(EvaluationReason.off(), 1, js("value2"));
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder()
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
@@ -53,19 +79,19 @@ public class FeatureFlagsStateTest {
   
   @Test
   public void canConvertToJson() {
-    EvaluationDetail<JsonElement> eval1 = new EvaluationDetail<JsonElement>(null, 0, js("value1"));
+    EvaluationDetail<JsonElement> eval1 = new EvaluationDetail<JsonElement>(EvaluationReason.off(), 0, js("value1"));
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").version(100).trackEvents(false).build();
-    EvaluationDetail<JsonElement> eval2 = new EvaluationDetail<JsonElement>(null, 1, js("value2"));
+    EvaluationDetail<JsonElement> eval2 = new EvaluationDetail<JsonElement>(EvaluationReason.fallthrough(), 1, js("value2"));
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder()
+    FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
     
     String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
         "\"$flagsState\":{" +
           "\"key1\":{" +
-            "\"variation\":0,\"version\":100,\"trackEvents\":false" +
+            "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"},\"trackEvents\":false" +
           "},\"key2\":{" +
-            "\"variation\":1,\"version\":200,\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
+            "\"variation\":1,\"version\":200,\"reason\":{\"kind\":\"FALLTHROUGH\"},\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
           "}" +
         "}," +
         "\"$valid\":true" +

@@ -1,11 +1,10 @@
 package com.launchdarkly.client;
 
 /**
- * Optional parameters that can be passed to {@link LDClientInterface#allFlagsState(LDUser, FlagsStateOption...).
- * 
+ * Optional parameters that can be passed to {@link LDClientInterface#allFlagsState(LDUser)}.
  * @since 4.3.0
  */
-public class FlagsStateOption {
+public final class FlagsStateOption {
   private final String description;
   
   private FlagsStateOption(String description) {
@@ -23,6 +22,11 @@ public class FlagsStateOption {
    */
   public static final FlagsStateOption CLIENT_SIDE_ONLY = new FlagsStateOption("CLIENT_SIDE_ONLY");
 
+  /**
+   * Specifies that {@link EvaluationReason} data should be captured in the state object. By default, it is not.
+   */
+  public static final FlagsStateOption WITH_REASONS = new FlagsStateOption("WITH_REASONS");
+  
   static boolean hasOption(FlagsStateOption[] options, FlagsStateOption option) {
     for (FlagsStateOption o: options) {
       if (o == option) {

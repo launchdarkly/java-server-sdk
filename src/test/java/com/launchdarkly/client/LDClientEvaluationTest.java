@@ -34,6 +34,7 @@ public class LDClientEvaluationTest {
   private static final Gson gson = new Gson();
   
   private FeatureStore featureStore = TestUtil.initedFeatureStore();
+
   private LDConfig config = new LDConfig.Builder()
       .featureStoreFactory(specificFeatureStore(featureStore))
       .eventProcessorFactory(Components.nullEventProcessor())
@@ -279,6 +280,43 @@ public class LDClientEvaluationTest {
     
     Map<String, JsonElement> allValues = state.toValuesMap();
     assertEquals(ImmutableMap.<String, JsonElement>of("client-side-1", js("value1"), "client-side-2", js("value2")), allValues);
+  }
+  
+  @Test
+  public void allFlagsStateReturnsStateWithReasons() {
+    FeatureFlag flag1 = new FeatureFlagBuilder("key1")
+        .version(100)
+        .trackEvents(false)
+        .on(false)
+        .offVariation(0)
+        .variations(js("value1"))
+        .build();
+    FeatureFlag flag2 = new FeatureFlagBuilder("key2")
+        .version(200)
+        .trackEvents(true)
+        .debugEventsUntilDate(1000L)
+        .on(true)
+        .fallthrough(fallthroughVariation(1))
+        .variations(js("off"), js("value2"))
+        .build();
+    featureStore.upsert(FEATURES, flag1);
+    featureStore.upsert(FEATURES, flag2);
+
+    FeatureFlagsState state = client.allFlagsState(user, FlagsStateOption.WITH_REASONS);
+    assertTrue(state.isValid());
+    
+    String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
+        "\"$flagsState\":{" +
+          "\"key1\":{" +
+            "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"},\"trackEvents\":false" +
+          "},\"key2\":{" +
+            "\"variation\":1,\"version\":200,\"reason\":{\"kind\":\"FALLTHROUGH\"},\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
+          "}" +
+        "}," +
+        "\"$valid\":true" +
+      "}";
+    JsonElement expected = gson.fromJson(json, JsonElement.class);
+    assertEquals(expected, gson.toJsonTree(state));
   }
   
   @Test

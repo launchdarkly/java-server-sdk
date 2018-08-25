@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.TypeAdapter;
@@ -33,13 +32,15 @@ public class FeatureFlagsState {
     
   static class FlagMetadata {
     final Integer variation;
+    final EvaluationReason reason;
     final int version;
     final boolean trackEvents;
     final Long debugEventsUntilDate;
     
-    FlagMetadata(Integer variation, int version, boolean trackEvents,
+    FlagMetadata(Integer variation, EvaluationReason reason, int version, boolean trackEvents,
         Long debugEventsUntilDate) {
       this.variation = variation;
+      this.reason = reason;
       this.version = version;
       this.trackEvents = trackEvents;
       this.debugEventsUntilDate = debugEventsUntilDate;
@@ -87,6 +88,16 @@ public class FeatureFlagsState {
   public JsonElement getFlagValue(String key) {
     return flagValues.get(key);
   }
+
+  /**
+   * Returns the evaluation reason for an individual feature flag at the time the state was recorded.
+   * @param key the feature flag key
+   * @return an {@link EvaluationReason}; null if reasons were not recorded, or if there was no such flag
+   */
+  public EvaluationReason getFlagReason(String key) {
+    FlagMetadata data = flagMetadata.get(key);
+    return data == null ? null : data.reason;
+  }
   
   /**
    * Returns a map of flag keys to flag values. If a flag would have evaluated to the default value,
@@ -119,7 +130,12 @@ public class FeatureFlagsState {
   static class Builder {
     private Map<String, JsonElement> flagValues = new HashMap<>();
     private Map<String, FlagMetadata> flagMetadata = new HashMap<>();
+    private final boolean saveReasons;
     private boolean valid = true;
+
+    Builder(FlagsStateOption... options) {
+      saveReasons = FlagsStateOption.hasOption(options, FlagsStateOption.WITH_REASONS);
+    }
     
     Builder valid(boolean valid) {
       this.valid = valid;
@@ -129,6 +145,7 @@ public class FeatureFlagsState {
     Builder addFlag(FeatureFlag flag, EvaluationDetail<JsonElement> eval) {
       flagValues.put(flag.getKey(), eval.getValue());
       FlagMetadata data = new FlagMetadata(eval.getVariationIndex(),
+          saveReasons ? eval.getReason() : null,
           flag.getVersion(), flag.isTrackEvents(), flag.getDebugEventsUntilDate());
       flagMetadata.put(flag.getKey(), data);
       return this;

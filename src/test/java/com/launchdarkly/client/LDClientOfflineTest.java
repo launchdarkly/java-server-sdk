@@ -66,8 +66,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .build();
-    FeatureFlag flag = flagWithValue("key", jbool(true));
-    testFeatureStore.upsert(FEATURES, flag);
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       Map<String, JsonElement> allFlags = client.allFlags(user);
       assertEquals(ImmutableMap.<String, JsonElement>of("key", jbool(true)), allFlags);
@@ -76,7 +75,7 @@ public class LDClientOfflineTest {
 
   @Test
   public void offlineClientGetsFlagsStateFromFeatureStore() throws IOException {
-    FeatureStore testFeatureStore = TestUtil.initedFeatureStore();
+    FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .offline(true)
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
