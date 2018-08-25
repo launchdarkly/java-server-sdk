@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.TypeAdapter;
@@ -10,6 +9,8 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -25,8 +26,8 @@ import java.util.Map;
 public class FeatureFlagsState {
   private static final Gson gson = new Gson();
   
-  private final ImmutableMap<String, JsonElement> flagValues;
-  private final ImmutableMap<String, FlagMetadata> flagMetadata;
+  private final Map<String, JsonElement> flagValues;
+  private final Map<String, FlagMetadata> flagMetadata;
   private final boolean valid;
     
   static class FlagMetadata {
@@ -63,10 +64,10 @@ public class FeatureFlagsState {
     }
   }
   
-  private FeatureFlagsState(ImmutableMap<String, JsonElement> flagValues,
-      ImmutableMap<String, FlagMetadata> flagMetadata, boolean valid) {
-    this.flagValues = flagValues;
-    this.flagMetadata = flagMetadata;
+  private FeatureFlagsState(Map<String, JsonElement> flagValues,
+      Map<String, FlagMetadata> flagMetadata, boolean valid) {
+    this.flagValues = Collections.unmodifiableMap(flagValues);
+    this.flagMetadata = Collections.unmodifiableMap(flagMetadata);
     this.valid = valid;
   }
   
@@ -127,8 +128,8 @@ public class FeatureFlagsState {
   }
   
   static class Builder {
-    private final ImmutableMap.Builder<String, JsonElement> flagValues = ImmutableMap.builder();
-    private final ImmutableMap.Builder<String, FlagMetadata> flagMetadata = ImmutableMap.builder();
+    private Map<String, JsonElement> flagValues = new HashMap<>();
+    private Map<String, FlagMetadata> flagMetadata = new HashMap<>();
     private final boolean saveReasons;
     private boolean valid = true;
 
@@ -151,7 +152,7 @@ public class FeatureFlagsState {
     }
     
     FeatureFlagsState build() {
-      return new FeatureFlagsState(flagValues.build(), flagMetadata.build(), valid);
+      return new FeatureFlagsState(flagValues, flagMetadata, valid);
     }
   }
   
@@ -173,8 +174,8 @@ public class FeatureFlagsState {
     // There isn't really a use case for deserializing this, but we have to implement it
     @Override
     public FeatureFlagsState read(JsonReader in) throws IOException {
-      ImmutableMap.Builder<String, JsonElement> flagValues = ImmutableMap.builder();
-      ImmutableMap.Builder<String, FlagMetadata> flagMetadata = ImmutableMap.builder();
+      Map<String, JsonElement> flagValues = new HashMap<>();
+      Map<String, FlagMetadata> flagMetadata = new HashMap<>();
       boolean valid = true;
       in.beginObject();
       while (in.hasNext()) {
@@ -195,7 +196,7 @@ public class FeatureFlagsState {
         }
       }
       in.endObject();
-      return new FeatureFlagsState(flagValues.build(), flagMetadata.build(), valid);
+      return new FeatureFlagsState(flagValues, flagMetadata, valid);
     }
   }
 }

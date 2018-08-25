@@ -130,6 +130,25 @@ public class LDClientEvaluationTest {
   }
   
   @Test
+  public void variationReturnsDefaultIfFlagEvaluatesToNull() {
+    FeatureFlag flag = new FeatureFlagBuilder("key").on(false).offVariation(null).build();
+    featureStore.upsert(FEATURES, flag);
+    
+    assertEquals("default", client.stringVariation("key", user, "default"));
+  }
+  
+  @Test
+  public void variationDetailReturnsDefaultIfFlagEvaluatesToNull() {
+    FeatureFlag flag = new FeatureFlagBuilder("key").on(false).offVariation(null).build();
+    featureStore.upsert(FEATURES, flag);
+    
+    EvaluationDetail<String> expected = new EvaluationDetail<String>(EvaluationReason.off(), null, "default");
+    EvaluationDetail<String> actual = client.stringVariationDetail("key", user, "default");
+    assertEquals(expected, actual);
+    assertTrue(actual.isDefaultValue());
+  }
+  
+  @Test
   public void appropriateErrorIfClientNotInitialized() throws Exception {
     FeatureStore badFeatureStore = new InMemoryFeatureStore();
     LDConfig badConfig = new LDConfig.Builder()
@@ -146,16 +165,16 @@ public class LDClientEvaluationTest {
   
   @Test
   public void appropriateErrorIfFlagDoesNotExist() throws Exception {
-    EvaluationDetail<Boolean> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, false);
-    assertEquals(expectedResult, client.boolVariationDetail("key", user, false));
+    EvaluationDetail<String> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, "default");
+    assertEquals(expectedResult, client.stringVariationDetail("key", user, "default"));
   }
   
   @Test
   public void appropriateErrorIfUserNotSpecified() throws Exception {
     featureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
 
-    EvaluationDetail<Boolean> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, false);
-    assertEquals(expectedResult, client.boolVariationDetail("key", null, false));
+    EvaluationDetail<String> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, "default");
+    assertEquals(expectedResult, client.stringVariationDetail("key", null, "default"));
   }
   
   @Test

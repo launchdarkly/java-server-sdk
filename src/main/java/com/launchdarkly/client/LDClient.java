@@ -274,10 +274,10 @@ public final class LDClient implements LDClientInterface {
   private <T> EvaluationDetail<T> evaluateDetail(String featureKey, LDUser user, T defaultValue,
       JsonElement defaultJson, VariationType<T> expectedType, EventFactory eventFactory) {
     EvaluationDetail<JsonElement> details = evaluateInternal(featureKey, user, defaultJson, eventFactory);
-    T resultValue;
+    T resultValue = null;
     if (details.getReason().getKind() == EvaluationReason.Kind.ERROR) {
       resultValue = defaultValue;
-    } else {
+    } else if (details.getValue() != null) {
       try {
         resultValue = expectedType.coerceValue(details.getValue());
       } catch (EvaluationException e) {
@@ -322,8 +322,12 @@ public final class LDClient implements LDClientInterface {
       for (Event.FeatureRequest event : evalResult.getPrerequisiteEvents()) {
         eventProcessor.sendEvent(event);
       }
-      sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult.getDetails(), defaultValue));
-      return evalResult.getDetails();
+      EvaluationDetail<JsonElement> details = evalResult.getDetails();
+      if (details.isDefaultValue()) {
+        details = new EvaluationDetail<JsonElement>(details.getReason(), null, defaultValue);
+      }
+      sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, details, defaultValue));
+      return details;
     } catch (Exception e) {
       logger.error("Encountered exception while evaluating feature flag \"{}\": {}", featureKey, e.toString());
       logger.debug(e.toString(), e);
