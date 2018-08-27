@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.TypeAdapter;
 import com.google.gson.internal.Streams;
@@ -141,6 +142,11 @@ public class LDUser {
       return custom.get(key);
     }
     return null;
+  }
+
+  JsonObject toJsonObject(LDConfig config) {
+      JsonElement tree = config.gson.toJsonTree(this);
+      return tree.getAsJsonObject();
   }
 
   @Override

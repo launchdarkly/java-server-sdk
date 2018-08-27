@@ -93,6 +93,16 @@ public class LDUserTest {
   }
 
   @Test
+  public void testLDJsonObject() {
+      LDConfig config = LDConfig.DEFAULT;
+      LDUser user = new LDUser.Builder("key")
+              .build();
+      JsonObject object = user.toJsonObject(config);
+
+      assertEquals("key", object.get("key").getAsString());
+  }
+
+  @Test
   public void testLDUserJsonSerializationContainsCountryAsTwoDigitCode() {
     LDConfig config = LDConfig.DEFAULT;
     Gson gson = config.gson;
