@@ -4,7 +4,10 @@ import org.junit.Test;
 
 import java.io.IOException;
 
+import static com.launchdarkly.client.TestUtil.flagWithValue;
+import static com.launchdarkly.client.TestUtil.initedFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -41,12 +44,13 @@ public class LDClientLddModeTest {
   
   @Test
   public void lddModeClientGetsFlagFromFeatureStore() throws IOException {
-    TestFeatureStore testFeatureStore = new TestFeatureStore();
+    FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .useLdd(true)
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .build();
-    testFeatureStore.setFeatureTrue("key");
+    FeatureFlag flag = flagWithValue("key", TestUtil.jbool(true));
+    testFeatureStore.upsert(FEATURES, flag);
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertTrue(client.boolVariation("key", new LDUser("user"), false));
     }

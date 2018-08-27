@@ -32,6 +32,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    *
    * @param key the key of the feature flag
    * @param value the new value of the feature flag
+   * @return the feature flag
    */
   public FeatureFlag setBooleanValue(String key, Boolean value) {
     FeatureFlag newFeature = new FeatureFlagBuilder(key)
@@ -49,6 +50,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * If the feature rule is not currently in the store, it will create one that is true for every {@link LDUser}.
    *
    * @param key the key of the feature flag to evaluate to true
+   * @return the feature flag
    */
   public FeatureFlag setFeatureTrue(String key) {
     return setBooleanValue(key, true);
@@ -59,6 +61,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * If the feature rule is not currently in the store, it will create one that is false for every {@link LDUser}.
    *
    * @param key the key of the feature flag to evaluate to false
+   * @return the feature flag
    */
   public FeatureFlag setFeatureFalse(String key) {
     return setBooleanValue(key, false);
@@ -68,6 +71,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * Sets the value of an integer multivariate feature flag, for all users.
    * @param key the key of the flag
    * @param value the new value of the flag
+   * @return the feature flag
      */
   public FeatureFlag setIntegerValue(String key, Integer value) {
     return setJsonValue(key, new JsonPrimitive(value));
@@ -77,6 +81,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * Sets the value of a double multivariate feature flag, for all users.
    * @param key the key of the flag
    * @param value the new value of the flag
+   * @return the feature flag
      */
   public FeatureFlag setDoubleValue(String key, Double value) {
     return setJsonValue(key, new JsonPrimitive(value));
@@ -86,6 +91,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * Sets the value of a string multivariate feature flag, for all users.
    * @param key the key of the flag
    * @param value the new value of the flag
+   * @return the feature flag
      */
   public FeatureFlag setStringValue(String key, String value) {
     return setJsonValue(key, new JsonPrimitive(value));
@@ -95,6 +101,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * Sets the value of a JsonElement multivariate feature flag, for all users.
    * @param key the key of the flag
    * @param value the new value of the flag
+   * @return the feature flag
      */
   public FeatureFlag setJsonValue(String key, JsonElement value) {
     FeatureFlag newFeature = new FeatureFlagBuilder(key)

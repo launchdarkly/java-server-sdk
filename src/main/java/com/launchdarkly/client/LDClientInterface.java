@@ -46,9 +46,28 @@ public interface LDClientInterface extends Closeable {
    *
    * @param user the end user requesting the feature flags
    * @return a map from feature flag keys to {@code JsonElement} for the specified user
+   * 
+   * @deprecated Use {@link #allFlagsState} instead. Current versions of the client-side SDK will not
+   * generate analytics events correctly if you pass the result of {@code allFlags()}.
    */
+  @Deprecated
   Map<String, JsonElement> allFlags(LDUser user);
 
+  /**
+   * Returns an object that encapsulates the state of all feature flags for a given user, including the flag
+   * values and also metadata that can be used on the front end. This method does not send analytics events
+   * back to LaunchDarkly.
+   * <p>
+   * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
+   *  
+   * @param user the end user requesting the feature flags
+   * @param options optional {@link FlagsStateOption} values affecting how the state is computed - for
+   * instance, to filter the set of flags to only include the client-side-enabled ones
+   * @return a {@link FeatureFlagsState} object (will never be null; see {@link FeatureFlagsState#isValid()}
+   * @since 4.3.0
+   */
+  FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options);
+  
   /**
    * Calculates the value of a feature flag for a given user.
    *
@@ -58,7 +77,7 @@ public interface LDClientInterface extends Closeable {
    * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
   boolean boolVariation(String featureKey, LDUser user, boolean defaultValue);
-
+  
   /**
    * Calculates the integer value of a feature flag for a given user.
    *
@@ -99,6 +118,66 @@ public interface LDClientInterface extends Closeable {
    */
   JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue);
 
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue);
+  
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue);
+  
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue);
+
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue);
+
+  /**
+   * Calculates the value of a feature flag for a given user, and returns an object that describes the
+   * way the value was determined. The {@code reason} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   */
+  EvaluationDetail<JsonElement> jsonVariationDetail(String featureKey, LDUser user, JsonElement defaultValue);
+  
   /**
    * Returns true if the specified feature flag currently exists.
    * @param featureKey the unique key for the feature flag

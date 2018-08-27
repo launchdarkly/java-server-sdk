@@ -46,10 +46,17 @@ public class Event {
     final String prereqOf;
     final boolean trackEvents;
     final Long debugEventsUntilDate;
+    final EvaluationReason reason;
     final boolean debug;
-    
+
+    @Deprecated
     public FeatureRequest(long timestamp, String key, LDUser user, Integer version, Integer variation, JsonElement value,
         JsonElement defaultVal, String prereqOf, boolean trackEvents, Long debugEventsUntilDate, boolean debug) {
+      this(timestamp, key, user, version, variation, value, defaultVal, prereqOf, trackEvents, debugEventsUntilDate, null, debug);
+    }
+    
+    public FeatureRequest(long timestamp, String key, LDUser user, Integer version, Integer variation, JsonElement value,
+        JsonElement defaultVal, String prereqOf, boolean trackEvents, Long debugEventsUntilDate, EvaluationReason reason, boolean debug) {
       super(timestamp, user);
       this.key = key;
       this.version = version;
@@ -59,6 +66,7 @@ public class Event {
       this.prereqOf = prereqOf;
       this.trackEvents = trackEvents;
       this.debugEventsUntilDate = debugEventsUntilDate;
+      this.reason = reason;
       this.debug = debug;
     }
   }

@@ -2,15 +2,17 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 class FeatureFlag implements VersionedData {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
@@ -28,6 +30,7 @@ class FeatureFlag implements VersionedData {
   private VariationOrRollout fallthrough;
   private Integer offVariation; //optional
   private List<JsonElement> variations;
+  private boolean clientSide;
   private boolean trackEvents;
   private Long debugEventsUntilDate;
   private boolean deleted;
@@ -45,7 +48,7 @@ class FeatureFlag implements VersionedData {
 
   FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
       List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations,
-      boolean trackEvents, Long debugEventsUntilDate, boolean deleted) {
+      boolean clientSide, boolean trackEvents, Long debugEventsUntilDate, boolean deleted) {
     this.key = key;
     this.version = version;
     this.on = on;
@@ -56,109 +59,117 @@ class FeatureFlag implements VersionedData {
     this.fallthrough = fallthrough;
     this.offVariation = offVariation;
     this.variations = variations;
+    this.clientSide = clientSide;
     this.trackEvents = trackEvents;
     this.debugEventsUntilDate = debugEventsUntilDate;
     this.deleted = deleted;
   }
 
-  EvalResult evaluate(LDUser user, FeatureStore featureStore, EventFactory eventFactory) throws EvaluationException {
+  EvalResult evaluate(LDUser user, FeatureStore featureStore, EventFactory eventFactory) {
     List<Event.FeatureRequest> prereqEvents = new ArrayList<>();
 
     if (user == null || user.getKey() == null) {
+      // this should have been prevented by LDClient.evaluateInternal
       logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", key);
-      return new EvalResult(null, prereqEvents);
+      return new EvalResult(EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, null), prereqEvents);
     }
 
     if (isOn()) {
-      VariationAndValue result = evaluate(user, featureStore, prereqEvents, eventFactory);
-      if (result != null) {
-        return new EvalResult(result, prereqEvents);
-      }
+      EvaluationDetail<JsonElement> details = evaluate(user, featureStore, prereqEvents, eventFactory);
+      return new EvalResult(details, prereqEvents);
     }
-    return new EvalResult(new VariationAndValue(offVariation, getOffVariationValue()), prereqEvents);
+    
+    return new EvalResult(getOffValue(EvaluationReason.off()), prereqEvents);
   }
 
-  // Returning either a JsonElement or null indicating prereq failure/error.
-  private VariationAndValue evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
-      EventFactory eventFactory) throws EvaluationException {
-    boolean prereqOk = true;
-    if (prerequisites != null) {
-      for (Prerequisite prereq : prerequisites) {
-        FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
-        VariationAndValue prereqEvalResult = null;
-        if (prereqFeatureFlag == null) {
-          logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), key);
-          return null;
-        } else if (prereqFeatureFlag.isOn()) {
-          prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
-          if (prereqEvalResult == null || prereqEvalResult.getVariation() != prereq.getVariation()) {
-            prereqOk = false;
-          }
-        } else {
-          prereqOk = false;
-        }
-        //We don't short circuit and also send events for each prereq.
-        events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
-      }
+  private EvaluationDetail<JsonElement> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
+      EventFactory eventFactory) {
+    EvaluationReason prereqFailureReason = checkPrerequisites(user, featureStore, events, eventFactory);
+    if (prereqFailureReason != null) {
+      return getOffValue(prereqFailureReason);
     }
-    if (prereqOk) {
-      Integer index = evaluateIndex(user, featureStore);
-      return new VariationAndValue(index, getVariation(index));
-    }
-    return null;
-  }
-
-  private Integer evaluateIndex(LDUser user, FeatureStore store) {
+    
     // Check to see if targets match
     if (targets != null) {
-      for (Target target : targets) {
+      for (Target target: targets) {
         for (String v : target.getValues()) {
           if (v.equals(user.getKey().getAsString())) {
-            return target.getVariation();
+            return getVariation(target.getVariation(), EvaluationReason.targetMatch());
           }
         }
       }
     }
     // Now walk through the rules and see if any match
     if (rules != null) {
-      for (Rule rule : rules) {
-        if (rule.matchesUser(store, user)) {
-          return rule.variationIndexForUser(user, key, salt);
+      for (int i = 0; i < rules.size(); i++) {
+        Rule rule = rules.get(i);
+        if (rule.matchesUser(featureStore, user)) {
+          return getValueForVariationOrRollout(rule, user, EvaluationReason.ruleMatch(i, rule.getId()));
         }
       }
     }
     // Walk through the fallthrough and see if it matches
-    return fallthrough.variationIndexForUser(user, key, salt);
+    return getValueForVariationOrRollout(fallthrough, user, EvaluationReason.fallthrough());
   }
 
-  JsonElement getOffVariationValue() throws EvaluationException {
-    if (offVariation == null) {
+  // Checks prerequisites if any; returns null if successful, or an EvaluationReason if we have to
+  // short-circuit due to a prerequisite failure.
+  private EvaluationReason checkPrerequisites(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
+      EventFactory eventFactory) {
+    if (prerequisites == null) {
       return null;
     }
-
-    if (offVariation >= variations.size()) {
-      throw new EvaluationException("Invalid off variation index");
+    for (int i = 0; i < prerequisites.size(); i++) {
+      boolean prereqOk = true;
+      Prerequisite prereq = prerequisites.get(i);
+      FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
+      EvaluationDetail<JsonElement> prereqEvalResult = null;
+      if (prereqFeatureFlag == null) {
+        logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), key);
+        prereqOk = false;
+      } else if (prereqFeatureFlag.isOn()) {
+        prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
+        if (prereqEvalResult == null || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
+          prereqOk = false;
+        }
+      } else {
+        prereqOk = false;
+      }
+      // We continue to evaluate all prerequisites even if one failed.
+      if (prereqFeatureFlag != null) {
+        events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
+      }
+      if (!prereqOk) {
+        return EvaluationReason.prerequisiteFailed(prereq.getKey());
+      }
     }
-
-    return variations.get(offVariation);
+    return null;
   }
 
-  private JsonElement getVariation(Integer index) throws EvaluationException {
-    // If the supplied index is null, then rules didn't match, and we want to return
-    // the off variation
+  private EvaluationDetail<JsonElement> getVariation(int variation, EvaluationReason reason) {
+    if (variation < 0 || variation >= variations.size()) {
+      logger.error("Data inconsistency in feature flag \"{}\": invalid variation index", key);
+      return EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null);
+    }
+    return new EvaluationDetail<JsonElement>(reason, variation, variations.get(variation));
+  }
+
+  private EvaluationDetail<JsonElement> getOffValue(EvaluationReason reason) {
+    if (offVariation == null) { // off variation unspecified - return default value
+      return new EvaluationDetail<JsonElement>(reason, null, null);
+    }
+    return getVariation(offVariation, reason);
+  }
+  
+  private EvaluationDetail<JsonElement> getValueForVariationOrRollout(VariationOrRollout vr, LDUser user, EvaluationReason reason) {
+    Integer index = vr.variationIndexForUser(user, key, salt);
     if (index == null) {
-      return null;
+      logger.error("Data inconsistency in feature flag \"{}\": variation/rollout object with no variation or rollout", key);
+      return EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null); 
     }
-    // If the index doesn't refer to a valid variation, that's an unexpected exception and we will
-    // return the default variation
-    else if (index >= variations.size()) {
-      throw new EvaluationException("Invalid index");
-    }
-    else {
-      return variations.get(index);
-    }
+    return getVariation(index, reason);
   }
-
+  
   public int getVersion() {
     return version;
   }
@@ -207,37 +218,27 @@ class FeatureFlag implements VersionedData {
     return variations;
   }
 
-  Integer getOffVariation() { return offVariation; }
-
-  static class VariationAndValue {
-    private final Integer variation;
-    private final JsonElement value;
-
-    VariationAndValue(Integer variation, JsonElement value) {
-      this.variation = variation;
-      this.value = value;
-    }
-    
-    Integer getVariation() {
-      return variation;
-    }
-    
-    JsonElement getValue() {
-      return value;
-    }
+  Integer getOffVariation() {
+    return offVariation;
   }
-  
+
+  boolean isClientSide() {
+    return clientSide;
+  }
+    
   static class EvalResult {
-    private final VariationAndValue result;
+    private final EvaluationDetail<JsonElement> details;
     private final List<Event.FeatureRequest> prerequisiteEvents;
 
-    private EvalResult(VariationAndValue result, List<Event.FeatureRequest> prerequisiteEvents) {
-      this.result = result;
+    private EvalResult(EvaluationDetail<JsonElement> details, List<Event.FeatureRequest> prerequisiteEvents) {
+      checkNotNull(details);
+      checkNotNull(prerequisiteEvents);
+      this.details = details;
       this.prerequisiteEvents = prerequisiteEvents;
     }
 
-    VariationAndValue getResult() {
-      return result;
+    EvaluationDetail<JsonElement> getDetails() {
+      return details;
     }
 
     List<Event.FeatureRequest> getPrerequisiteEvents() {

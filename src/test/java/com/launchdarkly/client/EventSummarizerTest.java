@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.launchdarkly.client.TestUtil.js;
+import static com.launchdarkly.client.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
@@ -18,6 +19,11 @@ public class EventSummarizerTest {
     @Override
     protected long getTimestamp() {
       return eventTimestamp;
+    }
+    
+    @Override
+    protected boolean isIncludeReasons() {
+      return false;
     }
   };
   
@@ -65,14 +71,14 @@ public class EventSummarizerTest {
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(22).build();
     String unknownFlagKey = "badkey";
     Event event1 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(1, js("value1")), js("default1"));
+        simpleEvaluation(1, js("value1")), js("default1"));
     Event event2 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(2, js("value2")), js("default1"));
+        simpleEvaluation(2, js("value2")), js("default1"));
     Event event3 = eventFactory.newFeatureRequestEvent(flag2, user,
-        new FeatureFlag.VariationAndValue(1, js("value99")), js("default2"));
+        simpleEvaluation(1, js("value99")), js("default2"));
     Event event4 = eventFactory.newFeatureRequestEvent(flag1, user,
-        new FeatureFlag.VariationAndValue(1, js("value1")), js("default1"));
-    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, js("default3"));
+        simpleEvaluation(1, js("value1")), js("default1"));
+    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, js("default3"), EvaluationReason.ErrorKind.FLAG_NOT_FOUND);
     es.summarizeEvent(event1);
     es.summarizeEvent(event2);
     es.summarizeEvent(event3);

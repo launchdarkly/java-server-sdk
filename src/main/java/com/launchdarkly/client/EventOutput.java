@@ -44,9 +44,11 @@ abstract class EventOutput {
     private final JsonElement value;
     @SerializedName("default") private final JsonElement defaultVal;
     private final String prereqOf;
+    private final EvaluationReason reason;
     
     FeatureRequest(long creationDate, String key, String userKey, LDUser user,
-        Integer version, Integer variation, JsonElement value, JsonElement defaultVal, String prereqOf, boolean debug) {
+        Integer version, Integer variation, JsonElement value, JsonElement defaultVal, String prereqOf,
+        EvaluationReason reason, boolean debug) {
       super(debug ? "debug" : "feature", creationDate);
       this.key = key;
       this.userKey = userKey;
@@ -56,6 +58,7 @@ abstract class EventOutput {
       this.value = value;
       this.defaultVal = defaultVal;
       this.prereqOf = prereqOf;
+      this.reason = reason;
     }
   }
 
@@ -163,7 +166,7 @@ abstract class EventOutput {
         return new EventOutput.FeatureRequest(fe.creationDate, fe.key,
             inlineThisUser ? null : userKey,
             inlineThisUser ? e.user : null,
-            fe.version, fe.variation, fe.value, fe.defaultVal, fe.prereqOf, fe.debug);
+            fe.version, fe.variation, fe.value, fe.defaultVal, fe.prereqOf, fe.reason, fe.debug);
       } else if (e instanceof Event.Identify) {
         return new EventOutput.Identify(e.creationDate, e.user);
       } else if (e instanceof Event.Custom) {

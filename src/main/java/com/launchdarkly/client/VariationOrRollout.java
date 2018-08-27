@@ -24,6 +24,8 @@ class VariationOrRollout {
     this.rollout = rollout;
   }
 
+  // Attempt to determine the variation index for a given user. Returns null if no index can be computed
+  // due to internal inconsistency of the data (i.e. a malformed flag). 
   Integer variationIndexForUser(LDUser user, String key, String salt) {
     if (variation != null) {
       return variation;

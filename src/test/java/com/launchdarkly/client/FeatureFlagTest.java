@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 
@@ -17,7 +18,6 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 
 public class FeatureFlagTest {
 
@@ -40,7 +40,7 @@ public class FeatureFlagTest {
         .build();
     FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("off"), result.getResult().getValue());
+    assertEquals(new EvaluationDetail<>(EvaluationReason.off(), 1, js("off")), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
 
@@ -53,7 +53,106 @@ public class FeatureFlagTest {
         .build();
     FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertNull(result.getResult().getValue());
+    assertEquals(new EvaluationDetail<>(EvaluationReason.off(), null, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+  
+  @Test
+  public void flagReturnsErrorIfFlagIsOffAndOffVariationIsTooHigh() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(false)
+        .offVariation(999)
+        .fallthrough(fallthroughVariation(0))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void flagReturnsErrorIfFlagIsOffAndOffVariationIsNegative() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(false)
+        .offVariation(-1)
+        .fallthrough(fallthroughVariation(0))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+  
+  @Test
+  public void flagReturnsFallthroughIfFlagIsOnAndThereAreNoRules() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(fallthroughVariation(0))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(new EvaluationDetail<>(EvaluationReason.fallthrough(), 0, js("fall")), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void flagReturnsErrorIfFallthroughHasTooHighVariation() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(fallthroughVariation(999))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void flagReturnsErrorIfFallthroughHasNegativeVariation() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(fallthroughVariation(-1))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void flagReturnsErrorIfFallthroughHasNeitherVariationNorRollout() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(new VariationOrRollout(null, null))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+  
+  @Test
+  public void flagReturnsErrorIfFallthroughHasEmptyRolloutVariationList() throws Exception {
+    FeatureFlag f = new FeatureFlagBuilder("feature")
+        .on(true)
+        .offVariation(1)
+        .fallthrough(new VariationOrRollout(null,
+            new VariationOrRollout.Rollout(ImmutableList.<VariationOrRollout.WeightedVariation>of(), null)))
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+    FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -68,7 +167,8 @@ public class FeatureFlagTest {
         .build();
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("off"), result.getResult().getValue());
+    EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
+    assertEquals(new EvaluationDetail<>(expectedReason, 1, js("off")), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -91,7 +191,8 @@ public class FeatureFlagTest {
     featureStore.upsert(FEATURES, f1);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("off"), result.getResult().getValue());
+    EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
+    assertEquals(new EvaluationDetail<>(expectedReason, 1, js("off")), result.getDetails());
     
     assertEquals(1, result.getPrerequisiteEvents().size());
     Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
@@ -120,7 +221,7 @@ public class FeatureFlagTest {
     featureStore.upsert(FEATURES, f1);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("fall"), result.getResult().getValue());
+    assertEquals(new EvaluationDetail<>(EvaluationReason.fallthrough(), 0, js("fall")), result.getDetails());
     assertEquals(1, result.getPrerequisiteEvents().size());
     
     Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
@@ -157,7 +258,7 @@ public class FeatureFlagTest {
     featureStore.upsert(FEATURES, f2);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("fall"), result.getResult().getValue());    
+    assertEquals(new EvaluationDetail<>(EvaluationReason.fallthrough(), 0, js("fall")), result.getDetails());
     assertEquals(2, result.getPrerequisiteEvents().size());
     
     Event.FeatureRequest event0 = result.getPrerequisiteEvents().get(0);
@@ -185,62 +286,107 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("userkey").build();
     FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("on"), result.getResult().getValue());
+    assertEquals(new EvaluationDetail<>(EvaluationReason.targetMatch(), 2, js("on")), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
   @Test
-  public void flagMatchesUserFromRules() throws Exception {
-    Clause clause = new Clause("key", Operator.in, Arrays.asList(js("userkey")), false);
-    Rule rule = new Rule(Arrays.asList(clause), 2, null);
-    FeatureFlag f = new FeatureFlagBuilder("feature")
-        .on(true)
-        .rules(Arrays.asList(rule))
-        .fallthrough(fallthroughVariation(0))
-        .offVariation(1)
-        .variations(js("fall"), js("off"), js("on"))
-        .build();
+  public void flagMatchesUserFromRules() {
+    Clause clause0 = new Clause("key", Operator.in, Arrays.asList(js("wrongkey")), false);
+    Clause clause1 = new Clause("key", Operator.in, Arrays.asList(js("userkey")), false);
+    Rule rule0 = new Rule("ruleid0", Arrays.asList(clause0), 2, null);
+    Rule rule1 = new Rule("ruleid1", Arrays.asList(clause1), 2, null);
+    FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);
     LDUser user = new LDUser.Builder("userkey").build();
     FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(js("on"), result.getResult().getValue());
+    assertEquals(new EvaluationDetail<>(EvaluationReason.ruleMatch(1, "ruleid1"), 2, js("on")), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+  
+  @Test
+  public void ruleWithTooHighVariationReturnsMalformedFlagError() {
+    Clause clause = new Clause("key", Operator.in, Arrays.asList(js("userkey")), false);
+    Rule rule = new Rule("ruleid", Arrays.asList(clause), 999, null);
+    FeatureFlag f = featureFlagWithRules("feature", rule);
+    LDUser user = new LDUser.Builder("userkey").build();
+    FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void ruleWithNegativeVariationReturnsMalformedFlagError() {
+    Clause clause = new Clause("key", Operator.in, Arrays.asList(js("userkey")), false);
+    Rule rule = new Rule("ruleid", Arrays.asList(clause), -1, null);
+    FeatureFlag f = featureFlagWithRules("feature", rule);
+    LDUser user = new LDUser.Builder("userkey").build();
+    FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+  
+  @Test
+  public void ruleWithNoVariationOrRolloutReturnsMalformedFlagError() {
+    Clause clause = new Clause("key", Operator.in, Arrays.asList(js("userkey")), false);
+    Rule rule = new Rule("ruleid", Arrays.asList(clause), null, null);
+    FeatureFlag f = featureFlagWithRules("feature", rule);
+    LDUser user = new LDUser.Builder("userkey").build();
+    FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
+    assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void ruleWithRolloutWithEmptyVariationsListReturnsMalformedFlagError() {
+    Clause clause = new Clause("key", Operator.in, Arrays.asList(js("userkey")), false);
+    Rule rule = new Rule("ruleid", Arrays.asList(clause), null,
+        new VariationOrRollout.Rollout(ImmutableList.<VariationOrRollout.WeightedVariation>of(), null));
+    FeatureFlag f = featureFlagWithRules("feature", rule);
+    LDUser user = new LDUser.Builder("userkey").build();
+    FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
   @Test
   public void clauseCanMatchBuiltInAttribute() throws Exception {
     Clause clause = new Clause("name", Operator.in, Arrays.asList(js("Bob")), false);
-    FeatureFlag f = booleanFlagWithClauses(clause);
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
+    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails().getValue());
   }
   
   @Test
   public void clauseCanMatchCustomAttribute() throws Exception {
     Clause clause = new Clause("legs", Operator.in, Arrays.asList(jint(4)), false);
-    FeatureFlag f = booleanFlagWithClauses(clause);
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").custom("legs", 4).build();
     
-    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
+    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails().getValue());
   }
   
   @Test
   public void clauseReturnsFalseForMissingAttribute() throws Exception {
     Clause clause = new Clause("legs", Operator.in, Arrays.asList(jint(4)), false);
-    FeatureFlag f = booleanFlagWithClauses(clause);
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
+    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails().getValue());
   }
   
   @Test
   public void clauseCanBeNegated() throws Exception {
     Clause clause = new Clause("name", Operator.in, Arrays.asList(js("Bob")), true);
-    FeatureFlag f = booleanFlagWithClauses(clause);
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
+    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails().getValue());
   }
   
   @Test
@@ -261,18 +407,18 @@ public class FeatureFlagTest {
   @Test
   public void clauseWithNullOperatorDoesNotMatch() throws Exception {
     Clause badClause = new Clause("name", null, Arrays.asList(js("Bob")), false);
-    FeatureFlag f = booleanFlagWithClauses(badClause);
+    FeatureFlag f = booleanFlagWithClauses("flag", badClause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
+    assertEquals(jbool(false), f.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails().getValue());
   }
   
   @Test
   public void clauseWithNullOperatorDoesNotStopSubsequentRuleFromMatching() throws Exception {
     Clause badClause = new Clause("name", null, Arrays.asList(js("Bob")), false);
-    Rule badRule = new Rule(Arrays.asList(badClause), 1, null);
+    Rule badRule = new Rule("rule1", Arrays.asList(badClause), 1, null);
     Clause goodClause = new Clause("name", Operator.in, Arrays.asList(js("Bob")), false);
-    Rule goodRule = new Rule(Arrays.asList(goodClause), 1, null);
+    Rule goodRule = new Rule("rule2", Arrays.asList(goodClause), 1, null);
     FeatureFlag f = new FeatureFlagBuilder("feature")
         .on(true)
         .rules(Arrays.asList(badRule, goodRule))
@@ -282,7 +428,8 @@ public class FeatureFlagTest {
         .build();
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(jbool(true), f.evaluate(user, featureStore, EventFactory.DEFAULT).getResult().getValue());
+    EvaluationDetail<JsonElement> details = f.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails();
+    assertEquals(new EvaluationDetail<>(EvaluationReason.ruleMatch(1, "rule2"), 1, jbool(true)), details);
   }
   
   @Test
@@ -297,7 +444,7 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("foo").build();
     
     FeatureFlag.EvalResult result = flag.evaluate(user, featureStore, EventFactory.DEFAULT);
-    assertEquals(jbool(true), result.getResult().getValue());
+    assertEquals(jbool(true), result.getDetails().getValue());
   }
 
   @Test
@@ -306,11 +453,21 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("foo").build();
     
     FeatureFlag.EvalResult result = flag.evaluate(user, featureStore, EventFactory.DEFAULT);
-    assertEquals(jbool(false), result.getResult().getValue());
+    assertEquals(jbool(false), result.getDetails().getValue());
   }
  
+  private FeatureFlag featureFlagWithRules(String flagKey, Rule... rules) {
+    return new FeatureFlagBuilder(flagKey)
+        .on(true)
+        .rules(Arrays.asList(rules))
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(1)
+        .variations(js("fall"), js("off"), js("on"))
+        .build();
+  }
+  
   private FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
     Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(js(segmentKey)), false);
-    return booleanFlagWithClauses(clause);
+    return booleanFlagWithClauses("flag", clause);
   }
 }
