@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
 /**
- * Optional parameters that can be passed to {@link LDClientInterface#allFlagsState(LDUser)}.
+ * Optional parameters that can be passed to {@link LDClientInterface#allFlagsState(LDUser, FlagsStateOption...)}.
  * @since 4.3.0
  */
 public final class FlagsStateOption {
