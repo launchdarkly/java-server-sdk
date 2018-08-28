@@ -93,13 +93,53 @@ public class LDUserTest {
   }
 
   @Test
-  public void testLDJsonObject() {
-      LDConfig config = LDConfig.DEFAULT;
-      LDUser user = new LDUser.Builder("key")
-              .build();
-      JsonObject object = user.toJsonObject(config);
+  public void testLDUserJsConfig() {
+    LDConfig config = LDConfig.DEFAULT;
+    LDUser user = new LDUser.Builder("key")
+            .privateCustom("private-key", "private-value")
+            .custom("public-key", "public-value")
+            .build();
 
-      assertEquals("key", object.get("key").getAsString());
+    JsonObject object = user.toJsConfig(config);
+
+    assertEquals("key", object.get("key").getAsString());
+
+    JsonArray privateAttributeNames = object.get("privateAttributeNames").getAsJsonArray();
+    assertEquals(1, privateAttributeNames.size());
+    assertEquals("private-key", privateAttributeNames.get(0).getAsString());
+
+    assertEquals("private-value", object.get("custom").getAsJsonObject().get("private-key").getAsString());
+    assertEquals("public-value", object.get("custom").getAsJsonObject().get("public-key").getAsString());
+  }
+
+  @Test
+  public void testLDUserJsConfigAllAttributesPrivate() {
+    LDConfig config = new LDConfig.Builder()
+            .allAttributesPrivate(true)
+            .build();
+    LDUser user = new LDUser.Builder("key")
+            .build();
+
+    JsonObject object = user.toJsConfig(config);
+
+    assertTrue(object.get("allAttributesPrivate").getAsBoolean());
+  }
+
+  @Test
+  public void testLDUserJsConfigPrivate() {
+    LDConfig config = new LDConfig.Builder()
+            .privateAttributeNames("private-key")
+            .build();
+    LDUser user = new LDUser.Builder("key")
+            .privateCustom("private-key2", "private-value2")
+            .build();
+
+    JsonObject object = user.toJsConfig(config);
+
+    JsonArray privateAttributeNames = object.get("privateAttributeNames").getAsJsonArray();
+    assertEquals(2, privateAttributeNames.size());
+    assertEquals("private-key", privateAttributeNames.get(0).getAsString());
+    assertEquals("private-key2", privateAttributeNames.get(1).getAsString());
   }
 
   @Test
