@@ -2,8 +2,10 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.TypeAdapter;
 import com.google.gson.internal.Streams;
@@ -14,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -141,6 +145,32 @@ public class LDUser {
       return custom.get(key);
     }
     return null;
+  }
+
+  JsonObject toJsConfig(LDConfig config) {
+    JsonElement tree = new Gson().toJsonTree(this);
+
+    Set<String> privateAttributeSet = new HashSet<>();
+    privateAttributeSet.addAll(this.privateAttributeNames);
+    privateAttributeSet.addAll(config.privateAttrNames);
+
+    List<String> attrs = new ArrayList<>();
+    attrs.addAll(privateAttributeSet);
+    Collections.sort(attrs);
+
+    JsonArray array = new JsonArray();
+    for (String element : attrs) {
+      array.add(new JsonPrimitive(element));
+    }
+
+    JsonObject object = tree.getAsJsonObject();
+    object.add("privateAttributeNames", array);
+
+    if (config.allAttributesPrivate) {
+      object.addProperty("allAttributesPrivate", true);
+    }
+
+    return object;
   }
 
   @Override
