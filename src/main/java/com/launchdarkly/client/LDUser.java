@@ -2,11 +2,11 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.TypeAdapter;
-import com.google.gson.internal.Streams;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -32,8 +33,15 @@ import java.util.regex.Pattern;
  * <p>
  * Custom attributes are not parsed by LaunchDarkly. They can be used in custom rules-- for example, a custom attribute such as "customer_ranking" can be used to
  * launch a feature to the top 10% of users on a site.
+ * <p>
+ * If you want to pass an LDUser object to the front end to be used with the JavaScript SDK, simply call <c>Gson.toJson()</c> or
+ * <c>Gson.toJsonTree()</c> on it.
  */
 public class LDUser {
+  private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
+
+  // Note that these fields are all stored internally as JsonPrimitive rather than String so that
+  // we don't waste time repeatedly converting them to JsonPrimitive in the rule evaluation logic.
   private final JsonPrimitive key;
   private JsonPrimitive secondary;
   private JsonPrimitive ip;
@@ -44,10 +52,8 @@ public class LDUser {
   private JsonPrimitive lastName;
   private JsonPrimitive anonymous;
   private JsonPrimitive country;
-  protected Map<String, JsonElement> custom;
-  // This is set as transient as we'll use a custom serializer to marshal it
-  protected transient Set<String> privateAttributeNames;
-  private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
+  private Map<String, JsonElement> custom;
+  Set<String> privateAttributeNames;
 
   protected LDUser(Builder builder) {
     if (builder.key == null || builder.key.equals("")) {
@@ -63,8 +69,8 @@ public class LDUser {
     this.name = builder.name == null ? null : new JsonPrimitive(builder.name);
     this.avatar = builder.avatar == null ? null : new JsonPrimitive(builder.avatar);
     this.anonymous = builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
-    this.custom = ImmutableMap.copyOf(builder.custom);
-    this.privateAttributeNames = ImmutableSet.copyOf(builder.privateAttrNames);
+    this.custom = builder.custom == null ? null : ImmutableMap.copyOf(builder.custom);
+    this.privateAttributeNames = builder.privateAttrNames == null ? null : ImmutableSet.copyOf(builder.privateAttrNames);
   }
 
   /**
@@ -74,8 +80,8 @@ public class LDUser {
    */
   public LDUser(String key) {
     this.key = new JsonPrimitive(key);
-    this.custom = new HashMap<>();
-    this.privateAttributeNames = new HashSet<String>();
+    this.custom = null;
+    this.privateAttributeNames = null;
   }
 
   protected JsonElement getValueForEvaluation(String attribute) {
@@ -142,7 +148,7 @@ public class LDUser {
     }
     return null;
   }
-
+  
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -150,41 +156,31 @@ public class LDUser {
 
     LDUser ldUser = (LDUser) o;
 
-    if (key != null ? !key.equals(ldUser.key) : ldUser.key != null) return false;
-    if (secondary != null ? !secondary.equals(ldUser.secondary) : ldUser.secondary != null) return false;
-    if (ip != null ? !ip.equals(ldUser.ip) : ldUser.ip != null) return false;
-    if (email != null ? !email.equals(ldUser.email) : ldUser.email != null) return false;
-    if (name != null ? !name.equals(ldUser.name) : ldUser.name != null) return false;
-    if (avatar != null ? !avatar.equals(ldUser.avatar) : ldUser.avatar != null) return false;
-    if (firstName != null ? !firstName.equals(ldUser.firstName) : ldUser.firstName != null) return false;
-    if (lastName != null ? !lastName.equals(ldUser.lastName) : ldUser.lastName != null) return false;
-    if (anonymous != null ? !anonymous.equals(ldUser.anonymous) : ldUser.anonymous != null) return false;
-    if (country != null ? !country.equals(ldUser.country) : ldUser.country != null) return false;
-    if (custom != null ? !custom.equals(ldUser.custom) : ldUser.custom != null) return false;
-    return privateAttributeNames != null ? privateAttributeNames.equals(ldUser.privateAttributeNames) : ldUser.privateAttributeNames == null;
+    return Objects.equals(key,  ldUser.key) &&
+        Objects.equals(secondary, ldUser.secondary) &&
+        Objects.equals(ip, ldUser.ip) &&
+        Objects.equals(email, ldUser.email) &&
+        Objects.equals(name, ldUser.name) &&
+        Objects.equals(avatar, ldUser.avatar) &&
+        Objects.equals(firstName, ldUser.firstName) &&
+        Objects.equals(lastName, ldUser.lastName) &&
+        Objects.equals(anonymous, ldUser.anonymous) &&
+        Objects.equals(country, ldUser.country) &&
+        Objects.equals(custom, ldUser.custom) &&
+        Objects.equals(privateAttributeNames, ldUser.privateAttributeNames);
   }
 
   @Override
   public int hashCode() {
-    int result = key != null ? key.hashCode() : 0;
-    result = 31 * result + (secondary != null ? secondary.hashCode() : 0);
-    result = 31 * result + (ip != null ? ip.hashCode() : 0);
-    result = 31 * result + (email != null ? email.hashCode() : 0);
-    result = 31 * result + (name != null ? name.hashCode() : 0);
-    result = 31 * result + (avatar != null ? avatar.hashCode() : 0);
-    result = 31 * result + (firstName != null ? firstName.hashCode() : 0);
-    result = 31 * result + (lastName != null ? lastName.hashCode() : 0);
-    result = 31 * result + (anonymous != null ? anonymous.hashCode() : 0);
-    result = 31 * result + (country != null ? country.hashCode() : 0);
-    result = 31 * result + (custom != null ? custom.hashCode() : 0);
-    result = 31 * result + (privateAttributeNames != null ? privateAttributeNames.hashCode() : 0);
-    return result;
+    return Objects.hash(key, secondary, ip, email, name, avatar, firstName, lastName, anonymous, country, custom, privateAttributeNames);
   }
 
-  static class UserAdapter extends TypeAdapter<LDUser> {
+  // Used internally when including users in analytics events, to ensure that private attributes are stripped out.
+  static class UserAdapterWithPrivateAttributeBehavior extends TypeAdapter<LDUser> {
+    private static final Gson gson = new Gson();
     private final LDConfig config;
 
-    public UserAdapter(LDConfig config) {
+    public UserAdapterWithPrivateAttributeBehavior(LDConfig config) {
       this.config = config;
     }
 
@@ -284,10 +280,7 @@ public class LDUser {
             beganObject = true;
           }
           out.name(entry.getKey());
-          // NB: this accesses part of the internal GSON api. However, it's likely
-          // the only way to write a JsonElement directly:
-          // https://groups.google.com/forum/#!topic/google-gson/JpHbpZ9mTOk
-          Streams.write(entry.getValue(), out);
+          gson.toJson(entry.getValue(), JsonElement.class, out);
         }
       }
       if (beganObject) {
@@ -333,8 +326,6 @@ public class LDUser {
      */
     public Builder(String key) {
       this.key = key;
-      this.custom = new HashMap<>();
-      this.privateAttrNames = new HashSet<>();
     }
 
     /**
@@ -358,8 +349,8 @@ public class LDUser {
         this.avatar = user.getAvatar() != null ? user.getAvatar().getAsString() : null;
         this.anonymous = user.getAnonymous() != null ? user.getAnonymous().getAsBoolean() : null;
         this.country = user.getCountry() != null ? LDCountryCode.valueOf(user.getCountry().getAsString()) : null;
-        this.custom = new HashMap<>(user.custom);
-        this.privateAttrNames = new HashSet<>(user.privateAttributeNames);
+        this.custom = user.custom == null ? null : new HashMap<>(user.custom);
+        this.privateAttrNames = user.privateAttributeNames == null ? null : new HashSet<>(user.privateAttributeNames);
     }
     
     /**
@@ -380,7 +371,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateIp(String s) {
-      privateAttrNames.add("ip");
+      addPrivate("ip");
       return ip(s);
     }
 
@@ -404,7 +395,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateSecondary(String s) {
-      privateAttrNames.add("secondary");
+      addPrivate("secondary");
       return secondary(s);
     }
 
@@ -455,7 +446,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCountry(String s) {
-      privateAttrNames.add("country");
+      addPrivate("country");
       return country(s);
     }
 
@@ -477,7 +468,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCountry(LDCountryCode country) {
-      privateAttrNames.add("country");
+      addPrivate("country");
       return country(country);
     }
 
@@ -500,7 +491,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateFirstName(String firstName) {
-      privateAttrNames.add("firstName");
+      addPrivate("firstName");
       return firstName(firstName);
     }
 
@@ -534,7 +525,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateLastName(String lastName) {
-      privateAttrNames.add("lastName");
+      addPrivate("lastName");
       return lastName(lastName);
     }
 
@@ -557,7 +548,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateName(String name) {
-      privateAttrNames.add("name");
+      addPrivate("name");
       return name(name);
     }
 
@@ -579,7 +570,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateAvatar(String avatar) {
-      privateAttrNames.add("avatar");
+      addPrivate("avatar");
       return avatar(avatar);
     }
 
@@ -602,7 +593,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateEmail(String email) {
-      privateAttrNames.add("email");
+      addPrivate("email");
       return email(email);
     }
 
@@ -657,6 +648,9 @@ public class LDUser {
     public Builder custom(String k, JsonElement v) {
       checkCustomAttribute(k);
       if (k != null && v != null) {
+        if (custom == null) {
+          custom = new HashMap<>();
+        }
         custom.put(k, v);
       }
       return this;
@@ -672,15 +666,13 @@ public class LDUser {
      * @return the builder
      */
     public Builder customString(String k, List<String> vs) {
-      checkCustomAttribute(k);
       JsonArray array = new JsonArray();
       for (String v : vs) {
         if (v != null) {
           array.add(new JsonPrimitive(v));
         }
       }
-      custom.put(k, array);
-      return this;
+      return custom(k, array);
     }
 
     /**
@@ -693,15 +685,13 @@ public class LDUser {
      * @return the builder
      */
     public Builder customNumber(String k, List<Number> vs) {
-      checkCustomAttribute(k);
       JsonArray array = new JsonArray();
       for (Number v : vs) {
         if (v != null) {
           array.add(new JsonPrimitive(v));
         }
       }
-      custom.put(k, array);
-      return this;
+      return custom(k, array);
     }
     
     /**
@@ -714,15 +704,13 @@ public class LDUser {
      * @return the builder
      */
     public Builder customValues(String k, List<JsonElement> vs) {
-      checkCustomAttribute(k);
       JsonArray array = new JsonArray();
       for (JsonElement v : vs) {
         if (v != null) {
           array.add(v);
         }
       }
-      custom.put(k, array);
-      return this;
+      return custom(k, array);
     }
     
     /**
@@ -736,7 +724,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustom(String k, String v) {
-      privateAttrNames.add(k);
+      addPrivate(k);
       return custom(k, v);
     }
 
@@ -751,7 +739,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustom(String k, Number n) {
-      privateAttrNames.add(k);
+      addPrivate(k);
       return custom(k, n);
     }
 
@@ -766,7 +754,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustom(String k, Boolean b) {
-      privateAttrNames.add(k);
+      addPrivate(k);
       return custom(k, b);
     }
 
@@ -781,7 +769,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustom(String k, JsonElement v) {
-      privateAttrNames.add(k);
+      addPrivate(k);
       return custom(k, v);
     }
     
@@ -796,7 +784,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustomString(String k, List<String> vs) {
-      privateAttrNames.add(k);
+      addPrivate(k);
       return customString(k, vs);
     }
 
@@ -811,7 +799,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustomNumber(String k, List<Number> vs) {
-      privateAttrNames.add(k);
+      addPrivate(k);
       return customNumber(k, vs);
     }
 
@@ -826,7 +814,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustomValues(String k, List<JsonElement> vs) {
-      privateAttrNames.add(k);
+      addPrivate(k);
       return customValues(k, vs);
     }
     
@@ -839,6 +827,13 @@ public class LDUser {
       }
     }
 
+    private void addPrivate(String key) {
+      if (privateAttrNames == null) {
+        privateAttrNames = new HashSet<>();
+      }
+      privateAttrNames.add(key);
+    }
+    
     /**
      * Builds the configured {@link com.launchdarkly.client.LDUser} object.
      *
