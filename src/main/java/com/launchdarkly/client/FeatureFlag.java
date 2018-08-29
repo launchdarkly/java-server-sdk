@@ -74,16 +74,16 @@ class FeatureFlag implements VersionedData {
       return new EvalResult(EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, null), prereqEvents);
     }
 
-    if (isOn()) {
-      EvaluationDetail<JsonElement> details = evaluate(user, featureStore, prereqEvents, eventFactory);
-      return new EvalResult(details, prereqEvents);
-    }
-    
-    return new EvalResult(getOffValue(EvaluationReason.off()), prereqEvents);
+    EvaluationDetail<JsonElement> details = evaluate(user, featureStore, prereqEvents, eventFactory);
+    return new EvalResult(details, prereqEvents);    
   }
 
   private EvaluationDetail<JsonElement> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
       EventFactory eventFactory) {
+    if (!isOn()) {
+      return getOffValue(EvaluationReason.off());
+    }
+    
     EvaluationReason prereqFailureReason = checkPrerequisites(user, featureStore, events, eventFactory);
     if (prereqFailureReason != null) {
       return getOffValue(prereqFailureReason);
@@ -123,20 +123,16 @@ class FeatureFlag implements VersionedData {
       boolean prereqOk = true;
       Prerequisite prereq = prerequisites.get(i);
       FeatureFlag prereqFeatureFlag = featureStore.get(FEATURES, prereq.getKey());
-      EvaluationDetail<JsonElement> prereqEvalResult = null;
       if (prereqFeatureFlag == null) {
         logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), key);
         prereqOk = false;
-      } else if (prereqFeatureFlag.isOn()) {
-        prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
-        if (prereqEvalResult == null || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
+      } else {
+        EvaluationDetail<JsonElement> prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
+        // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
+        // off variation was. But we still need to evaluate it in order to generate an event.
+        if (!prereqFeatureFlag.isOn() || prereqEvalResult == null || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
           prereqOk = false;
         }
-      } else {
-        prereqOk = false;
-      }
-      // We continue to evaluate all prerequisites even if one failed.
-      if (prereqFeatureFlag != null) {
         events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
       }
       if (!prereqOk) {

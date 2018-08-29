@@ -171,7 +171,39 @@ public class FeatureFlagTest {
     assertEquals(new EvaluationDetail<>(expectedReason, 1, js("off")), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
-  
+
+  @Test
+  public void flagReturnsOffVariationAndEventIfPrerequisiteIsOff() throws Exception {
+    FeatureFlag f0 = new FeatureFlagBuilder("feature0")
+        .on(true)
+        .prerequisites(Arrays.asList(new Prerequisite("feature1", 1)))
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(1)
+        .variations(js("fall"), js("off"), js("on"))
+        .version(1)
+        .build();
+    FeatureFlag f1 = new FeatureFlagBuilder("feature1")
+        .on(false)
+        .offVariation(1)
+        // note that even though it returns the desired variation, it is still off and therefore not a match
+        .fallthrough(fallthroughVariation(0))
+        .variations(js("nogo"), js("go"))
+        .version(2)
+        .build();
+    featureStore.upsert(FEATURES, f1);        
+    FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
+    assertEquals(new EvaluationDetail<>(expectedReason, 1, js("off")), result.getDetails());
+    
+    assertEquals(1, result.getPrerequisiteEvents().size());
+    Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
+    assertEquals(f1.getKey(), event.key);
+    assertEquals(js("go"), event.value);
+    assertEquals(f1.getVersion(), event.version.intValue());
+    assertEquals(f0.getKey(), event.prereqOf);
+  }
+
   @Test
   public void flagReturnsOffVariationAndEventIfPrerequisiteIsNotMet() throws Exception {
     FeatureFlag f0 = new FeatureFlagBuilder("feature0")
