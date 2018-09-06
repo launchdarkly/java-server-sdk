@@ -34,8 +34,8 @@ import java.util.regex.Pattern;
  * Custom attributes are not parsed by LaunchDarkly. They can be used in custom rules-- for example, a custom attribute such as "customer_ranking" can be used to
  * launch a feature to the top 10% of users on a site.
  * <p>
- * If you want to pass an LDUser object to the front end to be used with the JavaScript SDK, simply call <c>Gson.toJson()</c> or
- * <c>Gson.toJsonTree()</c> on it.
+ * If you want to pass an LDUser object to the front end to be used with the JavaScript SDK, simply call {@code Gson.toJson()} or
+ * {@code Gson.toJsonTree()} on it.
  */
 public class LDUser {
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
