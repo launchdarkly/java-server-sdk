@@ -1,6 +1,8 @@
 package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -11,20 +13,22 @@ import com.google.gson.reflect.TypeToken;
 import org.junit.Test;
 
 import java.lang.reflect.Type;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.jdouble;
 import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.js;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 public class LDUserTest {
-
-  private JsonPrimitive us = new JsonPrimitive(LDCountryCode.US.getAlpha2());
-
+  private static final Gson defaultGson = new Gson();
+  
   @Test
   public void testLDUserConstructor() {
     LDUser user = new LDUser.Builder("key")
@@ -44,169 +48,324 @@ public class LDUserTest {
   }
 
   @Test
-  public void testValidCountryCodeSetsCountry() {
+  public void canSetKey() {
+    LDUser user = new LDUser.Builder("k").build();
+    assertEquals("k", user.getKeyAsString());
+  }
+  
+  @Test
+  public void canSetSecondary() {
+    LDUser user = new LDUser.Builder("key").secondary("s").build();
+    assertEquals("s", user.getSecondary().getAsString());
+  }
+
+  @Test
+  public void canSetPrivateSecondary() {
+    LDUser user = new LDUser.Builder("key").privateSecondary("s").build();
+    assertEquals("s", user.getSecondary().getAsString());
+    assertEquals(ImmutableSet.of("secondary"), user.privateAttributeNames);
+  }
+  
+  @Test
+  public void canSetIp() {
+    LDUser user = new LDUser.Builder("key").ip("i").build();
+    assertEquals("i", user.getIp().getAsString());
+  }
+  
+  @Test
+  public void canSetPrivateIp() {
+    LDUser user = new LDUser.Builder("key").privateIp("i").build();
+    assertEquals("i", user.getIp().getAsString());
+    assertEquals(ImmutableSet.of("ip"), user.privateAttributeNames);
+  }
+
+  @Test
+  public void canSetEmail() {
+    LDUser user = new LDUser.Builder("key").email("e").build();
+    assertEquals("e", user.getEmail().getAsString());
+  }
+  
+  @Test
+  public void canSetPrivateEmail() {
+    LDUser user = new LDUser.Builder("key").privateEmail("e").build();
+    assertEquals("e", user.getEmail().getAsString());
+    assertEquals(ImmutableSet.of("email"), user.privateAttributeNames);
+  }
+
+  @Test
+  public void canSetName() {
+    LDUser user = new LDUser.Builder("key").name("n").build();
+    assertEquals("n", user.getName().getAsString());
+  }
+  
+  @Test
+  public void canSetPrivateName() {
+    LDUser user = new LDUser.Builder("key").privateName("n").build();
+    assertEquals("n", user.getName().getAsString());
+    assertEquals(ImmutableSet.of("name"), user.privateAttributeNames);
+  }
+
+  @Test
+  public void canSetAvatar() {
+    LDUser user = new LDUser.Builder("key").avatar("a").build();
+    assertEquals("a", user.getAvatar().getAsString());
+  }
+  
+  @Test
+  public void canSetPrivateAvatar() {
+    LDUser user = new LDUser.Builder("key").privateAvatar("a").build();
+    assertEquals("a", user.getAvatar().getAsString());
+    assertEquals(ImmutableSet.of("avatar"), user.privateAttributeNames);
+  }
+
+  @Test
+  public void canSetFirstName() {
+    LDUser user = new LDUser.Builder("key").firstName("f").build();
+    assertEquals("f", user.getFirstName().getAsString());
+  }
+  
+  @Test
+  public void canSetPrivateFirstName() {
+    LDUser user = new LDUser.Builder("key").privateFirstName("f").build();
+    assertEquals("f", user.getFirstName().getAsString());
+    assertEquals(ImmutableSet.of("firstName"), user.privateAttributeNames);
+  }
+
+  @Test
+  public void canSetLastName() {
+    LDUser user = new LDUser.Builder("key").lastName("l").build();
+    assertEquals("l", user.getLastName().getAsString());
+  }
+  
+  @Test
+  public void canSetPrivateLastName() {
+    LDUser user = new LDUser.Builder("key").privateLastName("l").build();
+    assertEquals("l", user.getLastName().getAsString());
+    assertEquals(ImmutableSet.of("lastName"), user.privateAttributeNames);
+  }
+
+  @Test
+  public void canSetAnonymous() {
+    LDUser user = new LDUser.Builder("key").anonymous(true).build();
+    assertEquals(true, user.getAnonymous().getAsBoolean());
+  }
+
+  @Test
+  public void canSetCountry() {
     LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
-
-    assert(user.getCountry().equals(us));
+    assertEquals("US", user.getCountry().getAsString());
   }
 
-
   @Test
-  public void testValidCountryCodeStringSetsCountry() {
+  public void canSetCountryAsString() {
     LDUser user = new LDUser.Builder("key").country("US").build();
-
-    assert(user.getCountry().equals(us));
+    assertEquals("US", user.getCountry().getAsString());
   }
 
   @Test
-  public void testValidCountryCode3SetsCountry() {
+  public void canSetCountryAs3CharacterString() {
     LDUser user = new LDUser.Builder("key").country("USA").build();
-
-    assert(user.getCountry().equals(us));
+    assertEquals("US", user.getCountry().getAsString());
   }
 
   @Test
-  public void testAmbiguousCountryNameSetsCountryWithExactMatch() {
+  public void ambiguousCountryNameSetsCountryWithExactMatch() {
     // "United States" is ambiguous: can also match "United States Minor Outlying Islands"
     LDUser user = new LDUser.Builder("key").country("United States").build();
-    assert(user.getCountry().equals(us));
+    assertEquals("US", user.getCountry().getAsString());
   }
 
   @Test
-  public void testAmbiguousCountryNameSetsCountryWithPartialMatch() {
+  public void ambiguousCountryNameSetsCountryWithPartialMatch() {
     // For an ambiguous match, we return the first match
     LDUser user = new LDUser.Builder("key").country("United St").build();
-    assert(user.getCountry() != null);
+    assertNotNull(user.getCountry());
   }
 
-
   @Test
-  public void testPartialUniqueMatchSetsCountry() {
+  public void partialUniqueMatchSetsCountry() {
     LDUser user = new LDUser.Builder("key").country("United States Minor").build();
-    assert(user.getCountry().equals(new JsonPrimitive(LDCountryCode.UM.getAlpha2())));
+    assertEquals("UM", user.getCountry().getAsString());
   }
 
   @Test
-  public void testInvalidCountryNameDoesNotSetCountry() {
+  public void invalidCountryNameDoesNotSetCountry() {
     LDUser user = new LDUser.Builder("key").country("East Jibip").build();
-    assert(user.getCountry() == null);
+    assertNull(user.getCountry());
   }
 
   @Test
-  public void testLDUserJsonSerializationContainsCountryAsTwoDigitCode() {
-    LDConfig config = LDConfig.DEFAULT;
-    Gson gson = config.gson;
-    LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
-
-    String jsonStr = gson.toJson(user);
-    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    Map<String, JsonElement> json = gson.fromJson(jsonStr, type);
-
-    assert(json.get("country").equals(us));
+  public void canSetPrivateCountry() {
+    LDUser user = new LDUser.Builder("key").privateCountry(LDCountryCode.US).build();
+    assertEquals("US", user.getCountry().getAsString());
+    assertEquals(ImmutableSet.of("country"), user.privateAttributeNames);
   }
 
   @Test
-  public void testLDUserCustomMarshalWithPrivateAttrsProducesEquivalentLDUserIfNoAttrsArePrivate() {
-    LDConfig config = LDConfig.DEFAULT;
-    LDUser user = new LDUser.Builder("key")
-                            .anonymous(true)
-                            .avatar("avatar")
-                            .country(LDCountryCode.AC)
-                            .ip("127.0.0.1")
-                            .firstName("bob")
-                            .lastName("loblaw")
-                            .email("bob@example.com")
-                            .custom("foo", 42)
-                            .build();
-
-    String jsonStr = new Gson().toJson(user);
-    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    Map<String, JsonElement> json = config.gson.fromJson(jsonStr, type);
-    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
-
-    assertEquals(json, privateJson);
+  public void canSetCustomString() {
+    LDUser user = new LDUser.Builder("key").custom("thing", "value").build();
+    assertEquals("value", user.getCustom("thing").getAsString());
+  }
+  
+  @Test
+  public void canSetPrivateCustomString() {
+    LDUser user = new LDUser.Builder("key").privateCustom("thing", "value").build();
+    assertEquals("value", user.getCustom("thing").getAsString());
+    assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
   }
 
   @Test
-  public void testLDUserCustomMarshalWithAllPrivateAttributesReturnsKey() {
+  public void canSetCustomInt() {
+    LDUser user = new LDUser.Builder("key").custom("thing", 1).build();
+    assertEquals(1, user.getCustom("thing").getAsInt());
+  }
+  
+  @Test
+  public void canSetPrivateCustomInt() {
+    LDUser user = new LDUser.Builder("key").privateCustom("thing", 1).build();
+    assertEquals(1, user.getCustom("thing").getAsInt());
+    assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
+  }
+  
+  @Test
+  public void canSetCustomBoolean() {
+    LDUser user = new LDUser.Builder("key").custom("thing", true).build();
+    assertEquals(true, user.getCustom("thing").getAsBoolean());
+  }
+  
+  @Test
+  public void canSetPrivateCustomBoolean() {
+    LDUser user = new LDUser.Builder("key").privateCustom("thing", true).build();
+    assertEquals(true, user.getCustom("thing").getAsBoolean());
+    assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
+  }
+  
+  @Test
+  public void canSetCustomJsonValue() {
+    JsonObject value = new JsonObject();
+    LDUser user = new LDUser.Builder("key").custom("thing", value).build();
+    assertEquals(value, user.getCustom("thing"));
+  }
+
+  @Test
+  public void canSetPrivateCustomJsonValue() {
+    JsonObject value = new JsonObject();
+    LDUser user = new LDUser.Builder("key").privateCustom("thing", value).build();
+    assertEquals(value, user.getCustom("thing"));
+    assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
+  }
+
+  @Test
+  public void testAllPropertiesInDefaultEncoding() {
+    for (Map.Entry<LDUser, String> e: getUserPropertiesJsonMap().entrySet()) {
+      JsonElement expected = defaultGson.fromJson(e.getValue(), JsonElement.class);
+      JsonElement actual = defaultGson.toJsonTree(e.getKey());
+      assertEquals(expected, actual);
+    }
+  }
+  
+  @Test
+  public void testAllPropertiesInPrivateAttributeEncoding() {
+    for (Map.Entry<LDUser, String> e: getUserPropertiesJsonMap().entrySet()) {
+      JsonElement expected = defaultGson.fromJson(e.getValue(), JsonElement.class);
+      JsonElement actual = LDConfig.DEFAULT.gson.toJsonTree(e.getKey());
+      assertEquals(expected, actual);
+    }
+  }
+
+  private Map<LDUser, String> getUserPropertiesJsonMap() {
+    ImmutableMap.Builder<LDUser, String> builder = ImmutableMap.builder();
+    builder.put(new LDUser.Builder("userkey").build(), "{\"key\":\"userkey\"}");
+    builder.put(new LDUser.Builder("userkey").secondary("value").build(),
+        "{\"key\":\"userkey\",\"secondary\":\"value\"}");
+    builder.put(new LDUser.Builder("userkey").ip("value").build(),
+        "{\"key\":\"userkey\",\"ip\":\"value\"}");
+    builder.put(new LDUser.Builder("userkey").email("value").build(),
+        "{\"key\":\"userkey\",\"email\":\"value\"}");
+    builder.put(new LDUser.Builder("userkey").name("value").build(),
+        "{\"key\":\"userkey\",\"name\":\"value\"}");
+    builder.put(new LDUser.Builder("userkey").avatar("value").build(),
+        "{\"key\":\"userkey\",\"avatar\":\"value\"}");
+    builder.put(new LDUser.Builder("userkey").firstName("value").build(),
+        "{\"key\":\"userkey\",\"firstName\":\"value\"}");
+    builder.put(new LDUser.Builder("userkey").lastName("value").build(),
+        "{\"key\":\"userkey\",\"lastName\":\"value\"}");
+    builder.put(new LDUser.Builder("userkey").anonymous(true).build(),
+        "{\"key\":\"userkey\",\"anonymous\":true}");
+    builder.put(new LDUser.Builder("userkey").country(LDCountryCode.US).build(),
+        "{\"key\":\"userkey\",\"country\":\"US\"}");
+    builder.put(new LDUser.Builder("userkey").custom("thing", "value").build(),
+        "{\"key\":\"userkey\",\"custom\":{\"thing\":\"value\"}}");
+    return builder.build();
+  }
+  
+  @Test
+  public void defaultJsonEncodingHasPrivateAttributeNames() {
+    LDUser user = new LDUser.Builder("userkey").privateName("x").privateEmail("y").build();
+    String expected = "{\"key\":\"userkey\",\"name\":\"x\",\"email\":\"y\",\"privateAttributeNames\":[\"name\",\"email\"]}";
+    assertEquals(defaultGson.fromJson(expected, JsonElement.class), defaultGson.toJsonTree(user));
+  }
+  
+  @Test
+  public void privateAttributeEncodingRedactsAllPrivateAttributes() {
     LDConfig config = new LDConfig.Builder().allAttributesPrivate(true).build();
-    LDUser user = new LDUser.Builder("key")
-        .email("foo@bar.com")
-        .custom("bar", 43)
-        .build();
-
-    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
-
-    assertNull(privateJson.get("custom"));
-    assertEquals(privateJson.get("key").getAsString(), "key");
-
-    // email and custom are private
-    assert(privateJson.get("privateAttrs").getAsJsonArray().size() == 2);
-    assertNull(privateJson.get("email"));
-  }
-
-  @Test
-  public void testLDUserAnonymousAttributeIsNeverPrivate() {
-    LDConfig config = new LDConfig.Builder().allAttributesPrivate(true).build();
-    LDUser user = new LDUser.Builder("key")
+    LDUser user = new LDUser.Builder("userkey")
+        .secondary("s")
+        .ip("i")
+        .email("e")
+        .name("n")
+        .avatar("a")
+        .firstName("f")
+        .lastName("l")
         .anonymous(true)
+        .country(LDCountryCode.US)
+        .custom("thing", "value")
         .build();
+    Set<String> redacted = ImmutableSet.of("secondary", "ip", "email", "name", "avatar", "firstName", "lastName", "country", "thing");
 
-    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
-
-    assertEquals(privateJson.get("anonymous").getAsBoolean(), true);
-    assertNull(privateJson.get("privateAttrs"));
+    JsonObject o = config.gson.toJsonTree(user).getAsJsonObject();
+    assertEquals("userkey", o.get("key").getAsString());
+    assertEquals(true, o.get("anonymous").getAsBoolean());
+    for (String attr: redacted) {
+      assertNull(o.get(attr));
+    }
+    assertNull(o.get("custom"));
+    assertEquals(redacted, getPrivateAttrs(o));
   }
-
+  
   @Test
-  public void testLDUserCustomMarshalWithPrivateAttrsRedactsCorrectAttrs() {
-    LDConfig config = LDConfig.DEFAULT;
-    LDUser user = new LDUser.Builder("key")
+  public void privateAttributeEncodingRedactsSpecificPerUserPrivateAttributes() {
+    LDUser user = new LDUser.Builder("userkey")
+        .email("e")
+        .privateName("n")
+        .custom("bar", 43)
         .privateCustom("foo", 42)
-        .custom("bar", 43)
         .build();
-
-    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
-
-    assertNull(privateJson.get("custom").getAsJsonObject().get("foo"));
-    assertEquals(privateJson.get("key").getAsString(), "key");
-    assertEquals(privateJson.get("custom").getAsJsonObject().get("bar"), new JsonPrimitive(43));
+    
+    JsonObject o = LDConfig.DEFAULT.gson.toJsonTree(user).getAsJsonObject();
+    assertEquals("e", o.get("email").getAsString());
+    assertNull(o.get("name"));
+    assertEquals(43, o.get("custom").getAsJsonObject().get("bar").getAsInt());
+    assertNull(o.get("custom").getAsJsonObject().get("foo"));
+    assertEquals(ImmutableSet.of("name", "foo"), getPrivateAttrs(o));
   }
 
   @Test
-  public void testLDUserCustomMarshalWithPrivateGlobalAttributesRedactsCorrectAttrs() {
-    LDConfig config = new LDConfig.Builder().privateAttributeNames("foo", "bar").build();
-
-    LDUser user = new LDUser.Builder("key")
-        .privateCustom("foo", 42)
+  public void privateAttributeEncodingRedactsSpecificGlobalPrivateAttributes() {
+    LDConfig config = new LDConfig.Builder().privateAttributeNames("name", "foo").build();
+    LDUser user = new LDUser.Builder("userkey")
+        .email("e")
+        .name("n")
         .custom("bar", 43)
-        .custom("baz", 44)
-        .privateCustom("bum", 45)
+        .custom("foo", 42)
         .build();
-
-    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
-
-    assertNull(privateJson.get("custom").getAsJsonObject().get("foo"));
-    assertNull(privateJson.get("custom").getAsJsonObject().get("bar"));
-    assertNull(privateJson.get("custom").getAsJsonObject().get("bum"));
-    assertEquals(privateJson.get("custom").getAsJsonObject().get("baz"), new JsonPrimitive(44));
-  }
-
-  @Test
-  public void testLDUserCustomMarshalWithBuiltInAttributesRedactsCorrectAttrs() {
-    LDConfig config = LDConfig.DEFAULT;
-    LDUser user = new LDUser.Builder("key")
-        .privateEmail("foo@bar.com")
-        .custom("bar", 43)
-        .build();
-
-    Type type = new TypeToken<Map<String, JsonElement>>(){}.getType();
-    Map<String, JsonElement> privateJson = config.gson.fromJson(config.gson.toJson(user), type);
-    assertNull(privateJson.get("email"));
+    
+    JsonObject o = config.gson.toJsonTree(user).getAsJsonObject();
+    assertEquals("e", o.get("email").getAsString());
+    assertNull(o.get("name"));
+    assertEquals(43, o.get("custom").getAsJsonObject().get("bar").getAsInt());
+    assertNull(o.get("custom").getAsJsonObject().get("foo"));
+    assertEquals(ImmutableSet.of("name", "foo"), getPrivateAttrs(o));
   }
   
   @Test
@@ -240,25 +399,6 @@ public class LDUserTest {
         .name("Jane")
         .build();
     assertNull(user.getValueForEvaluation("height"));
-  }
-  
-  @Test
-  public void canAddCustomAttrWithJsonValue() {
-    JsonElement value = new JsonPrimitive("x");
-    LDUser user = new LDUser.Builder("key")
-        .custom("foo", value)
-        .build();
-    assertEquals(value, user.getCustom("foo"));
-  }
-  
-  @Test
-  public void canAddPrivateCustomAttrWithJsonValue() {
-    JsonElement value = new JsonPrimitive("x");
-    LDUser user = new LDUser.Builder("key")
-        .privateCustom("foo", value)
-        .build();
-    assertEquals(value, user.getCustom("foo"));
-    assertTrue(user.privateAttributeNames.contains("foo"));
   }
   
   @Test
@@ -299,5 +439,10 @@ public class LDUserTest {
     }
     ret.add(name, a);
     return ret;
+  }
+  
+  private Set<String> getPrivateAttrs(JsonObject o) {
+    Type type = new TypeToken<List<String>>(){}.getType();
+    return new HashSet<String>(defaultGson.<List<String>>fromJson(o.get("privateAttrs"), type));
   }
 }

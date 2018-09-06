@@ -55,6 +55,13 @@ public class LDClientEvaluationTest {
   }
   
   @Test
+  public void boolVariationReturnsDefaultValueForWrongType() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", js("wrong")));
+
+    assertFalse(client.boolVariation("key", user, false));
+  }
+  
+  @Test
   public void intVariationReturnsFlagValue() throws Exception {
     featureStore.upsert(FEATURES, flagWithValue("key", jint(2)));
 
@@ -62,10 +69,24 @@ public class LDClientEvaluationTest {
   }
 
   @Test
+  public void intVariationReturnsFlagValueEvenIfEncodedAsDouble() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", jdouble(2.0)));
+
+    assertEquals(new Integer(2), client.intVariation("key", user, 1));
+  }
+  
+  @Test
   public void intVariationReturnsDefaultValueForUnknownFlag() throws Exception {
     assertEquals(new Integer(1), client.intVariation("key", user, 1));
   }
 
+  @Test
+  public void intVariationReturnsDefaultValueForWrongType() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", js("wrong")));
+
+    assertEquals(new Integer(1), client.intVariation("key", user, 1));
+  }
+  
   @Test
   public void doubleVariationReturnsFlagValue() throws Exception {
     featureStore.upsert(FEATURES, flagWithValue("key", jdouble(2.5d)));
@@ -74,10 +95,24 @@ public class LDClientEvaluationTest {
   }
 
   @Test
+  public void doubleVariationReturnsFlagValueEvenIfEncodedAsInt() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", jint(2)));
+
+    assertEquals(new Double(2.0d), client.doubleVariation("key", user, 1.0d));
+  }
+
+  @Test
   public void doubleVariationReturnsDefaultValueForUnknownFlag() throws Exception {
     assertEquals(new Double(1.0d), client.doubleVariation("key", user, 1.0d));
   }
 
+  @Test
+  public void doubleVariationReturnsDefaultValueForWrongType() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", js("wrong")));
+
+    assertEquals(new Double(1.0d), client.doubleVariation("key", user, 1.0d));
+  }
+  
   @Test
   public void stringVariationReturnsFlagValue() throws Exception {
     featureStore.upsert(FEATURES, flagWithValue("key", js("b")));
@@ -90,6 +125,13 @@ public class LDClientEvaluationTest {
     assertEquals("a", client.stringVariation("key", user, "a"));
   }
 
+  @Test
+  public void stringVariationReturnsDefaultValueForWrongType() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
+
+    assertEquals("a", client.stringVariation("key", user, "a"));
+  }
+  
   @Test
   public void jsonVariationReturnsFlagValue() throws Exception {
     JsonObject data = new JsonObject();
