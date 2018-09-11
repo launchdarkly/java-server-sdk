@@ -411,6 +411,19 @@ public class DefaultEventProcessorTest {
   }
 
   @Test
+  public void eventSchemaIsSent() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+    ep.sendEvent(e);
+    
+    server.enqueue(new MockResponse());
+    ep.close();
+    RecordedRequest req = server.takeRequest();
+    
+    assertThat(req.getHeader("X-LaunchDarkly-Event-Schema"), equalTo("3"));
+  }
+
+  @Test
   public void http400ErrorIsRecoverable() throws Exception {
     testRecoverableHttpError(400);
   }

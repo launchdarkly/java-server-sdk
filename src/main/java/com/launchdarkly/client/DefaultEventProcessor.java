@@ -37,7 +37,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
   private static final int CHANNEL_BLOCK_MILLIS = 1000;
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
-  private static final String EVENT_SCHEMA_VERSION = "2";
+  private static final String EVENT_SCHEMA_VERSION = "3";
   
   private final BlockingQueue<EventProcessorMessage> inputChannel;
   private final ScheduledExecutorService scheduler;
