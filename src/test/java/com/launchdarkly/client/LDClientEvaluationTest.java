@@ -293,7 +293,7 @@ public class LDClientEvaluationTest {
     String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
         "\"$flagsState\":{" +
           "\"key1\":{" +
-            "\"variation\":0,\"version\":100,\"trackEvents\":false" +
+            "\"variation\":0,\"version\":100" +
           "},\"key2\":{" +
             "\"variation\":1,\"version\":200,\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
           "}" +
@@ -350,7 +350,7 @@ public class LDClientEvaluationTest {
     String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
         "\"$flagsState\":{" +
           "\"key1\":{" +
-            "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"},\"trackEvents\":false" +
+            "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"}" +
           "},\"key2\":{" +
             "\"variation\":1,\"version\":200,\"reason\":{\"kind\":\"FALLTHROUGH\"},\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
           "}" +
@@ -359,6 +359,54 @@ public class LDClientEvaluationTest {
       "}";
     JsonElement expected = gson.fromJson(json, JsonElement.class);
     assertEquals(expected, gson.toJsonTree(state));
+  }
+  
+  @Test
+  public void allFlagsStateCanOmitDetailsForUntrackedFlags() {
+    long futureTime = System.currentTimeMillis() + 1000000;
+    FeatureFlag flag1 = new FeatureFlagBuilder("key1")
+        .version(100)
+        .trackEvents(false)
+        .on(false)
+        .offVariation(0)
+        .variations(js("value1"))
+        .build();
+    FeatureFlag flag2 = new FeatureFlagBuilder("key2")
+        .version(200)
+        .trackEvents(true)
+        .on(true)
+        .fallthrough(fallthroughVariation(1))
+        .variations(js("off"), js("value2"))
+        .build();
+    FeatureFlag flag3 = new FeatureFlagBuilder("key3")
+        .version(300)
+        .trackEvents(false)
+        .debugEventsUntilDate(futureTime)  // event tracking is turned on temporarily even though trackEvents is false 
+        .on(false)
+        .offVariation(0)
+        .variations(js("value3"))
+        .build();
+    featureStore.upsert(FEATURES, flag1);
+    featureStore.upsert(FEATURES, flag2);
+    featureStore.upsert(FEATURES, flag3);
+
+    FeatureFlagsState state = client.allFlagsState(user, FlagsStateOption.WITH_REASONS, FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS);
+    assertTrue(state.isValid());
+    
+    String json = "{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"value3\"," +
+        "\"$flagsState\":{" +
+          "\"key1\":{" +
+            "\"variation\":0" +  // note, version and reason are omitted, and so is trackEvents: false
+          "},\"key2\":{" +
+            "\"variation\":1,\"version\":200,\"reason\":{\"kind\":\"FALLTHROUGH\"},\"trackEvents\":true" +
+          "},\"key3\":{" +
+            "\"variation\":0,\"version\":300,\"reason\":{\"kind\":\"OFF\"},\"debugEventsUntilDate\":" + futureTime +
+          "}" +
+        "}," +
+        "\"$valid\":true" +
+      "}";
+    JsonElement expected = gson.fromJson(json, JsonElement.class);
+    assertEquals(expected, gson.toJsonTree(state));    
   }
   
   @Test

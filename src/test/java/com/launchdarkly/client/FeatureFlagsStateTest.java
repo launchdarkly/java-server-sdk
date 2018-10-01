@@ -89,7 +89,7 @@ public class FeatureFlagsStateTest {
     String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
         "\"$flagsState\":{" +
           "\"key1\":{" +
-            "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"},\"trackEvents\":false" +
+            "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"}" +  // note, "trackEvents: false" is omitted
           "},\"key2\":{" +
             "\"variation\":1,\"version\":200,\"reason\":{\"kind\":\"FALLTHROUGH\"},\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
           "}" +

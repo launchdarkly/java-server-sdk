@@ -33,16 +33,16 @@ public class FeatureFlagsState {
   static class FlagMetadata {
     final Integer variation;
     final EvaluationReason reason;
-    final int version;
-    final boolean trackEvents;
+    final Integer version;
+    final Boolean trackEvents;
     final Long debugEventsUntilDate;
     
-    FlagMetadata(Integer variation, EvaluationReason reason, int version, boolean trackEvents,
+    FlagMetadata(Integer variation, EvaluationReason reason, Integer version, boolean trackEvents,
         Long debugEventsUntilDate) {
       this.variation = variation;
       this.reason = reason;
       this.version = version;
-      this.trackEvents = trackEvents;
+      this.trackEvents = trackEvents ? Boolean.TRUE : null;
       this.debugEventsUntilDate = debugEventsUntilDate;
     }
     
@@ -51,8 +51,8 @@ public class FeatureFlagsState {
       if (other instanceof FlagMetadata) {
         FlagMetadata o = (FlagMetadata)other;
         return Objects.equal(variation, o.variation) &&
-            version == o.version &&
-            trackEvents == o.trackEvents &&
+            Objects.equal(version, o.version) &&
+            Objects.equal(trackEvents, o.trackEvents) &&
             Objects.equal(debugEventsUntilDate, o.debugEventsUntilDate);
       }
       return false;
@@ -131,10 +131,12 @@ public class FeatureFlagsState {
     private Map<String, JsonElement> flagValues = new HashMap<>();
     private Map<String, FlagMetadata> flagMetadata = new HashMap<>();
     private final boolean saveReasons;
+    private final boolean detailsOnlyForTrackedFlags;
     private boolean valid = true;
 
     Builder(FlagsStateOption... options) {
       saveReasons = FlagsStateOption.hasOption(options, FlagsStateOption.WITH_REASONS);
+      detailsOnlyForTrackedFlags = FlagsStateOption.hasOption(options, FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS);
     }
     
     Builder valid(boolean valid) {
@@ -144,9 +146,14 @@ public class FeatureFlagsState {
     
     Builder addFlag(FeatureFlag flag, EvaluationDetail<JsonElement> eval) {
       flagValues.put(flag.getKey(), eval.getValue());
+      final boolean flagIsTracked = flag.isTrackEvents() ||
+          (flag.getDebugEventsUntilDate() != null && flag.getDebugEventsUntilDate() > System.currentTimeMillis());
+      final boolean wantDetails = !detailsOnlyForTrackedFlags || flagIsTracked;
       FlagMetadata data = new FlagMetadata(eval.getVariationIndex(),
-          saveReasons ? eval.getReason() : null,
-          flag.getVersion(), flag.isTrackEvents(), flag.getDebugEventsUntilDate());
+          (saveReasons && wantDetails) ? eval.getReason() : null,
+          wantDetails ? flag.getVersion() : null,
+          flag.isTrackEvents(),
+          flag.getDebugEventsUntilDate());
       flagMetadata.put(flag.getKey(), data);
       return this;
     }
