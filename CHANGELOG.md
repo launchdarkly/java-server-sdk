@@ -3,6 +3,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.4.0] - 2018-10-01
+### Added:
+- The `allFlagsState()` method now accepts a new option, `FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS`, which reduces the size of the JSON representation of the flag state by omitting some metadata. Specifically, it omits any data that is normally used for generating detailed evaluation events if a flag does not have event tracking or debugging turned on.
+
+### Fixed:
+- JSON data from `allFlagsState()` is now slightly smaller even if you do not use the new option described above, because it completely omits the flag property for event tracking unless that property is `true`.
+
 ## [4.3.2] - 2018-09-11
 ### Fixed:
 - Event delivery now works correctly when the events are being forwarded through a [LaunchDarkly Relay Proxy](https://github.com/launchdarkly/ld-relay).
