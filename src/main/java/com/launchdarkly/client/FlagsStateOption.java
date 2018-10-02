@@ -27,6 +27,14 @@ public final class FlagsStateOption {
    */
   public static final FlagsStateOption WITH_REASONS = new FlagsStateOption("WITH_REASONS");
   
+  /**
+   * Specifies that any flag metadata that is normally only used for event generation - such as flag versions and
+   * evaluation reasons - should be omitted for any flag that does not have event tracking or debugging turned on.
+   * This reduces the size of the JSON data if you are passing the flag state to the front end.
+   * @since 4.4.0
+   */
+  public static final FlagsStateOption DETAILS_ONLY_FOR_TRACKED_FLAGS = new FlagsStateOption("DETAILS_ONLY_FOR_TRACKED_FLAGS");
+  
   static boolean hasOption(FlagsStateOption[] options, FlagsStateOption option) {
     for (FlagsStateOption o: options) {
       if (o == option) {
