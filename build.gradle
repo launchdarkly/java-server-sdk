@@ -178,7 +178,7 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
 }
 
 artifacts {
-    archives sourcesJar, javadocJar, shadowJar, shadowJarAll
+    archives jar, sourcesJar, javadocJar, shadowJar, shadowJarAll
 }
 
 test {
@@ -240,6 +240,7 @@ publishing {
             artifactId = 'launchdarkly-client'
             artifact sourcesJar
             artifact javadocJar
+            artifact shadowJarAll
             
             pom.withXml {
                 def root = asNode()
