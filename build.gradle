@@ -1,5 +1,5 @@
 apply plugin: 'java'
-apply plugin: 'maven'
+apply plugin: 'maven-publish'
 apply plugin: 'org.ajoberstar.github-pages'
 apply plugin: 'signing'
 apply plugin: 'idea'
@@ -27,7 +27,7 @@ allprojects {
 
 ext.libraries = [:]
 
-libraries.shaded = [
+libraries.internal = [
     "commons-codec:commons-codec:1.10",
     "com.google.guava:guava:19.0",
     "joda-time:joda-time:2.9.3",
@@ -35,27 +35,25 @@ libraries.shaded = [
     "redis.clients:jedis:2.9.0"
 ]
 
-libraries.unshaded = [
+libraries.external = [
     "com.google.code.gson:gson:2.7",
     "org.slf4j:slf4j-api:1.7.21"
 ]
 
-libraries.testCompile = [
+libraries.test = [
     "com.squareup.okhttp3:mockwebserver:3.10.0",
     "org.hamcrest:hamcrest-all:1.3",
     "org.easymock:easymock:3.4",
-    "junit:junit:4.12"
-]
-
-libraries.testRuntime = [
+    "junit:junit:4.12",
     "ch.qos.logback:logback-classic:1.1.7"
 ]
 
 dependencies {
-    compile libraries.shaded, libraries.unshaded
-    testCompile libraries.testCompile
-    testRuntime libraries.testRuntime
-    shadow libraries.unshaded
+    implementation libraries.internal
+    compileClasspath libraries.external
+    runtime libraries.internal, libraries.external
+    testImplementation libraries.test, libraries.internal, libraries.external
+    shadow libraries.external
 }
 
 jar {
@@ -94,11 +92,6 @@ task sourcesJar(type: Jar, dependsOn: classes) {
 task javadocJar(type: Jar, dependsOn: javadoc) {
     classifier = 'javadoc'
     from javadoc.destinationDir
-}
-
-// add javadoc/source jar tasks as artifacts
-artifacts {
-    archives sourcesJar, javadocJar, shadowJar
 }
 
 githubPages {
@@ -185,7 +178,7 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
 }
 
 artifacts {
-    archives shadowJarAll
+    archives sourcesJar, javadocJar, shadowJar, shadowJarAll
 }
 
 test {
@@ -200,7 +193,6 @@ signing {
     sign configurations.archives
 }
 
-
 idea {
     module {
         downloadJavadoc = true
@@ -213,47 +205,59 @@ nexusStaging {
     packageGroup = "com.launchdarkly"
 }
 
-uploadArchives {
+def pomConfig = {
+    name 'LaunchDarkly SDK for Java'
+    packaging 'jar'
+    url 'https://github.com/launchdarkly/java-client'
+
+    licenses {
+        license {
+            name 'The Apache License, Version 2.0'
+            url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+        }
+    }
+
+    developers {
+        developer {
+            id 'jkodumal'
+            name 'John Kodumal'
+            email 'john@catamorphic.com'
+        }
+    }
+
+    scm {
+        connection 'scm:git:git://github.com/launchdarkly/java-client.git'
+        developerConnection 'scm:git:ssh:git@github.com:launchdarkly/java-client.git'
+        url 'https://github.com/launchdarkly/java-client'
+    }
+}
+
+publishing {
+    publications {
+        shadow(MavenPublication) { publication ->
+            project.shadow.component(publication)
+
+            artifactId = 'launchdarkly-client'
+            artifact sourcesJar
+            artifact javadocJar
+            
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('description', 'Official LaunchDarkly SDK for Java')
+                asNode().children().last() + pomConfig
+            }
+        }
+    }
     repositories {
-        mavenDeployer {
-            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-
-            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-
-            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-
-            pom.project {
-                name 'LaunchDarkly SDK for Java'
-                packaging 'jar'
-                description 'Official LaunchDarkly SDK for Java'
-                url 'https://github.com/launchdarkly/java-client'
-
-                licenses {
-                    license {
-                        name 'The Apache License, Version 2.0'
-                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id 'jkodumal'
-                        name 'John Kodumal'
-                        email 'john@catamorphic.com'
-                    }
-                }
-
-                scm {
-                    connection 'scm:git:git://github.com/launchdarkly/java-client.git'
-                    developerConnection 'scm:git:ssh:git@github.com:launchdarkly/java-client.git'
-                    url 'https://github.com/launchdarkly/java-client'
-                }
+        mavenLocal()
+        maven {
+            def releasesRepoUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://oss.sonatype.org/content/repositories/snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username ossrhUsername
+                password ossrhPassword
             }
         }
     }
 }
-
