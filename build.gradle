@@ -142,6 +142,8 @@ shadowJar {
     }
 }
 
+// This builds the "-all"/"fat" jar which also includes the external dependencies - SLF4J,
+// Gson, and javax.annotations - in unshaded form, as well as all the internal shaded classes.
 task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     baseName = 'launchdarkly-client'
     classifier = 'all'
@@ -238,6 +240,7 @@ publishing {
             project.shadow.component(publication)
 
             artifactId = 'launchdarkly-client'
+            artifact jar
             artifact sourcesJar
             artifact javadocJar
             artifact shadowJarAll
