@@ -21,6 +21,6 @@ rm -f gradle.properties.bak
 sed  -i.bak "s/<version>.*<\/version>/<version>${VERSION}<\/version>/" README.md
 rm -f README.md.bak
 
-./gradlew clean install sourcesJar javadocJar uploadArchives closeAndReleaseRepository
+./gradlew clean install sourcesJar javadocJar publish closeAndReleaseRepository
 ./gradlew publishGhPages
 echo "Finished java-client release."
