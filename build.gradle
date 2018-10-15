@@ -223,7 +223,7 @@ def pomConfig = {
         developer {
             id 'jkodumal'
             name 'John Kodumal'
-            email 'john@catamorphic.com'
+            email 'john@launchdarkly.com'
         }
     }
 
