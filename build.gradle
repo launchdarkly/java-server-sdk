@@ -67,7 +67,7 @@ jar {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.2.1'
+    gradleVersion = '4.10.2'
 }
 
 buildscript {
@@ -191,10 +191,6 @@ test {
     }
 }
 
-signing {
-    sign configurations.archives
-}
-
 idea {
     module {
         downloadJavadoc = true
@@ -264,4 +260,8 @@ publishing {
             }
         }
     }
+}
+
+signing {
+    sign publishing.publications.shadow
 }
