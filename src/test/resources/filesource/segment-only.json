@@ -1,0 +1,8 @@
+{
+  "segments": {
+  	"seg1": {
+  	  "key": "seg1",
+  	  "include": ["user1"]
+  	}
+  }
+}

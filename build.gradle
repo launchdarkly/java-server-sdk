@@ -32,6 +32,7 @@ libraries.internal = [
     "com.google.guava:guava:19.0",
     "joda-time:joda-time:2.9.3",
     "com.launchdarkly:okhttp-eventsource:1.7.1",
+    "org.yaml:snakeyaml:1.19",
     "redis.clients:jedis:2.9.0"
 ]
 

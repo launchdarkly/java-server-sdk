@@ -1,0 +1,17 @@
+{
+  "flags": {
+    "flag1": {
+      "key": "flag1",
+      "on": true
+    }
+  },
+  "flagValues": {
+    "flag2": "value2"
+  },
+  "segments": {
+  	"seg1": {
+  	  "key": "seg1",
+  	  "include": ["user1"]
+  	}
+  }
+}
