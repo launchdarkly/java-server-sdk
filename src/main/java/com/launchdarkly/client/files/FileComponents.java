@@ -33,7 +33,7 @@ package com.launchdarkly.client.files;
  * <li> {@code segments}: User segment definitions.
  * </ul>
  * <p>
- * The format of the data in `flags` and `segments` is defined by the LaunchDarkly application
+ * The format of the data in {@code flags} and {@code segments} is defined by the LaunchDarkly application
  * and is subject to change. Rather than trying to construct these objects yourself, it is simpler
  * to request existing flags directly from the LaunchDarkly server in JSON format, and use this
  * output as the starting point for your file. In Linux you would do this:
