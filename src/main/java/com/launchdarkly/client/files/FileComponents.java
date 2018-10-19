@@ -38,7 +38,7 @@ package com.launchdarkly.client.files;
  * to request existing flags directly from the LaunchDarkly server in JSON format, and use this
  * output as the starting point for your file. In Linux you would do this:
  * <pre>
- *     curl -H "Authorization: <your sdk key>" https://app.launchdarkly.com/sdk/latest-all
+ *     curl -H "Authorization: {your sdk key}" https://app.launchdarkly.com/sdk/latest-all
  * </pre>
  * <p>
  * The output will look something like this (but with many more properties):
