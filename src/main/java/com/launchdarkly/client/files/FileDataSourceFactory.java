@@ -59,6 +59,9 @@ public class FileDataSourceFactory implements UpdateProcessorFactory {
   /**
    * Specifies whether the data source should watch for changes to the source file(s) and reload flags
    * whenever there is a change. By default, it will not, so the flags will only be loaded once.
+   * <p>
+   * Note that auto-updating will only work if all of the files you specified have valid directory paths at
+   * startup time; if a directory does not exist, creating it later will not result in files being loaded from it. 
    * 
    * @param autoUpdate true if flags should be reloaded whenever a source file changes
    * @return the same factory object
