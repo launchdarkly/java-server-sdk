@@ -1,0 +1,12 @@
+{
+  "flags": {
+    "another": {
+      "key": "another",
+      "on": true
+    },
+    "flag1": {
+      "key": "flag1",
+      "on": true
+    }
+  }
+}
