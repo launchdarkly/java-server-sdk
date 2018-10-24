@@ -60,7 +60,7 @@ class FileDataSource implements UpdateProcessor {
     
     // Note that if reload() finds any errors, it will not set our status to "initialized". But we
     // will still do all the other startup steps, because we still might end up getting valid data
-    // from the secondary processor, or from a change detected by the file watcher.
+    // if we are told to reload by the file watcher.
 
     if (fileWatcher != null) {
       fileWatcher.start(new Runnable() {
