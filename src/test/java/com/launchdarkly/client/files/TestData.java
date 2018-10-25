@@ -19,7 +19,10 @@ public class TestData {
   
   // These should match the data in our test files
   public static final String FULL_FLAG_1_KEY = "flag1";
-  public static final JsonElement FULL_FLAG_1 = gson.fromJson("{\"key\":\"flag1\",\"on\":true}", JsonElement.class);
+  public static final JsonElement FULL_FLAG_1 =
+      gson.fromJson("{\"key\":\"flag1\",\"on\":true,\"fallthrough\":{\"variation\":2},\"variations\":[\"fall\",\"off\",\"on\"]}",
+      JsonElement.class);
+  public static final JsonElement FULL_FLAG_1_VALUE = new JsonPrimitive("on");
   public static final Map<String, JsonElement> FULL_FLAGS =
       ImmutableMap.<String, JsonElement>of(FULL_FLAG_1_KEY, FULL_FLAG_1);
   
