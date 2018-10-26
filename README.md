@@ -55,7 +55,7 @@ Be aware of two considerations when enabling the DEBUG log level:
 
 Using flag data from a file
 ---------------------------
-For testing purposes, the SDK can be made to read feature flag state from a file or files instead of connecting to LaunchDarkly. See <a href="http://javadoc.io/doc/com.launchdarkly/launchdarkly-client/latest/com/launchdarkly/client/files/FileComponents.html">FileComponents</a> for more details.
+For testing purposes, the SDK can be made to read feature flag state from a file or files instead of connecting to LaunchDarkly. See <a href="http://javadoc.io/page/com.launchdarkly/launchdarkly-client/latest/com/launchdarkly/client/files/FileComponents.html">FileComponents</a> for more details.
 
 Learn more
 ----------
