@@ -2,7 +2,11 @@
   "flags": {
     "flag1": {
       "key": "flag1",
-      "on": true
+      "on": true,
+      "fallthrough": {
+        "variation": 2
+      },
+	  "variations": [ "fall", "off", "on" ]
     }
   },
   "flagValues": {
