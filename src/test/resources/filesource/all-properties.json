@@ -1,0 +1,21 @@
+{
+  "flags": {
+    "flag1": {
+      "key": "flag1",
+      "on": true,
+      "fallthrough": {
+        "variation": 2
+      },
+	  "variations": [ "fall", "off", "on" ]
+    }
+  },
+  "flagValues": {
+    "flag2": "value2"
+  },
+  "segments": {
+  	"seg1": {
+  	  "key": "seg1",
+  	  "include": ["user1"]
+  	}
+  }
+}

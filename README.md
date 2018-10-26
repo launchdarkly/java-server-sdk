@@ -53,6 +53,10 @@ Be aware of two considerations when enabling the DEBUG log level:
 1. Debug-level logs can be very verbose. It is not recommended that you turn on debug logging in high-volume environments.
 1. Potentially sensitive information is logged including LaunchDarkly users created by you in your usage of this SDK.
 
+Using flag data from a file
+---------------------------
+For testing purposes, the SDK can be made to read feature flag state from a file or files instead of connecting to LaunchDarkly. See <a href="http://javadoc.io/page/com.launchdarkly/launchdarkly-client/latest/com/launchdarkly/client/files/FileComponents.html">FileComponents</a> for more details.
+
 Learn more
 ----------
 
