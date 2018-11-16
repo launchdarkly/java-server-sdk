@@ -25,7 +25,9 @@ jobs:
     steps:
       - checkout
       - run: curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash
-      - run: fossa -p $CIRCLE_REPOSITORY_URL -r $CIRCLE_SHA1
+      - run: fossa init -p $CIRCLE_REPOSITORY_URL -r $CIRCLE_SHA1
+      - run: cat .fossa.yaml
+      - run: fossa
 
 workflows:
   version: 2
