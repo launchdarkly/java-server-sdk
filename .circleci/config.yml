@@ -1,9 +1,6 @@
 version: 2
 jobs:
   build:
-    branches:
-      ignore:
-        - gh-pages
     docker:
       - image: circleci/java
       - image: redis
@@ -23,9 +20,6 @@ jobs:
       - store_artifacts:
           path: ~/junit
   fossa:
-    branches:
-      ignore:
-        - gh-pages
     docker:
       - image: circleci/java
       - image: fossa/fossa-cli
@@ -37,5 +31,13 @@ workflows:
   version: 2
   test:
     jobs:
-      - build
-      - fossa
+      - build:
+          filters:
+            branches:
+              ignore:
+                - gh-pages
+      - fossa:
+          filters:
+            branches:
+              ignore:
+                - gh-pages
