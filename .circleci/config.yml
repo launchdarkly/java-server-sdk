@@ -21,8 +21,7 @@ jobs:
           path: ~/junit
   fossa:
     docker:
-      - image: circleci/java
-      - image: fossa/fossa-cli
+      - image: fossa/fossa-cli:base
     steps:
       - checkout
       - run: fossa -p $CIRCLE_PROJECT_REPONAME -r $CIRCLE_SHA1 -m gradle
