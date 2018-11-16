@@ -22,3 +22,20 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+  fossa:
+    branches:
+      ignore:
+        - gh-pages
+    docker:
+      - image: circleci/java
+      - image: fossa/fossa-cli
+    steps:
+      - checkout
+      - run: fossa -p $CIRCLE_PROJECT_REPONAME -r $CIRCLE_SHA1 -m gradle
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - build
+      - fossa
