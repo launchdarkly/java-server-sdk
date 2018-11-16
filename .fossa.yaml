@@ -2,4 +2,6 @@ version: 1
 
 analyze:
   modules:
-    - name: gradle
+    - name: fossa-cli
+      path: ./cmd/fossa
+      type: gradle
