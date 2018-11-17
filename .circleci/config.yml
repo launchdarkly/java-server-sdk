@@ -27,7 +27,7 @@ jobs:
       - run: cp gradle.properties.example gradle.properties
       - run: ./gradlew dependencies
       - run: curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash
-      - run: fossa -r $CIRCLE_SHA1
+      - run: fossa analyze
 
 workflows:
   version: 2
