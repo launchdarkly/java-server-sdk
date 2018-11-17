@@ -8,9 +8,12 @@ jobs:
       - image: circleci/java
       - image: redis
     steps:
+      - run: |
+          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash
       - checkout
       - run: cp gradle.properties.example gradle.properties
       - run: ./gradlew dependencies
+      - run: fossa analyze
       - run: ./gradlew test
       - run:
           name: Save test results
