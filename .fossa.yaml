@@ -1,0 +1,11 @@
+version: 1
+
+cli:
+  server: https://app.fossa.io
+analyze:
+  modules:
+    - name: java-client
+      path: .
+      type: gradle
+      options:
+        task: dependencies

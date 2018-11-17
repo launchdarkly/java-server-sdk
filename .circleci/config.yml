@@ -1,9 +1,6 @@
 version: 2
 jobs:
   build:
-    branches:
-      ignore:
-        - gh-pages
     docker:
       - image: circleci/java
       - image: redis
@@ -22,3 +19,27 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+  fossa:
+    docker:
+      - image: circleci/java
+    steps:
+      - checkout
+      - run: cp gradle.properties.example gradle.properties
+      - run: ./gradlew dependencies
+      - run: curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash
+      - run: fossa analyze
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - build:
+          filters:
+            branches:
+              ignore:
+                - gh-pages
+      - fossa:
+          filters:
+            branches:
+              ignore:
+                - gh-pages
