@@ -24,10 +24,12 @@ jobs:
       - image: circleci/java
     steps:
       - checkout
+      - run: cp gradle.properties.example gradle.properties
+      - run: ./gradlew dependencies
       - run: curl https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash
-      - run: fossa init -p $CIRCLE_REPOSITORY_URL -r $CIRCLE_SHA1
+      - run: sed -i.bak "s/REPO_NAME/$CIRCLE_PROJECT_REPONAME" .fossa.yaml
       - run: cat .fossa.yaml
-      - run: fossa
+      - run: fossa -r $CIRCLE_SHA1
 
 workflows:
   version: 2
