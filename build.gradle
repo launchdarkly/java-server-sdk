@@ -84,6 +84,11 @@ buildscript {
     }
 }
 
+task testJar(type: Jar, dependsOn: testClasses) {
+    classifier = 'test'
+    from sourceSets.test.output
+}
+
 // custom tasks for creating source/javadoc jars
 task sourcesJar(type: Jar, dependsOn: classes) {
     classifier = 'sources'
@@ -241,6 +246,7 @@ publishing {
             artifact sourcesJar
             artifact javadocJar
             artifact shadowJarAll
+            artifact testJar
             
             pom.withXml {
                 def root = asNode()
