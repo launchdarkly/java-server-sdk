@@ -17,7 +17,8 @@ public class RedisFeatureStoreBuilderTest {
   public void testDefaultValues() {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder();
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_URI, conf.uri);
-    assertEquals(RedisFeatureStoreBuilder.DEFAULT_CACHE_TIME_SECONDS, conf.cacheTimeSecs);
+    assertEquals(RedisFeatureStoreBuilder.DEFAULT_CACHE_TIME_SECONDS, conf.cacheTime);
+    assertEquals(TimeUnit.SECONDS, conf.cacheTimeUnit);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
     assertEquals(false, conf.refreshStaleValues);
@@ -31,7 +32,8 @@ public class RedisFeatureStoreBuilderTest {
     URI uri = URI.create("redis://host:1234");
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder(uri);
     assertEquals(uri, conf.uri);
-    assertEquals(RedisFeatureStoreBuilder.DEFAULT_CACHE_TIME_SECONDS, conf.cacheTimeSecs);
+    assertEquals(RedisFeatureStoreBuilder.DEFAULT_CACHE_TIME_SECONDS, conf.cacheTime);
+    assertEquals(TimeUnit.SECONDS, conf.cacheTimeUnit);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
     assertEquals(false, conf.refreshStaleValues);
@@ -45,7 +47,8 @@ public class RedisFeatureStoreBuilderTest {
   public void testDeprecatedUriBuildingConstructor() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder("badscheme", "example", 1234, 100);
     assertEquals(URI.create("badscheme://example:1234"), conf.uri);
-    assertEquals(100, conf.cacheTimeSecs);
+    assertEquals(100, conf.cacheTime);
+    assertEquals(TimeUnit.SECONDS, conf.cacheTimeUnit);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
     assertEquals(false, conf.refreshStaleValues);
@@ -85,9 +88,10 @@ public class RedisFeatureStoreBuilderTest {
   }
 
   @Test
-  public void testCacheTimeConfiguredInSeconds() throws URISyntaxException {
+  public void testCacheTimeWithUnit() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder().cacheTime(2000, TimeUnit.MILLISECONDS);
-    assertEquals(2, conf.cacheTimeSecs);
+    assertEquals(2000, conf.cacheTime);
+    assertEquals(TimeUnit.MILLISECONDS, conf.cacheTimeUnit);
   }
 
   @Test

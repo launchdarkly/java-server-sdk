@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -152,6 +153,27 @@ public class TestUtil {
         .offVariation(0)
         .variations(value)
         .build();
+  }
+  
+  public static class DataBuilder {
+    private Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data = new HashMap<>();
+    
+    @SuppressWarnings("unchecked")
+    public DataBuilder add(VersionedDataKind<?> kind, VersionedData... items) {
+      Map<String, VersionedData> itemsMap = (Map<String, VersionedData>) data.get(kind);
+      if (itemsMap == null) {
+        itemsMap = new HashMap<>();
+        data.put(kind, itemsMap);
+      }
+      for (VersionedData item: items) {
+        itemsMap.put(item.getKey(), item);
+      }
+      return this;
+    }
+    
+    public Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> build() {
+      return data;
+    }
   }
   
   public static EvaluationDetail<JsonElement> simpleEvaluation(int variation, JsonElement value) {

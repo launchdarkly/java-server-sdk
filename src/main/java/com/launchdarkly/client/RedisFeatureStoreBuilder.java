@@ -50,7 +50,8 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   String prefix = DEFAULT_PREFIX;
   int connectTimeout = Protocol.DEFAULT_TIMEOUT;
   int socketTimeout = Protocol.DEFAULT_TIMEOUT;
-  long cacheTimeSecs = DEFAULT_CACHE_TIME_SECONDS;
+  long cacheTime = DEFAULT_CACHE_TIME_SECONDS;
+  TimeUnit cacheTimeUnit = TimeUnit.SECONDS;
   JedisPoolConfig poolConfig = null;
 
   // These constructors are called only from Implementations
@@ -157,11 +158,12 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * If this value is set to 0 then it effectively disables local caching altogether.
    *
    * @param cacheTime the time value to cache for
-   * @param timeUnit the time unit for the time value. This is used to convert your time value to seconds.
+   * @param timeUnit the time unit for the time value
    * @return the builder
    */
   public RedisFeatureStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
-    this.cacheTimeSecs = timeUnit.toSeconds(cacheTime);
+    this.cacheTime = cacheTime;
+    this.cacheTimeUnit = timeUnit;
     return this;
   }
 
