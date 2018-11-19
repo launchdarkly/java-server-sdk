@@ -14,6 +14,16 @@ import com.launchdarkly.client.VersionedDataKind;
 public abstract class FeatureStoreHelpers {
   private static final Gson gson = new Gson();
   
+  /**
+   * Unmarshals a feature store item from a JSON string. This is a very simple wrapper around a Gson
+   * method, just to allow external feature store implementations to make use of the Gson instance
+   * that's inside the SDK rather than having to import Gson themselves.
+   * 
+   * @param kind specifies the type of item being decoded
+   * @param data the JSON string
+   * @return the unmarshaled item
+   * @throws UnmarshalException if the JSON string was invalid
+   */
   public static <T extends VersionedData> T unmarshalJson(VersionedDataKind<T> kind, String data) {
     try {
       return gson.fromJson(data, kind.getItemClass());
@@ -22,6 +32,13 @@ public abstract class FeatureStoreHelpers {
     }
   }
   
+  /**
+   * Marshals a feature store item into a JSON string. This is a very simple wrapper around a Gson
+   * method, just to allow external feature store implementations to make use of the Gson instance
+   * that's inside the SDK rather than having to import Gson themselves.
+   * @param item the item to be marshaled
+   * @return the JSON string
+   */
   public static String marshalJson(VersionedData item) {
     return gson.toJson(item);
   }
