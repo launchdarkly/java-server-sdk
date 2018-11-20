@@ -145,6 +145,9 @@ def getPackagesInDependencyJar(jarFile) {
 // Used by shadowJar and shadowJarAll to specify which packages should be shaded. We should
 // *not* shade any of the dependencies that are specified in the "shadow" configuration,
 // nor any of the classes from the SDK itself.
+//
+// This depends on our build products, so it can't be executed during Gradle's configuration
+// phase; instead we have to run it after configuration, with the "afterEvaluate" block below.
 def shadeDependencies(jarTask) {
     def excludePackages = getAllSdkPackages() +
         configurations.shadow.collectMany { getPackagesInDependencyJar(it)}
@@ -160,6 +163,15 @@ def shadeDependencies(jarTask) {
     }
 }
 
+// We can't actually call shadeDependencies from within the configuration section of shadowJar
+// or shadowJarAll, because Groovy executes all the configuration sections before executing
+// any tasks, meaning we wouldn't have any build products yet to inspect. So we'll do that
+// configuration step at the last minute after the compile task has executed.
+compileJava.doLast {
+    shadeDependencies(project.tasks.shadowJar)
+    shadeDependencies(project.tasks.shadowJarAll)
+}
+
 shadowJar {
     baseName = sdkBaseName
     
@@ -172,8 +184,6 @@ shadowJar {
         exclude(dependency('org.slf4j:.*:.*'))
         exclude(dependency('com.google.code.gson:.*:.*'))
     }
-
-    shadeDependencies(owner)
 
     manifest {
         attributes("Implementation-Version": version)
@@ -190,8 +200,6 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
     configurations = [project.configurations.runtime]
     exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
-
-    shadeDependencies(owner)
 
     manifest {
         attributes("Implementation-Version": version)
