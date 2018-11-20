@@ -32,6 +32,9 @@ ext {
 
 ext.libraries = [:]
 
+// Add dependencies to "libraries.internal" that are not exposed in our public API. These
+// will be completely omitted from the "thin" jar, and will be embedded with shaded names
+// in the other two SDK jars.
 libraries.internal = [
     "commons-codec:commons-codec:1.10",
     "com.google.guava:guava:19.0",
@@ -41,11 +44,14 @@ libraries.internal = [
     "redis.clients:jedis:2.9.0"
 ]
 
+// Add dependencies to "libraries.external" that are exposed in our public API, or that have
+// global state that must be shared between the SDK and the caller.
 libraries.external = [
     "com.google.code.gson:gson:2.7",
     "org.slf4j:slf4j-api:1.7.21"
 ]
 
+// Add dependencies to "libraries.test" that are used only in unit tests.
 libraries.test = [
     "com.squareup.okhttp3:mockwebserver:3.10.0",
     "org.hamcrest:hamcrest-all:1.3",
