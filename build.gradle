@@ -27,18 +27,29 @@ allprojects {
 
 ext.libraries = [:]
 
+ext.imports = [
+    commons_codec: [ version: "1.10" ],
+    guava: [ version: "19.0" ],
+    joda_time: [ version: "2.9.3" ],
+    okhttp_eventsource: [ version: "1.7.1" ],
+    snakeyaml: [ version: "1.19" ],
+    jedis: [ version: "2.9.0" ],
+    gson: [ version: "2.7", limit: "3" ],
+    slf4j_api: [ version: "1.7.21", limit: "2" ]
+]
+
 libraries.internal = [
-    "commons-codec:commons-codec:1.10",
-    "com.google.guava:guava:19.0",
-    "joda-time:joda-time:2.9.3",
-    "com.launchdarkly:okhttp-eventsource:1.7.1",
-    "org.yaml:snakeyaml:1.19",
-    "redis.clients:jedis:2.9.0"
+    "commons-codec:commons-codec:" + imports.commons_codec.version,
+    "com.google.guava:guava:" + imports.guava.version,
+    "joda-time:joda-time:" + imports.joda_time.version,
+    "com.launchdarkly:okhttp-eventsource:" + imports.okhttp_eventsource.version,
+    "org.yaml:snakeyaml:" + imports.snakeyaml.version,
+    "redis.clients:jedis:" + imports.jedis.version
 ]
 
 libraries.external = [
-    "com.google.code.gson:gson:2.7",
-    "org.slf4j:slf4j-api:1.7.21"
+    "com.google.code.gson:gson:" + imports.gson.version,
+    "org.slf4j:slf4j-api:" + imports.slf4j_api.version
 ]
 
 libraries.test = [
@@ -120,6 +131,7 @@ shadowJar {
     // Shade all jars except for launchdarkly
     relocate('com', 'com.launchdarkly.shaded.com') {
         exclude("com.launchdarkly.client.*")
+        exclude("com.launchdarkly.client.files.*")
         exclude("com.google.gson.*")
         exclude("com.google.gson.annotations.*")
         exclude("com.google.gson.internal.*")
@@ -140,7 +152,43 @@ shadowJar {
 
     manifest {
         attributes("Implementation-Version": version)
+
+        attributes(osgiBaseAttributes())
+        attributes(osgiImports())
+        attributes("Export-Package": [
+                bundleExport("com.launchdarkly.client"),
+                bundleExport("com.launchdarkly.client.files")
+            ].join(","))
     }
+}
+
+def osgiBaseAttributes() {
+    [
+        "Bundle-SymbolicName": "com.launchdarkly.client",
+        "Bundle-Version": version,
+        "Bundle-Name": "launchdarkly-client",
+        "Bundle-ManifestVersion": "2"
+    ]
+}
+
+def osgiImports() {
+    [
+        "Import-Package": [
+            bundleImport("com.google.gson", imports.gson),
+            bundleImport("com.google.gson.annotations", imports.gson),
+            bundleImport("com.google.gson.reflect", imports.gson),
+            bundleImport("com.google.gson.stream", imports.gson),
+            bundleImport("org.slf4j", imports.slf4j_api)
+        ].join(",")
+    ]
+}
+
+def bundleExport(packageName) {
+    packageName + ";version=\"" + version + "\""
+}
+
+def bundleImport(packageName, importDef) {
+    packageName + ";version=\"[" + importDef.version + "," + importDef.limit + ")\""
 }
 
 // This builds the "-all"/"fat" jar which also includes the external dependencies - SLF4J,
