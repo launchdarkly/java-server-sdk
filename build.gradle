@@ -25,8 +25,16 @@ allprojects {
     targetCompatibility = 1.7
 }
 
+ext {
+    sdkBasePackage = "com.launchdarkly.client"
+    sdkBaseName = "launchdarkly-client"
+}
+
 ext.libraries = [:]
 
+// Add dependencies to "libraries.internal" that are not exposed in our public API. These
+// will be completely omitted from the "thin" jar, and will be embedded with shaded names
+// in the other two SDK jars.
 libraries.internal = [
     "commons-codec:commons-codec:1.10",
     "com.google.guava:guava:19.0",
@@ -36,11 +44,14 @@ libraries.internal = [
     "redis.clients:jedis:2.9.0"
 ]
 
+// Add dependencies to "libraries.external" that are exposed in our public API, or that have
+// global state that must be shared between the SDK and the caller.
 libraries.external = [
     "com.google.code.gson:gson:2.7",
     "org.slf4j:slf4j-api:1.7.21"
 ]
 
+// Add dependencies to "libraries.test" that are used only in unit tests.
 libraries.test = [
     "com.squareup.okhttp3:mockwebserver:3.10.0",
     "org.hamcrest:hamcrest-all:1.3",
@@ -54,11 +65,14 @@ dependencies {
     compileClasspath libraries.external
     runtime libraries.internal, libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
+
+    // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
+    // should *not* be shaded by the Shadow plugin when we build our shaded jars.
     shadow libraries.external
 }
 
 jar {
-    baseName = 'launchdarkly-client'
+    baseName = sdkBaseName
     // thin classifier means that the non-shaded non-fat jar is still available
     // but is opt-in since users will have to specify it.
     classifier = 'thin'
@@ -106,37 +120,76 @@ githubPages {
     }
 }
 
+// Returns the names of all Java packages defined in this library - not including
+// enclosing packages like "com" that don't have any classes in them.
+def getAllSdkPackages() {
+    def names = []
+    project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output.each { baseDir ->
+        if (baseDir.getPath().contains("classes" + File.separator + "java" + File.separator + "main")) {
+            baseDir.eachFileRecurse { f ->
+                if (f.name.endsWith(".class")) {
+                    def subPath = f.getPath().substring(baseDir.getPath().length() + File.separator.length())
+                    def pkgName = subPath.substring(0, subPath.lastIndexOf(File.separator)).replace(File.separator, ".")
+                    names += pkgName
+                }
+            }
+        }
+    }
+    names.unique()
+}
+
+// Returns the names of all Java packages contained in the specified jar - not including
+// enclosing packages like "com" that don't have any classes in them.
+def getPackagesInDependencyJar(jarFile) {
+    new java.util.zip.ZipFile(jarFile).withCloseable { zf ->
+        zf.entries().findAll { !it.directory && it.name.endsWith(".class") }.collect {
+            it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".")
+        }.unique()
+    }
+}
+
+// Used by shadowJar and shadowJarAll to specify which packages should be shaded. We should
+// *not* shade any of the dependencies that are specified in the "shadow" configuration,
+// nor any of the classes from the SDK itself.
+//
+// This depends on our build products, so it can't be executed during Gradle's configuration
+// phase; instead we have to run it after configuration, with the "afterEvaluate" block below.
+def shadeDependencies(jarTask) {
+    def excludePackages = getAllSdkPackages() +
+        configurations.shadow.collectMany { getPackagesInDependencyJar(it)}
+    def topLevelPackages =
+        configurations.runtime.collectMany {
+            getPackagesInDependencyJar(it).collect { it.contains(".") ? it.substring(0, it.indexOf(".")) : it }
+        }.
+            unique().findAll { it != "javax" } // also, don't shade javax
+    topLevelPackages.forEach { top ->
+        jarTask.relocate(top, "com.launchdarkly.shaded." + top) {
+            excludePackages.forEach { exclude(it + ".*") }
+        }
+    }
+}
+
+// We can't actually call shadeDependencies from within the configuration section of shadowJar
+// or shadowJarAll, because Groovy executes all the configuration sections before executing
+// any tasks, meaning we wouldn't have any build products yet to inspect. So we'll do that
+// configuration step at the last minute after the compile task has executed.
+compileJava.doLast {
+    shadeDependencies(project.tasks.shadowJar)
+    shadeDependencies(project.tasks.shadowJarAll)
+}
+
 shadowJar {
-    baseName = 'launchdarkly-client'
-    //no classifier means that the shaded jar becomes the default artifact
+    baseName = sdkBaseName
+    
+    // No classifier means that the shaded jar becomes the default artifact
     classifier = ''
 
-    // Don't shade or include slf4j
+    // Don't include slf4j or gson. This is the only difference between this artifact
+    // and shadowJarAll, which does include (but doesn't shade) slf4j and gson.
     dependencies{
         exclude(dependency('org.slf4j:.*:.*'))
         exclude(dependency('com.google.code.gson:.*:.*'))
     }
-
-    // Shade all jars except for launchdarkly
-    relocate('com', 'com.launchdarkly.shaded.com') {
-        exclude("com.launchdarkly.client.*")
-        exclude("com.google.gson.*")
-        exclude("com.google.gson.annotations.*")
-        exclude("com.google.gson.internal.*")
-        exclude("com.google.gson.internal.bind.*")
-        exclude("com.google.gson.internal.bind.util.*")
-        exclude("com.google.gson.reflect.*")
-        exclude("com.google.gson.stream.*")
-    }
-    relocate('okhttp3', 'com.launchdarkly.shaded.okhttp3')
-    relocate('okio', 'com.launchdarkly.shaded.okio')
-    relocate('org', 'com.launchdarkly.shaded.org') {
-        exclude("org.slf4j.*")
-        exclude("org.slf4j.event.*")
-        exclude("org.slf4j.helpers.*")
-        exclude("org.slf4j.spi.*")
-    }
-    relocate('redis', 'com.launchdarkly.shaded.redis')
 
     manifest {
         attributes("Implementation-Version": version)
@@ -146,34 +199,13 @@ shadowJar {
 // This builds the "-all"/"fat" jar which also includes the external dependencies - SLF4J,
 // Gson, and javax.annotations - in unshaded form, as well as all the internal shaded classes.
 task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    baseName = 'launchdarkly-client'
+    baseName = sdkBaseName
     classifier = 'all'
     group = "shadow"
     description = "Builds a Shaded fat jar including SLF4J"
     from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
     configurations = [project.configurations.runtime]
     exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
-
-    // Shade all jars except for launchdarkly
-    relocate('com', 'com.launchdarkly.shaded.com') {
-        exclude("com.launchdarkly.client.*")
-        exclude("com.google.gson.*")
-        exclude("com.google.gson.annotations.*")
-        exclude("com.google.gson.internal.*")
-        exclude("com.google.gson.internal.bind.*")
-        exclude("com.google.gson.internal.bind.util.*")
-        exclude("com.google.gson.reflect.*")
-        exclude("com.google.gson.stream.*")
-    }
-    relocate('okhttp3', 'com.launchdarkly.shaded.okhttp3')
-    relocate('okio', 'com.launchdarkly.shaded.okio')
-    relocate('org', 'com.launchdarkly.shaded.org') {
-        exclude("org.slf4j.*")
-        exclude("org.slf4j.event.*")
-        exclude("org.slf4j.helpers.*")
-        exclude("org.slf4j.spi.*")
-    }
-    relocate('redis', 'com.launchdarkly.shaded.redis')
 
     manifest {
         attributes("Implementation-Version": version)
@@ -236,7 +268,7 @@ publishing {
         shadow(MavenPublication) { publication ->
             project.shadow.component(publication)
 
-            artifactId = 'launchdarkly-client'
+            artifactId = sdkBaseName
             artifact jar
             artifact sourcesJar
             artifact javadocJar
