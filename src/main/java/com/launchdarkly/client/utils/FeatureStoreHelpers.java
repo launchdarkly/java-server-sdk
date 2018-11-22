@@ -19,6 +19,7 @@ public abstract class FeatureStoreHelpers {
    * method, just to allow external feature store implementations to make use of the Gson instance
    * that's inside the SDK rather than having to import Gson themselves.
    * 
+   * @param <T> class of the object that will be returned
    * @param kind specifies the type of item being decoded
    * @param data the JSON string
    * @return the unmarshaled item

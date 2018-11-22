@@ -62,6 +62,7 @@ public interface FeatureStoreCore extends Closeable {
    * @param <T> class of the object to be updated
    * @param kind the kind of object to update
    * @param item the object to update or insert
+   * @return the state of the object after the update
    */
   <T extends VersionedData> T upsertInternal(VersionedDataKind<T> kind, T item);
 
