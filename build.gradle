@@ -76,9 +76,6 @@ jar {
     // thin classifier means that the non-shaded non-fat jar is still available
     // but is opt-in since users will have to specify it.
     classifier = 'thin'
-    manifest {
-        attributes("Implementation-Version": version)
-    }
 }
 
 task wrapper(type: Wrapper) {
@@ -181,6 +178,9 @@ def shadeDependencies(jarTask) {
 compileJava.doLast {
     def externalDependencies = configurations.shadow
 
+    // In OSGi, the "thin" jar has to import all of its dependencies.
+    addOsgiManifest(project.tasks.jar, [ externalDependencies, configurations.runtime ], [])
+
     shadeDependencies(project.tasks.shadowJar)
     // Note that "configurations.shadow" is the same as "libraries.external", except it contains
     // objects with detailed information about the resolved dependencies.
@@ -203,23 +203,24 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
             "Bundle-ManifestVersion": "2"
         )
 
-        def imports = importConfigs.collectMany { it.resolvedConfiguration.resolvedArtifacts }
-            .collectMany { a ->
-                getPackagesInDependencyJar(a.file).collect { p ->
-                    bundleImport(p, a.moduleVersion.id.version, nextMajorVersion(a.moduleVersion.id.version))
-                }
-            }
+        def imports = forEachArtifactAndPackage(importConfigs, { a, p ->
+            bundleImport(p, a.moduleVersion.id.version, nextMajorVersion(a.moduleVersion.id.version))
+        })
         attributes("Import-Package": imports.join(","))
 
         def sdkExports = getAllSdkPackages().collect { bundleExport(it, version) }
-        def exportedDependencies = exportConfigs.collectMany { it.resolvedConfiguration.resolvedArtifacts }
-            .collectMany { a ->
-                getPackagesInDependencyJar(a.file).collect { p ->
-                    bundleExport(p, a.moduleVersion.id.version)
-                }
-            }
+        def exportedDependencies = forEachArtifactAndPackage(exportConfigs, { a, p ->
+            bundleExport(p, a.moduleVersion.id.version)
+        })
         attributes("Export-Package": (sdkExports + exportedDependencies).join(","))
     }
+}
+
+def forEachArtifactAndPackage(configs, closure) {
+    configs.collectMany { it.resolvedConfiguration.resolvedArtifacts }
+        .collectMany { a ->
+            getPackagesInDependencyJar(a.file).collect { p -> closure(a, p) }
+        }
 }
 
 def bundleImport(packageName, importVersion, versionLimit) {
