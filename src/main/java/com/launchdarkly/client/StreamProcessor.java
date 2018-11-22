@@ -169,7 +169,7 @@ final class StreamProcessor implements UpdateProcessor {
 
       @Override
       public void onError(Throwable throwable) {
-        logger.error("Encountered EventSource error: {}" + throwable.toString());
+        logger.warn("Encountered EventSource error: {}", throwable.toString());
         logger.debug(throwable.toString(), throwable);
       }
     };
