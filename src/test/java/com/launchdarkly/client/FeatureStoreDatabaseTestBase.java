@@ -227,6 +227,11 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
       assertEquals(flag1b.getVersion(), items1.get(flag1b.getKey()).getVersion());
       assertEquals(flag2a.getVersion(), items2.get(flag2a.getKey()).getVersion());
       assertEquals(flag2c.getVersion(), items2.get(flag2c.getKey()).getVersion());
+      
+      assertEquals(flag1a.getVersion(), store1.get(FEATURES, flag1a.getKey()).getVersion());
+      assertEquals(flag1b.getVersion(), store1.get(FEATURES, flag1b.getKey()).getVersion());
+      assertEquals(flag2a.getVersion(), store2.get(FEATURES, flag2a.getKey()).getVersion());
+      assertEquals(flag2c.getVersion(), store2.get(FEATURES, flag2c.getKey()).getVersion());
     } finally {
       store1.close();
       store2.close();
