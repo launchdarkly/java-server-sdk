@@ -182,7 +182,7 @@ public class CachingStoreWrapper implements FeatureStore {
   /**
    * Return the underlying Guava cache stats object.
    *
-   * @return the cache statistics object.
+   * @return the cache statistics object
    */
   public CacheStats getCacheStats() {
     if (itemCache != null) {
@@ -191,6 +191,15 @@ public class CachingStoreWrapper implements FeatureStore {
     return null;
   }
 
+  /**
+   * Return the underlying implementation object.
+   * 
+   * @return the underlying implementation object
+   */
+  public FeatureStoreCore getCore() {
+    return core;
+  }
+  
   private <T extends VersionedData> T itemOnlyIfNotDeleted(T item) {
     return (item != null && item.isDeleted()) ? null : item;
   }
