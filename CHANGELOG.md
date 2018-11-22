@@ -3,6 +3,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.5.1] - 2018-11-21
+### Fixed:
+- Fixed a build error that caused the `com.launchdarkly.client.files` package (the test file data source component added in v4.5.0) to be inaccessible unless you were using the "thin" jar.
+- Stream connection errors are now logged at `WARN` level, rather than `ERROR`.
+
 ## [4.5.0] - 2018-10-26
 ### Added:
 It is now possible to inject feature flags into the client from local JSON or YAML files, replacing the normal LaunchDarkly connection. This would typically be for testing purposes. See `com.launchdarkly.client.files.FileComponents`.
