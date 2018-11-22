@@ -10,16 +10,29 @@ Supported Java versions
 
 This version of the LaunchDarkly SDK works with Java 7 and above.
 
+Distributions
+-------------
+
+Three variants of the SDK jar are published to Maven:
+
+* The default uberjar - the dependency that is shown below under "Quick setup". This contains the SDK classes, and all of the SDK's dependencies except for Gson and SLF4j, which must be provided by the host application. The bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
+* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that Gson and SLF4j are also bundled, without shading (and are exported in OSGi).
+* The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains _only_ the SDK classes.
+
 Quick setup
 -----------
 
 0. Add the Java SDK to your project
 
+        <!-- in Maven: -->
         <dependency>
           <groupId>com.launchdarkly</groupId>
           <artifactId>launchdarkly-client</artifactId>
           <version>4.5.1</version>
         </dependency>
+
+        // or in Gradle:
+        "com.launchdarkly:launchdarkly-client:4.5.1"
 
 1. Import the LaunchDarkly package:
 
@@ -44,9 +57,9 @@ Your first feature flag
           // the code to run if the feature is off
         }
 
-
 Logging
 -------
+
 The LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). All loggers are namespaced under `com.launchdarkly`. For an example configuration check out the [hello-java](https://github.com/launchdarkly/hello-java) project.
 
 Be aware of two considerations when enabling the DEBUG log level:
@@ -55,6 +68,7 @@ Be aware of two considerations when enabling the DEBUG log level:
 
 Using flag data from a file
 ---------------------------
+
 For testing purposes, the SDK can be made to read feature flag state from a file or files instead of connecting to LaunchDarkly. See <a href="http://javadoc.io/page/com.launchdarkly/launchdarkly-client/latest/com/launchdarkly/client/files/FileComponents.html">FileComponents</a> for more details.
 
 Learn more
