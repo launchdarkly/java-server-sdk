@@ -30,7 +30,10 @@ jobs:
       - checkout
       - attach_workspace:
           at: build
-      - run: ./gradlew publishToMavenLocal
+      - run: cat gradle.properties.example >>gradle.properties
+      - run:
+          name: build all SDK jars
+          comand: ./gradlew publishToMavenLocal
   fossa:
     docker:
       - image: circleci/java
