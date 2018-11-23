@@ -33,7 +33,7 @@ jobs:
       - run: cat gradle.properties.example >>gradle.properties
       - run:
           name: build all SDK jars
-          command: ./gradlew publishToMavenLocal
+          command: ./gradlew publishToMavenLocal -P LD_SKIP_SIGNING=1
   fossa:
     docker:
       - image: circleci/java
@@ -56,6 +56,10 @@ workflows:
       - packaging:
           requires:
             - build
+          filters:
+            branches:
+              ignore:
+                - gh-pages
       - fossa:
           filters:
             branches:

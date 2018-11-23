@@ -355,5 +355,7 @@ publishing {
 }
 
 signing {
+    required { !project.hasProperty("LD_SKIP_SIGNING") }
+    
     sign publishing.publications.shadow
 }
