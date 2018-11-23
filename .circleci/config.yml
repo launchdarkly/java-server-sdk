@@ -21,6 +21,8 @@ jobs:
           path: ~/junit
       - persist_to_workspace:
           root: build
+          paths:
+            - libs
   packaging:
     docker:
       - image: circleci/java
