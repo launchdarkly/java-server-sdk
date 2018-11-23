@@ -19,6 +19,16 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+      - persist_to_workspace:
+          root: build
+  packaging:
+    docker:
+      - image: circleci/java
+    steps:
+      - checkout
+      - attach_workspace:
+          at: build
+      - run: ./gradlew publishToMavenLocal
   fossa:
     docker:
       - image: circleci/java
@@ -38,6 +48,9 @@ workflows:
             branches:
               ignore:
                 - gh-pages
+      - packaging:
+          requires:
+            - build
       - fossa:
           filters:
             branches:
