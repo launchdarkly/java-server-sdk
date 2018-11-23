@@ -33,7 +33,7 @@ jobs:
       - run: cat gradle.properties.example >>gradle.properties
       - run:
           name: build all SDK jars
-          comand: ./gradlew publishToMavenLocal
+          command: ./gradlew publishToMavenLocal
   fossa:
     docker:
       - image: circleci/java
