@@ -28,6 +28,8 @@ allprojects {
 ext {
     sdkBasePackage = "com.launchdarkly.client"
     sdkBaseName = "launchdarkly-client"
+
+    systemPackageImports = [ "javax.net", "javax.net.ssl" ]
 }
 
 ext.libraries = [:]
@@ -76,6 +78,13 @@ jar {
     // thin classifier means that the non-shaded non-fat jar is still available
     // but is opt-in since users will have to specify it.
     classifier = 'thin'
+
+    // doFirst causes the following step to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because it accesses the build products
+    doFirst {
+        // In OSGi, the "thin" jar has to import all of its dependencies.
+        addOsgiManifest(project.tasks.jar, [ configurations.runtime ], [])
+    }
 }
 
 task wrapper(type: Wrapper) {
@@ -171,28 +180,6 @@ def shadeDependencies(jarTask) {
     }
 }
 
-// We can't actually call shadeDependencies from within the configuration section of shadowJar
-// or shadowJarAll, because Groovy executes all the configuration sections before executing
-// any tasks, meaning we wouldn't have any build products yet to inspect. So we'll do that
-// configuration step at the last minute after the compile task has executed.
-compileJava.doLast {
-    def externalDependencies = configurations.shadow
-
-    // In OSGi, the "thin" jar has to import all of its dependencies.
-    addOsgiManifest(project.tasks.jar, [ externalDependencies, configurations.runtime ], [])
-
-    shadeDependencies(project.tasks.shadowJar)
-    // Note that "configurations.shadow" is the same as "libraries.external", except it contains
-    // objects with detailed information about the resolved dependencies.
-    addOsgiManifest(project.tasks.shadowJar, [ externalDependencies ], [])
-
-    shadeDependencies(project.tasks.shadowJarAll)
-    // The "all" jar exposes its bundled Gson and SLF4j dependencies as exports - but, like the
-    // default jar, it *also* imports them ("self-wiring"), which allows the bundle to use a
-    // higher version if one is provided by another bundle.
-    addOsgiManifest(project.tasks.shadowJarAll, [ externalDependencies ], [ externalDependencies ])
-}
-
 def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configuration> exportConfigs) {
     jarTask.manifest {
         attributes(
@@ -205,7 +192,7 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
 
         def imports = forEachArtifactAndPackage(importConfigs, { a, p ->
             bundleImport(p, a.moduleVersion.id.version, nextMajorVersion(a.moduleVersion.id.version))
-        })
+        }) + systemPackageImports
         attributes("Import-Package": imports.join(","))
 
         def sdkExports = getAllSdkPackages().collect { bundleExport(it, version) }
@@ -219,7 +206,9 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
 def forEachArtifactAndPackage(configs, closure) {
     configs.collectMany { it.resolvedConfiguration.resolvedArtifacts }
         .collectMany { a ->
-            getPackagesInDependencyJar(a.file).collect { p -> closure(a, p) }
+            getPackagesInDependencyJar(a.file)
+                .findAll { p -> !p.contains(".internal") }
+                .collect { p -> closure(a, p) }
         }
 }
 
@@ -244,9 +233,18 @@ shadowJar {
     // No classifier means that the shaded jar becomes the default artifact
     classifier = ''
 
-    dependencies{
+    dependencies {
         exclude(dependency('org.slf4j:.*:.*'))
         exclude(dependency('com.google.code.gson:.*:.*'))
+    }
+
+    // doFirst causes the following steps to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because they access the build products
+    doFirst {
+        shadeDependencies(project.tasks.shadowJar)
+        // Note that "configurations.shadow" is the same as "libraries.external", except it contains
+        // objects with detailed information about the resolved dependencies.
+        addOsgiManifest(project.tasks.shadowJar, [ project.configurations.shadow ], [])
     }
 }
 
@@ -260,6 +258,16 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
     configurations = [project.configurations.runtime]
     exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+
+    // doFirst causes the following steps to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because they access the build products
+    doFirst {
+        shadeDependencies(project.tasks.shadowJarAll)
+        // The "all" jar exposes its bundled Gson and SLF4j dependencies as exports - but, like the
+        // default jar, it *also* imports them ("self-wiring"), which allows the bundle to use a
+        // higher version if one is provided by another bundle.
+        addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.shadow ], [ project.configurations.shadow ])
+    }
 }
 
 artifacts {
