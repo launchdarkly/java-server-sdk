@@ -186,7 +186,7 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
             "Implementation-Version": version,
             "Bundle-SymbolicName": "com.launchdarkly.client",
             "Bundle-Version": version,
-            "Bundle-Name": "launchdarkly-client",
+            "Bundle-Name": "LaunchDarkly SDK",
             "Bundle-ManifestVersion": "2"
         )
 
@@ -360,4 +360,11 @@ signing {
 
 tasks.withType(Sign) {
     onlyIf { !project.hasProperty("LD_SKIP_SIGNING") } // so we can build jars for testing in CI
+}
+
+// This task is used by the logic in ./packaging-test to get copies of all the direct and transitive
+// dependencies of the SDK, so they can be put on the classpath as needed during tests.
+task exportDependencies(type: Copy, dependsOn: compileJava) {
+    into "packaging-test/temp/dependencies-all"
+    from configurations.runtime.resolvedConfiguration.resolvedArtifacts.collect { it.file }
 }
