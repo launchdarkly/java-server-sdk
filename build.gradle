@@ -89,6 +89,8 @@ buildscript {
         classpath 'org.ajoberstar:gradle-git:1.5.0-rc.1'
         classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
         classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.8.0"
+        classpath "org.eclipse.virgo.util:org.eclipse.virgo.util.osgi.manifest:3.5.0.RELEASE"
+        classpath "org.osgi:osgi_R4_core:1.0"
     }
 }
 
@@ -288,49 +290,14 @@ def forEachArtifactAndVisiblePackage(configs, closure) {
 def getOsgiPackageExportsFromJar(file) {
     return new java.util.jar.JarFile(file).withCloseable { jar ->
         def manifest = jar.manifest
-        if (manifest != null) {
-            def allExports = manifest.mainAttributes.getValue("Export-Package")
-            if (allExports != null) {
-                return parseExports(allExports)
-            }
+        if (manifest == null) {
+            return null
         }
-        return null
+        def dict = new java.util.Hashtable() // sadly, the manifest parser requires a Dictionary
+        manifest.mainAttributes.each { k, v -> dict.put(k.toString(), v.toString()) }
+        return org.eclipse.virgo.util.osgi.manifest.BundleManifestFactory.createBundleManifest(dict)
+            .exportPackage.exportedPackages.collect { it.packageName }
     }
-}
-
-def parseExports(input) {
-    // This parses the elaborate format used by OSGi manifest attributes - in a somewhat
-    // simplified way since we don't care about anything other than the package names.
-    def ret = []
-    def pos = 0
-    while (pos < input.length()) {
-        def pkg = ""
-        def semicolon = input.indexOf(";", pos)
-        def comma = input.indexOf(",", pos)
-        if (comma >= 0 && (semicolon < 0 || semicolon > comma)) {
-            pkg = input.substring(pos, comma)
-            pos = comma + 1
-        } else {
-            if (semicolon < 0) {
-                pkg = input.substring(pos)
-                pos = input.length()
-            } else {
-                pkg = input.substring(pos, semicolon)
-                pos = semicolon + 1
-                // Discard all parameters up to the next clause
-                while (pos < input.length()) {
-                    def ch = input.charAt(pos++)
-                    if (ch == ',') {
-                        break
-                    } else if (ch == '"') {
-                        while (pos < input.length() && input.charAt(pos++) != '"') { }
-                    }
-                }
-            }
-        }
-        ret += pkg.trim()
-    }
-    return ret
 }
 
 artifacts {
