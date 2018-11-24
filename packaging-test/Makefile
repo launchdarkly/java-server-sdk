@@ -37,7 +37,8 @@ TEMP_BUNDLE_DIR=$(TEMP_DIR)/bundles
 # the OSGi test). Note that we're assuming that all of the SDK's dependencies have built-in support
 # for OSGi, which is currently true; if that weren't true, we would have to do something different
 # to put them on the system classpath in the OSGi test.
-RUN_JARS_test-all-jar=$(TEST_APP_JAR) $(SDK_ALL_JAR)
+RUN_JARS_test-all-jar=$(TEST_APP_JAR) $(SDK_ALL_JAR) \
+	$(SLF4J_SIMPLE_JAR)
 RUN_JARS_test-default-jar=$(TEST_APP_JAR) $(SDK_DEFAULT_JAR) \
 	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar) \
 	$(SLF4J_SIMPLE_JAR)
@@ -74,14 +75,18 @@ test-all-jar test-default-jar test-thin-jar: $$(RUN_JARS_$$@) $(TEST_APP_JAR) $(
 	@$(call caption,$@)
 	@echo "  non-OSGi runtime test"
 	@java -classpath $(shell echo "$(RUN_JARS_$@)" | sed -e 's/ /:/g') testapp.TestApp | tee $(TEMP_OUTPUT)
-	@grep $(SUCCESS_MESSAGE) $(TEMP_OUTPUT) >/dev/null	
-	@echo ""
-	@echo "  OSGi runtime test"
-	@rm -rf $(TEMP_BUNDLE_DIR)
-	@mkdir -p $(TEMP_BUNDLE_DIR)
-	@cp $(RUN_JARS_$@) $(FELIX_DIR)/bundle/*.jar $(TEMP_BUNDLE_DIR)
-	@cd $(FELIX_DIR) && echo "sleep 5;exit 0" | java -jar $(FELIX_JAR) -b $(TEMP_BUNDLE_DIR) | tee $(TEMP_OUTPUT)
 	@grep $(SUCCESS_MESSAGE) $(TEMP_OUTPUT) >/dev/null
+# Can't currently run the OSGi test for the thin jar, because some of our dependencies aren't available as OSGi bundles.
+	@if [ "$@" != "test-thin-jar" ]; then \
+	  echo ""; \
+	  echo "  OSGi runtime test"; \
+	  rm -rf $(TEMP_BUNDLE_DIR); \
+	  mkdir -p $(TEMP_BUNDLE_DIR); \
+	  cp $(RUN_JARS_$@) $(FELIX_DIR)/bundle/*.jar $(TEMP_BUNDLE_DIR); \
+	  rm -rf $(FELIX_DIR)/felix-cache; \
+	  cd $(FELIX_DIR) && echo "sleep 3;exit 0" | java -jar $(FELIX_JAR) -b $(TEMP_BUNDLE_DIR) | tee $(TEMP_OUTPUT); \
+	  grep $(SUCCESS_MESSAGE) $(TEMP_OUTPUT) >/dev/null; \
+	fi
 
 test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call caption,$@)
