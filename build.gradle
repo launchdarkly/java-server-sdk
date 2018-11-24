@@ -75,20 +75,6 @@ dependencies {
     shadow libraries.external
 }
 
-jar {
-    baseName = sdkBaseName
-    // thin classifier means that the non-shaded non-fat jar is still available
-    // but is opt-in since users will have to specify it.
-    classifier = 'thin'
-
-    // doFirst causes the following step to be run during Gradle's execution phase rather than the
-    // configuration phase; this is necessary because it accesses the build products
-    doFirst {
-        // In OSGi, the "thin" jar has to import all of its dependencies.
-        addOsgiManifest(project.tasks.jar, [ configurations.runtime ], [])
-    }
-}
-
 task wrapper(type: Wrapper) {
     gradleVersion = '4.10.2'
 }
@@ -103,6 +89,65 @@ buildscript {
         classpath 'org.ajoberstar:gradle-git:1.5.0-rc.1'
         classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
         classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.8.0"
+    }
+}
+
+jar {
+    baseName = sdkBaseName
+    // thin classifier means that the non-shaded non-fat jar is still available
+    // but is opt-in since users will have to specify it.
+    classifier = 'thin'
+
+    // doFirst causes the following step to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because it accesses the build products
+    doFirst {
+        // In OSGi, the "thin" jar has to import all of its dependencies.
+        addOsgiManifest(project.tasks.jar, [ configurations.runtime ], [])
+    }
+}
+
+// This builds the default uberjar that contains all of our dependencies except Gson and
+// SLF4j, in shaded form. The user is expected to provide Gson and SLF4j.
+shadowJar {
+    baseName = sdkBaseName
+    
+    // No classifier means that the shaded jar becomes the default artifact
+    classifier = ''
+
+    dependencies {
+        exclude(dependency('org.slf4j:.*:.*'))
+        exclude(dependency('com.google.code.gson:.*:.*'))
+    }
+
+    // doFirst causes the following steps to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because they access the build products
+    doFirst {
+        shadeDependencies(project.tasks.shadowJar)
+        // Note that "configurations.shadow" is the same as "libraries.external", except it contains
+        // objects with detailed information about the resolved dependencies.
+        addOsgiManifest(project.tasks.shadowJar, [ project.configurations.shadow ], [])
+    }
+}
+
+// This builds the "-all"/"fat" jar, which is the same as the default uberjar except that
+// Gson and SLF4j are bundled and exposed (unshaded).
+task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    baseName = sdkBaseName
+    classifier = 'all'
+    group = "shadow"
+    description = "Builds a Shaded fat jar including SLF4J"
+    from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
+    configurations = [project.configurations.runtime]
+    exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+
+    // doFirst causes the following steps to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because they access the build products
+    doFirst {
+        shadeDependencies(project.tasks.shadowJarAll)
+        // The "all" jar exposes its bundled Gson and SLF4j dependencies as exports - but, like the
+        // default jar, it *also* imports them ("self-wiring"), which allows the bundle to use a
+        // higher version if one is provided by another bundle.
+        addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.shadow ], [ project.configurations.shadow ])
     }
 }
 
@@ -193,11 +238,18 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
             "Bundle-Vendor": "LaunchDarkly"
         )
 
+        // Since we're not currently able to use bnd or the Gradle OSGi plugin, we're not discovering
+        // imports by looking at the actual code; instead, we're just importing every package from
+        // the specified dependencies (plus whatever is listed in systemPackageImports). The version
+        // of the dependency is used as a minimum version; we'll accept anything up to but not
+        // including the next major version.
         def imports = forEachArtifactAndPackage(importConfigs, { a, p ->
             bundleImport(p, a.moduleVersion.id.version, nextMajorVersion(a.moduleVersion.id.version))
         }) + systemPackageImports
         attributes("Import-Package": imports.join(","))
 
+        // Similarly, we're adding package exports for every package in whatever libraries we're
+        // making publicly available.
         def sdkExports = getAllSdkPackages().collect { bundleExport(it, version) }
         def exportedDependencies = forEachArtifactAndPackage(exportConfigs, { a, p ->
             bundleExport(p, a.moduleVersion.id.version)
@@ -226,51 +278,6 @@ def bundleExport(packageName, exportVersion) {
 def nextMajorVersion(v) {
     def majorComponent = v.contains('.') ? v.substring(0, v.indexOf('.')) : v;
     String.valueOf(Integer.parseInt(majorComponent) + 1)
-}
-
-// This builds the default uberjar that contains all of our dependencies except Gson and
-// SLF4j, in shaded form. The user is expected to provide Gson and SLF4j.
-shadowJar {
-    baseName = sdkBaseName
-    
-    // No classifier means that the shaded jar becomes the default artifact
-    classifier = ''
-
-    dependencies {
-        exclude(dependency('org.slf4j:.*:.*'))
-        exclude(dependency('com.google.code.gson:.*:.*'))
-    }
-
-    // doFirst causes the following steps to be run during Gradle's execution phase rather than the
-    // configuration phase; this is necessary because they access the build products
-    doFirst {
-        shadeDependencies(project.tasks.shadowJar)
-        // Note that "configurations.shadow" is the same as "libraries.external", except it contains
-        // objects with detailed information about the resolved dependencies.
-        addOsgiManifest(project.tasks.shadowJar, [ project.configurations.shadow ], [])
-    }
-}
-
-// This builds the "-all"/"fat" jar, which is the same as the default uberjar except that
-// Gson and SLF4j are bundled and exposed (unshaded).
-task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    baseName = sdkBaseName
-    classifier = 'all'
-    group = "shadow"
-    description = "Builds a Shaded fat jar including SLF4J"
-    from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
-    configurations = [project.configurations.runtime]
-    exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
-
-    // doFirst causes the following steps to be run during Gradle's execution phase rather than the
-    // configuration phase; this is necessary because they access the build products
-    doFirst {
-        shadeDependencies(project.tasks.shadowJarAll)
-        // The "all" jar exposes its bundled Gson and SLF4j dependencies as exports - but, like the
-        // default jar, it *also* imports them ("self-wiring"), which allows the bundle to use a
-        // higher version if one is provided by another bundle.
-        addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.shadow ], [ project.configurations.shadow ])
-    }
 }
 
 artifacts {
