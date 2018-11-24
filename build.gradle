@@ -189,7 +189,8 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
             "Bundle-SymbolicName": "com.launchdarkly.client",
             "Bundle-Version": version,
             "Bundle-Name": "LaunchDarkly SDK",
-            "Bundle-ManifestVersion": "2"
+            "Bundle-ManifestVersion": "2",
+            "Bundle-Vendor": "LaunchDarkly"
         )
 
         def imports = forEachArtifactAndPackage(importConfigs, { a, p ->
