@@ -118,7 +118,7 @@ $(SDK_ALL_JAR):
 $(SDK_THIN_JAR):
 	cd .. && ./gradlew jar
 
-$(TEST_APP_JAR):
+$(TEST_APP_JAR): | $(TEMP_DIR)
 	cd test-app && ../../gradlew jar
 	cp $(BASE_DIR)/test-app/build/libs/test-app-*.jar $@
 
