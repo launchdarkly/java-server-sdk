@@ -15,11 +15,18 @@ classes_prepare=echo "checking $(1)..." && jar tf $(1) | grep '\.class$$' >$(TEM
 classes_should_contain=echo "  should contain $(2)" && grep $(1) $(TEMP_CLASSES) >/dev/null
 classes_should_not_contain=echo "  should not contain $(2)" && ! grep $(1) $(TEMP_CLASSES) >/dev/null
 
+verify_sdk_classes= \
+	$(call classes_should_contain,'^com/launchdarkly/client/[^/]*$$',com.launchdarkly.client) && \
+	$(foreach subpkg,$(sdk_subpackage_names), \
+		$(call classes_should_contain,'^com/launchdarkly/client/$(subpkg)/',com.launchdarkly.client.$(subpkg)) && ) true
+sdk_subpackage_names= \
+	$(shell ls -d $(PROJECT_DIR)/src/main/java/com/launchdarkly/client/*/ | sed -e 's@^.*/\([^/]*\)/@\1@')
+
 all: test-all-jar-classes test-default-jar-classes test-thin-jar-classes
 
 test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call classes_prepare,$<)
-	@$(call classes_should_contain,'^com/launchdarkly/client/',SDK classes)
+	@$(call verify_sdk_classes)
 	@$(call classes_should_contain,'^com/google/gson/',Gson (unshaded))
 	@$(call classes_should_contain,'^org/slf4j/',SLF4j (unshaded))
 	@$(call classes_should_contain,'^com/launchdarkly/shaded/',shaded dependency jars)
@@ -29,7 +36,7 @@ test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 
 test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call classes_prepare,$<)
-	@$(call classes_should_contain,'^com/launchdarkly/client/',SDK classes)
+	@$(call verify_sdk_classes)
 	@$(call classes_should_contain,'^com/launchdarkly/shaded/',shaded dependency jars)
 	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/com/launchdarkly/client',shaded SDK classes)
 	@$(call classes_should_not_contain,'com/google/gson/',Gson (shaded or unshaded))
@@ -37,7 +44,7 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 
 test-thin-jar-classes: $(SDK_THIN_JAR) $(TEMP_DIR)
 	@$(call classes_prepare,$<)
-	@$(call classes_should_contain,'^com/launchdarkly/client/',SDK classes)
+	@$(call verify_sdk_classes)
 	@$(call classes_should_not_contain,-v '^com/launchdarkly/client/',anything other than SDK classes)
 
 $(SDK_DEFAULT_JAR):
