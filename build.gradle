@@ -29,6 +29,8 @@ ext {
     sdkBasePackage = "com.launchdarkly.client"
     sdkBaseName = "launchdarkly-client"
 
+    // List any packages here that should be included in OSGi imports for the SDK, if they cannot
+    // be discovered by looking in our explicit dependencies.
     systemPackageImports = [ "javax.net", "javax.net.ssl" ]
 }
 
