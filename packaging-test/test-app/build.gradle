@@ -1,37 +1,23 @@
-apply plugin: 'java'
-apply plugin: 'osgi'
-
-configurations.all {
-    // check for updates every build for dependencies with: 'changing: true'
-    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-}
+apply plugin: "java"
+apply plugin: "osgi"
 
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
 allprojects {
-    group = 'com.launchdarkly'
+    group = "com.launchdarkly"
     version = "1.0.0"
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
 }
 
-ext.libraries = [:]
-
-libraries.internal = [
-]
-
-libraries.external = [
-    "com.launchdarkly:launchdarkly-client:4.+",
-    "com.google.code.gson:gson:2.7",
-    "org.slf4j:slf4j-api:1.7.21",
-    "org.osgi:osgi_R4_core:1.0"
-]
-
 dependencies {
-    compileClasspath libraries.external
+    // Note, the SDK build must have already been run before this, since we're using its product as a dependency
+    compileClasspath fileTree(dir: "../../build/libs", include: "launchdarkly-client-*-thin.jar")
+    compileClasspath "com.google.code.gson:gson:2.7"
+    compileClasspath "org.slf4j:slf4j-api:1.7.21"
+    compileClasspath "org.osgi:osgi_R4_core:1.0"
 }
 
 jar {
@@ -49,10 +35,5 @@ buildscript {
     repositories {
         jcenter()
         mavenCentral()
-        mavenLocal()
-    }
-    dependencies {
-        classpath 'org.ajoberstar:gradle-git:1.5.0-rc.1'
-        classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.8.0"
     }
 }
