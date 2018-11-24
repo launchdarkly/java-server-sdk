@@ -67,7 +67,7 @@ all: test-all-jar test-default-jar test-thin-jar
 clean:
 	rm -rf $(TEMP_DIR)/*
 
-# SECONDEXPANSION is necessary so we can use "$@" inside a variable in the target list of the test targets
+# SECONDEXPANSION is needed so we can use "$@" inside a variable in the prerequisite list of the test targets
 .SECONDEXPANSION:
 
 test-all-jar test-default-jar test-thin-jar: $$(RUN_JARS_$$@) $(TEST_APP_JAR) $(FELIX_JAR) get-sdk-dependencies $$@-classes
