@@ -29,6 +29,7 @@ jobs:
     docker:
       - image: circleci/java
     steps:
+      - run: sudo apt-get install make -y -q
       - checkout
       - attach_workspace:
           at: build
