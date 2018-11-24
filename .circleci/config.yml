@@ -1,5 +1,6 @@
 version: 2
 jobs:
+
   build:
     docker:
       - image: circleci/java
@@ -23,6 +24,7 @@ jobs:
           root: build
           paths:
             - classes
+
   packaging:
     docker:
       - image: circleci/java
@@ -34,6 +36,10 @@ jobs:
       - run:
           name: build all SDK jars
           command: ./gradlew publishToMavenLocal -P LD_SKIP_SIGNING=1
+      - run:
+          name: run packaging tests
+          command: cd packaging-test && make all
+
   fossa:
     docker:
       - image: circleci/java
