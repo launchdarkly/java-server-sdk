@@ -15,8 +15,8 @@ Distributions
 
 Three variants of the SDK jar are published to Maven:
 
-* The default uberjar - the dependency that is shown below under "Quick setup". This contains the SDK classes, and all of the SDK's dependencies except for Gson and SLF4j, which must be provided by the host application. The bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
-* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that Gson and SLF4j are also bundled, without shading (and are exported in OSGi).
+* The default uberjar - the dependency that is shown below under "Quick setup". This contains the SDK classes, and all of the SDK's dependencies except for Gson and SLF4j, which must be provided by the host application. The bundled dependencies have shaded package names, so they will not interfere with any other versions of the same packages.
+* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that Gson and SLF4j are also bundled, without shading.
 * The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains _only_ the SDK classes.
 
 Quick setup
