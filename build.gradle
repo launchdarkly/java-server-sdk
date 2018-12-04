@@ -306,5 +306,5 @@ signing {
 }
 
 tasks.withType(Sign) {
-    onlyIf { !project.hasProperty("LD_SKIP_SIGNING") } // so we can build jars for testing in CI
+    onlyIf { !"1".equals(project.findProperty("LD_SKIP_SIGNING")) } // so we can build jars for testing in CI
 }
