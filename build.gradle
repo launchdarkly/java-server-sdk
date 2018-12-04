@@ -304,3 +304,7 @@ publishing {
 signing {
     sign publishing.publications.shadow
 }
+
+tasks.withType(Sign) {
+    onlyIf { !"1".equals(project.findProperty("LD_SKIP_SIGNING")) } // so we can build jars for testing in CI
+}
