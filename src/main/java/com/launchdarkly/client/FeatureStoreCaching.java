@@ -36,7 +36,11 @@ public final class FeatureStoreCaching {
    * The caching parameters that feature store should use by default. Caching is enabled, with a
    * TTL of {@link #DEFAULT_TIME_SECONDS} and the {@link StaleValuesPolicy#EVICT} policy. 
    */
-  public static final FeatureStoreCaching DEFAULT = enabled();
+  public static final FeatureStoreCaching DEFAULT =
+      new FeatureStoreCaching(DEFAULT_TIME_SECONDS, TimeUnit.SECONDS, StaleValuesPolicy.EVICT);
+  
+  private static final FeatureStoreCaching DISABLED =
+      new FeatureStoreCaching(0, TimeUnit.MILLISECONDS, StaleValuesPolicy.EVICT);
   
   private final long cacheTime;
   private final TimeUnit cacheTimeUnit;
@@ -93,7 +97,7 @@ public final class FeatureStoreCaching {
    * @return a {@link FeatureStoreCaching} instance
    */
   public static FeatureStoreCaching disabled() {
-    return new FeatureStoreCaching(0, TimeUnit.MILLISECONDS, StaleValuesPolicy.EVICT);
+    return DISABLED;
   }
   
   /**
@@ -103,7 +107,7 @@ public final class FeatureStoreCaching {
    * @return a {@link FeatureStoreCaching} instance
    */
   public static FeatureStoreCaching enabled() {
-    return new FeatureStoreCaching(DEFAULT_TIME_SECONDS, TimeUnit.SECONDS, StaleValuesPolicy.EVICT);
+    return DEFAULT;
   }
 
   private FeatureStoreCaching(long cacheTime, TimeUnit cacheTimeUnit, StaleValuesPolicy staleValuesPolicy) {
