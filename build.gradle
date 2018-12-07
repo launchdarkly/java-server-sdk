@@ -28,6 +28,10 @@ allprojects {
 ext {
     sdkBasePackage = "com.launchdarkly.client"
     sdkBaseName = "launchdarkly-client"
+
+    // List any packages here that should be included in OSGi imports for the SDK, if they cannot
+    // be discovered by looking in our explicit dependencies.
+    systemPackageImports = [ "javax.net", "javax.net.ssl" ]
 }
 
 ext.libraries = [:]
@@ -71,16 +75,6 @@ dependencies {
     shadow libraries.external
 }
 
-jar {
-    baseName = sdkBaseName
-    // thin classifier means that the non-shaded non-fat jar is still available
-    // but is opt-in since users will have to specify it.
-    classifier = 'thin'
-    manifest {
-        attributes("Implementation-Version": version)
-    }
-}
-
 task wrapper(type: Wrapper) {
     gradleVersion = '4.10.2'
 }
@@ -95,6 +89,67 @@ buildscript {
         classpath 'org.ajoberstar:gradle-git:1.5.0-rc.1'
         classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
         classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.8.0"
+        classpath "org.eclipse.virgo.util:org.eclipse.virgo.util.osgi.manifest:3.5.0.RELEASE"
+        classpath "org.osgi:osgi_R4_core:1.0"
+    }
+}
+
+jar {
+    baseName = sdkBaseName
+    // thin classifier means that the non-shaded non-fat jar is still available
+    // but is opt-in since users will have to specify it.
+    classifier = 'thin'
+
+    // doFirst causes the following step to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because it accesses the build products
+    doFirst {
+        // In OSGi, the "thin" jar has to import all of its dependencies.
+        addOsgiManifest(project.tasks.jar, [ configurations.runtime ], [])
+    }
+}
+
+// This builds the default uberjar that contains all of our dependencies except Gson and
+// SLF4j, in shaded form. The user is expected to provide Gson and SLF4j.
+shadowJar {
+    baseName = sdkBaseName
+    
+    // No classifier means that the shaded jar becomes the default artifact
+    classifier = ''
+
+    dependencies {
+        exclude(dependency('org.slf4j:.*:.*'))
+        exclude(dependency('com.google.code.gson:.*:.*'))
+    }
+
+    // doFirst causes the following steps to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because they access the build products
+    doFirst {
+        shadeDependencies(project.tasks.shadowJar)
+        // Note that "configurations.shadow" is the same as "libraries.external", except it contains
+        // objects with detailed information about the resolved dependencies.
+        addOsgiManifest(project.tasks.shadowJar, [ project.configurations.shadow ], [])
+    }
+}
+
+// This builds the "-all"/"fat" jar, which is the same as the default uberjar except that
+// Gson and SLF4j are bundled and exposed (unshaded).
+task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    baseName = sdkBaseName
+    classifier = 'all'
+    group = "shadow"
+    description = "Builds a Shaded fat jar including SLF4J"
+    from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
+    configurations = [project.configurations.runtime]
+    exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+
+    // doFirst causes the following steps to be run during Gradle's execution phase rather than the
+    // configuration phase; this is necessary because they access the build products
+    doFirst {
+        shadeDependencies(project.tasks.shadowJarAll)
+        // The "all" jar exposes its bundled Gson and SLF4j dependencies as exports - but, like the
+        // default jar, it *also* imports them ("self-wiring"), which allows the bundle to use a
+        // higher version if one is provided by another bundle.
+        addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.shadow ], [ project.configurations.shadow ])
     }
 }
 
@@ -174,46 +229,74 @@ def shadeDependencies(jarTask) {
     }
 }
 
-// We can't actually call shadeDependencies from within the configuration section of shadowJar
-// or shadowJarAll, because Groovy executes all the configuration sections before executing
-// any tasks, meaning we wouldn't have any build products yet to inspect. So we'll do that
-// configuration step at the last minute after the compile task has executed.
-compileJava.doLast {
-    shadeDependencies(project.tasks.shadowJar)
-    shadeDependencies(project.tasks.shadowJarAll)
+def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configuration> exportConfigs) {
+    jarTask.manifest {
+        attributes(
+            "Implementation-Version": version,
+            "Bundle-SymbolicName": "com.launchdarkly.client",
+            "Bundle-Version": version,
+            "Bundle-Name": "LaunchDarkly SDK",
+            "Bundle-ManifestVersion": "2",
+            "Bundle-Vendor": "LaunchDarkly"
+        )
+
+        // Since we're not currently able to use bnd or the Gradle OSGi plugin, we're not discovering
+        // imports by looking at the actual code; instead, we're just importing whatever packages each
+        // dependency is exporting (if it has an OSGi manifest) or every package in the dependency (if
+        // it doesn't).
+        def imports = forEachArtifactAndVisiblePackage(importConfigs, { a, p ->
+            bundleImport(p, a.moduleVersion.id.version, nextMajorVersion(a.moduleVersion.id.version))
+        }) + systemPackageImports
+        attributes("Import-Package": imports.join(","))
+
+        // Similarly, we're adding package exports for every package in whatever libraries we're
+        // making publicly available.
+        def sdkExports = getAllSdkPackages().collect { bundleExport(it, version) }
+        def exportedDependencies = forEachArtifactAndVisiblePackage(exportConfigs, { a, p ->
+            bundleExport(p, a.moduleVersion.id.version)
+        })
+        attributes("Export-Package": (sdkExports + exportedDependencies).join(","))
+    }
 }
 
-shadowJar {
-    baseName = sdkBaseName
-    
-    // No classifier means that the shaded jar becomes the default artifact
-    classifier = ''
-
-    // Don't include slf4j or gson. This is the only difference between this artifact
-    // and shadowJarAll, which does include (but doesn't shade) slf4j and gson.
-    dependencies{
-        exclude(dependency('org.slf4j:.*:.*'))
-        exclude(dependency('com.google.code.gson:.*:.*'))
-    }
-
-    manifest {
-        attributes("Implementation-Version": version)
-    }
+def bundleImport(packageName, importVersion, versionLimit) {
+    packageName + ";version=\"[" + importVersion + "," + versionLimit + ")\""
 }
 
-// This builds the "-all"/"fat" jar which also includes the external dependencies - SLF4J,
-// Gson, and javax.annotations - in unshaded form, as well as all the internal shaded classes.
-task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    baseName = sdkBaseName
-    classifier = 'all'
-    group = "shadow"
-    description = "Builds a Shaded fat jar including SLF4J"
-    from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
-    configurations = [project.configurations.runtime]
-    exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+def bundleExport(packageName, exportVersion) {
+    packageName + ";version=\"" + exportVersion + "\""
+}
 
-    manifest {
-        attributes("Implementation-Version": version)
+def nextMajorVersion(v) {
+    def majorComponent = v.contains('.') ? v.substring(0, v.indexOf('.')) : v;
+    String.valueOf(Integer.parseInt(majorComponent) + 1)
+}
+
+def forEachArtifactAndVisiblePackage(configs, closure) {
+    configs.collectMany { it.resolvedConfiguration.resolvedArtifacts }
+        .collectMany { a ->
+            def exportedPackages = getOsgiPackageExportsFromJar(a.file)
+            if (exportedPackages == null) {
+                // This dependency didn't specify OSGi exports, so we'll just have to assume that
+                // we might need to use any package that's in this jar (with a little special-casing
+                // to exclude things we probably should not be importing).
+                exportedPackages = getPackagesInDependencyJar(a.file)
+                    .findAll { !it.contains(".internal") }
+            }
+            exportedPackages.collect { p -> closure(a, p) }
+        }
+}
+
+def getOsgiPackageExportsFromJar(file) {
+    return new java.util.jar.JarFile(file).withCloseable { jar ->
+        def manifest = jar.manifest
+        if (manifest == null) {
+            return null
+        }
+        def dict = new java.util.Hashtable() // sadly, the manifest parser requires a Dictionary
+        manifest.mainAttributes.each { k, v -> dict.put(k.toString(), v.toString()) }
+        return org.eclipse.virgo.util.osgi.manifest.BundleManifestFactory.createBundleManifest(dict)
+            .exportPackage.exportedPackages.collect { it.packageName }
     }
 }
 
@@ -307,4 +390,11 @@ signing {
 
 tasks.withType(Sign) {
     onlyIf { !"1".equals(project.findProperty("LD_SKIP_SIGNING")) } // so we can build jars for testing in CI
+}
+
+// This task is used by the logic in ./packaging-test to get copies of all the direct and transitive
+// dependencies of the SDK, so they can be put on the classpath as needed during tests.
+task exportDependencies(type: Copy, dependsOn: compileJava) {
+    into "packaging-test/temp/dependencies-all"
+    from configurations.runtime.resolvedConfiguration.resolvedArtifacts.collect { it.file }
 }
