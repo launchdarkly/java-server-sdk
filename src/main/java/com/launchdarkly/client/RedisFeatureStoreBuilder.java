@@ -50,9 +50,9 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   int connectTimeout = Protocol.DEFAULT_TIMEOUT;
   int socketTimeout = Protocol.DEFAULT_TIMEOUT;
   FeatureStoreCaching caching = FeatureStoreCaching.DEFAULT;
-  JedisPoolConfig poolConfig = null;
-  boolean refreshStaleValues = false;
+  boolean refreshStaleValues = false; // this and asyncRefresh are redundant with FeatureStoreCaching, but are used by deprecated setters
   boolean asyncRefresh = false;
+  JedisPoolConfig poolConfig = null;
 
   // These constructors are called only from Implementations
   RedisFeatureStoreBuilder() {
