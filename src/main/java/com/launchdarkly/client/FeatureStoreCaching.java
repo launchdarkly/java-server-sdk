@@ -51,7 +51,7 @@ public final class FeatureStoreCaching {
      * attempt to read that item causes a synchronous read from the underlying data store; if that
      * fails, no value is available. This is the default behavior.
      * 
-     * @see {@link CacheBuilder#expireAfterWrite(long, TimeUnit)}
+     * @see CacheBuilder#expireAfterWrite(long, TimeUnit)
      */
     EVICT,
     /**
@@ -123,7 +123,7 @@ public final class FeatureStoreCaching {
   /**
    * Returns the cache TTL. Caching is enabled if this is greater than zero.
    * @return the cache TTL in whatever units were specified
-   * @see {@link #getCacheTimeUnit()}
+   * @see #getCacheTimeUnit()
    */
   public long getCacheTime() {
     return cacheTime;
@@ -169,7 +169,7 @@ public final class FeatureStoreCaching {
   /**
    * Shortcut for calling {@link #ttl(long, TimeUnit)} with {@link TimeUnit#MILLISECONDS}.
    * 
-   * @param seconds the cache TTL in milliseconds
+   * @param millis the cache TTL in milliseconds
    * @return an updated parameters object
    */
   public FeatureStoreCaching ttlMillis(long millis) {

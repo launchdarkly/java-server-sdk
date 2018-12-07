@@ -168,7 +168,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @param timeUnit the time unit for the time value
    * @return the builder
    * 
-   * @deprecated use {@link #caching(FeatureStoreCaching)} and {@link FeatureStoreCaching#enabled(long, TimeUnit)}.
+   * @deprecated use {@link #caching(FeatureStoreCaching)} and {@link FeatureStoreCaching#ttl(long, TimeUnit)}.
    */
   public RedisFeatureStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
     this.caching = this.caching.ttl(cacheTime, timeUnit)
