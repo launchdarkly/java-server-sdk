@@ -3,7 +3,6 @@ package com.launchdarkly.client;
 import com.launchdarkly.client.RedisFeatureStore.UpdateListener;
 
 import java.net.URI;
-import java.util.concurrent.TimeUnit;
 
 import redis.clients.jedis.Jedis;
 
@@ -18,13 +17,13 @@ public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFea
   @Override
   protected RedisFeatureStore makeStore() {
     RedisFeatureStoreBuilder builder = new RedisFeatureStoreBuilder(REDIS_URI);
-    builder.cacheTime(cached ? 30 : 0, TimeUnit.SECONDS);
+    builder.caching(cached ? FeatureStoreCaching.enabled().ttlSeconds(30) : FeatureStoreCaching.disabled());
     return builder.build();
   }
   
   @Override
   protected RedisFeatureStore makeStoreWithPrefix(String prefix) {
-    return new RedisFeatureStoreBuilder(REDIS_URI).cacheTime(0, TimeUnit.SECONDS).prefix(prefix).build();
+    return new RedisFeatureStoreBuilder(REDIS_URI).caching(FeatureStoreCaching.disabled()).prefix(prefix).build();
   }
   
   @Override

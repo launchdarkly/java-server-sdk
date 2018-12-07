@@ -9,6 +9,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.client.FeatureStore;
+import com.launchdarkly.client.FeatureStoreCaching;
 import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
 
@@ -18,14 +19,14 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * CachingStoreWrapper is a partial implementation of {@link FeatureStore} that delegates the basic
  * functionality to an instance of {@link FeatureStoreCore}. It provides optional caching behavior and
- * other logic that would otherwise be repeated in every feature store implementation.
- * 
+ * other logic that would otherwise be repeated in every feature store implementation. This makes it
+ * easier to create new database integrations by implementing only the database-specific logic. 
+ * <p>
  * Construct instances of this class with {@link CachingStoreWrapper.Builder}.
  * 
  * @since 4.6.0
@@ -40,10 +41,10 @@ public class CachingStoreWrapper implements FeatureStore {
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final ListeningExecutorService executorService;
   
-  protected CachingStoreWrapper(final FeatureStoreCore core, long cacheTime, TimeUnit cacheTimeUnit, boolean refreshStaleValues, boolean asyncRefresh) {
+  protected CachingStoreWrapper(final FeatureStoreCore core, FeatureStoreCaching caching) {
     this.core = core;
     
-    if (cacheTime <= 0) {
+    if (!caching.isEnabled()) {
       itemCache = null;
       allCache = null;
       initCache = null;
@@ -68,7 +69,17 @@ public class CachingStoreWrapper implements FeatureStore {
         }
       };
       
-      if (refreshStaleValues) {
+      switch (caching.getStaleValuesPolicy()) {
+      case EVICT:
+        // We are using an "expire after write" cache. This will evict stale values and block while loading the latest
+        // from the underlying data store.
+
+        itemCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(itemLoader);
+        allCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(allLoader);
+        executorService = null;
+        break;
+        
+      default:
         // We are using a "refresh after write" cache. This will not automatically evict stale values, allowing them
         // to be returned if failures occur when updating them. Optionally set the cache to refresh values asynchronously,
         // which always returns the previously cached value immediately (this is only done for itemCache, not allCache,
@@ -78,21 +89,14 @@ public class CachingStoreWrapper implements FeatureStore {
         ExecutorService parentExecutor = Executors.newSingleThreadExecutor(threadFactory);
         executorService = MoreExecutors.listeningDecorator(parentExecutor);
 
-        if (asyncRefresh) {
+        if (caching.getStaleValuesPolicy() == FeatureStoreCaching.StaleValuesPolicy.REFRESH_ASYNC) {
           itemLoader = CacheLoader.asyncReloading(itemLoader, executorService);
         }
-        itemCache = CacheBuilder.newBuilder().refreshAfterWrite(cacheTime, cacheTimeUnit).build(itemLoader);
-        allCache = CacheBuilder.newBuilder().refreshAfterWrite(cacheTime, cacheTimeUnit).build(allLoader);
-      } else {
-        // We are using an "expire after write" cache. This will evict stale values and block while loading the latest
-        // from Redis.
-
-        itemCache = CacheBuilder.newBuilder().expireAfterWrite(cacheTime, cacheTimeUnit).build(itemLoader);
-        allCache = CacheBuilder.newBuilder().expireAfterWrite(cacheTime, cacheTimeUnit).build(allLoader);
-        executorService = null;
+        itemCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(itemLoader);
+        allCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(allLoader);        
       }
 
-      initCache = CacheBuilder.newBuilder().expireAfterWrite(cacheTime, cacheTimeUnit).build(initLoader);
+      initCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(initLoader);
     }
   }
   
@@ -250,53 +254,32 @@ public class CachingStoreWrapper implements FeatureStore {
    */
   public static class Builder {
     private final FeatureStoreCore core;
-    private long cacheTime;
-    private TimeUnit cacheTimeUnit;
-    private boolean refreshStaleValues;
-    private boolean asyncRefresh;
+    private FeatureStoreCaching caching = FeatureStoreCaching.DEFAULT;
     
+    /**
+     * Creates a new builder.
+     * @param core the {@link FeatureStoreCore} instance
+     */
     public Builder(FeatureStoreCore core) {
       this.core = core;
     }
-    
+
     /**
-     * Specifies the cache TTL. If {@code cacheTime} is zero or negative, there will be no local caching.
-     * Caching is off by default.
-     * @param cacheTime the cache TTL, in whatever unit is specified by {@code cacheTimeUnit}
-     * @param cacheTimeUnit the time unit
-     * @return the same builder
+     * Sets the local caching properties.
+     * @param caching a {@link FeatureStoreCaching} object specifying cache parameters
+     * @return the builder
      */
-    public Builder cacheTime(long cacheTime, TimeUnit cacheTimeUnit) {
-      this.cacheTime = cacheTime;
-      this.cacheTimeUnit = cacheTimeUnit;
+    public Builder caching(FeatureStoreCaching caching) {
+      this.caching = caching;
       return this;
     }
     
     /**
-     * Specifies whether the cache (if any) should attempt to refresh stale values instead of evicting them.
-     * In this mode, if the refresh fails, the last good value will still be available from the cache.
-     * @param refreshStaleValues true if values should be lazily refreshed
-     * @return the same builder
+     * Creates and configures the wrapper object.
+     * @return a {@link CachingStoreWrapper} instance
      */
-    public Builder refreshStaleValues(boolean refreshStaleValues) {
-      this.refreshStaleValues = refreshStaleValues;
-      return this;
-    }
-    
-    /**
-     * Specifies whether cache refreshing should be asynchronous (assuming {@code refreshStaleValues} is true).
-     * In this mode, if a cached value has expired, retrieving it will still get the old value but will
-     * trigger an attempt to refresh on another thread, rather than blocking until a new value is available.
-     * @param asyncRefresh true if values should be asynchronously refreshed
-     * @return the same builder
-     */
-    public Builder asyncRefresh(boolean asyncRefresh) {
-      this.asyncRefresh = asyncRefresh;
-      return this;
-    }
-    
     public CachingStoreWrapper build() {
-      return new CachingStoreWrapper(core, cacheTime, cacheTimeUnit, refreshStaleValues, asyncRefresh);
+      return new CachingStoreWrapper(core, caching);
     }
   }
 }

@@ -1,6 +1,7 @@
 package com.launchdarkly.client.utils;
 
 import com.google.common.collect.ImmutableMap;
+import com.launchdarkly.client.FeatureStoreCaching;
 import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
 
@@ -13,7 +14,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -36,7 +36,8 @@ public class CachingStoreWrapperTest {
   public CachingStoreWrapperTest(boolean cached) {
     this.cached = cached;
     this.core = new MockCore();
-    this.wrapper = new CachingStoreWrapper(core, cached ? 30 : 0, TimeUnit.SECONDS, false, false);
+    this.wrapper = new CachingStoreWrapper(core, cached ? FeatureStoreCaching.enabled().ttlSeconds(30) :
+      FeatureStoreCaching.disabled());
   }
   
   @Test
@@ -255,7 +256,7 @@ public class CachingStoreWrapperTest {
     assumeThat(cached, is(true));
     
     // We need to create a different object for this test so we can set a short cache TTL
-    try (CachingStoreWrapper wrapper1 = new CachingStoreWrapper(core, 500, TimeUnit.MILLISECONDS, false, false)) {
+    try (CachingStoreWrapper wrapper1 = new CachingStoreWrapper(core, FeatureStoreCaching.enabled().ttlMillis(500))) {
       assertThat(wrapper1.initialized(), is(false));
       assertThat(core.initedQueryCount, equalTo(1));
       

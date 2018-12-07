@@ -17,12 +17,9 @@ public class RedisFeatureStoreBuilderTest {
   public void testDefaultValues() {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder();
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_URI, conf.uri);
-    assertEquals(RedisFeatureStoreBuilder.DEFAULT_CACHE_TIME_SECONDS, conf.cacheTime);
-    assertEquals(TimeUnit.SECONDS, conf.cacheTimeUnit);
+    assertEquals(FeatureStoreCaching.DEFAULT, conf.caching);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
-    assertEquals(false, conf.refreshStaleValues);
-    assertEquals(false, conf.asyncRefresh);
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_PREFIX, conf.prefix);
     assertNull(conf.poolConfig);
   }
@@ -32,12 +29,9 @@ public class RedisFeatureStoreBuilderTest {
     URI uri = URI.create("redis://host:1234");
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder(uri);
     assertEquals(uri, conf.uri);
-    assertEquals(RedisFeatureStoreBuilder.DEFAULT_CACHE_TIME_SECONDS, conf.cacheTime);
-    assertEquals(TimeUnit.SECONDS, conf.cacheTimeUnit);
+    assertEquals(FeatureStoreCaching.DEFAULT, conf.caching);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
-    assertEquals(false, conf.refreshStaleValues);
-    assertEquals(false, conf.asyncRefresh);
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_PREFIX, conf.prefix);
     assertNull(conf.poolConfig);
   }
@@ -47,26 +41,34 @@ public class RedisFeatureStoreBuilderTest {
   public void testDeprecatedUriBuildingConstructor() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder("badscheme", "example", 1234, 100);
     assertEquals(URI.create("badscheme://example:1234"), conf.uri);
-    assertEquals(100, conf.cacheTime);
-    assertEquals(TimeUnit.SECONDS, conf.cacheTimeUnit);
+    assertEquals(100, conf.caching.getCacheTime());
+    assertEquals(TimeUnit.SECONDS, conf.caching.getCacheTimeUnit());
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
-    assertEquals(false, conf.refreshStaleValues);
-    assertEquals(false, conf.asyncRefresh);
+    assertEquals(FeatureStoreCaching.StaleValuesPolicy.EVICT, conf.caching.getStaleValuesPolicy());
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_PREFIX, conf.prefix);
     assertNull(conf.poolConfig);
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void testRefreshStaleValues() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder().refreshStaleValues(true);
-    assertEquals(true, conf.refreshStaleValues);
+    assertEquals(FeatureStoreCaching.StaleValuesPolicy.REFRESH, conf.caching.getStaleValuesPolicy());
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void testAsyncRefresh() throws URISyntaxException {
+    RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder().refreshStaleValues(true).asyncRefresh(true);
+    assertEquals(FeatureStoreCaching.StaleValuesPolicy.REFRESH_ASYNC, conf.caching.getStaleValuesPolicy());
+  }
+
+  @SuppressWarnings("deprecation")
+  @Test
+  public void testRefreshStaleValuesWithoutAsyncRefresh() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder().asyncRefresh(true);
-    assertEquals(true, conf.asyncRefresh);
+    assertEquals(FeatureStoreCaching.StaleValuesPolicy.EVICT, conf.caching.getStaleValuesPolicy());
   }
 
   @Test
@@ -87,11 +89,12 @@ public class RedisFeatureStoreBuilderTest {
     assertEquals(1000, conf.socketTimeout);
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void testCacheTimeWithUnit() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder().cacheTime(2000, TimeUnit.MILLISECONDS);
-    assertEquals(2000, conf.cacheTime);
-    assertEquals(TimeUnit.MILLISECONDS, conf.cacheTimeUnit);
+    assertEquals(2000, conf.caching.getCacheTime());
+    assertEquals(TimeUnit.MILLISECONDS, conf.caching.getCacheTimeUnit());
   }
 
   @Test
