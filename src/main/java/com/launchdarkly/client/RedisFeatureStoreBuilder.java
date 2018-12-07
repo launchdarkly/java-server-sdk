@@ -40,19 +40,19 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   
   /**
    * The default value for {@link #cacheTime(long, TimeUnit)} (in seconds).
+   * @deprecated Use {@link FeatureStoreCaching#DEFAULT}.
    * @since 4.0.0
    */
-  public static final long DEFAULT_CACHE_TIME_SECONDS = 15;
+  public static final long DEFAULT_CACHE_TIME_SECONDS = FeatureStoreCaching.DEFAULT_TIME_SECONDS;
   
   final URI uri;
-  boolean refreshStaleValues = false;
-  boolean asyncRefresh = false;
   String prefix = DEFAULT_PREFIX;
   int connectTimeout = Protocol.DEFAULT_TIMEOUT;
   int socketTimeout = Protocol.DEFAULT_TIMEOUT;
-  long cacheTime = DEFAULT_CACHE_TIME_SECONDS;
-  TimeUnit cacheTimeUnit = TimeUnit.SECONDS;
+  FeatureStoreCaching caching = FeatureStoreCaching.DEFAULT;
   JedisPoolConfig poolConfig = null;
+  boolean refreshStaleValues = false;
+  boolean asyncRefresh = false;
 
   // These constructors are called only from Implementations
   RedisFeatureStoreBuilder() {
@@ -89,55 +89,66 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
     this.uri = new URI(scheme, null, host, port, null, null, null);
     this.cacheTime(cacheTimeSecs, TimeUnit.SECONDS);
   }
-    
+  
   /**
-   * Optionally set the {@link RedisFeatureStore} local cache to refresh stale values instead of evicting them (the default behaviour).
-   *
-   * When enabled; the cache refreshes stale values instead of completely evicting them. This mode returns the previously cached, stale values if
-   * anything goes wrong during the refresh phase (for example a connection timeout). If there was no previously cached value then the store will
-   * return null (resulting in the default value being returned). This is useful if you prefer the most recently cached feature rule set to be returned
-   * for evaluation over the default value when updates go wrong.
-   *
-   * When disabled; results in a behaviour which evicts stale values from the local cache and retrieves the latest value from Redis. If the updated value
-   * can not be returned for whatever reason then a null is returned (resulting in the default value being returned).
-   *
-   * This property has no effect if the cache time is set to 0. See {@link RedisFeatureStoreBuilder#cacheTime(long, TimeUnit)} for details.
-   *
-   * See: <a href="https://github.com/google/guava/wiki/CachesExplained#refresh">CacheBuilder</a> for more specific information on cache semantics.
-   *
-   * @param enabled turns on lazy refresh of cached values.
+   * Specifies whether local caching should be enabled and if so, sets the cache properties. Local
+   * caching is enabled by default; see {@link FeatureStoreCaching#DEFAULT}. To disable it, pass
+   * {@link FeatureStoreCaching#disabled()} to this method.
+   * 
+   * @param caching a {@link FeatureStoreCaching} object specifying caching parameters
    * @return the builder
+   * 
+   * @since 4.6.0
+   */
+  public RedisFeatureStoreBuilder caching(FeatureStoreCaching caching) {
+    this.caching = caching;
+    return this;
+  }
+  
+  /**
+   * Deprecated method for setting the cache expiration policy to {@link FeatureStoreCaching.StaleValuesPolicy#REFRESH}
+   * or {@link FeatureStoreCaching.StaleValuesPolicy#REFRESH_ASYNC}.
+   *
+   * @param enabled turns on lazy refresh of cached values
+   * @return the builder
+   * 
+   * @deprecated Use {@link #caching(FeatureStoreCaching)} and
+   * {@link FeatureStoreCaching#staleValuesPolicy(com.launchdarkly.client.FeatureStoreCaching.StaleValuesPolicy)}.
    */
   public RedisFeatureStoreBuilder refreshStaleValues(boolean enabled) {
     this.refreshStaleValues = enabled;
+    updateCachingStaleValuesPolicy();
     return this;
   }
 
   /**
-   * Optionally make cache refresh mode asynchronous. This setting only works if {@link RedisFeatureStoreBuilder#refreshStaleValues(boolean)} has been enabled
-   * and has no effect otherwise.
+   * Deprecated method for setting the cache expiration policy to {@link FeatureStoreCaching.StaleValuesPolicy#REFRESH_ASYNC}.
    *
-   * Upon hitting a stale value in the local cache; the refresh of the value will be asynchronous which will return the previously cached value in a
-   * non-blocking fashion to threads requesting the stale key. This internally will utilize a {@link java.util.concurrent.Executor} to asynchronously
-   * refresh the stale value upon the first read request for the stale value in the cache.
-   *
-   * If there was no previously cached value then the feature store returns null (resulting in the default value being returned). Any exception
-   * encountered during the asynchronous reload will simply keep the previously cached value instead.
-   *
-   * This setting is ideal to enable when you desire high performance reads and can accept returning stale values for the period of the async refresh. For
-   * example configuring this feature store with a very low cache time and enabling this feature would see great performance benefit by decoupling calls
-   * from network I/O.
-   *
-   * This property has no effect if the cache time is set to 0. See {@link RedisFeatureStoreBuilder#cacheTime(long, TimeUnit)} for details.
-   *
-   * @param enabled turns on asychronous refreshes on.
+   * @param enabled turns on asynchronous refresh of cached values (only if {@link #refreshStaleValues(boolean)}
+   * is also true)
    * @return the builder
+   * 
+   * @deprecated Use {@link #caching(FeatureStoreCaching)} and
+   * {@link FeatureStoreCaching#staleValuesPolicy(com.launchdarkly.client.FeatureStoreCaching.StaleValuesPolicy)}.
    */
   public RedisFeatureStoreBuilder asyncRefresh(boolean enabled) {
     this.asyncRefresh = enabled;
+    updateCachingStaleValuesPolicy();
     return this;
   }
 
+  private void updateCachingStaleValuesPolicy() {
+    // We need this logic in order to support the existing behavior of the deprecated methods above:
+    // asyncRefresh is supposed to have no effect unless refreshStaleValues is true
+    if (this.refreshStaleValues) {
+      this.caching = this.caching.staleValuesPolicy(this.asyncRefresh ?
+          FeatureStoreCaching.StaleValuesPolicy.REFRESH_ASYNC :
+          FeatureStoreCaching.StaleValuesPolicy.REFRESH);
+    } else {
+      this.caching = this.caching.staleValuesPolicy(FeatureStoreCaching.StaleValuesPolicy.EVICT);
+    }
+  }
+  
   /**
    * Optionally configures the namespace prefix for all keys stored in Redis.
    *
@@ -150,20 +161,18 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   }
 
   /**
-   * A mandatory field which configures the amount of time the store should internally cache the value before being marked invalid.
+   * Deprecated method for enabling local caching and setting the cache TTL. Local caching is enabled
+   * by default; see {@link FeatureStoreCaching#DEFAULT}.
    *
-   * The eviction strategy of stale values is determined by the configuration picked. See {@link RedisFeatureStoreBuilder#refreshStaleValues(boolean)} for
-   * more information on stale value updating strategies.
-   *
-   * If this value is set to 0 then it effectively disables local caching altogether.
-   *
-   * @param cacheTime the time value to cache for
+   * @param cacheTime the time value to cache for, or 0 to disable local caching
    * @param timeUnit the time unit for the time value
    * @return the builder
+   * 
+   * @deprecated use {@link #caching(FeatureStoreCaching)} and {@link FeatureStoreCaching#enabled(long, TimeUnit)}.
    */
   public RedisFeatureStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
-    this.cacheTime = cacheTime;
-    this.cacheTimeUnit = timeUnit;
+    this.caching = this.caching.ttl(cacheTime, timeUnit)
+        .staleValuesPolicy(this.caching.getStaleValuesPolicy());
     return this;
   }
 

@@ -93,10 +93,7 @@ public class RedisFeatureStore implements FeatureStore {
         builder.prefix;
     
     this.core = new Core(pool, prefix);
-    this.wrapper = new CachingStoreWrapper.Builder(this.core)
-        .cacheTime(builder.cacheTime, builder.cacheTimeUnit)
-        .refreshStaleValues(builder.refreshStaleValues)
-        .asyncRefresh(builder.asyncRefresh)
+    this.wrapper = new CachingStoreWrapper.Builder(this.core).caching(builder.caching)
         .build();
   }
 
