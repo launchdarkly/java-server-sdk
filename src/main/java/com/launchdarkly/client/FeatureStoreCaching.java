@@ -10,13 +10,15 @@ import java.util.concurrent.TimeUnit;
  * Parameters that can be used for {@link FeatureStore} implementations that support local caching.
  * <p>
  * This is an immutable class that uses a fluent interface. Obtain an instance by calling the static
- * methods {@link #disabled()} or {@link #enabled(long, TimeUnit)}; then, if it is enabled, you can
- * use chained methods to set other properties:
+ * methods {@link #disabled()} or {@link #enabled()}; then, if desired, you can use chained methods
+ * to set other properties:
  * 
  * <pre>
  *     new RedisFeatureStoreBuilder()
  *         .caching(
- *             FeatureStoreCaching.enabled().staleValuesPolicy(FeatureStoreCaching.StaleValuesPolicy.REFRESH)
+ *             FeatureStoreCaching.enabled()
+ *                 .ttlSeconds(30)
+ *                 .staleValuesPolicy(FeatureStoreCaching.StaleValuesPolicy.REFRESH)
  *         )
  * </pre>
  * 
