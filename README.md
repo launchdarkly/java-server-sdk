@@ -74,9 +74,9 @@ For testing purposes, the SDK can be made to read feature flag state from a file
 DNS caching issues
 ------------------
 
-LaunchDarkly servers operate in a load-balancing framework which may cause their IP addresses to change. This could result in the SDK failing to connect to LaunchDarkly if an old IP address is still in your system's DNS cache. 
+LaunchDarkly servers operate in a load-balancing framework which may cause their IP addresses to change. This could result in the SDK failing to connect to LaunchDarkly if an old IP address is still in your system's DNS cache.
 
-Depending on your runtime environment, IP addresses may expire from the cache after a reasonably short period of time; or, if there is a [security manager](https://docs.oracle.com/javase/tutorial/essential/environment/security.html), they may _never_ expire. In the latter case, we recommend that you set the security property `networkaddress.cache.ttl`, as described [here](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/java-dg-jvm-ttl.html), to a number of seconds such as 30 or 60. A lower value will reduce the chance of intermittent failures, but will slightly reduce networking performance.
+Unlike some other languages, in Java the DNS caching behavior is controlled by the Java virtual machine rather than the operating system. The default behavior varies depending on whether there is a [security manager](https://docs.oracle.com/javase/tutorial/essential/environment/security.html): if there is, IP addresses will _never_ expire. In that case, we recommend that you set the security property `networkaddress.cache.ttl`, as described [here](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/java-dg-jvm-ttl.html), to a number of seconds such as 30 or 60 (a lower value will reduce the chance of intermittent failures, but will slightly reduce networking performance).
 
 Learn more
 ----------
