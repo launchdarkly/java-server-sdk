@@ -15,8 +15,8 @@ Distributions
 
 Three variants of the SDK jar are published to Maven:
 
-* The default uberjar - the dependency that is shown below under "Quick setup". This contains the SDK classes, and all of the SDK's dependencies except for Gson and SLF4j, which must be provided by the host application. The bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
-* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that Gson and SLF4j are also bundled, without shading (and are exported in OSGi).
+* The default uberjar - the dependency that is shown below under "Quick setup". This contains the SDK classes, and all of the SDK's dependencies except for Gson and SLF4J, which must be provided by the host application. The bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
+* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that Gson and SLF4J are also bundled, without shading (and are exported in OSGi).
 * The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains _only_ the SDK classes.
 
 Quick setup
@@ -70,6 +70,13 @@ Using flag data from a file
 ---------------------------
 
 For testing purposes, the SDK can be made to read feature flag state from a file or files instead of connecting to LaunchDarkly. See <a href="http://javadoc.io/page/com.launchdarkly/launchdarkly-client/latest/com/launchdarkly/client/files/FileComponents.html">FileComponents</a> for more details.
+
+DNS caching issues
+------------------
+
+LaunchDarkly servers operate in a load-balancing framework which may cause their IP addresses to change. This could result in the SDK failing to connect to LaunchDarkly if an old IP address is still in your system's DNS cache. 
+
+Depending on your runtime environment, IP addresses may expire from the cache after a reasonably short period of time; or, if there is a [security manager](https://docs.oracle.com/javase/tutorial/essential/environment/security.html), they may _never_ expire. In the latter case, we recommend that you set the security property `networkaddress.cache.ttl`, as described [here](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/java-dg-jvm-ttl.html), to a number of seconds such as 30 or 60. A lower value will reduce the chance of intermittent failures, but will slightly reduce networking performance.
 
 Learn more
 ----------
