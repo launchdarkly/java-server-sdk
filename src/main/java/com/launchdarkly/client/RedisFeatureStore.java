@@ -117,26 +117,25 @@ public class RedisFeatureStore implements FeatureStore {
       this.prefix = prefix;
     }
     
-    @SuppressWarnings("unchecked")
     @Override
-    public <T extends VersionedData> T getInternal(VersionedDataKind<T> kind, String key) {
+    public VersionedData getInternal(VersionedDataKind<?> kind, String key) {
       try (Jedis jedis = pool.getResource()) {
         VersionedData item = getRedis(kind, key, jedis);
         if (item != null) {
           logger.debug("[get] Key: {} with version: {} found in \"{}\".", key, item.getVersion(), kind.getNamespace());
         }
-        return (T)item;
+        return item;
       }
     }
 
     @Override
-    public <T extends VersionedData> Map<String, T> getAllInternal(VersionedDataKind<T> kind) {
+    public Map<String, VersionedData> getAllInternal(VersionedDataKind<?> kind) {
       try (Jedis jedis = pool.getResource()) {
         Map<String, String> allJson = jedis.hgetAll(itemsKey(kind));
-        Map<String, T> result = new HashMap<>();
+        Map<String, VersionedData> result = new HashMap<>();
 
         for (Map.Entry<String, String> entry : allJson.entrySet()) {
-          T item = unmarshalJson(kind, entry.getValue());
+          VersionedData item = unmarshalJson(kind, entry.getValue());
           result.put(entry.getKey(), item);
         }
         return result;
@@ -144,11 +143,11 @@ public class RedisFeatureStore implements FeatureStore {
     }
     
     @Override
-    public void initInternal(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
+    public void initInternal(Map<VersionedDataKind<?>, Map<String, VersionedData>> allData) {
       try (Jedis jedis = pool.getResource()) {
         Transaction t = jedis.multi();
 
-        for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> entry: allData.entrySet()) {
+        for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> entry: allData.entrySet()) {
           String baseKey = itemsKey(entry.getKey()); 
           t.del(baseKey);
           for (VersionedData item: entry.getValue().values()) {
@@ -161,9 +160,8 @@ public class RedisFeatureStore implements FeatureStore {
       }
     }
     
-    @SuppressWarnings("unchecked")
     @Override
-    public <T extends VersionedData> T upsertInternal(VersionedDataKind<T> kind, T newItem) {
+    public VersionedData upsertInternal(VersionedDataKind<?> kind, VersionedData newItem) {
       while (true) {
         Jedis jedis = null;
         try {
@@ -182,7 +180,7 @@ public class RedisFeatureStore implements FeatureStore {
                 " with a version that is the same or older: {} in \"{}\"",
                 newItem.isDeleted() ? "delete" : "update",
                 newItem.getKey(), oldItem.getVersion(), newItem.getVersion(), kind.getNamespace());
-            return (T)oldItem;
+            return oldItem;
           }
     
           Transaction tx = jedis.multi();

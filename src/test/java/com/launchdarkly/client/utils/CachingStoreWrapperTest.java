@@ -88,7 +88,9 @@ public class CachingStoreWrapperTest {
     Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = makeData(item1, item2);
     wrapper.init(allData);
     
-    assertThat(core.data, equalTo(allData));
+    core.forceRemove(THINGS, item1.key);
+    
+    assertThat(wrapper.get(THINGS, item1.key), equalTo(item1));
   }
   
   @Test
@@ -110,6 +112,18 @@ public class CachingStoreWrapperTest {
       Map<String, MockItem> expected1 = ImmutableMap.<String, MockItem>of(item1.key, item1);
       assertThat(items, equalTo(expected1));
     }
+  }
+
+  @Test
+  public void getAllRemovesDeletedItems() {
+    MockItem item1 = new MockItem("flag1", 1, false);
+    MockItem item2 = new MockItem("flag2", 1, true);
+    
+    core.forceSet(THINGS, item1);
+    core.forceSet(THINGS, item2);
+    Map<String, MockItem> items = wrapper.all(THINGS);
+    Map<String, MockItem> expected = ImmutableMap.<String, MockItem>of(item1.key, item1);
+    assertThat(items, equalTo(expected));
   }
   
   @Test
@@ -285,7 +299,7 @@ public class CachingStoreWrapperTest {
   }
   
   static class MockCore implements FeatureStoreCore {
-    Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data = new HashMap<>();
+    Map<VersionedDataKind<?>, Map<String, VersionedData>> data = new HashMap<>();
     boolean inited;
     int initedQueryCount;
     
@@ -293,38 +307,32 @@ public class CachingStoreWrapperTest {
     public void close() throws IOException {
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public <T extends VersionedData> T getInternal(VersionedDataKind<T> kind, String key) {
+    public VersionedData getInternal(VersionedDataKind<?> kind, String key) {
       if (data.containsKey(kind)) {
-        return (T)data.get(kind).get(key);
+        return data.get(kind).get(key);
       }
       return null;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public <T extends VersionedData> Map<String, T> getAllInternal(VersionedDataKind<T> kind) {
-      return (Map<String, T>)data.get(kind);
+    public Map<String, VersionedData> getAllInternal(VersionedDataKind<?> kind) {
+      return data.get(kind);
     }
 
     @Override
-    public void initInternal(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
-      data = new HashMap<>();
-      for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> e: allData.entrySet()) {
-        data.put(e.getKey(), new HashMap<>(e.getValue()));
-      }
+    public void initInternal(Map<VersionedDataKind<?>, Map<String, VersionedData>> allData) {
+      data = allData;
       inited = true;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public <T extends VersionedData> T upsertInternal(VersionedDataKind<T> kind, T item) {
+    public VersionedData upsertInternal(VersionedDataKind<?> kind, VersionedData item) {
       if (!data.containsKey(kind)) {
         data.put(kind, new HashMap<String, VersionedData>());
       }
-      HashMap<String, VersionedData> items = (HashMap<String, VersionedData>)data.get(kind);
-      T oldItem = (T)items.get(item.getKey());
+      Map<String, VersionedData> items = data.get(kind);
+      VersionedData oldItem = items.get(item.getKey());
       if (oldItem != null && oldItem.getVersion() >= item.getVersion()) {
         return oldItem;
       }
@@ -338,12 +346,11 @@ public class CachingStoreWrapperTest {
       return inited;
     }
     
-    public <T extends VersionedData> void forceSet(VersionedDataKind<?> kind, T item) {
+    public void forceSet(VersionedDataKind<?> kind, VersionedData item) {
       if (!data.containsKey(kind)) {
         data.put(kind, new HashMap<String, VersionedData>());
       }
-      @SuppressWarnings("unchecked")
-      HashMap<String, VersionedData> items = (HashMap<String, VersionedData>)data.get(kind);
+      Map<String, VersionedData> items = data.get(kind);
       items.put(item.getKey(), item);
     }
     

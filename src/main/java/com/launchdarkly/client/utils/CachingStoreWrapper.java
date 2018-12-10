@@ -36,7 +36,7 @@ public class CachingStoreWrapper implements FeatureStore {
 
   private final FeatureStoreCore core;
   private final LoadingCache<CacheKey, Optional<VersionedData>> itemCache;
-  private final LoadingCache<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allCache;
+  private final LoadingCache<VersionedDataKind<?>, Map<String, VersionedData>> allCache;
   private final LoadingCache<String, Boolean> initCache;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final ListeningExecutorService executorService;
@@ -56,9 +56,9 @@ public class CachingStoreWrapper implements FeatureStore {
           return Optional.<VersionedData>fromNullable(core.getInternal(key.kind, key.key));
         }
       };
-      CacheLoader<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allLoader = new CacheLoader<VersionedDataKind<?>, Map<String, ? extends VersionedData>>() {
+      CacheLoader<VersionedDataKind<?>, Map<String, VersionedData>> allLoader = new CacheLoader<VersionedDataKind<?>, Map<String, VersionedData>>() {
         @Override
-        public Map<String, ? extends VersionedData> load(VersionedDataKind<?> kind) throws Exception {
+        public Map<String, VersionedData> load(VersionedDataKind<?> kind) throws Exception {
           return itemsOnlyIfNotDeleted(core.getAllInternal(kind));
         }
       };
@@ -114,11 +114,10 @@ public class CachingStoreWrapper implements FeatureStore {
     if (itemCache != null) {
       Optional<VersionedData> cachedItem = itemCache.getUnchecked(CacheKey.forItem(kind, key));
       if (cachedItem != null) {
-        T item = (T)cachedItem.orNull();
-        return itemOnlyIfNotDeleted(item);
+        return (T)itemOnlyIfNotDeleted(cachedItem.orNull());
       }
     }
-    return itemOnlyIfNotDeleted(core.getInternal(kind, key));
+    return (T)itemOnlyIfNotDeleted(core.getInternal(kind, key));
   }
 
   @SuppressWarnings("unchecked")
@@ -130,21 +129,29 @@ public class CachingStoreWrapper implements FeatureStore {
         return items;
       }
     }
-    return core.getAllInternal(kind);
+    return itemsOnlyIfNotDeleted(core.getAllInternal(kind));
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
-    core.initInternal(allData);
+    Map<VersionedDataKind<?>, Map<String, VersionedData>> params = new HashMap<VersionedDataKind<?>, Map<String, VersionedData>>();
+    for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> e0: allData.entrySet()) {
+      // unfortunately this is necessary because we can't just cast to a map with a different type signature in this case
+      params.put(e0.getKey(), (Map<String, VersionedData>)e0.getValue());
+    }
+    core.initInternal(params);
+    
     inited.set(true);
+    
     if (allCache != null && itemCache != null) {
       allCache.invalidateAll();
       itemCache.invalidateAll();
-      for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> e0: allData.entrySet()) {
+      for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> e0: params.entrySet()) {
         VersionedDataKind<?> kind = e0.getKey();
-        allCache.put(kind, e0.getValue());
-        for (Map.Entry<String, ? extends VersionedData> e1: e0.getValue().entrySet()) {
-          itemCache.put(CacheKey.forItem(kind, e1.getKey()), Optional.of((VersionedData)e1.getValue()));
+        allCache.put(kind, itemsOnlyIfNotDeleted(e0.getValue()));
+        for (Map.Entry<String, VersionedData> e1: e0.getValue().entrySet()) {
+          itemCache.put(CacheKey.forItem(kind, e1.getKey()), Optional.of(e1.getValue()));
         }
       }
     }
@@ -204,16 +211,17 @@ public class CachingStoreWrapper implements FeatureStore {
     return core;
   }
   
-  private <T extends VersionedData> T itemOnlyIfNotDeleted(T item) {
+  private VersionedData itemOnlyIfNotDeleted(VersionedData item) {
     return (item != null && item.isDeleted()) ? null : item;
   }
   
-  private Map<String, ? extends VersionedData> itemsOnlyIfNotDeleted(Map<String, ? extends VersionedData> items) {
-    Map<String, VersionedData> ret = new HashMap<>();
+  @SuppressWarnings("unchecked")
+  private <T extends VersionedData> Map<String, T> itemsOnlyIfNotDeleted(Map<String, ? extends VersionedData> items) {
+    Map<String, T> ret = new HashMap<>();
     if (items != null) {
       for (Map.Entry<String, ? extends VersionedData> item: items.entrySet()) {
         if (!item.getValue().isDeleted()) {
-          ret.put(item.getKey(), item.getValue());
+          ret.put(item.getKey(), (T) item.getValue());
         }
       }
     }
