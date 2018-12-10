@@ -130,6 +130,17 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
   }
   
   @Test
+  public void getAllWithDeletedItem() {
+    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
+    store.delete(FEATURES, feature1.getKey(), feature1.getVersion() + 1);
+    Map<String, FeatureFlag> items = store.all(FEATURES);
+    assertEquals(1, items.size());
+    FeatureFlag item2 = items.get(feature2.getKey());
+    assertNotNull(item2);
+    assertEquals(feature2.getVersion(), item2.getVersion());
+  }
+  
+  @Test
   public void upsertWithNewerVersion() {
     store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
     FeatureFlag newVer = new FeatureFlagBuilder(feature1)
