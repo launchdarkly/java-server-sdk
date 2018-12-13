@@ -28,11 +28,11 @@ Quick setup
         <dependency>
           <groupId>com.launchdarkly</groupId>
           <artifactId>launchdarkly-client</artifactId>
-          <version>4.5.1</version>
+          <version>4.6.0</version>
         </dependency>
 
         // or in Gradle:
-        "com.launchdarkly:launchdarkly-client:4.5.1"
+        "com.launchdarkly:launchdarkly-client:4.6.0"
 
 1. Import the LaunchDarkly package:
 
