@@ -71,7 +71,7 @@ public class LDClientTest extends EasyMockSupport {
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .stream(true)
-        .streamURI(URI.create("/fake"))
+        .streamURI(URI.create("http://fake"))
         .startWaitMillis(0)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -83,7 +83,7 @@ public class LDClientTest extends EasyMockSupport {
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .stream(false)
-        .baseURI(URI.create("/fake"))
+        .baseURI(URI.create("http://fake"))
         .startWaitMillis(0)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
