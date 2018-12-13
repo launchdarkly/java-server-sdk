@@ -1,5 +1,6 @@
 version: 2
 jobs:
+
   build:
     docker:
       - image: circleci/java
@@ -19,6 +20,27 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+      - persist_to_workspace:
+          root: build
+          paths:
+            - classes
+
+  packaging:
+    docker:
+      - image: circleci/java
+    steps:
+      - run: sudo apt-get install make -y -q
+      - checkout
+      - attach_workspace:
+          at: build
+      - run: cat gradle.properties.example >>gradle.properties
+      - run:
+          name: build all SDK jars
+          command: ./gradlew publishToMavenLocal -P LD_SKIP_SIGNING=1
+      - run:
+          name: run packaging tests
+          command: cd packaging-test && make all
+
   fossa:
     docker:
       - image: circleci/java
@@ -34,6 +56,13 @@ workflows:
   test:
     jobs:
       - build:
+          filters:
+            branches:
+              ignore:
+                - gh-pages
+      - packaging:
+          requires:
+            - build
           filters:
             branches:
               ignore:
