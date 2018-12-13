@@ -9,7 +9,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.client.FeatureStore;
-import com.launchdarkly.client.FeatureStoreCaching;
+import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
 
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * other logic that would otherwise be repeated in every feature store implementation. This makes it
  * easier to create new database integrations by implementing only the database-specific logic. 
  * <p>
- * Construct instances of this class with {@link CachingStoreWrapper.Builder}.
+ * Construct instances of this class with {@link CachingStoreWrapper#builder(FeatureStoreCore)}.
  * 
  * @since 4.6.0
  */
@@ -41,7 +41,15 @@ public class CachingStoreWrapper implements FeatureStore {
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final ListeningExecutorService executorService;
   
-  protected CachingStoreWrapper(final FeatureStoreCore core, FeatureStoreCaching caching) {
+  /**
+   * Creates a new builder.
+   * @param core the {@link FeatureStoreCore} instance
+   */
+  public static CachingStoreWrapper.Builder builder(FeatureStoreCore core) {
+    return new Builder(core);
+  }
+  
+  protected CachingStoreWrapper(final FeatureStoreCore core, FeatureStoreCacheConfig caching) {
     this.core = core;
     
     if (!caching.isEnabled()) {
@@ -89,7 +97,7 @@ public class CachingStoreWrapper implements FeatureStore {
         ExecutorService parentExecutor = Executors.newSingleThreadExecutor(threadFactory);
         executorService = MoreExecutors.listeningDecorator(parentExecutor);
 
-        if (caching.getStaleValuesPolicy() == FeatureStoreCaching.StaleValuesPolicy.REFRESH_ASYNC) {
+        if (caching.getStaleValuesPolicy() == FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC) {
           itemLoader = CacheLoader.asyncReloading(itemLoader, executorService);
         }
         itemCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(itemLoader);
@@ -262,22 +270,18 @@ public class CachingStoreWrapper implements FeatureStore {
    */
   public static class Builder {
     private final FeatureStoreCore core;
-    private FeatureStoreCaching caching = FeatureStoreCaching.DEFAULT;
+    private FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
     
-    /**
-     * Creates a new builder.
-     * @param core the {@link FeatureStoreCore} instance
-     */
-    public Builder(FeatureStoreCore core) {
+    Builder(FeatureStoreCore core) {
       this.core = core;
     }
 
     /**
      * Sets the local caching properties.
-     * @param caching a {@link FeatureStoreCaching} object specifying cache parameters
+     * @param caching a {@link FeatureStoreCacheConfig} object specifying cache parameters
      * @return the builder
      */
-    public Builder caching(FeatureStoreCaching caching) {
+    public Builder caching(FeatureStoreCacheConfig caching) {
       this.caching = caching;
       return this;
     }

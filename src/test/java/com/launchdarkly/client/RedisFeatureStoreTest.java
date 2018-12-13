@@ -17,13 +17,13 @@ public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFea
   @Override
   protected RedisFeatureStore makeStore() {
     RedisFeatureStoreBuilder builder = new RedisFeatureStoreBuilder(REDIS_URI);
-    builder.caching(cached ? FeatureStoreCaching.enabled().ttlSeconds(30) : FeatureStoreCaching.disabled());
+    builder.caching(cached ? FeatureStoreCacheConfig.enabled().ttlSeconds(30) : FeatureStoreCacheConfig.disabled());
     return builder.build();
   }
   
   @Override
   protected RedisFeatureStore makeStoreWithPrefix(String prefix) {
-    return new RedisFeatureStoreBuilder(REDIS_URI).caching(FeatureStoreCaching.disabled()).prefix(prefix).build();
+    return new RedisFeatureStoreBuilder(REDIS_URI).caching(FeatureStoreCacheConfig.disabled()).prefix(prefix).build();
   }
   
   @Override

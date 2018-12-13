@@ -8,6 +8,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Parameters that can be used for {@link FeatureStore} implementations that support local caching.
+ * If a store implementation uses this class, then it is using the standard caching mechanism that
+ * is built into the SDK, and is guaranteed to support all the properties defined in this class. 
  * <p>
  * This is an immutable class that uses a fluent interface. Obtain an instance by calling the static
  * methods {@link #disabled()} or {@link #enabled()}; then, if desired, you can use chained methods
@@ -16,17 +18,17 @@ import java.util.concurrent.TimeUnit;
  * <pre>
  *     new RedisFeatureStoreBuilder()
  *         .caching(
- *             FeatureStoreCaching.enabled()
+ *             FeatureStoreCacheConfig.enabled()
  *                 .ttlSeconds(30)
- *                 .staleValuesPolicy(FeatureStoreCaching.StaleValuesPolicy.REFRESH)
+ *                 .staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH)
  *         )
  * </pre>
  * 
- * @see RedisFeatureStoreBuilder#caching(FeatureStoreCaching)
- * @see CachingStoreWrapper.Builder#caching(FeatureStoreCaching)
+ * @see RedisFeatureStoreBuilder#caching(FeatureStoreCacheConfig)
+ * @see CachingStoreWrapper.Builder#caching(FeatureStoreCacheConfig)
  * @since 4.6.0
  */
-public final class FeatureStoreCaching {
+public final class FeatureStoreCacheConfig {
   /**
    * The default TTL, in seconds, used by {@link #DEFAULT}.
    */
@@ -36,18 +38,18 @@ public final class FeatureStoreCaching {
    * The caching parameters that feature store should use by default. Caching is enabled, with a
    * TTL of {@link #DEFAULT_TIME_SECONDS} and the {@link StaleValuesPolicy#EVICT} policy. 
    */
-  public static final FeatureStoreCaching DEFAULT =
-      new FeatureStoreCaching(DEFAULT_TIME_SECONDS, TimeUnit.SECONDS, StaleValuesPolicy.EVICT);
+  public static final FeatureStoreCacheConfig DEFAULT =
+      new FeatureStoreCacheConfig(DEFAULT_TIME_SECONDS, TimeUnit.SECONDS, StaleValuesPolicy.EVICT);
   
-  private static final FeatureStoreCaching DISABLED =
-      new FeatureStoreCaching(0, TimeUnit.MILLISECONDS, StaleValuesPolicy.EVICT);
+  private static final FeatureStoreCacheConfig DISABLED =
+      new FeatureStoreCacheConfig(0, TimeUnit.MILLISECONDS, StaleValuesPolicy.EVICT);
   
   private final long cacheTime;
   private final TimeUnit cacheTimeUnit;
   private final StaleValuesPolicy staleValuesPolicy;
   
   /**
-   * Possible values for {@link FeatureStoreCaching#staleValuesPolicy(StaleValuesPolicy)}.
+   * Possible values for {@link FeatureStoreCacheConfig#staleValuesPolicy(StaleValuesPolicy)}.
    */
   public enum StaleValuesPolicy {
     /**
@@ -94,9 +96,9 @@ public final class FeatureStoreCaching {
   /**
    * Returns a parameter object indicating that caching should be disabled. Specifying any additional
    * properties on this object will have no effect.
-   * @return a {@link FeatureStoreCaching} instance
+   * @return a {@link FeatureStoreCacheConfig} instance
    */
-  public static FeatureStoreCaching disabled() {
+  public static FeatureStoreCacheConfig disabled() {
     return DISABLED;
   }
   
@@ -104,13 +106,13 @@ public final class FeatureStoreCaching {
    * Returns a parameter object indicating that caching should be enabled, using the default TTL of
    * {@link #DEFAULT_TIME_SECONDS}. You can further modify the cache properties using the other
    * methods of this class.
-   * @return a {@link FeatureStoreCaching} instance
+   * @return a {@link FeatureStoreCacheConfig} instance
    */
-  public static FeatureStoreCaching enabled() {
+  public static FeatureStoreCacheConfig enabled() {
     return DEFAULT;
   }
 
-  private FeatureStoreCaching(long cacheTime, TimeUnit cacheTimeUnit, StaleValuesPolicy staleValuesPolicy) {
+  private FeatureStoreCacheConfig(long cacheTime, TimeUnit cacheTimeUnit, StaleValuesPolicy staleValuesPolicy) {
     this.cacheTime = cacheTime;
     this.cacheTimeUnit = cacheTimeUnit;
     this.staleValuesPolicy = staleValuesPolicy;
@@ -118,7 +120,7 @@ public final class FeatureStoreCaching {
 
   /**
    * Returns true if caching will be enabled.
-   * @return true if the cache TTL is great then 0
+   * @return true if the cache TTL is greater than 0
    */
   public boolean isEnabled() {
     return getCacheTime() > 0;
@@ -166,8 +168,8 @@ public final class FeatureStoreCaching {
    * @param timeUnit the time unit
    * @return an updated parameters object
    */
-  public FeatureStoreCaching ttl(long cacheTime, TimeUnit timeUnit) {
-    return new FeatureStoreCaching(cacheTime, timeUnit, staleValuesPolicy);
+  public FeatureStoreCacheConfig ttl(long cacheTime, TimeUnit timeUnit) {
+    return new FeatureStoreCacheConfig(cacheTime, timeUnit, staleValuesPolicy);
   }
 
   /**
@@ -176,7 +178,7 @@ public final class FeatureStoreCaching {
    * @param millis the cache TTL in milliseconds
    * @return an updated parameters object
    */
-  public FeatureStoreCaching ttlMillis(long millis) {
+  public FeatureStoreCacheConfig ttlMillis(long millis) {
     return ttl(millis, TimeUnit.MILLISECONDS);
   }
 
@@ -186,7 +188,7 @@ public final class FeatureStoreCaching {
    * @param seconds the cache TTL in seconds
    * @return an updated parameters object
    */
-  public FeatureStoreCaching ttlSeconds(long seconds) {
+  public FeatureStoreCacheConfig ttlSeconds(long seconds) {
     return ttl(seconds, TimeUnit.SECONDS);
   }
   
@@ -197,14 +199,14 @@ public final class FeatureStoreCaching {
    * @param policy a {@link StaleValuesPolicy} constant
    * @return an updated parameters object
    */
-  public FeatureStoreCaching staleValuesPolicy(StaleValuesPolicy policy) {
-    return new FeatureStoreCaching(cacheTime, cacheTimeUnit, policy);
+  public FeatureStoreCacheConfig staleValuesPolicy(StaleValuesPolicy policy) {
+    return new FeatureStoreCacheConfig(cacheTime, cacheTimeUnit, policy);
   }
   
   @Override
   public boolean equals(Object other) {
-    if (other instanceof FeatureStoreCaching) {
-      FeatureStoreCaching o = (FeatureStoreCaching) other;
+    if (other instanceof FeatureStoreCacheConfig) {
+      FeatureStoreCacheConfig o = (FeatureStoreCacheConfig) other;
       return o.cacheTime == this.cacheTime && o.cacheTimeUnit == this.cacheTimeUnit &&
           o.staleValuesPolicy == this.staleValuesPolicy;
     }

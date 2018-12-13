@@ -17,7 +17,7 @@ public class RedisFeatureStoreBuilderTest {
   public void testDefaultValues() {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder();
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_URI, conf.uri);
-    assertEquals(FeatureStoreCaching.DEFAULT, conf.caching);
+    assertEquals(FeatureStoreCacheConfig.DEFAULT, conf.caching);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_PREFIX, conf.prefix);
@@ -29,7 +29,7 @@ public class RedisFeatureStoreBuilderTest {
     URI uri = URI.create("redis://host:1234");
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder(uri);
     assertEquals(uri, conf.uri);
-    assertEquals(FeatureStoreCaching.DEFAULT, conf.caching);
+    assertEquals(FeatureStoreCacheConfig.DEFAULT, conf.caching);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_PREFIX, conf.prefix);
@@ -45,7 +45,7 @@ public class RedisFeatureStoreBuilderTest {
     assertEquals(TimeUnit.SECONDS, conf.caching.getCacheTimeUnit());
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
-    assertEquals(FeatureStoreCaching.StaleValuesPolicy.EVICT, conf.caching.getStaleValuesPolicy());
+    assertEquals(FeatureStoreCacheConfig.StaleValuesPolicy.EVICT, conf.caching.getStaleValuesPolicy());
     assertEquals(RedisFeatureStoreBuilder.DEFAULT_PREFIX, conf.prefix);
     assertNull(conf.poolConfig);
   }
@@ -54,21 +54,21 @@ public class RedisFeatureStoreBuilderTest {
   @Test
   public void testRefreshStaleValues() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder().refreshStaleValues(true);
-    assertEquals(FeatureStoreCaching.StaleValuesPolicy.REFRESH, conf.caching.getStaleValuesPolicy());
+    assertEquals(FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH, conf.caching.getStaleValuesPolicy());
   }
 
   @SuppressWarnings("deprecation")
   @Test
   public void testAsyncRefresh() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder().refreshStaleValues(true).asyncRefresh(true);
-    assertEquals(FeatureStoreCaching.StaleValuesPolicy.REFRESH_ASYNC, conf.caching.getStaleValuesPolicy());
+    assertEquals(FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC, conf.caching.getStaleValuesPolicy());
   }
 
   @SuppressWarnings("deprecation")
   @Test
   public void testRefreshStaleValuesWithoutAsyncRefresh() throws URISyntaxException {
     RedisFeatureStoreBuilder conf = new RedisFeatureStoreBuilder().asyncRefresh(true);
-    assertEquals(FeatureStoreCaching.StaleValuesPolicy.EVICT, conf.caching.getStaleValuesPolicy());
+    assertEquals(FeatureStoreCacheConfig.StaleValuesPolicy.EVICT, conf.caching.getStaleValuesPolicy());
   }
 
   @Test

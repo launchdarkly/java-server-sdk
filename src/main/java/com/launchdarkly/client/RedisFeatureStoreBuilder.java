@@ -40,17 +40,17 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   
   /**
    * The default value for {@link #cacheTime(long, TimeUnit)} (in seconds).
-   * @deprecated Use {@link FeatureStoreCaching#DEFAULT}.
+   * @deprecated Use {@link FeatureStoreCacheConfig#DEFAULT}.
    * @since 4.0.0
    */
-  public static final long DEFAULT_CACHE_TIME_SECONDS = FeatureStoreCaching.DEFAULT_TIME_SECONDS;
+  public static final long DEFAULT_CACHE_TIME_SECONDS = FeatureStoreCacheConfig.DEFAULT_TIME_SECONDS;
   
   final URI uri;
   String prefix = DEFAULT_PREFIX;
   int connectTimeout = Protocol.DEFAULT_TIMEOUT;
   int socketTimeout = Protocol.DEFAULT_TIMEOUT;
-  FeatureStoreCaching caching = FeatureStoreCaching.DEFAULT;
-  boolean refreshStaleValues = false; // this and asyncRefresh are redundant with FeatureStoreCaching, but are used by deprecated setters
+  FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
+  boolean refreshStaleValues = false; // this and asyncRefresh are redundant with FeatureStoreCacheConfig, but are used by deprecated setters
   boolean asyncRefresh = false;
   JedisPoolConfig poolConfig = null;
 
@@ -92,28 +92,28 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   
   /**
    * Specifies whether local caching should be enabled and if so, sets the cache properties. Local
-   * caching is enabled by default; see {@link FeatureStoreCaching#DEFAULT}. To disable it, pass
-   * {@link FeatureStoreCaching#disabled()} to this method.
+   * caching is enabled by default; see {@link FeatureStoreCacheConfig#DEFAULT}. To disable it, pass
+   * {@link FeatureStoreCacheConfig#disabled()} to this method.
    * 
-   * @param caching a {@link FeatureStoreCaching} object specifying caching parameters
+   * @param caching a {@link FeatureStoreCacheConfig} object specifying caching parameters
    * @return the builder
    * 
    * @since 4.6.0
    */
-  public RedisFeatureStoreBuilder caching(FeatureStoreCaching caching) {
+  public RedisFeatureStoreBuilder caching(FeatureStoreCacheConfig caching) {
     this.caching = caching;
     return this;
   }
   
   /**
-   * Deprecated method for setting the cache expiration policy to {@link FeatureStoreCaching.StaleValuesPolicy#REFRESH}
-   * or {@link FeatureStoreCaching.StaleValuesPolicy#REFRESH_ASYNC}.
+   * Deprecated method for setting the cache expiration policy to {@link FeatureStoreCacheConfig.StaleValuesPolicy#REFRESH}
+   * or {@link FeatureStoreCacheConfig.StaleValuesPolicy#REFRESH_ASYNC}.
    *
    * @param enabled turns on lazy refresh of cached values
    * @return the builder
    * 
-   * @deprecated Use {@link #caching(FeatureStoreCaching)} and
-   * {@link FeatureStoreCaching#staleValuesPolicy(com.launchdarkly.client.FeatureStoreCaching.StaleValuesPolicy)}.
+   * @deprecated Use {@link #caching(FeatureStoreCacheConfig)} and
+   * {@link FeatureStoreCacheConfig#staleValuesPolicy(com.launchdarkly.client.FeatureStoreCacheConfig.StaleValuesPolicy)}.
    */
   public RedisFeatureStoreBuilder refreshStaleValues(boolean enabled) {
     this.refreshStaleValues = enabled;
@@ -122,14 +122,14 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   }
 
   /**
-   * Deprecated method for setting the cache expiration policy to {@link FeatureStoreCaching.StaleValuesPolicy#REFRESH_ASYNC}.
+   * Deprecated method for setting the cache expiration policy to {@link FeatureStoreCacheConfig.StaleValuesPolicy#REFRESH_ASYNC}.
    *
    * @param enabled turns on asynchronous refresh of cached values (only if {@link #refreshStaleValues(boolean)}
    * is also true)
    * @return the builder
    * 
-   * @deprecated Use {@link #caching(FeatureStoreCaching)} and
-   * {@link FeatureStoreCaching#staleValuesPolicy(com.launchdarkly.client.FeatureStoreCaching.StaleValuesPolicy)}.
+   * @deprecated Use {@link #caching(FeatureStoreCacheConfig)} and
+   * {@link FeatureStoreCacheConfig#staleValuesPolicy(com.launchdarkly.client.FeatureStoreCacheConfig.StaleValuesPolicy)}.
    */
   public RedisFeatureStoreBuilder asyncRefresh(boolean enabled) {
     this.asyncRefresh = enabled;
@@ -142,10 +142,10 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
     // asyncRefresh is supposed to have no effect unless refreshStaleValues is true
     if (this.refreshStaleValues) {
       this.caching = this.caching.staleValuesPolicy(this.asyncRefresh ?
-          FeatureStoreCaching.StaleValuesPolicy.REFRESH_ASYNC :
-          FeatureStoreCaching.StaleValuesPolicy.REFRESH);
+          FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC :
+          FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH);
     } else {
-      this.caching = this.caching.staleValuesPolicy(FeatureStoreCaching.StaleValuesPolicy.EVICT);
+      this.caching = this.caching.staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.EVICT);
     }
   }
   
@@ -162,13 +162,13 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
 
   /**
    * Deprecated method for enabling local caching and setting the cache TTL. Local caching is enabled
-   * by default; see {@link FeatureStoreCaching#DEFAULT}.
+   * by default; see {@link FeatureStoreCacheConfig#DEFAULT}.
    *
    * @param cacheTime the time value to cache for, or 0 to disable local caching
    * @param timeUnit the time unit for the time value
    * @return the builder
    * 
-   * @deprecated use {@link #caching(FeatureStoreCaching)} and {@link FeatureStoreCaching#ttl(long, TimeUnit)}.
+   * @deprecated use {@link #caching(FeatureStoreCacheConfig)} and {@link FeatureStoreCacheConfig#ttl(long, TimeUnit)}.
    */
   public RedisFeatureStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
     this.caching = this.caching.ttl(cacheTime, timeUnit)

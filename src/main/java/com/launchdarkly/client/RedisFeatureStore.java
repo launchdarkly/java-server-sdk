@@ -93,7 +93,7 @@ public class RedisFeatureStore implements FeatureStore {
         builder.prefix;
     
     this.core = new Core(pool, prefix);
-    this.wrapper = new CachingStoreWrapper.Builder(this.core).caching(builder.caching)
+    this.wrapper = CachingStoreWrapper.builder(this.core).caching(builder.caching)
         .build();
   }
 
@@ -104,7 +104,7 @@ public class RedisFeatureStore implements FeatureStore {
   public RedisFeatureStore() {
     JedisPool pool = new JedisPool(new JedisPoolConfig(), "localhost");    
     this.core = new Core(pool, RedisFeatureStoreBuilder.DEFAULT_PREFIX);
-    this.wrapper = new CachingStoreWrapper.Builder(this.core).build();
+    this.wrapper = CachingStoreWrapper.builder(this.core).build();
   }
 
   static class Core implements FeatureStoreCore {    
