@@ -3,6 +3,21 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.6.0] - 2018-12-12
+### Added:
+- The SDK jars now contain OSGi manifests which should make it possible to use them as bundles. The default jar requires Gson and SLF4J to be provided by other bundles, while the jar with the "all" classifier contains versions of Gson and SLF4J which it both exports and imports (i.e. it self-wires them, so it will use a higher version if you provide one). The "thin" jar is not recommended in an OSGi environment because it requires many dependencies which may not be available as bundles.
+- There are now helper classes that make it much simpler to write a custom `FeatureStore` implementation. See the `com.launchdarkly.client.utils` package. The Redis feature store has been revised to use this code, although its functionality is unchanged except for the fix mentioned below.
+- `FeatureStore` caching parameters (for Redis or other databases) are now encapsulated in the `FeatureStoreCacheConfig` class.
+
+### Changed:
+- The exponential backoff behavior when a stream connection fails has changed as follows. Previously, the backoff delay would increase for each attempt if the connection could not be made at all, or if a read timeout happened; but if a connection was made and then an error (other than a timeout) occurred, the delay would be reset to the minimum value. Now, the delay is only reset if a stream connection is made and remains open for at least a minute.
+
+### Fixed:
+- The Redis feature store would incorrectly report that it had not been initialized, if there happened to be no feature flags in your environment at the time that it was initialized.
+
+### Deprecated:
+- The `RedisFeatureStoreBuilder` methods `cacheTime`, `refreshStaleValues`, and `asyncRefresh` are deprecated in favor of the new `caching` method which sets these all at once.
+
 ## [4.5.1] - 2018-11-21
 ### Fixed:
 - Fixed a build error that caused the `com.launchdarkly.client.files` package (the test file data source component added in v4.5.0) to be inaccessible unless you were using the "thin" jar.
