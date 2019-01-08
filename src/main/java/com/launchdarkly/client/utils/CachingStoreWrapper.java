@@ -44,6 +44,7 @@ public class CachingStoreWrapper implements FeatureStore {
   /**
    * Creates a new builder.
    * @param core the {@link FeatureStoreCore} instance
+   * @return the builder
    */
   public static CachingStoreWrapper.Builder builder(FeatureStoreCore core) {
     return new Builder(core);
@@ -143,19 +144,15 @@ public class CachingStoreWrapper implements FeatureStore {
   @SuppressWarnings("unchecked")
   @Override
   public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
-    Map<VersionedDataKind<?>, Map<String, VersionedData>> params = new HashMap<VersionedDataKind<?>, Map<String, VersionedData>>();
-    for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> e0: allData.entrySet()) {
-      // unfortunately this is necessary because we can't just cast to a map with a different type signature in this case
-      params.put(e0.getKey(), (Map<String, VersionedData>)e0.getValue());
-    }
-    core.initInternal(params);
+    Map<VersionedDataKind<?>, Map<String, VersionedData>> castMap = // silly generic wildcard problem
+        (Map<VersionedDataKind<?>, Map<String, VersionedData>>)((Map<?, ?>)allData);
     
     inited.set(true);
     
     if (allCache != null && itemCache != null) {
       allCache.invalidateAll();
       itemCache.invalidateAll();
-      for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> e0: params.entrySet()) {
+      for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> e0: castMap.entrySet()) {
         VersionedDataKind<?> kind = e0.getKey();
         allCache.put(kind, itemsOnlyIfNotDeleted(e0.getValue()));
         for (Map.Entry<String, VersionedData> e1: e0.getValue().entrySet()) {

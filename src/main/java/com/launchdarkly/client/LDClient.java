@@ -61,8 +61,9 @@ public final class LDClient implements LDClientInterface {
     this.config = config;
     this.sdkKey = sdkKey;
     
+    FeatureStore store;
     if (config.deprecatedFeatureStore != null) {
-      this.featureStore = config.deprecatedFeatureStore;
+      store = config.deprecatedFeatureStore;
       // The following line is for backward compatibility with the obsolete mechanism by which the
       // caller could pass in a FeatureStore implementation instance that we did not create.  We
       // were not disposing of that instance when the client was closed, so we should continue not
@@ -72,9 +73,10 @@ public final class LDClient implements LDClientInterface {
     } else {
       FeatureStoreFactory factory = config.featureStoreFactory == null ?
           Components.inMemoryFeatureStore() : config.featureStoreFactory;
-      this.featureStore = factory.createFeatureStore();
+      store = factory.createFeatureStore();
       this.shouldCloseFeatureStore = true;
     }
+    this.featureStore = new FeatureStoreClientWrapper(store);
     
     EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
         Components.defaultEventProcessor() : config.eventProcessorFactory;
