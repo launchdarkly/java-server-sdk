@@ -146,7 +146,8 @@ public class CachingStoreWrapper implements FeatureStore {
   public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
     Map<VersionedDataKind<?>, Map<String, VersionedData>> castMap = // silly generic wildcard problem
         (Map<VersionedDataKind<?>, Map<String, VersionedData>>)((Map<?, ?>)allData);
-    
+    core.initInternal(castMap);
+
     inited.set(true);
     
     if (allCache != null && itemCache != null) {
