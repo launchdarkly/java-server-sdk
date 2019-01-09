@@ -55,18 +55,30 @@ public abstract class VersionedDataKind<T extends VersionedData> {
   }
   
   /**
-   * Returns a function for getting all keys of items that this one directly depends on, if this
-   * kind of item can have dependencies. Returns null otherwise. 
+   * Returns true if the SDK needs to store items of this kind in an order that is based on
+   * {@link #getDependencyKeys(VersionedData)}.
+   * 
+   * @return true if dependency ordering should be used
+   * @since 4.7.0
+   */
+  public boolean isDependencyOrdered() {
+    return false;
+  }
+  
+  /**
+   * Gets all keys of items that this one directly depends on, if this kind of item can have
+   * dependencies. 
    * <p>
    * Note that this does not use the generic type T, because it is called from code that only knows
    * about VersionedData, so it will need to do a type cast. However, it can rely on the item being
    * of the correct class.
    *
-   * @return a function for getting the dependencies of an item
+   * @param item the item
+   * @return keys of dependencies of the item
    * @since 4.7.0
    */
-  public Function<VersionedData, Iterable<String>> getDependencyKeysFunction() {
-    return null;
+  public Iterable<String> getDependencyKeys(VersionedData item) {
+    return ImmutableList.of();
   }
   
   @Override
@@ -121,20 +133,20 @@ public abstract class VersionedDataKind<T extends VersionedData> {
       return new FeatureFlagBuilder(key).deleted(true).version(version).build();
     }
     
-    public Function<VersionedData, Iterable<String>> getDependencyKeysFunction() {
-      return new Function<VersionedData, Iterable<String>>() {
-        public Iterable<String> apply(VersionedData item) {
-          FeatureFlag flag = (FeatureFlag)item;
-          if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
-            return ImmutableList.of();
-          }
-          return transform(flag.getPrerequisites(), new Function<Prerequisite, String>() {
-            public String apply(Prerequisite p) {
-              return p.getKey();
-            }
-          });
+    public boolean isDependencyOrdered() {
+      return true;
+    }
+    
+    public Iterable<String> getDependencyKeys(VersionedData item) {
+      FeatureFlag flag = (FeatureFlag)item;
+      if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
+        return ImmutableList.of();
+      }
+      return transform(flag.getPrerequisites(), new Function<Prerequisite, String>() {
+        public String apply(Prerequisite p) {
+          return p.getKey();
         }
-      };
+      });
     }
   };
   

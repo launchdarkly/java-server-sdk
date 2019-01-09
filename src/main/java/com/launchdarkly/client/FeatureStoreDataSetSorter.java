@@ -1,10 +1,7 @@
 package com.launchdarkly.client;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,8 +17,8 @@ abstract class FeatureStoreDataSetSorter {
   /**
    * Returns a copy of the input map that has the following guarantees: the iteration order of the outer
    * map will be in ascending order by {@link VersionedDataKind#getPriority()}; and for each data kind
-   * that returns a non-null function for {@link VersionedDataKind#getDependencyKeysFunction()}, the
-   * inner map will have an iteration order where B is before A if A has a dependency on B.
+   * that returns true for {@link VersionedDataKind#isDependencyOrdered()}, the inner map will have an
+   * iteration order where B is before A if A has a dependency on B.
    * 
    * @param allData the unordered data set
    * @return a map with a defined ordering
@@ -38,8 +35,7 @@ abstract class FeatureStoreDataSetSorter {
   }
   
   private static Map<String, ? extends VersionedData> sortCollection(VersionedDataKind<?> kind, Map<String, ? extends VersionedData> input) {
-    Function<VersionedData, Iterable<String>> dependenciesGetter = kind.getDependencyKeysFunction();
-    if (dependenciesGetter == null || input.isEmpty()) {
+    if (!kind.isDependencyOrdered() || input.isEmpty()) {
       return input;
     }
     
@@ -50,7 +46,7 @@ abstract class FeatureStoreDataSetSorter {
     while (!remainingItems.isEmpty()) {
       // pick a random item that hasn't been updated yet
       for (Map.Entry<String, VersionedData> entry: remainingItems.entrySet()) {
-        addWithDependenciesFirst(entry.getValue(), remainingItems, builder, dependenciesGetter);
+        addWithDependenciesFirst(kind, entry.getValue(), remainingItems, builder);
         break;
       }
     }
@@ -58,15 +54,15 @@ abstract class FeatureStoreDataSetSorter {
     return builder.build();
   }
   
-  private static void addWithDependenciesFirst(VersionedData item,
+  private static void addWithDependenciesFirst(VersionedDataKind<?> kind,
+      VersionedData item,
       Map<String, VersionedData> remainingItems,
-      ImmutableMap.Builder<String, VersionedData> builder,
-      Function<VersionedData, Iterable<String>> dependenciesGetter) {
+      ImmutableMap.Builder<String, VersionedData> builder) {
     remainingItems.remove(item.getKey());  // we won't need to visit this item again
-    for (String prereqKey: dependenciesGetter.apply(item)) {
+    for (String prereqKey: kind.getDependencyKeys(item)) {
       VersionedData prereqItem = remainingItems.get(prereqKey);
       if (prereqItem != null) {
-        addWithDependenciesFirst(prereqItem, remainingItems, builder, dependenciesGetter);
+        addWithDependenciesFirst(kind, prereqItem, remainingItems, builder);
       }
     }
     builder.put(item.getKey(), item);
