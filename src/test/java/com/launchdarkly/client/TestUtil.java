@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -52,6 +53,26 @@ public class TestUtil {
     };
   }
 
+  public static UpdateProcessorFactory updateProcessorWithData(final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data) {
+    return new UpdateProcessorFactory() {
+      public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, final FeatureStore featureStore) {
+        return new UpdateProcessor() {
+          public Future<Void> start() {
+            featureStore.init(data);
+            return Futures.immediateFuture(null);
+          }
+
+          public boolean initialized() {
+            return true;
+          }
+
+          public void close() throws IOException {
+          }          
+        };
+      }
+    };
+  }
+  
   public static FeatureStore featureStoreThatThrowsException(final RuntimeException e) {
     return new FeatureStore() {
       @Override

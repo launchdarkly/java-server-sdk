@@ -1,11 +1,21 @@
 package com.launchdarkly.client;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+
+import org.easymock.Capture;
+import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -14,13 +24,17 @@ import static com.launchdarkly.client.TestUtil.flagWithValue;
 import static com.launchdarkly.client.TestUtil.initedFeatureStore;
 import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
+import static com.launchdarkly.client.TestUtil.updateProcessorWithData;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import junit.framework.AssertionFailedError;
 
@@ -240,6 +254,54 @@ public class LDClientTest extends EasyMockSupport {
     verifyAll();
   }
 
+  @Test
+  public void dataSetIsPassedToFeatureStoreInCorrectOrder() throws Exception {
+    // This verifies that the client is using FeatureStoreClientWrapper and that it is applying the
+    // correct ordering for flag prerequisites, etc. This should work regardless of what kind of
+    // UpdateProcessor we're using.
+    
+    Capture<Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>>> captureData = Capture.newInstance();
+    FeatureStore store = createStrictMock(FeatureStore.class);
+    store.init(EasyMock.capture(captureData));
+    replay(store);
+    
+    LDConfig.Builder config = new LDConfig.Builder()
+        .updateProcessorFactory(updateProcessorWithData(DEPENDENCY_ORDERING_TEST_DATA))
+        .featureStoreFactory(specificFeatureStore(store))
+        .sendEvents(false);
+    client = new LDClient("SDK_KEY", config.build());
+    
+    Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> dataMap = captureData.getValue();
+    assertEquals(2, dataMap.size());
+    
+    // Segments should always come first
+    assertEquals(SEGMENTS, Iterables.get(dataMap.keySet(), 0));
+    assertEquals(DEPENDENCY_ORDERING_TEST_DATA.get(SEGMENTS).size(), Iterables.get(dataMap.values(), 0).size());
+    
+    // Features should be ordered so that a flag always appears after its prerequisites, if any
+    assertEquals(FEATURES, Iterables.get(dataMap.keySet(), 1));
+    Map<String, ? extends VersionedData> map1 = Iterables.get(dataMap.values(), 1);
+    List<VersionedData> list1 = ImmutableList.copyOf(map1.values());
+    assertEquals(DEPENDENCY_ORDERING_TEST_DATA.get(FEATURES).size(), map1.size());
+    for (int itemIndex = 0; itemIndex < list1.size(); itemIndex++) {
+      FeatureFlag item = (FeatureFlag)list1.get(itemIndex);
+      for (Prerequisite prereq: item.getPrerequisites()) {
+        FeatureFlag depFlag = (FeatureFlag)map1.get(prereq.getKey());
+        int depIndex = list1.indexOf(depFlag);
+        if (depIndex > itemIndex) {
+          Iterable<String> allKeys = Iterables.transform(list1, new Function<VersionedData, String>() {
+            public String apply(VersionedData d) {
+              return d.getKey();
+            }
+          });
+          fail(String.format("%s depends on %s, but %s was listed first; keys in order are [%s]",
+              item.getKey(), prereq.getKey(), item.getKey(),
+              Joiner.on(", ").join(allKeys)));
+        }
+      }
+    }
+  }
+
   private void expectEventsSent(int count) {
     eventProcessor.sendEvent(anyObject(Event.class));
     if (count > 0) {
@@ -254,4 +316,23 @@ public class LDClientTest extends EasyMockSupport {
     config.eventProcessorFactory(TestUtil.specificEventProcessor(eventProcessor));
     return new LDClient("SDK_KEY", config.build());
   }
+  
+  private static Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> DEPENDENCY_ORDERING_TEST_DATA =
+      ImmutableMap.<VersionedDataKind<?>, Map<String, ? extends VersionedData>>of(
+          FEATURES,
+          ImmutableMap.<String, VersionedData>builder()
+              .put("a", new FeatureFlagBuilder("a")
+                  .prerequisites(ImmutableList.of(new Prerequisite("b", 0), new Prerequisite("c", 0))).build())
+              .put("b", new FeatureFlagBuilder("b")
+                  .prerequisites(ImmutableList.of(new Prerequisite("c", 0), new Prerequisite("e", 0))).build())
+              .put("c", new FeatureFlagBuilder("c").build())
+              .put("d", new FeatureFlagBuilder("d").build())
+              .put("e", new FeatureFlagBuilder("e").build())
+              .put("f", new FeatureFlagBuilder("f").build())
+              .build(),
+          SEGMENTS,
+          ImmutableMap.<String, VersionedData>of(
+              "o", new Segment.Builder("o").build()
+          )
+      );
 }
