@@ -52,7 +52,7 @@ public interface FeatureStoreCore extends Closeable {
    * data.
    * <p>
    * If possible, the store should update the entire data set atomically. If that is not possible, it
-   * should iterate through the outer map and then the inner map <i>in the order provided</> (the SDK
+   * should iterate through the outer map and then the inner map <i>in the order provided</i> (the SDK
    * will use a Map subclass that has a defined ordering), storing each item, and then delete any
    * leftover items at the very end.
    *
