@@ -13,6 +13,7 @@ import org.junit.runners.Parameterized.Parameters;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -322,7 +323,10 @@ public class CachingStoreWrapperTest {
 
     @Override
     public void initInternal(Map<VersionedDataKind<?>, Map<String, VersionedData>> allData) {
-      data = allData;
+      data.clear();
+      for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> entry: allData.entrySet()) {
+        data.put(entry.getKey(), new LinkedHashMap<String, VersionedData>(entry.getValue()));
+      }
       inited = true;
     }
 

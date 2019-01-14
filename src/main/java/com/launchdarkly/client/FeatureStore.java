@@ -43,7 +43,15 @@ public interface FeatureStore extends Closeable {
    * will be removed. Implementations can assume that this set of objects is up to date-- there is no
    * need to perform individual version comparisons between the existing objects and the supplied
    * features.
-   *
+   * <p>
+   * If possible, the store should update the entire data set atomically. If that is not possible, it
+   * should iterate through the outer map and then the inner map <i>in the order provided</i> (the SDK
+   * will use a Map subclass that has a defined ordering), storing each item, and then delete any
+   * leftover items at the very end.
+   * <p>
+   * The store should not attempt to modify any of the Maps, and if it needs to retain the data in
+   * memory it should copy the Maps.
+   * 
    * @param allData all objects to be stored
    */
   void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData);

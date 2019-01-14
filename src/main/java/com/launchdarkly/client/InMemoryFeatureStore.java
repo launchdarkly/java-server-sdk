@@ -69,14 +69,16 @@ public class InMemoryFeatureStore implements FeatureStore {
     }
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
     try {
       lock.writeLock().lock();
       this.allData.clear();
       for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> entry: allData.entrySet()) {
-        this.allData.put(entry.getKey(), (Map<String, VersionedData>)entry.getValue());
+        // Note, the FeatureStore contract specifies that we should clone all of the maps. This doesn't
+        // really make a difference in regular use of the SDK, but not doing it could cause unexpected
+        // behavior in tests.
+        this.allData.put(entry.getKey(), new HashMap<String, VersionedData>(entry.getValue()));
       }
       initialized = true;
     } finally {
