@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.6.1] - 2019-01-14
+### Fixed
+- Fixed a potential race condition that could happen when using a DynamoDB or Consul feature store. The Redis feature store was not affected.
+
 ## [4.6.0] - 2018-12-12
 ### Added:
 - The SDK jars now contain OSGi manifests which should make it possible to use them as bundles. The default jar requires Gson and SLF4J to be provided by other bundles, while the jar with the "all" classifier contains versions of Gson and SLF4J which it both exports and imports (i.e. it self-wires them, so it will use a higher version if you provide one). The "thin" jar is not recommended in an OSGi environment because it requires many dependencies which may not be available as bundles.
