@@ -1,0 +1,26 @@
+jobs:
+  - job: build
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+      - task: PowerShell@2
+        displayName: 'Setup Redis'
+        inputs:
+          targetType: inline
+          workingDirectory: $(System.DefaultWorkingDirectory)
+          script: |
+            iwr -outf redis.zip https://github.com/MicrosoftArchive/redis/releases/download/win-3.0.504/Redis-x64-3.0.504.zip
+            mkdir redis
+            Expand-Archive -Path redis.zip -DestinationPath redis
+            cd redis
+            ./redis-server --service-install
+            ./redis-server --service-start
+      - task: PowerShell@2
+        displayName: 'Setup SDK and Test'
+        inputs:
+          targetType: inline
+          workingDirectory: $(System.DefaultWorkingDirectory)
+          script: |
+            cp gradle.properties.example gradle.properties
+            ./gradlew.bat dependencies
+            ./gradlew.bat test
