@@ -26,9 +26,11 @@ TEST_APP_JAR=$(TEMP_DIR)/test-app.jar
 
 # SLF4j implementation - we need to download this separately because it's not in the SDK dependencies
 SLF4J_SIMPLE_JAR=$(TEMP_DIR)/test-slf4j-simple.jar
+SLF4J_SIMPLE_JAR_URL=https://oss.sonatype.org/content/groups/public/org/slf4j/slf4j-simple/1.7.21/slf4j-simple-1.7.21.jar
 
 # Felix OSGi container
-FELIX_ARCHIVE=org.apache.felix.main.distribution-6.0.1.tar.gz
+FELIX_ARCHIVE=org.apache.felix.main.distribution-6.0.2.tar.gz
+FELIX_ARCHIVE_URL=http://apache.mirrors.ionfish.org//felix/$(FELIX_ARCHIVE)
 FELIX_DIR=$(TEMP_DIR)/felix
 FELIX_JAR=$(FELIX_DIR)/bin/felix.jar
 TEMP_BUNDLE_DIR=$(TEMP_DIR)/bundles
@@ -143,10 +145,10 @@ $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	rm $@/gson*.jar $@/slf4j*.jar
 
 $(SLF4J_SIMPLE_JAR): | $(TEMP_DIR)
-	curl https://oss.sonatype.org/content/groups/public/org/slf4j/slf4j-simple/1.7.21/slf4j-simple-1.7.21.jar >$@
+	curl $(SLF4J_SIMPLE_JAR_URL) >$@
 
 $(FELIX_JAR): | $(TEMP_DIR)
-	curl http://ftp.naz.com/apache//felix/$(FELIX_ARCHIVE) >$(TEMP_DIR)/$(FELIX_ARCHIVE)
+	curl $(FELIX_ARCHIVE_URL) >$(TEMP_DIR)/$(FELIX_ARCHIVE)
 	cd $(TEMP_DIR) && tar xfz $(FELIX_ARCHIVE) && rm $(FELIX_ARCHIVE)
 	cd $(TEMP_DIR) && mv `ls -d felix*` felix
 
