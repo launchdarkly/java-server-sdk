@@ -32,6 +32,7 @@ class FeatureFlag implements VersionedData {
   private List<JsonElement> variations;
   private boolean clientSide;
   private boolean trackEvents;
+  private boolean trackEventsFallthrough;
   private Long debugEventsUntilDate;
   private boolean deleted;
 
@@ -48,7 +49,8 @@ class FeatureFlag implements VersionedData {
 
   FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
       List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations,
-      boolean clientSide, boolean trackEvents, Long debugEventsUntilDate, boolean deleted) {
+      boolean clientSide, boolean trackEvents, boolean trackEventsFallthrough,
+      Long debugEventsUntilDate, boolean deleted) {
     this.key = key;
     this.version = version;
     this.on = on;
@@ -61,6 +63,7 @@ class FeatureFlag implements VersionedData {
     this.variations = variations;
     this.clientSide = clientSide;
     this.trackEvents = trackEvents;
+    this.trackEventsFallthrough = trackEventsFallthrough;
     this.debugEventsUntilDate = debugEventsUntilDate;
     this.deleted = deleted;
   }
@@ -176,6 +179,10 @@ class FeatureFlag implements VersionedData {
 
   public boolean isTrackEvents() {
     return trackEvents;
+  }
+  
+  public boolean isTrackEventsFallthrough() {
+    return trackEventsFallthrough;
   }
   
   public Long getDebugEventsUntilDate() {
