@@ -68,6 +68,10 @@ abstract class EventFactory {
   }
   
   private boolean isExperiment(FeatureFlag flag, EvaluationReason reason) {
+    if (reason == null) {
+      // doesn't happen in real life, but possible in testing
+      return false;
+    }
     switch (reason.getKind()) { 
     case FALLTHROUGH:
       return flag.isTrackEventsFallthrough();
