@@ -105,9 +105,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private void postMessageAndWait(MessageType type, Event event) {
     EventProcessorMessage message = new EventProcessorMessage(type, event, true);
     postToChannel(message);
-    if (!closed.get()) {
-      message.waitForCompletion();
-    }
+    message.waitForCompletion();
   }
   
   private void postToChannel(EventProcessorMessage message) {
