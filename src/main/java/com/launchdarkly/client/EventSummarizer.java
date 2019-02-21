@@ -132,11 +132,11 @@ final class EventSummarizer {
   }
   
   static final class CounterValue {
-    int count;
+    long count;
     final JsonElement flagValue;
     final JsonElement defaultVal;
     
-    CounterValue(int count, JsonElement flagValue, JsonElement defaultVal) {
+    CounterValue(long count, JsonElement flagValue, JsonElement defaultVal) {
       this.count = count;
       this.flagValue = flagValue;
       this.defaultVal = defaultVal;
