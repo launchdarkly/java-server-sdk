@@ -53,7 +53,7 @@ final class DefaultEventProcessor implements EventProcessor {
         .build();
     scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
-    new EventDispatcher(sdkKey, config, inputChannel, threadFactory);
+    new EventDispatcher(sdkKey, config, inputChannel, threadFactory, closed);
 
     Runnable flusher = new Runnable() {
       public void run() {
@@ -120,6 +120,11 @@ final class DefaultEventProcessor implements EventProcessor {
           if (inputCapacityExceeded.compareAndSet(false, true)) {
             logger.warn("Events are being produced faster than they can be processed");
           }
+          if (closed.get()) {
+            // Whoops, the event processor has been shut down
+            message.completed();
+            return;
+          }
         }
       } catch (InterruptedException ex) {
       }
@@ -178,6 +183,7 @@ final class DefaultEventProcessor implements EventProcessor {
    */
   static final class EventDispatcher {
     private static final int MAX_FLUSH_THREADS = 5;
+    private static final int MESSAGE_BATCH_SIZE = 50;
     static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
     
     private final LDConfig config;
@@ -189,7 +195,8 @@ final class DefaultEventProcessor implements EventProcessor {
 
     private EventDispatcher(String sdkKey, LDConfig config,
                             final BlockingQueue<EventProcessorMessage> inputChannel,
-                            ThreadFactory threadFactory) {
+                            ThreadFactory threadFactory,
+                            final AtomicBoolean closed) {
       this.config = config;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
@@ -207,6 +214,25 @@ final class DefaultEventProcessor implements EventProcessor {
         }
       });
       mainThread.setDaemon(true);
+      
+      mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+        // The thread's main loop catches all exceptions, so we'll only get here if an Error was thrown.
+        // In that case, the application is probably already in a bad state, but we can try to degrade
+        // relatively gracefully by performing an orderly shutdown of the event processor, so the
+        // application won't end up blocking on a queue that's no longer being consumed.
+        public void uncaughtException(Thread t, Throwable e) {
+          logger.error("Event processor thread was terminated by an unrecoverable error. No more analytics events will be sent.", e);
+          // Flip the switch to prevent DefaultEventProcessor from putting any more messages on the queue
+          closed.set(true);
+          // Now discard everything that was on the queue, but also make sure no one was blocking on a message
+          List<EventProcessorMessage> messages = new ArrayList<EventProcessorMessage>();
+          inputChannel.drainTo(messages);
+          for (EventProcessorMessage m: messages) {
+            m.completed();
+          }
+        }
+      });
+      
       mainThread.start();
       
       flushWorkers = new ArrayList<>();
@@ -230,29 +256,33 @@ final class DefaultEventProcessor implements EventProcessor {
     private void runMainLoop(BlockingQueue<EventProcessorMessage> inputChannel,
         EventBuffer buffer, SimpleLRUCache<String, String> userKeys,
         BlockingQueue<FlushPayload> payloadQueue) {
+      List<EventProcessorMessage> batch = new ArrayList<EventProcessorMessage>(MESSAGE_BATCH_SIZE);
       while (true) {
         try {
-          EventProcessorMessage message = inputChannel.take();
-          switch(message.type) {
-          case EVENT:
-            processEvent(message.event, userKeys, buffer);
-            break;
-          case FLUSH:
-            triggerFlush(buffer, payloadQueue);
-            break;
-          case FLUSH_USERS:
-            userKeys.clear();
-            break;
-          case SYNC:
-            waitUntilAllFlushWorkersInactive();
+          batch.clear();
+          batch.add(inputChannel.take()); // take() blocks until a message is available
+          inputChannel.drainTo(batch, MESSAGE_BATCH_SIZE - 1); // this nonblocking call allows us to pick up more messages if available
+          for (EventProcessorMessage message: batch) {
+            switch(message.type) {
+            case EVENT:
+              processEvent(message.event, userKeys, buffer);
+              break;
+            case FLUSH:
+              triggerFlush(buffer, payloadQueue);
+              break;
+            case FLUSH_USERS:
+              userKeys.clear();
+              break;
+            case SYNC: // this is used only by unit tests
+              waitUntilAllFlushWorkersInactive();
+              break;
+            case SHUTDOWN:
+              doShutdown();
+              message.completed();
+              return; // deliberately exit the thread loop
+            }
             message.completed();
-            break;
-          case SHUTDOWN:
-            doShutdown();
-            message.completed();
-            return;
           }
-          message.completed();
         } catch (InterruptedException e) {
         } catch (Exception e) {
           logger.error("Unexpected error in event processor: {}", e.toString());
