@@ -128,10 +128,10 @@ abstract class EventOutput {
     final Integer variation;
     final JsonElement value;
     final Integer version;
-    final int count;
+    final long count;
     final Boolean unknown;
     
-    SummaryEventCounter(Integer variation, JsonElement value, Integer version, int count, Boolean unknown) {
+    SummaryEventCounter(Integer variation, JsonElement value, Integer version, long count, Boolean unknown) {
       this.variation = variation;
       this.value = value;
       this.version = version;
