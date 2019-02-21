@@ -15,15 +15,11 @@ import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.jdouble;
 import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.js;
-import static com.launchdarkly.client.TestUtil.makeClauseToMatchUser;
-import static com.launchdarkly.client.TestUtil.makeClauseToNotMatchUser;
 import static com.launchdarkly.client.TestUtil.specificEventProcessor;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 public class LDClientEventTest {
   private static final LDUser user = new LDUser("userkey");
@@ -262,111 +258,6 @@ public class LDClientEventTest {
   }
 
   @Test
-  public void eventTrackingAndReasonCanBeForcedForRule() throws Exception {
-    Clause clause = makeClauseToMatchUser(user);
-    Rule rule = new RuleBuilder().id("id").clauses(clause).variation(1).trackEvents(true).build();
-    FeatureFlag flag = new FeatureFlagBuilder("flag")
-        .on(true)
-        .rules(Arrays.asList(rule))
-        .offVariation(0)
-        .variations(js("off"), js("on"))
-        .build();
-    featureStore.upsert(FEATURES, flag);
-
-    client.stringVariation("flag", user, "default");
-    
-    // Note, we did not call stringVariationDetail and the flag is not tracked, but we should still get
-    // tracking and a reason, because the rule-level trackEvents flag is on for the matched rule.
-    
-    assertEquals(1, eventSink.events.size());
-    Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertTrue(event.trackEvents);
-    assertEquals(EvaluationReason.ruleMatch(0, "id"), event.reason);
-  }
-
-  @Test
-  public void eventTrackingAndReasonAreNotForcedIfFlagIsNotSetForMatchingRule() throws Exception {
-    Clause clause0 = makeClauseToNotMatchUser(user);
-    Clause clause1 = makeClauseToMatchUser(user);
-    Rule rule0 = new RuleBuilder().id("id0").clauses(clause0).variation(1).trackEvents(true).build();
-    Rule rule1 = new RuleBuilder().id("id1").clauses(clause1).variation(1).trackEvents(false).build();
-    FeatureFlag flag = new FeatureFlagBuilder("flag")
-        .on(true)
-        .rules(Arrays.asList(rule0, rule1))
-        .offVariation(0)
-        .variations(js("off"), js("on"))
-        .build();
-    featureStore.upsert(FEATURES, flag);
-
-    client.stringVariation("flag", user, "default");
-    
-    // It matched rule1, which has trackEvents: false, so we don't get the override behavior
-    
-    assertEquals(1, eventSink.events.size());
-    Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertFalse(event.trackEvents);
-    assertNull(event.reason);
-  }
-
-  @Test
-  public void eventTrackingAndReasonCanBeForcedForFallthrough() throws Exception {
-    FeatureFlag flag = new FeatureFlagBuilder("flag")
-        .on(true)
-        .fallthrough(new VariationOrRollout(0, null))
-        .variations(js("fall"), js("off"), js("on"))
-        .trackEventsFallthrough(true)
-        .build();
-    featureStore.upsert(FEATURES, flag);
-
-    client.stringVariation("flag", user, "default");
-    
-    // Note, we did not call stringVariationDetail and the flag is not tracked, but we should still get
-    // tracking and a reason, because trackEventsFallthrough is on and the evaluation fell through.
-    
-    assertEquals(1, eventSink.events.size());
-    Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertTrue(event.trackEvents);
-    assertEquals(EvaluationReason.fallthrough(), event.reason);
-  }
-
-  @Test
-  public void eventTrackingAndReasonAreNotForcedForFallthroughIfFlagIsNotSet() throws Exception {
-    FeatureFlag flag = new FeatureFlagBuilder("flag")
-        .on(true)
-        .fallthrough(new VariationOrRollout(0, null))
-        .variations(js("fall"), js("off"), js("on"))
-        .trackEventsFallthrough(false)
-        .build();
-    featureStore.upsert(FEATURES, flag);
-
-    client.stringVariation("flag", user, "default");
-    
-    assertEquals(1, eventSink.events.size());
-    Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertFalse(event.trackEvents);
-    assertNull(event.reason);
-  }
-
-  @Test
-  public void eventTrackingAndReasonAreNotForcedForFallthroughIfReasonIsNotFallthrough() throws Exception {
-    FeatureFlag flag = new FeatureFlagBuilder("flag")
-        .on(false) // so the evaluation reason will be OFF, not FALLTHROUGH
-        .offVariation(1)
-        .fallthrough(new VariationOrRollout(0, null))
-        .variations(js("fall"), js("off"), js("on"))
-        .trackEventsFallthrough(true)
-        .build();
-    featureStore.upsert(FEATURES, flag);
-
-    client.stringVariation("flag", user, "default");
-    
-    assertEquals(1, eventSink.events.size());
-    Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertFalse(event.trackEvents);
-    assertNull(event.reason);
-  }
-  
-  @Test
   public void eventIsSentForExistingPrererequisiteFlag() throws Exception {
     FeatureFlag f0 = new FeatureFlagBuilder("feature0")
         .on(true)
@@ -466,8 +357,6 @@ public class LDClientEventTest {
     assertEquals(defaultVal, fe.defaultVal);
     assertEquals(prereqOf, fe.prereqOf);
     assertEquals(reason, fe.reason);
-    assertEquals(flag.isTrackEvents(), fe.trackEvents);
-    assertEquals(flag.getDebugEventsUntilDate(), fe.debugEventsUntilDate);
   }
 
   private void checkUnknownFeatureEvent(Event e, String key, JsonElement defaultVal, String prereqOf,
@@ -481,7 +370,5 @@ public class LDClientEventTest {
     assertEquals(defaultVal, fe.defaultVal);
     assertEquals(prereqOf, fe.prereqOf);
     assertEquals(reason, fe.reason);
-    assertFalse(fe.trackEvents);
-    assertNull(fe.debugEventsUntilDate);
   }
 }

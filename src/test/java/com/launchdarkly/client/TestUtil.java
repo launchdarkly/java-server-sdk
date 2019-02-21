@@ -176,14 +176,6 @@ public class TestUtil {
         .build();
   }
   
-  public static Clause makeClauseToMatchUser(LDUser user) {
-    return new Clause("key", Operator.in, Arrays.asList(user.getKey()), false);
-  }
-
-  public static Clause makeClauseToNotMatchUser(LDUser user) {
-    return new Clause("key", Operator.in, Arrays.asList(js("not-" + user.getKeyAsString())), false);
-  }
-  
   public static class DataBuilder {
     private Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data = new HashMap<>();
     
