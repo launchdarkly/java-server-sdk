@@ -116,8 +116,9 @@ public final class LDClient implements LDClientInterface {
     }
     if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
+    } else {
+      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data));
     }
-    eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data));
   }
 
   @Override
@@ -132,8 +133,9 @@ public final class LDClient implements LDClientInterface {
   public void identify(LDUser user) {
     if (user == null || user.getKey() == null) {
       logger.warn("Identify called with null user or null user key!");
+    } else {
+      eventProcessor.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
     }
-    eventProcessor.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
   }
 
   private void sendFlagRequestEvent(Event.FeatureRequest event) {

@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNull;
 
 public class LDClientEventTest {
   private static final LDUser user = new LDUser("userkey");
+  private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
   
   private FeatureStore featureStore = TestUtil.initedFeatureStore();
   private TestUtil.TestEventProcessor eventSink = new TestUtil.TestEventProcessor();
@@ -42,6 +43,18 @@ public class LDClientEventTest {
     assertEquals(Event.Identify.class, e.getClass());
     Event.Identify ie = (Event.Identify)e;
     assertEquals(user.getKey(), ie.user.getKey());
+  }
+
+  @Test
+  public void identifyWithNullUserDoesNotSendEvent() {
+    client.identify(null);
+    assertEquals(0, eventSink.events.size());
+  }
+
+  @Test
+  public void identifyWithUserWithNoKeyDoesNotSendEvent() {
+    client.identify(userWithNullKey);
+    assertEquals(0, eventSink.events.size());
   }
   
   @Test
@@ -70,6 +83,18 @@ public class LDClientEventTest {
     assertEquals(user.getKey(), ce.user.getKey());
     assertEquals("eventkey", ce.key);
     assertEquals(data, ce.data);
+  }
+
+  @Test
+  public void trackWithNullUserDoesNotSendEvent() {
+    client.track("eventkey", null);
+    assertEquals(0, eventSink.events.size());
+  }
+
+  @Test
+  public void trackWithUserWithNoKeyDoesNotSendEvent() {
+    client.track("eventkey", userWithNullKey);
+    assertEquals(0, eventSink.events.size());
   }
 
   @Test
