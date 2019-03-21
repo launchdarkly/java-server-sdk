@@ -221,7 +221,7 @@ def shadeDependencies(jarTask) {
         configurations.runtime.collectMany {
             getPackagesInDependencyJar(it).collect { it.contains(".") ? it.substring(0, it.indexOf(".")) : it }
         }.
-            unique().findAll { it != "javax" } // also, don't shade javax
+            unique()
     topLevelPackages.forEach { top ->
         jarTask.relocate(top, "com.launchdarkly.shaded." + top) {
             excludePackages.forEach { exclude(it + ".*") }
