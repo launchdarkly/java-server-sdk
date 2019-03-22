@@ -3,6 +3,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.6.3] - 2019-03-21
+### Fixed
+- The SDK uberjars contained some JSR305 annotation classes such as `javax.annotation.Nullable`. These have been removed. They were not being used in the public API anyway. ([#156](https://github.com/launchdarkly/java-client/issues/156))
+- If `track` or `identify` is called without a user, the SDK now logs a warning, and does not send an analytics event to LaunchDarkly (since it would not be processed without a user).
+
 ## [4.6.2] - 2019-02-21
 ### Fixed
 - If an unrecoverable `java.lang.Error` is thrown within the analytics event dispatching thread, the SDK will now log the error stacktrace to the configured logger and then disable event sending, so that all further events are simply discarded. Previously, the SDK could be left in a state where application threads would continue trying to push events onto a queue that was no longer being consumed, which could block those threads. The SDK will not attempt to restart the event thread after such a failure, because an `Error` typically indicates a serious problem with the application environment.
