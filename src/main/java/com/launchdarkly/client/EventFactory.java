@@ -42,8 +42,8 @@ abstract class EventFactory {
         from.defaultVal, from.prereqOf, from.trackEvents, from.debugEventsUntilDate, from.reason, true);
   }
   
-  public Event.Custom newCustomEvent(String key, LDUser user, JsonElement data) {
-    return new Event.Custom(getTimestamp(), key, user, data);
+  public Event.Custom newCustomEvent(String key, LDUser user, JsonElement data, Double metricValue) {
+    return new Event.Custom(getTimestamp(), key, user, data, metricValue);
   }
   
   public Event.Identify newIdentifyEvent(LDUser user) {

@@ -17,17 +17,27 @@ public interface LDClientInterface extends Closeable {
    *
    * @param eventName the name of the event
    * @param user      the user that performed the event
-   * @param data      a JSON object containing additional data associated with the event
+   */
+  void track(String eventName, LDUser user);
+
+  /**
+   * Tracks that a user performed an event, and provides additional custom data.
+   *
+   * @param eventName the name of the event
+   * @param user      the user that performed the event
+   * @param data      a JSON object containing additional data associated with the event; may be null
    */
   void track(String eventName, LDUser user, JsonElement data);
 
   /**
-   * Tracks that a user performed an event.
+   * Tracks that a user performed an event, and provides an additional numeric value.
    *
    * @param eventName the name of the event
    * @param user      the user that performed the event
+   * @param data      a JSON object containing additional data associated with the event; may be null
+   * @param metricValue a numeric value that can be used for analytics purposes on the LaunchDarkly dashboard
    */
-  void track(String eventName, LDUser user);
+  void track(String eventName, LDUser user, JsonElement data, double metricValue);
 
   /**
    * Registers the user.

@@ -338,7 +338,8 @@ public class DefaultEventProcessorTest {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    double metric = 1.5;
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, metric);
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
@@ -355,7 +356,7 @@ public class DefaultEventProcessorTest {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
@@ -369,7 +370,7 @@ public class DefaultEventProcessorTest {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
@@ -548,6 +549,7 @@ public class DefaultEventProcessorTest {
     );
   }
 
+  @SuppressWarnings("unchecked")
   private Matcher<JsonElement> isCustomEvent(Event.Custom sourceEvent, JsonElement inlineUser) {
     return allOf(
         hasJsonProperty("kind", "custom"),
@@ -557,7 +559,9 @@ public class DefaultEventProcessorTest {
           hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
         (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
           hasJsonProperty("user", nullValue(JsonElement.class)),
-        hasJsonProperty("data", sourceEvent.data)
+        hasJsonProperty("data", sourceEvent.data),
+        (sourceEvent.metricValue == null) ? hasJsonProperty("metricValue", nullValue(JsonElement.class)) :
+          hasJsonProperty("metricValue", sourceEvent.metricValue.doubleValue())              
     );
   }
 
