@@ -108,25 +108,28 @@ public final class LDClient implements LDClientInterface {
   public boolean initialized() {
     return updateProcessor.initialized();
   }
-  
+
+  @Override
+  public void track(String eventName, LDUser user) {
+    track(eventName, user, null);
+  }
+
   @Override
   public void track(String eventName, LDUser user, JsonElement data) {
-    if (isOffline()) {
-      return;
-    }
     if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     } else {
-      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data));
+      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, null));
     }
   }
 
   @Override
-  public void track(String eventName, LDUser user) {
-    if (isOffline()) {
-      return;
+  public void track(String eventName, LDUser user, JsonElement data, double metricValue) {
+    if (user == null || user.getKey() == null) {
+      logger.warn("Track called with null user or null user key!");
+    } else {
+      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, metricValue));
     }
-    track(eventName, user, null);
   }
 
   @Override

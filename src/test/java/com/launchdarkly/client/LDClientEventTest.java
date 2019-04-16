@@ -86,6 +86,23 @@ public class LDClientEventTest {
   }
 
   @Test
+  public void trackSendsEventWithDataAndMetricValue() throws Exception {
+    JsonObject data = new JsonObject();
+    data.addProperty("thing", "stuff");
+    double metricValue = 1.5;
+    client.track("eventkey", user, data, metricValue);
+    
+    assertEquals(1, eventSink.events.size());
+    Event e = eventSink.events.get(0);
+    assertEquals(Event.Custom.class, e.getClass());
+    Event.Custom ce = (Event.Custom)e;
+    assertEquals(user.getKey(), ce.user.getKey());
+    assertEquals("eventkey", ce.key);
+    assertEquals(data, ce.data);
+    assertEquals(new Double(metricValue), ce.metricValue);
+  }
+  
+  @Test
   public void trackWithNullUserDoesNotSendEvent() {
     client.track("eventkey", null);
     assertEquals(0, eventSink.events.size());

@@ -17,11 +17,17 @@ public class Event {
   public static final class Custom extends Event {
     final String key;
     final JsonElement data;
+    final Double metricValue;
 
-    public Custom(long timestamp, String key, LDUser user, JsonElement data) {
+    public Custom(long timestamp, String key, LDUser user, JsonElement data, Double metricValue) {
       super(timestamp, user);
       this.key = key;
       this.data = data;
+      this.metricValue = metricValue;
+    }
+
+    public Custom(long timestamp, String key, LDUser user, JsonElement data) {
+      this(timestamp, key, user, data, null);
     }
   }
 
