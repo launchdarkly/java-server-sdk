@@ -30,12 +30,14 @@ public interface LDClientInterface extends Closeable {
   void track(String eventName, LDUser user, JsonElement data);
 
   /**
-   * Tracks that a user performed an event, and provides an additional numeric value.
+   * Tracks that a user performed an event, and provides an additional numeric value for custom metrics.
    *
    * @param eventName the name of the event
    * @param user      the user that performed the event
    * @param data      a JSON object containing additional data associated with the event; may be null
-   * @param metricValue a numeric value that can be used for analytics purposes on the LaunchDarkly dashboard
+   * @param metricValue a numeric value used by the LaunchDarkly experimentation feature in numeric custom
+   * metrics. Can be omitted if this event is used by only non-numeric metrics. This field will also be
+   * returned as part of the custom event for Data Export.
    */
   void track(String eventName, LDUser user, JsonElement data, double metricValue);
 
