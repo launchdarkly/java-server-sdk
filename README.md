@@ -1,7 +1,7 @@
 LaunchDarkly SDK for Java
 =========================
 
-[![Circle CI](https://circleci.com/gh/launchdarkly/java-client.svg?style=shield)](https://circleci.com/gh/launchdarkly/java-client)
+[![Circle CI](https://circleci.com/gh/launchdarkly/java-server-sdk.svg?style=shield)](https://circleci.com/gh/launchdarkly/java-server-sdk)
 [![Javadocs](http://javadoc.io/badge/com.launchdarkly/launchdarkly-client.svg)](http://javadoc.io/doc/com.launchdarkly/launchdarkly-client)
 
 Supported Java versions
@@ -80,7 +80,7 @@ Unlike some other languages, in Java the DNS caching behavior is controlled by t
 Learn more
 ----------
 
-Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for this SDK](http://docs.launchdarkly.com/docs/java-sdk-reference) or our [Javadocs](http://launchdarkly.github.io/java-client/).
+Check out our [documentation](http://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for this SDK](http://docs.launchdarkly.com/docs/java-sdk-reference) or our [Javadocs](http://launchdarkly.github.io/java-server-sdk/).
 
 Testing
 -------
