@@ -14,9 +14,9 @@ PROJECT_DIR=$(shell cd .. && pwd)
 SDK_VERSION=$(shell grep "version=" $(PROJECT_DIR)/gradle.properties | cut -d '=' -f 2)
 
 SDK_JARS_DIR=$(PROJECT_DIR)/build/libs
-SDK_DEFAULT_JAR=$(SDK_JARS_DIR)/launchdarkly-client-$(SDK_VERSION).jar
-SDK_ALL_JAR=$(SDK_JARS_DIR)/launchdarkly-client-$(SDK_VERSION)-all.jar
-SDK_THIN_JAR=$(SDK_JARS_DIR)/launchdarkly-client-$(SDK_VERSION)-thin.jar
+SDK_DEFAULT_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION).jar
+SDK_ALL_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-all.jar
+SDK_THIN_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-thin.jar
 
 TEMP_DIR=$(BASE_DIR)/temp
 TEMP_OUTPUT=$(TEMP_DIR)/test.out

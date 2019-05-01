@@ -1,3 +1,4 @@
+# To release a version of this SDK, copy this file to ~/.gradle/gradle.properties and fill in the values.
 githubUser = YOUR_GITHUB_USERNAME
 githubPassword = YOUR_GITHUB_PASSWORD
 signing.keyId = 5669D902

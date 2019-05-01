@@ -27,7 +27,7 @@ allprojects {
 
 ext {
     sdkBasePackage = "com.launchdarkly.client"
-    sdkBaseName = "launchdarkly-client"
+    sdkBaseName = "launchdarkly-java-server-sdk"
 
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
     // be discovered by looking in our explicit dependencies.
@@ -170,7 +170,7 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 }
 
 githubPages {
-    repoUri = 'https://github.com/launchdarkly/java-client.git'
+    repoUri = 'https://github.com/launchdarkly/java-server-sdk.git'
     pages {
         from javadoc
     }
@@ -327,7 +327,7 @@ nexusStaging {
 def pomConfig = {
     name 'LaunchDarkly SDK for Java'
     packaging 'jar'
-    url 'https://github.com/launchdarkly/java-client'
+    url 'https://github.com/launchdarkly/java-server-sdk'
 
     licenses {
         license {
@@ -345,9 +345,9 @@ def pomConfig = {
     }
 
     scm {
-        connection 'scm:git:git://github.com/launchdarkly/java-client.git'
-        developerConnection 'scm:git:ssh:git@github.com:launchdarkly/java-client.git'
-        url 'https://github.com/launchdarkly/java-client'
+        connection 'scm:git:git://github.com/launchdarkly/java-server-sdk.git'
+        developerConnection 'scm:git:ssh:git@github.com:launchdarkly/java-server-sdk.git'
+        url 'https://github.com/launchdarkly/java-server-sdk'
     }
 }
 
