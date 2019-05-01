@@ -3,9 +3,15 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+# Note on future releases
+
+The LaunchDarkly SDK repositories are being renamed for consistency. This repository is now `java-server-sdk` rather than `java-client`.
+
+The artifact names will also change. In the 4.6.3 release, the generated artifact was named `com.launchdarkly.client:launchdarkly-client`; in all future releases, it will be `com.launchdarkly.client:launchdarkly-java-server-sdk`.
+
 ## [4.6.3] - 2019-03-21
 ### Fixed
-- The SDK uberjars contained some JSR305 annotation classes such as `javax.annotation.Nullable`. These have been removed. They were not being used in the public API anyway. ([#156](https://github.com/launchdarkly/java-client/issues/156))
+- The SDK uberjars contained some JSR305 annotation classes such as `javax.annotation.Nullable`. These have been removed. They were not being used in the public API anyway. ([#156](https://github.com/launchdarkly/java-server-sdk/issues/156))
 - If `track` or `identify` is called without a user, the SDK now logs a warning, and does not send an analytics event to LaunchDarkly (since it would not be processed without a user).
 
 ## [4.6.2] - 2019-02-21
@@ -45,7 +51,7 @@ It is now possible to inject feature flags into the client from local JSON or YA
 
 ## [4.4.1] - 2018-10-15
 ### Fixed:
-- The SDK's Maven releases had a `pom.xml` that mistakenly referenced dependencies that are actually bundled (with shading) inside of our jar, resulting in those dependencies being redundantly downloaded and included (without shading) in the runtime classpath, which could cause conflicts. This has been fixed. ([#122](https://github.com/launchdarkly/java-client/issues/122))
+- The SDK's Maven releases had a `pom.xml` that mistakenly referenced dependencies that are actually bundled (with shading) inside of our jar, resulting in those dependencies being redundantly downloaded and included (without shading) in the runtime classpath, which could cause conflicts. This has been fixed. ([#122](https://github.com/launchdarkly/java-server-sdk/issues/122))
 
 ## [4.4.0] - 2018-10-01
 ### Added:
@@ -67,7 +73,7 @@ It is now possible to inject feature flags into the client from local JSON or YA
 ## [4.3.0] - 2018-08-27
 ### Added:
 - The new `LDClient` method `allFlagsState()` should be used instead of `allFlags()` if you are passing flag data to the front end for use with the JavaScript SDK. It preserves some flag metadata that the front end requires in order to send analytics events correctly. Versions 2.5.0 and above of the JavaScript SDK are able to use this metadata, but the output of `allFlagsState()` will still work with older versions.
-- The `allFlagsState()` method also allows you to select only client-side-enabled flags to pass to the front end, by using the option `FlagsStateOption.CLIENT_SIDE_ONLY`. ([#112](https://github.com/launchdarkly/java-client/issues/112))
+- The `allFlagsState()` method also allows you to select only client-side-enabled flags to pass to the front end, by using the option `FlagsStateOption.CLIENT_SIDE_ONLY`. ([#112](https://github.com/launchdarkly/java-server-sdk/issues/112))
 - The new `LDClient` methods `boolVariationDetail`, `intVariationDetail`, `doubleVariationDetail`, `stringVariationDetail`, and `jsonVariationDetail` allow you to evaluate a feature flag (using the same parameters as you would for `boolVariation`, etc.) and receive more information about how the value was calculated. This information is returned in an `EvaluationDetail` object, which contains both the result value and an `EvaluationReason` which will tell you, for instance, if the user was individually targeted for the flag or was matched by one of the flag's rules, or if the flag returned the default value due to an error.
 
 ### Fixed:
@@ -97,7 +103,7 @@ It is now possible to inject feature flags into the client from local JSON or YA
 ## [4.1.0] - 2018-05-15
 
 ### Added:
-- The new user builder methods `customValues` and `privateCustomValues` allow you to add a custom user attribute with multiple JSON values of mixed types. ([#126](https://github.com/launchdarkly/java-client/issues/126))
+- The new user builder methods `customValues` and `privateCustomValues` allow you to add a custom user attribute with multiple JSON values of mixed types. ([#126](https://github.com/launchdarkly/java-server-sdk/issues/126))
 - The new constant `VersionedDataKind.ALL` is a list of all existing `VersionedDataKind` instances. This is mainly useful if you are writing a custom `FeatureStore` implementation.
 
 ## [4.0.0] - 2018-05-10
@@ -124,7 +130,7 @@ It is now possible to inject feature flags into the client from local JSON or YA
 
 ## [3.0.2] - 2018-03-01
 ### Fixed
-- Improved performance when evaluating flags with custom attributes, by avoiding an unnecessary caught exception (thanks, [rbalamohan](https://github.com/launchdarkly/java-client/issues/113)).
+- Improved performance when evaluating flags with custom attributes, by avoiding an unnecessary caught exception (thanks, [rbalamohan](https://github.com/launchdarkly/java-server-sdk/issues/113)).
 
 
 ## [3.0.1] - 2018-02-22
@@ -143,7 +149,7 @@ _This release was broken and should not be used._
 
 ## [2.6.1] - 2018-03-01
 ### Fixed
-- Improved performance when evaluating flags with custom attributes, by avoiding an unnecessary caught exception (thanks, [rbalamohan](https://github.com/launchdarkly/java-client/issues/113)).
+- Improved performance when evaluating flags with custom attributes, by avoiding an unnecessary caught exception (thanks, [rbalamohan](https://github.com/launchdarkly/java-server-sdk/issues/113)).
 
 
 ## [2.6.0] - 2018-02-12
@@ -223,7 +229,7 @@ _This release was broken and should not be used._
 
 ## [2.2.1] - 2017-04-25
 ### Fixed
-- [#92](https://github.com/launchdarkly/java-client/issues/92) Regex `matches` targeting rules now include the user if
+- [#92](https://github.com/launchdarkly/java-server-sdk/issues/92) Regex `matches` targeting rules now include the user if
 a match is found anywhere in the attribute.  Before fixing this bug, the entire attribute needed to match the pattern.
 
 ## [2.2.0] - 2017-04-11
@@ -273,7 +279,7 @@ feature flag's existence. Thanks @yuv422!
 
 ## [2.0.3] - 2016-10-10
 ### Added
-- StreamingProcessor now supports increasing retry delays with jitter. Addresses [https://github.com/launchdarkly/java-client/issues/74[(https://github.com/launchdarkly/java-client/issues/74)
+- StreamingProcessor now supports increasing retry delays with jitter. Addresses [https://github.com/launchdarkly/java-server-sdk/issues/74[(https://github.com/launchdarkly/java-server-sdk/issues/74)
 
 ## [2.0.2] - 2016-09-13
 ### Added
@@ -281,7 +287,7 @@ feature flag's existence. Thanks @yuv422!
 
 ## [2.0.1] - 2016-08-12
 ### Removed
-- Removed slf4j from default artifact: [#71](https://github.com/launchdarkly/java-client/issues/71)
+- Removed slf4j from default artifact: [#71](https://github.com/launchdarkly/java-server-sdk/issues/71)
 
 ## [2.0.0] - 2016-08-08
 ### Added

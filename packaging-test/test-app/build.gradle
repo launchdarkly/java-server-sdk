@@ -14,7 +14,7 @@ allprojects {
 
 dependencies {
     // Note, the SDK build must have already been run before this, since we're using its product as a dependency
-    compileClasspath fileTree(dir: "../../build/libs", include: "launchdarkly-client-*-thin.jar")
+    compileClasspath fileTree(dir: "../../build/libs", include: "launchdarkly-java-server-sdk-*-thin.jar")
     compileClasspath "com.google.code.gson:gson:2.7"
     compileClasspath "org.slf4j:slf4j-api:1.7.21"
     compileClasspath "org.osgi:osgi_R4_core:1.0"
