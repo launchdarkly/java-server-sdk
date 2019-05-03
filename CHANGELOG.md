@@ -4,22 +4,21 @@
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
 ## [4.6.4] - 2019-05-01
-## Changed
+### Changed
 - Changed the artifact name from `com.launchdarkly.client:launchdarkly-client` to `com.launchdarkly.client:launchdarkly-java-server-sdk`
 - Changed repository references to use the new URL
 
 There are no other changes in this release. Substituting `launchdarkly-client` version 4.6.3 with `launchdarkly-java-server-sdk` version 4.6.4 will not affect functionality.
 
-# Note on future releases
-
-The LaunchDarkly SDK repositories are being renamed for consistency. This repository is now `java-server-sdk` rather than `java-client`.
-
-The artifact names will also change. In the 4.6.3 release, the generated artifact was named `com.launchdarkly.client:launchdarkly-client`; in all future releases, it will be `com.launchdarkly.client:launchdarkly-java-server-sdk`.
-
 ## [4.6.3] - 2019-03-21
 ### Fixed
 - The SDK uberjars contained some JSR305 annotation classes such as `javax.annotation.Nullable`. These have been removed. They were not being used in the public API anyway. ([#156](https://github.com/launchdarkly/java-server-sdk/issues/156))
 - If `track` or `identify` is called without a user, the SDK now logs a warning, and does not send an analytics event to LaunchDarkly (since it would not be processed without a user).
+### Note on future releases
+
+The LaunchDarkly SDK repositories are being renamed for consistency. This repository is now `java-server-sdk` rather than `java-client`.
+
+The artifact names will also change. In the 4.6.3 release, the generated artifact was named `com.launchdarkly.client:launchdarkly-client`; in all future releases, it will be `com.launchdarkly.client:launchdarkly-java-server-sdk`.
 
 ## [4.6.2] - 2019-02-21
 ### Fixed
