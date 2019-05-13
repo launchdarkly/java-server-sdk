@@ -5,7 +5,7 @@ All notable changes to the LaunchDarkly Java SDK will be documented in this file
 
 ## [4.6.4] - 2019-05-01
 ### Changed
-- Changed the artifact name from `com.launchdarkly.client:launchdarkly-client` to `com.launchdarkly.client:launchdarkly-java-server-sdk`
+- Changed the artifact name from `com.launchdarkly:launchdarkly-client` to `com.launchdarkly:launchdarkly-java-server-sdk`
 - Changed repository references to use the new URL
 
 There are no other changes in this release. Substituting `launchdarkly-client` version 4.6.3 with `launchdarkly-java-server-sdk` version 4.6.4 will not affect functionality.
