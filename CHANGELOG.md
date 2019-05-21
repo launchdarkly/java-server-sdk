@@ -3,6 +3,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.6.5] - 2019-05-21
+### Fixed
+- The `LDConfig.Builder` method `userKeysFlushInterval` was mistakenly setting the value of `flushInterval` instead. (Thanks, [kutsal](https://github.com/launchdarkly/java-server-sdk/pull/163)!)
+
+### Added
+- CI tests now run against Java 8, 9, 10, and 11.
+
 ## [4.6.4] - 2019-05-01
 ### Changed
 - Changed the artifact name from `com.launchdarkly:launchdarkly-client` to `com.launchdarkly:launchdarkly-java-server-sdk`
