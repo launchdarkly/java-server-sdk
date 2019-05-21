@@ -30,7 +30,7 @@ SLF4J_SIMPLE_JAR_URL=https://oss.sonatype.org/content/groups/public/org/slf4j/sl
 
 # Felix OSGi container
 FELIX_ARCHIVE=org.apache.felix.main.distribution-6.0.3.tar.gz
-FELIX_ARCHIVE_URL=http://apache.mirrors.ionfish.org//felix/$(FELIX_ARCHIVE)
+FELIX_ARCHIVE_URL=http://mirrors.ibiblio.org/apache//felix/$(FELIX_ARCHIVE)
 FELIX_DIR=$(TEMP_DIR)/felix
 FELIX_JAR=$(FELIX_DIR)/bin/felix.jar
 TEMP_BUNDLE_DIR=$(TEMP_DIR)/bundles
