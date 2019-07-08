@@ -41,7 +41,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private final BlockingQueue<EventProcessorMessage> inbox;
   private final ScheduledExecutorService scheduler;
   private final AtomicBoolean closed = new AtomicBoolean(false);
-  private final AtomicBoolean inputCapacityExceeded = new AtomicBoolean(false);
+  private volatile boolean inputCapacityExceeded = false;
   
   DefaultEventProcessor(String sdkKey, LDConfig config) {
     inbox = new ArrayBlockingQueue<>(config.capacity);
@@ -117,7 +117,9 @@ final class DefaultEventProcessor implements EventProcessor {
     // events. This is unlikely, but if it happens, it means the application is probably doing a ton of flag
     // evaluations across many threads-- so if we wait for a space in the inbox, we risk a very serious slowdown
     // of the app. To avoid that, we'll just drop the event. The log warning about this will only be shown once.
-    if (inputCapacityExceeded.compareAndSet(false, true)) {
+    boolean alreadyLogged = inputCapacityExceeded;
+    inputCapacityExceeded = true;
+    if (!alreadyLogged) {
       logger.warn("Events are being produced faster than they can be processed; some events will be dropped");
     }
     return false;
