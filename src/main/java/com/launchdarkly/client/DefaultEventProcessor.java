@@ -39,21 +39,22 @@ final class DefaultEventProcessor implements EventProcessor {
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "3";
   
-  private final BlockingQueue<EventProcessorMessage> inputChannel;
+  private final BlockingQueue<EventProcessorMessage> inbox;
   private final ScheduledExecutorService scheduler;
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private final AtomicBoolean inputCapacityExceeded = new AtomicBoolean(false);
   
   DefaultEventProcessor(String sdkKey, LDConfig config) {
-    inputChannel = new ArrayBlockingQueue<>(config.capacity);
+    inbox = new ArrayBlockingQueue<>(config.capacity);
 
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setDaemon(true)
         .setNameFormat("LaunchDarkly-EventProcessor-%d")
+        .setPriority(Thread.MIN_PRIORITY)
         .build();
     scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
-    new EventDispatcher(sdkKey, config, inputChannel, threadFactory, closed);
+    new EventDispatcher(sdkKey, config, inbox, threadFactory, closed);
 
     Runnable flusher = new Runnable() {
       public void run() {
@@ -111,11 +112,11 @@ final class DefaultEventProcessor implements EventProcessor {
   private void postToChannel(EventProcessorMessage message) {
     while (true) {
       try {
-        if (inputChannel.offer(message, CHANNEL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
+        if (inbox.offer(message, CHANNEL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
           inputCapacityExceeded.set(false);
           break;
         } else {
-          // This doesn't mean that the output event buffer is full, but rather that the main thread is
+          // This doesn't mean that the outbox is full, but rather that the main thread is
           // seriously backed up with not-yet-processed events. We shouldn't see this.
           if (inputCapacityExceeded.compareAndSet(false, true)) {
             logger.warn("Events are being produced faster than they can be processed");
@@ -183,7 +184,7 @@ final class DefaultEventProcessor implements EventProcessor {
    */
   static final class EventDispatcher {
     private static final int MAX_FLUSH_THREADS = 5;
-    private static final int MESSAGE_BATCH_SIZE = 50;
+    private static final int MESSAGE_BATCH_SIZE = 1;
     static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
     
     private final LDConfig config;
@@ -194,7 +195,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private final AtomicBoolean disabled = new AtomicBoolean(false);
 
     private EventDispatcher(String sdkKey, LDConfig config,
-                            final BlockingQueue<EventProcessorMessage> inputChannel,
+                            final BlockingQueue<EventProcessorMessage> inbox,
                             ThreadFactory threadFactory,
                             final AtomicBoolean closed) {
       this.config = config;
@@ -205,12 +206,12 @@ final class DefaultEventProcessor implements EventProcessor {
       // all the workers are busy.
       final BlockingQueue<FlushPayload> payloadQueue = new ArrayBlockingQueue<>(1);
       
-      final EventBuffer buffer = new EventBuffer(config.capacity);
+      final EventBuffer outbox = new EventBuffer(config.capacity);
       final SimpleLRUCache<String, String> userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
       
       Thread mainThread = threadFactory.newThread(new Runnable() {
         public void run() {
-          runMainLoop(inputChannel, buffer, userKeys, payloadQueue);
+          runMainLoop(inbox, outbox, userKeys, payloadQueue);
         }
       });
       mainThread.setDaemon(true);
@@ -226,7 +227,7 @@ final class DefaultEventProcessor implements EventProcessor {
           closed.set(true);
           // Now discard everything that was on the queue, but also make sure no one was blocking on a message
           List<EventProcessorMessage> messages = new ArrayList<EventProcessorMessage>();
-          inputChannel.drainTo(messages);
+          inbox.drainTo(messages);
           for (EventProcessorMessage m: messages) {
             m.completed();
           }
@@ -253,22 +254,22 @@ final class DefaultEventProcessor implements EventProcessor {
      * thread so we don't have to synchronize on our internal structures; when it's time to flush,
      * triggerFlush will hand the events off to another task.
      */
-    private void runMainLoop(BlockingQueue<EventProcessorMessage> inputChannel,
-        EventBuffer buffer, SimpleLRUCache<String, String> userKeys,
+    private void runMainLoop(BlockingQueue<EventProcessorMessage> inbox,
+        EventBuffer outbox, SimpleLRUCache<String, String> userKeys,
         BlockingQueue<FlushPayload> payloadQueue) {
       List<EventProcessorMessage> batch = new ArrayList<EventProcessorMessage>(MESSAGE_BATCH_SIZE);
       while (true) {
         try {
           batch.clear();
-          batch.add(inputChannel.take()); // take() blocks until a message is available
-          inputChannel.drainTo(batch, MESSAGE_BATCH_SIZE - 1); // this nonblocking call allows us to pick up more messages if available
+          batch.add(inbox.take()); // take() blocks until a message is available
+          inbox.drainTo(batch, MESSAGE_BATCH_SIZE - 1); // this nonblocking call allows us to pick up more messages if available
           for (EventProcessorMessage message: batch) {
             switch(message.type) {
             case EVENT:
-              processEvent(message.event, userKeys, buffer);
+              processEvent(message.event, userKeys, outbox);
               break;
             case FLUSH:
-              triggerFlush(buffer, payloadQueue);
+              triggerFlush(outbox, payloadQueue);
               break;
             case FLUSH_USERS:
               userKeys.clear();
@@ -315,13 +316,13 @@ final class DefaultEventProcessor implements EventProcessor {
       }
     }
     
-    private void processEvent(Event e, SimpleLRUCache<String, String> userKeys, EventBuffer buffer) {
+    private void processEvent(Event e, SimpleLRUCache<String, String> userKeys, EventBuffer outbox) {
       if (disabled.get()) {
         return;
       }
 
       // Always record the event in the summarizer.
-      buffer.addToSummary(e);
+      outbox.addToSummary(e);
 
       // Decide whether to add the event to the payload. Feature events may be added twice, once for
       // the event (if tracked) and once for debugging.
@@ -353,13 +354,13 @@ final class DefaultEventProcessor implements EventProcessor {
       
       if (addIndexEvent) {
         Event.Index ie = new Event.Index(e.creationDate, e.user);
-        buffer.add(ie);
+        outbox.add(ie);
       }
       if (addFullEvent) {
-        buffer.add(e);
+        outbox.add(e);
       }
       if (debugEvent != null) {
-        buffer.add(debugEvent);
+        outbox.add(debugEvent);
       }
     }
     
@@ -391,15 +392,15 @@ final class DefaultEventProcessor implements EventProcessor {
       return false;      
     }
     
-    private void triggerFlush(EventBuffer buffer, BlockingQueue<FlushPayload> payloadQueue) {
-      if (disabled.get() || buffer.isEmpty()) {
+    private void triggerFlush(EventBuffer outbox, BlockingQueue<FlushPayload> payloadQueue) {
+      if (disabled.get() || outbox.isEmpty()) {
         return;
       }
-      FlushPayload payload = buffer.getPayload();
+      FlushPayload payload = outbox.getPayload();
       busyFlushWorkersCount.incrementAndGet();
       if (payloadQueue.offer(payload)) {
         // These events now belong to the next available flush worker, so drop them from our state
-        buffer.clear();
+        outbox.clear();
       } else {
         logger.debug("Skipped flushing because all workers are busy");
         // All the workers are busy so we can't flush now; keep the events in our state
