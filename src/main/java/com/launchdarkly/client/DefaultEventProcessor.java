@@ -175,7 +175,7 @@ final class DefaultEventProcessor implements EventProcessor {
    */
   static final class EventDispatcher {
     private static final int MAX_FLUSH_THREADS = 5;
-    private static final int MESSAGE_BATCH_SIZE = 1;
+    private static final int MESSAGE_BATCH_SIZE = 50;
     static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
     
     private final LDConfig config;
