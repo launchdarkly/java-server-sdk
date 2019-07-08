@@ -117,7 +117,7 @@ final class DefaultEventProcessor implements EventProcessor {
     // events. This is unlikely, but if it happens, it means the application is probably doing a ton of flag
     // evaluations across many threads-- so if we wait for a space in the inbox, we risk a very serious slowdown
     // of the app. To avoid that, we'll just drop the event. The log warning about this will only be shown once.
-    boolean alreadyLogged = inputCapacityExceeded;
+    boolean alreadyLogged = inputCapacityExceeded; // possible race between this and the next line, but it's of no real consequence - we'd just get an extra log line
     inputCapacityExceeded = true;
     if (!alreadyLogged) {
       logger.warn("Events are being produced faster than they can be processed; some events will be dropped");
