@@ -35,7 +35,6 @@ import okhttp3.Response;
 
 final class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
-  private static final int CHANNEL_BLOCK_MILLIS = 1000;
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "3";
   
@@ -105,31 +104,23 @@ final class DefaultEventProcessor implements EventProcessor {
   
   private void postMessageAndWait(MessageType type, Event event) {
     EventProcessorMessage message = new EventProcessorMessage(type, event, true);
-    postToChannel(message);
-    message.waitForCompletion();
+    if (postToChannel(message)) {
+      message.waitForCompletion();
+    }
   }
   
-  private void postToChannel(EventProcessorMessage message) {
-    while (true) {
-      try {
-        if (inbox.offer(message, CHANNEL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
-          inputCapacityExceeded.set(false);
-          break;
-        } else {
-          // This doesn't mean that the outbox is full, but rather that the main thread is
-          // seriously backed up with not-yet-processed events. We shouldn't see this.
-          if (inputCapacityExceeded.compareAndSet(false, true)) {
-            logger.warn("Events are being produced faster than they can be processed");
-          }
-          if (closed.get()) {
-            // Whoops, the event processor has been shut down
-            message.completed();
-            return;
-          }
-        }
-      } catch (InterruptedException ex) {
-      }
+  private boolean postToChannel(EventProcessorMessage message) {
+    if (inbox.offer(message)) {
+      return true;
     }
+    // If the inbox is full, it means the EventDispatcher thread is seriously backed up with not-yet-processed
+    // events. This is unlikely, but if it happens, it means the application is probably doing a ton of flag
+    // evaluations across many threads-- so if we wait for a space in the inbox, we risk a very serious slowdown
+    // of the app. To avoid that, we'll just drop the event. The log warning about this will only be shown once.
+    if (inputCapacityExceeded.compareAndSet(false, true)) {
+      logger.warn("Events are being produced faster than they can be processed; some events will be dropped");
+    }
+    return false;
   }
 
   private static enum MessageType {
