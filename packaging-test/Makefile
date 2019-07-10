@@ -14,9 +14,9 @@ PROJECT_DIR=$(shell cd .. && pwd)
 SDK_VERSION=$(shell grep "version=" $(PROJECT_DIR)/gradle.properties | cut -d '=' -f 2)
 
 SDK_JARS_DIR=$(PROJECT_DIR)/build/libs
-SDK_DEFAULT_JAR=$(SDK_JARS_DIR)/launchdarkly-client-$(SDK_VERSION).jar
-SDK_ALL_JAR=$(SDK_JARS_DIR)/launchdarkly-client-$(SDK_VERSION)-all.jar
-SDK_THIN_JAR=$(SDK_JARS_DIR)/launchdarkly-client-$(SDK_VERSION)-thin.jar
+SDK_DEFAULT_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION).jar
+SDK_ALL_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-all.jar
+SDK_THIN_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-thin.jar
 
 TEMP_DIR=$(BASE_DIR)/temp
 TEMP_OUTPUT=$(TEMP_DIR)/test.out
@@ -29,8 +29,8 @@ SLF4J_SIMPLE_JAR=$(TEMP_DIR)/test-slf4j-simple.jar
 SLF4J_SIMPLE_JAR_URL=https://oss.sonatype.org/content/groups/public/org/slf4j/slf4j-simple/1.7.21/slf4j-simple-1.7.21.jar
 
 # Felix OSGi container
-FELIX_ARCHIVE=org.apache.felix.main.distribution-6.0.2.tar.gz
-FELIX_ARCHIVE_URL=http://apache.mirrors.ionfish.org//felix/$(FELIX_ARCHIVE)
+FELIX_ARCHIVE=org.apache.felix.main.distribution-6.0.3.tar.gz
+FELIX_ARCHIVE_URL=http://mirrors.ibiblio.org/apache//felix/$(FELIX_ARCHIVE)
 FELIX_DIR=$(TEMP_DIR)/felix
 FELIX_JAR=$(FELIX_DIR)/bin/felix.jar
 TEMP_BUNDLE_DIR=$(TEMP_DIR)/bundles

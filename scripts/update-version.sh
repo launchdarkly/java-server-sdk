@@ -8,5 +8,5 @@ rm -f gradle.properties.bak
 
 # Update version in README.md:
 sed  -i.bak "s/<version>.*<\/version>/<version>${VERSION}<\/version>/" README.md
-sed  -i.bak "s/\"com.launchdarkly:launchdarkly-client:.*\"/\"com.launchdarkly:launchdarkly-client:${VERSION}\"/" README.md
+sed  -i.bak "s/\"com.launchdarkly:launchdarkly-java-server-sdk:.*\"/\"com.launchdarkly:launchdarkly-java-server-sdk:${VERSION}\"/" README.md
 rm -f README.md.bak

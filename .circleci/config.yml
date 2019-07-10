@@ -1,34 +1,63 @@
 version: 2
-jobs:
 
+test-template: &test-template
+  steps:
+    - checkout
+    - run: cp gradle.properties.example gradle.properties
+    - attach_workspace:
+        at: build
+    - run: java -version
+    - run: ./gradlew test
+    - run:
+        name: Save test results
+        command: |
+          mkdir -p ~/junit/;
+          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
+        when: always
+    - store_test_results:
+        path: ~/junit
+    - store_artifacts:
+        path: ~/junit
+
+jobs:
   build:
     docker:
-      - image: circleci/java
-      - image: redis
+      - image: circleci/openjdk:8u131-jdk # To match the version pre-installed in Ubuntu 16 and used by Jenkins for releasing 
     steps:
       - checkout
       - run: cp gradle.properties.example gradle.properties
+      - run: java -version
       - run: ./gradlew dependencies
-      - run: ./gradlew test
-      - run:
-          name: Save test results
-          command: |
-            mkdir -p ~/junit/;
-            find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
-          when: always
-      - store_test_results:
-          path: ~/junit
-      - store_artifacts:
-          path: ~/junit
+      - run: ./gradlew jar
       - persist_to_workspace:
           root: build
           paths:
             - classes
-
+  test-java8:
+    <<: *test-template
+    docker:
+      - image: circleci/openjdk:8
+      - image: redis
+  test-java9:
+    <<: *test-template
+    docker:
+      - image: circleci/openjdk:9
+      - image: redis
+  test-java10:
+    <<: *test-template
+    docker:
+      - image: circleci/openjdk:10
+      - image: redis
+  test-java11:
+    <<: *test-template
+    docker:
+      - image: circleci/openjdk:11
+      - image: redis
   packaging:
     docker:
-      - image: circleci/java
+      - image: circleci/openjdk:8
     steps:
+      - run: java -version
       - run: sudo apt-get install make -y -q
       - checkout
       - attach_workspace:
@@ -45,15 +74,19 @@ workflows:
   version: 2
   test:
     jobs:
-      - build:
-          filters:
-            branches:
-              ignore:
-                - gh-pages
+      - build
+      - test-java8:
+          requires:
+            - build
+      - test-java9:
+          requires:
+            - build
+      - test-java10:
+          requires:
+            - build
+      - test-java11:
+          requires:
+            - build
       - packaging:
           requires:
             - build
-          filters:
-            branches:
-              ignore:
-                - gh-pages

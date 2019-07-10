@@ -541,7 +541,7 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder userKeysFlushInterval(int flushInterval) {
-      this.flushIntervalSeconds = flushInterval;
+      this.userKeysFlushInterval = flushInterval;
       return this;
     }
 
