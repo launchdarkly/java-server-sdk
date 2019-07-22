@@ -14,27 +14,27 @@ public class LDConfigTest {
   public void testConnectTimeoutSpecifiedInSeconds() {
     LDConfig config = new LDConfig.Builder().connectTimeout(3).build();
 
-    assertEquals(3000, config.connectTimeoutMillis);
+    assertEquals(3000, config.httpClient.connectTimeoutMillis());
   }
 
   @Test
   public void testConnectTimeoutSpecifiedInMilliseconds() {
     LDConfig config = new LDConfig.Builder().connectTimeoutMillis(3000).build();
 
-    assertEquals(3000, config.connectTimeoutMillis);
+    assertEquals(3000, config.httpClient.connectTimeoutMillis());
   }
   @Test
   public void testSocketTimeoutSpecifiedInSeconds() {
     LDConfig config = new LDConfig.Builder().socketTimeout(3).build();
 
-    assertEquals(3000, config.socketTimeoutMillis);
+    assertEquals(3000, config.httpClient.readTimeoutMillis());
   }
 
   @Test
   public void testSocketTimeoutSpecifiedInMilliseconds() {
     LDConfig config = new LDConfig.Builder().socketTimeoutMillis(3000).build();
 
-    assertEquals(3000, config.socketTimeoutMillis);
+    assertEquals(3000, config.httpClient.readTimeoutMillis());
   }
 
   @Test

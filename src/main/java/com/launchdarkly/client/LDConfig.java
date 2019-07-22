@@ -23,6 +23,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
@@ -52,8 +54,6 @@ public final class LDConfig {
   final URI eventsURI;
   final URI streamURI;
   final int capacity;
-  final int connectTimeoutMillis;
-  final int socketTimeoutMillis;
   final int flushInterval;
   final Proxy proxy;
   final Authenticator proxyAuthenticator;
@@ -75,13 +75,11 @@ public final class LDConfig {
   final int userKeysCapacity;
   final int userKeysFlushInterval;
   final boolean inlineUsersInEvents;
-  
+
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
     this.capacity = builder.capacity;
-    this.connectTimeoutMillis = builder.connectTimeoutMillis;
-    this.socketTimeoutMillis = builder.socketTimeoutMillis;
     this.flushInterval = builder.flushIntervalSeconds;
     this.proxy = builder.proxy();
     this.proxyAuthenticator = builder.proxyAuthenticator();
@@ -108,12 +106,7 @@ public final class LDConfig {
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
     this.inlineUsersInEvents = builder.inlineUsersInEvents;
     
-    OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
-        .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-        .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
-        .readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
-        .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
-        .retryOnConnectionFailure(false); // we will implement our own retry logic
+    OkHttpClient.Builder httpClientBuilder = builder.clientBuilder;
 
     // When streaming is enabled, http GETs made by FeatureRequester will
     // always guarantee a new flag state. So, disable http response caching
@@ -134,13 +127,13 @@ public final class LDConfig {
       }
     }
 
-    httpClient = httpClientBuilder
-        .build();
+    this.httpClient = httpClientBuilder.build();
   }
 
   /**
-   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
-   * calls can be chained, enabling the following pattern:
+   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct
+   * {@link com.launchdarkly.client.LDConfig} objects. Builder calls can be chained, enabling the
+   * following pattern:
    * <pre>
    * LDConfig config = new LDConfig.Builder()
    *      .connectTimeoutMillis(3)
@@ -177,7 +170,13 @@ public final class LDConfig {
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
     private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
     private boolean inlineUsersInEvents = false;
-    
+    private OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
+        .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
+        .connectTimeout(DEFAULT_CONNECT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+        .readTimeout(DEFAULT_SOCKET_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+        .writeTimeout(DEFAULT_SOCKET_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+        .retryOnConnectionFailure(false); // we will implement our own retry logic;
+
     /**
      * Creates a builder with all configuration parameters set to the default
      */
@@ -291,7 +290,7 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder connectTimeout(int connectTimeout) {
-      this.connectTimeoutMillis = connectTimeout * 1000;
+      this.clientBuilder.connectTimeout(connectTimeout, TimeUnit.SECONDS);
       return this;
     }
 
@@ -304,7 +303,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder socketTimeout(int socketTimeout) {
-      this.socketTimeoutMillis = socketTimeout * 1000;
+      this.clientBuilder.readTimeout(socketTimeout, TimeUnit.SECONDS);
+      this.clientBuilder.writeTimeout(socketTimeout, TimeUnit.SECONDS);
       return this;
     }
 
@@ -317,7 +317,7 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder connectTimeoutMillis(int connectTimeoutMillis) {
-      this.connectTimeoutMillis = connectTimeoutMillis;
+      this.clientBuilder.connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS);
       return this;
     }
 
@@ -330,7 +330,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder socketTimeoutMillis(int socketTimeoutMillis) {
-      this.socketTimeoutMillis = socketTimeoutMillis;
+      this.clientBuilder.readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS);
+      this.clientBuilder.writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS);
       return this;
     }
 
@@ -408,12 +409,38 @@ public final class LDConfig {
       this.proxyPassword = password;
       return this;
     }
-    
+
+    /**
+     * Sets the {@link SSLSocketFactory} used to secure HTTPS connections to LaunchDarkly.
+     *
+     * @param sslSocketFactory the ssl socket factory
+     * @param trustManager the trust manager
+     * @return the builder
+     */
+    public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory,
+        X509TrustManager trustManager) {
+      this.clientBuilder.sslSocketFactory(sslSocketFactory, trustManager);
+      return this;
+    }
+
+    /**
+     * Sets a underlying {@link OkHttpClient} used for making connections to LaunchDarkly.
+     * If you're setting this along with other connection-related items (ie timeouts, proxy),
+     * you should do this first to avoid overwriting values.
+     *
+     * @param httpClient the http client
+     * @return the builder
+     */
+    public Builder httpClient(OkHttpClient httpClient) {
+      this.clientBuilder = httpClient.newBuilder();
+      return this;
+    }
+
     /**
      * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
      * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
      *
-     * @param useLdd true to use the relay in daemon mode; false to use streaming or polling 
+     * @param useLdd true to use the relay in daemon mode; false to use streaming or polling
      * @return the builder
      */
     public Builder useLdd(boolean useLdd) {
