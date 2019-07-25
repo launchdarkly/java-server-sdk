@@ -1,15 +1,14 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
+import okhttp3.Headers;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-
-import okhttp3.Request;
 
 class Util {
   /**
    * Converts either a unix epoch millis number or RFC3339/ISO8601 timestamp as {@link JsonPrimitive} to a {@link DateTime} object.
-   * @param maybeDate wraps either a nubmer or a string that may contain a valid timestamp.
+   * @param maybeDate wraps either a number or a string that may contain a valid timestamp.
    * @return null if input is not a valid format.
    */
   static DateTime jsonPrimitiveToDateTime(JsonPrimitive maybeDate) {
@@ -26,11 +25,21 @@ class Util {
       return null;
     }
   }
-  
-  static Request.Builder getRequestBuilder(String sdkKey) {
-    return new Request.Builder()
-        .addHeader("Authorization", sdkKey)
-        .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
+
+  static Headers.Builder getHeadersBuilderFor(String sdkKey, LDConfig config) {
+    Headers.Builder builder = new Headers.Builder()
+        .add("Authorization", sdkKey)
+        .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
+
+    if (config.wrapperName != null) {
+      String wrapperVersion = "";
+      if (config.wrapperVersion != null) {
+        wrapperVersion = "/" + config.wrapperVersion;
+      }
+      builder.add("X-LaunchDarkly-Wrapper", config.wrapperName + wrapperVersion);
+    }
+
+    return builder;
   }
   
   /**

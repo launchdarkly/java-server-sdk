@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.launchdarkly.client.Util.getRequestBuilder;
+import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
@@ -70,8 +70,9 @@ class FeatureRequestor {
   }
   
   private String get(String path) throws IOException, HttpErrorException {
-    Request request = getRequestBuilder(sdkKey)
+    Request request = new Request.Builder()
         .url(config.baseURI.toString() + path)
+        .headers(getHeadersBuilderFor(sdkKey, config).build())
         .get()
         .build();
 

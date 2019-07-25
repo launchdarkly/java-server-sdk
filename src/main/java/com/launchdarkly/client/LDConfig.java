@@ -45,6 +45,8 @@ public final class LDConfig {
   private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
   private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+  private static final int DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS = 900_000; // 15 minutes
+  private static final int MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS = 60_000; // 1 minute
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
@@ -75,7 +77,13 @@ public final class LDConfig {
   final int userKeysCapacity;
   final int userKeysFlushInterval;
   final boolean inlineUsersInEvents;
-  
+  final int diagnosticRecordingIntervalMillis;
+  final boolean diagnosticOptOut;
+  final String wrapperName;
+  final String wrapperVersion;
+
+  DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator();
+
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
@@ -107,6 +115,14 @@ public final class LDConfig {
     this.userKeysCapacity = builder.userKeysCapacity;
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
     this.inlineUsersInEvents = builder.inlineUsersInEvents;
+    if (builder.diagnosticRecordingIntervalMillis < MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS) {
+      this.diagnosticRecordingIntervalMillis = MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS;
+    } else {
+      this.diagnosticRecordingIntervalMillis = builder.diagnosticRecordingIntervalMillis;
+    }
+    this.diagnosticOptOut = builder.diagnosticOptOut;
+    this.wrapperName = builder.wrapperName;
+    this.wrapperVersion = builder.wrapperVersion;
     
     OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
         .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
@@ -136,6 +152,41 @@ public final class LDConfig {
 
     httpClient = httpClientBuilder
         .build();
+  }
+
+  LDConfig(LDConfig config) {
+    this.baseURI = config.baseURI;
+    this.eventsURI = config.eventsURI;
+    this.streamURI = config.streamURI;
+    this.capacity = config.capacity;
+    this.connectTimeoutMillis = config.connectTimeoutMillis;
+    this.socketTimeoutMillis = config.socketTimeoutMillis;
+    this.flushInterval = config.flushInterval;
+    this.proxy = config.proxy;
+    this.proxyAuthenticator = config.proxyAuthenticator;
+    this.httpClient = config.httpClient;
+    this.stream = config.stream;
+    this.deprecatedFeatureStore = config.deprecatedFeatureStore;
+    this.featureStoreFactory = config.featureStoreFactory;
+    this.eventProcessorFactory = config.eventProcessorFactory;
+    this.updateProcessorFactory = config.updateProcessorFactory;
+    this.useLdd = config.useLdd;
+    this.offline = config.offline;
+    this.allAttributesPrivate = config.allAttributesPrivate;
+    this.privateAttrNames = config.privateAttrNames;
+    this.sendEvents = config.sendEvents;
+    this.pollingIntervalMillis = config.pollingIntervalMillis;
+    this.startWaitMillis = config.startWaitMillis;
+    this.samplingInterval = config.samplingInterval;
+    this.reconnectTimeMs = config.reconnectTimeMs;
+    this.userKeysCapacity = config.userKeysCapacity;
+    this.userKeysFlushInterval = config.userKeysFlushInterval;
+    this.inlineUsersInEvents = config.inlineUsersInEvents;
+    this.diagnosticRecordingIntervalMillis = config.diagnosticRecordingIntervalMillis;
+    this.diagnosticOptOut = config.diagnosticOptOut;
+    this.wrapperName = config.wrapperName;
+    this.wrapperVersion = config.wrapperVersion;
+    this.diagnosticAccumulator = new DiagnosticAccumulator();
   }
 
   /**
@@ -177,6 +228,10 @@ public final class LDConfig {
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
     private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
     private boolean inlineUsersInEvents = false;
+    private int diagnosticRecordingIntervalMillis = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS;
+    private boolean diagnosticOptOut = false;
+    private String wrapperName = null;
+    private String wrapperVersion = null;
     
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -556,7 +611,64 @@ public final class LDConfig {
       this.inlineUsersInEvents = inlineUsersInEvents;
       return this;
     }
-    
+
+    /**
+     * Sets the interval at which periodic diagnostic data is sent. The default is every 15 minutes (900,000
+     * milliseconds) and the minimum value is 6000.
+     *
+     * @see this.diagnosticOptOut for more information on the diagnostics data being sent.
+     *
+     * @param diagnosticRecordingIntervalMillis the diagnostics interval in milliseconds
+     * @return the builder
+     */
+    public Builder diagnosticRecordingIntervalMillis(int diagnosticRecordingIntervalMillis) {
+      this.diagnosticRecordingIntervalMillis = diagnosticRecordingIntervalMillis;
+      return this;
+    }
+
+    /**
+     * Set to true to opt out of sending diagnostics data.
+     *
+     * Unless the diagnosticOptOut field is set to true, the client will send some diagnostics data to the
+     * LaunchDarkly servers in order to assist in the development of future SDK improvements. These diagnostics
+     * consist of an initial payload containing some details of SDK in use, the SDK's configuration, and the platform
+     * the SDK is being run on; as well as payloads sent periodically with information on irregular occurrences such
+     * as dropped events.
+     *
+     * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data.
+     * @return the builder
+     */
+    public Builder diagnosticOptOut(boolean diagnosticOptOut) {
+      this.diagnosticOptOut = diagnosticOptOut;
+      return this;
+    }
+
+    /**
+     * For use by wrapper libraries to set an identifying name for the wrapper being used. This will be sent in
+     * User-Agent headers during requests to the LaunchDarkly servers to allow recording metrics on the usage of
+     * these wrapper libraries.
+     *
+     * @param wrapperName An identifying name for the wrapper library
+     * @return the builder
+     */
+    public Builder wrapperName(String wrapperName) {
+      this.wrapperName = wrapperName;
+      return this;
+    }
+
+    /**
+     * For use by wrapper libraries to report the version of the library in use. If {@link this.wrappeName} is not
+     * set, this field will be ignored. Otherwise the version string will be included in the User-Agent headers along
+     * with the wrapperName during requests to the LaunchDarkly servers.
+     *
+     * @param wrapperVersion Version string for the wrapper library
+     * @return the builder
+     */
+    public Builder wrapperVersion(String wrapperVersion) {
+      this.wrapperVersion = wrapperVersion;
+      return this;
+    }
+
     // returns null if none of the proxy bits were configured. Minimum required part: port.
     Proxy proxy() {
       if (this.proxyPort == -1) {

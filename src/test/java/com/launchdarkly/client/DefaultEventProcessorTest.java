@@ -20,13 +20,14 @@ import static com.launchdarkly.client.TestUtil.isJsonArray;
 import static com.launchdarkly.client.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -41,7 +42,8 @@ public class DefaultEventProcessorTest {
   private static final JsonElement filteredUserJson =
       gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
 
-  private final LDConfig.Builder configBuilder = new LDConfig.Builder();
+  private final LDConfig.Builder configBuilder = new LDConfig.Builder().diagnosticOptOut(true);
+  private final LDConfig.Builder diagConfigBuilder = new LDConfig.Builder();
   private final MockWebServer server = new MockWebServer();
   private DefaultEventProcessor ep;
   
@@ -49,6 +51,7 @@ public class DefaultEventProcessorTest {
   public void setup() throws Exception {
     server.start();
     configBuilder.eventsURI(server.url("/").uri());
+    diagConfigBuilder.eventsURI(server.url("/").uri());
   }
   
   @After
@@ -59,18 +62,16 @@ public class DefaultEventProcessorTest {
     server.shutdown();
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void identifyEventIsQueued() throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     ep.sendEvent(e);
-    
+
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(isIdentifyEvent(e, userJson)));
+    assertThat(output, contains(isIdentifyEvent(e, userJson)));
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInIdentifyEvent() throws Exception {
     configBuilder.allAttributesPrivate(true);
@@ -79,7 +80,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(e);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(isIdentifyEvent(e, filteredUserJson)));    
+    assertThat(output, contains(isIdentifyEvent(e, filteredUserJson)));
   }
   
   @SuppressWarnings("unchecked")
@@ -92,7 +93,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, false, null),
         isSummaryEvent()
@@ -110,7 +111,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe, filteredUserJson),
         isFeatureEvent(fe, flag, false, null),
         isSummaryEvent()
@@ -128,7 +129,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isFeatureEvent(fe, flag, false, userJson),
         isSummaryEvent()
     ));
@@ -145,7 +146,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isFeatureEvent(fe, flag, false, filteredUserJson),
         isSummaryEvent()
     ));
@@ -162,7 +163,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, false, null, reason),
         isSummaryEvent()
@@ -180,7 +181,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe, userJson),
         isSummaryEvent()
     ));    
@@ -197,7 +198,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, true, userJson),
         isSummaryEvent()
@@ -216,7 +217,7 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, false, null),
         isFeatureEvent(fe, flag, true, userJson),
@@ -246,7 +247,7 @@ public class DefaultEventProcessorTest {
     
     // Should get a summary event only, not a full feature event
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe, userJson),
         isSummaryEvent(fe.creationDate, fe.creationDate)
     ));
@@ -274,7 +275,7 @@ public class DefaultEventProcessorTest {
     
     // Should get a summary event only, not a full feature event
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe, userJson),
         isSummaryEvent(fe.creationDate, fe.creationDate)
     ));
@@ -295,14 +296,40 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(fe2);
     
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(fe1, userJson),
         isFeatureEvent(fe1, flag1, false, null),
         isFeatureEvent(fe2, flag2, false, null),
-        isSummaryEvent(fe1.creationDate, fe2.creationDate)
+        allOf(
+            isSummaryEvent(fe1.creationDate, fe2.creationDate),
+            hasSummaryFlag(flag1.getKey(), null,
+                contains(isSummaryEventCounter(flag1, 1, value, 1))),
+            hasSummaryFlag(flag2.getKey(), null,
+                contains(isSummaryEventCounter(flag2, 1, value, 1))
+            )
+        )
     ));
   }
-  
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void identifyEventMakesIndexEventUnnecessary() throws Exception {
+    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
+    Event ie = EventFactory.DEFAULT.newIdentifyEvent(user);
+    ep.sendEvent(ie);
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        simpleEvaluation(1, new JsonPrimitive("value")), null);
+    ep.sendEvent(fe);
+
+    JsonArray output = flushAndGetEvents(new MockResponse());
+    assertThat(output, hasItems(
+        isIdentifyEvent(ie, userJson),
+        isFeatureEvent(fe, flag, false, null),
+        isSummaryEvent()
+    ));
+  }
+
   @SuppressWarnings("unchecked")
   @Test
   public void nonTrackedEventsAreSummarized() throws Exception {
@@ -325,13 +352,13 @@ public class DefaultEventProcessorTest {
         allOf(
             isSummaryEvent(fe1.creationDate, fe2.creationDate),
             hasSummaryFlag(flag1.getKey(), default1,
-                hasItem(isSummaryEventCounter(flag1, 2, value, 1))),
+                contains(isSummaryEventCounter(flag1, 2, value, 1))),
             hasSummaryFlag(flag2.getKey(), default2,
-                hasItem(isSummaryEventCounter(flag2, 2, value, 1)))
+                contains(isSummaryEventCounter(flag2, 2, value, 1)))
         )
     ));
   }
-  
+
   @SuppressWarnings("unchecked")
   @Test
   public void customEventIsQueuedWithUser() throws Exception {
@@ -342,13 +369,12 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
+    assertThat(output, contains(
         isIndexEvent(ce, userJson),
         isCustomEvent(ce, null)
     ));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void customEventCanContainInlineUser() throws Exception {
     configBuilder.inlineUsersInEvents(true);
@@ -359,10 +385,9 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(isCustomEvent(ce, userJson)));
+    assertThat(output, contains(isCustomEvent(ce, userJson)));
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInCustomEvent() throws Exception {
     configBuilder.inlineUsersInEvents(true).allAttributesPrivate(true);
@@ -373,10 +398,9 @@ public class DefaultEventProcessorTest {
     ep.sendEvent(ce);
 
     JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(isCustomEvent(ce, filteredUserJson)));
+    assertThat(output, contains(isCustomEvent(ce, filteredUserJson)));
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void closingEventProcessorForcesSynchronousFlush() throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
@@ -386,7 +410,7 @@ public class DefaultEventProcessorTest {
     server.enqueue(new MockResponse());
     ep.close();
     JsonArray output = getEventsFromLastRequest();
-    assertThat(output, hasItems(isIdentifyEvent(e, userJson)));
+    assertThat(output, contains(isIdentifyEvent(e, userJson)));
   }
   
   @Test
@@ -396,7 +420,55 @@ public class DefaultEventProcessorTest {
     
     assertEquals(0, server.getRequestCount());
   }
-  
+
+  @Test
+  public void initialDiagnosticEventSentToDiagnosticEndpoint() throws Exception {
+    server.enqueue(new MockResponse());
+    ep = new DefaultEventProcessor(SDK_KEY, diagConfigBuilder.build());
+    ep.close();
+    RecordedRequest req = server.takeRequest(100, TimeUnit.MILLISECONDS);
+
+    assertNotNull(req);
+    assertThat(req.getPath(), equalTo("//diagnostic"));
+  }
+
+  @Test
+  public void initialDiagnosticEventHasInitBody() throws Exception {
+    server.enqueue(new MockResponse());
+    ep = new DefaultEventProcessor(SDK_KEY, diagConfigBuilder.build());
+    ep.close();
+    RecordedRequest req = server.takeRequest(100, TimeUnit.MILLISECONDS);
+    assertNotNull(req);
+
+    DiagnosticEvent.Init initEvent = gson.fromJson(req.getBody().readUtf8(), DiagnosticEvent.Init.class);
+
+    assertNotNull(initEvent);
+    assertThat(initEvent.kind, equalTo("diagnostic-init"));
+    assertNotNull(initEvent.configuration);
+    assertNotNull(initEvent.sdk);
+    assertNotNull(initEvent.platform);
+    assertNotNull(initEvent.id);
+  }
+
+  @Test
+  public void periodicDiagnosticEventHasStatisticsBody() throws Exception {
+    server.enqueue(new MockResponse());
+    server.enqueue(new MockResponse());
+    ep = new DefaultEventProcessor(SDK_KEY, diagConfigBuilder.build());
+    ep.postDiagnostic();
+    ep.close();
+    // Ignore the initial diagnostic event
+    server.takeRequest(100, TimeUnit.MILLISECONDS);
+    RecordedRequest periodReq = server.takeRequest(100, TimeUnit.MILLISECONDS);
+    assertNotNull(periodReq);
+
+    DiagnosticEvent.Statistics statsEvent = gson.fromJson(periodReq.getBody().readUtf8(), DiagnosticEvent.Statistics.class);
+
+    assertNotNull(statsEvent);
+    assertThat(statsEvent.kind, equalTo("diagnostic"));
+    assertNotNull(statsEvent.id);
+  }
+
   @Test
   public void sdkKeyIsSent() throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
@@ -411,6 +483,16 @@ public class DefaultEventProcessorTest {
   }
 
   @Test
+  public void sdkKeyIsSentOnDiagnosticEvents() throws Exception {
+    server.enqueue(new MockResponse());
+    ep = new DefaultEventProcessor(SDK_KEY, diagConfigBuilder.build());
+    ep.close();
+    RecordedRequest req = server.takeRequest(100, TimeUnit.MILLISECONDS);
+    assertNotNull(req);
+    assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
+  }
+
+  @Test
   public void eventSchemaIsSent() throws Exception {
     ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
@@ -421,6 +503,51 @@ public class DefaultEventProcessorTest {
     RecordedRequest req = server.takeRequest();
     
     assertThat(req.getHeader("X-LaunchDarkly-Event-Schema"), equalTo("3"));
+  }
+
+  @Test
+  public void eventSchemaNotSetOnDiagnosticEvents() throws Exception {
+    server.enqueue(new MockResponse());
+    ep = new DefaultEventProcessor(SDK_KEY, diagConfigBuilder.build());
+    ep.close();
+    RecordedRequest req = server.takeRequest(100, TimeUnit.MILLISECONDS);
+    assertNotNull(req);
+    assertNull(req.getHeader("X-LaunchDarkly-Event-Schema"));
+  }
+
+  @Test
+  public void wrapperHeaderSentWhenSet() throws Exception {
+      LDConfig config = configBuilder
+              .wrapperName("Scala")
+              .wrapperVersion("0.1.0")
+              .build();
+
+      ep = new DefaultEventProcessor(SDK_KEY, config);
+      Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+      ep.sendEvent(e);
+
+      server.enqueue(new MockResponse());
+      ep.close();
+      RecordedRequest req = server.takeRequest();
+
+      assertThat(req.getHeader("X-LaunchDarkly-Wrapper"), equalTo("Scala/0.1.0"));
+  }
+
+  @Test
+  public void wrapperHeaderSentWithoutVersion() throws Exception {
+    LDConfig config = configBuilder
+        .wrapperName("Scala")
+        .build();
+
+    ep = new DefaultEventProcessor(SDK_KEY, config);
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+    ep.sendEvent(e);
+
+    server.enqueue(new MockResponse());
+    ep.close();
+    RecordedRequest req = server.takeRequest();
+
+    assertThat(req.getHeader("X-LaunchDarkly-Wrapper"), equalTo("Scala"));
   }
 
   @Test
@@ -573,7 +700,7 @@ public class DefaultEventProcessorTest {
     );
   }
   
-  private Matcher<JsonElement> hasSummaryFlag(String key, JsonElement defaultVal, Matcher<Iterable<? super JsonElement>> counters) {
+  private Matcher<JsonElement> hasSummaryFlag(String key, JsonElement defaultVal, Matcher<Iterable<? extends JsonElement>> counters) {
     return hasJsonProperty("features",
         hasJsonProperty(key, allOf(
           hasJsonProperty("default", defaultVal),

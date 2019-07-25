@@ -58,12 +58,12 @@ public final class LDClient implements LDClientInterface {
    * @param config a client configuration object
    */
   public LDClient(String sdkKey, LDConfig config) {
-    this.config = config;
+    this.config = new LDConfig(config);
     this.sdkKey = sdkKey;
-    
+
     FeatureStore store;
-    if (config.deprecatedFeatureStore != null) {
-      store = config.deprecatedFeatureStore;
+    if (this.config.deprecatedFeatureStore != null) {
+      store = this.config.deprecatedFeatureStore;
       // The following line is for backward compatibility with the obsolete mechanism by which the
       // caller could pass in a FeatureStore implementation instance that we did not create.  We
       // were not disposing of that instance when the client was closed, so we should continue not
@@ -71,27 +71,27 @@ public final class LDClient implements LDClientInterface {
       // of instances that we created ourselves from a factory.
       this.shouldCloseFeatureStore = false;
     } else {
-      FeatureStoreFactory factory = config.featureStoreFactory == null ?
-          Components.inMemoryFeatureStore() : config.featureStoreFactory;
+      FeatureStoreFactory factory = this.config.featureStoreFactory == null ?
+          Components.inMemoryFeatureStore() : this.config.featureStoreFactory;
       store = factory.createFeatureStore();
       this.shouldCloseFeatureStore = true;
     }
     this.featureStore = new FeatureStoreClientWrapper(store);
     
-    EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
-        Components.defaultEventProcessor() : config.eventProcessorFactory;
-    this.eventProcessor = epFactory.createEventProcessor(sdkKey, config);
+    EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
+        Components.defaultEventProcessor() : this.config.eventProcessorFactory;
+    this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
     
-    UpdateProcessorFactory upFactory = config.updateProcessorFactory == null ?
-        Components.defaultUpdateProcessor() : config.updateProcessorFactory;
-    this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, config, featureStore);
+    UpdateProcessorFactory upFactory = this.config.updateProcessorFactory == null ?
+        Components.defaultUpdateProcessor() : this.config.updateProcessorFactory;
+    this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, this.config, featureStore);
     Future<Void> startFuture = updateProcessor.start();
-    if (config.startWaitMillis > 0L) {
-      if (!config.offline && !config.useLdd) {
-        logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
+    if (this.config.startWaitMillis > 0L) {
+      if (!this.config.offline && !this.config.useLdd) {
+        logger.info("Waiting up to " + this.config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
       }
       try {
-        startFuture.get(config.startWaitMillis, TimeUnit.MILLISECONDS);
+        startFuture.get(this.config.startWaitMillis, TimeUnit.MILLISECONDS);
       } catch (TimeoutException e) {
         logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
       } catch (Exception e) {

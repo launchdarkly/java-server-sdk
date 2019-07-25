@@ -6,8 +6,10 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class LDConfigTest {
   @Test
@@ -117,5 +119,51 @@ public class LDConfigTest {
   public void testSendEventsCanBeSetToFalse() {
     LDConfig config = new LDConfig.Builder().sendEvents(false).build();
     assertEquals(false, config.sendEvents);
+  }
+
+  @Test
+  public void testDefaultDiagnosticRecordingInterval() {
+    LDConfig config = new LDConfig.Builder().build();
+    assertEquals(900_000, config.diagnosticRecordingIntervalMillis);
+  }
+
+  @Test
+  public void testDiagnosticRecordingInterval() {
+    LDConfig config = new LDConfig.Builder().diagnosticRecordingIntervalMillis(120_000).build();
+    assertEquals(120_000, config.diagnosticRecordingIntervalMillis);
+  }
+
+  @Test
+  public void testMinimumDiagnosticRecordingIntervalEnforced() {
+    LDConfig config = new LDConfig.Builder().diagnosticRecordingIntervalMillis(10).build();
+    assertEquals(60_000, config.diagnosticRecordingIntervalMillis);
+  }
+
+  @Test
+  public void testDefaultDiagnosticOptOut() {
+    LDConfig config = new LDConfig.Builder().build();
+    assertFalse(config.diagnosticOptOut);
+  }
+
+  @Test
+  public void testDiagnosticOptOut() {
+    LDConfig config = new LDConfig.Builder().diagnosticOptOut(true).build();
+    assertTrue(config.diagnosticOptOut);
+  }
+
+  @Test
+  public void testWrapperNotConfigured() {
+    LDConfig config = new LDConfig.Builder().build();
+    assertNull(config.wrapperName);
+    assertNull(config.wrapperVersion);
+  }
+
+  @Test public void testWrapperConfigured() {
+    LDConfig config = new LDConfig.Builder()
+            .wrapperName("Scala")
+            .wrapperVersion("0.1.0")
+            .build();
+    assertEquals("Scala", config.wrapperName);
+    assertEquals("0.1.0", config.wrapperVersion);
   }
 }

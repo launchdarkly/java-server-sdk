@@ -83,6 +83,16 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   @Test
+  public void headersHaveWrapperWhenSet() {
+    LDConfig config = configBuilder
+            .wrapperName("Scala")
+            .wrapperVersion("0.1.0")
+            .build();
+    createStreamProcessor(SDK_KEY, config).start();
+    assertEquals("Scala/0.1.0", headers.get("X-LaunchDarkly-Wrapper"));
+  }
+
+  @Test
   public void putCausesFeatureToBeStored() throws Exception {
     createStreamProcessor(SDK_KEY, configBuilder.build()).start();
     MessageEvent event = new MessageEvent("{\"data\":{\"flags\":{\"" +

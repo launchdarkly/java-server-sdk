@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
+import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
@@ -58,9 +59,7 @@ final class StreamProcessor implements UpdateProcessor {
   public Future<Void> start() {
     final SettableFuture<Void> initFuture = SettableFuture.create();
 
-    Headers headers = new Headers.Builder()
-        .add("Authorization", this.sdkKey)
-        .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION)
+    Headers headers = getHeadersBuilderFor(sdkKey, config)
         .add("Accept", "text/event-stream")
         .build();
 
@@ -78,7 +77,7 @@ final class StreamProcessor implements UpdateProcessor {
         return Action.PROCEED;
       }
     };
-    
+
     EventHandler handler = new EventHandler() {
 
       @Override
