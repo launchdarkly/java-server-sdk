@@ -49,6 +49,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   String prefix = DEFAULT_PREFIX;
   int connectTimeout = Protocol.DEFAULT_TIMEOUT;
   int socketTimeout = Protocol.DEFAULT_TIMEOUT;
+  String password = null;
   FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
   boolean refreshStaleValues = false; // this and asyncRefresh are redundant with FeatureStoreCacheConfig, but are used by deprecated setters
   boolean asyncRefresh = false;
@@ -213,6 +214,17 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
     return this;
   }
 
+  /**
+   * Specifies a password that will be sent to Redis in an AUTH command.
+   * 
+   * @param password the password
+   * @return the builder
+   */
+  public RedisFeatureStoreBuilder password(String password) {
+    this.password = password;
+    return this;
+  }
+  
   /**
    * Build a {@link RedisFeatureStore} based on the currently configured builder object.
    * @return the {@link RedisFeatureStore} configured by this builder.
