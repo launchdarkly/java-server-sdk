@@ -223,7 +223,7 @@ public final class LDConfig {
      * you may use {@link RedisFeatureStore} or a custom implementation.
      * @param store the feature store implementation
      * @return the builder
-     * @deprecated Please use {@link #featureStoreFactory}.
+     * @deprecated Please use {@link #featureStoreFactory(FeatureStoreFactory)}.
      */
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
@@ -446,7 +446,7 @@ public final class LDConfig {
 
     /**
      * Set whether to send events back to LaunchDarkly. By default, the client will send
-     * events. This differs from {@link offline} in that it only affects sending
+     * events. This differs from {@link #offline(boolean)} in that it only affects sending
      * analytics events, not streaming or polling for events from the server.
      *
      * @param sendEvents when set to false, no events will be sent to LaunchDarkly
@@ -488,9 +488,11 @@ public final class LDConfig {
      * <code>samplingInterval</code> chance events will be will be sent.
      * <p>Example: if you want 5% sampling rate, set <code>samplingInterval</code> to 20.
      *
-     * @param samplingInterval the sampling interval.
+     * @param samplingInterval the sampling interval
      * @return the builder
+     * @deprecated This feature will be removed in a future version of the SDK.
      */
+    @Deprecated
     public Builder samplingInterval(int samplingInterval) {
       this.samplingInterval = samplingInterval;
       return this;
