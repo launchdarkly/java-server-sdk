@@ -9,6 +9,8 @@ import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
 
+import java.util.concurrent.TimeUnit;
+import okhttp3.ConnectionPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -227,22 +229,21 @@ final class StreamProcessor implements UpdateProcessor {
   private class DefaultEventSourceCreator implements EventSourceCreator {
     public EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
+          .client(config.httpClient.newBuilder()
+              .retryOnConnectionFailure(true)
+              .connectionPool(new ConnectionPool(1, 1, TimeUnit.SECONDS))
+              .build()
+          )
           .connectionErrorHandler(errorHandler)
           .headers(headers)
           .reconnectTimeMs(config.reconnectTimeMs)
-          .connectTimeoutMs(config.connectTimeoutMillis)
-          .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS);
+          .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS)
+          .connectTimeoutMs(EventSource.DEFAULT_CONNECT_TIMEOUT_MS)
+          .writeTimeoutMs(EventSource.DEFAULT_WRITE_TIMEOUT_MS);
       // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
       // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
       // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
       // more than the expected interval between heartbeat signals.
-
-      if (config.proxy != null) {
-        builder.proxy(config.proxy);
-        if (config.proxyAuthenticator != null) {
-          builder.proxyAuthenticator(config.proxyAuthenticator);
-        }
-      }
 
       return builder.build();
     }
