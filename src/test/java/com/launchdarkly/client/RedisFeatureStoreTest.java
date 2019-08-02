@@ -16,19 +16,19 @@ public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFea
   
   @Override
   protected RedisFeatureStore makeStore() {
-    RedisFeatureStoreBuilder builder = new RedisFeatureStoreBuilder(REDIS_URI);
+    RedisFeatureStoreBuilder builder = new RedisFeatureStoreBuilder(REDIS_URI).password("foobared");
     builder.caching(cached ? FeatureStoreCacheConfig.enabled().ttlSeconds(30) : FeatureStoreCacheConfig.disabled());
     return builder.build();
   }
   
   @Override
   protected RedisFeatureStore makeStoreWithPrefix(String prefix) {
-    return new RedisFeatureStoreBuilder(REDIS_URI).caching(FeatureStoreCacheConfig.disabled()).prefix(prefix).build();
+    return new RedisFeatureStoreBuilder(REDIS_URI).password("foobared").caching(FeatureStoreCacheConfig.disabled()).prefix(prefix).build();
   }
   
   @Override
   protected void clearAllData() {
-    try (Jedis client = new Jedis("localhost")) {
+    try (Jedis client = new Jedis(URI.create("redis://:foobared@localhost:6379"))) {
       client.flushDB();
     }
   }

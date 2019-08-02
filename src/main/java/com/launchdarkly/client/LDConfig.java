@@ -429,6 +429,8 @@ public final class LDConfig {
      * @param sslSocketFactory the SSL socket factory
      * @param trustManager the trust manager
      * @return the builder
+     * 
+     * @since 4.7.0
      */
     public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
       this.sslSocketFactory = sslSocketFactory;
