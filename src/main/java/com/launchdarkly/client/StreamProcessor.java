@@ -9,8 +9,6 @@ import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
 
-import java.util.concurrent.TimeUnit;
-import okhttp3.ConnectionPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +23,7 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
 import okhttp3.Headers;
+import okhttp3.OkHttpClient;
 
 final class StreamProcessor implements UpdateProcessor {
   private static final String PUT = "put";
@@ -43,8 +42,10 @@ final class StreamProcessor implements UpdateProcessor {
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
 
+  ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
+  
   public static interface EventSourceCreator {
-    EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
+    EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
   }
   
   StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore,
@@ -56,6 +57,22 @@ final class StreamProcessor implements UpdateProcessor {
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
   }
 
+  private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
+    return new ConnectionErrorHandler() {
+      @Override
+      public Action onConnectionError(Throwable t) {
+        if (t instanceof UnsuccessfulResponseException) {
+          int status = ((UnsuccessfulResponseException)t).getCode();
+          logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
+          if (!isHttpErrorRecoverable(status)) {
+            return Action.SHUTDOWN;
+          }
+        }
+        return Action.PROCEED;
+      }
+    };
+  }
+  
   @Override
   public Future<Void> start() {
     final SettableFuture<Void> initFuture = SettableFuture.create();
@@ -66,18 +83,14 @@ final class StreamProcessor implements UpdateProcessor {
         .add("Accept", "text/event-stream")
         .build();
 
-    ConnectionErrorHandler connectionErrorHandler = new ConnectionErrorHandler() {
+    ConnectionErrorHandler wrappedConnectionErrorHandler = new ConnectionErrorHandler() {
       @Override
       public Action onConnectionError(Throwable t) {
-        if (t instanceof UnsuccessfulResponseException) {
-          int status = ((UnsuccessfulResponseException)t).getCode();
-          logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
-          if (!isHttpErrorRecoverable(status)) {
-            initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
-            return Action.SHUTDOWN;
-          }
+        Action result = connectionErrorHandler.onConnectionError(t);
+        if (result == Action.SHUTDOWN) {
+          initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
         }
-        return Action.PROCEED;
+        return result;
       }
     };
     
@@ -176,9 +189,9 @@ final class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    es = eventSourceCreator.createEventSource(handler,
+    es = eventSourceCreator.createEventSource(config, handler,
         URI.create(config.streamURI.toASCIIString() + "/all"),
-        connectionErrorHandler,
+        wrappedConnectionErrorHandler,
         headers);
     es.start();
     return initFuture;
@@ -227,13 +240,15 @@ final class StreamProcessor implements UpdateProcessor {
   }
   
   private class DefaultEventSourceCreator implements EventSourceCreator {
-    public EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
+    public EventSource createEventSource(final LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
-          .client(config.httpClient.newBuilder()
-              .retryOnConnectionFailure(true)
-              .connectionPool(new ConnectionPool(1, 1, TimeUnit.SECONDS))
-              .build()
-          )
+          .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
+            public void configure(OkHttpClient.Builder builder) {
+              if (config.sslSocketFactory != null) {
+                builder.sslSocketFactory(config.sslSocketFactory, config.trustManager);
+              }
+            }
+          })
           .connectionErrorHandler(errorHandler)
           .headers(headers)
           .reconnectTimeMs(config.reconnectTimeMs)

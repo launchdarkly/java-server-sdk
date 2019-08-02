@@ -5,10 +5,15 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import javax.net.ssl.SSLHandshakeException;
+
 import static com.launchdarkly.client.TestHttpUtil.baseConfig;
+import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
+import static com.launchdarkly.client.TestHttpUtil.jsonResponse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -26,9 +31,7 @@ public class FeatureRequestorTest {
   
   @Test
   public void requestAllData() throws Exception {
-    MockResponse resp = new MockResponse();
-    resp.setHeader("Content-Type", "application/json");
-    resp.setBody(allDataJson);
+    MockResponse resp = jsonResponse(allDataJson);
     
     try (MockWebServer server = TestHttpUtil.makeStartedServer(resp)) {
       FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
@@ -51,9 +54,7 @@ public class FeatureRequestorTest {
   
   @Test
   public void requestFlag() throws Exception {
-    MockResponse resp = new MockResponse();
-    resp.setHeader("Content-Type", "application/json");
-    resp.setBody(flag1Json);
+    MockResponse resp = jsonResponse(flag1Json);
     
     try (MockWebServer server = TestHttpUtil.makeStartedServer(resp)) {
       FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
@@ -70,9 +71,7 @@ public class FeatureRequestorTest {
 
   @Test
   public void requestSegment() throws Exception {
-    MockResponse resp = new MockResponse();
-    resp.setHeader("Content-Type", "application/json");
-    resp.setBody(segment1Json);
+    MockResponse resp = jsonResponse(segment1Json);
     
     try (MockWebServer server = TestHttpUtil.makeStartedServer(resp)) {
       FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
@@ -112,7 +111,7 @@ public class FeatureRequestorTest {
       
       try {
         r.getSegment(segment1Key);
-        Assert.fail("expected exception");
+        fail("expected exception");
       } catch (HttpErrorException e) {
         assertEquals(404, e.getStatus());
       }
@@ -121,11 +120,9 @@ public class FeatureRequestorTest {
 
   @Test
   public void requestsAreCached() throws Exception {
-    MockResponse cacheableResp = new MockResponse();
-    cacheableResp.setHeader("Content-Type", "application/json");
-    cacheableResp.setHeader("ETag", "aaa");
-    cacheableResp.setHeader("Cache-Control", "max-age=1000");
-    cacheableResp.setBody(flag1Json);
+    MockResponse cacheableResp = jsonResponse(flag1Json)
+        .setHeader("ETag", "aaa")
+        .setHeader("Cache-Control", "max-age=1000");
     
     try (MockWebServer server = TestHttpUtil.makeStartedServer(cacheableResp)) {
       FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
@@ -141,6 +138,39 @@ public class FeatureRequestorTest {
       FeatureFlag flag1b = r.getFlag(flag1Key);
       verifyFlag(flag1b, flag1Key);
       assertNull(server.takeRequest(0, TimeUnit.SECONDS)); // there was no second request, due to the cache hit
+    }
+  }
+  
+  @Test
+  public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
+    MockResponse resp = jsonResponse(flag1Json);
+    
+    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
+      FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(serverWithCert.server).build());
+
+      try {
+        r.getFlag(flag1Key);
+        fail("expected exception");
+      } catch (SSLHandshakeException e) {
+      }
+      
+      assertEquals(0, serverWithCert.server.getRequestCount());
+    }
+  }
+  
+  @Test
+  public void httpClientCanUseCustomTlsConfig() throws Exception {
+    MockResponse resp = jsonResponse(flag1Json);
+    
+    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
+      LDConfig config = basePollingConfig(serverWithCert.server)
+          .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
+          .build();
+
+      FeatureRequestor r = new FeatureRequestor(sdkKey, config);
+
+      FeatureFlag flag = r.getFlag(flag1Key);
+      verifyFlag(flag, flag1Key);
     }
   }
   

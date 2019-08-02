@@ -21,6 +21,15 @@ class TestHttpUtil {
     return server;
   }
   
+  static ServerWithCert httpsServerWithSelfSignedCert(MockResponse... responses) throws IOException, GeneralSecurityException {
+    ServerWithCert ret = new ServerWithCert();
+    for (MockResponse r: responses) {
+      ret.server.enqueue(r);
+    }
+    ret.server.start();
+    return ret;
+  }
+
   static LDConfig.Builder baseConfig(MockWebServer server) {
     URI uri = server.url("").uri();
     return new LDConfig.Builder()
@@ -29,12 +38,24 @@ class TestHttpUtil {
         .eventsURI(uri);
   }
   
-  static class HttpsServerWithSelfSignedCert implements Closeable {
+  static MockResponse jsonResponse(String body) {
+    return new MockResponse()
+        .setHeader("Content-Type", "application/json")
+        .setBody(body);
+  }
+  
+  static MockResponse eventStreamResponse(String data) {
+    return new MockResponse()
+        .setHeader("Content-Type", "text/event-stream")
+        .setChunkedBody(data, 1000);
+  }
+  
+  static class ServerWithCert implements Closeable {
     final MockWebServer server;
     final HeldCertificate cert;
     final SslClient sslClient;
     
-    public HttpsServerWithSelfSignedCert() throws IOException, GeneralSecurityException {
+    public ServerWithCert() throws IOException, GeneralSecurityException {
       cert = new HeldCertificate.Builder()
         .serialNumber("1")
         .commonName(InetAddress.getByName("localhost").getCanonicalHostName())
@@ -48,8 +69,6 @@ class TestHttpUtil {
       
       server = new MockWebServer();
       server.useHttps(sslClient.socketFactory, false);
-      
-      server.start();
     }
     
     public URI uri() {

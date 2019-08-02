@@ -4,23 +4,17 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.concurrent.TimeUnit;
-
 import static com.launchdarkly.client.TestHttpUtil.baseConfig;
+import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
+import static com.launchdarkly.client.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
-import okhttp3.mockwebserver.SocketPolicy;
 
 public class LDClientEndToEndTest {
   private static final Gson gson = new Gson();
@@ -33,9 +27,7 @@ public class LDClientEndToEndTest {
   
   @Test
   public void clientStartsInPollingMode() throws Exception {
-    MockResponse resp = new MockResponse()
-        .setHeader("Content-Type", "application/json")
-        .setBody(makeAllDataJson());
+    MockResponse resp = jsonResponse(makeAllDataJson());
     
     try (MockWebServer server = makeStartedServer(resp)) {
       LDConfig config = baseConfig(server)
@@ -66,16 +58,30 @@ public class LDClientEndToEndTest {
       }
     }
   }
-  
+
+  @Test
+  public void clientStartsInPollingModeWithSelfSignedCert() throws Exception {
+    MockResponse resp = jsonResponse(makeAllDataJson());
+    
+    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
+      LDConfig config = baseConfig(serverWithCert.server)
+          .stream(false)
+          .sendEvents(false)
+          .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.initialized());
+        assertTrue(client.boolVariation(flagKey, user, false));
+      }
+    }
+  }
+
   @Test
   public void clientStartsInStreamingMode() throws Exception {
-    String eventData = "event: put\n" +
-        "data: {\"data\":" + makeAllDataJson() + "}\n\n";
-    
-    MockResponse resp = new MockResponse()
-        .setHeader("Content-Type", "text/event-stream")
-        .setChunkedBody(eventData, 1000)
-        .setSocketPolicy(SocketPolicy.KEEP_OPEN);
+    String streamData = "event: put\n" +
+        "data: {\"data\":" + makeAllDataJson() + "}\n\n";    
+    MockResponse resp = TestHttpUtil.eventStreamResponse(streamData);
     
     try (MockWebServer server = makeStartedServer(resp)) {
       LDConfig config = baseConfig(server)
@@ -104,7 +110,26 @@ public class LDClientEndToEndTest {
       }
     }
   }
-  
+
+  @Test
+  public void clientStartsInStreamingModeWithSelfSignedCert() throws Exception {
+    String streamData = "event: put\n" +
+        "data: {\"data\":" + makeAllDataJson() + "}\n\n";    
+    MockResponse resp = TestHttpUtil.eventStreamResponse(streamData);
+    
+    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
+      LDConfig config = baseConfig(serverWithCert.server)
+          .sendEvents(false)
+          .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.initialized());
+        assertTrue(client.boolVariation(flagKey, user, false));
+      }
+    }
+  }
+
   public String makeAllDataJson() {
     JsonObject flagsData = new JsonObject();
     flagsData.add(flagKey, gson.toJsonTree(flag));

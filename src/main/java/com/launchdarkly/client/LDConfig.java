@@ -75,7 +75,9 @@ public final class LDConfig {
   final int userKeysCapacity;
   final int userKeysFlushInterval;
   final boolean inlineUsersInEvents;
-
+  final SSLSocketFactory sslSocketFactory;
+  final X509TrustManager trustManager;
+  
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
@@ -105,9 +107,20 @@ public final class LDConfig {
     this.userKeysCapacity = builder.userKeysCapacity;
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
     this.inlineUsersInEvents = builder.inlineUsersInEvents;
+    this.sslSocketFactory = builder.sslSocketFactory;
+    this.trustManager = builder.trustManager;
     
-    OkHttpClient.Builder httpClientBuilder = builder.clientBuilder;
+    OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
+        .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
+        .connectTimeout(builder.connectTimeout, builder.connectTimeoutUnit)
+        .readTimeout(builder.socketTimeout, builder.socketTimeoutUnit)
+        .writeTimeout(builder.socketTimeout, builder.socketTimeoutUnit)
+        .retryOnConnectionFailure(false); // we will implement our own retry logic
 
+    if (sslSocketFactory != null) {
+      httpClientBuilder.sslSocketFactory(sslSocketFactory, trustManager);
+    }
+    
     // When streaming is enabled, http GETs made by FeatureRequester will
     // always guarantee a new flag state. So, disable http response caching
     // when streaming.
@@ -145,8 +158,10 @@ public final class LDConfig {
     private URI baseURI = DEFAULT_BASE_URI;
     private URI eventsURI = DEFAULT_EVENTS_URI;
     private URI streamURI = DEFAULT_STREAM_URI;
-    private int connectTimeoutMillis = DEFAULT_CONNECT_TIMEOUT_MILLIS;
-    private int socketTimeoutMillis = DEFAULT_SOCKET_TIMEOUT_MILLIS;
+    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
+    private TimeUnit connectTimeoutUnit = TimeUnit.MILLISECONDS;
+    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
+    private TimeUnit socketTimeoutUnit = TimeUnit.MILLISECONDS;
     private int capacity = DEFAULT_CAPACITY;
     private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
     private String proxyHost = "localhost";
@@ -170,12 +185,8 @@ public final class LDConfig {
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
     private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
     private boolean inlineUsersInEvents = false;
-    private OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
-        .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-        .connectTimeout(DEFAULT_CONNECT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .readTimeout(DEFAULT_SOCKET_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .writeTimeout(DEFAULT_SOCKET_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        .retryOnConnectionFailure(false); // we will implement our own retry logic;
+    private SSLSocketFactory sslSocketFactory = null;
+    private X509TrustManager trustManager = null;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -290,7 +301,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder connectTimeout(int connectTimeout) {
-      this.clientBuilder.connectTimeout(connectTimeout, TimeUnit.SECONDS);
+      this.connectTimeout = connectTimeout;
+      this.connectTimeoutUnit = TimeUnit.SECONDS;
       return this;
     }
 
@@ -303,8 +315,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder socketTimeout(int socketTimeout) {
-      this.clientBuilder.readTimeout(socketTimeout, TimeUnit.SECONDS);
-      this.clientBuilder.writeTimeout(socketTimeout, TimeUnit.SECONDS);
+      this.socketTimeout = socketTimeout;
+      this.socketTimeoutUnit = TimeUnit.SECONDS;
       return this;
     }
 
@@ -317,7 +329,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder connectTimeoutMillis(int connectTimeoutMillis) {
-      this.clientBuilder.connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS);
+      this.connectTimeout = connectTimeoutMillis;
+      this.connectTimeoutUnit = TimeUnit.MILLISECONDS;
       return this;
     }
 
@@ -330,8 +343,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder socketTimeoutMillis(int socketTimeoutMillis) {
-      this.clientBuilder.readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS);
-      this.clientBuilder.writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS);
+      this.socketTimeout = socketTimeoutMillis;
+      this.socketTimeoutUnit = TimeUnit.MILLISECONDS;
       return this;
     }
 
@@ -413,26 +426,13 @@ public final class LDConfig {
     /**
      * Sets the {@link SSLSocketFactory} used to secure HTTPS connections to LaunchDarkly.
      *
-     * @param sslSocketFactory the ssl socket factory
+     * @param sslSocketFactory the SSL socket factory
      * @param trustManager the trust manager
      * @return the builder
      */
-    public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory,
-        X509TrustManager trustManager) {
-      this.clientBuilder.sslSocketFactory(sslSocketFactory, trustManager);
-      return this;
-    }
-
-    /**
-     * Sets a underlying {@link OkHttpClient} used for making connections to LaunchDarkly.
-     * If you're setting this along with other connection-related items (ie timeouts, proxy),
-     * you should do this first to avoid overwriting values.
-     *
-     * @param httpClient the http client
-     * @return the builder
-     */
-    public Builder httpClient(OkHttpClient httpClient) {
-      this.clientBuilder = httpClient.newBuilder();
+    public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
+      this.sslSocketFactory = sslSocketFactory;
+      this.trustManager = trustManager;
       return this;
     }
 
