@@ -56,10 +56,12 @@ class TestHttpUtil {
     final SslClient sslClient;
     
     public ServerWithCert() throws IOException, GeneralSecurityException {
+      String hostname = InetAddress.getByName("localhost").getCanonicalHostName();
+      
       cert = new HeldCertificate.Builder()
         .serialNumber("1")
-        .commonName(InetAddress.getByName("localhost").getCanonicalHostName())
-        .subjectAlternativeName("localhost")
+        .commonName(hostname)
+        .subjectAlternativeName(hostname)
         .build();
     
       sslClient = new SslClient.Builder()
