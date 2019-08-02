@@ -241,7 +241,7 @@ public class TestUtil {
     };
   }
 
-  public static Matcher<JsonElement> isJsonArray(final Matcher<Iterable<? super JsonElement>> matcher) {
+  public static Matcher<JsonElement> isJsonArray(final Matcher<Iterable<? extends JsonElement>> matcher) {
     return new TypeSafeDiagnosingMatcher<JsonElement>() {
       @Override
       public void describeTo(Description description) {

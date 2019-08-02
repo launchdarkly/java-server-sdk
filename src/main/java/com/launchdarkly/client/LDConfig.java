@@ -23,6 +23,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
@@ -52,8 +54,6 @@ public final class LDConfig {
   final URI eventsURI;
   final URI streamURI;
   final int capacity;
-  final int connectTimeoutMillis;
-  final int socketTimeoutMillis;
   final int flushInterval;
   final Proxy proxy;
   final Authenticator proxyAuthenticator;
@@ -75,13 +75,13 @@ public final class LDConfig {
   final int userKeysCapacity;
   final int userKeysFlushInterval;
   final boolean inlineUsersInEvents;
+  final SSLSocketFactory sslSocketFactory;
+  final X509TrustManager trustManager;
   
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
     this.capacity = builder.capacity;
-    this.connectTimeoutMillis = builder.connectTimeoutMillis;
-    this.socketTimeoutMillis = builder.socketTimeoutMillis;
     this.flushInterval = builder.flushIntervalSeconds;
     this.proxy = builder.proxy();
     this.proxyAuthenticator = builder.proxyAuthenticator();
@@ -107,14 +107,20 @@ public final class LDConfig {
     this.userKeysCapacity = builder.userKeysCapacity;
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
     this.inlineUsersInEvents = builder.inlineUsersInEvents;
+    this.sslSocketFactory = builder.sslSocketFactory;
+    this.trustManager = builder.trustManager;
     
     OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
         .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-        .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
-        .readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
-        .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
+        .connectTimeout(builder.connectTimeout, builder.connectTimeoutUnit)
+        .readTimeout(builder.socketTimeout, builder.socketTimeoutUnit)
+        .writeTimeout(builder.socketTimeout, builder.socketTimeoutUnit)
         .retryOnConnectionFailure(false); // we will implement our own retry logic
 
+    if (sslSocketFactory != null) {
+      httpClientBuilder.sslSocketFactory(sslSocketFactory, trustManager);
+    }
+    
     // When streaming is enabled, http GETs made by FeatureRequester will
     // always guarantee a new flag state. So, disable http response caching
     // when streaming.
@@ -134,13 +140,13 @@ public final class LDConfig {
       }
     }
 
-    httpClient = httpClientBuilder
-        .build();
+    this.httpClient = httpClientBuilder.build();
   }
 
   /**
-   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
-   * calls can be chained, enabling the following pattern:
+   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct
+   * {@link com.launchdarkly.client.LDConfig} objects. Builder calls can be chained, enabling the
+   * following pattern:
    * <pre>
    * LDConfig config = new LDConfig.Builder()
    *      .connectTimeoutMillis(3)
@@ -152,8 +158,10 @@ public final class LDConfig {
     private URI baseURI = DEFAULT_BASE_URI;
     private URI eventsURI = DEFAULT_EVENTS_URI;
     private URI streamURI = DEFAULT_STREAM_URI;
-    private int connectTimeoutMillis = DEFAULT_CONNECT_TIMEOUT_MILLIS;
-    private int socketTimeoutMillis = DEFAULT_SOCKET_TIMEOUT_MILLIS;
+    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
+    private TimeUnit connectTimeoutUnit = TimeUnit.MILLISECONDS;
+    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
+    private TimeUnit socketTimeoutUnit = TimeUnit.MILLISECONDS;
     private int capacity = DEFAULT_CAPACITY;
     private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
     private String proxyHost = "localhost";
@@ -177,7 +185,9 @@ public final class LDConfig {
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
     private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
     private boolean inlineUsersInEvents = false;
-    
+    private SSLSocketFactory sslSocketFactory = null;
+    private X509TrustManager trustManager = null;
+
     /**
      * Creates a builder with all configuration parameters set to the default
      */
@@ -223,7 +233,7 @@ public final class LDConfig {
      * you may use {@link RedisFeatureStore} or a custom implementation.
      * @param store the feature store implementation
      * @return the builder
-     * @deprecated Please use {@link #featureStoreFactory}.
+     * @deprecated Please use {@link #featureStoreFactory(FeatureStoreFactory)}.
      */
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
@@ -291,7 +301,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder connectTimeout(int connectTimeout) {
-      this.connectTimeoutMillis = connectTimeout * 1000;
+      this.connectTimeout = connectTimeout;
+      this.connectTimeoutUnit = TimeUnit.SECONDS;
       return this;
     }
 
@@ -304,7 +315,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder socketTimeout(int socketTimeout) {
-      this.socketTimeoutMillis = socketTimeout * 1000;
+      this.socketTimeout = socketTimeout;
+      this.socketTimeoutUnit = TimeUnit.SECONDS;
       return this;
     }
 
@@ -317,7 +329,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder connectTimeoutMillis(int connectTimeoutMillis) {
-      this.connectTimeoutMillis = connectTimeoutMillis;
+      this.connectTimeout = connectTimeoutMillis;
+      this.connectTimeoutUnit = TimeUnit.MILLISECONDS;
       return this;
     }
 
@@ -330,7 +343,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder socketTimeoutMillis(int socketTimeoutMillis) {
-      this.socketTimeoutMillis = socketTimeoutMillis;
+      this.socketTimeout = socketTimeoutMillis;
+      this.socketTimeoutUnit = TimeUnit.MILLISECONDS;
       return this;
     }
 
@@ -408,12 +422,25 @@ public final class LDConfig {
       this.proxyPassword = password;
       return this;
     }
-    
+
+    /**
+     * Sets the {@link SSLSocketFactory} used to secure HTTPS connections to LaunchDarkly.
+     *
+     * @param sslSocketFactory the SSL socket factory
+     * @param trustManager the trust manager
+     * @return the builder
+     */
+    public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
+      this.sslSocketFactory = sslSocketFactory;
+      this.trustManager = trustManager;
+      return this;
+    }
+
     /**
      * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
      * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
      *
-     * @param useLdd true to use the relay in daemon mode; false to use streaming or polling 
+     * @param useLdd true to use the relay in daemon mode; false to use streaming or polling
      * @return the builder
      */
     public Builder useLdd(boolean useLdd) {
@@ -446,7 +473,7 @@ public final class LDConfig {
 
     /**
      * Set whether to send events back to LaunchDarkly. By default, the client will send
-     * events. This differs from {@link offline} in that it only affects sending
+     * events. This differs from {@link #offline(boolean)} in that it only affects sending
      * analytics events, not streaming or polling for events from the server.
      *
      * @param sendEvents when set to false, no events will be sent to LaunchDarkly
@@ -488,9 +515,11 @@ public final class LDConfig {
      * <code>samplingInterval</code> chance events will be will be sent.
      * <p>Example: if you want 5% sampling rate, set <code>samplingInterval</code> to 20.
      *
-     * @param samplingInterval the sampling interval.
+     * @param samplingInterval the sampling interval
      * @return the builder
+     * @deprecated This feature will be removed in a future version of the SDK.
      */
+    @Deprecated
     public Builder samplingInterval(int samplingInterval) {
       this.samplingInterval = samplingInterval;
       return this;
