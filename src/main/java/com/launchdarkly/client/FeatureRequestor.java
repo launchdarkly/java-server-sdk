@@ -37,24 +37,14 @@ class FeatureRequestor {
     this.config = config;
   }
 
-  Map<String, FeatureFlag> getAllFlags() throws IOException, HttpErrorException {
-    String body = get(GET_LATEST_FLAGS_PATH);
-    return FeatureFlag.fromJsonMap(config, body);
-  }
-
   FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_FLAGS_PATH + "/" + featureKey);
-    return FeatureFlag.fromJson(config, body);
-  }
-
-  Map<String, Segment> getAllSegments() throws IOException, HttpErrorException {
-    String body = get(GET_LATEST_SEGMENTS_PATH);
-    return Segment.fromJsonMap(config, body);
+    return config.gson.fromJson(body, FeatureFlag.class);
   }
 
   Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_SEGMENTS_PATH + "/" + segmentKey);
-    return Segment.fromJson(config, body);
+    return config.gson.fromJson(body, Segment.class);
   }
 
   AllData getAllData() throws IOException, HttpErrorException {
@@ -71,7 +61,7 @@ class FeatureRequestor {
   
   private String get(String path) throws IOException, HttpErrorException {
     Request request = getRequestBuilder(sdkKey)
-        .url(config.baseURI.toString() + path)
+        .url(config.baseURI.resolve(path).toURL())
         .get()
         .build();
 
