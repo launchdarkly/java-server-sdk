@@ -20,6 +20,7 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
+import redis.clients.util.JedisURIHelper;
 
 /**
  * An implementation of {@link FeatureStore} backed by Redis. Also
@@ -86,8 +87,36 @@ public class RedisFeatureStore implements FeatureStore {
    * @param builder the configured builder to construct the store with.
    */
   protected RedisFeatureStore(RedisFeatureStoreBuilder builder) {
-    JedisPoolConfig poolConfig = (builder.poolConfig != null) ? builder.poolConfig : new JedisPoolConfig();
-    JedisPool pool = new JedisPool(poolConfig, builder.uri, builder.connectTimeout, builder.socketTimeout);
+    // There is no builder for JedisPool, just a large number of constructor overloads. Unfortunately,
+    // the overloads that accept a URI do not accept the other parameters we need to set, so we need
+    // to decompose the URI.
+    String host = builder.uri.getHost();
+    int port = builder.uri.getPort();
+    String password = builder.password == null ? JedisURIHelper.getPassword(builder.uri) : builder.password;
+    int database = builder.database == null ? JedisURIHelper.getDBIndex(builder.uri): builder.database.intValue();
+    boolean tls = builder.tls || builder.uri.getScheme().equals("rediss");
+    
+    String extra = tls ? " with TLS" : "";
+    if (password != null) {
+      extra = extra + (extra.isEmpty() ? " with" : " and") + " password";
+    }
+    logger.info(String.format("Connecting to Redis feature store at %s:%d/%d%s", host, port, database, extra));
+
+    JedisPoolConfig poolConfig = (builder.poolConfig != null) ? builder.poolConfig : new JedisPoolConfig();    
+    JedisPool pool = new JedisPool(poolConfig,
+        host,
+        port,
+        builder.connectTimeout,
+        builder.socketTimeout,
+        password,
+        database,
+        null, // clientName
+        tls,
+        null, // sslSocketFactory
+        null, // sslParameters
+        null  // hostnameVerifier
+        );
+
     String prefix = (builder.prefix == null || builder.prefix.isEmpty()) ?
         RedisFeatureStoreBuilder.DEFAULT_PREFIX :
         builder.prefix;
@@ -102,9 +131,7 @@ public class RedisFeatureStore implements FeatureStore {
    * @deprecated Please use {@link Components#redisFeatureStore()} instead.
    */
   public RedisFeatureStore() {
-    JedisPool pool = new JedisPool(new JedisPoolConfig(), "localhost");    
-    this.core = new Core(pool, RedisFeatureStoreBuilder.DEFAULT_PREFIX);
-    this.wrapper = CachingStoreWrapper.builder(this.core).build();
+    this(new RedisFeatureStoreBuilder().caching(FeatureStoreCacheConfig.disabled()));
   }
 
   static class Core implements FeatureStoreCore {    

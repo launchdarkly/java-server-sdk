@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.common.cache.CacheBuilder;
-import com.launchdarkly.client.utils.CachingStoreWrapper;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -15,17 +14,16 @@ import java.util.concurrent.TimeUnit;
  * methods {@link #disabled()} or {@link #enabled()}; then, if desired, you can use chained methods
  * to set other properties:
  * 
- * <pre>
- *     new RedisFeatureStoreBuilder()
+ * <pre><code>
+ *     Components.redisFeatureStore()
  *         .caching(
  *             FeatureStoreCacheConfig.enabled()
  *                 .ttlSeconds(30)
  *                 .staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH)
  *         )
- * </pre>
+ * </code></pre>
  * 
  * @see RedisFeatureStoreBuilder#caching(FeatureStoreCacheConfig)
- * @see CachingStoreWrapper.Builder#caching(FeatureStoreCacheConfig)
  * @since 4.6.0
  */
 public final class FeatureStoreCacheConfig {
