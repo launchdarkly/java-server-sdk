@@ -3,6 +3,14 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.7.0] - 2019-08-02
+### Added:
+- In `RedisFeatureStoreBuilder`, the new methods `database`, `password`, and `tls` allow you to specify the database number, an optional password, and whether to make a secure connection to Redis. This is an alternative to specifying them as part of the Redis URI, e.g. `rediss://:PASSWORD@host:port/NUMBER`, which is also supported (previously, the database and password were supported in the URI, but the secure `rediss:` scheme was not).
+- `LDConfig.Builder.sslSocketFactory` allows you to specify a custom socket factory and truststore for all HTTPS connections made by the SDK. This is for unusual cases where your Java environment does not have the proper root CA certificates to validate LaunchDarkly's certificate, or you are connecting through a secure proxy that has a self-signed certificate, and you do not want to modify Java's global truststore.
+
+### Deprecated:
+- `LDConfig.Builder.samplingInterval` is now deprecated. The intended use case for the `samplingInterval` feature was to reduce analytics event network usage in high-traffic applications. This feature is being deprecated in favor of summary counters, which are meant to track all events.
+
 ## [4.6.6] - 2019-07-10
 ### Fixed:
 - Under conditions where analytics events are being generated at an extremely high rate (for instance, if an application is evaluating a flag repeatedly in a tight loop on many threads), a thread could be blocked indefinitely within the `Variation` methods while waiting for the internal event processing logic to catch up with the backlog. The logic has been changed to drop events if necessary so threads will not be blocked (similar to how the SDK already drops events if the size of the event buffer is exceeded). If that happens, this warning message will be logged once: "Events are being produced faster than they can be processed; some events will be dropped". Under normal conditions this should never happen; this change is meant to avoid a concurrency bottleneck in applications that are already so busy that thread starvation is likely.
