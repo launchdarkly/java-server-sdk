@@ -92,7 +92,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * Specifies the database number to use.
    * <p>
    * The database number can also be specified in the Redis URI, in the form {@code redis://host:port/NUMBER}. Any
-   * non-null value that you set with {@lkink #database(Integer)} will override the URI.
+   * non-null value that you set with {@link #database(Integer)} will override the URI.
    * 
    * @param database the database number, or null to fall back to the URI or the default
    * @return the builder
