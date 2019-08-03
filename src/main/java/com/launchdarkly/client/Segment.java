@@ -9,9 +9,6 @@ import java.util.Map;
 import com.google.gson.reflect.TypeToken;
 
 class Segment implements VersionedData {
-
-  private static final Type mapType = new TypeToken<Map<String, Segment>>() { }.getType();
-
   private String key;
   private List<String> included;
   private List<String> excluded;
@@ -19,14 +16,6 @@ class Segment implements VersionedData {
   private List<SegmentRule> rules;
   private int version;
   private boolean deleted;
-
-  static Segment fromJson(LDConfig config, String json) {
-    return config.gson.fromJson(json, Segment.class);
-  }
-
-  static Map<String, Segment> fromJsonMap(LDConfig config, String json) {
-    return config.gson.fromJson(json, mapType);
-  }
 
   // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
   Segment() {}
