@@ -10,6 +10,7 @@ import com.launchdarkly.client.DefaultEventProcessor.EventDispatcher;
 import org.hamcrest.Matcher;
 import org.junit.Test;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
@@ -39,6 +40,7 @@ public class DefaultEventProcessorTest {
       gson.fromJson("{\"key\":\"userkey\",\"name\":\"Red\"}", JsonElement.class);
   private static final JsonElement filteredUserJson =
       gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
+  private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
@@ -594,7 +596,7 @@ public class DefaultEventProcessorTest {
   }
 
   private MockResponse addDateHeader(MockResponse response, long timestamp) {
-    return response.addHeader("Date", EventDispatcher.HTTP_DATE_FORMAT.format(new Date(timestamp)));
+    return response.addHeader("Date", httpDateFormat.format(new Date(timestamp)));
   }
   
   private JsonArray getEventsFromLastRequest(MockWebServer server) throws Exception {
