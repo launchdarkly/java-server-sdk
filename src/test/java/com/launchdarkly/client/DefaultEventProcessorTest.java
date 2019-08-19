@@ -8,21 +8,20 @@ import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.DefaultEventProcessor.EventDispatcher;
 
 import org.hamcrest.Matcher;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
+import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
+import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.hasJsonProperty;
 import static com.launchdarkly.client.TestUtil.isJsonArray;
 import static com.launchdarkly.client.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
@@ -41,249 +40,282 @@ public class DefaultEventProcessorTest {
   private static final JsonElement filteredUserJson =
       gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
 
-  private final LDConfig.Builder configBuilder = new LDConfig.Builder();
-  private final MockWebServer server = new MockWebServer();
-  private DefaultEventProcessor ep;
+  // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
+  // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
   
-  @Before
-  public void setup() throws Exception {
-    server.start();
-    configBuilder.eventsURI(server.url("/").uri());
-  }
-  
-  @After
-  public void teardown() throws Exception {
-    if (ep != null) {
-      ep.close();
-    }
-    server.shutdown();
-  }
-  
-  @SuppressWarnings("unchecked")
   @Test
   public void identifyEventIsQueued() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-    ep.sendEvent(e);
-    
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(isIdentifyEvent(e, userJson)));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(e);
+      }
+
+      assertThat(getEventsFromLastRequest(server), contains(
+        isIdentifyEvent(e, userJson)
+      ));
+    }
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInIdentifyEvent() throws Exception {
-    configBuilder.allAttributesPrivate(true);
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-    ep.sendEvent(e);
-    
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(isIdentifyEvent(e, filteredUserJson)));    
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = baseConfig(server).allAttributesPrivate(true).build();
+      
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+        ep.sendEvent(e);
+      }
+  
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIdentifyEvent(e, filteredUserJson)
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(fe);
+      }
     
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, false, null),
-        isSummaryEvent()
-    ));
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe, userJson),
+          isFeatureEvent(fe, flag, false, null),
+          isSummaryEvent()
+      ));
+    }
   }
 
   @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInIndexEvent() throws Exception {
-    configBuilder.allAttributesPrivate(true);
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = baseConfig(server).allAttributesPrivate(true).build();
+      
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+        ep.sendEvent(fe);
+      }
     
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe, filteredUserJson),
-        isFeatureEvent(fe, flag, false, null),
-        isSummaryEvent()
-    ));
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe, filteredUserJson),
+          isFeatureEvent(fe, flag, false, null),
+          isSummaryEvent()
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void featureEventCanContainInlineUser() throws Exception {
-    configBuilder.inlineUsersInEvents(true);
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
     
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isFeatureEvent(fe, flag, false, userJson),
-        isSummaryEvent()
-    ));
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
+      
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+        ep.sendEvent(fe);
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(
+          isFeatureEvent(fe, flag, false, userJson),
+          isSummaryEvent()
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInFeatureEvent() throws Exception {
-    configBuilder.inlineUsersInEvents(true).allAttributesPrivate(true);
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
-    
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isFeatureEvent(fe, flag, false, filteredUserJson),
-        isSummaryEvent()
-    ));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = baseConfig(server).inlineUsersInEvents(true).allAttributesPrivate(true).build();
+
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+        ep.sendEvent(fe);
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(
+          isFeatureEvent(fe, flag, false, filteredUserJson),
+          isSummaryEvent()
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void featureEventCanContainReason() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
     Event.FeatureRequest fe = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(flag, user,
         new EvaluationDetail<JsonElement>(reason, 1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
-    
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, false, null, reason),
-        isSummaryEvent()
-    ));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(fe);
+      }
+  
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe, userJson),
+          isFeatureEvent(fe, flag, false, null, reason),
+          isSummaryEvent()
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void indexEventIsStillGeneratedIfInlineUsersIsTrueButFeatureEventIsNotTracked() throws Exception {
-    configBuilder.inlineUsersInEvents(true);
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(false).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
-    
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe, userJson),
-        isSummaryEvent()
-    ));    
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
+
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+        ep.sendEvent(fe);
+      }
+  
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe, userJson),
+          isSummaryEvent()
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void eventKindIsDebugIfFlagIsTemporarilyInDebugMode() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     long futureTime = System.currentTimeMillis() + 1000000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(fe);
+      }
     
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, true, userJson),
-        isSummaryEvent()
-    ));
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe, userJson),
+          isFeatureEvent(fe, flag, true, userJson),
+          isSummaryEvent()
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void eventCanBeBothTrackedAndDebugged() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     long futureTime = System.currentTimeMillis() + 1000000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true)
         .debugEventsUntilDate(futureTime).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
-    
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, false, null),
-        isFeatureEvent(fe, flag, true, userJson),
-        isSummaryEvent()
-    ));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(fe);
+      }
+  
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe, userJson),
+          isFeatureEvent(fe, flag, false, null),
+          isFeatureEvent(fe, flag, true, userJson),
+          isSummaryEvent()
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void debugModeExpiresBasedOnClientTimeIfClientTimeIsLaterThanServerTime() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
-    
     // Pick a server time that is somewhat behind the client time
     long serverTime = System.currentTimeMillis() - 20000;
+    MockResponse resp1 = addDateHeader(eventsSuccessResponse(), serverTime);
+    MockResponse resp2 = eventsSuccessResponse();
     
-    // Send and flush an event we don't care about, just to set the last server time
-    ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
-    flushAndGetEvents(addDateHeader(new MockResponse(), serverTime));
-    
-    // Now send an event with debug mode on, with a "debug until" time that is further in
-    // the future than the server time, but in the past compared to the client.
     long debugUntil = serverTime + 1000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
-    
-    // Should get a summary event only, not a full feature event
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe, userJson),
-        isSummaryEvent(fe.creationDate, fe.creationDate)
-    ));
+
+    try (MockWebServer server = makeStartedServer(resp1, resp2)) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        // Send and flush an event we don't care about, just so we'll receive "resp1" which sets the last server time
+        ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
+        ep.flush();
+        ep.waitUntilInactive(); // this ensures that it has received the server response (resp1)
+        server.takeRequest(); // discard the first request
+        
+        // Now send an event with debug mode on, with a "debug until" time that is further in
+        // the future than the server time, but in the past compared to the client.
+        ep.sendEvent(fe);
+      }
+  
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe, userJson),
+          isSummaryEvent(fe.creationDate, fe.creationDate)
+      ));
+    }
   }
 
   @SuppressWarnings("unchecked")
   @Test
   public void debugModeExpiresBasedOnServerTimeIfServerTimeIsLaterThanClientTime() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
-    
     // Pick a server time that is somewhat ahead of the client time
     long serverTime = System.currentTimeMillis() + 20000;
+    MockResponse resp1 = addDateHeader(eventsSuccessResponse(), serverTime);
+    MockResponse resp2 = eventsSuccessResponse();
     
-    // Send and flush an event we don't care about, just to set the last server time
-    ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
-    flushAndGetEvents(addDateHeader(new MockResponse(), serverTime));
-    
-    // Now send an event with debug mode on, with a "debug until" time that is further in
-    // the future than the client time, but in the past compared to the server.
     long debugUntil = serverTime - 1000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, new JsonPrimitive("value")), null);
-    ep.sendEvent(fe);
-    
-    // Should get a summary event only, not a full feature event
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe, userJson),
-        isSummaryEvent(fe.creationDate, fe.creationDate)
-    ));
+
+    try (MockWebServer server = makeStartedServer(resp1, resp2)) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        
+        // Send and flush an event we don't care about, just to set the last server time
+        ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
+        ep.flush();
+        ep.waitUntilInactive(); // this ensures that it has received the server response (resp1)
+        server.takeRequest();
+        
+        // Now send an event with debug mode on, with a "debug until" time that is further in
+        // the future than the client time, but in the past compared to the server.
+        ep.sendEvent(fe);
+      }
+      
+      // Should get a summary event only, not a full feature event
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe, userJson),
+          isSummaryEvent(fe.creationDate, fe.creationDate)
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void twoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).trackEvents(true).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).trackEvents(true).build();
     JsonElement value = new JsonPrimitive("value");
@@ -291,22 +323,25 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, value), null);
     Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
         simpleEvaluation(1, value), null);
-    ep.sendEvent(fe1);
-    ep.sendEvent(fe2);
-    
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe1, userJson),
-        isFeatureEvent(fe1, flag1, false, null),
-        isFeatureEvent(fe2, flag2, false, null),
-        isSummaryEvent(fe1.creationDate, fe2.creationDate)
-    ));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(fe1);
+        ep.sendEvent(fe2);
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe1, userJson),
+          isFeatureEvent(fe1, flag1, false, null),
+          isFeatureEvent(fe2, flag2, false, null),
+          isSummaryEvent(fe1.creationDate, fe2.creationDate)
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void nonTrackedEventsAreSummarized() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).build();
     JsonElement value = new JsonPrimitive("value");
@@ -316,112 +351,129 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(2, value), default1);
     Event fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
         simpleEvaluation(2, value), default2);
-    ep.sendEvent(fe1);
-    ep.sendEvent(fe2);
-    
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(fe1, userJson),
-        allOf(
-            isSummaryEvent(fe1.creationDate, fe2.creationDate),
-            hasSummaryFlag(flag1.getKey(), default1,
-                hasItem(isSummaryEventCounter(flag1, 2, value, 1))),
-            hasSummaryFlag(flag2.getKey(), default2,
-                hasItem(isSummaryEventCounter(flag2, 2, value, 1)))
-        )
-    ));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(fe1);
+        ep.sendEvent(fe2);
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(fe1, userJson),
+          allOf(
+              isSummaryEvent(fe1.creationDate, fe2.creationDate),
+              hasSummaryFlag(flag1.getKey(), default1,
+                  contains(isSummaryEventCounter(flag1, 2, value, 1))),
+              hasSummaryFlag(flag2.getKey(), default2,
+                  contains(isSummaryEventCounter(flag2, 2, value, 1)))
+          )
+      ));
+    }
   }
   
   @SuppressWarnings("unchecked")
   @Test
   public void customEventIsQueuedWithUser() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
     double metric = 1.5;
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, metric);
-    ep.sendEvent(ce);
 
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(
-        isIndexEvent(ce, userJson),
-        isCustomEvent(ce, null)
-    ));
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(ce);
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIndexEvent(ce, userJson),
+          isCustomEvent(ce, null)
+      ));
+    }
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void customEventCanContainInlineUser() throws Exception {
-    configBuilder.inlineUsersInEvents(true);
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
-    ep.sendEvent(ce);
 
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(isCustomEvent(ce, userJson)));
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
+
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+        ep.sendEvent(ce);
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(isCustomEvent(ce, userJson)));
+    }
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInCustomEvent() throws Exception {
-    configBuilder.inlineUsersInEvents(true).allAttributesPrivate(true);
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
-    ep.sendEvent(ce);
 
-    JsonArray output = flushAndGetEvents(new MockResponse());
-    assertThat(output, hasItems(isCustomEvent(ce, filteredUserJson)));
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = baseConfig(server).inlineUsersInEvents(true).allAttributesPrivate(true).build();
+
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+        ep.sendEvent(ce);
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(isCustomEvent(ce, filteredUserJson)));
+    }
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void closingEventProcessorForcesSynchronousFlush() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-    ep.sendEvent(e);
-
-    server.enqueue(new MockResponse());
-    ep.close();
-    JsonArray output = getEventsFromLastRequest();
-    assertThat(output, hasItems(isIdentifyEvent(e, userJson)));
+    
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(e);
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(isIdentifyEvent(e, userJson)));
+    }
   }
   
   @Test
   public void nothingIsSentIfThereAreNoEvents() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
-    ep.close();
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build());
+      ep.close();
     
-    assertEquals(0, server.getRequestCount());
+      assertEquals(0, server.getRequestCount());
+    }
   }
   
   @Test
   public void sdkKeyIsSent() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-    ep.sendEvent(e);
-    
-    server.enqueue(new MockResponse());
-    ep.close();
-    RecordedRequest req = server.takeRequest();
-    
-    assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(e);
+      }
+      
+      RecordedRequest req = server.takeRequest();      
+      assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
+    }
   }
 
   @Test
   public void eventSchemaIsSent() throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-    ep.sendEvent(e);
-    
-    server.enqueue(new MockResponse());
-    ep.close();
-    RecordedRequest req = server.takeRequest();
-    
-    assertThat(req.getHeader("X-LaunchDarkly-Event-Schema"), equalTo("3"));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(e);
+      }
+
+      RecordedRequest req = server.takeRequest();
+      assertThat(req.getHeader("X-LaunchDarkly-Event-Schema"), equalTo("3"));
+    }
   }
 
   @Test
@@ -459,52 +511,94 @@ public class DefaultEventProcessorTest {
   @Test
   public void flushIsRetriedOnceAfter5xxError() throws Exception {
   }
+
+  @Test
+  public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
+    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
+      LDConfig config = new LDConfig.Builder()
+          .eventsURI(serverWithCert.uri())
+          .build();
+      
+      try (DefaultEventProcessor ep = new DefaultEventProcessor("sdk-key", config)) {
+        Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+        ep.sendEvent(e);
+        
+        ep.flush();
+        ep.waitUntilInactive();
+      }
+      
+      assertEquals(0, serverWithCert.server.getRequestCount());
+    }
+  }
+  
+  @Test
+  public void httpClientCanUseCustomTlsConfig() throws Exception {
+    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
+      LDConfig config = new LDConfig.Builder()
+          .eventsURI(serverWithCert.uri())
+          .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
+          .build();
+      
+      try (DefaultEventProcessor ep = new DefaultEventProcessor("sdk-key", config)) {
+        Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+        ep.sendEvent(e);
+        
+        ep.flush();
+        ep.waitUntilInactive();
+      }
+      
+      assertEquals(1, serverWithCert.server.getRequestCount());
+    }
+  }
   
   private void testUnrecoverableHttpError(int status) throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-    ep.sendEvent(e);
-    flushAndGetEvents(new MockResponse().setResponseCode(status));
-    
-    ep.sendEvent(e);
-    ep.flush();
-    ep.waitUntilInactive();
-    RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
-    assertThat(req, nullValue(RecordedRequest.class));
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(e);
+      }
+
+      RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
+      assertThat(req, notNullValue(RecordedRequest.class)); // this was the initial request that received the error
+      
+      // it does not retry after this type of error, so there are no more requests 
+      assertThat(server.takeRequest(0, TimeUnit.SECONDS), nullValue(RecordedRequest.class));
+    }
   }
   
   private void testRecoverableHttpError(int status) throws Exception {
-    ep = new DefaultEventProcessor(SDK_KEY, configBuilder.build());
-    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-    ep.sendEvent(e);
-    
-    server.enqueue(new MockResponse().setResponseCode(status));
-    server.enqueue(new MockResponse().setResponseCode(status));
-    server.enqueue(new MockResponse());
-    // need two responses because flush will be retried one time
-    
-    ep.flush();
-    ep.waitUntilInactive();
-    RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
-    assertThat(req, notNullValue(RecordedRequest.class));
-    req = server.takeRequest(0, TimeUnit.SECONDS);
-    assertThat(req, notNullValue(RecordedRequest.class));
-    req = server.takeRequest(0, TimeUnit.SECONDS);
-    assertThat(req, nullValue(RecordedRequest.class)); // only 2 requests total
+    MockResponse errorResponse = new MockResponse().setResponseCode(status);
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);    
+
+    // send two errors in a row, because the flush will be retried one time
+    try (MockWebServer server = makeStartedServer(errorResponse, errorResponse, eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(e);
+      }
+
+      RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
+      assertThat(req, notNullValue(RecordedRequest.class));
+      req = server.takeRequest(0, TimeUnit.SECONDS);
+      assertThat(req, notNullValue(RecordedRequest.class));
+      req = server.takeRequest(0, TimeUnit.SECONDS);
+      assertThat(req, nullValue(RecordedRequest.class)); // only 2 requests total
+    }
+  }
+
+  private LDConfig.Builder baseConfig(MockWebServer server) {
+    return new LDConfig.Builder().eventsURI(server.url("/").uri());
   }
   
+  private MockResponse eventsSuccessResponse() {
+    return new MockResponse().setResponseCode(202);
+  }
+
   private MockResponse addDateHeader(MockResponse response, long timestamp) {
     return response.addHeader("Date", EventDispatcher.HTTP_DATE_FORMAT.format(new Date(timestamp)));
   }
   
-  private JsonArray flushAndGetEvents(MockResponse response) throws Exception {
-    server.enqueue(response);
-    ep.flush();
-    ep.waitUntilInactive();
-    return getEventsFromLastRequest();
-  }
-  
-  private JsonArray getEventsFromLastRequest() throws Exception {
+  private JsonArray getEventsFromLastRequest(MockWebServer server) throws Exception {
     RecordedRequest req = server.takeRequest(0, TimeUnit.MILLISECONDS);
     assertNotNull(req);
     return gson.fromJson(req.getBody().readUtf8(), JsonElement.class).getAsJsonArray();
@@ -577,7 +671,7 @@ public class DefaultEventProcessorTest {
     );
   }
   
-  private Matcher<JsonElement> hasSummaryFlag(String key, JsonElement defaultVal, Matcher<Iterable<? super JsonElement>> counters) {
+  private Matcher<JsonElement> hasSummaryFlag(String key, JsonElement defaultVal, Matcher<Iterable<? extends JsonElement>> counters) {
     return hasJsonProperty("features",
         hasJsonProperty(key, allOf(
           hasJsonProperty("default", defaultVal),

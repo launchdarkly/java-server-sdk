@@ -1,7 +1,5 @@
 package com.launchdarkly.client;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
@@ -10,22 +8,19 @@ import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * This class exposes advanced configuration options for the {@link com.launchdarkly.client.RedisFeatureStore}.
+ * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> for configuring the Redis-based persistent feature store.
  *
- * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.RedisFeatureStore} objects.
- * {@link RedisFeatureStoreBuilder} calls can be chained, enabling the following pattern:
+ * Obtain an instance of this class by calling {@link Components#redisFeatureStore()} or {@link Components#redisFeatureStore(URI)}.
+ * Builder calls can be chained, for example:
  *
- * <pre>
- * RedisFeatureStore store = new RedisFeatureStoreBuilder("host", 443, 60)
- *      .refreshStaleValues(true)
- *      .asyncRefresh(true)
- *      .socketTimeout(200)
- *      .build()
- * </pre>
+ * <pre><code>
+ * FeatureStore store = Components.redisFeatureStore()
+ *      .database(1)
+ *      .caching(FeatureStoreCacheConfig.enabled().ttlSeconds(60))
+ *      .build();
+ * </code></pre>
  */
 public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
-  private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStoreBuilder.class);
-  
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
    * @since 4.0.0
@@ -49,6 +44,9 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   String prefix = DEFAULT_PREFIX;
   int connectTimeout = Protocol.DEFAULT_TIMEOUT;
   int socketTimeout = Protocol.DEFAULT_TIMEOUT;
+  Integer database = null;
+  String password = null;
+  boolean tls = false;
   FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
   boolean refreshStaleValues = false; // this and asyncRefresh are redundant with FeatureStoreCacheConfig, but are used by deprecated setters
   boolean asyncRefresh = false;
@@ -88,6 +86,55 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   public RedisFeatureStoreBuilder(String scheme, String host, int port, long cacheTimeSecs) throws URISyntaxException {
     this.uri = new URI(scheme, null, host, port, null, null, null);
     this.cacheTime(cacheTimeSecs, TimeUnit.SECONDS);
+  }
+
+  /**
+   * Specifies the database number to use.
+   * <p>
+   * The database number can also be specified in the Redis URI, in the form {@code redis://host:port/NUMBER}. Any
+   * non-null value that you set with {@link #database(Integer)} will override the URI.
+   * 
+   * @param database the database number, or null to fall back to the URI or the default
+   * @return the builder
+   * 
+   * @since 4.7.0
+   */
+  public RedisFeatureStoreBuilder database(Integer database) {
+    this.database = database;
+    return this;
+  }
+  
+  /**
+   * Specifies a password that will be sent to Redis in an AUTH command.
+   * <p>
+   * It is also possible to include a password in the Redis URI, in the form {@code redis://:PASSWORD@host:port}. Any
+   * password that you set with {@link #password(String)} will override the URI.
+   * 
+   * @param password the password
+   * @return the builder
+   * 
+   * @since 4.7.0
+   */
+  public RedisFeatureStoreBuilder password(String password) {
+    this.password = password;
+    return this;
+  }
+  
+  /**
+   * Optionally enables TLS for secure connections to Redis.
+   * <p>
+   * This is equivalent to specifying a Redis URI that begins with {@code rediss:} rather than {@code redis:}.
+   * <p>
+   * Note that not all Redis server distributions support TLS.
+   * 
+   * @param tls true to enable TLS
+   * @return the builder
+   * 
+   * @since 4.7.0
+   */
+  public RedisFeatureStoreBuilder tls(boolean tls) {
+    this.tls = tls;
+    return this;
   }
   
   /**
@@ -218,7 +265,6 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @return the {@link RedisFeatureStore} configured by this builder.
    */
   public RedisFeatureStore build() {
-    logger.info("Creating RedisFeatureStore with uri: " + uri + " and prefix: " + prefix);
     return new RedisFeatureStore(this);
   }
   

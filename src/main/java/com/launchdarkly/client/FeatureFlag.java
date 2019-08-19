@@ -17,9 +17,6 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 class FeatureFlag implements VersionedData {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
 
-  private static final Type mapType = new TypeToken<Map<String, FeatureFlag>>() {
-  }.getType();
-
   private String key;
   private int version;
   private boolean on;
@@ -34,14 +31,6 @@ class FeatureFlag implements VersionedData {
   private boolean trackEvents;
   private Long debugEventsUntilDate;
   private boolean deleted;
-
-  static FeatureFlag fromJson(LDConfig config, String json) {
-    return config.gson.fromJson(json, FeatureFlag.class);
-  }
-
-  static Map<String, FeatureFlag> fromJsonMap(LDConfig config, String json) {
-    return config.gson.fromJson(json, mapType);
-  }
 
   // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
   FeatureFlag() {}
