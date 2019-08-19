@@ -3,6 +3,8 @@ repo:
   private: java-server-sdk-private
 
 publications:
+  - url: https://oss.sonatype.org/content/groups/public/com/launchdarkly/launchdarkly-java-server-sdk/
+    description: Sonatype
   - url: https://javadoc.io/doc/com.launchdarkly/launchdarkly-java-server-sdk
     description: documentation (javadoc.io)
 
