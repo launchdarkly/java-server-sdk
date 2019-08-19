@@ -405,6 +405,9 @@ final class DefaultEventProcessor implements EventProcessor {
     }
     
     private void handleResponse(Response response, Date responseDate) {
+      if (responseDate != null) {
+        lastKnownPastTime.set(responseDate.getTime());
+      }
       if (!isHttpErrorRecoverable(response.code())) {
         disabled.set(true);
         logger.error(httpErrorMessage(response.code(), "posting events", "some events were dropped"));
