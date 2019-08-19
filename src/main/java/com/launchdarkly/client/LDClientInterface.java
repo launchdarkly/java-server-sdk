@@ -35,7 +35,7 @@ public interface LDClientInterface extends Closeable {
    * As of this version’s release date, the LaunchDarkly service does not support the {@code metricValue}
    * parameter. As a result, calling this overload of {@code track} will not yet produce any different
    * behavior from calling {@link #track(String, LDUser, JsonElement)} without a {@code metricValue}.
-   * Refer to the <a href="https://docs.launchdarkly.com/docs/java-sdk-reference#section-track">SDK reference guide</a> for the latest status/
+   * Refer to the <a href="https://docs.launchdarkly.com/docs/java-sdk-reference#section-track">SDK reference guide</a> for the latest status.
    * 
    * @param eventName the name of the event
    * @param user      the user that performed the event
