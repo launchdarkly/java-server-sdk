@@ -1,0 +1,16 @@
+repo:
+  public: java-server-sdk
+  private: java-server-sdk-private
+
+publications:
+  - url: https://javadoc.io/doc/com.launchdarkly/launchdarkly-java-server-sdk
+    description: documentation (javadoc.io)
+
+template:
+  name: gradle
+
+documentation:
+  githubPages: true
+
+sdk:
+  displayName: "Java"
