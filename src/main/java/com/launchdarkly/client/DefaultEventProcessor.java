@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -178,7 +179,6 @@ final class DefaultEventProcessor implements EventProcessor {
   static final class EventDispatcher {
     private static final int MAX_FLUSH_THREADS = 5;
     private static final int MESSAGE_BATCH_SIZE = 50;
-    static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
     
     private final LDConfig config;
     private final List<SendEventsTask> flushWorkers;
@@ -231,8 +231,8 @@ final class DefaultEventProcessor implements EventProcessor {
       
       flushWorkers = new ArrayList<>();
       EventResponseListener listener = new EventResponseListener() {
-          public void handleResponse(Response response) {
-            EventDispatcher.this.handleResponse(response);
+          public void handleResponse(Response response, Date responseDate) {
+            EventDispatcher.this.handleResponse(response, responseDate);
           }
         };
       for (int i = 0; i < MAX_FLUSH_THREADS; i++) {
@@ -404,13 +404,9 @@ final class DefaultEventProcessor implements EventProcessor {
       }
     }
     
-    private void handleResponse(Response response) {
-      String dateStr = response.header("Date");
-      if (dateStr != null) {
-        try {
-          lastKnownPastTime.set(HTTP_DATE_FORMAT.parse(dateStr).getTime());
-        } catch (ParseException e) {
-        }
+    private void handleResponse(Response response, Date responseDate) {
+      if (responseDate != null) {
+        lastKnownPastTime.set(responseDate.getTime());
       }
       if (!isHttpErrorRecoverable(response.code())) {
         disabled.set(true);
@@ -475,7 +471,7 @@ final class DefaultEventProcessor implements EventProcessor {
   }
   
   private static interface EventResponseListener {
-    void handleResponse(Response response);
+    void handleResponse(Response response, Date responseDate);
   }
   
   private static final class SendEventsTask implements Runnable {
@@ -487,6 +483,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private final AtomicBoolean stopping;
     private final EventOutput.Formatter formatter;
     private final Thread thread;
+    private final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz"); // need one instance per task because the date parser isn't thread-safe
     
     SendEventsTask(String sdkKey, LDConfig config, EventResponseListener responseListener,
                    BlockingQueue<FlushPayload> payloadQueue, AtomicInteger activeFlushWorkersCount,
@@ -563,13 +560,25 @@ final class DefaultEventProcessor implements EventProcessor {
               continue;
             }
           }
-          responseListener.handleResponse(response);
+          responseListener.handleResponse(response, getResponseDate(response));
           break;
         } catch (IOException e) {
           logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
           continue;
         }
       }
+    }
+    
+    private Date getResponseDate(Response response) {
+      String dateStr = response.header("Date");
+      if (dateStr != null) {
+        try {
+          return httpDateFormat.parse(dateStr);
+        } catch (ParseException e) {
+          logger.warn("Received invalid Date header from events service");
+        }
+      }
+      return null;
     }
   }
 }
