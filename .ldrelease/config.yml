@@ -8,6 +8,8 @@ publications:
 
 template:
   name: gradle
+  env:
+    LD_SKIP_DATABASE_TESTS: 1
 
 documentation:
   githubPages: true
