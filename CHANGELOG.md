@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.7.1] - 2019-08-19
+### Fixed:
+- Fixed a race condition that could cause a `NumberFormatException` to be logged when delivering event data to LaunchDarkly (although the exception did not prevent the events from being delivered).
+
 ## [4.7.0] - 2019-08-02
 ### Added:
 - In `RedisFeatureStoreBuilder`, the new methods `database`, `password`, and `tls` allow you to specify the database number, an optional password, and whether to make a secure connection to Redis. This is an alternative to specifying them as part of the Redis URI, e.g. `rediss://:PASSWORD@host:port/NUMBER`, which is also supported (previously, the database and password were supported in the URI, but the secure `rediss:` scheme was not).
