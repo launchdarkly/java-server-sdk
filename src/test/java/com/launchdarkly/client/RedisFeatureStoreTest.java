@@ -2,7 +2,12 @@ package com.launchdarkly.client;
 
 import com.launchdarkly.client.RedisFeatureStore.UpdateListener;
 
+import org.junit.Assume;
+import org.junit.BeforeClass;
+
 import java.net.URI;
+
+import static org.junit.Assume.assumeTrue;
 
 import redis.clients.jedis.Jedis;
 
@@ -12,6 +17,12 @@ public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFea
   
   public RedisFeatureStoreTest(boolean cached) {
     super(cached);
+  }
+  
+  @BeforeClass
+  public static void maybeSkipDatabaseTests() {
+    String skipParam = System.getenv("LD_SKIP_DATABASE_TESTS");
+    assumeTrue(skipParam == null || skipParam.equals(""));
   }
   
   @Override

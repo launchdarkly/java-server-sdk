@@ -1,0 +1,20 @@
+repo:
+  public: java-server-sdk
+  private: java-server-sdk-private
+
+publications:
+  - url: https://oss.sonatype.org/content/groups/public/com/launchdarkly/launchdarkly-java-server-sdk/
+    description: Sonatype
+  - url: https://javadoc.io/doc/com.launchdarkly/launchdarkly-java-server-sdk
+    description: documentation (javadoc.io)
+
+template:
+  name: gradle
+  env:
+    LD_SKIP_DATABASE_TESTS: 1
+
+documentation:
+  githubPages: true
+
+sdk:
+  displayName: "Java"
