@@ -74,6 +74,19 @@ public class LDClientEvaluationTest {
 
     assertEquals(new Integer(2), client.intVariation("key", user, 1));
   }
+
+  @Test
+  public void intVariationFromDoubleRoundsTowardZero() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("flag1", jdouble(2.25)));
+    featureStore.upsert(FEATURES, flagWithValue("flag2", jdouble(2.75)));
+    featureStore.upsert(FEATURES, flagWithValue("flag3", jdouble(-2.25)));
+    featureStore.upsert(FEATURES, flagWithValue("flag4", jdouble(-2.75)));
+
+    assertEquals(new Integer(2), client.intVariation("flag1", user, 1));
+    assertEquals(new Integer(2), client.intVariation("flag2", user, 1));
+    assertEquals(new Integer(-2), client.intVariation("flag3", user, 1));
+    assertEquals(new Integer(-2), client.intVariation("flag4", user, 1));
+  }
   
   @Test
   public void intVariationReturnsDefaultValueForUnknownFlag() throws Exception {
