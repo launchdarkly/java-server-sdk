@@ -1,6 +1,8 @@
 package com.launchdarkly.client.value;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.annotations.JsonAdapter;
@@ -9,6 +11,7 @@ import com.launchdarkly.client.LDClientInterface;
 import com.launchdarkly.client.LDUser;
 
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * An immutable instance of any data type that is allowed in JSON.
@@ -102,9 +105,12 @@ public abstract class LDValue {
 
   /**
    * Starts building an array value.
-   * <pre>
+   * <pre><code>
    *     LDValue arrayOfInts = LDValue.buildArray().add(LDValue.int(1), LDValue.int(2)).build():
-   * </pre>
+   * </code></pre>
+   * If the values are all of the same type, you may also use {@link LDValue.Converter#arrayFrom(Iterable)}
+   * or {@link LDValue.Converter#arrayOf(Object...)}.
+   * 
    * @return an {@link ArrayBuilder}
    */
   public static ArrayBuilder buildArray() {
@@ -113,9 +119,11 @@ public abstract class LDValue {
 
   /**
    * Starts building an object value.
-   * <pre>
+   * <pre><code>
    *     LDValue objectVal = LDValue.buildObject().put("key", LDValue.int(1)).build():
-   * </pre>
+   * </code></pre>
+   * If the values are all of the same type, you may also use {@link LDValue.Converter#objectFrom(Map)}.
+   * 
    * @return an {@link ObjectBuilder}
    */
   public static ObjectBuilder buildObject() {
@@ -266,6 +274,30 @@ public abstract class LDValue {
   }
   
   /**
+   * Enumerates the values in an array or object, converting them to a specific type. Returns an empty
+   * iterable for all other types.
+   * <p>
+   * This is an efficient method because it does not copy values to a new list, but returns a view
+   * into the existing array.
+   * <p>
+   * Example:
+   * <pre><code>
+   *     LDValue anArrayOfInts = LDValue.Convert.Integer.arrayOf(1, 2, 3);
+   *     for (int i: anArrayOfInts.valuesAs(LDValue.Convert.Integer)) { println(i); }
+   * </code></pre>
+   * 
+   * @param converter the {@link Converter} for the specified type
+   * @return an iterable of values of the specified type
+   */
+  public <T> Iterable<T> valuesAs(final Converter<T> converter) {
+    return Iterables.transform(values(), new Function<LDValue, T>() {
+      public T apply(LDValue value) {
+        return converter.toType(value);
+      }
+    });
+  }
+  
+  /**
    * Returns an array element by index. Returns {@link #ofNull()} if this is not an array or if the
    * index is out of range (will never throw an exception).
    * 
@@ -403,5 +435,181 @@ public abstract class LDValue {
       return oh;
     default: return 0;
     }
+  }
+  
+  /**
+   * Defines a conversion between {@link LDValue} and some other type.
+   * <p>
+   * Besides converting individual values, this provides factory methods like {@link #arrayOf}
+   * which transform a collection of the specified type to the corresponding {@link LDValue}
+   * complex type.
+   * 
+   * @param <T> the type to convert from/to
+   * @since 4.8.0
+   */
+  public static abstract class Converter<T> {
+    /**
+     * Converts a value of the specified type to an {@link LDValue}.
+     * <p>
+     * This method should never throw an exception; if for some reason the value is invalid,
+     * it should return {@link LDValue#ofNull()}.
+     * 
+     * @param value a value of this type
+     * @return an {@link LDValue}
+     */
+    public abstract LDValue fromType(T value);
+    
+    /**
+     * Converts an {@link LDValue} to a value of the specified type.
+     * <p>
+     * This method should never throw an exception; if the conversion cannot be done, it should
+     * return the default value of the given type (zero for numbers, null for nullable types).
+     * 
+     * @param value an {@link LDValue}
+     * @return a value of this type
+     */
+    public abstract T toType(LDValue value);
+    
+    /**
+     * Initializes an {@link LDValue} as an array, from a sequence of this type.
+     * <p>
+     * Values are copied, so subsequent changes to the source values do not affect the array.
+     * <p>
+     * Example:
+     * <pre><code>
+     *     List<Integer> listOfInts = ImmutableList.<Integer>builder().add(1).add(2).add(3).build();
+     *     LDValue arrayValue = LDValue.Convert.Integer.arrayFrom(listOfInts);
+     * </code></pre>
+     * 
+     * @param values a sequence of elements of the specified type
+     * @return a value representing a JSON array, or {@link LDValue#ofNull()} if the parameter was null
+     * @see LDValue#buildArray()
+     */
+    public LDValue arrayFrom(Iterable<T> values) {
+      ArrayBuilder ab = LDValue.buildArray();
+      for (T value: values) {
+        ab.add(fromType(value));
+      }
+      return ab.build();
+    }
+
+    /**
+     * Initializes an {@link LDValue} as an array, from a sequence of this type.
+     * <p>
+     * Values are copied, so subsequent changes to the source values do not affect the array.
+     * <p>
+     * Example:
+     * <pre><code>
+     *     LDValue arrayValue = LDValue.Convert.Integer.arrayOf(1, 2, 3);
+     * </code></pre>
+     * 
+     * @param values a sequence of elements of the specified type
+     * @return a value representing a JSON array, or {@link LDValue#ofNull()} if the parameter was null
+     * @see LDValue#buildArray()
+     */
+    @SuppressWarnings("unchecked")
+    public LDValue arrayOf(T... values) {
+      ArrayBuilder ab = LDValue.buildArray();
+      for (T value: values) {
+        ab.add(fromType(value));
+      }
+      return ab.build();
+    }
+    
+    /**
+     * Initializes an {@link LDValue} as an object, from a map containing this type.
+     * <p>
+     * Values are copied, so subsequent changes to the source map do not affect the array.
+     * <p>
+     * Example:
+     * <pre><code>
+     *     Map<String, Integer> mapOfInts = ImmutableMap.<String, Integer>builder().put("a", 1).build();
+     *     LDValue objectValue = LDValue.Convert.Integer.objectFrom(mapOfInts);
+     * </code></pre>
+     * 
+     * @param map a map with string keys and values of the specified type
+     * @return a value representing a JSON object, or {@link LDValue#ofNull()} if the parameter was null
+     * @see LDValue#buildObject()
+     */
+    public LDValue objectFrom(Map<String, T> map) {
+      ObjectBuilder ob = LDValue.buildObject();
+      for (String key: map.keySet()) {
+        ob.put(key, fromType(map.get(key)));
+      }
+      return ob.build();
+    }
+  }
+  
+  /**
+   * Predefined instances of {@link LDValue.Converter} for commonly used types.
+   * <p>
+   * These are mostly useful for methods that convert {@link LDValue} to or from a collection of
+   * some type, such as {@link LDValue.Converter#arrayOf(Object...)} and
+   * {@link LDValue#valuesAs(Converter)}.
+   * 
+   * @since 4.8.0
+   */
+  public static abstract class Convert {
+    private Convert() {}
+    
+    /**
+     * A {@link LDValue.Converter} for booleans.
+     */
+    public static final Converter<java.lang.Boolean> Boolean = new Converter<java.lang.Boolean>() {
+      public LDValue fromType(java.lang.Boolean value) {
+        return value == null ? LDValue.ofNull() : LDValue.of(value.booleanValue());
+      }
+      public java.lang.Boolean toType(LDValue value) {
+        return java.lang.Boolean.valueOf(value.booleanValue());
+      }
+    };
+    
+    /**
+     * A {@link LDValue.Converter} for integers.
+     */
+    public static final Converter<java.lang.Integer> Integer = new Converter<java.lang.Integer>() {
+      public LDValue fromType(java.lang.Integer value) {
+        return value == null ? LDValue.ofNull() : LDValue.of(value.intValue());
+      }
+      public java.lang.Integer toType(LDValue value) {
+        return java.lang.Integer.valueOf(value.intValue());
+      }
+    };
+    
+    /**
+     * A {@link LDValue.Converter} for floats.
+     */
+    public static final Converter<java.lang.Float> Float = new Converter<java.lang.Float>() {
+      public LDValue fromType(java.lang.Float value) {
+        return value == null ? LDValue.ofNull() : LDValue.of(value.floatValue());
+      }
+      public java.lang.Float toType(LDValue value) {
+        return java.lang.Float.valueOf(value.floatValue());
+      }
+    };
+    
+    /**
+     * A {@link LDValue.Converter} for doubles.
+     */
+    public static final Converter<java.lang.Double> Double = new Converter<java.lang.Double>() {
+      public LDValue fromType(java.lang.Double value) {
+        return value == null ? LDValue.ofNull() : LDValue.of(value.doubleValue());
+      }
+      public java.lang.Double toType(LDValue value) {
+        return java.lang.Double.valueOf(value.doubleValue());
+      }
+    };
+    
+    /**
+     * A {@link LDValue.Converter} for strings.
+     */
+    public static final Converter<java.lang.String> String = new Converter<java.lang.String>() {
+      public LDValue fromType(java.lang.String value) {
+        return LDValue.of(value);
+      }
+      public java.lang.String toType(LDValue value) {
+        return value.stringValue();
+      }
+    };
   }
 }

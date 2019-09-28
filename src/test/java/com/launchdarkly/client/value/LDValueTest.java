@@ -1,6 +1,7 @@
 package com.launchdarkly.client.value;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonPrimitive;
 
@@ -358,5 +359,44 @@ public class LDValueTest {
     assertEquals(new JsonPrimitive(someFloat), aFloatValue.asJsonElement());
     assertEquals(new JsonPrimitive(someDouble), aDoubleValue.asJsonElement());
     assertEquals(new JsonPrimitive(someString), aStringValue.asJsonElement());
+  }
+  
+  @Test
+  public void testTypeConversions() {
+    testTypeConversion(LDValue.Convert.Boolean, new Boolean[] { true, false }, LDValue.of(true), LDValue.of(false));
+    testTypeConversion(LDValue.Convert.Integer, new Integer[] { 1, 2 }, LDValue.of(1), LDValue.of(2));
+    testTypeConversion(LDValue.Convert.Float, new Float[] { 1.5f, 2.5f }, LDValue.of(1.5f), LDValue.of(2.5f));
+    testTypeConversion(LDValue.Convert.Double, new Double[] { 1.5d, 2.5d }, LDValue.of(1.5d), LDValue.of(2.5d));
+    testTypeConversion(LDValue.Convert.String, new String[] { "a", "b" }, LDValue.of("a"), LDValue.of("b"));
+  }
+  
+  private <T> void testTypeConversion(LDValue.Converter<T> converter, T[] values, LDValue... ldValues) {
+    ArrayBuilder ab = LDValue.buildArray();
+    for (LDValue v: ldValues) {
+      ab.add(v);
+    }
+    LDValue arrayValue = ab.build();
+    assertEquals(arrayValue, converter.arrayOf(values));
+    ImmutableList.Builder<T> lb = ImmutableList.<T>builder();
+    for (T v: values) {
+      lb.add(v);
+    }
+    ImmutableList<T> list = lb.build();
+    assertEquals(arrayValue, converter.arrayFrom(list));
+    assertEquals(list, ImmutableList.copyOf(arrayValue.valuesAs(converter)));
+    
+    ObjectBuilder ob = LDValue.buildObject();
+    int i = 0;
+    for (LDValue v: ldValues) {
+      ob.put(String.valueOf(++i), v);
+    }
+    LDValue objectValue = ob.build();
+    ImmutableMap.Builder<String, T> mb = ImmutableMap.<String, T>builder();
+    i = 0;
+    for (T v: values) {
+      mb.put(String.valueOf(++i), v);
+    }
+    ImmutableMap<String, T> map = mb.build();
+    assertEquals(objectValue, converter.objectFrom(map));
   }
 }
