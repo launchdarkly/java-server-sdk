@@ -58,7 +58,7 @@ class Clause {
     // and possibly negate
     if (op == Operator.segmentMatch) {
       for (LDValue j: values) {
-        if (j.getType() == LDValueType.STRING) {
+        if (j.isString()) {
           Segment segment = store.get(SEGMENTS, j.stringValue());
           if (segment != null) {
             if (segment.matchesUser(user)) {

@@ -236,7 +236,16 @@ public abstract class LDValue {
   public double doubleValue() {
     return 0;
   }
-  
+
+  /**
+   * Tests whether this value is a string.
+   * 
+   * @return {@code true} if this is a string value
+   */
+  public boolean isString() {
+    return false;
+  }
+
   /**
    * Returns this value as a {@code String} if it is a string. Returns {@code null} for all non-string values.
    * 

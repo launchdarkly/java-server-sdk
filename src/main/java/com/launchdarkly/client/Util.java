@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.value.LDValue;
-import com.launchdarkly.client.value.LDValueType;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -18,7 +17,7 @@ class Util {
   static DateTime jsonPrimitiveToDateTime(LDValue maybeDate) {
     if (maybeDate.isNumber()) {
       return new DateTime((long)maybeDate.doubleValue());
-    } else if (maybeDate.getType() == LDValueType.STRING) {
+    } else if (maybeDate.isString()) {
       try {
         return new DateTime(maybeDate.stringValue(), DateTimeZone.UTC);
       } catch (Throwable t) {

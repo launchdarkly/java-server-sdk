@@ -25,6 +25,11 @@ final class LDValueString extends LDValue {
   }
   
   @Override
+  public boolean isString() {
+    return true;
+  }
+  
+  @Override
   public String stringValue() {
     return value;
   }

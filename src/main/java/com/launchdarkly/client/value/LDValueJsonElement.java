@@ -94,6 +94,11 @@ final class LDValueJsonElement extends LDValue {
   }
   
   @Override
+  public boolean isString() {
+    return type == LDValueType.STRING;
+  }
+  
+  @Override
   public String stringValue() {
     return type == LDValueType.STRING ? value.getAsString() : null;
   }

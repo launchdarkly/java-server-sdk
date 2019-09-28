@@ -1,10 +1,9 @@
 package com.launchdarkly.client;
 
-import java.util.regex.Pattern;
-
 import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.value.LDValue;
-import com.launchdarkly.client.value.LDValueType;
+
+import java.util.regex.Pattern;
 
 /**
  * Operator value that can be applied to {@link JsonPrimitive} objects. Incompatible types or other errors
@@ -28,27 +27,24 @@ enum Operator {
   endsWith {
     @Override
     public boolean apply(LDValue uValue, LDValue cValue) {
-      return uValue.getType() == LDValueType.STRING && cValue.getType() == LDValueType.STRING &&
-          uValue.stringValue().endsWith(cValue.stringValue());
+      return uValue.isString() && cValue.isString() && uValue.stringValue().endsWith(cValue.stringValue());
     }
   },
   startsWith {
     @Override
     public boolean apply(LDValue uValue, LDValue cValue) {
-      return uValue.getType() == LDValueType.STRING && cValue.getType() == LDValueType.STRING &&
-          uValue.stringValue().startsWith(cValue.stringValue());
+      return uValue.isString() && cValue.isString() && uValue.stringValue().startsWith(cValue.stringValue());
     }
   },
   matches {
     public boolean apply(LDValue uValue, LDValue cValue) {
-      return uValue.getType() == LDValueType.STRING && cValue.getType() == LDValueType.STRING &&
+      return uValue.isString() && cValue.isString() &&
               Pattern.compile(cValue.stringValue()).matcher(uValue.stringValue()).find();
     }
   },
   contains {
     public boolean apply(LDValue uValue, LDValue cValue) {
-      return uValue.getType() == LDValueType.STRING && cValue.getType() == LDValueType.STRING &&
-          uValue.stringValue().contains(cValue.stringValue());
+      return uValue.isString() && cValue.isString() && uValue.stringValue().contains(cValue.stringValue());
     }
   },
   lessThan {
