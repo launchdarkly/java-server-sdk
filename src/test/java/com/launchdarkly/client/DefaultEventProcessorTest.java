@@ -378,7 +378,8 @@ public class DefaultEventProcessorTest {
   public void customEventIsQueuedWithUser() throws Exception {
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    double metric = 1.5;
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, metric);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
@@ -396,7 +397,7 @@ public class DefaultEventProcessorTest {
   public void customEventCanContainInlineUser() throws Exception {
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
@@ -413,7 +414,7 @@ public class DefaultEventProcessorTest {
   public void userIsFilteredInCustomEvent() throws Exception {
     JsonObject data = new JsonObject();
     data.addProperty("thing", "stuff");
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data);
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = baseConfig(server).inlineUsersInEvents(true).allAttributesPrivate(true).build();
@@ -644,6 +645,7 @@ public class DefaultEventProcessorTest {
     );
   }
 
+  @SuppressWarnings("unchecked")
   private Matcher<JsonElement> isCustomEvent(Event.Custom sourceEvent, JsonElement inlineUser) {
     return allOf(
         hasJsonProperty("kind", "custom"),
@@ -653,7 +655,9 @@ public class DefaultEventProcessorTest {
           hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
         (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
           hasJsonProperty("user", nullValue(JsonElement.class)),
-        hasJsonProperty("data", sourceEvent.data)
+        hasJsonProperty("data", sourceEvent.data),
+        (sourceEvent.metricValue == null) ? hasJsonProperty("metricValue", nullValue(JsonElement.class)) :
+          hasJsonProperty("metricValue", sourceEvent.metricValue.doubleValue())              
     );
   }
 

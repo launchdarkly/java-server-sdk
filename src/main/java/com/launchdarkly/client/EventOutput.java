@@ -80,13 +80,15 @@ abstract class EventOutput {
     private final String userKey;
     private final LDUser user;
     private final JsonElement data;
+    private final Double metricValue;
     
-    Custom(long creationDate, String key, String userKey, LDUser user, JsonElement data) {
+    Custom(long creationDate, String key, String userKey, LDUser user, JsonElement data, Double metricValue) {
       super("custom", creationDate);
       this.key = key;
       this.userKey = userKey;
       this.user = user;
       this.data = data;
+      this.metricValue = metricValue;
     }
   }
   
@@ -174,7 +176,8 @@ abstract class EventOutput {
         return new EventOutput.Custom(ce.creationDate, ce.key,
             inlineUsers ? null : userKey,
             inlineUsers ? e.user : null,
-            ce.data);
+            ce.data,
+            ce.metricValue);
       } else if (e instanceof Event.Index) {
         return new EventOutput.Index(e.creationDate, e.user);
       } else {

@@ -9,11 +9,29 @@ abstract class EventFactory {
   protected abstract long getTimestamp();
   protected abstract boolean isIncludeReasons();
   
+  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, JsonElement value,
+      Integer variationIndex, EvaluationReason reason, JsonElement defaultValue, String prereqOf) {
+    boolean requireExperimentData = isExperiment(flag, reason);
+    return new Event.FeatureRequest(
+        getTimestamp(),
+        flag.getKey(),
+        user,
+        flag.getVersion(),
+        variationIndex,
+        value,
+        defaultValue,
+        prereqOf,
+        requireExperimentData || flag.isTrackEvents(),
+        flag.getDebugEventsUntilDate(),
+        (requireExperimentData || isIncludeReasons()) ? reason : null,
+        false
+    );
+  }
+  
   public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, EvaluationDetail<JsonElement> result, JsonElement defaultVal) {
-    return new Event.FeatureRequest(getTimestamp(), flag.getKey(), user, flag.getVersion(),
-        result == null ? null : result.getVariationIndex(), result == null ? null : result.getValue(),
-        defaultVal, null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(),
-        isIncludeReasons() ? result.getReason() : null, false);
+    return newFeatureRequestEvent(flag, user, result == null ? null : result.getValue(),
+        result == null ? null : result.getVariationIndex(), result == null ? null : result.getReason(),
+        defaultVal, null);
   }
   
   public Event.FeatureRequest newDefaultFeatureRequestEvent(FeatureFlag flag, LDUser user, JsonElement defaultValue,
@@ -31,10 +49,9 @@ abstract class EventFactory {
   
   public Event.FeatureRequest newPrerequisiteFeatureRequestEvent(FeatureFlag prereqFlag, LDUser user, EvaluationDetail<JsonElement> result,
       FeatureFlag prereqOf) {
-    return new Event.FeatureRequest(getTimestamp(), prereqFlag.getKey(), user, prereqFlag.getVersion(),
-        result == null ? null : result.getVariationIndex(), result == null ? null : result.getValue(),
-        null, prereqOf.getKey(), prereqFlag.isTrackEvents(), prereqFlag.getDebugEventsUntilDate(),
-        isIncludeReasons() ? result.getReason() : null, false);
+    return newFeatureRequestEvent(prereqFlag, user, result == null ? null : result.getValue(),
+        result == null ? null : result.getVariationIndex(), result == null ? null : result.getReason(),
+        null, prereqOf.getKey());
   }
 
   public Event.FeatureRequest newDebugEvent(Event.FeatureRequest from) {
@@ -42,14 +59,42 @@ abstract class EventFactory {
         from.defaultVal, from.prereqOf, from.trackEvents, from.debugEventsUntilDate, from.reason, true);
   }
   
-  public Event.Custom newCustomEvent(String key, LDUser user, JsonElement data) {
-    return new Event.Custom(getTimestamp(), key, user, data);
+  public Event.Custom newCustomEvent(String key, LDUser user, JsonElement data, Double metricValue) {
+    return new Event.Custom(getTimestamp(), key, user, data, metricValue);
   }
   
   public Event.Identify newIdentifyEvent(LDUser user) {
     return new Event.Identify(getTimestamp(), user);
   }
   
+  private boolean isExperiment(FeatureFlag flag, EvaluationReason reason) {
+    if (reason == null) {
+      // doesn't happen in real life, but possible in testing
+      return false;
+    }
+    switch (reason.getKind()) { 
+    case FALLTHROUGH:
+      return flag.isTrackEventsFallthrough();
+    case RULE_MATCH:
+      if (!(reason instanceof EvaluationReason.RuleMatch)) {
+        // shouldn't be possible
+        return false;
+      }
+      EvaluationReason.RuleMatch rm = (EvaluationReason.RuleMatch)reason;
+      int ruleIndex = rm.getRuleIndex();
+      // Note, it is OK to rely on the rule index rather than the unique ID in this context, because the
+      // FeatureFlag that is passed to us here *is* necessarily the same version of the flag that was just
+      // evaluated, so we cannot be out of sync with its rule list.
+      if (ruleIndex >= 0 && ruleIndex < flag.getRules().size()) {
+        Rule rule = flag.getRules().get(ruleIndex);
+        return rule.isTrackEvents();
+      }
+      return false;
+    default:
+      return false;
+    }
+  }
+
   public static class DefaultEventFactory extends EventFactory {
     private final boolean includeReasons;
     

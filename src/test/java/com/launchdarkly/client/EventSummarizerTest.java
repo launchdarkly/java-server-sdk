@@ -40,7 +40,7 @@ public class EventSummarizerTest {
   public void summarizeEventDoesNothingForCustomEvent() {
     EventSummarizer es = new EventSummarizer();
     EventSummarizer.EventSummary snapshot = es.snapshot();
-    es.summarizeEvent(eventFactory.newCustomEvent("whatever", user, null));
+    es.summarizeEvent(eventFactory.newCustomEvent("whatever", user, null, null));
     
     assertEquals(snapshot, es.snapshot());
   }

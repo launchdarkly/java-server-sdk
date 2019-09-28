@@ -17,17 +17,35 @@ public interface LDClientInterface extends Closeable {
    *
    * @param eventName the name of the event
    * @param user      the user that performed the event
-   * @param data      a JSON object containing additional data associated with the event
+   */
+  void track(String eventName, LDUser user);
+
+  /**
+   * Tracks that a user performed an event, and provides additional custom data.
+   *
+   * @param eventName the name of the event
+   * @param user      the user that performed the event
+   * @param data      a JSON object containing additional data associated with the event; may be null
    */
   void track(String eventName, LDUser user, JsonElement data);
 
   /**
-   * Tracks that a user performed an event.
-   *
+   * Tracks that a user performed an event, and provides an additional numeric value for custom metrics.
+   * <p>
+   * As of this version’s release date, the LaunchDarkly service does not support the {@code metricValue}
+   * parameter. As a result, calling this overload of {@code track} will not yet produce any different
+   * behavior from calling {@link #track(String, LDUser, JsonElement)} without a {@code metricValue}.
+   * Refer to the <a href="https://docs.launchdarkly.com/docs/java-sdk-reference#section-track">SDK reference guide</a> for the latest status.
+   * 
    * @param eventName the name of the event
    * @param user      the user that performed the event
+   * @param data      a JSON object containing additional data associated with the event; may be null
+   * @param metricValue a numeric value used by the LaunchDarkly experimentation feature in numeric custom
+   * metrics. Can be omitted if this event is used by only non-numeric metrics. This field will also be
+   * returned as part of the custom event for Data Export.
+   * @since 4.8.0
    */
-  void track(String eventName, LDUser user);
+  void track(String eventName, LDUser user, JsonElement data, double metricValue);
 
   /**
    * Registers the user.
@@ -80,7 +98,9 @@ public interface LDClientInterface extends Closeable {
   
   /**
    * Calculates the integer value of a feature flag for a given user.
-   *
+   * <p>
+   * If the flag variation has a numeric value that is not an integer, it is rounded toward zero (truncated).
+   * 
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
@@ -134,6 +154,9 @@ public interface LDClientInterface extends Closeable {
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
    * way the value was determined. The {@code reason} property in the result will also be included in
    * analytics events, if you are capturing detailed event data for this flag.
+   * <p>
+   * If the flag variation has a numeric value that is not an integer, it is rounded toward zero (truncated).
+   * 
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
