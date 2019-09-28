@@ -5,6 +5,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.launchdarkly.client.value.LDValue;
 
 import org.easymock.Capture;
 import org.easymock.EasyMock;
@@ -22,7 +23,6 @@ import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.client.TestUtil.flagWithValue;
 import static com.launchdarkly.client.TestUtil.initedFeatureStore;
-import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.TestUtil.updateProcessorWithData;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -41,6 +41,7 @@ import junit.framework.AssertionFailedError;
 /**
  * See also LDClientEvaluationTest, etc. This file contains mostly tests for the startup logic.
  */
+@SuppressWarnings("javadoc")
 public class LDClientTest extends EasyMockSupport {
   private UpdateProcessor updateProcessor;
   private EventProcessor eventProcessor;
@@ -180,7 +181,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", jint(1)));
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
     assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
@@ -213,7 +214,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", jint(1)));
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
     assertFalse(client.isFlagKnown("key"));
     verifyAll();
   }
@@ -230,7 +231,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", jint(1)));
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
     assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
@@ -248,7 +249,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
     
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", jint(1)));
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
     assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
     
     verifyAll();

@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.value.LDValue;
 
 /**
  * Operator value that can be applied to {@link JsonPrimitive} objects. Incompatible types or other errors
@@ -13,27 +14,21 @@ enum OperandType {
   date,
   semVer;
   
-  public static OperandType bestGuess(JsonPrimitive value) {
+  public static OperandType bestGuess(LDValue value) {
     return value.isNumber() ? number : string;
   }
   
-  public Object getValueAsType(JsonPrimitive value) {
+  public Object getValueAsType(LDValue value) {
     switch (this) {
     case string:
-      return value.getAsString();
+      return value.stringValue();
     case number:
-      if (value.isNumber()) {
-        try {
-          return value.getAsDouble();
-        } catch (NumberFormatException e) {
-        }
-      }
-      return null;
+      return value.isNumber() ? Double.valueOf(value.doubleValue()) : null;
     case date:
       return Util.jsonPrimitiveToDateTime(value);
     case semVer:
       try {
-        return SemanticVersion.parse(value.getAsString(), true);
+        return SemanticVersion.parse(value.stringValue(), true);
       } catch (SemanticVersion.InvalidVersionException e) {
         return null;
       }

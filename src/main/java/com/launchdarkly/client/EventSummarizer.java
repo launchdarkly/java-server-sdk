@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -64,7 +64,7 @@ final class EventSummarizer {
       return counters.isEmpty();
     }
     
-    void incrementCounter(String flagKey, Integer variation, Integer version, JsonElement flagValue, JsonElement defaultVal) {
+    void incrementCounter(String flagKey, Integer variation, Integer version, LDValue flagValue, LDValue defaultVal) {
       CounterKey key = new CounterKey(flagKey, variation, version);
 
       CounterValue value = counters.get(key);
@@ -133,10 +133,10 @@ final class EventSummarizer {
   
   static final class CounterValue {
     long count;
-    final JsonElement flagValue;
-    final JsonElement defaultVal;
+    final LDValue flagValue;
+    final LDValue defaultVal;
     
-    CounterValue(long count, JsonElement flagValue, JsonElement defaultVal) {
+    CounterValue(long count, LDValue flagValue, LDValue defaultVal) {
       this.count = count;
       this.flagValue = flagValue;
       this.defaultVal = defaultVal;

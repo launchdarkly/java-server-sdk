@@ -1,9 +1,9 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
 import com.launchdarkly.client.EventSummarizer.CounterKey;
 import com.launchdarkly.client.EventSummarizer.CounterValue;
+import com.launchdarkly.client.value.LDValue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,13 +41,13 @@ abstract class EventOutput {
     private final LDUser user;
     private final Integer version;
     private final Integer variation;
-    private final JsonElement value;
-    @SerializedName("default") private final JsonElement defaultVal;
+    private final LDValue value;
+    @SerializedName("default") private final LDValue defaultVal;
     private final String prereqOf;
     private final EvaluationReason reason;
     
     FeatureRequest(long creationDate, String key, String userKey, LDUser user,
-        Integer version, Integer variation, JsonElement value, JsonElement defaultVal, String prereqOf,
+        Integer version, Integer variation, LDValue value, LDValue defaultVal, String prereqOf,
         EvaluationReason reason, boolean debug) {
       super(debug ? "debug" : "feature", creationDate);
       this.key = key;
@@ -56,7 +56,7 @@ abstract class EventOutput {
       this.variation = variation;
       this.version = version;
       this.value = value;
-      this.defaultVal = defaultVal;
+      this.defaultVal = defaultVal.isNull() ? null : defaultVal; // allows Gson to omit this property
       this.prereqOf = prereqOf;
       this.reason = reason;
     }
@@ -79,15 +79,15 @@ abstract class EventOutput {
     private final String key;
     private final String userKey;
     private final LDUser user;
-    private final JsonElement data;
+    private final LDValue data;
     private final Double metricValue;
     
-    Custom(long creationDate, String key, String userKey, LDUser user, JsonElement data, Double metricValue) {
+    Custom(long creationDate, String key, String userKey, LDUser user, LDValue data, Double metricValue) {
       super("custom", creationDate);
       this.key = key;
       this.userKey = userKey;
       this.user = user;
-      this.data = data;
+      this.data = (data == null || data.isNull()) ? null : data; // allows Gson to omit this property 
       this.metricValue = metricValue;
     }
   }
@@ -117,10 +117,10 @@ abstract class EventOutput {
   }
 
   static final class SummaryEventFlag {
-    @SerializedName("default") final JsonElement defaultVal;
+    @SerializedName("default") final LDValue defaultVal;
     final List<SummaryEventCounter> counters;
     
-    SummaryEventFlag(JsonElement defaultVal, List<SummaryEventCounter> counters) {
+    SummaryEventFlag(LDValue defaultVal, List<SummaryEventCounter> counters) {
       this.defaultVal = defaultVal;
       this.counters = counters;
     }
@@ -128,12 +128,12 @@ abstract class EventOutput {
   
   static final class SummaryEventCounter {
     final Integer variation;
-    final JsonElement value;
+    final LDValue value;
     final Integer version;
     final long count;
     final Boolean unknown;
     
-    SummaryEventCounter(Integer variation, JsonElement value, Integer version, long count, Boolean unknown) {
+    SummaryEventCounter(Integer variation, LDValue value, Integer version, long count, Boolean unknown) {
       this.variation = variation;
       this.value = value;
       this.version = version;

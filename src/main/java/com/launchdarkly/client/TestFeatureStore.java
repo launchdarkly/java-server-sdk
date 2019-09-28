@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.value.LDValue;
 
 /**
  * A decorated {@link InMemoryFeatureStore} which provides functionality to create (or override) true or false feature flags for all users.
@@ -19,10 +20,7 @@ import com.google.gson.JsonPrimitive;
  */
 @Deprecated
 public class TestFeatureStore extends InMemoryFeatureStore {
-  static List<JsonElement> TRUE_FALSE_VARIATIONS = Arrays.asList(
-      (JsonElement) (new JsonPrimitive(true)),
-      (JsonElement) (new JsonPrimitive(false))
-  );
+  static List<LDValue> TRUE_FALSE_VARIATIONS = Arrays.asList(LDValue.of(true), LDValue.of(false));
 
   private AtomicInteger version = new AtomicInteger(0);
   private volatile boolean initializedForTests = false;
@@ -107,7 +105,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
     FeatureFlag newFeature = new FeatureFlagBuilder(key)
             .on(false)
             .offVariation(0)
-            .variations(Arrays.asList(value))
+            .variations(Arrays.asList(LDValue.fromJsonElement(value)))
             .version(version.incrementAndGet())
             .build();
     upsert(FEATURES, newFeature);

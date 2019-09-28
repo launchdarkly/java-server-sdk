@@ -1,14 +1,15 @@
 package com.launchdarkly.client;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
-import java.util.Arrays;
+import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
-import com.google.gson.JsonPrimitive;
+import java.util.Arrays;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+@SuppressWarnings("javadoc")
 public class SegmentTest {
 
   private int maxWeight = 100000;
@@ -55,7 +56,7 @@ public class SegmentTest {
     Clause clause = new Clause(
         "email",
         Operator.in,
-        Arrays.asList(new JsonPrimitive("test@example.com")),
+        Arrays.asList(LDValue.of("test@example.com")),
         false);
     SegmentRule rule = new SegmentRule(
         Arrays.asList(clause),
@@ -75,7 +76,7 @@ public class SegmentTest {
     Clause clause = new Clause(
         "email",
         Operator.in,
-        Arrays.asList(new JsonPrimitive("test@example.com")),
+        Arrays.asList(LDValue.of("test@example.com")),
         false);
     SegmentRule rule = new SegmentRule(Arrays.asList(clause),
         0,
@@ -94,12 +95,12 @@ public class SegmentTest {
     Clause clause1 = new Clause(
         "email",
         Operator.in,
-        Arrays.asList(new JsonPrimitive("test@example.com")),
+        Arrays.asList(LDValue.of("test@example.com")),
         false);
     Clause clause2 = new Clause(
         "name",
         Operator.in,
-        Arrays.asList(new JsonPrimitive("bob")),
+        Arrays.asList(LDValue.of("bob")),
         false);
     SegmentRule rule = new SegmentRule(
         Arrays.asList(clause1, clause2),
@@ -119,12 +120,12 @@ public class SegmentTest {
     Clause clause1 = new Clause(
         "email",
         Operator.in,
-        Arrays.asList(new JsonPrimitive("test@example.com")),
+        Arrays.asList(LDValue.of("test@example.com")),
         false);
     Clause clause2 = new Clause(
         "name",
         Operator.in,
-        Arrays.asList(new JsonPrimitive("bill")),
+        Arrays.asList(LDValue.of("bill")),
         false);
     SegmentRule rule = new SegmentRule(
         Arrays.asList(clause1, clause2),

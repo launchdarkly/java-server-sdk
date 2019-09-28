@@ -1,15 +1,12 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
-import com.google.gson.reflect.TypeToken;
+import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -26,7 +23,7 @@ class FeatureFlag implements VersionedData {
   private List<Rule> rules;
   private VariationOrRollout fallthrough;
   private Integer offVariation; //optional
-  private List<JsonElement> variations;
+  private List<LDValue> variations;
   private boolean clientSide;
   private boolean trackEvents;
   private boolean trackEventsFallthrough;
@@ -37,7 +34,7 @@ class FeatureFlag implements VersionedData {
   FeatureFlag() {}
 
   FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
-      List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<JsonElement> variations,
+      List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<LDValue> variations,
       boolean clientSide, boolean trackEvents, boolean trackEventsFallthrough,
       Long debugEventsUntilDate, boolean deleted) {
     this.key = key;
@@ -63,14 +60,14 @@ class FeatureFlag implements VersionedData {
     if (user == null || user.getKey() == null) {
       // this should have been prevented by LDClient.evaluateInternal
       logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", key);
-      return new EvalResult(EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, null), prereqEvents);
+      return new EvalResult(EvaluationDetail.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, LDValue.ofNull()), prereqEvents);
     }
 
-    EvaluationDetail<JsonElement> details = evaluate(user, featureStore, prereqEvents, eventFactory);
+    EvaluationDetail<LDValue> details = evaluate(user, featureStore, prereqEvents, eventFactory);
     return new EvalResult(details, prereqEvents);    
   }
 
-  private EvaluationDetail<JsonElement> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
+  private EvaluationDetail<LDValue> evaluate(LDUser user, FeatureStore featureStore, List<Event.FeatureRequest> events,
       EventFactory eventFactory) {
     if (!isOn()) {
       return getOffValue(EvaluationReason.off());
@@ -85,7 +82,7 @@ class FeatureFlag implements VersionedData {
     if (targets != null) {
       for (Target target: targets) {
         for (String v : target.getValues()) {
-          if (v.equals(user.getKey().getAsString())) {
+          if (v.equals(user.getKey().stringValue())) {
             return getVariation(target.getVariation(), EvaluationReason.targetMatch());
           }
         }
@@ -119,7 +116,7 @@ class FeatureFlag implements VersionedData {
         logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), key);
         prereqOk = false;
       } else {
-        EvaluationDetail<JsonElement> prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
+        EvaluationDetail<LDValue> prereqEvalResult = prereqFeatureFlag.evaluate(user, featureStore, events, eventFactory);
         // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
         // off variation was. But we still need to evaluate it in order to generate an event.
         if (!prereqFeatureFlag.isOn() || prereqEvalResult == null || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
@@ -134,26 +131,28 @@ class FeatureFlag implements VersionedData {
     return null;
   }
 
-  private EvaluationDetail<JsonElement> getVariation(int variation, EvaluationReason reason) {
+  private EvaluationDetail<LDValue> getVariation(int variation, EvaluationReason reason) {
     if (variation < 0 || variation >= variations.size()) {
       logger.error("Data inconsistency in feature flag \"{}\": invalid variation index", key);
-      return EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null);
+      return EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, LDValue.ofNull());
     }
-    return new EvaluationDetail<JsonElement>(reason, variation, variations.get(variation));
+    LDValue value = LDValue.normalize(variations.get(variation));
+    // normalize() ensures that nulls become LDValue.ofNull() - Gson may give us nulls
+    return EvaluationDetail.fromJsonValue(value, variation, reason);
   }
 
-  private EvaluationDetail<JsonElement> getOffValue(EvaluationReason reason) {
+  private EvaluationDetail<LDValue> getOffValue(EvaluationReason reason) {
     if (offVariation == null) { // off variation unspecified - return default value
-      return new EvaluationDetail<JsonElement>(reason, null, null);
+      return EvaluationDetail.fromJsonValue(LDValue.ofNull(), null, reason);
     }
     return getVariation(offVariation, reason);
   }
   
-  private EvaluationDetail<JsonElement> getValueForVariationOrRollout(VariationOrRollout vr, LDUser user, EvaluationReason reason) {
+  private EvaluationDetail<LDValue> getValueForVariationOrRollout(VariationOrRollout vr, LDUser user, EvaluationReason reason) {
     Integer index = vr.variationIndexForUser(user, key, salt);
     if (index == null) {
       logger.error("Data inconsistency in feature flag \"{}\": variation/rollout object with no variation or rollout", key);
-      return EvaluationDetail.<JsonElement>error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null); 
+      return EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, LDValue.ofNull()); 
     }
     return getVariation(index, reason);
   }
@@ -206,7 +205,7 @@ class FeatureFlag implements VersionedData {
     return fallthrough;
   }
 
-  List<JsonElement> getVariations() {
+  List<LDValue> getVariations() {
     return variations;
   }
 
@@ -219,17 +218,17 @@ class FeatureFlag implements VersionedData {
   }
     
   static class EvalResult {
-    private final EvaluationDetail<JsonElement> details;
+    private final EvaluationDetail<LDValue> details;
     private final List<Event.FeatureRequest> prerequisiteEvents;
 
-    private EvalResult(EvaluationDetail<JsonElement> details, List<Event.FeatureRequest> prerequisiteEvents) {
+    private EvalResult(EvaluationDetail<LDValue> details, List<Event.FeatureRequest> prerequisiteEvents) {
       checkNotNull(details);
       checkNotNull(prerequisiteEvents);
       this.details = details;
       this.prerequisiteEvents = prerequisiteEvents;
     }
 
-    EvaluationDetail<JsonElement> getDetails() {
+    EvaluationDetail<LDValue> getDetails() {
       return details;
     }
 
