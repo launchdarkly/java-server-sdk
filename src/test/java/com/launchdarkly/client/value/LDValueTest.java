@@ -23,12 +23,14 @@ public class LDValueTest {
   private static final Gson gson = new Gson();
   
   private static final int someInt = 3;
+  private static final long someLong = 3;
   private static final float someFloat = 3.25f;
   private static final double someDouble = 3.25d;
   private static final String someString = "hi";
   
   private static final LDValue aTrueBoolValue = LDValue.of(true);
   private static final LDValue anIntValue = LDValue.of(someInt);
+  private static final LDValue aLongValue = LDValue.of(someLong);
   private static final LDValue aFloatValue = LDValue.of(someFloat);
   private static final LDValue aDoubleValue = LDValue.of(someDouble);
   private static final LDValue aStringValue = LDValue.of(someString);
@@ -38,6 +40,7 @@ public class LDValueTest {
   
   private static final LDValue aTrueBoolValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(true));
   private static final LDValue anIntValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someInt));
+  private static final LDValue aLongValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someLong));
   private static final LDValue aFloatValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someFloat));
   private static final LDValue aDoubleValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someDouble));
   private static final LDValue aStringValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someString));
@@ -46,9 +49,11 @@ public class LDValueTest {
   
   @Test
   public void defaultValueJsonElementsAreReused() {
+    assertSame(LDValue.ofNull(), LDValue.ofNull());
     assertSame(LDValue.of(true).asJsonElement(), LDValue.of(true).asJsonElement());
     assertSame(LDValue.of(false).asJsonElement(), LDValue.of(false).asJsonElement());
     assertSame(LDValue.of((int)0).asJsonElement(), LDValue.of((int)0).asJsonElement());
+    assertSame(LDValue.of((long)0).asJsonElement(), LDValue.of((long)0).asJsonElement());
     assertSame(LDValue.of((float)0).asJsonElement(), LDValue.of((float)0).asJsonElement());
     assertSame(LDValue.of((double)0).asJsonElement(), LDValue.of((double)0).asJsonElement());
     assertSame(LDValue.of("").asJsonElement(), LDValue.of("").asJsonElement());
@@ -70,6 +75,8 @@ public class LDValueTest {
         aStringValueFromJsonElement,
         anIntValue,
         anIntValueFromJsonElement,
+        aLongValue,
+        aLongValueFromJsonElement,
         aFloatValue,
         aFloatValueFromJsonElement,
         aDoubleValue,
@@ -101,6 +108,8 @@ public class LDValueTest {
         aTrueBoolValueFromJsonElement,
         anIntValue,
         anIntValueFromJsonElement,
+        aLongValue,
+        aLongValueFromJsonElement,
         aFloatValue,
         aFloatValueFromJsonElement,
         aDoubleValue,
@@ -125,6 +134,7 @@ public class LDValueTest {
   public void canGetIntegerValueOfAnyNumericType() {
     LDValue[] values = new LDValue[] {
         LDValue.of(3),
+        LDValue.of(3L),
         LDValue.of(3.0f),
         LDValue.of(3.25f),
         LDValue.of(3.75f),
@@ -135,6 +145,7 @@ public class LDValueTest {
     for (LDValue value: values) {
       assertEquals(value.toString(), LDValueType.NUMBER, value.getType());
       assertEquals(value.toString(), 3, value.intValue());
+      assertEquals(value.toString(), 3L, value.longValue());
     }
   }
   
@@ -142,6 +153,7 @@ public class LDValueTest {
   public void canGetFloatValueOfAnyNumericType() {
     LDValue[] values = new LDValue[] {
         LDValue.of(3),
+        LDValue.of(3L),
         LDValue.of(3.0f),
         LDValue.of(3.0d),
     };
@@ -155,6 +167,7 @@ public class LDValueTest {
   public void canGetDoubleValueOfAnyNumericType() {
     LDValue[] values = new LDValue[] {
         LDValue.of(3),
+        LDValue.of(3L),
         LDValue.of(3.0f),
         LDValue.of(3.0d),
     };
@@ -222,6 +235,7 @@ public class LDValueTest {
         aTrueBoolValue,
         aTrueBoolValueFromJsonElement,
         anIntValue,
+        aLongValue,
         aFloatValue,
         aDoubleValue,
         aStringValue,
@@ -282,6 +296,7 @@ public class LDValueTest {
         aTrueBoolValue,
         aTrueBoolValueFromJsonElement,
         anIntValue,
+        aLongValue,
         aFloatValue,
         aDoubleValue,
         aStringValue,
@@ -300,10 +315,27 @@ public class LDValueTest {
   public void samePrimitivesWithOrWithoutJsonElementAreEqual() {
     assertEquals(aTrueBoolValue, aTrueBoolValueFromJsonElement);
     assertEquals(anIntValue, anIntValueFromJsonElement);
+    assertEquals(aLongValue, aLongValueFromJsonElement);
     assertEquals(aFloatValue, aFloatValueFromJsonElement);
     assertEquals(aStringValue, aStringValueFromJsonElement);
     assertEquals(anArrayValue, anArrayValueFromJsonElement);
     assertEquals(anObjectValue, anObjectValueFromJsonElement);
+  }
+  
+  @Test
+  public void canUseLongTypeForNumberGreaterThanMaxInt() {
+    long n = (long)Integer.MAX_VALUE + 1;
+    assertEquals(n, LDValue.of(n).longValue());
+    assertEquals(n, LDValue.Convert.Long.toType(LDValue.of(n)).longValue());
+    assertEquals(n, LDValue.Convert.Long.fromType(n).longValue());
+  }
+
+  @Test
+  public void canUseDoubleTypeForNumberGreaterThanMaxFloat() {
+    double n = (double)Float.MAX_VALUE + 1;
+    assertEquals(n, LDValue.of(n).doubleValue(), 0);
+    assertEquals(n, LDValue.Convert.Double.toType(LDValue.of(n)).doubleValue(), 0);
+    assertEquals(n, LDValue.Convert.Double.fromType(n).doubleValue(), 0);
   }
   
   @Test
@@ -314,6 +346,8 @@ public class LDValueTest {
     assertEquals("false", LDValue.of(false).toJsonString());
     assertEquals(String.valueOf(someInt), anIntValue.toJsonString());
     assertEquals(String.valueOf(someInt), anIntValueFromJsonElement.toJsonString());
+    assertEquals(String.valueOf(someLong), aLongValue.toJsonString());
+    assertEquals(String.valueOf(someLong), aLongValueFromJsonElement.toJsonString());
     assertEquals(String.valueOf(someFloat), aFloatValue.toJsonString());
     assertEquals(String.valueOf(someFloat), aFloatValueFromJsonElement.toJsonString());
     assertEquals(String.valueOf(someDouble), aDoubleValue.toJsonString());
@@ -334,6 +368,8 @@ public class LDValueTest {
         aTrueBoolValueFromJsonElement,
         anIntValue,
         anIntValueFromJsonElement,
+        aLongValue,
+        aLongValueFromJsonElement,
         aFloatValue,
         aFloatValueFromJsonElement,
         aDoubleValue,
@@ -356,6 +392,7 @@ public class LDValueTest {
     assertNull(LDValue.ofNull().asJsonElement());
     assertEquals(new JsonPrimitive(true), aTrueBoolValue.asJsonElement());
     assertEquals(new JsonPrimitive(someInt), anIntValue.asJsonElement());
+    assertEquals(new JsonPrimitive(someLong), aLongValue.asJsonElement());
     assertEquals(new JsonPrimitive(someFloat), aFloatValue.asJsonElement());
     assertEquals(new JsonPrimitive(someDouble), aDoubleValue.asJsonElement());
     assertEquals(new JsonPrimitive(someString), aStringValue.asJsonElement());
@@ -365,6 +402,7 @@ public class LDValueTest {
   public void testTypeConversions() {
     testTypeConversion(LDValue.Convert.Boolean, new Boolean[] { true, false }, LDValue.of(true), LDValue.of(false));
     testTypeConversion(LDValue.Convert.Integer, new Integer[] { 1, 2 }, LDValue.of(1), LDValue.of(2));
+    testTypeConversion(LDValue.Convert.Long, new Long[] { 1L, 2L }, LDValue.of(1L), LDValue.of(2L));
     testTypeConversion(LDValue.Convert.Float, new Float[] { 1.5f, 2.5f }, LDValue.of(1.5f), LDValue.of(2.5f));
     testTypeConversion(LDValue.Convert.Double, new Double[] { 1.5d, 2.5d }, LDValue.of(1.5d), LDValue.of(2.5d));
     testTypeConversion(LDValue.Convert.String, new String[] { "a", "b" }, LDValue.of("a"), LDValue.of("b"));

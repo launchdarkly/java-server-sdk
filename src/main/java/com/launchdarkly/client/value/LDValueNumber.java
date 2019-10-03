@@ -38,6 +38,11 @@ final class LDValueNumber extends LDValue {
   public int intValue() {
     return (int)value;
   }
+
+  @Override
+  public long longValue() {
+    return (long)value;
+  }
   
   @Override
   public float floatValue() {

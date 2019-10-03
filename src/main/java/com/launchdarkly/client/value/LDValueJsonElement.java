@@ -82,6 +82,11 @@ final class LDValueJsonElement extends LDValue {
   public int intValue() {
     return type == LDValueType.NUMBER ? (int)value.getAsFloat() : 0; // don't rely on their rounding behavior
   }
+
+  @Override
+  public long longValue() {
+    return type == LDValueType.NUMBER ? (long)value.getAsDouble() : 0; // don't rely on their rounding behavior
+  }
   
   @Override
   public float floatValue() {

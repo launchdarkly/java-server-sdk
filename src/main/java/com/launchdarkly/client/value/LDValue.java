@@ -72,6 +72,22 @@ public abstract class LDValue {
   public static LDValue of(int value) {
     return LDValueNumber.fromDouble(value);
   }
+
+  /**
+   * Returns an instance for a numeric value.
+   * <p>
+   * Note that the LaunchDarkly service, and most of the SDKs, represent numeric values internally
+   * in 64-bit floating-point, which has slightly less precision than a signed 64-bit {@code long};
+   * therefore, the full range of {@code long} values cannot be accurately represented. If you need
+   * to set a user attribute to a numeric value with more significant digits than will fit in a
+   * {@code double}, it is best to encode it as a string.
+   * 
+   * @param value a long integer numeric value
+   * @return an LDValue containing that value
+   */
+  public static LDValue of(long value) {
+    return LDValueNumber.fromDouble(value);
+  }
   
   /**
    * Returns an instance for a numeric value.
@@ -216,6 +232,18 @@ public abstract class LDValue {
    * @return an {@code int} value
    */
   public int intValue() {
+    return 0;
+  }
+
+  /**
+   * Returns this value as a {@code long} if it is numeric. Returns zero for all non-numeric values.
+   * <p>
+   * If the value is a number but not an integer, it will be rounded toward zero (truncated).
+   * This is consistent with Java casting behavior, and with most other LaunchDarkly SDKs.
+   * 
+   * @return a {@code long} value
+   */
+  public long longValue() {
     return 0;
   }
   
@@ -582,6 +610,24 @@ public abstract class LDValue {
       }
       public java.lang.Integer toType(LDValue value) {
         return java.lang.Integer.valueOf(value.intValue());
+      }
+    };
+
+    /**
+     * A {@link LDValue.Converter} for long integers.
+     * <p>
+     * Note that the LaunchDarkly service, and most of the SDKs, represent numeric values internally
+     * in 64-bit floating-point, which has slightly less precision than a signed 64-bit {@code long};
+     * therefore, the full range of {@code long} values cannot be accurately represented. If you need
+     * to set a user attribute to a numeric value with more significant digits than will fit in a
+     * {@code double}, it is best to encode it as a string.
+     */
+    public static final Converter<java.lang.Long> Long = new Converter<java.lang.Long>() {
+      public LDValue fromType(java.lang.Long value) {
+        return value == null ? LDValue.ofNull() : LDValue.of(value.longValue());
+      }
+      public java.lang.Long toType(LDValue value) {
+        return java.lang.Long.valueOf(value.longValue());
       }
     };
     
