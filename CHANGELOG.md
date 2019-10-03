@@ -3,6 +3,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.8.0] - 2019-09-30
+### Added:
+- Added support for upcoming LaunchDarkly experimentation features. See `LDClient.track(String, LDUser, JsonElement, double)`.
+
+### Changed:
+- Updated documentation comment for `intVariation` to clarify the existing rounding behavior for floating-point values: they are rounded toward zero.
+
 ## [4.7.1] - 2019-08-19
 ### Fixed:
 - Fixed a race condition that could cause a `NumberFormatException` to be logged when delivering event data to LaunchDarkly (although the exception did not prevent the events from being delivered).

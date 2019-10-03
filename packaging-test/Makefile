@@ -145,10 +145,10 @@ $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	rm $@/gson*.jar $@/slf4j*.jar
 
 $(SLF4J_SIMPLE_JAR): | $(TEMP_DIR)
-	curl -f $(SLF4J_SIMPLE_JAR_URL) >$@
+	curl -f -L $(SLF4J_SIMPLE_JAR_URL) >$@
 
 $(FELIX_JAR): | $(TEMP_DIR)
-	curl -f $(FELIX_ARCHIVE_URL) >$(TEMP_DIR)/$(FELIX_ARCHIVE)
+	curl -f -L $(FELIX_ARCHIVE_URL) >$(TEMP_DIR)/$(FELIX_ARCHIVE)
 	cd $(TEMP_DIR) && tar xfz $(FELIX_ARCHIVE) && rm $(FELIX_ARCHIVE)
 	cd $(TEMP_DIR) && mv `ls -d felix*` felix
 
