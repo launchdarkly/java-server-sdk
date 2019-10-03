@@ -7,17 +7,18 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
-import static com.launchdarkly.client.EvaluationDetail.fromJsonValue;
+import static com.launchdarkly.client.EvaluationDetail.fromValue;
 import static com.launchdarkly.client.TestUtil.js;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+@SuppressWarnings("javadoc")
 public class FeatureFlagsStateTest {
   private static final Gson gson = new Gson();
   
   @Test
   public void canGetFlagValue() {
-    EvaluationDetail<LDValue> eval = fromJsonValue(LDValue.of("value"), 1, EvaluationReason.off());
+    EvaluationDetail<LDValue> eval = fromValue(LDValue.of("value"), 1, EvaluationReason.off());
     FeatureFlag flag = new FeatureFlagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
@@ -33,7 +34,7 @@ public class FeatureFlagsStateTest {
 
   @Test
   public void canGetFlagReason() {
-    EvaluationDetail<LDValue> eval = fromJsonValue(LDValue.of("value1"), 1, EvaluationReason.off());
+    EvaluationDetail<LDValue> eval = fromValue(LDValue.of("value1"), 1, EvaluationReason.off());
     FeatureFlag flag = new FeatureFlagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag, eval).build();
@@ -50,7 +51,7 @@ public class FeatureFlagsStateTest {
 
   @Test
   public void reasonIsNullIfReasonsWereNotRecorded() {
-    EvaluationDetail<LDValue> eval = fromJsonValue(LDValue.of("value1"), 1, EvaluationReason.off());
+    EvaluationDetail<LDValue> eval = fromValue(LDValue.of("value1"), 1, EvaluationReason.off());
     FeatureFlag flag = new FeatureFlagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
@@ -59,7 +60,7 @@ public class FeatureFlagsStateTest {
 
   @Test
   public void flagCanHaveNullValue() {
-    EvaluationDetail<LDValue> eval = fromJsonValue(LDValue.ofNull(), 1, null);
+    EvaluationDetail<LDValue> eval = fromValue(LDValue.ofNull(), 1, null);
     FeatureFlag flag = new FeatureFlagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
@@ -68,9 +69,9 @@ public class FeatureFlagsStateTest {
 
   @Test
   public void canConvertToValuesMap() {
-    EvaluationDetail<LDValue> eval1 = fromJsonValue(LDValue.of("value1"), 0, EvaluationReason.off());
+    EvaluationDetail<LDValue> eval1 = fromValue(LDValue.of("value1"), 0, EvaluationReason.off());
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").build();
-    EvaluationDetail<LDValue> eval2 = fromJsonValue(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
+    EvaluationDetail<LDValue> eval2 = fromValue(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder()
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
@@ -81,9 +82,9 @@ public class FeatureFlagsStateTest {
   
   @Test
   public void canConvertToJson() {
-    EvaluationDetail<LDValue> eval1 = fromJsonValue(LDValue.of("value1"), 0, EvaluationReason.off());
+    EvaluationDetail<LDValue> eval1 = fromValue(LDValue.of("value1"), 0, EvaluationReason.off());
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").version(100).trackEvents(false).build();
-    EvaluationDetail<LDValue> eval2 = fromJsonValue(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
+    EvaluationDetail<LDValue> eval2 = fromValue(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
     FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
@@ -104,9 +105,9 @@ public class FeatureFlagsStateTest {
   
   @Test
   public void canConvertFromJson() {
-    EvaluationDetail<LDValue> eval1 = fromJsonValue(LDValue.of("value1"), 0, EvaluationReason.off());
+    EvaluationDetail<LDValue> eval1 = fromValue(LDValue.of("value1"), 0, EvaluationReason.off());
     FeatureFlag flag1 = new FeatureFlagBuilder("key1").version(100).trackEvents(false).build();
-    EvaluationDetail<LDValue> eval2 = fromJsonValue(LDValue.of("value2"), 1, EvaluationReason.off());
+    EvaluationDetail<LDValue> eval2 = fromValue(LDValue.of("value2"), 1, EvaluationReason.off());
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
     FeatureFlagsState state = new FeatureFlagsState.Builder()
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();

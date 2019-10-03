@@ -193,7 +193,7 @@ public class LDClientEvaluationTest {
   public void canGetDetailsForSuccessfulEvaluation() throws Exception {
     featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
 
-    EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValueWithJsonValue(true, LDValue.of(true),
+    EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(true,
         0, EvaluationReason.off());
     assertEquals(expectedResult, client.boolVariationDetail("key", user, false));
   }
@@ -211,7 +211,7 @@ public class LDClientEvaluationTest {
     FeatureFlag flag = new FeatureFlagBuilder("key").on(false).offVariation(null).build();
     featureStore.upsert(FEATURES, flag);
     
-    EvaluationDetail<String> expected = EvaluationDetail.fromValueWithJsonValue("default", LDValue.of("default"),
+    EvaluationDetail<String> expected = EvaluationDetail.fromValue("default",
         null, EvaluationReason.off());
     EvaluationDetail<String> actual = client.stringVariationDetail("key", user, "default");
     assertEquals(expected, actual);
@@ -228,7 +228,7 @@ public class LDClientEvaluationTest {
         .startWaitMillis(0)
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
-      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValueWithJsonValue(false, LDValue.of(false), null,
+      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,
           EvaluationReason.error(EvaluationReason.ErrorKind.CLIENT_NOT_READY));
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }
@@ -236,7 +236,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void appropriateErrorIfFlagDoesNotExist() throws Exception {
-    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValueWithJsonValue("default", LDValue.of("default"), null,
+    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", null,
         EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
     assertEquals(expectedResult, client.stringVariationDetail("key", user, "default"));
   }
@@ -245,7 +245,7 @@ public class LDClientEvaluationTest {
   public void appropriateErrorIfUserNotSpecified() throws Exception {
     featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
 
-    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValueWithJsonValue("default", LDValue.of("default"), null,
+    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", null,
         EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
     assertEquals(expectedResult, client.stringVariationDetail("key", null, "default"));
   }
@@ -254,7 +254,7 @@ public class LDClientEvaluationTest {
   public void appropriateErrorIfValueWrongType() throws Exception {
     featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
 
-    EvaluationDetail<Integer> expectedResult = EvaluationDetail.fromValueWithJsonValue(3, LDValue.of(3), null,
+    EvaluationDetail<Integer> expectedResult = EvaluationDetail.fromValue(3, null,
         EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE));
     assertEquals(expectedResult, client.intVariationDetail("key", user, 3));
   }
@@ -268,7 +268,7 @@ public class LDClientEvaluationTest {
         .updateProcessorFactory(Components.nullUpdateProcessor())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
-      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValueWithJsonValue(false, LDValue.of(false), null,
+      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,
           EvaluationReason.error(EvaluationReason.ErrorKind.EXCEPTION));
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }

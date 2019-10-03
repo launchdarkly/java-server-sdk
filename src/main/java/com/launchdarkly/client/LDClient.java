@@ -237,7 +237,7 @@ public final class LDClient implements LDClientInterface {
   public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue) {
      EvaluationDetail<LDValue> details = evaluateDetail(featureKey, user, LDValue.of(defaultValue), true,
          EventFactory.DEFAULT_WITH_REASONS);
-     return EvaluationDetail.fromValueWithJsonValue(details.getJsonValue().booleanValue(), details.getJsonValue(),
+     return EvaluationDetail.fromValue(details.getValue().booleanValue(),
          details.getVariationIndex(), details.getReason());
   }
 
@@ -245,7 +245,7 @@ public final class LDClient implements LDClientInterface {
   public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue) {
     EvaluationDetail<LDValue> details = evaluateDetail(featureKey, user, LDValue.of(defaultValue), true,
          EventFactory.DEFAULT_WITH_REASONS);
-    return EvaluationDetail.fromValueWithJsonValue(details.getJsonValue().intValue(), details.getJsonValue(),
+    return EvaluationDetail.fromValue(details.getValue().intValue(),
         details.getVariationIndex(), details.getReason());
   }
 
@@ -253,7 +253,7 @@ public final class LDClient implements LDClientInterface {
   public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue) {
     EvaluationDetail<LDValue> details = evaluateDetail(featureKey, user, LDValue.of(defaultValue), true,
          EventFactory.DEFAULT_WITH_REASONS);
-    return EvaluationDetail.fromValueWithJsonValue(details.getJsonValue().doubleValue(), details.getJsonValue(),
+    return EvaluationDetail.fromValue(details.getValue().doubleValue(),
         details.getVariationIndex(), details.getReason());
   }
 
@@ -261,7 +261,7 @@ public final class LDClient implements LDClientInterface {
   public EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue) {
     EvaluationDetail<LDValue> details = evaluateDetail(featureKey, user, LDValue.of(defaultValue), true,
          EventFactory.DEFAULT_WITH_REASONS);
-    return EvaluationDetail.fromValueWithJsonValue(details.getJsonValue().stringValue(), details.getJsonValue(),
+    return EvaluationDetail.fromValue(details.getValue().stringValue(),
         details.getVariationIndex(), details.getReason());
   }
 
@@ -270,7 +270,7 @@ public final class LDClient implements LDClientInterface {
   public EvaluationDetail<JsonElement> jsonVariationDetail(String featureKey, LDUser user, JsonElement defaultValue) {
     EvaluationDetail<LDValue> details = evaluateDetail(featureKey, user, LDValue.unsafeFromJsonElement(defaultValue), false,
          EventFactory.DEFAULT_WITH_REASONS);
-    return EvaluationDetail.fromValueWithJsonValue(details.getJsonValue().asUnsafeJsonElement(), details.getJsonValue(),
+    return EvaluationDetail.fromValue(details.getValue().asUnsafeJsonElement(),
         details.getVariationIndex(), details.getReason());
   }
 
@@ -354,7 +354,7 @@ public final class LDClient implements LDClientInterface {
       }
       EvaluationDetail<LDValue> details = evalResult.getDetails();
       if (details.isDefaultValue()) {
-        details = EvaluationDetail.fromJsonValue(defaultValue, null, details.getReason());
+        details = EvaluationDetail.fromValue(defaultValue, null, details.getReason());
       }
       sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, details, defaultValue));
       return details;

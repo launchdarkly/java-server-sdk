@@ -10,7 +10,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 
-import static com.launchdarkly.client.EvaluationDetail.fromJsonValue;
+import static com.launchdarkly.client.EvaluationDetail.fromValue;
 import static com.launchdarkly.client.TestUtil.booleanFlagWithClauses;
 import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -40,7 +40,7 @@ public class FeatureFlagTest {
         .build();
     FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(fromJsonValue(LDValue.of("off"), 1, EvaluationReason.off()), result.getDetails());
+    assertEquals(fromValue(LDValue.of("off"), 1, EvaluationReason.off()), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
 
@@ -53,7 +53,7 @@ public class FeatureFlagTest {
         .build();
     FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(fromJsonValue(LDValue.ofNull(), null, EvaluationReason.off()), result.getDetails());
+    assertEquals(fromValue(LDValue.ofNull(), null, EvaluationReason.off()), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -95,7 +95,7 @@ public class FeatureFlagTest {
         .build();
     FeatureFlag.EvalResult result = f.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(fromJsonValue(LDValue.of("fall"), 0, EvaluationReason.fallthrough()), result.getDetails());
+    assertEquals(fromValue(LDValue.of("fall"), 0, EvaluationReason.fallthrough()), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
 
@@ -168,7 +168,7 @@ public class FeatureFlagTest {
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
     EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
-    assertEquals(fromJsonValue(LDValue.of("off"), 1, expectedReason), result.getDetails());
+    assertEquals(fromValue(LDValue.of("off"), 1, expectedReason), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
 
@@ -194,7 +194,7 @@ public class FeatureFlagTest {
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
     EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
-    assertEquals(fromJsonValue(LDValue.of("off"), 1, expectedReason), result.getDetails());
+    assertEquals(fromValue(LDValue.of("off"), 1, expectedReason), result.getDetails());
     
     assertEquals(1, result.getPrerequisiteEvents().size());
     Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
@@ -224,7 +224,7 @@ public class FeatureFlagTest {
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
     EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
-    assertEquals(fromJsonValue(LDValue.of("off"), 1, expectedReason), result.getDetails());
+    assertEquals(fromValue(LDValue.of("off"), 1, expectedReason), result.getDetails());
     
     assertEquals(1, result.getPrerequisiteEvents().size());
     Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
@@ -253,7 +253,7 @@ public class FeatureFlagTest {
     featureStore.upsert(FEATURES, f1);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(fromJsonValue(LDValue.of("fall"), 0, EvaluationReason.fallthrough()), result.getDetails());
+    assertEquals(fromValue(LDValue.of("fall"), 0, EvaluationReason.fallthrough()), result.getDetails());
     assertEquals(1, result.getPrerequisiteEvents().size());
     
     Event.FeatureRequest event = result.getPrerequisiteEvents().get(0);
@@ -290,7 +290,7 @@ public class FeatureFlagTest {
     featureStore.upsert(FEATURES, f2);        
     FeatureFlag.EvalResult result = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(fromJsonValue(LDValue.of("fall"), 0, EvaluationReason.fallthrough()), result.getDetails());
+    assertEquals(fromValue(LDValue.of("fall"), 0, EvaluationReason.fallthrough()), result.getDetails());
     assertEquals(2, result.getPrerequisiteEvents().size());
     
     Event.FeatureRequest event0 = result.getPrerequisiteEvents().get(0);
@@ -318,7 +318,7 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("userkey").build();
     FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(fromJsonValue(LDValue.of("on"), 2, EvaluationReason.targetMatch()), result.getDetails());
+    assertEquals(fromValue(LDValue.of("on"), 2, EvaluationReason.targetMatch()), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -332,7 +332,7 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("userkey").build();
     FeatureFlag.EvalResult result = f.evaluate(user, featureStore, EventFactory.DEFAULT);
     
-    assertEquals(fromJsonValue(LDValue.of("on"), 2, EvaluationReason.ruleMatch(1, "ruleid1")), result.getDetails());
+    assertEquals(fromValue(LDValue.of("on"), 2, EvaluationReason.ruleMatch(1, "ruleid1")), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
   }
   
@@ -461,7 +461,7 @@ public class FeatureFlagTest {
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     EvaluationDetail<LDValue> details = f.evaluate(user, featureStore, EventFactory.DEFAULT).getDetails();
-    assertEquals(fromJsonValue(LDValue.of(true), 1, EvaluationReason.ruleMatch(1, "rule2")), details);
+    assertEquals(fromValue(LDValue.of(true), 1, EvaluationReason.ruleMatch(1, "rule2")), details);
   }
   
   @Test

@@ -3,8 +3,6 @@ package com.launchdarkly.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
-import com.launchdarkly.client.DefaultEventProcessor.EventDispatcher;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Matcher;
@@ -32,6 +30,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
+@SuppressWarnings("javadoc")
 public class DefaultEventProcessorTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
@@ -167,7 +166,7 @@ public class DefaultEventProcessorTest {
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
     Event.FeatureRequest fe = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(flag, user,
-          EvaluationDetail.fromJsonValue(LDValue.of("value"), 1, reason), LDValue.ofNull());
+          EvaluationDetail.fromValue(LDValue.of("value"), 1, reason), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {

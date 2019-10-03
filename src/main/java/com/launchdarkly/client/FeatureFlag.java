@@ -138,12 +138,12 @@ class FeatureFlag implements VersionedData {
     }
     LDValue value = LDValue.normalize(variations.get(variation));
     // normalize() ensures that nulls become LDValue.ofNull() - Gson may give us nulls
-    return EvaluationDetail.fromJsonValue(value, variation, reason);
+    return EvaluationDetail.fromValue(value, variation, reason);
   }
 
   private EvaluationDetail<LDValue> getOffValue(EvaluationReason reason) {
     if (offVariation == null) { // off variation unspecified - return default value
-      return EvaluationDetail.fromJsonValue(LDValue.ofNull(), null, reason);
+      return EvaluationDetail.fromValue(LDValue.ofNull(), null, reason);
     }
     return getVariation(offVariation, reason);
   }
