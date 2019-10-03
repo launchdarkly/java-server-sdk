@@ -323,6 +323,7 @@ public abstract class LDValue {
    *     for (int i: anArrayOfInts.valuesAs(LDValue.Convert.Integer)) { println(i); }
    * </code></pre>
    * 
+   * @param <T> the desired type
    * @param converter the {@link Converter} for the specified type
    * @return an iterable of values of the specified type
    */
@@ -514,7 +515,7 @@ public abstract class LDValue {
      * <p>
      * Example:
      * <pre><code>
-     *     List<Integer> listOfInts = ImmutableList.<Integer>builder().add(1).add(2).add(3).build();
+     *     List&lt;Integer&gt; listOfInts = ImmutableList.&lt;Integer&gt;builder().add(1).add(2).add(3).build();
      *     LDValue arrayValue = LDValue.Convert.Integer.arrayFrom(listOfInts);
      * </code></pre>
      * 
@@ -560,7 +561,7 @@ public abstract class LDValue {
      * <p>
      * Example:
      * <pre><code>
-     *     Map<String, Integer> mapOfInts = ImmutableMap.<String, Integer>builder().put("a", 1).build();
+     *     Map&lt;String, Integer&gt; mapOfInts = ImmutableMap.&lt;String, Integer&gt;builder().put("a", 1).build();
      *     LDValue objectValue = LDValue.Convert.Integer.objectFrom(mapOfInts);
      * </code></pre>
      * 
