@@ -115,7 +115,8 @@ final class LDValueJsonElement extends LDValue {
       return value.getAsJsonArray().size();
     case OBJECT:
       return value.getAsJsonObject().size();
-    default: return 0;
+    default:
+      return 0;
     }
   }
 
