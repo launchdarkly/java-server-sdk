@@ -1,6 +1,8 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.value.LDValue;
+
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -12,13 +14,12 @@ class Util {
    * @param maybeDate wraps either a nubmer or a string that may contain a valid timestamp.
    * @return null if input is not a valid format.
    */
-  static DateTime jsonPrimitiveToDateTime(JsonPrimitive maybeDate) {
+  static DateTime jsonPrimitiveToDateTime(LDValue maybeDate) {
     if (maybeDate.isNumber()) {
-      long millis = maybeDate.getAsLong();
-      return new DateTime(millis);
+      return new DateTime((long)maybeDate.doubleValue());
     } else if (maybeDate.isString()) {
       try {
-        return new DateTime(maybeDate.getAsString(), DateTimeZone.UTC);
+        return new DateTime(maybeDate.stringValue(), DateTimeZone.UTC);
       } catch (Throwable t) {
         return null;
       }

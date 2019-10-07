@@ -7,6 +7,7 @@ import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import com.launchdarkly.client.value.LDValue;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -144,8 +145,9 @@ public class FeatureFlagsState {
       return this;
     }
     
-    Builder addFlag(FeatureFlag flag, EvaluationDetail<JsonElement> eval) {
-      flagValues.put(flag.getKey(), eval.getValue());
+    @SuppressWarnings("deprecation")
+    Builder addFlag(FeatureFlag flag, EvaluationDetail<LDValue> eval) {
+      flagValues.put(flag.getKey(), eval.getValue().asUnsafeJsonElement());
       final boolean flagIsTracked = flag.isTrackEvents() ||
           (flag.getDebugEventsUntilDate() != null && flag.getDebugEventsUntilDate() > System.currentTimeMillis());
       final boolean wantDetails = !detailsOnlyForTrackedFlags || flagIsTracked;

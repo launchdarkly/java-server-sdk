@@ -1,10 +1,12 @@
 package com.launchdarkly.client;
 
 import com.google.common.base.Objects;
+import com.launchdarkly.client.value.LDValue;
 
 /**
  * An object returned by the "variation detail" methods such as {@link LDClientInterface#boolVariationDetail(String, LDUser, boolean)},
  * combining the result of a flag evaluation with an explanation of how it was calculated.
+ * @param <T> the type of the wrapped value
  * @since 4.3.0
  */
 public class EvaluationDetail<T> {
@@ -12,15 +14,35 @@ public class EvaluationDetail<T> {
   private final EvaluationReason reason;
   private final Integer variationIndex;
   private final T value;
-  
+
+  /**
+   * Constructs an instance with all properties specified.
+   * 
+   * @param reason an {@link EvaluationReason} (should not be null)
+   * @param variationIndex an optional variation index
+   * @param value a value of the desired type
+   */
   public EvaluationDetail(EvaluationReason reason, Integer variationIndex, T value) {
-    this.reason = reason;
-    this.variationIndex = variationIndex;
     this.value = value;
+    this.variationIndex = variationIndex;
+    this.reason = reason;
+  }
+
+  /**
+   * Factory method for an arbitrary value.
+   * 
+   * @param value a value of the desired type
+   * @param variationIndex an optional variation index
+   * @param reason an {@link EvaluationReason} (should not be null)
+   * @return an {@link EvaluationDetail}
+   * @since 4.8.0
+   */
+  public static <T> EvaluationDetail<T> fromValue(T value, Integer variationIndex, EvaluationReason reason) {
+    return new EvaluationDetail<T>(reason, variationIndex, value);
   }
   
-  static <T> EvaluationDetail<T> error(EvaluationReason.ErrorKind errorKind, T defaultValue) {
-    return new EvaluationDetail<>(EvaluationReason.error(errorKind), null, defaultValue);
+  static EvaluationDetail<LDValue> error(EvaluationReason.ErrorKind errorKind, LDValue defaultValue) {
+    return new EvaluationDetail<LDValue>(EvaluationReason.error(errorKind), null, LDValue.normalize(defaultValue));
   }
   
   /**

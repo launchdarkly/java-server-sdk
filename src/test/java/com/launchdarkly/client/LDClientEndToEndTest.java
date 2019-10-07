@@ -2,7 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
@@ -16,12 +16,13 @@ import static org.junit.Assert.assertTrue;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
+@SuppressWarnings("javadoc")
 public class LDClientEndToEndTest {
   private static final Gson gson = new Gson();
   private static final String sdkKey = "sdk-key";
   private static final String flagKey = "flag1";
   private static final FeatureFlag flag = new FeatureFlagBuilder(flagKey)
-      .offVariation(0).variations(new JsonPrimitive(true))
+      .offVariation(0).variations(LDValue.of(true))
       .build();
   private static final LDUser user = new LDUser("user-key");
   

@@ -7,8 +7,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
+import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
@@ -26,6 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
+@SuppressWarnings("javadoc")
 public class LDUserTest {
   private static final Gson defaultGson = new Gson();
   
@@ -56,123 +57,123 @@ public class LDUserTest {
   @Test
   public void canSetSecondary() {
     LDUser user = new LDUser.Builder("key").secondary("s").build();
-    assertEquals("s", user.getSecondary().getAsString());
+    assertEquals("s", user.getSecondary().stringValue());
   }
 
   @Test
   public void canSetPrivateSecondary() {
     LDUser user = new LDUser.Builder("key").privateSecondary("s").build();
-    assertEquals("s", user.getSecondary().getAsString());
+    assertEquals("s", user.getSecondary().stringValue());
     assertEquals(ImmutableSet.of("secondary"), user.privateAttributeNames);
   }
   
   @Test
   public void canSetIp() {
     LDUser user = new LDUser.Builder("key").ip("i").build();
-    assertEquals("i", user.getIp().getAsString());
+    assertEquals("i", user.getIp().stringValue());
   }
   
   @Test
   public void canSetPrivateIp() {
     LDUser user = new LDUser.Builder("key").privateIp("i").build();
-    assertEquals("i", user.getIp().getAsString());
+    assertEquals("i", user.getIp().stringValue());
     assertEquals(ImmutableSet.of("ip"), user.privateAttributeNames);
   }
 
   @Test
   public void canSetEmail() {
     LDUser user = new LDUser.Builder("key").email("e").build();
-    assertEquals("e", user.getEmail().getAsString());
+    assertEquals("e", user.getEmail().stringValue());
   }
   
   @Test
   public void canSetPrivateEmail() {
     LDUser user = new LDUser.Builder("key").privateEmail("e").build();
-    assertEquals("e", user.getEmail().getAsString());
+    assertEquals("e", user.getEmail().stringValue());
     assertEquals(ImmutableSet.of("email"), user.privateAttributeNames);
   }
 
   @Test
   public void canSetName() {
     LDUser user = new LDUser.Builder("key").name("n").build();
-    assertEquals("n", user.getName().getAsString());
+    assertEquals("n", user.getName().stringValue());
   }
   
   @Test
   public void canSetPrivateName() {
     LDUser user = new LDUser.Builder("key").privateName("n").build();
-    assertEquals("n", user.getName().getAsString());
+    assertEquals("n", user.getName().stringValue());
     assertEquals(ImmutableSet.of("name"), user.privateAttributeNames);
   }
 
   @Test
   public void canSetAvatar() {
     LDUser user = new LDUser.Builder("key").avatar("a").build();
-    assertEquals("a", user.getAvatar().getAsString());
+    assertEquals("a", user.getAvatar().stringValue());
   }
   
   @Test
   public void canSetPrivateAvatar() {
     LDUser user = new LDUser.Builder("key").privateAvatar("a").build();
-    assertEquals("a", user.getAvatar().getAsString());
+    assertEquals("a", user.getAvatar().stringValue());
     assertEquals(ImmutableSet.of("avatar"), user.privateAttributeNames);
   }
 
   @Test
   public void canSetFirstName() {
     LDUser user = new LDUser.Builder("key").firstName("f").build();
-    assertEquals("f", user.getFirstName().getAsString());
+    assertEquals("f", user.getFirstName().stringValue());
   }
   
   @Test
   public void canSetPrivateFirstName() {
     LDUser user = new LDUser.Builder("key").privateFirstName("f").build();
-    assertEquals("f", user.getFirstName().getAsString());
+    assertEquals("f", user.getFirstName().stringValue());
     assertEquals(ImmutableSet.of("firstName"), user.privateAttributeNames);
   }
 
   @Test
   public void canSetLastName() {
     LDUser user = new LDUser.Builder("key").lastName("l").build();
-    assertEquals("l", user.getLastName().getAsString());
+    assertEquals("l", user.getLastName().stringValue());
   }
   
   @Test
   public void canSetPrivateLastName() {
     LDUser user = new LDUser.Builder("key").privateLastName("l").build();
-    assertEquals("l", user.getLastName().getAsString());
+    assertEquals("l", user.getLastName().stringValue());
     assertEquals(ImmutableSet.of("lastName"), user.privateAttributeNames);
   }
 
   @Test
   public void canSetAnonymous() {
     LDUser user = new LDUser.Builder("key").anonymous(true).build();
-    assertEquals(true, user.getAnonymous().getAsBoolean());
+    assertEquals(true, user.getAnonymous().booleanValue());
   }
 
   @Test
   public void canSetCountry() {
     LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
-    assertEquals("US", user.getCountry().getAsString());
+    assertEquals("US", user.getCountry().stringValue());
   }
 
   @Test
   public void canSetCountryAsString() {
     LDUser user = new LDUser.Builder("key").country("US").build();
-    assertEquals("US", user.getCountry().getAsString());
+    assertEquals("US", user.getCountry().stringValue());
   }
 
   @Test
   public void canSetCountryAs3CharacterString() {
     LDUser user = new LDUser.Builder("key").country("USA").build();
-    assertEquals("US", user.getCountry().getAsString());
+    assertEquals("US", user.getCountry().stringValue());
   }
 
   @Test
   public void ambiguousCountryNameSetsCountryWithExactMatch() {
     // "United States" is ambiguous: can also match "United States Minor Outlying Islands"
     LDUser user = new LDUser.Builder("key").country("United States").build();
-    assertEquals("US", user.getCountry().getAsString());
+    assertEquals("US", user.getCountry().stringValue());
   }
 
   @Test
@@ -185,73 +186,90 @@ public class LDUserTest {
   @Test
   public void partialUniqueMatchSetsCountry() {
     LDUser user = new LDUser.Builder("key").country("United States Minor").build();
-    assertEquals("UM", user.getCountry().getAsString());
+    assertEquals("UM", user.getCountry().stringValue());
   }
 
   @Test
   public void invalidCountryNameDoesNotSetCountry() {
     LDUser user = new LDUser.Builder("key").country("East Jibip").build();
-    assertNull(user.getCountry());
+    assertEquals(LDValue.ofNull(), user.getCountry());
   }
 
   @Test
   public void canSetPrivateCountry() {
     LDUser user = new LDUser.Builder("key").privateCountry(LDCountryCode.US).build();
-    assertEquals("US", user.getCountry().getAsString());
+    assertEquals("US", user.getCountry().stringValue());
     assertEquals(ImmutableSet.of("country"), user.privateAttributeNames);
   }
 
   @Test
   public void canSetCustomString() {
     LDUser user = new LDUser.Builder("key").custom("thing", "value").build();
-    assertEquals("value", user.getCustom("thing").getAsString());
+    assertEquals("value", user.getCustom("thing").stringValue());
   }
   
   @Test
   public void canSetPrivateCustomString() {
     LDUser user = new LDUser.Builder("key").privateCustom("thing", "value").build();
-    assertEquals("value", user.getCustom("thing").getAsString());
+    assertEquals("value", user.getCustom("thing").stringValue());
     assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
   }
 
   @Test
   public void canSetCustomInt() {
     LDUser user = new LDUser.Builder("key").custom("thing", 1).build();
-    assertEquals(1, user.getCustom("thing").getAsInt());
+    assertEquals(1, user.getCustom("thing").intValue());
   }
   
   @Test
   public void canSetPrivateCustomInt() {
     LDUser user = new LDUser.Builder("key").privateCustom("thing", 1).build();
-    assertEquals(1, user.getCustom("thing").getAsInt());
+    assertEquals(1, user.getCustom("thing").intValue());
     assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
   }
   
   @Test
   public void canSetCustomBoolean() {
     LDUser user = new LDUser.Builder("key").custom("thing", true).build();
-    assertEquals(true, user.getCustom("thing").getAsBoolean());
+    assertEquals(true, user.getCustom("thing").booleanValue());
   }
   
   @Test
   public void canSetPrivateCustomBoolean() {
     LDUser user = new LDUser.Builder("key").privateCustom("thing", true).build();
-    assertEquals(true, user.getCustom("thing").getAsBoolean());
+    assertEquals(true, user.getCustom("thing").booleanValue());
     assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
   }
-  
+
   @Test
   public void canSetCustomJsonValue() {
-    JsonObject value = new JsonObject();
+    LDValue value = LDValue.buildObject().put("1", LDValue.of("x")).build();
     LDUser user = new LDUser.Builder("key").custom("thing", value).build();
     assertEquals(value, user.getCustom("thing"));
   }
 
   @Test
   public void canSetPrivateCustomJsonValue() {
-    JsonObject value = new JsonObject();
+    LDValue value = LDValue.buildObject().put("1", LDValue.of("x")).build();
     LDUser user = new LDUser.Builder("key").privateCustom("thing", value).build();
     assertEquals(value, user.getCustom("thing"));
+    assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
+  }
+
+  @SuppressWarnings("deprecation")
+  @Test
+  public void canSetDeprecatedCustomJsonValue() {
+    JsonObject value = new JsonObject();
+    LDUser user = new LDUser.Builder("key").custom("thing", value).build();
+    assertEquals(value, user.getCustom("thing").asJsonElement());
+  }
+
+  @SuppressWarnings("deprecation")
+  @Test
+  public void canSetPrivateDeprecatedCustomJsonValue() {
+    JsonObject value = new JsonObject();
+    LDUser user = new LDUser.Builder("key").privateCustom("thing", value).build();
+    assertEquals(value, user.getCustom("thing").asJsonElement());
     assertEquals(ImmutableSet.of("thing"), user.privateAttributeNames);
   }
 
@@ -373,7 +391,7 @@ public class LDUserTest {
     LDUser user = new LDUser.Builder("key")
         .name("Jane")
         .build();
-    assertEquals(new JsonPrimitive("Jane"), user.getValueForEvaluation("name"));
+    assertEquals(LDValue.of("Jane"), user.getValueForEvaluation("name"));
   }
   
   @Test
@@ -381,7 +399,7 @@ public class LDUserTest {
     LDUser user = new LDUser.Builder("key")
         .custom("height", 5)
         .build();
-    assertEquals(new JsonPrimitive(5), user.getValueForEvaluation("height"));
+    assertEquals(LDValue.of(5), user.getValueForEvaluation("height"));
   }
   
   @Test
@@ -390,7 +408,7 @@ public class LDUserTest {
         .name("Jane")
         .custom("name", "Joan")
         .build();
-    assertEquals(new JsonPrimitive("Jane"), user.getValueForEvaluation("name"));
+    assertEquals(LDValue.of("Jane"), user.getValueForEvaluation("name"));
   }
   
   @Test
@@ -398,7 +416,7 @@ public class LDUserTest {
     LDUser user = new LDUser.Builder("key")
         .name("Jane")
         .build();
-    assertNull(user.getValueForEvaluation("height"));
+    assertEquals(LDValue.ofNull(), user.getValueForEvaluation("height"));
   }
   
   @Test

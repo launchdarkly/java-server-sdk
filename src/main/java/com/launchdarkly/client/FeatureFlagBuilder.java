@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,7 +16,7 @@ class FeatureFlagBuilder {
   private List<Rule> rules = new ArrayList<>();
   private VariationOrRollout fallthrough;
   private Integer offVariation;
-  private List<JsonElement> variations = new ArrayList<>();
+  private List<LDValue> variations = new ArrayList<>();
   private boolean clientSide;
   private boolean trackEvents;
   private boolean trackEventsFallthrough;
@@ -87,12 +87,12 @@ class FeatureFlagBuilder {
     return this;
   }
 
-  FeatureFlagBuilder variations(List<JsonElement> variations) {
+  FeatureFlagBuilder variations(List<LDValue> variations) {
     this.variations = variations;
     return this;
   }
 
-  FeatureFlagBuilder variations(JsonElement... variations) {
+  FeatureFlagBuilder variations(LDValue... variations) {
     return variations(Arrays.asList(variations));
   }
 

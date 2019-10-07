@@ -3,9 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
-import com.launchdarkly.client.DefaultEventProcessor.EventDispatcher;
+import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Matcher;
 import org.junit.Test;
@@ -32,6 +30,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
+@SuppressWarnings("javadoc")
 public class DefaultEventProcessorTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
@@ -82,7 +81,7 @@ public class DefaultEventProcessorTest {
   public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
@@ -102,7 +101,7 @@ public class DefaultEventProcessorTest {
   public void userIsFilteredInIndexEvent() throws Exception {
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = baseConfig(server).allAttributesPrivate(true).build();
@@ -124,7 +123,7 @@ public class DefaultEventProcessorTest {
   public void featureEventCanContainInlineUser() throws Exception {
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
     
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
@@ -145,7 +144,7 @@ public class DefaultEventProcessorTest {
   public void userIsFilteredInFeatureEvent() throws Exception {
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = baseConfig(server).inlineUsersInEvents(true).allAttributesPrivate(true).build();
@@ -167,7 +166,7 @@ public class DefaultEventProcessorTest {
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
     EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
     Event.FeatureRequest fe = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(flag, user,
-        new EvaluationDetail<JsonElement>(reason, 1, new JsonPrimitive("value")), null);
+          EvaluationDetail.fromValue(LDValue.of("value"), 1, reason), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
@@ -187,7 +186,7 @@ public class DefaultEventProcessorTest {
   public void indexEventIsStillGeneratedIfInlineUsersIsTrueButFeatureEventIsNotTracked() throws Exception {
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(false).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
@@ -209,7 +208,7 @@ public class DefaultEventProcessorTest {
     long futureTime = System.currentTimeMillis() + 1000000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
@@ -231,7 +230,7 @@ public class DefaultEventProcessorTest {
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true)
         .debugEventsUntilDate(futureTime).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
@@ -258,7 +257,7 @@ public class DefaultEventProcessorTest {
     long debugUntil = serverTime + 1000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(resp1, resp2)) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
@@ -291,7 +290,7 @@ public class DefaultEventProcessorTest {
     long debugUntil = serverTime - 1000;
     FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, new JsonPrimitive("value")), null);
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(resp1, resp2)) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
@@ -320,11 +319,11 @@ public class DefaultEventProcessorTest {
   public void twoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).trackEvents(true).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).trackEvents(true).build();
-    JsonElement value = new JsonPrimitive("value");
+    LDValue value = LDValue.of("value");
     Event.FeatureRequest fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, value), null);
+        simpleEvaluation(1, value), LDValue.ofNull());
     Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-        simpleEvaluation(1, value), null);
+        simpleEvaluation(1, value), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
@@ -346,9 +345,9 @@ public class DefaultEventProcessorTest {
   public void nonTrackedEventsAreSummarized() throws Exception {
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).build();
-    JsonElement value = new JsonPrimitive("value");
-    JsonElement default1 = new JsonPrimitive("default1");
-    JsonElement default2 = new JsonPrimitive("default2");
+    LDValue value = LDValue.of("value");
+    LDValue default1 = LDValue.of("default1");
+    LDValue default2 = LDValue.of("default2");
     Event fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
         simpleEvaluation(2, value), default1);
     Event fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
@@ -376,8 +375,7 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void customEventIsQueuedWithUser() throws Exception {
-    JsonObject data = new JsonObject();
-    data.addProperty("thing", "stuff");
+    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     double metric = 1.5;
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, metric);
 
@@ -395,8 +393,7 @@ public class DefaultEventProcessorTest {
 
   @Test
   public void customEventCanContainInlineUser() throws Exception {
-    JsonObject data = new JsonObject();
-    data.addProperty("thing", "stuff");
+    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
@@ -412,8 +409,7 @@ public class DefaultEventProcessorTest {
   
   @Test
   public void userIsFilteredInCustomEvent() throws Exception {
-    JsonObject data = new JsonObject();
-    data.addProperty("thing", "stuff");
+    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
@@ -673,7 +669,7 @@ public class DefaultEventProcessorTest {
     );
   }
   
-  private Matcher<JsonElement> hasSummaryFlag(String key, JsonElement defaultVal, Matcher<Iterable<? extends JsonElement>> counters) {
+  private Matcher<JsonElement> hasSummaryFlag(String key, LDValue defaultVal, Matcher<Iterable<? extends JsonElement>> counters) {
     return hasJsonProperty("features",
         hasJsonProperty(key, allOf(
           hasJsonProperty("default", defaultVal),
@@ -681,7 +677,7 @@ public class DefaultEventProcessorTest {
     )));
   }
   
-  private Matcher<JsonElement> isSummaryEventCounter(FeatureFlag flag, Integer variation, JsonElement value, int count) {
+  private Matcher<JsonElement> isSummaryEventCounter(FeatureFlag flag, Integer variation, LDValue value, int count) {
     return allOf(
         hasJsonProperty("variation", variation),
         hasJsonProperty("version", (double)flag.getVersion()),

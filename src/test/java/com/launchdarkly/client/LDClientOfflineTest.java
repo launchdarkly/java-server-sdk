@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
@@ -16,6 +17,7 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+@SuppressWarnings("javadoc")
 public class LDClientOfflineTest {
   private static final LDUser user = new LDUser("user");
   
@@ -66,7 +68,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .build();
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       Map<String, JsonElement> allFlags = client.allFlags(user);
       assertEquals(ImmutableMap.<String, JsonElement>of("key", jbool(true)), allFlags);
@@ -80,7 +82,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .build();
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
+    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       FeatureFlagsState state = client.allFlagsState(user);
       assertTrue(state.isValid());

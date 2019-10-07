@@ -1,8 +1,9 @@
 package com.launchdarkly.client;
 
-import java.util.regex.Pattern;
-
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.value.LDValue;
+
+import java.util.regex.Pattern;
 
 /**
  * Operator value that can be applied to {@link JsonPrimitive} objects. Incompatible types or other errors
@@ -12,7 +13,7 @@ import com.google.gson.JsonPrimitive;
 enum Operator {
   in {
     @Override
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       if (uValue.equals(cValue)) {
           return true;
       }
@@ -25,83 +26,83 @@ enum Operator {
   },
   endsWith {
     @Override
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      return uValue.isString() && cValue.isString() && uValue.getAsString().endsWith(cValue.getAsString());
+    public boolean apply(LDValue uValue, LDValue cValue) {
+      return uValue.isString() && cValue.isString() && uValue.stringValue().endsWith(cValue.stringValue());
     }
   },
   startsWith {
     @Override
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      return uValue.isString() && cValue.isString() && uValue.getAsString().startsWith(cValue.getAsString());
+    public boolean apply(LDValue uValue, LDValue cValue) {
+      return uValue.isString() && cValue.isString() && uValue.stringValue().startsWith(cValue.stringValue());
     }
   },
   matches {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return uValue.isString() && cValue.isString() &&
-              Pattern.compile(cValue.getAsString()).matcher(uValue.getAsString()).find();
+              Pattern.compile(cValue.stringValue()).matcher(uValue.stringValue()).find();
     }
   },
   contains {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
-      return uValue.isString() && cValue.isString() && uValue.getAsString().contains(cValue.getAsString());
+    public boolean apply(LDValue uValue, LDValue cValue) {
+      return uValue.isString() && cValue.isString() && uValue.stringValue().contains(cValue.stringValue());
     }
   },
   lessThan {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.LT, uValue, cValue, OperandType.number);
     }
   },
   lessThanOrEqual {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.LTE, uValue, cValue, OperandType.number);
     }
   },
   greaterThan {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.GT, uValue, cValue, OperandType.number);
     }
   },
   greaterThanOrEqual {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.GTE, uValue, cValue, OperandType.number);
     }
   },
   before {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.LT, uValue, cValue, OperandType.date);
     }
   },
   after {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.GT, uValue, cValue, OperandType.date);
     }
   },
   semVerEqual {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.EQ, uValue, cValue, OperandType.semVer);
     }
   },
   semVerLessThan {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.LT, uValue, cValue, OperandType.semVer);
     }
   },
   semVerGreaterThan {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       return compareValues(ComparisonOp.GT, uValue, cValue, OperandType.semVer);
     }
   },
   segmentMatch {
-    public boolean apply(JsonPrimitive uValue, JsonPrimitive cValue) {
+    public boolean apply(LDValue uValue, LDValue cValue) {
       // We shouldn't call apply() for this operator, because it is really implemented in
       // Clause.matchesUser().
       return false;
     }
   };
 
-  abstract boolean apply(JsonPrimitive uValue, JsonPrimitive cValue);
+  abstract boolean apply(LDValue uValue, LDValue cValue);
   
-  private static boolean compareValues(ComparisonOp op, JsonPrimitive uValue, JsonPrimitive cValue, OperandType asType) {
+  private static boolean compareValues(ComparisonOp op, LDValue uValue, LDValue cValue, OperandType asType) {
     Object uValueObj = asType.getValueAsType(uValue);
     Object cValueObj = asType.getValueAsType(cValue);
     return uValueObj != null && cValueObj != null && op.apply(uValueObj, cValueObj);
