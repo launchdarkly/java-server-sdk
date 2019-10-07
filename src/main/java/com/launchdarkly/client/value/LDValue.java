@@ -374,6 +374,7 @@ public abstract class LDValue {
    * @deprecated The Gson types may be removed from the public API at some point; it is preferable to
    * use getters like {@link #booleanValue()} and {@link #getType()}.
    */
+  @Deprecated
   public JsonElement asJsonElement() {
     return LDValueJsonElement.deepCopy(asUnsafeJsonElement());
   }
