@@ -129,8 +129,14 @@ public final class LDClient implements LDClientInterface {
     trackData(eventName, user, LDValue.unsafeFromJsonElement(data));
   }
 
+  @SuppressWarnings("deprecation")
   @Override
-  public void track(String eventName, LDUser user, LDValue data, double metricValue) {
+  public void track(String eventName, LDUser user, JsonElement data, double metricValue) {
+    trackMetric(eventName, user, LDValue.unsafeFromJsonElement(data), metricValue);
+  }
+
+  @Override
+  public void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
     if (user == null || user.getKeyAsString() == null) {
       logger.warn("Track called with null user or null user key!");
     } else {
