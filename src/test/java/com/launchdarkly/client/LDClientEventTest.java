@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.EvaluationReason.ErrorKind;
 import com.launchdarkly.client.value.LDValue;
@@ -88,7 +89,7 @@ public class LDClientEventTest {
   public void trackSendsEventWithDataAndMetricValue() throws Exception {
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     double metricValue = 1.5;
-    client.track("eventkey", user, data, metricValue);
+    client.trackMetric("eventkey", user, data, metricValue);
     
     assertEquals(1, eventSink.events.size());
     Event e = eventSink.events.get(0);
@@ -99,7 +100,39 @@ public class LDClientEventTest {
     assertEquals(data, ce.data);
     assertEquals(new Double(metricValue), ce.metricValue);
   }
-  
+
+  @SuppressWarnings("deprecation")
+  @Test
+  public void deprecatedTrackSendsEventWithData() throws Exception {
+    JsonElement data = new JsonPrimitive("stuff"); 
+    client.track("eventkey", user, data);
+    
+    assertEquals(1, eventSink.events.size());
+    Event e = eventSink.events.get(0);
+    assertEquals(Event.Custom.class, e.getClass());
+    Event.Custom ce = (Event.Custom)e;
+    assertEquals(user.getKey(), ce.user.getKey());
+    assertEquals("eventkey", ce.key);
+    assertEquals(data, ce.data.asJsonElement());
+  }
+
+  @SuppressWarnings("deprecation")
+  @Test
+  public void deprecatedTrackSendsEventWithDataAndMetricValue() throws Exception {
+    JsonElement data = new JsonPrimitive("stuff"); 
+    double metricValue = 1.5;
+    client.track("eventkey", user, data, metricValue);
+    
+    assertEquals(1, eventSink.events.size());
+    Event e = eventSink.events.get(0);
+    assertEquals(Event.Custom.class, e.getClass());
+    Event.Custom ce = (Event.Custom)e;
+    assertEquals(user.getKey(), ce.user.getKey());
+    assertEquals("eventkey", ce.key);
+    assertEquals(data, ce.data.asJsonElement());
+    assertEquals(new Double(metricValue), ce.metricValue);
+  }
+
   @Test
   public void trackWithNullUserDoesNotSendEvent() {
     client.track("eventkey", null);
