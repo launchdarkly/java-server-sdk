@@ -61,6 +61,7 @@ public interface LDClientInterface extends Closeable {
    * @since 4.8.0
    * @deprecated Use {@link #trackMetric(String, LDUser, LDValue, double)}.
    */
+  @Deprecated
   void track(String eventName, LDUser user, JsonElement data, double metricValue);
 
   /**
