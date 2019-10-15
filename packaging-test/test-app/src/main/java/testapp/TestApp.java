@@ -18,6 +18,9 @@ public class TestApp {
     // that provides its own copy of Gson).
     JsonPrimitive x = new JsonPrimitive("x");
 
+    // Also do a flag evaluation, to ensure that it calls NewRelicReflector.annotateTransaction()
+    client.boolVariation("flag-key", new LDUser("user-key"), false);
+
     System.out.println("@@@ successfully created LD client @@@");
   }
 }
