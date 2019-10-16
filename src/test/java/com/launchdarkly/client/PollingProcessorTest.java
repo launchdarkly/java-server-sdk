@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import org.easymock.EasyMockSupport;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -9,49 +8,43 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-public class PollingProcessorTest extends EasyMockSupport {
+@SuppressWarnings("javadoc")
+public class PollingProcessorTest {
   @Test
   public void testConnectionOk() throws Exception {
-    FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
-    PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore());
-
-    expect(requestor.getAllData())
-        .andReturn(new FeatureRequestor.AllData(new HashMap<String, FeatureFlag>(), new HashMap<String, Segment>()))
-        .once();
-    replayAll();
-
-    Future<Void> initFuture = pollingProcessor.start();
-    initFuture.get(1000, TimeUnit.MILLISECONDS);
-    assertTrue(pollingProcessor.initialized());
-    pollingProcessor.close();
-    verifyAll();
+    MockFeatureRequestor requestor = new MockFeatureRequestor();
+    requestor.allData = new FeatureRequestor.AllData(new HashMap<String, FeatureFlag>(), new HashMap<String, Segment>());
+    FeatureStore store = new InMemoryFeatureStore();
+    
+    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {    
+      Future<Void> initFuture = pollingProcessor.start();
+      initFuture.get(1000, TimeUnit.MILLISECONDS);
+      assertTrue(pollingProcessor.initialized());
+      assertTrue(store.initialized());
+    }
   }
 
   @Test
   public void testConnectionProblem() throws Exception {
-    FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
-    PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore());
+    MockFeatureRequestor requestor = new MockFeatureRequestor();
+    requestor.ioException = new IOException("This exception is part of a test and yes you should be seeing it.");
+    FeatureStore store = new InMemoryFeatureStore();
 
-    expect(requestor.getAllData())
-        .andThrow(new IOException("This exception is part of a test and yes you should be seeing it."))
-        .once();
-    replayAll();
-
-    Future<Void> initFuture = pollingProcessor.start();
-    try {
-      initFuture.get(200L, TimeUnit.MILLISECONDS);
-      fail("Expected Timeout, instead initFuture.get() returned.");
-    } catch (TimeoutException ignored) {
+    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {
+      Future<Void> initFuture = pollingProcessor.start();
+      try {
+        initFuture.get(200L, TimeUnit.MILLISECONDS);
+        fail("Expected Timeout, instead initFuture.get() returned.");
+      } catch (TimeoutException ignored) {
+      }
+      assertFalse(initFuture.isDone());
+      assertFalse(pollingProcessor.initialized());
+      assertFalse(store.initialized());
     }
-    assertFalse(initFuture.isDone());
-    assertFalse(pollingProcessor.initialized());
-    pollingProcessor.close();
-    verifyAll();
   }
 
   @Test
@@ -85,13 +78,9 @@ public class PollingProcessorTest extends EasyMockSupport {
   }
   
   private void testUnrecoverableHttpError(int status) throws Exception {
-    FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
+    MockFeatureRequestor requestor = new MockFeatureRequestor();
+    requestor.httpException = new HttpErrorException(status);
     try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore())) {  
-      expect(requestor.getAllData())
-          .andThrow(new HttpErrorException(status))
-          .once();
-      replayAll();
-  
       long startTime = System.currentTimeMillis();
       Future<Void> initFuture = pollingProcessor.start();
       try {
@@ -102,18 +91,13 @@ public class PollingProcessorTest extends EasyMockSupport {
       assertTrue((System.currentTimeMillis() - startTime) < 9000);
       assertTrue(initFuture.isDone());
       assertFalse(pollingProcessor.initialized());
-      verifyAll();
     }
   }
   
   private void testRecoverableHttpError(int status) throws Exception {
-    FeatureRequestor requestor = createStrictMock(FeatureRequestor.class);
+    MockFeatureRequestor requestor = new MockFeatureRequestor();
+    requestor.httpException = new HttpErrorException(status);
     try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore())) {
-      expect(requestor.getAllData())
-          .andThrow(new HttpErrorException(status))
-          .once();
-      replayAll();
-  
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200, TimeUnit.MILLISECONDS);
@@ -122,7 +106,32 @@ public class PollingProcessorTest extends EasyMockSupport {
       }
       assertFalse(initFuture.isDone());
       assertFalse(pollingProcessor.initialized());
-      verifyAll();
+    }
+  }
+  
+  private static class MockFeatureRequestor implements FeatureRequestor {
+    AllData allData;
+    HttpErrorException httpException;
+    IOException ioException;
+    
+    public void close() throws IOException {}
+
+    public FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
+      return null;
+    }
+
+    public Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
+      return null;
+    }
+
+    public AllData getAllData() throws IOException, HttpErrorException {
+      if (httpException != null) {
+        throw httpException;
+      }
+      if (ioException != null) {
+        throw ioException;
+      }
+      return allData;
     }
   }
 }

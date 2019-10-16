@@ -22,6 +22,7 @@ import java.util.concurrent.TimeoutException;
 import javax.net.ssl.SSLHandshakeException;
 
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
+import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
@@ -34,8 +35,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import okhttp3.Headers;
-import okhttp3.mockwebserver.MockResponse;
+import okhttp3.HttpUrl;
+import okhttp3.mockwebserver.MockWebServer;
 
+@SuppressWarnings("javadoc")
 public class StreamProcessorTest extends EasyMockSupport {
 
   private static final String SDK_KEY = "sdk_key";
@@ -368,6 +371,30 @@ public class StreamProcessorTest extends EasyMockSupport {
         ready.get();
         
         assertNull(errorSink.errors.peek());
+      }
+    }
+  }
+
+  @Test
+  public void httpClientCanUseProxyConfig() throws Exception {
+    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
+    URI fakeStreamUri = URI.create("http://not-a-real-host");
+    try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
+      HttpUrl serverUrl = server.url("/");
+      LDConfig config = new LDConfig.Builder()
+          .streamURI(fakeStreamUri)
+          .proxyHost(serverUrl.host())
+          .proxyPort(serverUrl.port())
+          .build();
+      
+      try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
+          mockRequestor, featureStore, null)) {
+        sp.connectionErrorHandler = errorSink;
+        Future<Void> ready = sp.start();
+        ready.get();
+        
+        assertNull(errorSink.errors.peek());
+        assertEquals(1, server.getRequestCount());
       }
     }
   }
