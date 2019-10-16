@@ -22,6 +22,7 @@ import java.util.jar.Manifest;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 /**
@@ -58,8 +59,8 @@ public final class LDClient implements LDClientInterface {
    * @param config a client configuration object
    */
   public LDClient(String sdkKey, LDConfig config) {
-    this.config = config;
-    this.sdkKey = sdkKey;
+    this.config = checkNotNull(config, "config must not be null");
+    this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
     
     FeatureStore store;
     if (config.deprecatedFeatureStore != null) {
