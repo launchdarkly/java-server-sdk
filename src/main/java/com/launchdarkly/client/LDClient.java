@@ -357,18 +357,6 @@ public final class LDClient implements LDClientInterface {
     }
     this.eventProcessor.close();
     this.updateProcessor.close();
-    if (this.config.httpClient != null) {
-      if (this.config.httpClient.dispatcher() != null && this.config.httpClient.dispatcher().executorService() != null) {
-        this.config.httpClient.dispatcher().cancelAll();
-        this.config.httpClient.dispatcher().executorService().shutdownNow();
-      }
-      if (this.config.httpClient.connectionPool() != null) {
-        this.config.httpClient.connectionPool().evictAll();
-      }
-      if (this.config.httpClient.cache() != null) {
-        this.config.httpClient.cache().close();
-      }
-    }
   }
 
   @Override
