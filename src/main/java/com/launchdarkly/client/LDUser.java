@@ -141,7 +141,7 @@ public class LDUser {
 
   LDValue getCustom(String key) {
     if (custom != null) {
-      return custom.get(key);
+      return LDValue.normalize(custom.get(key));
     }
     return LDValue.ofNull();
   }
