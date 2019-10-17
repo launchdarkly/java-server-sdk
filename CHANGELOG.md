@@ -3,6 +3,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.8.1] - 2019-10-17
+### Fixed:
+- The NewRelic integration was broken when using the default uberjar distribution, because the SDK was calling `Class.forName()` for a class name that was accidentally transformed by the Shadow plugin for Gradle. ([#171](https://github.com/launchdarkly/java-server-sdk/issues/171))
+- Streaming connections were not using the proxy settings specified by `LDConfig.Builder.proxy()` and `LDConfig.Builder.proxyAuthenticator()`. ([#172](https://github.com/launchdarkly/java-server-sdk/issues/172))
+- The SDK was creating an unused `OkHttpClient` instance as part of the static `LDConfig` instance used by the `LDClient(String)` constructor. This has been removed.
+- Passing a null `sdkKey` or `config` to the `LDClient` constructors would always throw a `NullPointerException`, but it did not have a descriptive message. These exceptions now explain which parameter was null.
+
 ## [4.8.0] - 2019-09-30
 ### Added:
 - Added support for upcoming LaunchDarkly experimentation features. See `LDClient.track(String, LDUser, JsonElement, double)`.
