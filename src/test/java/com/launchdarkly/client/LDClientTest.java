@@ -41,6 +41,7 @@ import junit.framework.AssertionFailedError;
 /**
  * See also LDClientEvaluationTest, etc. This file contains mostly tests for the startup logic.
  */
+@SuppressWarnings("javadoc")
 public class LDClientTest extends EasyMockSupport {
   private UpdateProcessor updateProcessor;
   private EventProcessor eventProcessor;
@@ -55,6 +56,33 @@ public class LDClientTest extends EasyMockSupport {
     initFuture = createStrictMock(Future.class);
   }
 
+  @Test
+  public void constructorThrowsExceptionForNullSdkKey() throws Exception {
+    try (LDClient client = new LDClient(null)) {
+      fail("expected exception");
+    } catch (NullPointerException e) {
+      assertEquals("sdkKey must not be null", e.getMessage());
+    }
+  }
+
+  @Test
+  public void constructorWithConfigThrowsExceptionForNullSdkKey() throws Exception {
+    try (LDClient client = new LDClient(null, new LDConfig.Builder().build())) {
+      fail("expected exception");
+    } catch (NullPointerException e) {
+      assertEquals("sdkKey must not be null", e.getMessage());
+    }
+  }
+
+  @Test
+  public void constructorThrowsExceptionForNullConfig() throws Exception {
+    try (LDClient client = new LDClient("SDK_KEY", null)) {
+      fail("expected exception");
+    } catch (NullPointerException e) {
+      assertEquals("config must not be null", e.getMessage());
+    }
+  }
+  
   @Test
   public void clientHasDefaultEventProcessorIfSendEventsIsTrue() throws Exception {
     LDConfig config = new LDConfig.Builder()

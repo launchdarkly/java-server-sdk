@@ -25,11 +25,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.getRequestBuilder;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
+import static com.launchdarkly.client.Util.shutdownHttpClient;
 
 import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
@@ -46,7 +49,7 @@ final class DefaultEventProcessor implements EventProcessor {
   
   DefaultEventProcessor(String sdkKey, LDConfig config) {
     inbox = new ArrayBlockingQueue<>(config.capacity);
-
+    
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setDaemon(true)
         .setNameFormat("LaunchDarkly-EventProcessor-%d")
@@ -181,6 +184,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private static final int MESSAGE_BATCH_SIZE = 50;
     
     private final LDConfig config;
+    private final OkHttpClient httpClient;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;
     private final Random random = new Random();
@@ -194,6 +198,10 @@ final class DefaultEventProcessor implements EventProcessor {
       this.config = config;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
+      OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
+      configureHttpClientBuilder(config, httpBuilder);
+      httpClient = httpBuilder.build();
+      
       // This queue only holds one element; it represents a flush task that has not yet been
       // picked up by any worker, so if we try to push another one and are refused, it means
       // all the workers are busy.
@@ -236,7 +244,7 @@ final class DefaultEventProcessor implements EventProcessor {
           }
         };
       for (int i = 0; i < MAX_FLUSH_THREADS; i++) {
-        SendEventsTask task = new SendEventsTask(sdkKey, config, listener, payloadQueue,
+        SendEventsTask task = new SendEventsTask(sdkKey, config, httpClient, listener, payloadQueue,
             busyFlushWorkersCount, threadFactory);
         flushWorkers.add(task);
       }
@@ -291,8 +299,7 @@ final class DefaultEventProcessor implements EventProcessor {
       for (SendEventsTask task: flushWorkers) {
         task.stop();
       }
-      // Note that we don't close the HTTP client here, because it's shared by other components
-      // via the LDConfig.  The LDClient will dispose of it.
+      shutdownHttpClient(httpClient);
     }
 
     private void waitUntilAllFlushWorkersInactive() {
@@ -477,6 +484,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private static final class SendEventsTask implements Runnable {
     private final String sdkKey;
     private final LDConfig config;
+    private final OkHttpClient httpClient;
     private final EventResponseListener responseListener;
     private final BlockingQueue<FlushPayload> payloadQueue;
     private final AtomicInteger activeFlushWorkersCount;
@@ -485,11 +493,12 @@ final class DefaultEventProcessor implements EventProcessor {
     private final Thread thread;
     private final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz"); // need one instance per task because the date parser isn't thread-safe
     
-    SendEventsTask(String sdkKey, LDConfig config, EventResponseListener responseListener,
+    SendEventsTask(String sdkKey, LDConfig config, OkHttpClient httpClient, EventResponseListener responseListener,
                    BlockingQueue<FlushPayload> payloadQueue, AtomicInteger activeFlushWorkersCount,
                    ThreadFactory threadFactory) {
       this.sdkKey = sdkKey;
       this.config = config;
+      this.httpClient = httpClient;
       this.formatter = new EventOutput.Formatter(config.inlineUsersInEvents);
       this.responseListener = responseListener;
       this.payloadQueue = payloadQueue;
@@ -551,7 +560,7 @@ final class DefaultEventProcessor implements EventProcessor {
             .build();
   
         long startTime = System.currentTimeMillis();
-        try (Response response = config.httpClient.newCall(request).execute()) {
+        try (Response response = httpClient.newCall(request).execute()) {
           long endTime = System.currentTimeMillis();
           logger.debug("Event delivery took {} ms, response status {}", endTime - startTime, response.code());
           if (!response.isSuccessful()) {

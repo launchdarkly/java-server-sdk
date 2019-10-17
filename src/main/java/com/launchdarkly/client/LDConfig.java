@@ -1,20 +1,11 @@
 package com.launchdarkly.client;
 
-import com.google.common.io.Files;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import okhttp3.Authenticator;
-import okhttp3.Cache;
-import okhttp3.ConnectionPool;
-import okhttp3.Credentials;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.Route;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -23,8 +14,15 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
+
+import okhttp3.Authenticator;
+import okhttp3.Credentials;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.Route;
 
 /**
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
@@ -46,7 +44,6 @@ public final class LDConfig {
   private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
   private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
   private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
-  private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
@@ -57,7 +54,6 @@ public final class LDConfig {
   final int flushInterval;
   final Proxy proxy;
   final Authenticator proxyAuthenticator;
-  final OkHttpClient httpClient;
   final boolean stream;
   final FeatureStore deprecatedFeatureStore;
   final FeatureStoreFactory featureStoreFactory;
@@ -77,6 +73,10 @@ public final class LDConfig {
   final boolean inlineUsersInEvents;
   final SSLSocketFactory sslSocketFactory;
   final X509TrustManager trustManager;
+  final int connectTimeout;
+  final TimeUnit connectTimeoutUnit;
+  final int socketTimeout;
+  final TimeUnit socketTimeoutUnit;
   
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -109,38 +109,18 @@ public final class LDConfig {
     this.inlineUsersInEvents = builder.inlineUsersInEvents;
     this.sslSocketFactory = builder.sslSocketFactory;
     this.trustManager = builder.trustManager;
-    
-    OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
-        .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-        .connectTimeout(builder.connectTimeout, builder.connectTimeoutUnit)
-        .readTimeout(builder.socketTimeout, builder.socketTimeoutUnit)
-        .writeTimeout(builder.socketTimeout, builder.socketTimeoutUnit)
-        .retryOnConnectionFailure(false); // we will implement our own retry logic
-
-    if (sslSocketFactory != null) {
-      httpClientBuilder.sslSocketFactory(sslSocketFactory, trustManager);
-    }
-    
-    // When streaming is enabled, http GETs made by FeatureRequester will
-    // always guarantee a new flag state. So, disable http response caching
-    // when streaming.
-    if(!this.stream) {
-      File cacheDir = Files.createTempDir();
-      Cache cache = new Cache(cacheDir, MAX_HTTP_CACHE_SIZE_BYTES);
-      httpClientBuilder.cache(cache);
-    }
+    this.connectTimeout = builder.connectTimeout;
+    this.connectTimeoutUnit = builder.connectTimeoutUnit;
+    this.socketTimeout = builder.socketTimeout;
+    this.socketTimeoutUnit = builder.socketTimeoutUnit;
 
     if (proxy != null) {
-      httpClientBuilder.proxy(proxy);
       if (proxyAuthenticator != null) {
-        httpClientBuilder.proxyAuthenticator(proxyAuthenticator);
         logger.info("Using proxy: " + proxy + " with authentication.");
       } else {
         logger.info("Using proxy: " + proxy + " without authentication.");
       }
     }
-
-    this.httpClient = httpClientBuilder.build();
   }
 
   /**
