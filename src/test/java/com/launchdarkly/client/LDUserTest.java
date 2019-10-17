@@ -412,9 +412,18 @@ public class LDUserTest {
   }
   
   @Test
-  public void getValueReturnsNullIfNotFound() {
+  public void getValueReturnsNullForCustomAttrIfThereAreNoCustomAttrs() {
     LDUser user = new LDUser.Builder("key")
         .name("Jane")
+        .build();
+    assertEquals(LDValue.ofNull(), user.getValueForEvaluation("height"));
+  }
+
+  @Test
+  public void getValueReturnsNullForCustomAttrIfThereAreCustomAttrsButNotThisOne() {
+    LDUser user = new LDUser.Builder("key")
+        .name("Jane")
+        .custom("eyes", "brown")
         .build();
     assertEquals(LDValue.ofNull(), user.getValueForEvaluation("height"));
   }
