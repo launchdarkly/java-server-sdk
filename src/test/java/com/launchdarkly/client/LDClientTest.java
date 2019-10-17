@@ -57,6 +57,33 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
+  public void constructorThrowsExceptionForNullSdkKey() throws Exception {
+    try (LDClient client = new LDClient(null)) {
+      fail("expected exception");
+    } catch (NullPointerException e) {
+      assertEquals("sdkKey must not be null", e.getMessage());
+    }
+  }
+
+  @Test
+  public void constructorWithConfigThrowsExceptionForNullSdkKey() throws Exception {
+    try (LDClient client = new LDClient(null, new LDConfig.Builder().build())) {
+      fail("expected exception");
+    } catch (NullPointerException e) {
+      assertEquals("sdkKey must not be null", e.getMessage());
+    }
+  }
+
+  @Test
+  public void constructorThrowsExceptionForNullConfig() throws Exception {
+    try (LDClient client = new LDClient("SDK_KEY", null)) {
+      fail("expected exception");
+    } catch (NullPointerException e) {
+      assertEquals("config must not be null", e.getMessage());
+    }
+  }
+  
+  @Test
   public void clientHasDefaultEventProcessorIfSendEventsIsTrue() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .stream(false)

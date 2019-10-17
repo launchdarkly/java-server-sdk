@@ -118,7 +118,7 @@ public abstract class Components {
         logger.info("Starting LaunchDarkly in LDD mode. Skipping direct feature retrieval.");
         return new UpdateProcessor.NullUpdateProcessor();
       } else {
-        FeatureRequestor requestor = new FeatureRequestor(sdkKey, config);
+        DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(sdkKey, config);
         if (config.stream) {
           logger.info("Enabling streaming API");
           return new StreamProcessor(sdkKey, config, requestor, featureStore, null);

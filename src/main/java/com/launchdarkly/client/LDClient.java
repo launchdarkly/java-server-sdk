@@ -22,6 +22,7 @@ import java.util.jar.Manifest;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
 /**
@@ -58,8 +59,8 @@ public final class LDClient implements LDClientInterface {
    * @param config a client configuration object
    */
   public LDClient(String sdkKey, LDConfig config) {
-    this.config = config;
-    this.sdkKey = sdkKey;
+    this.config = checkNotNull(config, "config must not be null");
+    this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
     
     FeatureStore store;
     if (config.deprecatedFeatureStore != null) {
@@ -386,18 +387,6 @@ public final class LDClient implements LDClientInterface {
     }
     this.eventProcessor.close();
     this.updateProcessor.close();
-    if (this.config.httpClient != null) {
-      if (this.config.httpClient.dispatcher() != null && this.config.httpClient.dispatcher().executorService() != null) {
-        this.config.httpClient.dispatcher().cancelAll();
-        this.config.httpClient.dispatcher().executorService().shutdownNow();
-      }
-      if (this.config.httpClient.connectionPool() != null) {
-        this.config.httpClient.connectionPool().evictAll();
-      }
-      if (this.config.httpClient.cache() != null) {
-        this.config.httpClient.cache().close();
-      }
-    }
   }
 
   @Override

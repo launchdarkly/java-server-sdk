@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.net.URI;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLHandshakeException;
@@ -10,15 +11,18 @@ import javax.net.ssl.SSLHandshakeException;
 import static com.launchdarkly.client.TestHttpUtil.baseConfig;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.client.TestHttpUtil.jsonResponse;
+import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
+import okhttp3.HttpUrl;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
+@SuppressWarnings("javadoc")
 public class FeatureRequestorTest {
   private static final String sdkKey = "sdk-key";
   private static final String flag1Key = "flag1";
@@ -33,22 +37,22 @@ public class FeatureRequestorTest {
   public void requestAllData() throws Exception {
     MockResponse resp = jsonResponse(allDataJson);
     
-    try (MockWebServer server = TestHttpUtil.makeStartedServer(resp)) {
-      FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
-      
-      FeatureRequestor.AllData data = r.getAllData();
-      
-      RecordedRequest req = server.takeRequest();
-      assertEquals("/sdk/latest-all", req.getPath());
-      verifyHeaders(req);
-      
-      assertNotNull(data);
-      assertNotNull(data.flags);
-      assertNotNull(data.segments);
-      assertEquals(1, data.flags.size());
-      assertEquals(1, data.flags.size());
-      verifyFlag(data.flags.get(flag1Key), flag1Key);
-      verifySegment(data.segments.get(segment1Key), segment1Key);      
+    try (MockWebServer server = makeStartedServer(resp)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {
+        FeatureRequestor.AllData data = r.getAllData();
+        
+        RecordedRequest req = server.takeRequest();
+        assertEquals("/sdk/latest-all", req.getPath());
+        verifyHeaders(req);
+        
+        assertNotNull(data);
+        assertNotNull(data.flags);
+        assertNotNull(data.segments);
+        assertEquals(1, data.flags.size());
+        assertEquals(1, data.flags.size());
+        verifyFlag(data.flags.get(flag1Key), flag1Key);
+        verifySegment(data.segments.get(segment1Key), segment1Key);
+      }
     }
   }
   
@@ -56,16 +60,16 @@ public class FeatureRequestorTest {
   public void requestFlag() throws Exception {
     MockResponse resp = jsonResponse(flag1Json);
     
-    try (MockWebServer server = TestHttpUtil.makeStartedServer(resp)) {
-      FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
-      
-      FeatureFlag flag = r.getFlag(flag1Key);
-      
-      RecordedRequest req = server.takeRequest();
-      assertEquals("/sdk/latest-flags/" + flag1Key, req.getPath());
-      verifyHeaders(req);
-      
-      verifyFlag(flag, flag1Key);
+    try (MockWebServer server = makeStartedServer(resp)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {      
+        FeatureFlag flag = r.getFlag(flag1Key);
+        
+        RecordedRequest req = server.takeRequest();
+        assertEquals("/sdk/latest-flags/" + flag1Key, req.getPath());
+        verifyHeaders(req);
+        
+        verifyFlag(flag, flag1Key);
+      }
     }
   }
 
@@ -73,16 +77,16 @@ public class FeatureRequestorTest {
   public void requestSegment() throws Exception {
     MockResponse resp = jsonResponse(segment1Json);
     
-    try (MockWebServer server = TestHttpUtil.makeStartedServer(resp)) {
-      FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
-      
-      Segment segment = r.getSegment(segment1Key);
-      
-      RecordedRequest req = server.takeRequest();
-      assertEquals("/sdk/latest-segments/" + segment1Key, req.getPath());
-      verifyHeaders(req);
-      
-      verifySegment(segment, segment1Key);
+    try (MockWebServer server = makeStartedServer(resp)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {     
+        Segment segment = r.getSegment(segment1Key);
+        
+        RecordedRequest req = server.takeRequest();
+        assertEquals("/sdk/latest-segments/" + segment1Key, req.getPath());
+        verifyHeaders(req);
+        
+        verifySegment(segment, segment1Key);
+      }
     }
   }
   
@@ -90,14 +94,14 @@ public class FeatureRequestorTest {
   public void requestFlagNotFound() throws Exception {
     MockResponse notFoundResp = new MockResponse().setResponseCode(404);
     
-    try (MockWebServer server = TestHttpUtil.makeStartedServer(notFoundResp)) {
-      FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
-      
-      try {
-        r.getFlag(flag1Key);
-        Assert.fail("expected exception");
-      } catch (HttpErrorException e) {
-        assertEquals(404, e.getStatus());
+    try (MockWebServer server = makeStartedServer(notFoundResp)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {     
+        try {
+          r.getFlag(flag1Key);
+          Assert.fail("expected exception");
+        } catch (HttpErrorException e) {
+          assertEquals(404, e.getStatus());
+        }
       }
     }
   }
@@ -106,14 +110,14 @@ public class FeatureRequestorTest {
   public void requestSegmentNotFound() throws Exception {
     MockResponse notFoundResp = new MockResponse().setResponseCode(404);
     
-    try (MockWebServer server = TestHttpUtil.makeStartedServer(notFoundResp)) {
-      FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
-      
-      try {
-        r.getSegment(segment1Key);
-        fail("expected exception");
-      } catch (HttpErrorException e) {
-        assertEquals(404, e.getStatus());
+    try (MockWebServer server = makeStartedServer(notFoundResp)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {      
+        try {
+          r.getSegment(segment1Key);
+          fail("expected exception");
+        } catch (HttpErrorException e) {
+          assertEquals(404, e.getStatus());
+        }
       }
     }
   }
@@ -124,20 +128,20 @@ public class FeatureRequestorTest {
         .setHeader("ETag", "aaa")
         .setHeader("Cache-Control", "max-age=1000");
     
-    try (MockWebServer server = TestHttpUtil.makeStartedServer(cacheableResp)) {
-      FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(server).build());
-      
-      FeatureFlag flag1a = r.getFlag(flag1Key);
-      
-      RecordedRequest req1 = server.takeRequest();
-      assertEquals("/sdk/latest-flags/" + flag1Key, req1.getPath());
-      verifyHeaders(req1);
-      
-      verifyFlag(flag1a, flag1Key);
-      
-      FeatureFlag flag1b = r.getFlag(flag1Key);
-      verifyFlag(flag1b, flag1Key);
-      assertNull(server.takeRequest(0, TimeUnit.SECONDS)); // there was no second request, due to the cache hit
+    try (MockWebServer server = makeStartedServer(cacheableResp)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {
+        FeatureFlag flag1a = r.getFlag(flag1Key);
+        
+        RecordedRequest req1 = server.takeRequest();
+        assertEquals("/sdk/latest-flags/" + flag1Key, req1.getPath());
+        verifyHeaders(req1);
+        
+        verifyFlag(flag1a, flag1Key);
+        
+        FeatureFlag flag1b = r.getFlag(flag1Key);
+        verifyFlag(flag1b, flag1Key);
+        assertNull(server.takeRequest(0, TimeUnit.SECONDS)); // there was no second request, due to the cache hit
+      }
     }
   }
   
@@ -146,15 +150,15 @@ public class FeatureRequestorTest {
     MockResponse resp = jsonResponse(flag1Json);
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      FeatureRequestor r = new FeatureRequestor(sdkKey, basePollingConfig(serverWithCert.server).build());
-
-      try {
-        r.getFlag(flag1Key);
-        fail("expected exception");
-      } catch (SSLHandshakeException e) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(serverWithCert.server).build())) {
+        try {
+          r.getFlag(flag1Key);
+          fail("expected exception");
+        } catch (SSLHandshakeException e) {
+        }
+        
+        assertEquals(0, serverWithCert.server.getRequestCount());
       }
-      
-      assertEquals(0, serverWithCert.server.getRequestCount());
     }
   }
   
@@ -167,10 +171,30 @@ public class FeatureRequestorTest {
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
 
-      FeatureRequestor r = new FeatureRequestor(sdkKey, config);
-
-      FeatureFlag flag = r.getFlag(flag1Key);
-      verifyFlag(flag, flag1Key);
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config)) {
+        FeatureFlag flag = r.getFlag(flag1Key);
+        verifyFlag(flag, flag1Key);
+      }
+    }
+  }
+  
+  @Test
+  public void httpClientCanUseProxyConfig() throws Exception {
+    URI fakeBaseUri = URI.create("http://not-a-real-host");
+    try (MockWebServer server = makeStartedServer(jsonResponse(flag1Json))) {
+      HttpUrl serverUrl = server.url("/");
+      LDConfig config = new LDConfig.Builder()
+          .baseURI(fakeBaseUri)
+          .proxyHost(serverUrl.host())
+          .proxyPort(serverUrl.port())
+          .build();
+      
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config)) {
+        FeatureFlag flag = r.getFlag(flag1Key);
+        verifyFlag(flag, flag1Key);
+        
+        assertEquals(1, server.getRequestCount());
+      }
     }
   }
   

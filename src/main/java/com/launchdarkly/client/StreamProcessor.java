@@ -17,6 +17,7 @@ import java.net.URI;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -110,7 +111,7 @@ final class StreamProcessor implements UpdateProcessor {
         switch (name) {
           case PUT: {
             PutData putData = gson.fromJson(event.getData(), PutData.class); 
-            store.init(FeatureRequestor.toVersionedDataMap(putData.data));
+            store.init(DefaultFeatureRequestor.toVersionedDataMap(putData.data));
             if (!initialized.getAndSet(true)) {
               initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
@@ -142,7 +143,7 @@ final class StreamProcessor implements UpdateProcessor {
           case INDIRECT_PUT:
             try {
               FeatureRequestor.AllData allData = requestor.getAllData();
-              store.init(FeatureRequestor.toVersionedDataMap(allData));
+              store.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
               if (!initialized.getAndSet(true)) {
                 initFuture.set(null);
                 logger.info("Initialized LaunchDarkly client.");
@@ -206,6 +207,7 @@ final class StreamProcessor implements UpdateProcessor {
     if (store != null) {
       store.close();
     }
+    requestor.close();
   }
 
   @Override
@@ -244,9 +246,7 @@ final class StreamProcessor implements UpdateProcessor {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
           .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
             public void configure(OkHttpClient.Builder builder) {
-              if (config.sslSocketFactory != null) {
-                builder.sslSocketFactory(config.sslSocketFactory, config.trustManager);
-              }
+              configureHttpClientBuilder(config, builder);
             }
           })
           .connectionErrorHandler(errorHandler)
