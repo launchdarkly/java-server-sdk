@@ -1,27 +1,27 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.value.LDValue;
+import com.launchdarkly.client.value.LDValueType;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
-
 import java.util.List;
+
+import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
 class Clause {
   private final static Logger logger = LoggerFactory.getLogger(Clause.class);
 
   private String attribute;
   private Operator op;
-  private List<JsonPrimitive> values; //interpreted as an OR of values
+  private List<LDValue> values; //interpreted as an OR of values
   private boolean negate;
 
   public Clause() {
   }
   
-  public Clause(String attribute, Operator op, List<JsonPrimitive> values, boolean negate) {
+  public Clause(String attribute, Operator op, List<LDValue> values, boolean negate) {
     this.attribute = attribute;
     this.op = op;
     this.values = values;
@@ -29,28 +29,27 @@ class Clause {
   }
 
   boolean matchesUserNoSegments(LDUser user) {
-    JsonElement userValue = user.getValueForEvaluation(attribute);
-    if (userValue == null) {
+    LDValue userValue = user.getValueForEvaluation(attribute);
+    if (userValue.isNull()) {
       return false;
     }
 
-    if (userValue.isJsonArray()) {
-      JsonArray array = userValue.getAsJsonArray();
-      for (JsonElement jsonElement : array) {
-        if (!jsonElement.isJsonPrimitive()) {
-          logger.error("Invalid custom attribute value in user object for user key \"{}\": {}", user.getKey(), jsonElement);
+    if (userValue.getType() == LDValueType.ARRAY) {
+      for (LDValue value: userValue.values()) {
+        if (value.getType() == LDValueType.ARRAY || value.getType() == LDValueType.OBJECT) {
+          logger.error("Invalid custom attribute value in user object for user key \"{}\": {}", user.getKey(), value);
           return false;
         }
-        if (matchAny(jsonElement.getAsJsonPrimitive())) {
+        if (matchAny(value)) {
           return maybeNegate(true);
         }
       }
       return maybeNegate(false);
-    } else if (userValue.isJsonPrimitive()) {
-      return maybeNegate(matchAny(userValue.getAsJsonPrimitive()));
+    } else if (userValue.getType() != LDValueType.OBJECT) {
+      return maybeNegate(matchAny(userValue));
     }
     logger.warn("Got unexpected user attribute type \"{}\" for user key \"{}\" and attribute \"{}\"",
-        userValue.getClass().getName(), user.getKey(), attribute);
+        userValue.getType(), user.getKey(), attribute);
     return false;
   }
 
@@ -58,9 +57,9 @@ class Clause {
     // In the case of a segment match operator, we check if the user is in any of the segments,
     // and possibly negate
     if (op == Operator.segmentMatch) {
-      for (JsonPrimitive j: values) {
+      for (LDValue j: values) {
         if (j.isString()) {
-          Segment segment = store.get(SEGMENTS, j.getAsString());
+          Segment segment = store.get(SEGMENTS, j.stringValue());
           if (segment != null) {
             if (segment.matchesUser(user)) {
               return maybeNegate(true);
@@ -74,9 +73,9 @@ class Clause {
     return matchesUserNoSegments(user);
   }
   
-  private boolean matchAny(JsonPrimitive userValue) {
+  private boolean matchAny(LDValue userValue) {
     if (op != null) {
-      for (JsonPrimitive v : values) {
+      for (LDValue v : values) {
         if (op.apply(userValue, v)) {
           return true;
         }
@@ -91,6 +90,4 @@ class Clause {
     else
       return b;
   }
-
-
 }

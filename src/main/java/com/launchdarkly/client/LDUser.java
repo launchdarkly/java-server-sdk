@@ -9,6 +9,7 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,35 +41,35 @@ import java.util.regex.Pattern;
 public class LDUser {
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
-  // Note that these fields are all stored internally as JsonPrimitive rather than String so that
-  // we don't waste time repeatedly converting them to JsonPrimitive in the rule evaluation logic.
-  private final JsonPrimitive key;
-  private JsonPrimitive secondary;
-  private JsonPrimitive ip;
-  private JsonPrimitive email;
-  private JsonPrimitive name;
-  private JsonPrimitive avatar;
-  private JsonPrimitive firstName;
-  private JsonPrimitive lastName;
-  private JsonPrimitive anonymous;
-  private JsonPrimitive country;
-  private Map<String, JsonElement> custom;
+  // Note that these fields are all stored internally as LDValue rather than String so that
+  // we don't waste time repeatedly converting them to LDValue in the rule evaluation logic.
+  private final LDValue key;
+  private LDValue secondary;
+  private LDValue ip;
+  private LDValue email;
+  private LDValue name;
+  private LDValue avatar;
+  private LDValue firstName;
+  private LDValue lastName;
+  private LDValue anonymous;
+  private LDValue country;
+  private Map<String, LDValue> custom;
   Set<String> privateAttributeNames;
 
   protected LDUser(Builder builder) {
     if (builder.key == null || builder.key.equals("")) {
       logger.warn("User was created with null/empty key");
     }
-    this.key = builder.key == null ? null : new JsonPrimitive(builder.key);
-    this.ip = builder.ip == null ? null : new JsonPrimitive(builder.ip);
-    this.country = builder.country == null ? null : new JsonPrimitive(builder.country.getAlpha2());
-    this.secondary = builder.secondary == null ? null : new JsonPrimitive(builder.secondary);
-    this.firstName = builder.firstName == null ? null : new JsonPrimitive(builder.firstName);
-    this.lastName = builder.lastName == null ? null : new JsonPrimitive(builder.lastName);
-    this.email = builder.email == null ? null : new JsonPrimitive(builder.email);
-    this.name = builder.name == null ? null : new JsonPrimitive(builder.name);
-    this.avatar = builder.avatar == null ? null : new JsonPrimitive(builder.avatar);
-    this.anonymous = builder.anonymous == null ? null : new JsonPrimitive(builder.anonymous);
+    this.key = LDValue.of(builder.key);
+    this.ip = LDValue.of(builder.ip);
+    this.country = builder.country == null ? LDValue.ofNull() : LDValue.of(builder.country.getAlpha2());
+    this.secondary = LDValue.of(builder.secondary);
+    this.firstName = LDValue.of(builder.firstName);
+    this.lastName = LDValue.of(builder.lastName);
+    this.email = LDValue.of(builder.email);
+    this.name = LDValue.of(builder.name);
+    this.avatar = LDValue.of(builder.avatar);
+    this.anonymous = builder.anonymous == null ? LDValue.ofNull() : LDValue.of(builder.anonymous);
     this.custom = builder.custom == null ? null : ImmutableMap.copyOf(builder.custom);
     this.privateAttributeNames = builder.privateAttrNames == null ? null : ImmutableSet.copyOf(builder.privateAttrNames);
   }
@@ -79,12 +80,12 @@ public class LDUser {
    * @param key a {@code String} that uniquely identifies a user
    */
   public LDUser(String key) {
-    this.key = new JsonPrimitive(key);
+    this.key = LDValue.of(key);
     this.custom = null;
     this.privateAttributeNames = null;
   }
 
-  protected JsonElement getValueForEvaluation(String attribute) {
+  protected LDValue getValueForEvaluation(String attribute) {
     // Don't use Enum.valueOf because we don't want to trigger unnecessary exceptions
     for (UserAttribute builtIn: UserAttribute.values()) {
       if (builtIn.name().equals(attribute)) {
@@ -94,59 +95,55 @@ public class LDUser {
     return getCustom(attribute);
   }
 
-  JsonPrimitive getKey() {
+  LDValue getKey() {
     return key;
   }
 
   String getKeyAsString() {
-    if (key == null) {
-      return "";
-    } else {
-      return key.getAsString();
-    }
+    return key.stringValue();
   }
 
-  JsonPrimitive getIp() {
+  LDValue getIp() {
     return ip;
   }
 
-  JsonPrimitive getCountry() {
+  LDValue getCountry() {
     return country;
   }
 
-  JsonPrimitive getSecondary() {
+  LDValue getSecondary() {
     return secondary;
   }
 
-  JsonPrimitive getName() {
+  LDValue getName() {
     return name;
   }
 
-  JsonPrimitive getFirstName() {
+  LDValue getFirstName() {
     return firstName;
   }
 
-  JsonPrimitive getLastName() {
+  LDValue getLastName() {
     return lastName;
   }
 
-  JsonPrimitive getEmail() {
+  LDValue getEmail() {
     return email;
   }
 
-  JsonPrimitive getAvatar() {
+  LDValue getAvatar() {
     return avatar;
   }
 
-  JsonPrimitive getAnonymous() {
+  LDValue getAnonymous() {
     return anonymous;
   }
 
-  JsonElement getCustom(String key) {
+  LDValue getCustom(String key) {
     if (custom != null) {
-      return custom.get(key);
+      return LDValue.normalize(custom.get(key));
     }
-    return null;
+    return LDValue.ofNull();
   }
   
   @Override
@@ -156,7 +153,7 @@ public class LDUser {
 
     LDUser ldUser = (LDUser) o;
 
-    return Objects.equals(key,  ldUser.key) &&
+    return Objects.equals(key, ldUser.key) &&
         Objects.equals(secondary, ldUser.secondary) &&
         Objects.equals(ip, ldUser.ip) &&
         Objects.equals(email, ldUser.email) &&
@@ -198,47 +195,47 @@ public class LDUser {
       // The key can never be private
       out.name("key").value(user.getKeyAsString());
 
-      if (user.getSecondary() != null) {
+      if (!user.getSecondary().isNull()) {
         if (!checkAndAddPrivate("secondary", user, privateAttributeNames)) {
-          out.name("secondary").value(user.getSecondary().getAsString());
+          out.name("secondary").value(user.getSecondary().stringValue());
         }
       }
-      if (user.getIp() != null) {
+      if (!user.getIp().isNull()) {
         if (!checkAndAddPrivate("ip", user, privateAttributeNames)) {
-          out.name("ip").value(user.getIp().getAsString());
+          out.name("ip").value(user.getIp().stringValue());
         }
       }
-      if (user.getEmail() != null) {
+      if (!user.getEmail().isNull()) {
         if (!checkAndAddPrivate("email", user, privateAttributeNames)) {
-          out.name("email").value(user.getEmail().getAsString());
+          out.name("email").value(user.getEmail().stringValue());
         }
       }
-      if (user.getName() != null) {
+      if (!user.getName().isNull()) {
         if (!checkAndAddPrivate("name", user, privateAttributeNames)) {
-          out.name("name").value(user.getName().getAsString());
+          out.name("name").value(user.getName().stringValue());
         }
       }
-      if (user.getAvatar() != null) {
+      if (!user.getAvatar().isNull()) {
         if (!checkAndAddPrivate("avatar", user, privateAttributeNames)) {
-          out.name("avatar").value(user.getAvatar().getAsString());
+          out.name("avatar").value(user.getAvatar().stringValue());
         }
       }
-      if (user.getFirstName() != null) {
+      if (!user.getFirstName().isNull()) {
         if (!checkAndAddPrivate("firstName", user, privateAttributeNames)) {
-          out.name("firstName").value(user.getFirstName().getAsString());
+          out.name("firstName").value(user.getFirstName().stringValue());
         }
       }
-      if (user.getLastName() != null) {
+      if (!user.getLastName().isNull()) {
         if (!checkAndAddPrivate("lastName", user, privateAttributeNames)) {
-          out.name("lastName").value(user.getLastName().getAsString());
+          out.name("lastName").value(user.getLastName().stringValue());
         }
       }
-      if (user.getAnonymous() != null) {
-        out.name("anonymous").value(user.getAnonymous().getAsBoolean());
+      if (!user.getAnonymous().isNull()) {
+        out.name("anonymous").value(user.getAnonymous().booleanValue());
       }
-      if (user.getCountry() != null) {
+      if (!user.getCountry().isNull()) {
         if (!checkAndAddPrivate("country", user, privateAttributeNames)) {
-          out.name("country").value(user.getCountry().getAsString());
+          out.name("country").value(user.getCountry().stringValue());
         }
       }
       writeCustomAttrs(out, user, privateAttributeNames);
@@ -272,7 +269,7 @@ public class LDUser {
       if (user.custom == null) {
         return;
       }
-      for (Map.Entry<String, JsonElement> entry : user.custom.entrySet()) {
+      for (Map.Entry<String, LDValue> entry : user.custom.entrySet()) {
         if (!checkAndAddPrivate(entry.getKey(), user, privateAttributeNames)) {
           if (!beganObject) {
             out.name("custom");
@@ -280,7 +277,7 @@ public class LDUser {
             beganObject = true;
           }
           out.name(entry.getKey());
-          gson.toJson(entry.getValue(), JsonElement.class, out);
+          gson.toJson(entry.getValue(), LDValue.class, out);
         }
       }
       if (beganObject) {
@@ -316,7 +313,7 @@ public class LDUser {
     private String avatar;
     private Boolean anonymous;
     private LDCountryCode country;
-    private Map<String, JsonElement> custom;
+    private Map<String, LDValue> custom;
     private Set<String> privateAttrNames;
 
     /**
@@ -334,23 +331,18 @@ public class LDUser {
     * @param user an existing {@code LDUser}
     */
     public Builder(LDUser user) {
-        JsonPrimitive userKey = user.getKey();
-        if (userKey.isJsonNull()) {
-            this.key = null;
-        } else {
-            this.key = user.getKeyAsString();
-        }
-        this.secondary = user.getSecondary() != null ? user.getSecondary().getAsString() : null;
-        this.ip = user.getIp() != null ? user.getIp().getAsString() : null;
-        this.firstName = user.getFirstName() != null ? user.getFirstName().getAsString() : null;
-        this.lastName = user.getLastName() != null ? user.getLastName().getAsString() : null;
-        this.email = user.getEmail() != null ? user.getEmail().getAsString() : null;
-        this.name = user.getName() != null ? user.getName().getAsString() : null;
-        this.avatar = user.getAvatar() != null ? user.getAvatar().getAsString() : null;
-        this.anonymous = user.getAnonymous() != null ? user.getAnonymous().getAsBoolean() : null;
-        this.country = user.getCountry() != null ? LDCountryCode.valueOf(user.getCountry().getAsString()) : null;
-        this.custom = user.custom == null ? null : new HashMap<>(user.custom);
-        this.privateAttrNames = user.privateAttributeNames == null ? null : new HashSet<>(user.privateAttributeNames);
+      this.key = user.getKey().stringValue();
+      this.secondary = user.getSecondary().stringValue();
+      this.ip = user.getIp().stringValue();
+      this.firstName = user.getFirstName().stringValue();
+      this.lastName = user.getLastName().stringValue();
+      this.email = user.getEmail().stringValue();
+      this.name = user.getName().stringValue();
+      this.avatar = user.getAvatar().stringValue();
+      this.anonymous = user.getAnonymous().isNull() ? null : user.getAnonymous().booleanValue();
+      this.country = user.getCountry().isNull() ? null : LDCountryCode.valueOf(user.getCountry().stringValue());
+      this.custom = user.custom == null ? null : new HashMap<>(user.custom);
+      this.privateAttrNames = user.privateAttributeNames == null ? null : new HashSet<>(user.privateAttributeNames);
     }
     
     /**
@@ -637,15 +629,16 @@ public class LDUser {
     }
 
     /**
-     * Add a custom attribute whose value can be any JSON type. When set to one of the
+     * Add a custom attribute whose value can be any JSON type, using {@link LDValue}. When set to one of the
      * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
      * user attribute keys</a>, this custom attribute will be ignored.
      *
      * @param k the key for the custom attribute
      * @param v the value for the custom attribute
      * @return the builder
+     * @since 4.8.0
      */
-    public Builder custom(String k, JsonElement v) {
+    public Builder custom(String k, LDValue v) {
       checkCustomAttribute(k);
       if (k != null && v != null) {
         if (custom == null) {
@@ -655,7 +648,22 @@ public class LDUser {
       }
       return this;
     }
-
+    
+    /**
+     * Add a custom attribute whose value can be any JSON type. This is equivalent to {@link #custom(String, LDValue)}
+     * but uses the Gson type {@link JsonElement}. Using {@link LDValue} is preferred; the Gson types may be removed
+     * from the public API in the future.
+     *
+     * @param k the key for the custom attribute
+     * @param v the value for the custom attribute
+     * @return the builder
+     * @deprecated Use {@link #custom(String, LDValue)}.
+     */
+    @Deprecated
+    public Builder custom(String k, JsonElement v) {
+      return custom(k, LDValue.unsafeFromJsonElement(v));
+    }
+    
     /**
      * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
      * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
@@ -767,7 +775,25 @@ public class LDUser {
      * @param k the key for the custom attribute
      * @param v the value for the custom attribute
      * @return the builder
+     * @since 4.8.0
      */
+    public Builder privateCustom(String k, LDValue v) {
+      addPrivate(k);
+      return custom(k, v);
+    }
+    
+    /**
+     * Add a custom attribute of any JSON type, that will not be sent back to LaunchDarkly.
+     * When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
+     *
+     * @param k the key for the custom attribute
+     * @param v the value for the custom attribute
+     * @return the builder
+     * @deprecated Use {@link #privateCustom(String, LDValue)}.
+     */
+    @Deprecated
     public Builder privateCustom(String k, JsonElement v) {
       addPrivate(k);
       return custom(k, v);

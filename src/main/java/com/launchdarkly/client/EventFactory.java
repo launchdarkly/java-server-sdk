@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
 
 abstract class EventFactory {
   public static final EventFactory DEFAULT = new DefaultEventFactory(false);
@@ -9,8 +9,8 @@ abstract class EventFactory {
   protected abstract long getTimestamp();
   protected abstract boolean isIncludeReasons();
   
-  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, JsonElement value,
-      Integer variationIndex, EvaluationReason reason, JsonElement defaultValue, String prereqOf) {
+  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, LDValue value,
+      Integer variationIndex, EvaluationReason reason, LDValue defaultValue, String prereqOf) {
     boolean requireExperimentData = isExperiment(flag, reason);
     return new Event.FeatureRequest(
         getTimestamp(),
@@ -20,46 +20,46 @@ abstract class EventFactory {
         variationIndex,
         value,
         defaultValue,
+        (requireExperimentData || isIncludeReasons()) ? reason : null,
         prereqOf,
         requireExperimentData || flag.isTrackEvents(),
         flag.getDebugEventsUntilDate(),
-        (requireExperimentData || isIncludeReasons()) ? reason : null,
         false
     );
   }
   
-  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, EvaluationDetail<JsonElement> result, JsonElement defaultVal) {
+  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, EvaluationDetail<LDValue> result, LDValue defaultVal) {
     return newFeatureRequestEvent(flag, user, result == null ? null : result.getValue(),
         result == null ? null : result.getVariationIndex(), result == null ? null : result.getReason(),
         defaultVal, null);
   }
   
-  public Event.FeatureRequest newDefaultFeatureRequestEvent(FeatureFlag flag, LDUser user, JsonElement defaultValue,
+  public Event.FeatureRequest newDefaultFeatureRequestEvent(FeatureFlag flag, LDUser user, LDValue defaultValue,
       EvaluationReason.ErrorKind errorKind) {
     return new Event.FeatureRequest(getTimestamp(), flag.getKey(), user, flag.getVersion(),
-        null, defaultValue, defaultValue, null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(),
-        isIncludeReasons() ? EvaluationReason.error(errorKind) : null, false);
+        null, defaultValue, defaultValue, isIncludeReasons() ? EvaluationReason.error(errorKind) : null,
+        null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(), false);
   }
   
-  public Event.FeatureRequest newUnknownFeatureRequestEvent(String key, LDUser user, JsonElement defaultValue,
+  public Event.FeatureRequest newUnknownFeatureRequestEvent(String key, LDUser user, LDValue defaultValue,
       EvaluationReason.ErrorKind errorKind) {
-    return new Event.FeatureRequest(getTimestamp(), key, user, null, null, defaultValue, defaultValue, null, false, null,
-        isIncludeReasons() ? EvaluationReason.error(errorKind) : null, false);
+    return new Event.FeatureRequest(getTimestamp(), key, user, null, null, defaultValue, defaultValue,
+        isIncludeReasons() ? EvaluationReason.error(errorKind) : null, null, false, null, false);
   }
   
-  public Event.FeatureRequest newPrerequisiteFeatureRequestEvent(FeatureFlag prereqFlag, LDUser user, EvaluationDetail<JsonElement> result,
+  public Event.FeatureRequest newPrerequisiteFeatureRequestEvent(FeatureFlag prereqFlag, LDUser user, EvaluationDetail<LDValue> result,
       FeatureFlag prereqOf) {
     return newFeatureRequestEvent(prereqFlag, user, result == null ? null : result.getValue(),
         result == null ? null : result.getVariationIndex(), result == null ? null : result.getReason(),
-        null, prereqOf.getKey());
+        LDValue.ofNull(), prereqOf.getKey());
   }
 
   public Event.FeatureRequest newDebugEvent(Event.FeatureRequest from) {
     return new Event.FeatureRequest(from.creationDate, from.key, from.user, from.version, from.variation, from.value,
-        from.defaultVal, from.prereqOf, from.trackEvents, from.debugEventsUntilDate, from.reason, true);
+        from.defaultVal, from.reason, from.prereqOf, from.trackEvents, from.debugEventsUntilDate, true);
   }
   
-  public Event.Custom newCustomEvent(String key, LDUser user, JsonElement data, Double metricValue) {
+  public Event.Custom newCustomEvent(String key, LDUser user, LDValue data, Double metricValue) {
     return new Event.Custom(getTimestamp(), key, user, data, metricValue);
   }
   

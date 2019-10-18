@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.value.LDValue;
+
 import org.junit.Test;
 
 import java.io.IOException;
@@ -11,6 +13,7 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+@SuppressWarnings("javadoc")
 public class LDClientLddModeTest {
   @Test
   public void lddModeClientHasNullUpdateProcessor() throws IOException {
@@ -49,7 +52,7 @@ public class LDClientLddModeTest {
         .useLdd(true)
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .build();
-    FeatureFlag flag = flagWithValue("key", TestUtil.jbool(true));
+    FeatureFlag flag = flagWithValue("key", LDValue.of(true));
     testFeatureStore.upsert(FEATURES, flag);
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertTrue(client.boolVariation("key", new LDUser("user"), false));

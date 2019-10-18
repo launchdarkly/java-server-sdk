@@ -1,55 +1,55 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
 
 enum UserAttribute {
   key {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getKey();
     }
   },
   secondary {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return null; //Not used for evaluation.
     }
   },
   ip {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getIp();
     }
   },
   email {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getEmail();
     }
   },
   avatar {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getAvatar();
     }
   },
   firstName {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getFirstName();
     }
   },
   lastName {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getLastName();
     }
   },
   name {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getName();
     }
   },
   country {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getCountry();
     }
   },
   anonymous {
-    JsonElement get(LDUser user) {
+    LDValue get(LDUser user) {
       return user.getAnonymous();
     }
   };
@@ -60,5 +60,5 @@ enum UserAttribute {
    * @param user
    * @return
    */
-  abstract JsonElement get(LDUser user);
+  abstract LDValue get(LDUser user);
 }

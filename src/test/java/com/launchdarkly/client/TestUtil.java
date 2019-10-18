@@ -5,6 +5,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -21,6 +22,7 @@ import java.util.concurrent.Future;
 
 import static org.hamcrest.Matchers.equalTo;
 
+@SuppressWarnings("javadoc")
 public class TestUtil {
 
   public static FeatureStoreFactory specificFeatureStore(final FeatureStore store) {
@@ -164,11 +166,11 @@ public class TestUtil {
         .rules(Arrays.asList(rule))
         .fallthrough(fallthroughVariation(0))
         .offVariation(0)
-        .variations(jbool(false), jbool(true))
+        .variations(LDValue.of(false), LDValue.of(true))
         .build();
   }
 
-  public static FeatureFlag flagWithValue(String key, JsonElement value) {
+  public static FeatureFlag flagWithValue(String key, LDValue value) {
     return new FeatureFlagBuilder(key)
         .on(false)
         .offVariation(0)
@@ -181,7 +183,7 @@ public class TestUtil {
   }
 
   public static Clause makeClauseToNotMatchUser(LDUser user) {
-    return new Clause("key", Operator.in, Arrays.asList(js("not-" + user.getKeyAsString())), false);
+    return new Clause("key", Operator.in, Arrays.asList(LDValue.of("not-" + user.getKeyAsString())), false);
   }
   
   public static class DataBuilder {
@@ -205,12 +207,17 @@ public class TestUtil {
     }
   }
   
-  public static EvaluationDetail<JsonElement> simpleEvaluation(int variation, JsonElement value) {
-    return new EvaluationDetail<>(EvaluationReason.fallthrough(), variation, value);
+  public static EvaluationDetail<LDValue> simpleEvaluation(int variation, LDValue value) {
+    return EvaluationDetail.fromValue(value, variation, EvaluationReason.fallthrough());
   }
   
   public static Matcher<JsonElement> hasJsonProperty(final String name, JsonElement value) {
     return hasJsonProperty(name, equalTo(value));
+  }
+
+  @SuppressWarnings("deprecation")
+  public static Matcher<JsonElement> hasJsonProperty(final String name, LDValue value) {
+    return hasJsonProperty(name, equalTo(value.asUnsafeJsonElement()));
   }
 
   public static Matcher<JsonElement> hasJsonProperty(final String name, String value) {

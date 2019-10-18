@@ -1,7 +1,8 @@
 package com.launchdarkly.client;
 
 
-import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
+
 import org.apache.commons.codec.digest.DigestUtils;
 
 import java.util.List;
@@ -44,11 +45,11 @@ class VariationOrRollout {
   }
 
   static float bucketUser(LDUser user, String key, String attr, String salt) {
-    JsonElement userValue = user.getValueForEvaluation(attr);
+    LDValue userValue = user.getValueForEvaluation(attr);
     String idHash = getBucketableStringValue(userValue);
     if (idHash != null) {
-      if (user.getSecondary() != null) {
-        idHash = idHash + "." + user.getSecondary().getAsString();
+      if (!user.getSecondary().isNull()) {
+        idHash = idHash + "." + user.getSecondary().stringValue();
       }
       String hash = DigestUtils.sha1Hex(key + "." + salt + "." + idHash).substring(0, 15);
       long longVal = Long.parseLong(hash, 16);
@@ -57,19 +58,15 @@ class VariationOrRollout {
     return 0F;
   }
 
-  private static String getBucketableStringValue(JsonElement userValue) {
-    if (userValue != null && userValue.isJsonPrimitive()) {
-      if (userValue.getAsJsonPrimitive().isString()) {
-        return userValue.getAsString();
-      }
-      if (userValue.getAsJsonPrimitive().isNumber()) {
-        Number n = userValue.getAsJsonPrimitive().getAsNumber();
-        if (n instanceof Integer) {
-          return userValue.getAsString();
-        }
-      }
+  private static String getBucketableStringValue(LDValue userValue) {
+    switch (userValue.getType()) { 
+    case STRING:
+      return userValue.stringValue();
+    case NUMBER:
+      return userValue.isInt() ? String.valueOf(userValue.intValue()) : null;
+    default:
+      return null;
     }
-    return null;
   }
   
   static class Rollout {
