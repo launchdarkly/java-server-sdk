@@ -3,6 +3,24 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.9.0] - 2019-10-18
+This release adds the `LDValue` class (in `com.launchdarkly.client.value`), which is a new abstraction for all of the data types supported by the LaunchDarkly platform. Since those are the same as the JSON data types, the SDK previously used the Gson classes `JsonElement`, `JsonObject`, etc. to represent them. This caused two problems: the public APIs are dependent on Gson, and the Gson object and array types are mutable so it was possible to accidentally modify values that are being used elsewhere in the SDK.
+
+While the SDK still uses Gson internally, all references to Gson types in the API are now deprecated in favor of equivalent APIs that use `LDValue`. Developers are encouraged to migrate toward these as soon as possible; the Gson classes will be removed from the API in a future major version. If you are only using primitive types (boolean, string, etc.) for your feature flags and user attributes, then no changes are required.
+
+There are no other changes in this release.
+
+### Added:
+- `LDValue` (see above).
+- The new `jsonValueVariation` and `jsonValueVariationDetail` methods in `LDClient`/`LDClientInterface` are equivalent to `JsonVariation` and `JsonVariationDetail`, but use `LDValue`.
+
+### Deprecated:
+- In `LDClient`/`LDClientInterface`: `jsonVariation`/`jsonVariationDetail`. Use `jsonValueVariation`/`jsonValueVariationDetail`.
+- In `LDClient`/`LDClientInterface`: `track(String, LDUser, JsonElement)` and `track(String, LDUser, JsonElement, double)`. Use `trackData(String, LDUser, LDValue)` and `trackMetric(String, LDUser, LDValue, double)`. The names are different to avoid compile-time ambiguity since both `JsonElement` and `LDValue` are nullable types.
+- In `LDUserBuilder`: `custom(String, JsonElement)` and `privateCustom(String, JsonElement)`. Use the `LDValue` overloads.
+- In `LDValue`: `fromJsonElement`, `unsafeFromJsonElement`, `asJsonElement`, `asUnsafeJsonElement`. These are provided for compatibility with code that still uses `JsonElement`, but will be removed in a future major version.
+
+
 ## [4.8.1] - 2019-10-17
 ### Fixed:
 - The NewRelic integration was broken when using the default uberjar distribution, because the SDK was calling `Class.forName()` for a class name that was accidentally transformed by the Shadow plugin for Gradle. ([#171](https://github.com/launchdarkly/java-server-sdk/issues/171))
