@@ -120,7 +120,8 @@ class EventOutputFormatter {
           continue;
         }
         CounterValue value = keyForThisFlag == key ? firstValue : summary.counters.get(keyForThisFlag);
-        
+        unprocessedKeys[j] = null;
+           
         jw.beginObject();
         
         if (keyForThisFlag.variation != null) {
