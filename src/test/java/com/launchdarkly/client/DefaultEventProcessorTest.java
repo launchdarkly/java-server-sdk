@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.text.SimpleDateFormat;
@@ -345,28 +346,38 @@ public class DefaultEventProcessorTest {
   public void nonTrackedEventsAreSummarized() throws Exception {
     FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).build();
     FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).build();
-    LDValue value = LDValue.of("value");
+    LDValue value1 = LDValue.of("value1");
+    LDValue value2 = LDValue.of("value2");
     LDValue default1 = LDValue.of("default1");
     LDValue default2 = LDValue.of("default2");
-    Event fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(2, value), default1);
+    Event fe1a = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
+        simpleEvaluation(1, value1), default1);
+    Event fe1b = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
+        simpleEvaluation(1, value1), default1);
+    Event fe1c = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
+        simpleEvaluation(2, value2), default1);
     Event fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-        simpleEvaluation(2, value), default2);
+        simpleEvaluation(2, value2), default2);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
-        ep.sendEvent(fe1);
+        ep.sendEvent(fe1a);
+        ep.sendEvent(fe1b);
+        ep.sendEvent(fe1c);
         ep.sendEvent(fe2);
       }
       
       assertThat(getEventsFromLastRequest(server), contains(
-          isIndexEvent(fe1, userJson),
+          isIndexEvent(fe1a, userJson),
           allOf(
-              isSummaryEvent(fe1.creationDate, fe2.creationDate),
+              isSummaryEvent(fe1a.creationDate, fe2.creationDate),
               hasSummaryFlag(flag1.getKey(), default1,
-                  contains(isSummaryEventCounter(flag1, 2, value, 1))),
+                  Matchers.containsInAnyOrder(
+                      isSummaryEventCounter(flag1, 1, value1, 2),
+                      isSummaryEventCounter(flag1, 2, value2, 1)
+                  )),
               hasSummaryFlag(flag2.getKey(), default2,
-                  contains(isSummaryEventCounter(flag2, 2, value, 1)))
+                  contains(isSummaryEventCounter(flag2, 2, value2, 1)))
           )
       ));
     }
