@@ -4,20 +4,21 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.client.EventSummarizer.EventSummary;
 
-import okhttp3.Headers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
@@ -26,14 +27,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import okhttp3.MediaType;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-
+import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
+import static com.launchdarkly.client.Util.shutdownHttpClient;
+
+import okhttp3.Headers;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 final class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
@@ -47,7 +52,7 @@ final class DefaultEventProcessor implements EventProcessor {
 
   DefaultEventProcessor(String sdkKey, LDConfig config) {
     inbox = new ArrayBlockingQueue<>(config.capacity);
-
+    
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setDaemon(true)
         .setNameFormat("LaunchDarkly-EventProcessor-%d")
@@ -194,9 +199,9 @@ final class DefaultEventProcessor implements EventProcessor {
   static final class EventDispatcher {
     private static final int MAX_FLUSH_THREADS = 5;
     private static final int MESSAGE_BATCH_SIZE = 50;
-    static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 
     private final LDConfig config;
+    private final OkHttpClient httpClient;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;
     private final Random random = new Random();
@@ -214,6 +219,10 @@ final class DefaultEventProcessor implements EventProcessor {
       this.config = config;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
+      OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
+      configureHttpClientBuilder(config, httpBuilder);
+      httpClient = httpBuilder.build();
+      
       // This queue only holds one element; it represents a flush task that has not yet been
       // picked up by any worker, so if we try to push another one and are refused, it means
       // all the workers are busy.
@@ -251,12 +260,12 @@ final class DefaultEventProcessor implements EventProcessor {
 
       flushWorkers = new ArrayList<>();
       EventResponseListener listener = new EventResponseListener() {
-          public void handleResponse(Response response) {
-            EventDispatcher.this.handleResponse(response);
+          public void handleResponse(Response response, Date responseDate) {
+            EventDispatcher.this.handleResponse(response, responseDate);
           }
         };
       for (int i = 0; i < MAX_FLUSH_THREADS; i++) {
-        SendEventsTask task = new SendEventsTask(sdkKey, config, listener, payloadQueue,
+        SendEventsTask task = new SendEventsTask(sdkKey, config, httpClient, listener, payloadQueue,
             busyFlushWorkersCount, threadFactory);
         flushWorkers.add(task);
       }
@@ -266,7 +275,7 @@ final class DefaultEventProcessor implements EventProcessor {
         long currentTime = System.currentTimeMillis();
         DiagnosticId diagnosticId = new DiagnosticId(sdkKey);
         config.diagnosticAccumulator.start(diagnosticId, currentTime);
-        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(sdkKey, config);
+        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(sdkKey, config, httpClient);
         diagnosticExecutor = Executors.newSingleThreadExecutor(threadFactory);
         DiagnosticEvent.Init diagnosticInitEvent = new DiagnosticEvent.Init(currentTime, diagnosticId, config);
         diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
@@ -339,8 +348,7 @@ final class DefaultEventProcessor implements EventProcessor {
       if (diagnosticExecutor != null) {
         diagnosticExecutor.shutdown();
       }
-      // Note that we don't close the HTTP client here, because it's shared by other components
-      // via the LDConfig.  The LDClient will dispose of it.
+      shutdownHttpClient(httpClient);
     }
 
     private void waitUntilAllFlushWorkersInactive() {
@@ -454,14 +462,10 @@ final class DefaultEventProcessor implements EventProcessor {
         }
       }
     }
-
-    private void handleResponse(Response response) {
-      String dateStr = response.header("Date");
-      if (dateStr != null) {
-        try {
-          lastKnownPastTime.set(HTTP_DATE_FORMAT.parse(dateStr).getTime());
-        } catch (ParseException e) {
-        }
+    
+    private void handleResponse(Response response, Date responseDate) {
+      if (responseDate != null) {
+        lastKnownPastTime.set(responseDate.getTime());
       }
       if (!isHttpErrorRecoverable(response.code())) {
         disabled.set(true);
@@ -473,6 +477,57 @@ final class DefaultEventProcessor implements EventProcessor {
     }
   }
 
+  private static void postJson(OkHttpClient httpClient, Headers headers, String json, String uriStr, String descriptor,
+                               EventResponseListener responseListener, SimpleDateFormat dateFormat) {
+    logger.debug("Posting {} to {} with payload: {}", descriptor, uriStr, json);
+
+    for (int attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        logger.warn("Will retry posting {} after 1 second", descriptor);
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+        }
+      }
+
+      Request request = new Request.Builder()
+          .url(uriStr)
+          .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
+          .headers(headers)
+          .build();
+
+      long startTime = System.currentTimeMillis();
+      try (Response response = httpClient.newCall(request).execute()) {
+        long endTime = System.currentTimeMillis();
+        logger.debug("{} delivery took {} ms, response status {}", descriptor, endTime - startTime, response.code());
+        if (!response.isSuccessful()) {
+          logger.warn("Unexpected response status when posting {}: {}", descriptor, response.code());
+          if (isHttpErrorRecoverable(response.code())) {
+            continue;
+          }
+        }
+        if (responseListener != null) {
+          Date respDate = null;
+          if (dateFormat != null) {
+            String dateStr = response.header("Date");
+            if (dateStr != null) {
+              try {
+                respDate = dateFormat.parse(dateStr);
+              } catch (ParseException e) {
+                logger.warn("Received invalid Date header from events service");
+              }
+            }
+          }
+          responseListener.handleResponse(response, respDate);
+        }
+        break;
+      } catch (IOException e) {
+        logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
+        continue;
+      }
+    }
+  }
+  
   private static final class EventBuffer {
     final List<Event> events = new ArrayList<>();
     final EventSummarizer summarizer = new EventSummarizer();
@@ -538,65 +593,27 @@ final class DefaultEventProcessor implements EventProcessor {
   }
 
   private static interface EventResponseListener {
-    void handleResponse(Response response);
-  }
-
-  private static void postJson(LDConfig config, Headers headers, String json, String uriStr, String descriptor,
-                               EventResponseListener responseListener) {
-    logger.debug("Posting {} to {} with payload: {}", descriptor, uriStr, json);
-
-    for (int attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) {
-        logger.warn("Will retry posting {} after 1 second", descriptor);
-        try {
-          Thread.sleep(1000);
-        } catch (InterruptedException e) {
-        }
-      }
-
-      Request request = new Request.Builder()
-          .url(uriStr)
-          .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
-          .headers(headers)
-          .build();
-
-      long startTime = System.currentTimeMillis();
-      try (Response response = config.httpClient.newCall(request).execute()) {
-        long endTime = System.currentTimeMillis();
-        logger.debug("{} delivery took {} ms, response status {}", descriptor, endTime - startTime, response.code());
-        if (!response.isSuccessful()) {
-          logger.warn("Unexpected response status when posting {}: {}", descriptor, response.code());
-          if (isHttpErrorRecoverable(response.code())) {
-            continue;
-          }
-        }
-        if (responseListener != null) {
-          responseListener.handleResponse(response);
-        }
-        break;
-      } catch (IOException e) {
-        logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
-        continue;
-      }
-    }
+    void handleResponse(Response response, Date responseDate);
   }
 
   private static final class SendEventsTask implements Runnable {
-    private final LDConfig config;
+    private final OkHttpClient httpClient;
     private final EventResponseListener responseListener;
     private final BlockingQueue<FlushPayload> payloadQueue;
     private final AtomicInteger activeFlushWorkersCount;
     private final AtomicBoolean stopping;
-    private final EventOutput.Formatter formatter;
+    private final EventOutputFormatter formatter;
     private final Thread thread;
     private final String uriStr;
     private final Headers headers;
 
-    SendEventsTask(String sdkKey, LDConfig config, EventResponseListener responseListener,
+    private final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz"); // need one instance per task because the date parser isn't thread-safe
+
+    SendEventsTask(String sdkKey, LDConfig config, OkHttpClient httpClient, EventResponseListener responseListener,
                    BlockingQueue<FlushPayload> payloadQueue, AtomicInteger activeFlushWorkersCount,
                    ThreadFactory threadFactory) {
-      this.config = config;
-      this.formatter = new EventOutput.Formatter(config.inlineUsersInEvents);
+      this.httpClient = httpClient;
+      this.formatter = new EventOutputFormatter(config);
       this.responseListener = responseListener;
       this.payloadQueue = payloadQueue;
       this.activeFlushWorkersCount = activeFlushWorkersCount;
@@ -620,9 +637,10 @@ final class DefaultEventProcessor implements EventProcessor {
           continue;
         }
         try {
-          List<EventOutput> eventsOut = formatter.makeOutputEvents(payload.events, payload.summary);
-          if (!eventsOut.isEmpty()) {
-            postEvents(eventsOut);
+          StringWriter stringWriter = new StringWriter();
+          int outputEventCount = formatter.writeOutputEvents(payload.events, payload.summary, stringWriter);
+          if (outputEventCount > 0) {
+            postEvents(stringWriter.toString(), outputEventCount);
           }
         } catch (Exception e) {
           logger.error("Unexpected error in event processor: {}", e.toString());
@@ -640,19 +658,20 @@ final class DefaultEventProcessor implements EventProcessor {
       thread.interrupt();
     }
 
-    private void postEvents(List<EventOutput> eventsOut) {
-      String json = config.gson.toJson(eventsOut);
-      postJson(config, headers, json, uriStr, String.format("%d event(s)", eventsOut.size()), responseListener);
+    private void postEvents(String json, int outputEventCount) {
+      postJson(httpClient, headers, json, uriStr, String.format("%d event(s)", outputEventCount), responseListener, httpDateFormat);
     }
   }
 
   private static final class SendDiagnosticTaskFactory {
     private final LDConfig config;
+    private final OkHttpClient httpClient;
     private final String uriStr;
     private final Headers headers;
 
-    SendDiagnosticTaskFactory(String sdkKey, LDConfig config) {
+    SendDiagnosticTaskFactory(String sdkKey, LDConfig config, OkHttpClient httpClient) {
       this.config = config;
+      this.httpClient = httpClient;
       this.uriStr = config.eventsURI.toString() + "/diagnostic";
       this.headers = getHeadersBuilderFor(sdkKey, config)
           .add("Content-Type", "application/json")
@@ -664,7 +683,7 @@ final class DefaultEventProcessor implements EventProcessor {
         @Override
         public void run() {
           String json = config.gson.toJson(diagnosticEvent);
-          postJson(config, headers, json, uriStr, "diagnostic event", null);
+          postJson(httpClient, headers, json, uriStr, "diagnostic event", null, null);
         }
       };
     }

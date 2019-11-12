@@ -1,9 +1,16 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonPrimitive;
-import okhttp3.Headers;
+import com.launchdarkly.client.value.LDValue;
+
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.ConnectionPool;
+import okhttp3.Headers;
+import okhttp3.OkHttpClient;
 
 class Util {
   /**
@@ -11,13 +18,12 @@ class Util {
    * @param maybeDate wraps either a number or a string that may contain a valid timestamp.
    * @return null if input is not a valid format.
    */
-  static DateTime jsonPrimitiveToDateTime(JsonPrimitive maybeDate) {
+  static DateTime jsonPrimitiveToDateTime(LDValue maybeDate) {
     if (maybeDate.isNumber()) {
-      long millis = maybeDate.getAsLong();
-      return new DateTime(millis);
+      return new DateTime((long)maybeDate.doubleValue());
     } else if (maybeDate.isString()) {
       try {
-        return new DateTime(maybeDate.getAsString(), DateTimeZone.UTC);
+        return new DateTime(maybeDate.stringValue(), DateTimeZone.UTC);
       } catch (Throwable t) {
         return null;
       }
@@ -40,6 +46,42 @@ class Util {
     }
 
     return builder;
+  }
+  
+  static void configureHttpClientBuilder(LDConfig config, OkHttpClient.Builder builder) {
+    builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
+      .connectTimeout(config.connectTimeout, config.connectTimeoutUnit)
+      .readTimeout(config.socketTimeout, config.socketTimeoutUnit)
+      .writeTimeout(config.socketTimeout, config.socketTimeoutUnit)
+      .retryOnConnectionFailure(false); // we will implement our own retry logic
+
+    if (config.sslSocketFactory != null) {
+      builder.sslSocketFactory(config.sslSocketFactory, config.trustManager);
+    }
+
+    if (config.proxy != null) {
+      builder.proxy(config.proxy);
+      if (config.proxyAuthenticator != null) {
+        builder.proxyAuthenticator(config.proxyAuthenticator);
+      }
+    }
+  }
+  
+  static void shutdownHttpClient(OkHttpClient client) {
+    if (client.dispatcher() != null) {
+      client.dispatcher().cancelAll();
+      if (client.dispatcher().executorService() != null) {
+        client.dispatcher().executorService().shutdown();
+      }
+    }
+    if (client.connectionPool() != null) {
+      client.connectionPool().evictAll();
+    }
+    if (client.cache() != null) {
+      try {
+        client.cache().close();
+      } catch (Exception e) {}
+    }
   }
   
   /**

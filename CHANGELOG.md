@@ -3,6 +3,50 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.9.0] - 2019-10-18
+This release adds the `LDValue` class (in `com.launchdarkly.client.value`), which is a new abstraction for all of the data types supported by the LaunchDarkly platform. Since those are the same as the JSON data types, the SDK previously used the Gson classes `JsonElement`, `JsonObject`, etc. to represent them. This caused two problems: the public APIs are dependent on Gson, and the Gson object and array types are mutable so it was possible to accidentally modify values that are being used elsewhere in the SDK.
+
+While the SDK still uses Gson internally, all references to Gson types in the API are now deprecated in favor of equivalent APIs that use `LDValue`. Developers are encouraged to migrate toward these as soon as possible; the Gson classes will be removed from the API in a future major version. If you are only using primitive types (boolean, string, etc.) for your feature flags and user attributes, then no changes are required.
+
+There are no other changes in this release.
+
+### Added:
+- `LDValue` (see above).
+- The new `jsonValueVariation` and `jsonValueVariationDetail` methods in `LDClient`/`LDClientInterface` are equivalent to `JsonVariation` and `JsonVariationDetail`, but use `LDValue`.
+
+### Deprecated:
+- In `LDClient`/`LDClientInterface`: `jsonVariation`/`jsonVariationDetail`. Use `jsonValueVariation`/`jsonValueVariationDetail`.
+- In `LDClient`/`LDClientInterface`: `track(String, LDUser, JsonElement)` and `track(String, LDUser, JsonElement, double)`. Use `trackData(String, LDUser, LDValue)` and `trackMetric(String, LDUser, LDValue, double)`. The names are different to avoid compile-time ambiguity since both `JsonElement` and `LDValue` are nullable types.
+- In `LDUserBuilder`: `custom(String, JsonElement)` and `privateCustom(String, JsonElement)`. Use the `LDValue` overloads.
+- In `LDValue`: `fromJsonElement`, `unsafeFromJsonElement`, `asJsonElement`, `asUnsafeJsonElement`. These are provided for compatibility with code that still uses `JsonElement`, but will be removed in a future major version.
+
+
+## [4.8.1] - 2019-10-17
+### Fixed:
+- The NewRelic integration was broken when using the default uberjar distribution, because the SDK was calling `Class.forName()` for a class name that was accidentally transformed by the Shadow plugin for Gradle. ([#171](https://github.com/launchdarkly/java-server-sdk/issues/171))
+- Streaming connections were not using the proxy settings specified by `LDConfig.Builder.proxy()` and `LDConfig.Builder.proxyAuthenticator()`. ([#172](https://github.com/launchdarkly/java-server-sdk/issues/172))
+- The SDK was creating an unused `OkHttpClient` instance as part of the static `LDConfig` instance used by the `LDClient(String)` constructor. This has been removed.
+- Passing a null `sdkKey` or `config` to the `LDClient` constructors would always throw a `NullPointerException`, but it did not have a descriptive message. These exceptions now explain which parameter was null.
+
+## [4.8.0] - 2019-09-30
+### Added:
+- Added support for upcoming LaunchDarkly experimentation features. See `LDClient.track(String, LDUser, JsonElement, double)`.
+
+### Changed:
+- Updated documentation comment for `intVariation` to clarify the existing rounding behavior for floating-point values: they are rounded toward zero.
+
+## [4.7.1] - 2019-08-19
+### Fixed:
+- Fixed a race condition that could cause a `NumberFormatException` to be logged when delivering event data to LaunchDarkly (although the exception did not prevent the events from being delivered).
+
+## [4.7.0] - 2019-08-02
+### Added:
+- In `RedisFeatureStoreBuilder`, the new methods `database`, `password`, and `tls` allow you to specify the database number, an optional password, and whether to make a secure connection to Redis. This is an alternative to specifying them as part of the Redis URI, e.g. `rediss://:PASSWORD@host:port/NUMBER`, which is also supported (previously, the database and password were supported in the URI, but the secure `rediss:` scheme was not).
+- `LDConfig.Builder.sslSocketFactory` allows you to specify a custom socket factory and truststore for all HTTPS connections made by the SDK. This is for unusual cases where your Java environment does not have the proper root CA certificates to validate LaunchDarkly's certificate, or you are connecting through a secure proxy that has a self-signed certificate, and you do not want to modify Java's global truststore.
+
+### Deprecated:
+- `LDConfig.Builder.samplingInterval` is now deprecated. The intended use case for the `samplingInterval` feature was to reduce analytics event network usage in high-traffic applications. This feature is being deprecated in favor of summary counters, which are meant to track all events.
+
 ## [4.6.6] - 2019-07-10
 ### Fixed:
 - Under conditions where analytics events are being generated at an extremely high rate (for instance, if an application is evaluating a flag repeatedly in a tight loop on many threads), a thread could be blocked indefinitely within the `Variation` methods while waiting for the internal event processing logic to catch up with the backlog. The logic has been changed to drop events if necessary so threads will not be blocked (similar to how the SDK already drops events if the size of the event buffer is exceeded). If that happens, this warning message will be logged once: "Events are being produced faster than they can be processed; some events will be dropped". Under normal conditions this should never happen; this change is meant to avoid a concurrency bottleneck in applications that are already so busy that thread starvation is likely.

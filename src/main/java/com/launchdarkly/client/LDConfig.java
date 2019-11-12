@@ -1,20 +1,11 @@
 package com.launchdarkly.client;
 
-import com.google.common.io.Files;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import okhttp3.Authenticator;
-import okhttp3.Cache;
-import okhttp3.ConnectionPool;
-import okhttp3.Credentials;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.Route;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -23,6 +14,15 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
+
+import okhttp3.Authenticator;
+import okhttp3.Credentials;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.Route;
 
 /**
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
@@ -44,7 +44,6 @@ public final class LDConfig {
   private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
   private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
   private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
-  private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   private static final int DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS = 900_000; // 15 minutes
   private static final int MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS = 60_000; // 1 minute
 
@@ -54,12 +53,9 @@ public final class LDConfig {
   final URI eventsURI;
   final URI streamURI;
   final int capacity;
-  final int connectTimeoutMillis;
-  final int socketTimeoutMillis;
   final int flushInterval;
   final Proxy proxy;
   final Authenticator proxyAuthenticator;
-  final OkHttpClient httpClient;
   final boolean stream;
   final FeatureStore deprecatedFeatureStore;
   final FeatureStoreFactory featureStoreFactory;
@@ -81,15 +77,19 @@ public final class LDConfig {
   final boolean diagnosticOptOut;
   final String wrapperName;
   final String wrapperVersion;
-
+  final SSLSocketFactory sslSocketFactory;
+  final X509TrustManager trustManager;
+  final int connectTimeout;
+  final TimeUnit connectTimeoutUnit;
+  final int socketTimeout;
+  final TimeUnit socketTimeoutUnit;
+  
   DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator();
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
     this.capacity = builder.capacity;
-    this.connectTimeoutMillis = builder.connectTimeoutMillis;
-    this.socketTimeoutMillis = builder.socketTimeoutMillis;
     this.flushInterval = builder.flushIntervalSeconds;
     this.proxy = builder.proxy();
     this.proxyAuthenticator = builder.proxyAuthenticator();
@@ -115,6 +115,13 @@ public final class LDConfig {
     this.userKeysCapacity = builder.userKeysCapacity;
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
     this.inlineUsersInEvents = builder.inlineUsersInEvents;
+    this.sslSocketFactory = builder.sslSocketFactory;
+    this.trustManager = builder.trustManager;
+    this.connectTimeout = builder.connectTimeout;
+    this.connectTimeoutUnit = builder.connectTimeoutUnit;
+    this.socketTimeout = builder.socketTimeout;
+    this.socketTimeoutUnit = builder.socketTimeoutUnit;
+
     if (builder.diagnosticRecordingIntervalMillis < MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS) {
       this.diagnosticRecordingIntervalMillis = MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS;
     } else {
@@ -124,34 +131,13 @@ public final class LDConfig {
     this.wrapperName = builder.wrapperName;
     this.wrapperVersion = builder.wrapperVersion;
     
-    OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
-        .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-        .connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS)
-        .readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
-        .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
-        .retryOnConnectionFailure(false); // we will implement our own retry logic
-
-    // When streaming is enabled, http GETs made by FeatureRequester will
-    // always guarantee a new flag state. So, disable http response caching
-    // when streaming.
-    if(!this.stream) {
-      File cacheDir = Files.createTempDir();
-      Cache cache = new Cache(cacheDir, MAX_HTTP_CACHE_SIZE_BYTES);
-      httpClientBuilder.cache(cache);
-    }
-
     if (proxy != null) {
-      httpClientBuilder.proxy(proxy);
       if (proxyAuthenticator != null) {
-        httpClientBuilder.proxyAuthenticator(proxyAuthenticator);
         logger.info("Using proxy: " + proxy + " with authentication.");
       } else {
         logger.info("Using proxy: " + proxy + " without authentication.");
       }
     }
-
-    httpClient = httpClientBuilder
-        .build();
   }
 
   LDConfig(LDConfig config) {
@@ -159,12 +145,9 @@ public final class LDConfig {
     this.eventsURI = config.eventsURI;
     this.streamURI = config.streamURI;
     this.capacity = config.capacity;
-    this.connectTimeoutMillis = config.connectTimeoutMillis;
-    this.socketTimeoutMillis = config.socketTimeoutMillis;
     this.flushInterval = config.flushInterval;
     this.proxy = config.proxy;
     this.proxyAuthenticator = config.proxyAuthenticator;
-    this.httpClient = config.httpClient;
     this.stream = config.stream;
     this.deprecatedFeatureStore = config.deprecatedFeatureStore;
     this.featureStoreFactory = config.featureStoreFactory;
@@ -182,16 +165,22 @@ public final class LDConfig {
     this.userKeysCapacity = config.userKeysCapacity;
     this.userKeysFlushInterval = config.userKeysFlushInterval;
     this.inlineUsersInEvents = config.inlineUsersInEvents;
+    this.sslSocketFactory = config.sslSocketFactory;
+    this.trustManager = config.trustManager;
+    this.connectTimeout = config.connectTimeout;
+    this.connectTimeoutUnit = config.connectTimeoutUnit;
+    this.socketTimeout = config.socketTimeout;
+    this.socketTimeoutUnit = config.socketTimeoutUnit;
     this.diagnosticRecordingIntervalMillis = config.diagnosticRecordingIntervalMillis;
     this.diagnosticOptOut = config.diagnosticOptOut;
     this.wrapperName = config.wrapperName;
     this.wrapperVersion = config.wrapperVersion;
-    this.diagnosticAccumulator = new DiagnosticAccumulator();
   }
 
   /**
-   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link com.launchdarkly.client.LDConfig} objects. Builder
-   * calls can be chained, enabling the following pattern:
+   * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct
+   * {@link com.launchdarkly.client.LDConfig} objects. Builder calls can be chained, enabling the
+   * following pattern:
    * <pre>
    * LDConfig config = new LDConfig.Builder()
    *      .connectTimeoutMillis(3)
@@ -203,8 +192,10 @@ public final class LDConfig {
     private URI baseURI = DEFAULT_BASE_URI;
     private URI eventsURI = DEFAULT_EVENTS_URI;
     private URI streamURI = DEFAULT_STREAM_URI;
-    private int connectTimeoutMillis = DEFAULT_CONNECT_TIMEOUT_MILLIS;
-    private int socketTimeoutMillis = DEFAULT_SOCKET_TIMEOUT_MILLIS;
+    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
+    private TimeUnit connectTimeoutUnit = TimeUnit.MILLISECONDS;
+    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
+    private TimeUnit socketTimeoutUnit = TimeUnit.MILLISECONDS;
     private int capacity = DEFAULT_CAPACITY;
     private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
     private String proxyHost = "localhost";
@@ -228,11 +219,13 @@ public final class LDConfig {
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
     private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
     private boolean inlineUsersInEvents = false;
+    private SSLSocketFactory sslSocketFactory = null;
+    private X509TrustManager trustManager = null;
     private int diagnosticRecordingIntervalMillis = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS;
     private boolean diagnosticOptOut = false;
     private String wrapperName = null;
     private String wrapperVersion = null;
-    
+
     /**
      * Creates a builder with all configuration parameters set to the default
      */
@@ -278,7 +271,7 @@ public final class LDConfig {
      * you may use {@link RedisFeatureStore} or a custom implementation.
      * @param store the feature store implementation
      * @return the builder
-     * @deprecated Please use {@link #featureStoreFactory}.
+     * @deprecated Please use {@link #featureStoreFactory(FeatureStoreFactory)}.
      */
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
@@ -346,7 +339,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder connectTimeout(int connectTimeout) {
-      this.connectTimeoutMillis = connectTimeout * 1000;
+      this.connectTimeout = connectTimeout;
+      this.connectTimeoutUnit = TimeUnit.SECONDS;
       return this;
     }
 
@@ -359,7 +353,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder socketTimeout(int socketTimeout) {
-      this.socketTimeoutMillis = socketTimeout * 1000;
+      this.socketTimeout = socketTimeout;
+      this.socketTimeoutUnit = TimeUnit.SECONDS;
       return this;
     }
 
@@ -372,7 +367,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder connectTimeoutMillis(int connectTimeoutMillis) {
-      this.connectTimeoutMillis = connectTimeoutMillis;
+      this.connectTimeout = connectTimeoutMillis;
+      this.connectTimeoutUnit = TimeUnit.MILLISECONDS;
       return this;
     }
 
@@ -385,7 +381,8 @@ public final class LDConfig {
      * @return the builder
      */
     public Builder socketTimeoutMillis(int socketTimeoutMillis) {
-      this.socketTimeoutMillis = socketTimeoutMillis;
+      this.socketTimeout = socketTimeoutMillis;
+      this.socketTimeoutUnit = TimeUnit.MILLISECONDS;
       return this;
     }
 
@@ -463,12 +460,27 @@ public final class LDConfig {
       this.proxyPassword = password;
       return this;
     }
-    
+
+    /**
+     * Sets the {@link SSLSocketFactory} used to secure HTTPS connections to LaunchDarkly.
+     *
+     * @param sslSocketFactory the SSL socket factory
+     * @param trustManager the trust manager
+     * @return the builder
+     * 
+     * @since 4.7.0
+     */
+    public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
+      this.sslSocketFactory = sslSocketFactory;
+      this.trustManager = trustManager;
+      return this;
+    }
+
     /**
      * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
      * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
      *
-     * @param useLdd true to use the relay in daemon mode; false to use streaming or polling 
+     * @param useLdd true to use the relay in daemon mode; false to use streaming or polling
      * @return the builder
      */
     public Builder useLdd(boolean useLdd) {
@@ -501,7 +513,7 @@ public final class LDConfig {
 
     /**
      * Set whether to send events back to LaunchDarkly. By default, the client will send
-     * events. This differs from {@link offline} in that it only affects sending
+     * events. This differs from {@link #offline(boolean)} in that it only affects sending
      * analytics events, not streaming or polling for events from the server.
      *
      * @param sendEvents when set to false, no events will be sent to LaunchDarkly
@@ -543,9 +555,11 @@ public final class LDConfig {
      * <code>samplingInterval</code> chance events will be will be sent.
      * <p>Example: if you want 5% sampling rate, set <code>samplingInterval</code> to 20.
      *
-     * @param samplingInterval the sampling interval.
+     * @param samplingInterval the sampling interval
      * @return the builder
+     * @deprecated This feature will be removed in a future version of the SDK.
      */
+    @Deprecated
     public Builder samplingInterval(int samplingInterval) {
       this.samplingInterval = samplingInterval;
       return this;
@@ -616,7 +630,7 @@ public final class LDConfig {
      * Sets the interval at which periodic diagnostic data is sent. The default is every 15 minutes (900,000
      * milliseconds) and the minimum value is 6000.
      *
-     * @see this.diagnosticOptOut for more information on the diagnostics data being sent.
+     * @see #diagnosticOptOut(boolean)
      *
      * @param diagnosticRecordingIntervalMillis the diagnostics interval in milliseconds
      * @return the builder
@@ -635,7 +649,7 @@ public final class LDConfig {
      * the SDK is being run on; as well as payloads sent periodically with information on irregular occurrences such
      * as dropped events.
      *
-     * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data.
+     * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data
      * @return the builder
      */
     public Builder diagnosticOptOut(boolean diagnosticOptOut) {
@@ -648,7 +662,7 @@ public final class LDConfig {
      * User-Agent headers during requests to the LaunchDarkly servers to allow recording metrics on the usage of
      * these wrapper libraries.
      *
-     * @param wrapperName An identifying name for the wrapper library
+     * @param wrapperName an identifying name for the wrapper library
      * @return the builder
      */
     public Builder wrapperName(String wrapperName) {
@@ -657,7 +671,7 @@ public final class LDConfig {
     }
 
     /**
-     * For use by wrapper libraries to report the version of the library in use. If {@link this.wrappeName} is not
+     * For use by wrapper libraries to report the version of the library in use. If {@link #wrapperName(String)} is not
      * set, this field will be ignored. Otherwise the version string will be included in the User-Agent headers along
      * with the wrapperName during requests to the LaunchDarkly servers.
      *

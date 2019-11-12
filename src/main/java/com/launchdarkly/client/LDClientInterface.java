@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -14,20 +15,73 @@ public interface LDClientInterface extends Closeable {
 
   /**
    * Tracks that a user performed an event.
-   *
-   * @param eventName the name of the event
-   * @param user      the user that performed the event
-   * @param data      a JSON object containing additional data associated with the event
-   */
-  void track(String eventName, LDUser user, JsonElement data);
-
-  /**
-   * Tracks that a user performed an event.
+   * <p>
+   * To add custom data to the event, use {@link #trackData(String, LDUser, LDValue)}.
    *
    * @param eventName the name of the event
    * @param user      the user that performed the event
    */
   void track(String eventName, LDUser user);
+
+  /**
+   * Tracks that a user performed an event, and provides additional custom data.
+   *
+   * @param eventName the name of the event
+   * @param user      the user that performed the event
+   * @param data      a JSON object containing additional data associated with the event; may be null
+   * @deprecated Use {@link #trackData(String, LDUser, LDValue)}.
+   */
+  @Deprecated
+  void track(String eventName, LDUser user, JsonElement data);
+
+  /**
+   * Tracks that a user performed an event, and provides additional custom data.
+   *
+   * @param eventName the name of the event
+   * @param user      the user that performed the event
+   * @param data      an {@link LDValue} containing additional data associated with the event
+   * @since 4.8.0
+   */
+  void trackData(String eventName, LDUser user, LDValue data);
+
+  /**
+   * Tracks that a user performed an event, and provides an additional numeric value for custom metrics.
+   * <p>
+   * As of this version’s release date, the LaunchDarkly service does not support the {@code metricValue}
+   * parameter. As a result, calling this overload of {@code track} will not yet produce any different
+   * behavior from calling {@link #track(String, LDUser, JsonElement)} without a {@code metricValue}.
+   * Refer to the <a href="https://docs.launchdarkly.com/docs/java-sdk-reference#section-track">SDK reference guide</a> for the latest status.
+   * 
+   * @param eventName the name of the event
+   * @param user      the user that performed the event
+   * @param data      a JSON object containing additional data associated with the event; may be null
+   * @param metricValue a numeric value used by the LaunchDarkly experimentation feature in numeric custom
+   * metrics. Can be omitted if this event is used by only non-numeric metrics. This field will also be
+   * returned as part of the custom event for Data Export.
+   * @since 4.8.0
+   * @deprecated Use {@link #trackMetric(String, LDUser, LDValue, double)}.
+   */
+  @Deprecated
+  void track(String eventName, LDUser user, JsonElement data, double metricValue);
+
+  /**
+   * Tracks that a user performed an event, and provides an additional numeric value for custom metrics.
+   * <p>
+   * As of this version’s release date, the LaunchDarkly service does not support the {@code metricValue}
+   * parameter. As a result, calling this overload of {@code track} will not yet produce any different
+   * behavior from calling {@link #trackData(String, LDUser, LDValue)} without a {@code metricValue}.
+   * Refer to the <a href="https://docs.launchdarkly.com/docs/java-sdk-reference#section-track">SDK reference guide</a> for the latest status.
+   * 
+   * @param eventName the name of the event
+   * @param user      the user that performed the event
+   * @param data      an {@link LDValue} containing additional data associated with the event; if not applicable,
+   * you may pass either {@code null} or {@link LDValue#ofNull()}
+   * @param metricValue a numeric value used by the LaunchDarkly experimentation feature in numeric custom
+   * metrics. Can be omitted if this event is used by only non-numeric metrics. This field will also be
+   * returned as part of the custom event for Data Export.
+   * @since 4.9.0
+   */
+  void trackMetric(String eventName, LDUser user, LDValue data, double metricValue);
 
   /**
    * Registers the user.
@@ -80,7 +134,9 @@ public interface LDClientInterface extends Closeable {
   
   /**
    * Calculates the integer value of a feature flag for a given user.
-   *
+   * <p>
+   * If the flag variation has a numeric value that is not an integer, it is rounded toward zero (truncated).
+   * 
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
@@ -115,8 +171,24 @@ public interface LDClientInterface extends Closeable {
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
    * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   * @deprecated Use {@link #jsonValueVariation(String, LDUser, LDValue)}. Gson types may be removed
+   * from the public API in the future.
    */
+  @Deprecated
   JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue);
+
+  /**
+   * Calculates the {@link LDValue} value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel;
+   * will never be a null reference, but may be {@link LDValue#ofNull()}
+   * 
+   * @since 4.8.0
+   */
+  LDValue jsonValueVariation(String featureKey, LDUser user, LDValue defaultValue);
 
   /**
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -134,6 +206,9 @@ public interface LDClientInterface extends Closeable {
    * Calculates the value of a feature flag for a given user, and returns an object that describes the
    * way the value was determined. The {@code reason} property in the result will also be included in
    * analytics events, if you are capturing detailed event data for this flag.
+   * <p>
+   * If the flag variation has a numeric value that is not an integer, it is rounded toward zero (truncated).
+   * 
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
@@ -175,9 +250,24 @@ public interface LDClientInterface extends Closeable {
    * @param defaultValue the default value of the flag
    * @return an {@link EvaluationDetail} object
    * @since 2.3.0
+   * @deprecated Use {@link #jsonValueVariationDetail(String, LDUser, LDValue)}. Gson types may be removed
+   * from the public API in the future.
    */
+  @Deprecated
   EvaluationDetail<JsonElement> jsonVariationDetail(String featureKey, LDUser user, JsonElement defaultValue);
-  
+
+  /**
+   * Calculates the {@link LDValue} value of a feature flag for a given user.
+   *
+   * @param featureKey   the unique key for the feature flag
+   * @param user         the end user requesting the flag
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * 
+   * @since 4.8.0
+   */
+  EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue);
+
   /**
    * Returns true if the specified feature flag currently exists.
    * @param featureKey the unique key for the feature flag

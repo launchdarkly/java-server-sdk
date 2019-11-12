@@ -13,22 +13,32 @@ import org.junit.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import javax.net.ssl.SSLHandshakeException;
+
+import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
+import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import okhttp3.Headers;
+import okhttp3.HttpUrl;
+import okhttp3.mockwebserver.MockWebServer;
 
+@SuppressWarnings("javadoc")
 public class StreamProcessorTest extends EasyMockSupport {
 
   private static final String SDK_KEY = "sdk_key";
@@ -39,7 +49,10 @@ public class StreamProcessorTest extends EasyMockSupport {
   private static final String SEGMENT1_KEY = "segment1";
   private static final int SEGMENT1_VERSION = 22;
   private static final Segment SEGMENT = new Segment.Builder(SEGMENT1_KEY).version(SEGMENT1_VERSION).build();
-  
+  private static final String STREAM_RESPONSE_WITH_EMPTY_DATA =
+      "event: put\n" +
+      "data: {\"data\":{\"flags\":{},\"segments\":{}}}\n\n";
+
   private InMemoryFeatureStore featureStore;
   private LDConfig.Builder configBuilder;
   private FeatureRequestor mockRequestor;
@@ -322,6 +335,88 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void http500ErrorIsRecoverable() throws Exception {
     testRecoverableHttpError(500);
   }
+
+  // There are already end-to-end tests against an HTTP server in okhttp-eventsource, so we won't retest the
+  // basic stream mechanism in detail. However, we do want to make sure that the LDConfig options are correctly
+  // applied to the EventSource for things like TLS configuration.
+  
+  @Test
+  public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
+    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
+    try (TestHttpUtil.ServerWithCert server = new TestHttpUtil.ServerWithCert()) {
+      server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
+
+      LDConfig config = new LDConfig.Builder()
+          .streamURI(server.uri())
+          .build();
+      
+      try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
+          mockRequestor, featureStore, null)) {
+        sp.connectionErrorHandler = errorSink;
+        Future<Void> ready = sp.start();
+        ready.get();
+        
+        Throwable error = errorSink.errors.peek();
+        assertNotNull(error);
+        assertEquals(SSLHandshakeException.class, error.getClass());
+      }
+    }
+  }
+  
+  @Test
+  public void httpClientCanUseCustomTlsConfig() throws Exception {
+    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
+    try (TestHttpUtil.ServerWithCert server = new TestHttpUtil.ServerWithCert()) {
+      server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
+      
+      LDConfig config = new LDConfig.Builder()
+          .streamURI(server.uri())
+          .sslSocketFactory(server.sslClient.socketFactory, server.sslClient.trustManager) // allows us to trust the self-signed cert
+          .build();
+      
+      try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
+          mockRequestor, featureStore, null)) {
+        sp.connectionErrorHandler = errorSink;
+        Future<Void> ready = sp.start();
+        ready.get();
+        
+        assertNull(errorSink.errors.peek());
+      }
+    }
+  }
+
+  @Test
+  public void httpClientCanUseProxyConfig() throws Exception {
+    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
+    URI fakeStreamUri = URI.create("http://not-a-real-host");
+    try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
+      HttpUrl serverUrl = server.url("/");
+      LDConfig config = new LDConfig.Builder()
+          .streamURI(fakeStreamUri)
+          .proxyHost(serverUrl.host())
+          .proxyPort(serverUrl.port())
+          .build();
+      
+      try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
+          mockRequestor, featureStore, null)) {
+        sp.connectionErrorHandler = errorSink;
+        Future<Void> ready = sp.start();
+        ready.get();
+        
+        assertNull(errorSink.errors.peek());
+        assertEquals(1, server.getRequestCount());
+      }
+    }
+  }
+  
+  static class ConnectionErrorSink implements ConnectionErrorHandler {
+    final BlockingQueue<Throwable> errors = new LinkedBlockingQueue<>();
+    
+    public Action onConnectionError(Throwable t) {
+      errors.add(t);
+      return Action.SHUTDOWN;
+    }
+  }
   
   private void testUnrecoverableHttpError(int status) throws Exception {
     UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
@@ -392,7 +487,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private class StubEventSourceCreator implements StreamProcessor.EventSourceCreator {
-    public EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
+    public EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
         Headers headers) {  
       StreamProcessorTest.this.eventHandler = handler;
       StreamProcessorTest.this.actualStreamUri = streamUri;

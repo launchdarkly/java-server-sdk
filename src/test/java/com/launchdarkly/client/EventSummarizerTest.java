@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.value.LDValue;
+
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -40,7 +42,7 @@ public class EventSummarizerTest {
   public void summarizeEventDoesNothingForCustomEvent() {
     EventSummarizer es = new EventSummarizer();
     EventSummarizer.EventSummary snapshot = es.snapshot();
-    es.summarizeEvent(eventFactory.newCustomEvent("whatever", user, null));
+    es.summarizeEvent(eventFactory.newCustomEvent("whatever", user, null, null));
     
     assertEquals(snapshot, es.snapshot());
   }
@@ -71,14 +73,14 @@ public class EventSummarizerTest {
     FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(22).build();
     String unknownFlagKey = "badkey";
     Event event1 = eventFactory.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, js("value1")), js("default1"));
+        simpleEvaluation(1, LDValue.of("value1")), LDValue.of("default1"));
     Event event2 = eventFactory.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(2, js("value2")), js("default1"));
+        simpleEvaluation(2, LDValue.of("value2")), LDValue.of("default1"));
     Event event3 = eventFactory.newFeatureRequestEvent(flag2, user,
-        simpleEvaluation(1, js("value99")), js("default2"));
+        simpleEvaluation(1, LDValue.of("value99")), LDValue.of("default2"));
     Event event4 = eventFactory.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, js("value1")), js("default1"));
-    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, js("default3"), EvaluationReason.ErrorKind.FLAG_NOT_FOUND);
+        simpleEvaluation(1, LDValue.of("value1")), LDValue.of("default1"));
+    Event event5 = eventFactory.newUnknownFeatureRequestEvent(unknownFlagKey, user, LDValue.of("default3"), EvaluationReason.ErrorKind.FLAG_NOT_FOUND);
     es.summarizeEvent(event1);
     es.summarizeEvent(event2);
     es.summarizeEvent(event3);
@@ -88,13 +90,13 @@ public class EventSummarizerTest {
     
     Map<EventSummarizer.CounterKey, EventSummarizer.CounterValue> expected = new HashMap<>();
     expected.put(new EventSummarizer.CounterKey(flag1.getKey(), 1, flag1.getVersion()),
-        new EventSummarizer.CounterValue(2, js("value1"), js("default1")));
+        new EventSummarizer.CounterValue(2, LDValue.of("value1"), LDValue.of("default1")));
     expected.put(new EventSummarizer.CounterKey(flag1.getKey(), 2, flag1.getVersion()),
-        new EventSummarizer.CounterValue(1, js("value2"), js("default1")));
+        new EventSummarizer.CounterValue(1, LDValue.of("value2"), LDValue.of("default1")));
     expected.put(new EventSummarizer.CounterKey(flag2.getKey(), 1, flag2.getVersion()),
-        new EventSummarizer.CounterValue(1, js("value99"), js("default2")));
+        new EventSummarizer.CounterValue(1, LDValue.of("value99"), LDValue.of("default2")));
     expected.put(new EventSummarizer.CounterKey(unknownFlagKey, null, null),
-        new EventSummarizer.CounterValue(1, js("default3"), js("default3")));
+        new EventSummarizer.CounterValue(1, LDValue.of("default3"), LDValue.of("default3")));
     assertThat(data.counters, equalTo(expected));
   }
 }

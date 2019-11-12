@@ -3,7 +3,8 @@ package com.launchdarkly.client;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
@@ -15,10 +16,6 @@ import static com.launchdarkly.client.TestUtil.failedUpdateProcessor;
 import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.TestUtil.featureStoreThatThrowsException;
 import static com.launchdarkly.client.TestUtil.flagWithValue;
-import static com.launchdarkly.client.TestUtil.jbool;
-import static com.launchdarkly.client.TestUtil.jdouble;
-import static com.launchdarkly.client.TestUtil.jint;
-import static com.launchdarkly.client.TestUtil.js;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificUpdateProcessor;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -28,6 +25,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+@SuppressWarnings("javadoc")
 public class LDClientEvaluationTest {
   private static final LDUser user = new LDUser("userkey");
   private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
@@ -44,7 +42,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void boolVariationReturnsFlagValue() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
 
     assertTrue(client.boolVariation("key", user, false));
   }
@@ -56,23 +54,36 @@ public class LDClientEvaluationTest {
   
   @Test
   public void boolVariationReturnsDefaultValueForWrongType() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", js("wrong")));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("wrong")));
 
     assertFalse(client.boolVariation("key", user, false));
   }
   
   @Test
   public void intVariationReturnsFlagValue() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jint(2)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(2)));
 
     assertEquals(new Integer(2), client.intVariation("key", user, 1));
   }
 
   @Test
   public void intVariationReturnsFlagValueEvenIfEncodedAsDouble() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jdouble(2.0)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(2.0)));
 
     assertEquals(new Integer(2), client.intVariation("key", user, 1));
+  }
+
+  @Test
+  public void intVariationFromDoubleRoundsTowardZero() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("flag1", LDValue.of(2.25)));
+    featureStore.upsert(FEATURES, flagWithValue("flag2", LDValue.of(2.75)));
+    featureStore.upsert(FEATURES, flagWithValue("flag3", LDValue.of(-2.25)));
+    featureStore.upsert(FEATURES, flagWithValue("flag4", LDValue.of(-2.75)));
+
+    assertEquals(new Integer(2), client.intVariation("flag1", user, 1));
+    assertEquals(new Integer(2), client.intVariation("flag2", user, 1));
+    assertEquals(new Integer(-2), client.intVariation("flag3", user, 1));
+    assertEquals(new Integer(-2), client.intVariation("flag4", user, 1));
   }
   
   @Test
@@ -82,21 +93,21 @@ public class LDClientEvaluationTest {
 
   @Test
   public void intVariationReturnsDefaultValueForWrongType() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", js("wrong")));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("wrong")));
 
     assertEquals(new Integer(1), client.intVariation("key", user, 1));
   }
   
   @Test
   public void doubleVariationReturnsFlagValue() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jdouble(2.5d)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(2.5d)));
 
     assertEquals(new Double(2.5d), client.doubleVariation("key", user, 1.0d));
   }
 
   @Test
   public void doubleVariationReturnsFlagValueEvenIfEncodedAsInt() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jint(2)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(2)));
 
     assertEquals(new Double(2.0d), client.doubleVariation("key", user, 1.0d));
   }
@@ -108,14 +119,14 @@ public class LDClientEvaluationTest {
 
   @Test
   public void doubleVariationReturnsDefaultValueForWrongType() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", js("wrong")));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("wrong")));
 
     assertEquals(new Double(1.0d), client.doubleVariation("key", user, 1.0d));
   }
   
   @Test
   public void stringVariationReturnsFlagValue() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", js("b")));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("b")));
 
     assertEquals("b", client.stringVariation("key", user, "a"));
   }
@@ -127,24 +138,39 @@ public class LDClientEvaluationTest {
 
   @Test
   public void stringVariationReturnsDefaultValueForWrongType() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
 
     assertEquals("a", client.stringVariation("key", user, "a"));
   }
   
+  @SuppressWarnings("deprecation")
   @Test
-  public void jsonVariationReturnsFlagValue() throws Exception {
-    JsonObject data = new JsonObject();
-    data.addProperty("thing", "stuff");
+  public void deprecatedJsonVariationReturnsFlagValue() throws Exception {
+    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     featureStore.upsert(FEATURES, flagWithValue("key", data));
     
-    assertEquals(data, client.jsonVariation("key", user, jint(42)));
+    assertEquals(data.asJsonElement(), client.jsonVariation("key", user, new JsonPrimitive(42)));
+  }
+  
+  @SuppressWarnings("deprecation")
+  @Test
+  public void deprecatedJsonVariationReturnsDefaultValueForUnknownFlag() throws Exception {
+    JsonElement defaultVal = new JsonPrimitive(42);
+    assertEquals(defaultVal, client.jsonVariation("key", user, defaultVal));
+  }
+
+  @Test
+  public void jsonValueVariationReturnsFlagValue() throws Exception {
+    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
+    featureStore.upsert(FEATURES, flagWithValue("key", data));
+    
+    assertEquals(data, client.jsonValueVariation("key", user, LDValue.of(42)));
   }
   
   @Test
-  public void jsonVariationReturnsDefaultValueForUnknownFlag() throws Exception {
-    JsonElement defaultVal = jint(42);
-    assertEquals(defaultVal, client.jsonVariation("key", user, defaultVal));
+  public void jsonValueVariationReturnsDefaultValueForUnknownFlag() throws Exception {
+    LDValue defaultVal = LDValue.of(42);
+    assertEquals(defaultVal, client.jsonValueVariation("key", user, defaultVal));
   }
   
   @Test
@@ -156,7 +182,7 @@ public class LDClientEvaluationTest {
         .build();
     featureStore.upsert(SEGMENTS, segment);
     
-    Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(js("segment1")), false);
+    Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(LDValue.of("segment1")), false);
     FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     featureStore.upsert(FEATURES, feature);
     
@@ -165,9 +191,10 @@ public class LDClientEvaluationTest {
   
   @Test
   public void canGetDetailsForSuccessfulEvaluation() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
 
-    EvaluationDetail<Boolean> expectedResult = new EvaluationDetail<>(EvaluationReason.off(), 0, true);
+    EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(true,
+        0, EvaluationReason.off());
     assertEquals(expectedResult, client.boolVariationDetail("key", user, false));
   }
   
@@ -184,7 +211,8 @@ public class LDClientEvaluationTest {
     FeatureFlag flag = new FeatureFlagBuilder("key").on(false).offVariation(null).build();
     featureStore.upsert(FEATURES, flag);
     
-    EvaluationDetail<String> expected = new EvaluationDetail<String>(EvaluationReason.off(), null, "default");
+    EvaluationDetail<String> expected = EvaluationDetail.fromValue("default",
+        null, EvaluationReason.off());
     EvaluationDetail<String> actual = client.stringVariationDetail("key", user, "default");
     assertEquals(expected, actual);
     assertTrue(actual.isDefaultValue());
@@ -200,30 +228,34 @@ public class LDClientEvaluationTest {
         .startWaitMillis(0)
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
-      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.CLIENT_NOT_READY, false);
+      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,
+          EvaluationReason.error(EvaluationReason.ErrorKind.CLIENT_NOT_READY));
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }
   }
   
   @Test
   public void appropriateErrorIfFlagDoesNotExist() throws Exception {
-    EvaluationDetail<String> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, "default");
+    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", null,
+        EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
     assertEquals(expectedResult, client.stringVariationDetail("key", user, "default"));
   }
   
   @Test
   public void appropriateErrorIfUserNotSpecified() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
 
-    EvaluationDetail<String> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, "default");
+    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", null,
+        EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
     assertEquals(expectedResult, client.stringVariationDetail("key", null, "default"));
   }
   
   @Test
   public void appropriateErrorIfValueWrongType() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", jbool(true)));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
 
-    EvaluationDetail<Integer> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.WRONG_TYPE, 3);
+    EvaluationDetail<Integer> expectedResult = EvaluationDetail.fromValue(3, null,
+        EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE));
     assertEquals(expectedResult, client.intVariationDetail("key", user, 3));
   }
   
@@ -236,7 +268,8 @@ public class LDClientEvaluationTest {
         .updateProcessorFactory(Components.nullUpdateProcessor())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
-      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.error(EvaluationReason.ErrorKind.EXCEPTION, false);
+      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,
+          EvaluationReason.error(EvaluationReason.ErrorKind.EXCEPTION));
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }
   }
@@ -244,17 +277,17 @@ public class LDClientEvaluationTest {
   @SuppressWarnings("deprecation")
   @Test
   public void allFlagsReturnsFlagValues() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key1", js("value1")));
-    featureStore.upsert(FEATURES, flagWithValue("key2", js("value2")));
+    featureStore.upsert(FEATURES, flagWithValue("key1", LDValue.of("value1")));
+    featureStore.upsert(FEATURES, flagWithValue("key2", LDValue.of("value2")));
     
     Map<String, JsonElement> result = client.allFlags(user);
-    assertEquals(ImmutableMap.<String, JsonElement>of("key1", js("value1"), "key2", js("value2")), result);
+    assertEquals(ImmutableMap.<String, JsonElement>of("key1", new JsonPrimitive("value1"), "key2", new JsonPrimitive("value2")), result);
   }
   
   @SuppressWarnings("deprecation")
   @Test
   public void allFlagsReturnsNullForNullUser() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", js("value")));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("value")));
 
     assertNull(client.allFlags(null));
   }
@@ -262,7 +295,7 @@ public class LDClientEvaluationTest {
   @SuppressWarnings("deprecation")
   @Test
   public void allFlagsReturnsNullForNullUserKey() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", js("value")));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("value")));
 
     assertNull(client.allFlags(userWithNullKey));
   }
@@ -274,7 +307,7 @@ public class LDClientEvaluationTest {
         .trackEvents(false)
         .on(false)
         .offVariation(0)
-        .variations(js("value1"))
+        .variations(LDValue.of("value1"))
         .build();
     FeatureFlag flag2 = new FeatureFlagBuilder("key2")
         .version(200)
@@ -282,7 +315,7 @@ public class LDClientEvaluationTest {
         .debugEventsUntilDate(1000L)
         .on(true)
         .fallthrough(fallthroughVariation(1))
-        .variations(js("off"), js("value2"))
+        .variations(LDValue.of("off"), LDValue.of("value2"))
         .build();
     featureStore.upsert(FEATURES, flag1);
     featureStore.upsert(FEATURES, flag2);
@@ -309,9 +342,9 @@ public class LDClientEvaluationTest {
     FeatureFlag flag1 = new FeatureFlagBuilder("server-side-1").build();
     FeatureFlag flag2 = new FeatureFlagBuilder("server-side-2").build();
     FeatureFlag flag3 = new FeatureFlagBuilder("client-side-1").clientSide(true)
-        .variations(js("value1")).offVariation(0).build();
+        .variations(LDValue.of("value1")).offVariation(0).build();
     FeatureFlag flag4 = new FeatureFlagBuilder("client-side-2").clientSide(true)
-        .variations(js("value2")).offVariation(0).build();
+        .variations(LDValue.of("value2")).offVariation(0).build();
     featureStore.upsert(FEATURES, flag1);
     featureStore.upsert(FEATURES, flag2);
     featureStore.upsert(FEATURES, flag3);
@@ -321,7 +354,7 @@ public class LDClientEvaluationTest {
     assertTrue(state.isValid());
     
     Map<String, JsonElement> allValues = state.toValuesMap();
-    assertEquals(ImmutableMap.<String, JsonElement>of("client-side-1", js("value1"), "client-side-2", js("value2")), allValues);
+    assertEquals(ImmutableMap.<String, JsonElement>of("client-side-1", new JsonPrimitive("value1"), "client-side-2", new JsonPrimitive("value2")), allValues);
   }
   
   @Test
@@ -331,7 +364,7 @@ public class LDClientEvaluationTest {
         .trackEvents(false)
         .on(false)
         .offVariation(0)
-        .variations(js("value1"))
+        .variations(LDValue.of("value1"))
         .build();
     FeatureFlag flag2 = new FeatureFlagBuilder("key2")
         .version(200)
@@ -339,7 +372,7 @@ public class LDClientEvaluationTest {
         .debugEventsUntilDate(1000L)
         .on(true)
         .fallthrough(fallthroughVariation(1))
-        .variations(js("off"), js("value2"))
+        .variations(LDValue.of("off"), LDValue.of("value2"))
         .build();
     featureStore.upsert(FEATURES, flag1);
     featureStore.upsert(FEATURES, flag2);
@@ -369,14 +402,14 @@ public class LDClientEvaluationTest {
         .trackEvents(false)
         .on(false)
         .offVariation(0)
-        .variations(js("value1"))
+        .variations(LDValue.of("value1"))
         .build();
     FeatureFlag flag2 = new FeatureFlagBuilder("key2")
         .version(200)
         .trackEvents(true)
         .on(true)
         .fallthrough(fallthroughVariation(1))
-        .variations(js("off"), js("value2"))
+        .variations(LDValue.of("off"), LDValue.of("value2"))
         .build();
     FeatureFlag flag3 = new FeatureFlagBuilder("key3")
         .version(300)
@@ -384,7 +417,7 @@ public class LDClientEvaluationTest {
         .debugEventsUntilDate(futureTime)  // event tracking is turned on temporarily even though trackEvents is false 
         .on(false)
         .offVariation(0)
-        .variations(js("value3"))
+        .variations(LDValue.of("value3"))
         .build();
     featureStore.upsert(FEATURES, flag1);
     featureStore.upsert(FEATURES, flag2);
@@ -411,7 +444,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void allFlagsStateReturnsEmptyStateForNullUser() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", js("value")));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("value")));
 
     FeatureFlagsState state = client.allFlagsState(null);
     assertFalse(state.isValid());
@@ -420,7 +453,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void allFlagsStateReturnsEmptyStateForNullUserKey() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", js("value")));
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("value")));
 
     FeatureFlagsState state = client.allFlagsState(userWithNullKey);
     assertFalse(state.isValid());

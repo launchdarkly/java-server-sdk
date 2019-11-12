@@ -11,34 +11,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+@SuppressWarnings("javadoc")
 public class LDConfigTest {
-  @Test
-  public void testConnectTimeoutSpecifiedInSeconds() {
-    LDConfig config = new LDConfig.Builder().connectTimeout(3).build();
-
-    assertEquals(3000, config.connectTimeoutMillis);
-  }
-
-  @Test
-  public void testConnectTimeoutSpecifiedInMilliseconds() {
-    LDConfig config = new LDConfig.Builder().connectTimeoutMillis(3000).build();
-
-    assertEquals(3000, config.connectTimeoutMillis);
-  }
-  @Test
-  public void testSocketTimeoutSpecifiedInSeconds() {
-    LDConfig config = new LDConfig.Builder().socketTimeout(3).build();
-
-    assertEquals(3000, config.socketTimeoutMillis);
-  }
-
-  @Test
-  public void testSocketTimeoutSpecifiedInMilliseconds() {
-    LDConfig config = new LDConfig.Builder().socketTimeoutMillis(3000).build();
-
-    assertEquals(3000, config.socketTimeoutMillis);
-  }
-
   @Test
   public void testNoProxyConfigured() {
     LDConfig config = new LDConfig.Builder().build();

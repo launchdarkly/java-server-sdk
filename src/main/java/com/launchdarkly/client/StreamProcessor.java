@@ -17,6 +17,7 @@ import java.net.URI;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 import static com.launchdarkly.client.Util.getHeadersBuilderFor;
@@ -24,6 +25,7 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
 import okhttp3.Headers;
+import okhttp3.OkHttpClient;
 
 final class StreamProcessor implements UpdateProcessor {
   private static final String PUT = "put";
@@ -42,8 +44,10 @@ final class StreamProcessor implements UpdateProcessor {
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
 
+  ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
+  
   public static interface EventSourceCreator {
-    EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
+    EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
   }
   
   StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore,
@@ -55,6 +59,22 @@ final class StreamProcessor implements UpdateProcessor {
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
   }
 
+  private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
+    return new ConnectionErrorHandler() {
+      @Override
+      public Action onConnectionError(Throwable t) {
+        if (t instanceof UnsuccessfulResponseException) {
+          int status = ((UnsuccessfulResponseException)t).getCode();
+          logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
+          if (!isHttpErrorRecoverable(status)) {
+            return Action.SHUTDOWN;
+          }
+        }
+        return Action.PROCEED;
+      }
+    };
+  }
+  
   @Override
   public Future<Void> start() {
     final SettableFuture<Void> initFuture = SettableFuture.create();
@@ -63,18 +83,14 @@ final class StreamProcessor implements UpdateProcessor {
         .add("Accept", "text/event-stream")
         .build();
 
-    ConnectionErrorHandler connectionErrorHandler = new ConnectionErrorHandler() {
+    ConnectionErrorHandler wrappedConnectionErrorHandler = new ConnectionErrorHandler() {
       @Override
       public Action onConnectionError(Throwable t) {
-        if (t instanceof UnsuccessfulResponseException) {
-          int status = ((UnsuccessfulResponseException)t).getCode();
-          logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
-          if (!isHttpErrorRecoverable(status)) {
-            initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
-            return Action.SHUTDOWN;
-          }
+        Action result = connectionErrorHandler.onConnectionError(t);
+        if (result == Action.SHUTDOWN) {
+          initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
         }
-        return Action.PROCEED;
+        return result;
       }
     };
 
@@ -94,7 +110,7 @@ final class StreamProcessor implements UpdateProcessor {
         switch (name) {
           case PUT: {
             PutData putData = gson.fromJson(event.getData(), PutData.class); 
-            store.init(FeatureRequestor.toVersionedDataMap(putData.data));
+            store.init(DefaultFeatureRequestor.toVersionedDataMap(putData.data));
             if (!initialized.getAndSet(true)) {
               initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
@@ -126,7 +142,7 @@ final class StreamProcessor implements UpdateProcessor {
           case INDIRECT_PUT:
             try {
               FeatureRequestor.AllData allData = requestor.getAllData();
-              store.init(FeatureRequestor.toVersionedDataMap(allData));
+              store.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
               if (!initialized.getAndSet(true)) {
                 initFuture.set(null);
                 logger.info("Initialized LaunchDarkly client.");
@@ -173,9 +189,9 @@ final class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    es = eventSourceCreator.createEventSource(handler,
+    es = eventSourceCreator.createEventSource(config, handler,
         URI.create(config.streamURI.toASCIIString() + "/all"),
-        connectionErrorHandler,
+        wrappedConnectionErrorHandler,
         headers);
     es.start();
     return initFuture;
@@ -190,6 +206,7 @@ final class StreamProcessor implements UpdateProcessor {
     if (store != null) {
       store.close();
     }
+    requestor.close();
   }
 
   @Override
@@ -224,24 +241,23 @@ final class StreamProcessor implements UpdateProcessor {
   }
   
   private class DefaultEventSourceCreator implements EventSourceCreator {
-    public EventSource createEventSource(EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
+    public EventSource createEventSource(final LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
+          .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
+            public void configure(OkHttpClient.Builder builder) {
+              configureHttpClientBuilder(config, builder);
+            }
+          })
           .connectionErrorHandler(errorHandler)
           .headers(headers)
           .reconnectTimeMs(config.reconnectTimeMs)
-          .connectTimeoutMs(config.connectTimeoutMillis)
-          .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS);
+          .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS)
+          .connectTimeoutMs(EventSource.DEFAULT_CONNECT_TIMEOUT_MS)
+          .writeTimeoutMs(EventSource.DEFAULT_WRITE_TIMEOUT_MS);
       // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
       // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
       // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
       // more than the expected interval between heartbeat signals.
-
-      if (config.proxy != null) {
-        builder.proxy(config.proxy);
-        if (config.proxyAuthenticator != null) {
-          builder.proxyAuthenticator(config.proxyAuthenticator);
-        }
-      }
 
       return builder.build();
     }

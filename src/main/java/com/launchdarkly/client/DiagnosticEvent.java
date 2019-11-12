@@ -73,8 +73,8 @@ class DiagnosticEvent {
         this.eventsURI = config.eventsURI;
         this.streamURI = config.streamURI;
         this.eventsCapacity = config.capacity;
-        this.connectTimeoutMillis = config.connectTimeoutMillis;
-        this.socketTimeoutMillis = config.socketTimeoutMillis;
+        this.connectTimeoutMillis = (int)config.connectTimeoutUnit.toMillis(config.connectTimeout);
+        this.socketTimeoutMillis = (int)config.socketTimeoutUnit.toMillis(config.socketTimeout);
         this.eventsFlushIntervalMillis = config.flushInterval * 1000;
         this.usingProxy = config.proxy != null;
         this.usingProxyAuthenticator = config.proxyAuthenticator != null;

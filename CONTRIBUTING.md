@@ -40,3 +40,5 @@ To build the SDK and run all unit tests:
 ```
 ./gradlew test
 ```
+
+By default, the full unit test suite includes live tests of the Redis integration. Those tests expect you to have Redis running locally. To skip them, set the environment variable `LD_SKIP_DATABASE_TESTS=1` before running the tests.
