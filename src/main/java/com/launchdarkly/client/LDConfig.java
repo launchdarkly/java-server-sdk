@@ -31,9 +31,9 @@ public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
   final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapterWithPrivateAttributeBehavior(this)).create();
 
-  private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
-  private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
-  private static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
+  static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
+  static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
+  static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
   private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2000;
   private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;

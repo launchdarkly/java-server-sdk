@@ -1,7 +1,5 @@
 package com.launchdarkly.client;
 
-import java.net.URI;
-
 class DiagnosticEvent {
 
   final String kind;
@@ -44,9 +42,9 @@ class DiagnosticEvent {
     }
 
     static class DiagnosticConfiguration {
-      private final URI baseURI;
-      private final URI eventsURI;
-      private final URI streamURI;
+      private final boolean customBaseURI;
+      private final boolean customEventsURI;
+      private final boolean customStreamURI;
       private final int eventsCapacity;
       private final int connectTimeoutMillis;
       private final int socketTimeoutMillis;
@@ -69,9 +67,9 @@ class DiagnosticEvent {
       private final String featureStore;
 
       DiagnosticConfiguration(LDConfig config) {
-        this.baseURI = config.baseURI;
-        this.eventsURI = config.eventsURI;
-        this.streamURI = config.streamURI;
+        this.customBaseURI = !(LDConfig.DEFAULT_BASE_URI.equals(config.baseURI));
+        this.customEventsURI = !(LDConfig.DEFAULT_EVENTS_URI.equals(config.eventsURI));
+        this.customStreamURI = !(LDConfig.DEFAULT_STREAM_URI.equals(config.streamURI));
         this.eventsCapacity = config.capacity;
         this.connectTimeoutMillis = (int)config.connectTimeoutUnit.toMillis(config.connectTimeout);
         this.socketTimeoutMillis = (int)config.socketTimeoutUnit.toMillis(config.socketTimeout);
