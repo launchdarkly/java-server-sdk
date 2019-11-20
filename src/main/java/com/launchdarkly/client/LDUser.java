@@ -103,40 +103,42 @@ public class LDUser {
     return key.stringValue();
   }
 
+  // All of the LDValue getters are guaranteed not to return null (although the LDValue may *be* a JSON null).
+  
   LDValue getIp() {
-    return ip;
+    return LDValue.normalize(ip);
   }
 
   LDValue getCountry() {
-    return country;
+    return LDValue.normalize(country);
   }
 
   LDValue getSecondary() {
-    return secondary;
+    return LDValue.normalize(secondary);
   }
 
   LDValue getName() {
-    return name;
+    return LDValue.normalize(name);
   }
 
   LDValue getFirstName() {
-    return firstName;
+    return LDValue.normalize(firstName);
   }
 
   LDValue getLastName() {
-    return lastName;
+    return LDValue.normalize(lastName);
   }
 
   LDValue getEmail() {
-    return email;
+    return LDValue.normalize(email);
   }
 
   LDValue getAvatar() {
-    return avatar;
+    return LDValue.normalize(avatar);
   }
 
   LDValue getAnonymous() {
-    return anonymous;
+    return LDValue.normalize(anonymous);
   }
 
   LDValue getCustom(String key) {

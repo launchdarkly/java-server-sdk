@@ -387,6 +387,17 @@ public class LDUserTest {
   }
   
   @Test
+  public void privateAttributeEncodingWorksForMinimalUser() {
+    LDConfig config = new LDConfig.Builder().allAttributesPrivate(true).build();
+    LDUser user = new LDUser("userkey");
+    
+    JsonObject o = config.gson.toJsonTree(user).getAsJsonObject();
+    JsonObject expected = new JsonObject();
+    expected.addProperty("key", "userkey");
+    assertEquals(expected, o);
+  }
+  
+  @Test
   public void getValueGetsBuiltInAttribute() {
     LDUser user = new LDUser.Builder("key")
         .name("Jane")
