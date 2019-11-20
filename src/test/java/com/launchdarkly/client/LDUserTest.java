@@ -31,7 +31,24 @@ public class LDUserTest {
   private static final Gson defaultGson = new Gson();
   
   @Test
-  public void testLDUserConstructor() {
+  public void simpleConstructorSetsAttributes() {
+    LDUser user = new LDUser("key");
+    assertEquals(LDValue.of("key"), user.getKey());
+    assertEquals("key", user.getKeyAsString());
+    assertEquals(LDValue.ofNull(), user.getSecondary());
+    assertEquals(LDValue.ofNull(), user.getIp());
+    assertEquals(LDValue.ofNull(), user.getFirstName());
+    assertEquals(LDValue.ofNull(), user.getLastName());
+    assertEquals(LDValue.ofNull(), user.getEmail());
+    assertEquals(LDValue.ofNull(), user.getName());
+    assertEquals(LDValue.ofNull(), user.getAvatar());
+    assertEquals(LDValue.ofNull(), user.getAnonymous());
+    assertEquals(LDValue.ofNull(), user.getCountry());
+    assertEquals(LDValue.ofNull(), user.getCustom("x"));
+  }
+  
+  @Test
+  public void canCopyUserWithBuilder() {
     LDUser user = new LDUser.Builder("key")
     .secondary("secondary")
     .ip("127.0.0.1")

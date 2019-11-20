@@ -81,6 +81,8 @@ public class LDUser {
    */
   public LDUser(String key) {
     this.key = LDValue.of(key);
+    this.secondary = this.ip = this.email = this.name = this.avatar = this.firstName = this.lastName = this.anonymous = this.country =
+        LDValue.ofNull();
     this.custom = null;
     this.privateAttributeNames = null;
   }
@@ -106,39 +108,39 @@ public class LDUser {
   // All of the LDValue getters are guaranteed not to return null (although the LDValue may *be* a JSON null).
   
   LDValue getIp() {
-    return LDValue.normalize(ip);
+    return ip;
   }
 
   LDValue getCountry() {
-    return LDValue.normalize(country);
+    return country;
   }
 
   LDValue getSecondary() {
-    return LDValue.normalize(secondary);
+    return secondary;
   }
 
   LDValue getName() {
-    return LDValue.normalize(name);
+    return name;
   }
 
   LDValue getFirstName() {
-    return LDValue.normalize(firstName);
+    return firstName;
   }
 
   LDValue getLastName() {
-    return LDValue.normalize(lastName);
+    return lastName;
   }
 
   LDValue getEmail() {
-    return LDValue.normalize(email);
+    return email;
   }
 
   LDValue getAvatar() {
-    return LDValue.normalize(avatar);
+    return avatar;
   }
 
   LDValue getAnonymous() {
-    return LDValue.normalize(anonymous);
+    return anonymous;
   }
 
   LDValue getCustom(String key) {
