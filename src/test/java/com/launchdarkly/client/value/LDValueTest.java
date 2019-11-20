@@ -3,8 +3,6 @@ package com.launchdarkly.client.value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
 import org.junit.Test;
@@ -312,105 +310,18 @@ public class LDValueTest {
       }
     }
   }
-
-  @Test
-  public void testEqualsAndHashCodeForPrimitives()
-  {
-      assertValueAndHashEqual(LDValue.ofNull(), LDValue.ofNull());
-      assertValueAndHashEqual(LDValue.of(true), LDValue.of(true));
-      assertValueAndHashNotEqual(LDValue.of(true), LDValue.of(false));
-      assertValueAndHashEqual(LDValue.of(1), LDValue.of(1));
-      assertValueAndHashEqual(LDValue.of(1), LDValue.of(1.0f));
-      assertValueAndHashNotEqual(LDValue.of(1), LDValue.of(2));
-      assertValueAndHashEqual(LDValue.of("a"), LDValue.of("a"));
-      assertValueAndHashNotEqual(LDValue.of("a"), LDValue.of("b"));
-      assertNotEquals(LDValue.of(false), LDValue.of(0));
-  }
-
-  private void assertValueAndHashEqual(LDValue a, LDValue b)
-  {
-    assertEquals(a, b);
-    assertEquals(a.hashCode(), b.hashCode());
-  }
-
-  private void assertValueAndHashNotEqual(LDValue a, LDValue b)
-  {
-    assertNotEquals(a, b);
-    assertNotEquals(a.hashCode(), b.hashCode());
-  }
-
+  
   @Test
   public void samePrimitivesWithOrWithoutJsonElementAreEqual() {
-    assertValueAndHashEqual(aTrueBoolValue, aTrueBoolValueFromJsonElement);
-    assertValueAndHashEqual(anIntValue, anIntValueFromJsonElement);
-    assertValueAndHashEqual(aLongValue, aLongValueFromJsonElement);
-    assertValueAndHashEqual(aFloatValue, aFloatValueFromJsonElement);
-    assertValueAndHashEqual(aStringValue, aStringValueFromJsonElement);
-    assertValueAndHashEqual(anArrayValue, anArrayValueFromJsonElement);
-    assertValueAndHashEqual(anObjectValue, anObjectValueFromJsonElement);
+    assertEquals(aTrueBoolValue, aTrueBoolValueFromJsonElement);
+    assertEquals(anIntValue, anIntValueFromJsonElement);
+    assertEquals(aLongValue, aLongValueFromJsonElement);
+    assertEquals(aFloatValue, aFloatValueFromJsonElement);
+    assertEquals(aStringValue, aStringValueFromJsonElement);
+    assertEquals(anArrayValue, anArrayValueFromJsonElement);
+    assertEquals(anObjectValue, anObjectValueFromJsonElement);
   }
-
-  @Test
-  public void equalsUsesDeepEqualityForArrays()
-  {
-    LDValue a0 = LDValue.buildArray().add("a")
-          .add(LDValue.buildArray().add("b").add("c").build())
-          .build();
-    JsonArray ja1 = new JsonArray();
-    ja1.add(new JsonPrimitive("a"));
-    JsonArray ja1a = new JsonArray();
-    ja1a.add(new JsonPrimitive("b"));
-    ja1a.add(new JsonPrimitive("c"));
-    ja1.add(ja1a);
-    LDValue a1 = LDValue.fromJsonElement(ja1);
-    assertValueAndHashEqual(a0, a1);
-
-    LDValue a2 = LDValue.buildArray().add("a").build();
-    assertValueAndHashNotEqual(a0, a2);
-
-    LDValue a3 = LDValue.buildArray().add("a").add("b").add("c").build();
-    assertValueAndHashNotEqual(a0, a3);
-
-    LDValue a4 = LDValue.buildArray().add("a")
-        .add(LDValue.buildArray().add("b").add("x").build())
-        .build();
-    assertValueAndHashNotEqual(a0, a4);
-  }
-
-  @Test
-  public void equalsUsesDeepEqualityForObjects()
-  {
-      LDValue o0 = LDValue.buildObject()
-          .put("a", "b")
-          .put("c", LDValue.buildObject().put("d", "e").build())
-          .build();
-      JsonObject jo1 = new JsonObject();
-      jo1.add("a", new JsonPrimitive("b"));
-      JsonObject jo1a = new JsonObject();
-      jo1a.add("d", new JsonPrimitive("e"));
-      jo1.add("c", jo1a);
-      LDValue o1 = LDValue.fromJsonElement(jo1);
-      assertValueAndHashEqual(o0, o1);
-
-      LDValue o2 = LDValue.buildObject()
-          .put("a", "b")
-          .build();
-      assertValueAndHashNotEqual(o0, o2);
-
-      LDValue o3 = LDValue.buildObject()
-          .put("a", "b")
-          .put("c", LDValue.buildObject().put("d", "e").build())
-          .put("f", "g")
-          .build();
-      assertValueAndHashNotEqual(o0, o3);
-      
-      LDValue o4 = LDValue.buildObject()
-          .put("a", "b")
-          .put("c", LDValue.buildObject().put("d", "f").build())
-          .build();
-      assertValueAndHashNotEqual(o0, o4);
-  }
-
+  
   @Test
   public void canUseLongTypeForNumberGreaterThanMaxInt() {
     long n = (long)Integer.MAX_VALUE + 1;
@@ -426,7 +337,7 @@ public class LDValueTest {
     assertEquals(n, LDValue.Convert.Double.toType(LDValue.of(n)).doubleValue(), 0);
     assertEquals(n, LDValue.Convert.Double.fromType(n).doubleValue(), 0);
   }
-
+  
   @Test
   public void testToJsonString() {
     assertEquals("null", LDValue.ofNull().toJsonString());
