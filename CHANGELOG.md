@@ -3,6 +3,14 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.9.1] - 2019-11-20
+### Changed:
+- Improved memory usage and performance when processing analytics events: the SDK now encodes event data to JSON directly, instead of creating intermediate objects and serializing them via reflection.
+
+### Fixed:
+- A bug introduced in version 4.9.0 was causing event delivery to fail if a user was created with the `User(string)` constructor, instead of the builder pattern.
+
+
 ## [4.9.0] - 2019-10-18
 This release adds the `LDValue` class (in `com.launchdarkly.client.value`), which is a new abstraction for all of the data types supported by the LaunchDarkly platform. Since those are the same as the JSON data types, the SDK previously used the Gson classes `JsonElement`, `JsonObject`, etc. to represent them. This caused two problems: the public APIs are dependent on Gson, and the Gson object and array types are mutable so it was possible to accidentally modify values that are being used elsewhere in the SDK.
 
