@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 /**
@@ -81,6 +82,8 @@ public class LDUser {
    */
   public LDUser(String key) {
     this.key = LDValue.of(key);
+    this.secondary = this.ip = this.email = this.name = this.avatar = this.firstName = this.lastName = this.anonymous = this.country =
+        LDValue.ofNull();
     this.custom = null;
     this.privateAttributeNames = null;
   }
@@ -103,6 +106,8 @@ public class LDUser {
     return key.stringValue();
   }
 
+  // All of the LDValue getters are guaranteed not to return null (although the LDValue may *be* a JSON null).
+  
   LDValue getIp() {
     return ip;
   }
@@ -188,8 +193,8 @@ public class LDUser {
         return;
       }
       
-      // Collect the private attribute names
-      Set<String> privateAttributeNames = new HashSet<String>(config.privateAttrNames);
+      // Collect the private attribute names (use TreeSet to make ordering predictable for tests)
+      Set<String> privateAttributeNames = new TreeSet<String>(config.privateAttrNames);
 
       out.beginObject();
       // The key can never be private

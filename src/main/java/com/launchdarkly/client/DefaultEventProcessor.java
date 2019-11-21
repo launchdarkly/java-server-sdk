@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -489,7 +490,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private final BlockingQueue<FlushPayload> payloadQueue;
     private final AtomicInteger activeFlushWorkersCount;
     private final AtomicBoolean stopping;
-    private final EventOutput.Formatter formatter;
+    private final EventOutputFormatter formatter;
     private final Thread thread;
     private final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz"); // need one instance per task because the date parser isn't thread-safe
     
@@ -499,7 +500,7 @@ final class DefaultEventProcessor implements EventProcessor {
       this.sdkKey = sdkKey;
       this.config = config;
       this.httpClient = httpClient;
-      this.formatter = new EventOutput.Formatter(config.inlineUsersInEvents);
+      this.formatter = new EventOutputFormatter(config);
       this.responseListener = responseListener;
       this.payloadQueue = payloadQueue;
       this.activeFlushWorkersCount = activeFlushWorkersCount;
@@ -518,9 +519,10 @@ final class DefaultEventProcessor implements EventProcessor {
           continue;
         }
         try {
-          List<EventOutput> eventsOut = formatter.makeOutputEvents(payload.events, payload.summary);
-          if (!eventsOut.isEmpty()) {
-            postEvents(eventsOut);
+          StringWriter stringWriter = new StringWriter();
+          int outputEventCount = formatter.writeOutputEvents(payload.events, payload.summary, stringWriter);
+          if (outputEventCount > 0) {
+            postEvents(stringWriter.toString(), outputEventCount);
           }
         } catch (Exception e) {
           logger.error("Unexpected error in event processor: {}", e.toString());
@@ -538,12 +540,11 @@ final class DefaultEventProcessor implements EventProcessor {
       thread.interrupt();
     }
     
-    private void postEvents(List<EventOutput> eventsOut) {
-      String json = config.gson.toJson(eventsOut);
+    private void postEvents(String json, int outputEventCount) {
       String uriStr = config.eventsURI.toString() + "/bulk";
       
       logger.debug("Posting {} event(s) to {} with payload: {}",
-          eventsOut.size(), uriStr, json);
+          outputEventCount, uriStr, json);
 
       for (int attempt = 0; attempt < 2; attempt++) {
         if (attempt > 0) {
