@@ -116,7 +116,7 @@ class EventOutputFormatter {
       
       for (int j = i; j < unprocessedKeys.length; j++) {
         CounterKey keyForThisFlag = unprocessedKeys[j];
-        if (keyForThisFlag == null || keyForThisFlag.key != flagKey) {
+        if (j != i && (keyForThisFlag == null || !keyForThisFlag.key.equals(flagKey))) {
           continue;
         }
         CounterValue value = keyForThisFlag == key ? firstValue : summary.counters.get(keyForThisFlag);
