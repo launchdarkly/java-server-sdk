@@ -351,7 +351,7 @@ public class StreamProcessorTest extends EasyMockSupport {
           .build();
       
       try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, featureStore, null)) {
+          mockRequestor, featureStore, null, null)) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -375,7 +375,7 @@ public class StreamProcessorTest extends EasyMockSupport {
           .build();
       
       try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, featureStore, null)) {
+          mockRequestor, featureStore, null, null)) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -398,7 +398,7 @@ public class StreamProcessorTest extends EasyMockSupport {
           .build();
       
       try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, featureStore, null)) {
+          mockRequestor, featureStore, null, null)) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -457,7 +457,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config) {
-    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore, new StubEventSourceCreator());
+    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore, new StubEventSourceCreator(), null);
   }
   
   private String featureJson(String key, int version) {

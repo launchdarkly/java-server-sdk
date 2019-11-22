@@ -7,6 +7,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.client.value.LDValue;
 
+import junit.framework.AssertionFailedError;
+
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
@@ -21,6 +23,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.launchdarkly.client.TestUtil.failedUpdateProcessor;
 import static com.launchdarkly.client.TestUtil.flagWithValue;
 import static com.launchdarkly.client.TestUtil.initedFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
@@ -28,21 +31,26 @@ import static com.launchdarkly.client.TestUtil.updateProcessorWithData;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.isA;
+import static org.easymock.EasyMock.isNull;
 import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
-import junit.framework.AssertionFailedError;
 
 /**
  * See also LDClientEvaluationTest, etc. This file contains mostly tests for the startup logic.
  */
 @SuppressWarnings("javadoc")
 public class LDClientTest extends EasyMockSupport {
+  private final static String SDK_KEY = "SDK_KEY";
+
   private UpdateProcessor updateProcessor;
   private EventProcessor eventProcessor;
   private Future<Void> initFuture;
@@ -76,7 +84,7 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void constructorThrowsExceptionForNullConfig() throws Exception {
-    try (LDClient client = new LDClient("SDK_KEY", null)) {
+    try (LDClient client = new LDClient(SDK_KEY, null)) {
       fail("expected exception");
     } catch (NullPointerException e) {
       assertEquals("config must not be null", e.getMessage());
@@ -91,7 +99,7 @@ public class LDClientTest extends EasyMockSupport {
         .startWaitMillis(0)
         .sendEvents(true)
         .build();
-    try (LDClient client = new LDClient("SDK_KEY", config)) {
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
     }
   }
@@ -104,7 +112,7 @@ public class LDClientTest extends EasyMockSupport {
         .startWaitMillis(0)
         .sendEvents(false)
         .build();
-    try (LDClient client = new LDClient("SDK_KEY", config)) {
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertEquals(EventProcessor.NullEventProcessor.class, client.eventProcessor.getClass());
     }
   }
@@ -116,7 +124,7 @@ public class LDClientTest extends EasyMockSupport {
         .streamURI(URI.create("http://fake"))
         .startWaitMillis(0)
         .build();
-    try (LDClient client = new LDClient("SDK_KEY", config)) {
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertEquals(StreamProcessor.class, client.updateProcessor.getClass());
     }
   }
@@ -128,8 +136,82 @@ public class LDClientTest extends EasyMockSupport {
         .baseURI(URI.create("http://fake"))
         .startWaitMillis(0)
         .build();
-    try (LDClient client = new LDClient("SDK_KEY", config)) {
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertEquals(PollingProcessor.class, client.updateProcessor.getClass());
+    }
+  }
+
+  @Test
+  public void sameDiagnosticAccumulatorPassedToFactoriesWhenSupported() throws IOException {
+    EventProcessorFactoryWithDiagnostics mockEventProcessorFactory = createStrictMock(EventProcessorFactoryWithDiagnostics.class);
+    UpdateProcessorFactoryWithDiagnostics mockUpdateProcessorFactory = createStrictMock(UpdateProcessorFactoryWithDiagnostics.class);
+
+    LDConfig config = new LDConfig.Builder()
+            .stream(false)
+            .baseURI(URI.create("http://fake"))
+            .startWaitMillis(0)
+            .eventProcessorFactory(mockEventProcessorFactory)
+            .updateProcessorFactory(mockUpdateProcessorFactory)
+            .build();
+
+    Capture<DiagnosticAccumulator> capturedEventAccumulator = Capture.newInstance();
+    Capture<DiagnosticAccumulator> capturedUpdateAccumulator = Capture.newInstance();
+    expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class), capture(capturedEventAccumulator))).andReturn(niceMock(EventProcessor.class));
+    expect(mockUpdateProcessorFactory.createUpdateProcessor(eq(SDK_KEY), isA(LDConfig.class), isA(FeatureStore.class), capture(capturedUpdateAccumulator))).andReturn(failedUpdateProcessor());
+
+    replayAll();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      verifyAll();
+      assertNotNull(capturedEventAccumulator.getValue());
+      assertEquals(capturedEventAccumulator.getValue(), capturedUpdateAccumulator.getValue());
+    }
+  }
+
+  @Test
+  public void nullDiagnosticAccumulatorPassedToFactoriesWhenOptedOut() throws IOException {
+    EventProcessorFactoryWithDiagnostics mockEventProcessorFactory = createStrictMock(EventProcessorFactoryWithDiagnostics.class);
+    UpdateProcessorFactoryWithDiagnostics mockUpdateProcessorFactory = createStrictMock(UpdateProcessorFactoryWithDiagnostics.class);
+
+    LDConfig config = new LDConfig.Builder()
+            .stream(false)
+            .baseURI(URI.create("http://fake"))
+            .startWaitMillis(0)
+            .eventProcessorFactory(mockEventProcessorFactory)
+            .updateProcessorFactory(mockUpdateProcessorFactory)
+            .diagnosticOptOut(true)
+            .build();
+
+    expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class), isNull(DiagnosticAccumulator.class))).andReturn(niceMock(EventProcessor.class));
+    expect(mockUpdateProcessorFactory.createUpdateProcessor(eq(SDK_KEY), isA(LDConfig.class), isA(FeatureStore.class), isNull(DiagnosticAccumulator.class))).andReturn(failedUpdateProcessor());
+
+    replayAll();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      verifyAll();
+    }
+  }
+
+  @Test
+  public void nullDiagnosticAccumulatorPassedToUpdateFactoryWhenEventProcessorDoesNotSupportDiagnostics() throws IOException {
+    EventProcessorFactory mockEventProcessorFactory = createStrictMock(EventProcessorFactory.class);
+    UpdateProcessorFactoryWithDiagnostics mockUpdateProcessorFactory = createStrictMock(UpdateProcessorFactoryWithDiagnostics.class);
+
+    LDConfig config = new LDConfig.Builder()
+            .stream(false)
+            .baseURI(URI.create("http://fake"))
+            .startWaitMillis(0)
+            .eventProcessorFactory(mockEventProcessorFactory)
+            .updateProcessorFactory(mockUpdateProcessorFactory)
+            .build();
+
+    expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class))).andReturn(niceMock(EventProcessor.class));
+    expect(mockUpdateProcessorFactory.createUpdateProcessor(eq(SDK_KEY), isA(LDConfig.class), isA(FeatureStore.class), isNull(DiagnosticAccumulator.class))).andReturn(failedUpdateProcessor());
+
+    replayAll();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      verifyAll();
     }
   }
 
@@ -297,7 +379,7 @@ public class LDClientTest extends EasyMockSupport {
         .updateProcessorFactory(updateProcessorWithData(DEPENDENCY_ORDERING_TEST_DATA))
         .featureStoreFactory(specificFeatureStore(store))
         .sendEvents(false);
-    client = new LDClient("SDK_KEY", config.build());
+    client = new LDClient(SDK_KEY, config.build());
     
     Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> dataMap = captureData.getValue();
     assertEquals(2, dataMap.size());
@@ -342,7 +424,7 @@ public class LDClientTest extends EasyMockSupport {
   private LDClientInterface createMockClient(LDConfig.Builder config) {
     config.updateProcessorFactory(TestUtil.specificUpdateProcessor(updateProcessor));
     config.eventProcessorFactory(TestUtil.specificEventProcessor(eventProcessor));
-    return new LDClient("SDK_KEY", config.build());
+    return new LDClient(SDK_KEY, config.build());
   }
   
   private static Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> DEPENDENCY_ORDERING_TEST_DATA =

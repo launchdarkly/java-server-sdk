@@ -78,14 +78,32 @@ public final class LDClient implements LDClientInterface {
       this.shouldCloseFeatureStore = true;
     }
     this.featureStore = new FeatureStoreClientWrapper(store);
-    
+
     EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
         Components.defaultEventProcessor() : this.config.eventProcessorFactory;
-    this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
-    
     UpdateProcessorFactory upFactory = this.config.updateProcessorFactory == null ?
-        Components.defaultUpdateProcessor() : this.config.updateProcessorFactory;
-    this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, this.config, featureStore);
+            Components.defaultUpdateProcessor() : this.config.updateProcessorFactory;
+
+    DiagnosticAccumulator diagnosticAccumulator = null;
+    // Do not create accumulator if config has specified is opted out, or if epFactory doesn't support diagnostics
+    if (!this.config.diagnosticOptOut && epFactory instanceof EventProcessorFactoryWithDiagnostics) {
+      diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(sdkKey));
+    }
+
+    if (epFactory instanceof EventProcessorFactoryWithDiagnostics) {
+      EventProcessorFactoryWithDiagnostics epwdFactory = ((EventProcessorFactoryWithDiagnostics) epFactory);
+      this.eventProcessor = epwdFactory.createEventProcessor(sdkKey, this.config, diagnosticAccumulator);
+    } else {
+      this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
+    }
+
+    if (upFactory instanceof UpdateProcessorFactoryWithDiagnostics) {
+      UpdateProcessorFactoryWithDiagnostics upwdFactory = ((UpdateProcessorFactoryWithDiagnostics) upFactory);
+      this.updateProcessor = upwdFactory.createUpdateProcessor(sdkKey, this.config, featureStore, diagnosticAccumulator);
+    } else {
+      this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, this.config, featureStore);
+    }
+
     Future<Void> startFuture = updateProcessor.start();
     if (this.config.startWaitMillis > 0L) {
       if (!this.config.offline && !this.config.useLdd) {

@@ -88,13 +88,18 @@ public abstract class Components {
     }
   }
   
-  private static final class DefaultEventProcessorFactory implements EventProcessorFactory {
+  private static final class DefaultEventProcessorFactory implements EventProcessorFactoryWithDiagnostics {
     @Override
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
+      return createEventProcessor(sdkKey, config, null);
+    }
+
+    public EventProcessor createEventProcessor(String sdkKey, LDConfig config,
+                                               DiagnosticAccumulator diagnosticAccumulator) {
       if (config.offline || !config.sendEvents) {
         return new EventProcessor.NullEventProcessor();
       } else {
-        return new DefaultEventProcessor(sdkKey, config);
+        return new DefaultEventProcessor(sdkKey, config, diagnosticAccumulator);
       }
     }
   }
@@ -105,12 +110,18 @@ public abstract class Components {
     }
   }
   
-  private static final class DefaultUpdateProcessorFactory implements UpdateProcessorFactory {
+  private static final class DefaultUpdateProcessorFactory implements UpdateProcessorFactoryWithDiagnostics {
     // Note, logger uses LDClient class name for backward compatibility
     private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
     
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
+      return createUpdateProcessor(sdkKey, config, featureStore, null);
+    }
+
+    @Override
+    public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore,
+                                                 DiagnosticAccumulator diagnosticAccumulator) {
       if (config.offline) {
         logger.info("Starting LaunchDarkly client in offline mode");
         return new UpdateProcessor.NullUpdateProcessor();
@@ -121,7 +132,7 @@ public abstract class Components {
         DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(sdkKey, config);
         if (config.stream) {
           logger.info("Enabling streaming API");
-          return new StreamProcessor(sdkKey, config, requestor, featureStore, null);
+          return new StreamProcessor(sdkKey, config, requestor, featureStore, null, diagnosticAccumulator);
         } else {
           logger.info("Disabling streaming API");
           logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");

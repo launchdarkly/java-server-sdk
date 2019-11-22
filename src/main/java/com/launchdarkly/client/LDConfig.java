@@ -83,8 +83,6 @@ public final class LDConfig {
   final TimeUnit connectTimeoutUnit;
   final int socketTimeout;
   final TimeUnit socketTimeoutUnit;
-  
-  DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator();
 
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
@@ -628,7 +626,7 @@ public final class LDConfig {
 
     /**
      * Sets the interval at which periodic diagnostic data is sent. The default is every 15 minutes (900,000
-     * milliseconds) and the minimum value is 6000.
+     * milliseconds) and the minimum value is 60,000.
      *
      * @see #diagnosticOptOut(boolean)
      *
@@ -658,8 +656,8 @@ public final class LDConfig {
     }
 
     /**
-     * For use by wrapper libraries to set an identifying name for the wrapper being used. This will be sent in
-     * User-Agent headers during requests to the LaunchDarkly servers to allow recording metrics on the usage of
+     * For use by wrapper libraries to set an identifying name for the wrapper being used. This will be included in a
+     * header during requests to the LaunchDarkly servers to allow recording metrics on the usage of
      * these wrapper libraries.
      *
      * @param wrapperName an identifying name for the wrapper library
@@ -672,7 +670,7 @@ public final class LDConfig {
 
     /**
      * For use by wrapper libraries to report the version of the library in use. If {@link #wrapperName(String)} is not
-     * set, this field will be ignored. Otherwise the version string will be included in the User-Agent headers along
+     * set, this field will be ignored. Otherwise the version string will be included in a header along
      * with the wrapperName during requests to the LaunchDarkly servers.
      *
      * @param wrapperVersion Version string for the wrapper library

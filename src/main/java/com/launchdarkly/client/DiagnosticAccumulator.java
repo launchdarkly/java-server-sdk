@@ -2,12 +2,12 @@ package com.launchdarkly.client;
 
 class DiagnosticAccumulator {
 
+  final DiagnosticId diagnosticId;
   volatile long dataSinceDate;
-  volatile DiagnosticId diagnosticId;
 
-  void start(DiagnosticId diagnosticId, long dataSinceDate) {
+  DiagnosticAccumulator(DiagnosticId diagnosticId) {
     this.diagnosticId = diagnosticId;
-    this.dataSinceDate = dataSinceDate;
+    this.dataSinceDate = System.currentTimeMillis();
   }
 
   DiagnosticEvent.Statistics createEventAndReset(long droppedEvents, long deduplicatedUsers, long eventsInQueue) {

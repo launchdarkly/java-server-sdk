@@ -40,6 +40,7 @@ final class StreamProcessor implements UpdateProcessor {
   private final LDConfig config;
   private final String sdkKey;
   private final FeatureRequestor requestor;
+  private final DiagnosticAccumulator diagnosticAccumulator;
   private final EventSourceCreator eventSourceCreator;
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -51,11 +52,12 @@ final class StreamProcessor implements UpdateProcessor {
   }
   
   StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore,
-      EventSourceCreator eventSourceCreator) {
+      EventSourceCreator eventSourceCreator, DiagnosticAccumulator diagnosticAccumulator) {
     this.store = featureStore;
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = requestor;
+    this.diagnosticAccumulator = diagnosticAccumulator;
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
   }
 

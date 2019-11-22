@@ -46,7 +46,6 @@ public class DiagnosticEventTest {
     expected.addProperty("customEventsURI", false);
     expected.addProperty("customStreamURI", false);
     expected.addProperty("diagnosticRecordingIntervalMillis", 900_000);
-    expected.addProperty("eventReportingDisabled", false);
     expected.addProperty("eventsCapacity", 10_000);
     expected.addProperty("eventsFlushIntervalMillis",5_000);
     expected.addProperty("featureStore", "InMemoryFeatureStoreFactory");
@@ -106,7 +105,6 @@ public class DiagnosticEventTest {
     expected.addProperty("customEventsURI", true);
     expected.addProperty("customStreamURI", true);
     expected.addProperty("diagnosticRecordingIntervalMillis", 1_800_000);
-    expected.addProperty("eventReportingDisabled", true);
     expected.addProperty("eventsCapacity", 20_000);
     expected.addProperty("eventsFlushIntervalMillis",10_000);
     expected.addProperty("featureStore", "RedisFeatureStoreBuilder");

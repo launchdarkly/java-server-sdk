@@ -55,7 +55,6 @@ class DiagnosticEvent {
       private final boolean usingRelayDaemon;
       private final boolean offline;
       private final boolean allAttributesPrivate;
-      private final boolean eventReportingDisabled;
       private final long pollingIntervalMillis;
       private final long startWaitMillis;
       private final int samplingInterval;
@@ -80,7 +79,6 @@ class DiagnosticEvent {
         this.usingRelayDaemon = config.useLdd;
         this.offline = config.offline;
         this.allAttributesPrivate = config.allAttributesPrivate;
-        this.eventReportingDisabled = !config.sendEvents;
         this.pollingIntervalMillis = config.pollingIntervalMillis;
         this.startWaitMillis = config.startWaitMillis;
         this.samplingInterval = config.samplingInterval;

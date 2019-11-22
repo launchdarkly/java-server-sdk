@@ -50,7 +50,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private volatile boolean inputCapacityExceeded = false;
 
-  DefaultEventProcessor(String sdkKey, LDConfig config) {
+  DefaultEventProcessor(String sdkKey, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
     inbox = new ArrayBlockingQueue<>(config.capacity);
     
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
@@ -60,7 +60,7 @@ final class DefaultEventProcessor implements EventProcessor {
         .build();
     scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
-    new EventDispatcher(sdkKey, config, inbox, threadFactory, closed);
+    new EventDispatcher(sdkKey, config, inbox, threadFactory, closed, diagnosticAccumulator);
 
     Runnable flusher = new Runnable() {
       public void run() {
@@ -75,7 +75,7 @@ final class DefaultEventProcessor implements EventProcessor {
     };
     this.scheduler.scheduleAtFixedRate(userKeysFlusher, config.userKeysFlushInterval, config.userKeysFlushInterval,
         TimeUnit.SECONDS);
-    if (!config.diagnosticOptOut) {
+    if (!config.diagnosticOptOut && diagnosticAccumulator != null) {
       Runnable diagnosticsTrigger = new Runnable() {
         public void run() {
           postMessageAsync(MessageType.DIAGNOSTIC, null);
@@ -207,6 +207,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private final Random random = new Random();
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
+    private final DiagnosticAccumulator diagnosticAccumulator;
     private final ExecutorService diagnosticExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
 
@@ -215,8 +216,10 @@ final class DefaultEventProcessor implements EventProcessor {
     private EventDispatcher(String sdkKey, LDConfig config,
                             final BlockingQueue<EventProcessorMessage> inbox,
                             ThreadFactory threadFactory,
-                            final AtomicBoolean closed) {
+                            final AtomicBoolean closed,
+                            DiagnosticAccumulator diagnosticAccumulator) {
       this.config = config;
+      this.diagnosticAccumulator = diagnosticAccumulator;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
       OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
@@ -270,14 +273,11 @@ final class DefaultEventProcessor implements EventProcessor {
         flushWorkers.add(task);
       }
 
-      if (!config.diagnosticOptOut) {
+      if (!config.diagnosticOptOut && diagnosticAccumulator != null) {
         // Set up diagnostics
-        long currentTime = System.currentTimeMillis();
-        DiagnosticId diagnosticId = new DiagnosticId(sdkKey);
-        config.diagnosticAccumulator.start(diagnosticId, currentTime);
         this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(sdkKey, config, httpClient);
         diagnosticExecutor = Executors.newSingleThreadExecutor(threadFactory);
-        DiagnosticEvent.Init diagnosticInitEvent = new DiagnosticEvent.Init(currentTime, diagnosticId, config);
+        DiagnosticEvent.Init diagnosticInitEvent = new DiagnosticEvent.Init(diagnosticAccumulator.dataSinceDate, diagnosticAccumulator.diagnosticId, config);
         diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
       } else {
         diagnosticExecutor = null;
@@ -334,7 +334,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private void sendAndResetDiagnostics(EventBuffer outbox) {
       long droppedEvents = outbox.getAndClearDroppedCount();
       long eventsInQueue = outbox.getEventsInQueueCount();
-      DiagnosticEvent diagnosticEvent = config.diagnosticAccumulator.createEventAndReset(droppedEvents, deduplicatedUsers, eventsInQueue);
+      DiagnosticEvent diagnosticEvent = diagnosticAccumulator.createEventAndReset(droppedEvents, deduplicatedUsers, eventsInQueue);
       deduplicatedUsers = 0;
       diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticEvent));
     }
