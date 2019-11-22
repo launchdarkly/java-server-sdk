@@ -21,22 +21,25 @@ import java.util.concurrent.TimeoutException;
 
 import javax.net.ssl.SSLHandshakeException;
 
+import okhttp3.Headers;
+import okhttp3.HttpUrl;
+import okhttp3.mockwebserver.MockWebServer;
+
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.expect;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
-import okhttp3.Headers;
-import okhttp3.HttpUrl;
-import okhttp3.mockwebserver.MockWebServer;
 
 @SuppressWarnings("javadoc")
 public class StreamProcessorTest extends EasyMockSupport {
@@ -307,6 +310,53 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   @Test
+  public void streamInitDiagnosticRecordedOnOpen() throws Exception {
+    LDConfig config = configBuilder.build();
+    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    long startTime = System.currentTimeMillis();
+    createStreamProcessor(SDK_KEY, config, acc).start();
+    eventHandler.onMessage("put", emptyPutEvent());
+    long timeAfterOpen = System.currentTimeMillis();
+    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0, 0);
+    assertEquals(1, event.streamInits.size());
+    DiagnosticEvent.StreamInit init = event.streamInits.get(0);
+    assertFalse(init.failed);
+    assertThat(init.timestamp, greaterThanOrEqualTo(startTime));
+    assertThat(init.timestamp, lessThanOrEqualTo(timeAfterOpen));
+    assertThat(init.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
+  }
+
+  @Test
+  public void streamInitDiagnosticRecordedOnErrorDuringInit() throws Exception {
+    LDConfig config = configBuilder.build();
+    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    long startTime = System.currentTimeMillis();
+    createStreamProcessor(SDK_KEY, config, acc).start();
+    errorHandler.onConnectionError(new IOException());
+    long timeAfterOpen = System.currentTimeMillis();
+    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0, 0);
+    assertEquals(1, event.streamInits.size());
+    DiagnosticEvent.StreamInit init = event.streamInits.get(0);
+    assertTrue(init.failed);
+    assertThat(init.timestamp, greaterThanOrEqualTo(startTime));
+    assertThat(init.timestamp, lessThanOrEqualTo(timeAfterOpen));
+    assertThat(init.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
+  }
+
+  @Test
+  public void streamInitDiagnosticNotRecordedOnErrorAfterInit() throws Exception {
+    LDConfig config = configBuilder.build();
+    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    createStreamProcessor(SDK_KEY, config, acc).start();
+    eventHandler.onMessage("put", emptyPutEvent());
+    // Drop first stream init from stream open
+    acc.createEventAndReset(0, 0, 0);
+    errorHandler.onConnectionError(new IOException());
+    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0, 0);
+    assertEquals(0, event.streamInits.size());
+  }
+
+  @Test
   public void http400ErrorIsRecoverable() throws Exception {
     testRecoverableHttpError(400);
   }
@@ -457,9 +507,13 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config) {
-    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore, new StubEventSourceCreator(), null);
+    return createStreamProcessor(sdkKey, config, null);
   }
-  
+
+  private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
+    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore, new StubEventSourceCreator(), diagnosticAccumulator);
+  }
+
   private String featureJson(String key, int version) {
     return "{\"key\":\"" + key + "\",\"version\":" + version + ",\"on\":true}";
   }

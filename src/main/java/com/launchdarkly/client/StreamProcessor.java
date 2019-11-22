@@ -44,6 +44,7 @@ final class StreamProcessor implements UpdateProcessor {
   private final EventSourceCreator eventSourceCreator;
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
+  private volatile long esStarted = 0;
 
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
@@ -65,6 +66,7 @@ final class StreamProcessor implements UpdateProcessor {
     return new ConnectionErrorHandler() {
       @Override
       public Action onConnectionError(Throwable t) {
+        recordStreamInit(true);
         if (t instanceof UnsuccessfulResponseException) {
           int status = ((UnsuccessfulResponseException)t).getCode();
           logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
@@ -72,6 +74,7 @@ final class StreamProcessor implements UpdateProcessor {
             return Action.SHUTDOWN;
           }
         }
+        esStarted = System.currentTimeMillis();
         return Action.PROCEED;
       }
     };
@@ -111,6 +114,8 @@ final class StreamProcessor implements UpdateProcessor {
         Gson gson = new Gson();
         switch (name) {
           case PUT: {
+            recordStreamInit(false);
+            esStarted = 0;
             PutData putData = gson.fromJson(event.getData(), PutData.class); 
             store.init(DefaultFeatureRequestor.toVersionedDataMap(putData.data));
             if (!initialized.getAndSet(true)) {
@@ -195,10 +200,17 @@ final class StreamProcessor implements UpdateProcessor {
         URI.create(config.streamURI.toASCIIString() + "/all"),
         wrappedConnectionErrorHandler,
         headers);
+    esStarted = System.currentTimeMillis();
     es.start();
     return initFuture;
   }
-  
+
+  private void recordStreamInit(boolean failed) {
+    if (diagnosticAccumulator != null && esStarted != 0) {
+      diagnosticAccumulator.recordStreamInit(esStarted, System.currentTimeMillis() - esStarted, failed);
+    }
+  }
+
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly StreamProcessor");

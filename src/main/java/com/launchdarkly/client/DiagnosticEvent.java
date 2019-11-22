@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import java.util.List;
+
 class DiagnosticEvent {
 
   final String kind;
@@ -12,20 +14,34 @@ class DiagnosticEvent {
     this.id = id;
   }
 
+  static class StreamInit {
+    long timestamp;
+    long durationMillis;
+    boolean failed;
+
+    public StreamInit(long timestamp, long durationMillis, boolean failed) {
+      this.timestamp = timestamp;
+      this.durationMillis = durationMillis;
+      this.failed = failed;
+    }
+  }
+
   static class Statistics extends DiagnosticEvent {
 
     final long dataSinceDate;
     final long droppedEvents;
     final long deduplicatedUsers;
     final long eventsInQueue;
+    final List<StreamInit> streamInits;
 
     Statistics(long creationDate, DiagnosticId id, long dataSinceDate, long droppedEvents, long deduplicatedUsers,
-      long eventsInQueue) {
+      long eventsInQueue, List<StreamInit> streamInits) {
       super("diagnostic", creationDate, id);
       this.dataSinceDate = dataSinceDate;
       this.droppedEvents = droppedEvents;
       this.deduplicatedUsers = deduplicatedUsers;
       this.eventsInQueue = eventsInQueue;
+      this.streamInits = streamInits;
     }
   }
 

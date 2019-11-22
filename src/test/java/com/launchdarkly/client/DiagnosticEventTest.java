@@ -1,27 +1,31 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+
 import org.junit.Test;
 
 import java.net.URI;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 public class DiagnosticEventTest {
 
   private static Gson gson = new Gson();
+  private static List<DiagnosticEvent.StreamInit> testStreamInits = Collections.singletonList(new DiagnosticEvent.StreamInit(1500, 100, true));
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
   @Test
   public void testSerialization() {
     DiagnosticId diagnosticId = new DiagnosticId("SDK_KEY");
-    DiagnosticEvent.Statistics diagnosticStatisticsEvent = new DiagnosticEvent.Statistics(2000, diagnosticId, 1000, 1, 2, 3);
+    DiagnosticEvent.Statistics diagnosticStatisticsEvent = new DiagnosticEvent.Statistics(2000, diagnosticId, 1000, 1, 2, 3, testStreamInits);
     JsonObject jsonObject = gson.toJsonTree(diagnosticStatisticsEvent).getAsJsonObject();
-    assertEquals(7, jsonObject.size());
+    assertEquals(8, jsonObject.size());
     assertEquals("diagnostic", diagnosticStatisticsEvent.kind);
     assertEquals(2000, jsonObject.getAsJsonPrimitive("creationDate").getAsLong());
     JsonObject idObject = jsonObject.getAsJsonObject("id");
@@ -32,6 +36,12 @@ public class DiagnosticEventTest {
     assertEquals(1, jsonObject.getAsJsonPrimitive("droppedEvents").getAsLong());
     assertEquals(2, jsonObject.getAsJsonPrimitive("deduplicatedUsers").getAsLong());
     assertEquals(3, jsonObject.getAsJsonPrimitive("eventsInQueue").getAsLong());
+    JsonArray initsJson = jsonObject.getAsJsonArray("streamInits");
+    assertEquals(1, initsJson.size());
+    JsonObject initJson = initsJson.get(0).getAsJsonObject();
+    assertEquals(1500, initJson.getAsJsonPrimitive("timestamp").getAsInt());
+    assertEquals(100, initJson.getAsJsonPrimitive("durationMillis").getAsInt());
+    assertTrue(initJson.getAsJsonPrimitive("failed").getAsBoolean());
   }
 
   @Test
