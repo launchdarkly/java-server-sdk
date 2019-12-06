@@ -97,6 +97,8 @@ import java.util.regex.Pattern;
  *
  * @author Takahiko Kawasaki
  */
+@SuppressWarnings({"deprecation", "DeprecatedIsStillUsed"})
+@Deprecated
 public enum LDCountryCode
 {
   /**

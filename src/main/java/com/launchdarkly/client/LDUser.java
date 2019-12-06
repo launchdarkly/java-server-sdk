@@ -63,7 +63,7 @@ public class LDUser {
     }
     this.key = LDValue.of(builder.key);
     this.ip = LDValue.of(builder.ip);
-    this.country = builder.country == null ? LDValue.ofNull() : LDValue.of(builder.country.getAlpha2());
+    this.country = LDValue.of(builder.country);
     this.secondary = LDValue.of(builder.secondary);
     this.firstName = LDValue.of(builder.firstName);
     this.lastName = LDValue.of(builder.lastName);
@@ -317,7 +317,7 @@ public class LDUser {
     private String name;
     private String avatar;
     private Boolean anonymous;
-    private LDCountryCode country;
+    private String country;
     private Map<String, LDValue> custom;
     private Set<String> privateAttrNames;
 
@@ -345,7 +345,7 @@ public class LDUser {
       this.name = user.getName().stringValue();
       this.avatar = user.getAvatar().stringValue();
       this.anonymous = user.getAnonymous().isNull() ? null : user.getAnonymous().booleanValue();
-      this.country = user.getCountry().isNull() ? null : LDCountryCode.valueOf(user.getCountry().stringValue());
+      this.country = user.getCountry().stringValue();
       this.custom = user.custom == null ? null : new HashMap<>(user.custom);
       this.privateAttrNames = user.privateAttributeNames == null ? null : new HashSet<>(user.privateAttributeNames);
     }
@@ -399,17 +399,19 @@ public class LDUser {
     /**
      * Set the country for a user.
      * <p>
-     * The country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
+     * In the current SDK version the country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
      * alpha-2 or alpha-3 code. If it is not a valid ISO-3166-1 code, an attempt will be made to look up the country by its name.
-     * If that fails, a warning will be logged, and the country will not be set.
+     * If that fails, a warning will be logged, and the country will not be set. <b>In the next major release, this validation
+     * will be removed, and the country field will be treated as a normal string.</b>
      *
      * @param s the country for the user
      * @return the builder
      */
+    @SuppressWarnings("deprecation")
     public Builder country(String s) {
-      country = LDCountryCode.getByCode(s, false);
+      LDCountryCode countryCode = LDCountryCode.getByCode(s, false);
 
-      if (country == null) {
+      if (countryCode == null) {
         List<LDCountryCode> codes = LDCountryCode.findByName("^" + Pattern.quote(s) + ".*");
 
         if (codes.isEmpty()) {
@@ -418,26 +420,29 @@ public class LDUser {
           // See if any of the codes is an exact match
           for (LDCountryCode c : codes) {
             if (c.getName().equals(s)) {
-              country = c;
+              country = c.getAlpha2();
               return this;
             }
           }
           logger.warn("Ambiguous country. Provided code matches multiple countries: " + s);
-          country = codes.get(0);
+          country = codes.get(0).getAlpha2();
         } else {
-          country = codes.get(0);
+          country = codes.get(0).getAlpha2();
         }
-
+      } else {
+        country = countryCode.getAlpha2();
       }
+
       return this;
     }
 
     /**
      * Set the country for a user, and ensures that the country attribute will not be sent back to LaunchDarkly.
      * <p>
-     * The country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
+     * In the current SDK version the country should be a valid <a href="http://en.wikipedia.org/wiki/ISO_3166-1">ISO 3166-1</a>
      * alpha-2 or alpha-3 code. If it is not a valid ISO-3166-1 code, an attempt will be made to look up the country by its name.
-     * If that fails, a warning will be logged, and the country will not be set.
+     * If that fails, a warning will be logged, and the country will not be set. <b>In the next major release, this validation
+     * will be removed, and the country field will be treated as a normal string.</b>
      *
      * @param s the country for the user
      * @return the builder
@@ -452,9 +457,13 @@ public class LDUser {
      *
      * @param country the country for the user
      * @return the builder
+     * @deprecated As of version 4.10.0. In the next major release the SDK will no longer include the
+     * LDCountryCode class. Applications should use {@link #country(String)} instead.
      */
+    @SuppressWarnings("deprecation")
+    @Deprecated
     public Builder country(LDCountryCode country) {
-      this.country = country;
+      this.country = country == null ? null : country.getAlpha2();
       return this;
     }
 
@@ -463,7 +472,11 @@ public class LDUser {
      *
      * @param country the country for the user
      * @return the builder
+     * @deprecated As of version 4.10.0. In the next major release the SDK will no longer include the
+     * LDCountryCode class. Applications should use {@link #privateCountry(String)} instead.
      */
+    @SuppressWarnings("deprecation")
+    @Deprecated
     public Builder privateCountry(LDCountryCode country) {
       addPrivate("country");
       return country(country);
