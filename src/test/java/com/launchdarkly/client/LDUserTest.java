@@ -170,52 +170,14 @@ public class LDUserTest {
 
   @Test
   public void canSetCountry() {
-    LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
-    assertEquals("US", user.getCountry().stringValue());
-  }
-
-  @Test
-  public void canSetCountryAsString() {
-    LDUser user = new LDUser.Builder("key").country("US").build();
-    assertEquals("US", user.getCountry().stringValue());
-  }
-
-  @Test
-  public void canSetCountryAs3CharacterString() {
-    LDUser user = new LDUser.Builder("key").country("USA").build();
-    assertEquals("US", user.getCountry().stringValue());
-  }
-
-  @Test
-  public void ambiguousCountryNameSetsCountryWithExactMatch() {
-    // "United States" is ambiguous: can also match "United States Minor Outlying Islands"
-    LDUser user = new LDUser.Builder("key").country("United States").build();
-    assertEquals("US", user.getCountry().stringValue());
-  }
-
-  @Test
-  public void ambiguousCountryNameSetsCountryWithPartialMatch() {
-    // For an ambiguous match, we return the first match
-    LDUser user = new LDUser.Builder("key").country("United St").build();
-    assertNotNull(user.getCountry());
-  }
-
-  @Test
-  public void partialUniqueMatchSetsCountry() {
-    LDUser user = new LDUser.Builder("key").country("United States Minor").build();
-    assertEquals("UM", user.getCountry().stringValue());
-  }
-
-  @Test
-  public void invalidCountryNameDoesNotSetCountry() {
-    LDUser user = new LDUser.Builder("key").country("East Jibip").build();
-    assertEquals(LDValue.ofNull(), user.getCountry());
+    LDUser user = new LDUser.Builder("key").country("u").build();
+    assertEquals("u", user.getCountry().stringValue());
   }
 
   @Test
   public void canSetPrivateCountry() {
-    LDUser user = new LDUser.Builder("key").privateCountry(LDCountryCode.US).build();
-    assertEquals("US", user.getCountry().stringValue());
+    LDUser user = new LDUser.Builder("key").privateCountry("u").build();
+    assertEquals("u", user.getCountry().stringValue());
     assertEquals(ImmutableSet.of("country"), user.privateAttributeNames);
   }
 
@@ -327,8 +289,8 @@ public class LDUserTest {
         "{\"key\":\"userkey\",\"lastName\":\"value\"}");
     builder.put(new LDUser.Builder("userkey").anonymous(true).build(),
         "{\"key\":\"userkey\",\"anonymous\":true}");
-    builder.put(new LDUser.Builder("userkey").country(LDCountryCode.US).build(),
-        "{\"key\":\"userkey\",\"country\":\"US\"}");
+    builder.put(new LDUser.Builder("userkey").country("value").build(),
+        "{\"key\":\"userkey\",\"country\":\"value\"}");
     builder.put(new LDUser.Builder("userkey").custom("thing", "value").build(),
         "{\"key\":\"userkey\",\"custom\":{\"thing\":\"value\"}}");
     return builder.build();
@@ -353,7 +315,7 @@ public class LDUserTest {
         .firstName("f")
         .lastName("l")
         .anonymous(true)
-        .country(LDCountryCode.US)
+        .country("USA")
         .custom("thing", "value")
         .build();
     Set<String> redacted = ImmutableSet.of("secondary", "ip", "email", "name", "avatar", "firstName", "lastName", "country", "thing");
