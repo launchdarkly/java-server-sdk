@@ -6,6 +6,7 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
+import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.TestHttpUtil.baseConfig;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.client.TestHttpUtil.jsonResponse;
@@ -21,7 +22,7 @@ public class LDClientEndToEndTest {
   private static final Gson gson = new Gson();
   private static final String sdkKey = "sdk-key";
   private static final String flagKey = "flag1";
-  private static final FeatureFlag flag = new FeatureFlagBuilder(flagKey)
+  private static final FlagModel.FeatureFlag flag = flagBuilder(flagKey)
       .offVariation(0).variations(LDValue.of(true))
       .build();
   private static final LDUser user = new LDUser("user-key");

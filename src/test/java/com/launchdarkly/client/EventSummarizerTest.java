@@ -7,12 +7,13 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.launchdarkly.client.TestUtil.js;
+import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 
+@SuppressWarnings("javadoc")
 public class EventSummarizerTest {
   private static final LDUser user = new LDUser.Builder("key").build();
   
@@ -50,7 +51,7 @@ public class EventSummarizerTest {
   @Test
   public void summarizeEventSetsStartAndEndDates() {
     EventSummarizer es = new EventSummarizer();
-    FeatureFlag flag = new FeatureFlagBuilder("key").build();
+    FlagModel.FeatureFlag flag = flagBuilder("key").build();
     eventTimestamp = 2000;
     Event event1 = eventFactory.newFeatureRequestEvent(flag, user, null, null);
     eventTimestamp = 1000;
@@ -69,8 +70,8 @@ public class EventSummarizerTest {
   @Test
   public void summarizeEventIncrementsCounters() {
     EventSummarizer es = new EventSummarizer();
-    FeatureFlag flag1 = new FeatureFlagBuilder("key1").version(11).build();
-    FeatureFlag flag2 = new FeatureFlagBuilder("key2").version(22).build();
+    FlagModel.FeatureFlag flag1 = flagBuilder("key1").version(11).build();
+    FlagModel.FeatureFlag flag2 = flagBuilder("key2").version(22).build();
     String unknownFlagKey = "badkey";
     Event event1 = eventFactory.newFeatureRequestEvent(flag1, user,
         simpleEvaluation(1, LDValue.of("value1")), LDValue.of("default1"));

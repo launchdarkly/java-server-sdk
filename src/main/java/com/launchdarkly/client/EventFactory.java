@@ -9,7 +9,7 @@ abstract class EventFactory {
   protected abstract long getTimestamp();
   protected abstract boolean isIncludeReasons();
   
-  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, LDValue value,
+  public Event.FeatureRequest newFeatureRequestEvent(FlagModel.FeatureFlag flag, LDUser user, LDValue value,
       Integer variationIndex, EvaluationReason reason, LDValue defaultValue, String prereqOf) {
     boolean requireExperimentData = isExperiment(flag, reason);
     return new Event.FeatureRequest(
@@ -28,13 +28,13 @@ abstract class EventFactory {
     );
   }
   
-  public Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, EvaluationDetail<LDValue> result, LDValue defaultVal) {
+  public Event.FeatureRequest newFeatureRequestEvent(FlagModel.FeatureFlag flag, LDUser user, Evaluator.EvalResult result, LDValue defaultVal) {
     return newFeatureRequestEvent(flag, user, result == null ? null : result.getValue(),
         result == null ? null : result.getVariationIndex(), result == null ? null : result.getReason(),
         defaultVal, null);
   }
   
-  public Event.FeatureRequest newDefaultFeatureRequestEvent(FeatureFlag flag, LDUser user, LDValue defaultValue,
+  public Event.FeatureRequest newDefaultFeatureRequestEvent(FlagModel.FeatureFlag flag, LDUser user, LDValue defaultValue,
       EvaluationReason.ErrorKind errorKind) {
     return new Event.FeatureRequest(getTimestamp(), flag.getKey(), user, flag.getVersion(),
         null, defaultValue, defaultValue, isIncludeReasons() ? EvaluationReason.error(errorKind) : null,
@@ -47,10 +47,10 @@ abstract class EventFactory {
         isIncludeReasons() ? EvaluationReason.error(errorKind) : null, null, false, null, false);
   }
   
-  public Event.FeatureRequest newPrerequisiteFeatureRequestEvent(FeatureFlag prereqFlag, LDUser user, EvaluationDetail<LDValue> result,
-      FeatureFlag prereqOf) {
-    return newFeatureRequestEvent(prereqFlag, user, result == null ? null : result.getValue(),
-        result == null ? null : result.getVariationIndex(), result == null ? null : result.getReason(),
+  public Event.FeatureRequest newPrerequisiteFeatureRequestEvent(FlagModel.FeatureFlag prereqFlag, LDUser user,
+      Evaluator.EvalResult details, FlagModel.FeatureFlag prereqOf) {
+    return newFeatureRequestEvent(prereqFlag, user, details == null ? null : details.getValue(),
+        details == null ? null : details.getVariationIndex(), details == null ? null : details.getReason(),
         LDValue.ofNull(), prereqOf.getKey());
   }
 
@@ -67,7 +67,7 @@ abstract class EventFactory {
     return new Event.Identify(getTimestamp(), user);
   }
   
-  private boolean isExperiment(FeatureFlag flag, EvaluationReason reason) {
+  private boolean isExperiment(FlagModel.FeatureFlag flag, EvaluationReason reason) {
     if (reason == null) {
       // doesn't happen in real life, but possible in testing
       return false;
@@ -86,7 +86,7 @@ abstract class EventFactory {
       // FeatureFlag that is passed to us here *is* necessarily the same version of the flag that was just
       // evaluated, so we cannot be out of sync with its rule list.
       if (ruleIndex >= 0 && ruleIndex < flag.getRules().size()) {
-        Rule rule = flag.getRules().get(ruleIndex);
+        FlagModel.Rule rule = flag.getRules().get(ruleIndex);
         return rule.isTrackEvents();
       }
       return false;

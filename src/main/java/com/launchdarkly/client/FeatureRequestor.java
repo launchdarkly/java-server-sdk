@@ -5,17 +5,17 @@ import java.io.IOException;
 import java.util.Map;
 
 interface FeatureRequestor extends Closeable {
-  FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException;
+  FlagModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException;
 
-  Segment getSegment(String segmentKey) throws IOException, HttpErrorException;
+  FlagModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException;
 
   AllData getAllData() throws IOException, HttpErrorException;
 
   static class AllData {
-    final Map<String, FeatureFlag> flags;
-    final Map<String, Segment> segments;
+    final Map<String, FlagModel.FeatureFlag> flags;
+    final Map<String, FlagModel.Segment> segments;
     
-    AllData(Map<String, FeatureFlag> flags, Map<String, Segment> segments) {
+    AllData(Map<String, FlagModel.FeatureFlag> flags, Map<String, FlagModel.Segment> segments) {
       this.flags = flags;
       this.segments = segments;
     }

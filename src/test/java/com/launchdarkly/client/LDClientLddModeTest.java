@@ -6,7 +6,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.launchdarkly.client.TestUtil.flagWithValue;
+import static com.launchdarkly.client.ModelBuilders.flagWithValue;
 import static com.launchdarkly.client.TestUtil.initedFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -52,7 +52,7 @@ public class LDClientLddModeTest {
         .useLdd(true)
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .build();
-    FeatureFlag flag = flagWithValue("key", LDValue.of(true));
+    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
     testFeatureStore.upsert(FEATURES, flag);
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertTrue(client.boolVariation("key", new LDUser("user"), false));

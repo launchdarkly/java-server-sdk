@@ -9,7 +9,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.util.Map;
 
-import static com.launchdarkly.client.TestUtil.flagWithValue;
+import static com.launchdarkly.client.ModelBuilders.flagWithValue;
 import static com.launchdarkly.client.TestUtil.initedFeatureStore;
 import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;

@@ -54,14 +54,14 @@ class DefaultFeatureRequestor implements FeatureRequestor {
     shutdownHttpClient(httpClient);
   }
   
-  public FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
+  public FlagModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_FLAGS_PATH + "/" + featureKey);
-    return config.gson.fromJson(body, FeatureFlag.class);
+    return config.gson.fromJson(body, FlagModel.FeatureFlag.class);
   }
 
-  public Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
+  public FlagModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_SEGMENTS_PATH + "/" + segmentKey);
-    return config.gson.fromJson(body, Segment.class);
+    return config.gson.fromJson(body, FlagModel.Segment.class);
   }
 
   public AllData getAllData() throws IOException, HttpErrorException {

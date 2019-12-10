@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.Set;
 
+import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -71,9 +72,9 @@ public class EventOutputTest {
     EventOutputFormatter f = new EventOutputFormatter(new LDConfig.Builder().build());
 
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
-        new FeatureFlagBuilder("flag").build(),
+        flagBuilder("flag").build(),
         user,
-        new EvaluationDetail<LDValue>(EvaluationReason.off(), null, LDValue.ofNull()),
+        new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("user"));
@@ -162,12 +163,12 @@ public class EventOutputTest {
   public void featureEventIsSerialized() throws Exception {
     EventFactory factory = eventFactoryWithTimestamp(100000, false);
     EventFactory factoryWithReason = eventFactoryWithTimestamp(100000, true);
-    FeatureFlag flag = new FeatureFlagBuilder("flag").version(11).build();
+    FlagModel.FeatureFlag flag = flagBuilder("flag").version(11).build();
     LDUser user = new LDUser.Builder("userkey").name("me").build();
     EventOutputFormatter f = new EventOutputFormatter(LDConfig.DEFAULT);
     
     FeatureRequest feWithVariation = factory.newFeatureRequestEvent(flag, user,
-        new EvaluationDetail<LDValue>(EvaluationReason.off(), 1, LDValue.of("flagvalue")),
+        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
         LDValue.of("defaultvalue"));
     LDValue feJson1 = parseValue("{" +
         "\"kind\":\"feature\"," +
@@ -182,7 +183,7 @@ public class EventOutputTest {
     assertEquals(feJson1, getSingleOutputEvent(f, feWithVariation));
 
     FeatureRequest feWithoutVariationOrDefault = factory.newFeatureRequestEvent(flag, user,
-        new EvaluationDetail<LDValue>(EvaluationReason.off(), null, LDValue.of("flagvalue")),
+        new Evaluator.EvalResult(LDValue.of("flagvalue"), null, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue feJson2 = parseValue("{" +
         "\"kind\":\"feature\"," +
@@ -195,7 +196,7 @@ public class EventOutputTest {
     assertEquals(feJson2, getSingleOutputEvent(f, feWithoutVariationOrDefault));
 
     FeatureRequest feWithReason = factoryWithReason.newFeatureRequestEvent(flag, user,
-        new EvaluationDetail<LDValue>(EvaluationReason.ruleMatch(1, "id"), 1, LDValue.of("flagvalue")),
+        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.ruleMatch(1, "id")),
         LDValue.of("defaultvalue"));
     LDValue feJson3 = parseValue("{" +
         "\"kind\":\"feature\"," +
@@ -386,9 +387,9 @@ public class EventOutputTest {
     EventOutputFormatter f = new EventOutputFormatter(baseConfig.build());
 
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
-        new FeatureFlagBuilder("flag").build(),
+        flagBuilder("flag").build(),
         user,
-        new EvaluationDetail<LDValue>(EvaluationReason.off(), null, LDValue.ofNull()),
+        new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));

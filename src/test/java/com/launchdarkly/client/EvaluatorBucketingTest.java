@@ -4,15 +4,16 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
-public class VariationOrRolloutTest {
+@SuppressWarnings("javadoc")
+public class EvaluatorBucketingTest {
   @Test
   public void canBucketByIntAttributeSameAsString() {
     LDUser user = new LDUser.Builder("key")
         .custom("stringattr", "33333")
         .custom("intattr", 33333)
         .build();
-    float resultForString = VariationOrRollout.bucketUser(user, "key", "stringattr", "salt");
-    float resultForInt = VariationOrRollout.bucketUser(user, "key", "intattr", "salt");
+    float resultForString = EvaluatorBucketing.bucketUser(user, "key", "stringattr", "salt");
+    float resultForInt = EvaluatorBucketing.bucketUser(user, "key", "intattr", "salt");
     assertEquals(resultForString, resultForInt, Float.MIN_VALUE);
   }
 
@@ -21,7 +22,7 @@ public class VariationOrRolloutTest {
     LDUser user = new LDUser.Builder("key")
         .custom("floatattr", 33.5f)
         .build();
-    float result = VariationOrRollout.bucketUser(user, "key", "floatattr", "salt");
+    float result = EvaluatorBucketing.bucketUser(user, "key", "floatattr", "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 
@@ -30,7 +31,7 @@ public class VariationOrRolloutTest {
     LDUser user = new LDUser.Builder("key")
         .custom("boolattr", true)
         .build();
-    float result = VariationOrRollout.bucketUser(user, "key", "boolattr", "salt");
+    float result = EvaluatorBucketing.bucketUser(user, "key", "boolattr", "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 }

@@ -11,11 +11,13 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.Map;
 
-import static com.launchdarkly.client.TestUtil.booleanFlagWithClauses;
+import static com.launchdarkly.client.ModelBuilders.booleanFlagWithClauses;
+import static com.launchdarkly.client.ModelBuilders.fallthroughVariation;
+import static com.launchdarkly.client.ModelBuilders.flagBuilder;
+import static com.launchdarkly.client.ModelBuilders.flagWithValue;
+import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestUtil.failedUpdateProcessor;
-import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.TestUtil.featureStoreThatThrowsException;
-import static com.launchdarkly.client.TestUtil.flagWithValue;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificUpdateProcessor;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -176,14 +178,14 @@ public class LDClientEvaluationTest {
   @Test
   public void canMatchUserBySegment() throws Exception {
     // This is similar to one of the tests in FeatureFlagTest, but more end-to-end
-    Segment segment = new Segment.Builder("segment1")
+    FlagModel.Segment segment = segmentBuilder("segment1")
         .version(1)
-        .included(Arrays.asList(user.getKeyAsString()))
+        .included(user.getKeyAsString())
         .build();
     featureStore.upsert(SEGMENTS, segment);
     
-    Clause clause = new Clause("", Operator.segmentMatch, Arrays.asList(LDValue.of("segment1")), false);
-    FeatureFlag feature = booleanFlagWithClauses("feature", clause);
+    FlagModel.Clause clause = new FlagModel.Clause("", Operator.segmentMatch, Arrays.asList(LDValue.of("segment1")), false);
+    FlagModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     featureStore.upsert(FEATURES, feature);
     
     assertTrue(client.boolVariation("feature", user, false));
@@ -200,7 +202,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void variationReturnsDefaultIfFlagEvaluatesToNull() {
-    FeatureFlag flag = new FeatureFlagBuilder("key").on(false).offVariation(null).build();
+    FlagModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(null).build();
     featureStore.upsert(FEATURES, flag);
     
     assertEquals("default", client.stringVariation("key", user, "default"));
@@ -208,7 +210,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void variationDetailReturnsDefaultIfFlagEvaluatesToNull() {
-    FeatureFlag flag = new FeatureFlagBuilder("key").on(false).offVariation(null).build();
+    FlagModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(null).build();
     featureStore.upsert(FEATURES, flag);
     
     EvaluationDetail<String> expected = EvaluationDetail.fromValue("default",
@@ -302,14 +304,14 @@ public class LDClientEvaluationTest {
   
   @Test
   public void allFlagsStateReturnsState() throws Exception {
-    FeatureFlag flag1 = new FeatureFlagBuilder("key1")
+    FlagModel.FeatureFlag flag1 = flagBuilder("key1")
         .version(100)
         .trackEvents(false)
         .on(false)
         .offVariation(0)
         .variations(LDValue.of("value1"))
         .build();
-    FeatureFlag flag2 = new FeatureFlagBuilder("key2")
+    FlagModel.FeatureFlag flag2 = flagBuilder("key2")
         .version(200)
         .trackEvents(true)
         .debugEventsUntilDate(1000L)
@@ -339,11 +341,11 @@ public class LDClientEvaluationTest {
 
   @Test
   public void allFlagsStateCanFilterForOnlyClientSideFlags() {
-    FeatureFlag flag1 = new FeatureFlagBuilder("server-side-1").build();
-    FeatureFlag flag2 = new FeatureFlagBuilder("server-side-2").build();
-    FeatureFlag flag3 = new FeatureFlagBuilder("client-side-1").clientSide(true)
+    FlagModel.FeatureFlag flag1 = flagBuilder("server-side-1").build();
+    FlagModel.FeatureFlag flag2 = flagBuilder("server-side-2").build();
+    FlagModel.FeatureFlag flag3 = flagBuilder("client-side-1").clientSide(true)
         .variations(LDValue.of("value1")).offVariation(0).build();
-    FeatureFlag flag4 = new FeatureFlagBuilder("client-side-2").clientSide(true)
+    FlagModel.FeatureFlag flag4 = flagBuilder("client-side-2").clientSide(true)
         .variations(LDValue.of("value2")).offVariation(0).build();
     featureStore.upsert(FEATURES, flag1);
     featureStore.upsert(FEATURES, flag2);
@@ -359,14 +361,14 @@ public class LDClientEvaluationTest {
   
   @Test
   public void allFlagsStateReturnsStateWithReasons() {
-    FeatureFlag flag1 = new FeatureFlagBuilder("key1")
+    FlagModel.FeatureFlag flag1 = flagBuilder("key1")
         .version(100)
         .trackEvents(false)
         .on(false)
         .offVariation(0)
         .variations(LDValue.of("value1"))
         .build();
-    FeatureFlag flag2 = new FeatureFlagBuilder("key2")
+    FlagModel.FeatureFlag flag2 = flagBuilder("key2")
         .version(200)
         .trackEvents(true)
         .debugEventsUntilDate(1000L)
@@ -397,21 +399,21 @@ public class LDClientEvaluationTest {
   @Test
   public void allFlagsStateCanOmitDetailsForUntrackedFlags() {
     long futureTime = System.currentTimeMillis() + 1000000;
-    FeatureFlag flag1 = new FeatureFlagBuilder("key1")
+    FlagModel.FeatureFlag flag1 = flagBuilder("key1")
         .version(100)
         .trackEvents(false)
         .on(false)
         .offVariation(0)
         .variations(LDValue.of("value1"))
         .build();
-    FeatureFlag flag2 = new FeatureFlagBuilder("key2")
+    FlagModel.FeatureFlag flag2 = flagBuilder("key2")
         .version(200)
         .trackEvents(true)
         .on(true)
         .fallthrough(fallthroughVariation(1))
         .variations(LDValue.of("off"), LDValue.of("value2"))
         .build();
-    FeatureFlag flag3 = new FeatureFlagBuilder("key3")
+    FlagModel.FeatureFlag flag3 = flagBuilder("key3")
         .version(300)
         .trackEvents(false)
         .debugEventsUntilDate(futureTime)  // event tracking is turned on temporarily even though trackEvents is false 
