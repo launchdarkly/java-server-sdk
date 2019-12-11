@@ -123,6 +123,10 @@ public class TestFeatureStore extends InMemoryFeatureStore {
     return initializedForTests;
   }
   
+  /**
+   * Sets the initialization status that the feature store will report to the SDK 
+   * @param value true if the store should show as initialized
+   */
   public void setInitialized(boolean value) {
     initializedForTests = value;
   }

@@ -197,10 +197,18 @@ public abstract class EvaluationReason {
       this.ruleId = ruleId;
     }
     
+    /**
+     * The index of the rule that was matched (0 for the first rule in the feature flag).
+     * @return the rule index
+     */
     public int getRuleIndex() {
       return ruleIndex;
     }
     
+    /**
+     * A unique string identifier for the matched rule, which will not change if other rules are added or deleted.
+     * @return the rule identifier
+     */
     public String getRuleId() {
       return ruleId;
     }
@@ -238,6 +246,10 @@ public abstract class EvaluationReason {
       this.prerequisiteKey = checkNotNull(prerequisiteKey);
     }
     
+    /**
+     * The key of the prerequisite flag that did not return the desired variation.
+     * @return the prerequisite flag key 
+     */
     public String getPrerequisiteKey() {
       return prerequisiteKey;
     }
@@ -286,6 +298,10 @@ public abstract class EvaluationReason {
       this.errorKind = errorKind;
     }
     
+    /**
+     * An enumeration value indicating the general category of error.
+     * @return the error kind
+     */
     public ErrorKind getErrorKind() {
       return errorKind;
     }
