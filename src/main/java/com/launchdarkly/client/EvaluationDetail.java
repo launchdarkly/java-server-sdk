@@ -31,6 +31,7 @@ public class EvaluationDetail<T> {
   /**
    * Factory method for an arbitrary value.
    * 
+   * @param <T> the type of the value
    * @param value a value of the desired type
    * @param variationIndex an optional variation index
    * @param reason an {@link EvaluationReason} (should not be null)
