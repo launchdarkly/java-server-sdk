@@ -3,6 +3,22 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.10.0] - 2019-12-13
+### Added:
+- Method overloads in `ArrayBuilder`/`ObjectBuilder` to allow easily adding values as booleans, strings, etc. rather than converting them to `LDValue` first.
+
+### Changed:
+- The SDK now generates fewer ephemeral objects on the heap from flag evaluations, by reusing `EvaluationReason` instances that have the same properties.
+
+### Fixed:
+- In rare circumstances (depending on the exact data in the flag configuration, the flag's salt value, and the user properties), a percentage rollout could fail and return a default value, logging the error "Data inconsistency in feature flag ... variation/rollout object with no variation or rollout". This would happen if the user's hashed value fell exactly at the end of the last "bucket" (the last variation defined in the rollout). This has been fixed so that the user will get the last variation.
+
+### Deprecated:
+- Deprecated `LDCountryCode`, `LDUser.Builder.country(LDCountryCode)`, and `LDUser.Builder.privateCountry(LDCountryCode)`. `LDCountryCode` will be removed in the next major release, for setting the `country` user property, applications should use `LDUser.Builder.country(String)` and `LDUser.Builder.privateCountry(String)` instead.
+- `SegmentRule` is an internal implementation class that was accidentally made public.
+- `NullUpdateProcessor` should not be referenced directly and will be non-public in the future; use the factory methods in `Components` instead.
+
+
 ## [4.9.1] - 2019-11-20
 ### Changed:
 - Improved memory usage and performance when processing analytics events: the SDK now encodes event data to JSON directly, instead of creating intermediate objects and serializing them via reflection.
