@@ -30,7 +30,7 @@ class VariationOrRollout {
   Integer variationIndexForUser(LDUser user, String key, String salt) {
     if (variation != null) {
       return variation;
-    } else if (rollout != null) {
+    } else if (rollout != null && rollout.variations != null && !rollout.variations.isEmpty()) {
       String bucketBy = rollout.bucketBy == null ? "key" : rollout.bucketBy;
       float bucket = bucketUser(user, key, bucketBy, salt);
       float sum = 0F;
@@ -40,6 +40,12 @@ class VariationOrRollout {
           return wv.variation;
         }
       }
+      // The user's bucket value was greater than or equal to the end of the last bucket. This could happen due
+      // to a rounding error, or due to the fact that we are scaling to 100000 rather than 99999, or the flag
+      // data could contain buckets that don't actually add up to 100000. Rather than returning an error in
+      // this case (or changing the scaling, which would potentially change the results for *all* users), we
+      // will simply put the user in the last bucket.
+      return rollout.variations.get(rollout.variations.size() - 1).variation;
     }
     return null;
   }

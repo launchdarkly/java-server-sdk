@@ -11,6 +11,8 @@ class Rule extends VariationOrRollout {
   private String id;
   private List<Clause> clauses;
   private boolean trackEvents;
+  
+  private transient EvaluationReason.RuleMatch ruleMatchReason;
 
   // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
   Rule() {
@@ -40,6 +42,15 @@ class Rule extends VariationOrRollout {
     return trackEvents;
   }
   
+  // This value is precomputed when we deserialize a FeatureFlag from JSON
+  EvaluationReason.RuleMatch getRuleMatchReason() {
+    return ruleMatchReason;
+  }
+
+  void setRuleMatchReason(EvaluationReason.RuleMatch ruleMatchReason) {
+    this.ruleMatchReason = ruleMatchReason;
+  }
+
   boolean matchesUser(FeatureStore store, LDUser user) {
     for (Clause clause : clauses) {
       if (!clause.matchesUser(store, user)) {

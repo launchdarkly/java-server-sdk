@@ -24,8 +24,18 @@ public interface UpdateProcessor extends Closeable {
    */
   boolean initialized();
 
+  /**
+   * Tells the component to shut down and release any resources it is using.
+   * @throws IOException if there is an error while closing
+   */
   void close() throws IOException;
 
+  /**
+   * An implementation of {@link UpdateProcessor} that does nothing.
+   * 
+   * @deprecated Use {@link Components#nullUpdateProcessor()} instead of referring to this implementation class directly. 
+   */
+  @Deprecated
   static final class NullUpdateProcessor implements UpdateProcessor {
     @Override
     public Future<Void> start() {
