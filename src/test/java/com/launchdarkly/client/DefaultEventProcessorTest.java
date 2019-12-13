@@ -538,6 +538,46 @@ public class DefaultEventProcessorTest {
         assertThat(statsEvent.id, samePropertyValuesAs(diagnosticId));
         assertThat(statsEvent.dataSinceDate, equalTo(dataSinceDate));
         assertThat(statsEvent.creationDate, equalTo(diagnosticAccumulator.dataSinceDate));
+        assertThat(statsEvent.deduplicatedUsers, equalTo(0L));
+        assertThat(statsEvent.eventsInLastBatch, equalTo(0L));
+        assertThat(statsEvent.droppedEvents, equalTo(0L));
+      }
+    }
+  }
+
+  @Test
+  public void periodicDiagnosticEventGetsEventsInLastBatchAndDeduplicatedUsers() throws Exception {
+    FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).trackEvents(true).build();
+    FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).trackEvents(true).build();
+    LDValue value = LDValue.of("value");
+    Event.FeatureRequest fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
+            simpleEvaluation(1, value), LDValue.ofNull());
+    Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
+            simpleEvaluation(1, value), LDValue.ofNull());
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse(), eventsSuccessResponse())) {
+      DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
+      DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseDiagConfig(server).build(), diagnosticAccumulator)) {
+        // Ignore the initial diagnostic event
+        server.takeRequest();
+
+        ep.sendEvent(fe1);
+        ep.sendEvent(fe2);
+        ep.flush();
+        // Ignore normal events
+        server.takeRequest();
+
+        ep.postDiagnostic();
+        RecordedRequest periodicReq = server.takeRequest();
+
+        assertNotNull(periodicReq);
+        DiagnosticEvent.Statistics statsEvent = gson.fromJson(periodicReq.getBody().readUtf8(), DiagnosticEvent.Statistics.class);
+
+        assertNotNull(statsEvent);
+        assertThat(statsEvent.deduplicatedUsers, equalTo(1L));
+        assertThat(statsEvent.eventsInLastBatch, equalTo(3L));
+        assertThat(statsEvent.droppedEvents, equalTo(0L));
       }
     }
   }

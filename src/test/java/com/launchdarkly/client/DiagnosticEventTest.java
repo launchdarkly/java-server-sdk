@@ -35,7 +35,7 @@ public class DiagnosticEventTest {
     assertEquals(1000, jsonObject.getAsJsonPrimitive("dataSinceDate").getAsLong());
     assertEquals(1, jsonObject.getAsJsonPrimitive("droppedEvents").getAsLong());
     assertEquals(2, jsonObject.getAsJsonPrimitive("deduplicatedUsers").getAsLong());
-    assertEquals(3, jsonObject.getAsJsonPrimitive("eventsInQueue").getAsLong());
+    assertEquals(3, jsonObject.getAsJsonPrimitive("eventsInLastBatch").getAsLong());
     JsonArray initsJson = jsonObject.getAsJsonArray("streamInits");
     assertEquals(1, initsJson.size());
     JsonObject initJson = initsJson.get(0).getAsJsonObject();

@@ -333,8 +333,8 @@ final class DefaultEventProcessor implements EventProcessor {
 
     private void sendAndResetDiagnostics(EventBuffer outbox) {
       long droppedEvents = outbox.getAndClearDroppedCount();
-      long eventsInQueue = outbox.getEventsInQueueCount();
-      DiagnosticEvent diagnosticEvent = diagnosticAccumulator.createEventAndReset(droppedEvents, deduplicatedUsers, eventsInQueue);
+      // We pass droppedEvents and deduplicatedUsers as parameters here because they are updated frequently in the main loop so we want to avoid synchronization on them.
+      DiagnosticEvent diagnosticEvent = diagnosticAccumulator.createEventAndReset(droppedEvents, deduplicatedUsers);
       deduplicatedUsers = 0;
       diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticEvent));
     }
@@ -449,6 +449,9 @@ final class DefaultEventProcessor implements EventProcessor {
         return;
       }
       FlushPayload payload = outbox.getPayload();
+      if (diagnosticAccumulator != null) {
+        diagnosticAccumulator.recordEventsInBatch(payload.events.length);
+      }
       busyFlushWorkersCount.incrementAndGet();
       if (payloadQueue.offer(payload)) {
         // These events now belong to the next available flush worker, so drop them from our state
@@ -564,10 +567,6 @@ final class DefaultEventProcessor implements EventProcessor {
       long res = droppedEventCount;
       droppedEventCount = 0;
       return res;
-    }
-
-    long getEventsInQueueCount() {
-      return events.size();
     }
 
     FlushPayload getPayload() {

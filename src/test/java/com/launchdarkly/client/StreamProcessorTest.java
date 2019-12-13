@@ -317,7 +317,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     createStreamProcessor(SDK_KEY, config, acc).start();
     eventHandler.onMessage("put", emptyPutEvent());
     long timeAfterOpen = System.currentTimeMillis();
-    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0, 0);
+    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
     assertEquals(1, event.streamInits.size());
     DiagnosticEvent.StreamInit init = event.streamInits.get(0);
     assertFalse(init.failed);
@@ -334,7 +334,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     createStreamProcessor(SDK_KEY, config, acc).start();
     errorHandler.onConnectionError(new IOException());
     long timeAfterOpen = System.currentTimeMillis();
-    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0, 0);
+    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
     assertEquals(1, event.streamInits.size());
     DiagnosticEvent.StreamInit init = event.streamInits.get(0);
     assertTrue(init.failed);
@@ -350,9 +350,9 @@ public class StreamProcessorTest extends EasyMockSupport {
     createStreamProcessor(SDK_KEY, config, acc).start();
     eventHandler.onMessage("put", emptyPutEvent());
     // Drop first stream init from stream open
-    acc.createEventAndReset(0, 0, 0);
+    acc.createEventAndReset(0, 0);
     errorHandler.onConnectionError(new IOException());
-    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0, 0);
+    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
     assertEquals(0, event.streamInits.size());
   }
 
