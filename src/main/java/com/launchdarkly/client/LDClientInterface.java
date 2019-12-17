@@ -11,6 +11,10 @@ import java.util.Map;
  * This interface defines the public methods of {@link LDClient}.
  */
 public interface LDClientInterface extends Closeable {
+  /**
+   * Tests whether the client is ready to be used.
+   * @return true if the client is ready, or false if it is still initializing
+   */
   boolean initialized();
 
   /**
@@ -302,5 +306,9 @@ public interface LDClientInterface extends Closeable {
      */
   String secureModeHash(LDUser user);
   
+  /**
+   * The current version string of the SDK.
+   * @return a string in Semantic Versioning 2.0.0 format
+   */
   String version();
 }

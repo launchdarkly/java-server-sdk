@@ -17,6 +17,7 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 
 @SuppressWarnings("javadoc")
 public class FeatureFlagTest {
@@ -235,6 +236,23 @@ public class FeatureFlagTest {
   }
 
   @Test
+  public void prerequisiteFailedReasonInstanceIsReusedForSamePrerequisite() throws Exception {
+    FeatureFlag f0 = new FeatureFlagBuilder("feature0")
+        .on(true)
+        .prerequisites(Arrays.asList(new Prerequisite("feature1", 1)))
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(1)
+        .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
+        .build();
+    FeatureFlag.EvalResult result0 = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    FeatureFlag.EvalResult result1 = f0.evaluate(BASE_USER, featureStore, EventFactory.DEFAULT);
+    
+    EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
+    assertEquals(expectedReason, result0.getDetails().getReason());
+    assertSame(result0.getDetails().getReason(), result1.getDetails().getReason());
+  }
+
+  @Test
   public void flagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNoRules() throws Exception {
     FeatureFlag f0 = new FeatureFlagBuilder("feature0")
         .on(true)
@@ -334,6 +352,26 @@ public class FeatureFlagTest {
     
     assertEquals(fromValue(LDValue.of("on"), 2, EvaluationReason.ruleMatch(1, "ruleid1")), result.getDetails());
     assertEquals(0, result.getPrerequisiteEvents().size());
+  }
+
+  @Test
+  public void ruleMatchReasonInstanceIsReusedForSameRule() {
+    Clause clause0 = new Clause("key", Operator.in, Arrays.asList(LDValue.of("wrongkey")), false);
+    Clause clause1 = new Clause("key", Operator.in, Arrays.asList(LDValue.of("userkey")), false);
+    Rule rule0 = new Rule("ruleid0", Arrays.asList(clause0), 2, null);
+    Rule rule1 = new Rule("ruleid1", Arrays.asList(clause1), 2, null);
+    FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);
+    LDUser user = new LDUser.Builder("userkey").build();
+    LDUser otherUser = new LDUser.Builder("wrongkey").build();
+
+    FeatureFlag.EvalResult sameResult0 = f.evaluate(user, featureStore, EventFactory.DEFAULT);
+    FeatureFlag.EvalResult sameResult1 = f.evaluate(user, featureStore, EventFactory.DEFAULT);
+    FeatureFlag.EvalResult otherResult = f.evaluate(otherUser, featureStore, EventFactory.DEFAULT);
+    
+    assertEquals(EvaluationReason.ruleMatch(1, "ruleid1"), sameResult0.getDetails().getReason());
+    assertSame(sameResult0.getDetails().getReason(), sameResult1.getDetails().getReason());
+    
+    assertEquals(EvaluationReason.ruleMatch(0, "ruleid0"), otherResult.getDetails().getReason());
   }
   
   @Test

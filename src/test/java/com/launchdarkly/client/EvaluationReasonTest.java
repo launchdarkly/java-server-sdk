@@ -6,7 +6,9 @@ import com.google.gson.JsonElement;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
+@SuppressWarnings("javadoc")
 public class EvaluationReasonTest {
   private static final Gson gson = new Gson();
   
@@ -56,6 +58,16 @@ public class EvaluationReasonTest {
     String json = "{\"kind\":\"ERROR\",\"errorKind\":\"EXCEPTION\"}";
     assertJsonEqual(json, gson.toJson(reason));
     assertEquals("ERROR(EXCEPTION)", reason.toString());
+  }
+  
+  @Test
+  public void errorInstancesAreReused() {
+    for (EvaluationReason.ErrorKind errorKind: EvaluationReason.ErrorKind.values()) {
+      EvaluationReason.Error r0 = EvaluationReason.error(errorKind);
+      assertEquals(errorKind, r0.getErrorKind());
+      EvaluationReason.Error r1 = EvaluationReason.error(errorKind);
+      assertSame(r0, r1);
+    }
   }
   
   private void assertJsonEqual(String expectedString, String actualString) {

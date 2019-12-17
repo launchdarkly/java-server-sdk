@@ -122,7 +122,9 @@ class FeatureFlagBuilder {
   }
 
   FeatureFlag build() {
-    return new FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
+    FeatureFlag flag = new FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
         clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);
+    flag.afterDeserialized();
+    return flag;
   }
 }

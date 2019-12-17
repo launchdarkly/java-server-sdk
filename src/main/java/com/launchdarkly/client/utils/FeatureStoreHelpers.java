@@ -44,8 +44,15 @@ public abstract class FeatureStoreHelpers {
     return gson.toJson(item);
   }
   
+  /**
+   * Thrown by {@link FeatureStoreHelpers#unmarshalJson(VersionedDataKind, String)} for a deserialization error.
+   */
   @SuppressWarnings("serial")
   public static class UnmarshalException extends RuntimeException {
+    /**
+     * Constructs an instance.
+     * @param cause the underlying exception
+     */
     public UnmarshalException(Throwable cause) {
       super(cause);
     }
