@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.gson.annotations.JsonAdapter;
 import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
@@ -11,7 +12,8 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 
-class FeatureFlag implements VersionedData {
+@JsonAdapter(JsonHelpers.PostProcessingDeserializableTypeAdapterFactory.class)
+class FeatureFlag implements VersionedData, JsonHelpers.PostProcessingDeserializable {
   private final static Logger logger = LoggerFactory.getLogger(FeatureFlag.class);
 
   private String key;
@@ -93,7 +95,9 @@ class FeatureFlag implements VersionedData {
       for (int i = 0; i < rules.size(); i++) {
         Rule rule = rules.get(i);
         if (rule.matchesUser(featureStore, user)) {
-          return getValueForVariationOrRollout(rule, user, EvaluationReason.ruleMatch(i, rule.getId()));
+          EvaluationReason.RuleMatch precomputedReason = rule.getRuleMatchReason();
+          EvaluationReason.RuleMatch reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
+          return getValueForVariationOrRollout(rule, user, reason);
         }
       }
     }
@@ -125,7 +129,8 @@ class FeatureFlag implements VersionedData {
         events.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, this));
       }
       if (!prereqOk) {
-        return EvaluationReason.prerequisiteFailed(prereq.getKey());
+        EvaluationReason.PrerequisiteFailed precomputedReason = prereq.getPrerequisiteFailedReason();
+        return precomputedReason != null ? precomputedReason : EvaluationReason.prerequisiteFailed(prereq.getKey());
       }
     }
     return null;
@@ -216,7 +221,22 @@ class FeatureFlag implements VersionedData {
   boolean isClientSide() {
     return clientSide;
   }
-    
+  
+  // Precompute some invariant values for improved efficiency during evaluations - called from JsonHelpers.PostProcessingDeserializableTypeAdapter
+  public void afterDeserialized() {
+    if (prerequisites != null) {
+      for (Prerequisite p: prerequisites) {
+        p.setPrerequisiteFailedReason(EvaluationReason.prerequisiteFailed(p.getKey()));
+      }
+    }
+    if (rules != null) {
+      for (int i = 0; i < rules.size(); i++) {
+        Rule r = rules.get(i);
+        r.setRuleMatchReason(EvaluationReason.ruleMatch(i, r.getId()));
+      }
+    }
+  }
+  
   static class EvalResult {
     private final EvaluationDetail<LDValue> details;
     private final List<Event.FeatureRequest> prerequisiteEvents;

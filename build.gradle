@@ -1,4 +1,5 @@
 apply plugin: 'java'
+apply plugin: 'checkstyle'
 apply plugin: 'maven-publish'
 apply plugin: 'org.ajoberstar.github-pages'
 apply plugin: 'signing'
@@ -94,6 +95,10 @@ buildscript {
     }
 }
 
+checkstyle {
+	configFile file("${project.rootDir}/checkstyle.xml")
+}
+
 jar {
     baseName = sdkBaseName
     // thin classifier means that the non-shaded non-fat jar is still available
@@ -167,6 +172,20 @@ task sourcesJar(type: Jar, dependsOn: classes) {
 task javadocJar(type: Jar, dependsOn: javadoc) {
     classifier = 'javadoc'
     from javadoc.destinationDir
+}
+
+
+// Force the Javadoc build to fail if there are any Javadoc warnings. See: https://discuss.gradle.org/t/javadoc-fail-on-warning/18141/3
+if (JavaVersion.current().isJava8Compatible()) {
+	tasks.withType(Javadoc) {
+		// The '-quiet' as second argument is actually a hack,
+		// since the one paramater addStringOption doesn't seem to
+		// work, we extra add '-quiet', which is added anyway by
+		// gradle. See https://github.com/gradle/gradle/issues/2354
+        // See JDK-8200363 (https://bugs.openjdk.java.net/browse/JDK-8200363)
+        // for information about the -Xwerror option.
+		options.addStringOption('Xwerror', '-quiet')
+	}
 }
 
 githubPages {
