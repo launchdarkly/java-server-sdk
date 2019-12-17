@@ -83,6 +83,14 @@ public abstract class EvaluationReason {
     EXCEPTION
   }
   
+  // static instances to avoid repeatedly allocating reasons for the same errors
+  private static final Error ERROR_CLIENT_NOT_READY = new Error(ErrorKind.CLIENT_NOT_READY);
+  private static final Error ERROR_FLAG_NOT_FOUND = new Error(ErrorKind.FLAG_NOT_FOUND);
+  private static final Error ERROR_MALFORMED_FLAG = new Error(ErrorKind.MALFORMED_FLAG);
+  private static final Error ERROR_USER_NOT_SPECIFIED = new Error(ErrorKind.USER_NOT_SPECIFIED);
+  private static final Error ERROR_WRONG_TYPE = new Error(ErrorKind.WRONG_TYPE);
+  private static final Error ERROR_EXCEPTION = new Error(ErrorKind.EXCEPTION);
+  
   private final Kind kind;
   
   /**
@@ -153,7 +161,15 @@ public abstract class EvaluationReason {
    * @return a reason object
    */
   public static Error error(ErrorKind errorKind) {
-    return new Error(errorKind);
+    switch (errorKind) {
+    case CLIENT_NOT_READY: return ERROR_CLIENT_NOT_READY;
+    case EXCEPTION: return ERROR_EXCEPTION;
+    case FLAG_NOT_FOUND: return ERROR_FLAG_NOT_FOUND;
+    case MALFORMED_FLAG: return ERROR_MALFORMED_FLAG;
+    case USER_NOT_SPECIFIED: return ERROR_USER_NOT_SPECIFIED;
+    case WRONG_TYPE: return ERROR_WRONG_TYPE;
+    default: return new Error(errorKind);
+    }
   }
   
   /**
@@ -197,10 +213,18 @@ public abstract class EvaluationReason {
       this.ruleId = ruleId;
     }
     
+    /**
+     * The index of the rule that was matched (0 for the first rule in the feature flag).
+     * @return the rule index
+     */
     public int getRuleIndex() {
       return ruleIndex;
     }
     
+    /**
+     * A unique string identifier for the matched rule, which will not change if other rules are added or deleted.
+     * @return the rule identifier
+     */
     public String getRuleId() {
       return ruleId;
     }
@@ -238,6 +262,10 @@ public abstract class EvaluationReason {
       this.prerequisiteKey = checkNotNull(prerequisiteKey);
     }
     
+    /**
+     * The key of the prerequisite flag that did not return the desired variation.
+     * @return the prerequisite flag key 
+     */
     public String getPrerequisiteKey() {
       return prerequisiteKey;
     }
@@ -286,6 +314,10 @@ public abstract class EvaluationReason {
       this.errorKind = errorKind;
     }
     
+    /**
+     * An enumeration value indicating the general category of error.
+     * @return the error kind
+     */
     public ErrorKind getErrorKind() {
       return errorKind;
     }

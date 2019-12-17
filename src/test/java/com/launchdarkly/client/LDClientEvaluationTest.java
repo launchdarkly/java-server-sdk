@@ -8,10 +8,10 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Map;
 
 import static com.launchdarkly.client.ModelBuilders.booleanFlagWithClauses;
+import static com.launchdarkly.client.ModelBuilders.clause;
 import static com.launchdarkly.client.ModelBuilders.fallthroughVariation;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
@@ -184,7 +184,7 @@ public class LDClientEvaluationTest {
         .build();
     featureStore.upsert(SEGMENTS, segment);
     
-    FlagModel.Clause clause = new FlagModel.Clause("", Operator.segmentMatch, Arrays.asList(LDValue.of("segment1")), false);
+    FlagModel.Clause clause = clause("", Operator.segmentMatch, LDValue.of("segment1"));
     FlagModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     featureStore.upsert(FEATURES, feature);
     

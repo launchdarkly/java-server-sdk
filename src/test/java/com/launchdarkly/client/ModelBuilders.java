@@ -1,11 +1,11 @@
 package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableList;
+import com.launchdarkly.client.FlagModel.FeatureFlag;
 import com.launchdarkly.client.value.LDValue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 @SuppressWarnings("javadoc")
@@ -45,12 +45,20 @@ public abstract class ModelBuilders {
     return new RuleBuilder();
   }
 
+  public static FlagModel.Clause clause(String attribute, Operator op, boolean negate, LDValue... values) {
+    return new FlagModel.Clause(attribute, op, Arrays.asList(values), negate);
+  }
+
+  public static FlagModel.Clause clause(String attribute, Operator op, LDValue... values) {
+    return clause(attribute, op, false, values);
+  }
+  
   public static FlagModel.Clause clauseMatchingUser(LDUser user) {
-    return new FlagModel.Clause("key", Operator.in, Arrays.asList(user.getKey()), false);
+    return clause("key", Operator.in, user.getKey());
   }
 
   public static FlagModel.Clause clauseNotMatchingUser(LDUser user) {
-    return new FlagModel.Clause("key", Operator.in, Arrays.asList(LDValue.of("not-" + user.getKeyAsString())), false);
+    return clause("key", Operator.in, LDValue.of("not-" + user.getKeyAsString()));
   }
 
   public static FlagModel.Target target(int variation, String... userKeys) {
@@ -61,8 +69,16 @@ public abstract class ModelBuilders {
     return new FlagModel.Prerequisite(key, variation);
   }
   
+  public static FlagModel.Rollout emptyRollout() {
+    return new FlagModel.Rollout(ImmutableList.<FlagModel.WeightedVariation>of(), null);
+  }
+  
   public static SegmentBuilder segmentBuilder(String key) {
     return new SegmentBuilder(key);
+  }
+
+  public static SegmentRuleBuilder segmentRuleBuilder() {
+    return new SegmentRuleBuilder();
   }
   
   public static class FlagBuilder {
@@ -177,8 +193,10 @@ public abstract class ModelBuilders {
     }
   
     FlagModel.FeatureFlag build() {
-      return new FlagModel.FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
+      FeatureFlag flag = new FlagModel.FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
           clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);
+      flag.afterDeserialized();
+      return flag;
     }
   }
   
@@ -279,4 +297,32 @@ public abstract class ModelBuilders {
       return this;
     }
   }
+
+  public static class SegmentRuleBuilder {
+    private List<FlagModel.Clause> clauses = new ArrayList<>();
+    private Integer weight;
+    private String bucketBy;
+
+    private SegmentRuleBuilder() {
+    }
+    
+    public FlagModel.SegmentRule build() {
+      return new FlagModel.SegmentRule(clauses, weight, bucketBy);
+    }
+    
+    public SegmentRuleBuilder clauses(FlagModel.Clause... clauses) {
+      this.clauses = ImmutableList.copyOf(clauses);
+      return this;
+    }
+    
+    public SegmentRuleBuilder weight(Integer weight) {
+      this.weight = weight;
+      return this;
+    }
+    
+    public SegmentRuleBuilder bucketBy(String bucketBy) {
+      this.bucketBy = bucketBy;
+      return this;
+    }
+  } 
 }

@@ -1,23 +1,23 @@
 package com.launchdarkly.client;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
-import java.util.Arrays;
-
 import static com.launchdarkly.client.EvaluationDetail.fromValue;
 import static com.launchdarkly.client.EvaluatorTestUtil.BASE_EVALUATOR;
 import static com.launchdarkly.client.EvaluatorTestUtil.evaluatorBuilder;
+import static com.launchdarkly.client.ModelBuilders.clause;
 import static com.launchdarkly.client.ModelBuilders.fallthroughVariation;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.prerequisite;
+import static com.launchdarkly.client.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.client.ModelBuilders.target;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyIterable;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
 @SuppressWarnings("javadoc")
 public class EvaluatorTest {
@@ -140,8 +140,7 @@ public class EvaluatorTest {
     FlagModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .offVariation(1)
-        .fallthrough(new FlagModel.VariationOrRollout(null,
-            new FlagModel.Rollout(ImmutableList.<FlagModel.WeightedVariation>of(), null)))
+        .fallthrough(new FlagModel.VariationOrRollout(null, ModelBuilders.emptyRollout()))
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
@@ -227,6 +226,24 @@ public class EvaluatorTest {
     assertEquals(LDValue.of("nogo"), event.value);
     assertEquals(f1.getVersion(), event.version.intValue());
     assertEquals(f0.getKey(), event.prereqOf);
+  }
+
+  @Test
+  public void prerequisiteFailedReasonInstanceIsReusedForSamePrerequisite() throws Exception {
+    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+        .on(true)
+        .prerequisites(prerequisite("feature1", 1))
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(1)
+        .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
+        .build();
+    Evaluator e = evaluatorBuilder().withNonexistentFlag("feature1").build();
+    Evaluator.EvalResult result0 = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    Evaluator.EvalResult result1 = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    
+    EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
+    assertEquals(expectedReason, result0.getDetails().getReason());
+    assertSame(result0.getDetails().getReason(), result1.getDetails().getReason());
   }
 
   @Test
@@ -318,10 +335,10 @@ public class EvaluatorTest {
   
   @Test
   public void flagMatchesUserFromRules() {
-    FlagModel.Clause clause0 = new FlagModel.Clause("key", Operator.in, Arrays.asList(LDValue.of("wrongkey")), false);
-    FlagModel.Clause clause1 = new FlagModel.Clause("key", Operator.in, Arrays.asList(LDValue.of("userkey")), false);
-    FlagModel.Rule rule0 = new FlagModel.Rule("ruleid0", Arrays.asList(clause0), 2, null);
-    FlagModel.Rule rule1 = new FlagModel.Rule("ruleid1", Arrays.asList(clause1), 2, null);
+    FlagModel.Clause clause0 = clause("key", Operator.in, LDValue.of("wrongkey"));
+    FlagModel.Clause clause1 = clause("key", Operator.in, LDValue.of("userkey"));
+    FlagModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
+    FlagModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2).build();
     FlagModel.FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);
     LDUser user = new LDUser.Builder("userkey").build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);

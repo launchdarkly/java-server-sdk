@@ -151,7 +151,9 @@ class Evaluator {
       for (int i = 0; i < rules.size(); i++) {
         FlagModel.Rule rule = rules.get(i);
         if (ruleMatchesUser(flag, rule, user)) {
-          return getValueForVariationOrRollout(flag, rule, user, EvaluationReason.ruleMatch(i, rule.getId()));
+          EvaluationReason.RuleMatch precomputedReason = rule.getRuleMatchReason();
+          EvaluationReason.RuleMatch reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
+          return getValueForVariationOrRollout(flag, rule, user, reason);
         }
       }
     }
@@ -185,7 +187,8 @@ class Evaluator {
         }
       }
       if (!prereqOk) {
-        return EvaluationReason.prerequisiteFailed(prereq.getKey());
+        EvaluationReason.PrerequisiteFailed precomputedReason = prereq.getPrerequisiteFailedReason();
+        return precomputedReason != null ? precomputedReason : EvaluationReason.prerequisiteFailed(prereq.getKey());
       }
     }
     return null;

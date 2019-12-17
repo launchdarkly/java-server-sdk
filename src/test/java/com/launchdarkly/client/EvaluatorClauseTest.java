@@ -6,14 +6,14 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
-import java.util.Arrays;
-
 import static com.launchdarkly.client.EvaluationDetail.fromValue;
 import static com.launchdarkly.client.EvaluatorTestUtil.BASE_EVALUATOR;
 import static com.launchdarkly.client.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.client.ModelBuilders.booleanFlagWithClauses;
+import static com.launchdarkly.client.ModelBuilders.clause;
 import static com.launchdarkly.client.ModelBuilders.fallthroughVariation;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
+import static com.launchdarkly.client.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -22,7 +22,7 @@ import static org.junit.Assert.assertNotNull;
 public class EvaluatorClauseTest {
   @Test
   public void clauseCanMatchBuiltInAttribute() throws Exception {
-    FlagModel.Clause clause = new FlagModel.Clause("name", Operator.in, Arrays.asList(LDValue.of("Bob")), false);
+    FlagModel.Clause clause = clause("name", Operator.in, LDValue.of("Bob"));
     FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
@@ -31,7 +31,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanMatchCustomAttribute() throws Exception {
-    FlagModel.Clause clause = new FlagModel.Clause("legs", Operator.in, Arrays.asList(LDValue.of(4)), false);
+    FlagModel.Clause clause = clause("legs", Operator.in, LDValue.of(4));
     FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").custom("legs", 4).build();
     
@@ -40,7 +40,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseReturnsFalseForMissingAttribute() throws Exception {
-    FlagModel.Clause clause = new FlagModel.Clause("legs", Operator.in, Arrays.asList(LDValue.of(4)), false);
+    FlagModel.Clause clause = clause("legs", Operator.in, LDValue.of(4));
     FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
@@ -49,7 +49,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanBeNegated() throws Exception {
-    FlagModel.Clause clause = new FlagModel.Clause("name", Operator.in, Arrays.asList(LDValue.of("Bob")), true);
+    FlagModel.Clause clause = clause("name", Operator.in, true, LDValue.of("Bob"));
     FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
@@ -73,7 +73,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseWithNullOperatorDoesNotMatch() throws Exception {
-    FlagModel.Clause badClause = new FlagModel.Clause("name", null, Arrays.asList(LDValue.of("Bob")), false);
+    FlagModel.Clause badClause = clause("name", null, LDValue.of("Bob"));
     FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", badClause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
@@ -82,10 +82,10 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseWithNullOperatorDoesNotStopSubsequentRuleFromMatching() throws Exception {
-    FlagModel.Clause badClause = new FlagModel.Clause("name", null, Arrays.asList(LDValue.of("Bob")), false);
-    FlagModel.Rule badRule = new FlagModel.Rule("rule1", Arrays.asList(badClause), 1, null);
-    FlagModel.Clause goodClause = new FlagModel.Clause("name", Operator.in, Arrays.asList(LDValue.of("Bob")), false);
-    FlagModel.Rule goodRule = new FlagModel.Rule("rule2", Arrays.asList(goodClause), 1, null);
+    FlagModel.Clause badClause = clause("name", null, LDValue.of("Bob"));
+    FlagModel.Rule badRule = ruleBuilder().id("rule1").clauses(badClause).variation(1).build();
+    FlagModel.Clause goodClause = clause("name", Operator.in, LDValue.of("Bob"));
+    FlagModel.Rule goodRule = ruleBuilder().id("rule2").clauses(goodClause).variation(1).build();
     FlagModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .rules(badRule, goodRule)
@@ -125,7 +125,7 @@ public class EvaluatorClauseTest {
   }
   
   private FlagModel.FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
-    FlagModel.Clause clause = new FlagModel.Clause("", Operator.segmentMatch, Arrays.asList(LDValue.of(segmentKey)), false);
+    FlagModel.Clause clause = clause("", Operator.segmentMatch, LDValue.of(segmentKey));
     return booleanFlagWithClauses("flag", clause);
   }
 }

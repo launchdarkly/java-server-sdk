@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.gson.annotations.JsonAdapter;
 import com.launchdarkly.client.value.LDValue;
 
 import java.util.List;
@@ -13,7 +14,8 @@ import java.util.List;
  * property getters; the evaluation logic is in Evaluator.
  */
 abstract class FlagModel {
-  static final class FeatureFlag implements VersionedData {
+  @JsonAdapter(JsonHelpers.PostProcessingDeserializableTypeAdapterFactory.class)
+  static final class FeatureFlag implements VersionedData, JsonHelpers.PostProcessingDeserializable {
     private String key;
     private int version;
     private boolean on;
@@ -113,12 +115,29 @@ abstract class FlagModel {
     boolean isClientSide() {
       return clientSide;
     }
+
+    // Precompute some invariant values for improved efficiency during evaluations - called from JsonHelpers.PostProcessingDeserializableTypeAdapter
+    public void afterDeserialized() {
+      if (prerequisites != null) {
+        for (Prerequisite p: prerequisites) {
+          p.setPrerequisiteFailedReason(EvaluationReason.prerequisiteFailed(p.getKey()));
+        }
+      }
+      if (rules != null) {
+        for (int i = 0; i < rules.size(); i++) {
+          Rule r = rules.get(i);
+          r.setRuleMatchReason(EvaluationReason.ruleMatch(i, r.getId()));
+        }
+      }
+    }
   }
 
   static final class Prerequisite {
     private String key;
     private int variation;
-  
+
+    private transient EvaluationReason.PrerequisiteFailed prerequisiteFailedReason;
+
     Prerequisite() {}
   
     Prerequisite(String key, int variation) {
@@ -132,6 +151,15 @@ abstract class FlagModel {
   
     int getVariation() {
       return variation;
+    }
+
+    // This value is precomputed when we deserialize a FeatureFlag from JSON
+    EvaluationReason.PrerequisiteFailed getPrerequisiteFailedReason() {
+      return prerequisiteFailedReason;
+    }
+
+    void setPrerequisiteFailedReason(EvaluationReason.PrerequisiteFailed prerequisiteFailedReason) {
+      this.prerequisiteFailedReason = prerequisiteFailedReason;
     }
   }
 
@@ -164,6 +192,8 @@ abstract class FlagModel {
     private String id;
     private List<Clause> clauses;
     private boolean trackEvents;
+    
+    private transient EvaluationReason.RuleMatch ruleMatchReason;
   
     Rule() {
       super();
@@ -176,10 +206,6 @@ abstract class FlagModel {
       this.trackEvents = trackEvents;
     }
     
-    Rule(String id, List<Clause> clauses, Integer variation, Rollout rollout) {
-      this(id, clauses, variation, rollout, false);
-    }
-  
     String getId() {
       return id;
     }
@@ -190,6 +216,15 @@ abstract class FlagModel {
     
     boolean isTrackEvents() {
       return trackEvents;
+    }
+    
+    // This value is precomputed when we deserialize a FeatureFlag from JSON
+    EvaluationReason.RuleMatch getRuleMatchReason() {
+      return ruleMatchReason;
+    }
+
+    void setRuleMatchReason(EvaluationReason.RuleMatch ruleMatchReason) {
+      this.ruleMatchReason = ruleMatchReason;
     }
   }
   
