@@ -2,6 +2,8 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

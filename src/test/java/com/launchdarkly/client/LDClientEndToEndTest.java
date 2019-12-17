@@ -22,7 +22,7 @@ public class LDClientEndToEndTest {
   private static final Gson gson = new Gson();
   private static final String sdkKey = "sdk-key";
   private static final String flagKey = "flag1";
-  private static final FlagModel.FeatureFlag flag = flagBuilder(flagKey)
+  private static final DataModel.FeatureFlag flag = flagBuilder(flagKey)
       .offVariation(0).variations(LDValue.of(true))
       .build();
   private static final LDUser user = new LDUser("user-key");

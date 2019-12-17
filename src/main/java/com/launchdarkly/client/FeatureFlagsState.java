@@ -146,7 +146,7 @@ public class FeatureFlagsState {
     }
     
     @SuppressWarnings("deprecation")
-    Builder addFlag(FlagModel.FeatureFlag flag, Evaluator.EvalResult eval) {
+    Builder addFlag(DataModel.FeatureFlag flag, Evaluator.EvalResult eval) {
       flagValues.put(flag.getKey(), eval.getValue().asUnsafeJsonElement());
       final boolean flagIsTracked = flag.isTrackEvents() ||
           (flag.getDebugEventsUntilDate() != null && flag.getDebugEventsUntilDate() > System.currentTimeMillis());

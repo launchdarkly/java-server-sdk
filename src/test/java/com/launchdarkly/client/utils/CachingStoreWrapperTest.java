@@ -2,8 +2,8 @@ package com.launchdarkly.client.utils;
 
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -418,6 +418,11 @@ public class CachingStoreWrapperTest {
     
     public MockItem makeDeletedItem(String key, int version) {
       return new MockItem(key, version, true);
+    }
+
+    @Override
+    public MockItem deserialize(String serializedData) {
+      return null;
     }
   };
 }

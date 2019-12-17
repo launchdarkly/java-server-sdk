@@ -13,11 +13,11 @@ public abstract class EvaluatorTestUtil {
     
     EvaluatorBuilder() {
       getters = new Evaluator.Getters() {
-        public FlagModel.FeatureFlag getFlag(String key) {
+        public DataModel.FeatureFlag getFlag(String key) {
           throw new IllegalStateException("Evaluator unexpectedly tried to query flag: " + key);
         }
 
-        public FlagModel.Segment getSegment(String key) {
+        public DataModel.Segment getSegment(String key) {
           throw new IllegalStateException("Evaluator unexpectedly tried to query segment: " + key);
         }
       };
@@ -27,11 +27,11 @@ public abstract class EvaluatorTestUtil {
       return new Evaluator(getters);
     }
     
-    public EvaluatorBuilder withStoredFlags(final FlagModel.FeatureFlag... flags) {
+    public EvaluatorBuilder withStoredFlags(final DataModel.FeatureFlag... flags) {
       final Evaluator.Getters baseGetters = getters;
       getters = new Evaluator.Getters() {
-        public FlagModel.FeatureFlag getFlag(String key) {
-          for (FlagModel.FeatureFlag f: flags) {
+        public DataModel.FeatureFlag getFlag(String key) {
+          for (DataModel.FeatureFlag f: flags) {
             if (f.getKey().equals(key)) {
               return f;
             }
@@ -39,7 +39,7 @@ public abstract class EvaluatorTestUtil {
           return baseGetters.getFlag(key);
         }
         
-        public FlagModel.Segment getSegment(String key) {
+        public DataModel.Segment getSegment(String key) {
           return baseGetters.getSegment(key);
         }
       };
@@ -49,29 +49,29 @@ public abstract class EvaluatorTestUtil {
     public EvaluatorBuilder withNonexistentFlag(final String nonexistentFlagKey) {
       final Evaluator.Getters baseGetters = getters;
       getters = new Evaluator.Getters() {
-        public FlagModel.FeatureFlag getFlag(String key) {
+        public DataModel.FeatureFlag getFlag(String key) {
           if (key.equals(nonexistentFlagKey)) {
             return null;
           }
           return baseGetters.getFlag(key);
         }
         
-        public FlagModel.Segment getSegment(String key) {
+        public DataModel.Segment getSegment(String key) {
           return baseGetters.getSegment(key);
         }
       };
       return this;
     }
     
-    public EvaluatorBuilder withStoredSegments(final FlagModel.Segment... segments) {
+    public EvaluatorBuilder withStoredSegments(final DataModel.Segment... segments) {
       final Evaluator.Getters baseGetters = getters;
       getters = new Evaluator.Getters() {
-        public FlagModel.FeatureFlag getFlag(String key) {
+        public DataModel.FeatureFlag getFlag(String key) {
           return baseGetters.getFlag(key);
         }
         
-        public FlagModel.Segment getSegment(String key) {
-          for (FlagModel.Segment s: segments) {
+        public DataModel.Segment getSegment(String key) {
+          for (DataModel.Segment s: segments) {
             if (s.getKey().equals(key)) {
               return s;
             }
@@ -85,11 +85,11 @@ public abstract class EvaluatorTestUtil {
     public EvaluatorBuilder withNonexistentSegment(final String nonexistentSegmentKey) {
       final Evaluator.Getters baseGetters = getters;
       getters = new Evaluator.Getters() {
-        public FlagModel.FeatureFlag getFlag(String key) {
+        public DataModel.FeatureFlag getFlag(String key) {
           return baseGetters.getFlag(key);
         }
         
-        public FlagModel.Segment getSegment(String key) {
+        public DataModel.Segment getSegment(String key) {
           if (key.equals(nonexistentSegmentKey)) {
             return null;
           }

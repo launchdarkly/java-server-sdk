@@ -163,7 +163,7 @@ public class EventOutputTest {
   public void featureEventIsSerialized() throws Exception {
     EventFactory factory = eventFactoryWithTimestamp(100000, false);
     EventFactory factoryWithReason = eventFactoryWithTimestamp(100000, true);
-    FlagModel.FeatureFlag flag = flagBuilder("flag").version(11).build();
+    DataModel.FeatureFlag flag = flagBuilder("flag").version(11).build();
     LDUser user = new LDUser.Builder("userkey").name("me").build();
     EventOutputFormatter f = new EventOutputFormatter(LDConfig.DEFAULT);
     

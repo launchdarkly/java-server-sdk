@@ -12,16 +12,16 @@ abstract class EvaluatorBucketing {
 
   // Attempt to determine the variation index for a given user. Returns null if no index can be computed
   // due to internal inconsistency of the data (i.e. a malformed flag). 
-  static Integer variationIndexForUser(FlagModel.VariationOrRollout vr, LDUser user, String key, String salt) {
+  static Integer variationIndexForUser(DataModel.VariationOrRollout vr, LDUser user, String key, String salt) {
     Integer variation = vr.getVariation();
     if (variation != null) {
       return variation;
     } else {
-      FlagModel.Rollout rollout = vr.getRollout();
+      DataModel.Rollout rollout = vr.getRollout();
       if (rollout != null && rollout.getVariations() != null && !rollout.getVariations().isEmpty()) {
         float bucket = bucketUser(user, key, rollout.getBucketBy(), salt);
         float sum = 0F;
-        for (FlagModel.WeightedVariation wv : rollout.getVariations()) {
+        for (DataModel.WeightedVariation wv : rollout.getVariations()) {
           sum += (float) wv.getWeight() / 100000F;
           if (bucket < sum) {
             return wv.getVariation();

@@ -1,5 +1,12 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.EventProcessor;
+import com.launchdarkly.client.interfaces.EventProcessorFactory;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.FeatureStoreFactory;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

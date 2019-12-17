@@ -1,9 +1,16 @@
 package com.launchdarkly.client;
 
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
 import com.google.gson.annotations.JsonAdapter;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
 
 import java.util.List;
+
+import static com.google.common.collect.Iterables.transform;
 
 /**
  * Defines the full data model for feature flags and user segments, in the format provided by the SDK endpoints of
@@ -13,7 +20,87 @@ import java.util.List;
  * These classes should all have package-private scope. They should not provide any logic other than standard
  * property getters; the evaluation logic is in Evaluator.
  */
-abstract class FlagModel {
+public abstract class DataModel {
+  public static abstract class DataKinds {
+    /**
+     * The {@link VersionedDataKind} instance that describes feature flag data.
+     */
+    public static VersionedDataKind<DataModel.FeatureFlag> FEATURES = new DataKindImpl<DataModel.FeatureFlag>("features", DataModel.FeatureFlag.class, "/flags/", 1) {
+      public DataModel.FeatureFlag makeDeletedItem(String key, int version) {
+        return new DataModel.FeatureFlag(key, version, false, null, null, null, null, null, null, null, false, false, false, null, true);
+      }
+      
+      public boolean isDependencyOrdered() {
+        return true;
+      }
+      
+      public Iterable<String> getDependencyKeys(VersionedData item) {
+        DataModel.FeatureFlag flag = (DataModel.FeatureFlag)item;
+        if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
+          return ImmutableList.of();
+        }
+        return transform(flag.getPrerequisites(), new Function<DataModel.Prerequisite, String>() {
+          public String apply(DataModel.Prerequisite p) {
+            return p.getKey();
+          }
+        });
+      }
+    };
+    
+    /**
+     * The {@link VersionedDataKind} instance that describes user segment data.
+     */
+    public static VersionedDataKind<DataModel.Segment> SEGMENTS = new DataKindImpl<DataModel.Segment>("segments", DataModel.Segment.class, "/segments/", 0) {
+      
+      public DataModel.Segment makeDeletedItem(String key, int version) {
+        return new DataModel.Segment(key, null, null, null, null, version, true);
+      }
+    };
+    
+    static abstract class DataKindImpl<T extends VersionedData> extends VersionedDataKind<T> {
+      private static final Gson gson = new Gson();
+      
+      private final String namespace;
+      private final Class<T> itemClass;
+      private final String streamApiPath;
+      private final int priority;
+      
+      DataKindImpl(String namespace, Class<T> itemClass, String streamApiPath, int priority) {
+        this.namespace = namespace;
+        this.itemClass = itemClass;
+        this.streamApiPath = streamApiPath;
+        this.priority = priority;
+      }
+      
+      public String getNamespace() {
+        return namespace;
+      }
+      
+      public Class<T> getItemClass() {
+        return itemClass;
+      }
+      
+      public String getStreamApiPath() {
+        return streamApiPath;
+      }
+      
+      public int getPriority() {
+        return priority;
+      }
+
+      public T deserialize(String serializedData) {
+        return gson.fromJson(serializedData, itemClass);
+      }
+      
+      /**
+       * Used internally to match data URLs in the streaming API.
+       * @param path path from an API message
+       * @return the parsed key if the path refers to an object of this kind, otherwise null 
+       */
+      
+    }
+  }
+  
   @JsonAdapter(JsonHelpers.PostProcessingDeserializableTypeAdapterFactory.class)
   static final class FeatureFlag implements VersionedData, JsonHelpers.PostProcessingDeserializable {
     private String key;

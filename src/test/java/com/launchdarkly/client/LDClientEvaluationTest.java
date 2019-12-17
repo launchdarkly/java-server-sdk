@@ -4,12 +4,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.interfaces.FeatureStore;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
 import java.util.Map;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.client.ModelBuilders.clause;
 import static com.launchdarkly.client.ModelBuilders.fallthroughVariation;
@@ -20,8 +23,6 @@ import static com.launchdarkly.client.TestUtil.failedUpdateProcessor;
 import static com.launchdarkly.client.TestUtil.featureStoreThatThrowsException;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificUpdateProcessor;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -178,14 +179,14 @@ public class LDClientEvaluationTest {
   @Test
   public void canMatchUserBySegment() throws Exception {
     // This is similar to one of the tests in FeatureFlagTest, but more end-to-end
-    FlagModel.Segment segment = segmentBuilder("segment1")
+    DataModel.Segment segment = segmentBuilder("segment1")
         .version(1)
         .included(user.getKeyAsString())
         .build();
     featureStore.upsert(SEGMENTS, segment);
     
-    FlagModel.Clause clause = clause("", Operator.segmentMatch, LDValue.of("segment1"));
-    FlagModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
+    DataModel.Clause clause = clause("", Operator.segmentMatch, LDValue.of("segment1"));
+    DataModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     featureStore.upsert(FEATURES, feature);
     
     assertTrue(client.boolVariation("feature", user, false));
@@ -202,7 +203,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void variationReturnsDefaultIfFlagEvaluatesToNull() {
-    FlagModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(null).build();
+    DataModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(null).build();
     featureStore.upsert(FEATURES, flag);
     
     assertEquals("default", client.stringVariation("key", user, "default"));
@@ -210,7 +211,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void variationDetailReturnsDefaultIfFlagEvaluatesToNull() {
-    FlagModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(null).build();
+    DataModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(null).build();
     featureStore.upsert(FEATURES, flag);
     
     EvaluationDetail<String> expected = EvaluationDetail.fromValue("default",
@@ -304,14 +305,14 @@ public class LDClientEvaluationTest {
   
   @Test
   public void allFlagsStateReturnsState() throws Exception {
-    FlagModel.FeatureFlag flag1 = flagBuilder("key1")
+    DataModel.FeatureFlag flag1 = flagBuilder("key1")
         .version(100)
         .trackEvents(false)
         .on(false)
         .offVariation(0)
         .variations(LDValue.of("value1"))
         .build();
-    FlagModel.FeatureFlag flag2 = flagBuilder("key2")
+    DataModel.FeatureFlag flag2 = flagBuilder("key2")
         .version(200)
         .trackEvents(true)
         .debugEventsUntilDate(1000L)
@@ -341,11 +342,11 @@ public class LDClientEvaluationTest {
 
   @Test
   public void allFlagsStateCanFilterForOnlyClientSideFlags() {
-    FlagModel.FeatureFlag flag1 = flagBuilder("server-side-1").build();
-    FlagModel.FeatureFlag flag2 = flagBuilder("server-side-2").build();
-    FlagModel.FeatureFlag flag3 = flagBuilder("client-side-1").clientSide(true)
+    DataModel.FeatureFlag flag1 = flagBuilder("server-side-1").build();
+    DataModel.FeatureFlag flag2 = flagBuilder("server-side-2").build();
+    DataModel.FeatureFlag flag3 = flagBuilder("client-side-1").clientSide(true)
         .variations(LDValue.of("value1")).offVariation(0).build();
-    FlagModel.FeatureFlag flag4 = flagBuilder("client-side-2").clientSide(true)
+    DataModel.FeatureFlag flag4 = flagBuilder("client-side-2").clientSide(true)
         .variations(LDValue.of("value2")).offVariation(0).build();
     featureStore.upsert(FEATURES, flag1);
     featureStore.upsert(FEATURES, flag2);
@@ -361,14 +362,14 @@ public class LDClientEvaluationTest {
   
   @Test
   public void allFlagsStateReturnsStateWithReasons() {
-    FlagModel.FeatureFlag flag1 = flagBuilder("key1")
+    DataModel.FeatureFlag flag1 = flagBuilder("key1")
         .version(100)
         .trackEvents(false)
         .on(false)
         .offVariation(0)
         .variations(LDValue.of("value1"))
         .build();
-    FlagModel.FeatureFlag flag2 = flagBuilder("key2")
+    DataModel.FeatureFlag flag2 = flagBuilder("key2")
         .version(200)
         .trackEvents(true)
         .debugEventsUntilDate(1000L)
@@ -399,21 +400,21 @@ public class LDClientEvaluationTest {
   @Test
   public void allFlagsStateCanOmitDetailsForUntrackedFlags() {
     long futureTime = System.currentTimeMillis() + 1000000;
-    FlagModel.FeatureFlag flag1 = flagBuilder("key1")
+    DataModel.FeatureFlag flag1 = flagBuilder("key1")
         .version(100)
         .trackEvents(false)
         .on(false)
         .offVariation(0)
         .variations(LDValue.of("value1"))
         .build();
-    FlagModel.FeatureFlag flag2 = flagBuilder("key2")
+    DataModel.FeatureFlag flag2 = flagBuilder("key2")
         .version(200)
         .trackEvents(true)
         .on(true)
         .fallthrough(fallthroughVariation(1))
         .variations(LDValue.of("off"), LDValue.of("value2"))
         .build();
-    FlagModel.FeatureFlag flag3 = flagBuilder("key3")
+    DataModel.FeatureFlag flag3 = flagBuilder("key3")
         .version(300)
         .trackEvents(false)
         .debugEventsUntilDate(futureTime)  // event tracking is turned on temporarily even though trackEvents is false 

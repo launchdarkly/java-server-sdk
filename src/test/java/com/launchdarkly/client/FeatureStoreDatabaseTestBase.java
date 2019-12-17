@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.launchdarkly.client.TestUtil.DataBuilder;
+import com.launchdarkly.client.interfaces.FeatureStore;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -13,8 +14,8 @@ import org.junit.runners.Parameterized.Parameters;
 import java.util.Arrays;
 import java.util.Map;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -134,13 +135,13 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
     final int store2VersionEnd = 4;
     int store1VersionEnd = 10;
     
-    final FlagModel.FeatureFlag flag1 = flagBuilder("foo").version(startVersion).build();
+    final DataModel.FeatureFlag flag1 = flagBuilder("foo").version(startVersion).build();
     
     Runnable concurrentModifier = new Runnable() {
       int versionCounter = store2VersionStart;
       public void run() {
         if (versionCounter <= store2VersionEnd) {
-          FlagModel.FeatureFlag f = flagBuilder(flag1).version(versionCounter).build();
+          DataModel.FeatureFlag f = flagBuilder(flag1).version(versionCounter).build();
           store2.upsert(FEATURES, f);
           versionCounter++;
         }
@@ -152,10 +153,10 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
       
       store.init(new DataBuilder().add(FEATURES, flag1).build());
       
-      FlagModel.FeatureFlag store1End = flagBuilder(flag1).version(store1VersionEnd).build();
+      DataModel.FeatureFlag store1End = flagBuilder(flag1).version(store1VersionEnd).build();
       store.upsert(FEATURES, store1End);
       
-      FlagModel.FeatureFlag result = store.get(FEATURES, flag1.getKey());
+      DataModel.FeatureFlag result = store.get(FEATURES, flag1.getKey());
       assertEquals(store1VersionEnd, result.getVersion());
     } finally {
       store2.close();
@@ -170,11 +171,11 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
     final int store2Version = 3;
     int store1VersionEnd = 2;
     
-    final FlagModel.FeatureFlag flag1 = flagBuilder("foo").version(startVersion).build();
+    final DataModel.FeatureFlag flag1 = flagBuilder("foo").version(startVersion).build();
     
     Runnable concurrentModifier = new Runnable() {
       public void run() {
-        FlagModel.FeatureFlag f = flagBuilder(flag1).version(store2Version).build();
+        DataModel.FeatureFlag f = flagBuilder(flag1).version(store2Version).build();
         store2.upsert(FEATURES, f);
       }
     };
@@ -184,10 +185,10 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
       
       store.init(new DataBuilder().add(FEATURES, flag1).build());
       
-      FlagModel.FeatureFlag store1End = flagBuilder(flag1).version(store1VersionEnd).build();
+      DataModel.FeatureFlag store1End = flagBuilder(flag1).version(store1VersionEnd).build();
       store.upsert(FEATURES, store1End);
       
-      FlagModel.FeatureFlag result = store.get(FEATURES, flag1.getKey());
+      DataModel.FeatureFlag result = store.get(FEATURES, flag1.getKey());
       assertEquals(store2Version, result.getVersion());
     } finally {
       store2.close();
@@ -207,10 +208,10 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
       assertFalse(store1.initialized());
       assertFalse(store2.initialized());
       
-      FlagModel.FeatureFlag flag1a = flagBuilder("flag-a").version(1).build();
-      FlagModel.FeatureFlag flag1b = flagBuilder("flag-b").version(1).build();
-      FlagModel.FeatureFlag flag2a = flagBuilder("flag-a").version(2).build();
-      FlagModel.FeatureFlag flag2c = flagBuilder("flag-c").version(2).build();
+      DataModel.FeatureFlag flag1a = flagBuilder("flag-a").version(1).build();
+      DataModel.FeatureFlag flag1b = flagBuilder("flag-b").version(1).build();
+      DataModel.FeatureFlag flag2a = flagBuilder("flag-a").version(2).build();
+      DataModel.FeatureFlag flag2c = flagBuilder("flag-c").version(2).build();
       
       store1.init(new DataBuilder().add(FEATURES, flag1a, flag1b).build());
       assertTrue(store1.initialized());
@@ -220,8 +221,8 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
       assertTrue(store1.initialized());
       assertTrue(store2.initialized());
       
-      Map<String, FlagModel.FeatureFlag> items1 = store1.all(FEATURES);
-      Map<String, FlagModel.FeatureFlag> items2 = store2.all(FEATURES);
+      Map<String, DataModel.FeatureFlag> items1 = store1.all(FEATURES);
+      Map<String, DataModel.FeatureFlag> items2 = store2.all(FEATURES);
       assertEquals(2, items1.size());
       assertEquals(2, items2.size());
       assertEquals(flag1a.getVersion(), items1.get(flag1a.getKey()).getVersion());

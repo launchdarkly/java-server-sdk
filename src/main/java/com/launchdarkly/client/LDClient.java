@@ -1,6 +1,12 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.interfaces.EventProcessor;
+import com.launchdarkly.client.interfaces.EventProcessorFactory;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.FeatureStoreFactory;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
 import com.launchdarkly.client.value.LDValue;
 
 import org.apache.commons.codec.binary.Hex;
@@ -23,7 +29,8 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
@@ -81,12 +88,12 @@ public final class LDClient implements LDClientInterface {
     this.featureStore = new FeatureStoreClientWrapper(store);
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
-      public FlagModel.FeatureFlag getFlag(String key) {
-        return LDClient.this.featureStore.get(VersionedDataKind.FEATURES, key);
+      public DataModel.FeatureFlag getFlag(String key) {
+        return LDClient.this.featureStore.get(FEATURES, key);
       }
 
-      public FlagModel.Segment getSegment(String key) {
-        return LDClient.this.featureStore.get(VersionedDataKind.SEGMENTS, key);
+      public DataModel.Segment getSegment(String key) {
+        return LDClient.this.featureStore.get(SEGMENTS, key);
       }
     });
     
@@ -202,9 +209,9 @@ public final class LDClient implements LDClientInterface {
     }
 
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
-    Map<String, FlagModel.FeatureFlag> flags = featureStore.all(FEATURES);
-    for (Map.Entry<String, FlagModel.FeatureFlag> entry : flags.entrySet()) {
-      FlagModel.FeatureFlag flag = entry.getValue();
+    Map<String, DataModel.FeatureFlag> flags = featureStore.all(FEATURES);
+    for (Map.Entry<String, DataModel.FeatureFlag> entry : flags.entrySet()) {
+      DataModel.FeatureFlag flag = entry.getValue();
       if (clientSideOnly && !flag.isClientSide()) {
         continue;
       }
@@ -342,7 +349,7 @@ public final class LDClient implements LDClientInterface {
       }
     }
 
-    FlagModel.FeatureFlag featureFlag = null;
+    DataModel.FeatureFlag featureFlag = null;
     try {
       featureFlag = featureStore.get(FEATURES, featureKey);
       if (featureFlag == null) {

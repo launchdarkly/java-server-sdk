@@ -1,6 +1,8 @@
 package com.launchdarkly.client;
 
 import com.google.common.io.Files;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,11 +12,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.getRequestBuilder;
 import static com.launchdarkly.client.Util.shutdownHttpClient;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
 import okhttp3.Cache;
 import okhttp3.OkHttpClient;
@@ -54,14 +56,14 @@ class DefaultFeatureRequestor implements FeatureRequestor {
     shutdownHttpClient(httpClient);
   }
   
-  public FlagModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
+  public DataModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_FLAGS_PATH + "/" + featureKey);
-    return config.gson.fromJson(body, FlagModel.FeatureFlag.class);
+    return config.gson.fromJson(body, DataModel.FeatureFlag.class);
   }
 
-  public FlagModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
+  public DataModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_SEGMENTS_PATH + "/" + segmentKey);
-    return config.gson.fromJson(body, FlagModel.Segment.class);
+    return config.gson.fromJson(body, DataModel.Segment.class);
   }
 
   public AllData getAllData() throws IOException, HttpErrorException {

@@ -3,6 +3,8 @@ package com.launchdarkly.client;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
+import com.launchdarkly.client.interfaces.FeatureStoreFactory;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;

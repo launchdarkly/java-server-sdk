@@ -1,5 +1,9 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

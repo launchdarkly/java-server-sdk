@@ -1,7 +1,7 @@
 package com.launchdarkly.client.files;
 
 import com.google.gson.JsonElement;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.DataModel;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -35,17 +35,17 @@ final class DataLoader {
         FlagFileRep fileContents = parser.parse(new ByteArrayInputStream(data));
         if (fileContents.flags != null) {
           for (Map.Entry<String, JsonElement> e: fileContents.flags.entrySet()) {
-            builder.add(VersionedDataKind.FEATURES, FlagFactory.flagFromJson(e.getValue()));
+            builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagFromJson(e.getValue()));
           }
         }
         if (fileContents.flagValues != null) {
           for (Map.Entry<String, JsonElement> e: fileContents.flagValues.entrySet()) {
-            builder.add(VersionedDataKind.FEATURES, FlagFactory.flagWithValue(e.getKey(), e.getValue()));
+            builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagWithValue(e.getKey(), e.getValue()));
           }
         }
         if (fileContents.segments != null) {
           for (Map.Entry<String, JsonElement> e: fileContents.segments.entrySet()) {
-            builder.add(VersionedDataKind.SEGMENTS, FlagFactory.segmentFromJson(e.getValue()));
+            builder.add(DataModel.DataKinds.SEGMENTS, FlagFactory.segmentFromJson(e.getValue()));
           }
         }
       } catch (DataLoaderException e) {

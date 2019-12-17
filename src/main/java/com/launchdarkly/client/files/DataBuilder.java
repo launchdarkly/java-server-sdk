@@ -1,7 +1,7 @@
 package com.launchdarkly.client.files;
 
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import java.util.HashMap;
 import java.util.Map;

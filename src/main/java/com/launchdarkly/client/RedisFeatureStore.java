@@ -2,6 +2,9 @@ package com.launchdarkly.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheStats;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
 import com.launchdarkly.client.utils.FeatureStoreCore;
 

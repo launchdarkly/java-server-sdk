@@ -2,6 +2,8 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -9,7 +11,7 @@ import java.util.Map;
 
 /**
  * Implements a dependency graph ordering for data to be stored in a feature store. We must use this
- * on every data set that will be passed to {@link com.launchdarkly.client.FeatureStore#init(Map)}.
+ * on every data set that will be passed to {@link com.launchdarkly.client.interfaces.FeatureStore#init(Map)}.
  *
  * @since 4.6.1
  */

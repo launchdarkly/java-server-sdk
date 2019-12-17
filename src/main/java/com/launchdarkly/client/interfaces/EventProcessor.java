@@ -1,4 +1,6 @@
-package com.launchdarkly.client;
+package com.launchdarkly.client.interfaces;
+
+import com.launchdarkly.client.Event;
 
 import java.io.Closeable;
 

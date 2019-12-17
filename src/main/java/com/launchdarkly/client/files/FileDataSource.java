@@ -1,8 +1,8 @@
 package com.launchdarkly.client.files;
 
 import com.google.common.util.concurrent.Futures;
-import com.launchdarkly.client.FeatureStore;
-import com.launchdarkly.client.UpdateProcessor;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

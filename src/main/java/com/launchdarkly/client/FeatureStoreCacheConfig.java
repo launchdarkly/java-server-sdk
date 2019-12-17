@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.common.cache.CacheBuilder;
+import com.launchdarkly.client.interfaces.FeatureStore;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;

@@ -81,7 +81,7 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
@@ -101,7 +101,7 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInIndexEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
@@ -123,7 +123,7 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void featureEventCanContainInlineUser() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
     
@@ -144,7 +144,7 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void userIsFilteredInFeatureEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
@@ -165,7 +165,7 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void featureEventCanContainReason() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
     EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
     Event.FeatureRequest fe = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(flag, user,
           new Evaluator.EvalResult(LDValue.of("value"), 1, reason), LDValue.ofNull());
@@ -186,7 +186,7 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void indexEventIsStillGeneratedIfInlineUsersIsTrueButFeatureEventIsNotTracked() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(false).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(false).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), null);
 
@@ -208,7 +208,7 @@ public class DefaultEventProcessorTest {
   @Test
   public void eventKindIsDebugIfFlagIsTemporarilyInDebugMode() throws Exception {
     long futureTime = System.currentTimeMillis() + 1000000;
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
@@ -229,7 +229,7 @@ public class DefaultEventProcessorTest {
   @Test
   public void eventCanBeBothTrackedAndDebugged() throws Exception {
     long futureTime = System.currentTimeMillis() + 1000000;
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true)
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true)
         .debugEventsUntilDate(futureTime).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
@@ -257,7 +257,7 @@ public class DefaultEventProcessorTest {
     MockResponse resp2 = eventsSuccessResponse();
     
     long debugUntil = serverTime + 1000;
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
@@ -290,7 +290,7 @@ public class DefaultEventProcessorTest {
     MockResponse resp2 = eventsSuccessResponse();
     
     long debugUntil = serverTime - 1000;
-    FlagModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
@@ -319,8 +319,8 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void twoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
-    FlagModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
-    FlagModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
+    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
+    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
     LDValue value = LDValue.of("value");
     Event.FeatureRequest fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
         simpleEvaluation(1, value), LDValue.ofNull());
@@ -345,8 +345,8 @@ public class DefaultEventProcessorTest {
   @SuppressWarnings("unchecked")
   @Test
   public void nonTrackedEventsAreSummarized() throws Exception {
-    FlagModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).build();
-    FlagModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).build();
+    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).build();
+    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).build();
     LDValue value1 = LDValue.of("value1");
     LDValue value2 = LDValue.of("value2");
     LDValue default1 = LDValue.of("default1");
@@ -630,12 +630,12 @@ public class DefaultEventProcessorTest {
     );
   }
 
-  private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, FlagModel.FeatureFlag flag, boolean debug, JsonElement inlineUser) {
+  private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, JsonElement inlineUser) {
     return isFeatureEvent(sourceEvent, flag, debug, inlineUser, null);
   }
 
   @SuppressWarnings("unchecked")
-  private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, FlagModel.FeatureFlag flag, boolean debug, JsonElement inlineUser,
+  private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, JsonElement inlineUser,
       EvaluationReason reason) {
     return allOf(
         hasJsonProperty("kind", debug ? "debug" : "feature"),
@@ -689,7 +689,7 @@ public class DefaultEventProcessorTest {
     )));
   }
   
-  private Matcher<JsonElement> isSummaryEventCounter(FlagModel.FeatureFlag flag, Integer variation, LDValue value, int count) {
+  private Matcher<JsonElement> isSummaryEventCounter(DataModel.FeatureFlag flag, Integer variation, LDValue value, int count) {
     return allOf(
         hasJsonProperty("variation", variation),
         hasJsonProperty("version", (double)flag.getVersion()),

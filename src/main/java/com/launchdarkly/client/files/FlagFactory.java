@@ -1,11 +1,10 @@
 package com.launchdarkly.client.files;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.DataModel;
+import com.launchdarkly.client.interfaces.VersionedData;
 
 /**
  * Creates flag or segment objects from raw JSON.
@@ -16,22 +15,19 @@ import com.launchdarkly.client.VersionedDataKind;
  * build some JSON and then parse that.
  */
 class FlagFactory {
-  private static final Gson gson = new Gson();
-
   public static VersionedData flagFromJson(String jsonString) {
-    return flagFromJson(gson.fromJson(jsonString, JsonElement.class));
+    return DataModel.DataKinds.FEATURES.deserialize(jsonString);
   }
   
   public static VersionedData flagFromJson(JsonElement jsonTree) {
-    return gson.fromJson(jsonTree, VersionedDataKind.FEATURES.getItemClass());
+    return flagFromJson(jsonTree.toString());
   }
   
   /**
    * Constructs a flag that always returns the same value. This is done by giving it a single
    * variation and setting the fallthrough variation to that.
    */
-  public static VersionedData flagWithValue(String key, JsonElement value) {
-    JsonElement jsonValue = gson.toJsonTree(value);
+  public static VersionedData flagWithValue(String key, JsonElement jsonValue) {
     JsonObject o = new JsonObject();
     o.addProperty("key", key);
     o.addProperty("on", true);
@@ -47,10 +43,10 @@ class FlagFactory {
   }
   
   public static VersionedData segmentFromJson(String jsonString) {
-    return segmentFromJson(gson.fromJson(jsonString, JsonElement.class));
+    return DataModel.DataKinds.SEGMENTS.deserialize(jsonString);
   }
   
   public static VersionedData segmentFromJson(JsonElement jsonTree) {
-    return gson.fromJson(jsonTree, VersionedDataKind.SEGMENTS.getItemClass());
+    return segmentFromJson(jsonTree.toString());
   }
 }

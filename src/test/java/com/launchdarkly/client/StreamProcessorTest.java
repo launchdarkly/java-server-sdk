@@ -21,13 +21,13 @@ import java.util.concurrent.TimeoutException;
 
 import javax.net.ssl.SSLHandshakeException;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -47,10 +47,10 @@ public class StreamProcessorTest extends EasyMockSupport {
   private static final URI STREAM_URI = URI.create("http://stream.test.com");
   private static final String FEATURE1_KEY = "feature1";
   private static final int FEATURE1_VERSION = 11;
-  private static final FlagModel.FeatureFlag FEATURE = flagBuilder(FEATURE1_KEY).version(FEATURE1_VERSION).build();
+  private static final DataModel.FeatureFlag FEATURE = flagBuilder(FEATURE1_KEY).version(FEATURE1_VERSION).build();
   private static final String SEGMENT1_KEY = "segment1";
   private static final int SEGMENT1_VERSION = 22;
-  private static final FlagModel.Segment SEGMENT = segmentBuilder(SEGMENT1_KEY).version(SEGMENT1_VERSION).build();
+  private static final DataModel.Segment SEGMENT = segmentBuilder(SEGMENT1_KEY).version(SEGMENT1_VERSION).build();
   private static final String STREAM_RESPONSE_WITH_EMPTY_DATA =
       "event: put\n" +
       "data: {\"data\":{\"flags\":{},\"segments\":{}}}\n\n";
@@ -464,17 +464,17 @@ public class StreamProcessorTest extends EasyMockSupport {
     return new MessageEvent("{\"data\":{\"flags\":{},\"segments\":{}}}");
   }
   
-  private void setupRequestorToReturnAllDataWithFlag(FlagModel.FeatureFlag feature) throws Exception {
+  private void setupRequestorToReturnAllDataWithFlag(DataModel.FeatureFlag feature) throws Exception {
     FeatureRequestor.AllData data = new FeatureRequestor.AllData(
-        Collections.singletonMap(feature.getKey(), feature), Collections.<String, FlagModel.Segment>emptyMap());
+        Collections.singletonMap(feature.getKey(), feature), Collections.<String, DataModel.Segment>emptyMap());
     expect(mockRequestor.getAllData()).andReturn(data);
   }
   
-  private void assertFeatureInStore(FlagModel.FeatureFlag feature) {
+  private void assertFeatureInStore(DataModel.FeatureFlag feature) {
     assertEquals(feature.getVersion(), featureStore.get(FEATURES, feature.getKey()).getVersion());
   }
   
-  private void assertSegmentInStore(FlagModel.Segment segment) {
+  private void assertSegmentInStore(DataModel.Segment segment) {
     assertEquals(segment.getVersion(), featureStore.get(SEGMENTS, segment.getKey()).getVersion());
   }
   

@@ -19,7 +19,7 @@ public class FeatureFlagsStateTest {
   @Test
   public void canGetFlagValue() {
     Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value"), 1, EvaluationReason.off());
-    FlagModel.FeatureFlag flag = flagBuilder("key").build();
+    DataModel.FeatureFlag flag = flagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
     assertEquals(js("value"), state.getFlagValue("key"));
@@ -35,7 +35,7 @@ public class FeatureFlagsStateTest {
   @Test
   public void canGetFlagReason() {
     Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
-    FlagModel.FeatureFlag flag = flagBuilder("key").build();
+    DataModel.FeatureFlag flag = flagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag, eval).build();
     
@@ -52,7 +52,7 @@ public class FeatureFlagsStateTest {
   @Test
   public void reasonIsNullIfReasonsWereNotRecorded() {
     Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
-    FlagModel.FeatureFlag flag = flagBuilder("key").build();
+    DataModel.FeatureFlag flag = flagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
     assertNull(state.getFlagReason("key"));
@@ -61,7 +61,7 @@ public class FeatureFlagsStateTest {
   @Test
   public void flagCanHaveNullValue() {
     Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.ofNull(), 1, null);
-    FlagModel.FeatureFlag flag = flagBuilder("key").build();
+    DataModel.FeatureFlag flag = flagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
     assertNull(state.getFlagValue("key"));
@@ -70,9 +70,9 @@ public class FeatureFlagsStateTest {
   @Test
   public void canConvertToValuesMap() {
     Evaluator.EvalResult eval1 = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
-    FlagModel.FeatureFlag flag1 = flagBuilder("key1").build();
+    DataModel.FeatureFlag flag1 = flagBuilder("key1").build();
     Evaluator.EvalResult eval2 = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
-    FlagModel.FeatureFlag flag2 = flagBuilder("key2").build();
+    DataModel.FeatureFlag flag2 = flagBuilder("key2").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder()
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
     
@@ -83,9 +83,9 @@ public class FeatureFlagsStateTest {
   @Test
   public void canConvertToJson() {
     Evaluator.EvalResult eval1 = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
-    FlagModel.FeatureFlag flag1 = flagBuilder("key1").version(100).trackEvents(false).build();
+    DataModel.FeatureFlag flag1 = flagBuilder("key1").version(100).trackEvents(false).build();
     Evaluator.EvalResult eval2 = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
-    FlagModel.FeatureFlag flag2 = flagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
+    DataModel.FeatureFlag flag2 = flagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
     FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
     
@@ -106,9 +106,9 @@ public class FeatureFlagsStateTest {
   @Test
   public void canConvertFromJson() {
     Evaluator.EvalResult eval1 = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
-    FlagModel.FeatureFlag flag1 = flagBuilder("key1").version(100).trackEvents(false).build();
+    DataModel.FeatureFlag flag1 = flagBuilder("key1").version(100).trackEvents(false).build();
     Evaluator.EvalResult eval2 = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.off());
-    FlagModel.FeatureFlag flag2 = flagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
+    DataModel.FeatureFlag flag2 = flagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
     FeatureFlagsState state = new FeatureFlagsState.Builder()
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
     

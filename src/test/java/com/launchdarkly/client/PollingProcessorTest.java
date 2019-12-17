@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.FeatureStore;
+
 import org.junit.Test;
 
 import java.io.IOException;
@@ -17,7 +19,7 @@ public class PollingProcessorTest {
   @Test
   public void testConnectionOk() throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
-    requestor.allData = new FeatureRequestor.AllData(new HashMap<String, FlagModel.FeatureFlag>(), new HashMap<String, FlagModel.Segment>());
+    requestor.allData = new FeatureRequestor.AllData(new HashMap<String, DataModel.FeatureFlag>(), new HashMap<String, DataModel.Segment>());
     FeatureStore store = new InMemoryFeatureStore();
     
     try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {    
@@ -116,11 +118,11 @@ public class PollingProcessorTest {
     
     public void close() throws IOException {}
 
-    public FlagModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
+    public DataModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
       return null;
     }
 
-    public FlagModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
+    public DataModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
       return null;
     }
 

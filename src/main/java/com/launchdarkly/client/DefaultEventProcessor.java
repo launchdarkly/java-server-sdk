@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.client.EventSummarizer.EventSummary;
+import com.launchdarkly.client.interfaces.EventProcessor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

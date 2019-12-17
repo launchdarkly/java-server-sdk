@@ -1,5 +1,9 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
+
 import java.io.IOException;
 import java.util.Map;
 

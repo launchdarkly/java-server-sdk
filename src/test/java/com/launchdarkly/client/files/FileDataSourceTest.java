@@ -1,10 +1,9 @@
 package com.launchdarkly.client.files;
 
-import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.InMemoryFeatureStore;
 import com.launchdarkly.client.LDConfig;
-import com.launchdarkly.client.UpdateProcessor;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
 
 import org.junit.Test;
 
@@ -14,6 +13,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.Future;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.files.FileComponents.fileDataSource;
 import static com.launchdarkly.client.files.TestData.ALL_FLAG_KEYS;
 import static com.launchdarkly.client.files.TestData.ALL_SEGMENT_KEYS;
@@ -23,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.fail;
 
+@SuppressWarnings("javadoc")
 public class FileDataSourceTest {
   private static final Path badFilePath = Paths.get("no-such-file.json");
   
@@ -42,8 +44,8 @@ public class FileDataSourceTest {
   public void flagsAreNotLoadedUntilStart() throws Exception {
     try (UpdateProcessor fp = factory.createUpdateProcessor("", config, store)) {
       assertThat(store.initialized(), equalTo(false));
-      assertThat(store.all(VersionedDataKind.FEATURES).size(), equalTo(0));
-      assertThat(store.all(VersionedDataKind.SEGMENTS).size(), equalTo(0));
+      assertThat(store.all(FEATURES).size(), equalTo(0));
+      assertThat(store.all(SEGMENTS).size(), equalTo(0));
     }
   }
   
@@ -52,8 +54,8 @@ public class FileDataSourceTest {
     try (UpdateProcessor fp = factory.createUpdateProcessor("", config, store)) {
       fp.start();
       assertThat(store.initialized(), equalTo(true));
-      assertThat(store.all(VersionedDataKind.FEATURES).keySet(), equalTo(ALL_FLAG_KEYS));
-      assertThat(store.all(VersionedDataKind.SEGMENTS).keySet(), equalTo(ALL_SEGMENT_KEYS));
+      assertThat(store.all(FEATURES).keySet(), equalTo(ALL_FLAG_KEYS));
+      assertThat(store.all(SEGMENTS).keySet(), equalTo(ALL_SEGMENT_KEYS));
     }
   }
   
@@ -101,8 +103,8 @@ public class FileDataSourceTest {
         fp.start();
         setFileContents(file, getResourceContents("segment-only.json"));
         Thread.sleep(400);
-        assertThat(store.all(VersionedDataKind.FEATURES).size(), equalTo(1));
-        assertThat(store.all(VersionedDataKind.SEGMENTS).size(), equalTo(0));
+        assertThat(store.all(FEATURES).size(), equalTo(1));
+        assertThat(store.all(SEGMENTS).size(), equalTo(0));
       }
     } finally {
       file.delete();
@@ -125,7 +127,7 @@ public class FileDataSourceTest {
         setFileContents(file, getResourceContents("all-properties.json"));  // this file has all the flags
         long deadline = System.currentTimeMillis() + maxMsToWait;
         while (System.currentTimeMillis() < deadline) {
-          if (store.all(VersionedDataKind.FEATURES).size() == ALL_FLAG_KEYS.size()) {
+          if (store.all(FEATURES).size() == ALL_FLAG_KEYS.size()) {
             // success
             return;
           }
@@ -151,7 +153,7 @@ public class FileDataSourceTest {
         setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
         long deadline = System.currentTimeMillis() + maxMsToWait;
         while (System.currentTimeMillis() < deadline) {
-          if (store.all(VersionedDataKind.FEATURES).size() > 0) {
+          if (store.all(FEATURES).size() > 0) {
             // success
             return;
           }
