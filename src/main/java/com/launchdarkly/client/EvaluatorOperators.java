@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.launchdarkly.client.value.LDValue;
 
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import java.util.regex.Pattern;
 
@@ -98,8 +99,8 @@ abstract class EvaluatorOperators {
   }
 
   private static boolean compareDate(ComparisonOp op, LDValue userValue, LDValue clauseValue) {
-    DateTime dt1 = Util.jsonPrimitiveToDateTime(userValue);
-    DateTime dt2 = Util.jsonPrimitiveToDateTime(clauseValue);
+    DateTime dt1 = valueToDateTime(userValue);
+    DateTime dt2 = valueToDateTime(clauseValue);
     if (dt1 == null || dt2 == null) {
       return false;
     }
@@ -114,7 +115,21 @@ abstract class EvaluatorOperators {
     }
     return op.test(sv1.compareTo(sv2));
   }
-
+  
+  private static DateTime valueToDateTime(LDValue value) {
+    if (value.isNumber()) {
+      return new DateTime(value.longValue());
+    } else if (value.isString()) {
+      try {
+        return new DateTime(value.stringValue(), DateTimeZone.UTC);
+      } catch (Throwable t) {
+        return null;
+      }
+    } else {
+      return null;
+    }
+  }
+  
   private static SemanticVersion valueToSemVer(LDValue value) {
     if (!value.isString()) {
       return null;
