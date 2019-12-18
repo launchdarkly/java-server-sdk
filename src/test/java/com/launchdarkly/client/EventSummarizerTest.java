@@ -51,7 +51,7 @@ public class EventSummarizerTest {
   @Test
   public void summarizeEventSetsStartAndEndDates() {
     EventSummarizer es = new EventSummarizer();
-    FlagModel.FeatureFlag flag = flagBuilder("key").build();
+    DataModel.FeatureFlag flag = flagBuilder("key").build();
     eventTimestamp = 2000;
     Event event1 = eventFactory.newFeatureRequestEvent(flag, user, null, null);
     eventTimestamp = 1000;
@@ -70,8 +70,8 @@ public class EventSummarizerTest {
   @Test
   public void summarizeEventIncrementsCounters() {
     EventSummarizer es = new EventSummarizer();
-    FlagModel.FeatureFlag flag1 = flagBuilder("key1").version(11).build();
-    FlagModel.FeatureFlag flag2 = flagBuilder("key2").version(22).build();
+    DataModel.FeatureFlag flag1 = flagBuilder("key1").version(11).build();
+    DataModel.FeatureFlag flag2 = flagBuilder("key2").version(22).build();
     String unknownFlagKey = "badkey";
     Event event1 = eventFactory.newFeatureRequestEvent(flag1, user,
         simpleEvaluation(1, LDValue.of("value1")), LDValue.of("default1"));

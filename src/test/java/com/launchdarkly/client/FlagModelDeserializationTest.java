@@ -14,7 +14,7 @@ public class FlagModelDeserializationTest {
   @Test
   public void precomputedReasonsAreAddedToPrerequisites() {
     String flagJson = "{\"key\":\"flagkey\",\"prerequisites\":[{\"key\":\"prereq0\"},{\"key\":\"prereq1\"}]}";
-    FlagModel.FeatureFlag flag = gson.fromJson(flagJson, FlagModel.FeatureFlag.class);
+    DataModel.FeatureFlag flag = gson.fromJson(flagJson, DataModel.FeatureFlag.class);
     assertNotNull(flag.getPrerequisites());
     assertEquals(2, flag.getPrerequisites().size());
     assertEquals(EvaluationReason.prerequisiteFailed("prereq0"), flag.getPrerequisites().get(0).getPrerequisiteFailedReason());
@@ -24,7 +24,7 @@ public class FlagModelDeserializationTest {
   @Test
   public void precomputedReasonsAreAddedToRules() {
     String flagJson = "{\"key\":\"flagkey\",\"rules\":[{\"id\":\"ruleid0\"},{\"id\":\"ruleid1\"}]}";
-    FlagModel.FeatureFlag flag = gson.fromJson(flagJson, FlagModel.FeatureFlag.class);
+    DataModel.FeatureFlag flag = gson.fromJson(flagJson, DataModel.FeatureFlag.class);
     assertNotNull(flag.getRules());
     assertEquals(2, flag.getRules().size());
     assertEquals(EvaluationReason.ruleMatch(0, "ruleid0"), flag.getRules().get(0).getRuleMatchReason());

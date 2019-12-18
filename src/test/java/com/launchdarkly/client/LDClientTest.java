@@ -315,9 +315,9 @@ public class LDClientTest extends EasyMockSupport {
     List<VersionedData> list1 = ImmutableList.copyOf(map1.values());
     assertEquals(DEPENDENCY_ORDERING_TEST_DATA.get(FEATURES).size(), map1.size());
     for (int itemIndex = 0; itemIndex < list1.size(); itemIndex++) {
-      FlagModel.FeatureFlag item = (FlagModel.FeatureFlag)list1.get(itemIndex);
-      for (FlagModel.Prerequisite prereq: item.getPrerequisites()) {
-        FlagModel.FeatureFlag depFlag = (FlagModel.FeatureFlag)map1.get(prereq.getKey());
+      DataModel.FeatureFlag item = (DataModel.FeatureFlag)list1.get(itemIndex);
+      for (DataModel.Prerequisite prereq: item.getPrerequisites()) {
+        DataModel.FeatureFlag depFlag = (DataModel.FeatureFlag)map1.get(prereq.getKey());
         int depIndex = list1.indexOf(depFlag);
         if (depIndex > itemIndex) {
           Iterable<String> allKeys = Iterables.transform(list1, new Function<VersionedData, String>() {

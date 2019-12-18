@@ -121,9 +121,9 @@ final class StreamProcessor implements UpdateProcessor {
           case PATCH: {
             PatchData data = gson.fromJson(event.getData(), PatchData.class);
             if (FEATURES.getKeyFromStreamApiPath(data.path) != null) {
-              store.upsert(FEATURES, gson.fromJson(data.data, FlagModel.FeatureFlag.class));
+              store.upsert(FEATURES, gson.fromJson(data.data, DataModel.FeatureFlag.class));
             } else if (SEGMENTS.getKeyFromStreamApiPath(data.path) != null) {
-              store.upsert(SEGMENTS, gson.fromJson(data.data, FlagModel.Segment.class));
+              store.upsert(SEGMENTS, gson.fromJson(data.data, DataModel.Segment.class));
             }
             break;
           }
@@ -158,12 +158,12 @@ final class StreamProcessor implements UpdateProcessor {
             try {
               String featureKey = FEATURES.getKeyFromStreamApiPath(path);
               if (featureKey != null) {
-                FlagModel.FeatureFlag feature = requestor.getFlag(featureKey);
+                DataModel.FeatureFlag feature = requestor.getFlag(featureKey);
                 store.upsert(FEATURES, feature);
               } else {
                 String segmentKey = SEGMENTS.getKeyFromStreamApiPath(path);
                 if (segmentKey != null) {
-                  FlagModel.Segment segment = requestor.getSegment(segmentKey);
+                  DataModel.Segment segment = requestor.getSegment(segmentKey);
                   store.upsert(SEGMENTS, segment);
                 }
               }

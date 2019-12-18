@@ -128,9 +128,9 @@ public abstract class VersionedDataKind<T extends VersionedData> {
   /**
    * The {@link VersionedDataKind} instance that describes feature flag data.
    */
-  public static VersionedDataKind<FlagModel.FeatureFlag> FEATURES = new Impl<FlagModel.FeatureFlag>("features", FlagModel.FeatureFlag.class, "/flags/", 1) {
-    public FlagModel.FeatureFlag makeDeletedItem(String key, int version) {
-      return new FlagModel.FeatureFlag(key, version, false, null, null, null, null, null, null, null, false, false, false, null, true);
+  public static VersionedDataKind<DataModel.FeatureFlag> FEATURES = new Impl<DataModel.FeatureFlag>("features", DataModel.FeatureFlag.class, "/flags/", 1) {
+    public DataModel.FeatureFlag makeDeletedItem(String key, int version) {
+      return new DataModel.FeatureFlag(key, version, false, null, null, null, null, null, null, null, false, false, false, null, true);
     }
     
     public boolean isDependencyOrdered() {
@@ -138,12 +138,12 @@ public abstract class VersionedDataKind<T extends VersionedData> {
     }
     
     public Iterable<String> getDependencyKeys(VersionedData item) {
-      FlagModel.FeatureFlag flag = (FlagModel.FeatureFlag)item;
+      DataModel.FeatureFlag flag = (DataModel.FeatureFlag)item;
       if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
         return ImmutableList.of();
       }
-      return transform(flag.getPrerequisites(), new Function<FlagModel.Prerequisite, String>() {
-        public String apply(FlagModel.Prerequisite p) {
+      return transform(flag.getPrerequisites(), new Function<DataModel.Prerequisite, String>() {
+        public String apply(DataModel.Prerequisite p) {
           return p.getKey();
         }
       });
@@ -153,10 +153,10 @@ public abstract class VersionedDataKind<T extends VersionedData> {
   /**
    * The {@link VersionedDataKind} instance that describes user segment data.
    */
-  public static VersionedDataKind<FlagModel.Segment> SEGMENTS = new Impl<FlagModel.Segment>("segments", FlagModel.Segment.class, "/segments/", 0) {
+  public static VersionedDataKind<DataModel.Segment> SEGMENTS = new Impl<DataModel.Segment>("segments", DataModel.Segment.class, "/segments/", 0) {
     
-    public FlagModel.Segment makeDeletedItem(String key, int version) {
-      return new FlagModel.Segment(key, null, null, null, null, version, true);
+    public DataModel.Segment makeDeletedItem(String key, int version) {
+      return new DataModel.Segment(key, null, null, null, null, version, true);
     }
   };
   

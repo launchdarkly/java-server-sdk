@@ -19,11 +19,11 @@ import static org.junit.Assert.assertSame;
 public class EvaluatorRuleTest {
   @Test
   public void ruleMatchReasonInstanceIsReusedForSameRule() {
-    FlagModel.Clause clause0 = clause("key", Operator.in, LDValue.of("wrongkey"));
-    FlagModel.Clause clause1 = clause("key", Operator.in, LDValue.of("userkey"));
-    FlagModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
-    FlagModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2).build();
-    FlagModel.FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);
+    DataModel.Clause clause0 = clause("key", DataModel.Operator.in, LDValue.of("wrongkey"));
+    DataModel.Clause clause1 = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
+    DataModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2).build();
+    DataModel.FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);
     LDUser user = new LDUser.Builder("userkey").build();
     LDUser otherUser = new LDUser.Builder("wrongkey").build();
 
@@ -39,9 +39,9 @@ public class EvaluatorRuleTest {
   
   @Test
   public void ruleWithTooHighVariationReturnsMalformedFlagError() {
-    FlagModel.Clause clause = clause("key", Operator.in, LDValue.of("userkey"));
-    FlagModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).variation(999).build();
-    FlagModel.FeatureFlag f = featureFlagWithRules("feature", rule);
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).variation(999).build();
+    DataModel.FeatureFlag f = featureFlagWithRules("feature", rule);
     LDUser user = new LDUser.Builder("userkey").build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
     
@@ -51,9 +51,9 @@ public class EvaluatorRuleTest {
 
   @Test
   public void ruleWithNegativeVariationReturnsMalformedFlagError() {
-    FlagModel.Clause clause = clause("key", Operator.in, LDValue.of("userkey"));
-    FlagModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).variation(-1).build();
-    FlagModel.FeatureFlag f = featureFlagWithRules("feature", rule);
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).variation(-1).build();
+    DataModel.FeatureFlag f = featureFlagWithRules("feature", rule);
     LDUser user = new LDUser.Builder("userkey").build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
     
@@ -63,9 +63,9 @@ public class EvaluatorRuleTest {
   
   @Test
   public void ruleWithNoVariationOrRolloutReturnsMalformedFlagError() {
-    FlagModel.Clause clause = clause("key", Operator.in, LDValue.of("userkey"));
-    FlagModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).build();
-    FlagModel.FeatureFlag f = featureFlagWithRules("feature", rule);
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).build();
+    DataModel.FeatureFlag f = featureFlagWithRules("feature", rule);
     LDUser user = new LDUser.Builder("userkey").build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
     
@@ -75,9 +75,9 @@ public class EvaluatorRuleTest {
 
   @Test
   public void ruleWithRolloutWithEmptyVariationsListReturnsMalformedFlagError() {
-    FlagModel.Clause clause = clause("key", Operator.in, LDValue.of("userkey"));
-    FlagModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).rollout(emptyRollout()).build();
-    FlagModel.FeatureFlag f = featureFlagWithRules("feature", rule);
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).rollout(emptyRollout()).build();
+    DataModel.FeatureFlag f = featureFlagWithRules("feature", rule);
     LDUser user = new LDUser.Builder("userkey").build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
     
@@ -85,7 +85,7 @@ public class EvaluatorRuleTest {
     assertThat(result.getPrerequisiteEvents(), emptyIterable());
   }
   
-  private FlagModel.FeatureFlag featureFlagWithRules(String flagKey, FlagModel.Rule... rules) {
+  private DataModel.FeatureFlag featureFlagWithRules(String flagKey, DataModel.Rule... rules) {
     return flagBuilder(flagKey)
         .on(true)
         .rules(rules)

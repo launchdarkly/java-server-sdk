@@ -52,7 +52,7 @@ public class LDClientLddModeTest {
         .useLdd(true)
         .featureStoreFactory(specificFeatureStore(testFeatureStore))
         .build();
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
     testFeatureStore.upsert(FEATURES, flag);
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertTrue(client.boolVariation("key", new LDUser("user"), false));

@@ -7,13 +7,12 @@ import java.util.List;
 
 /**
  * Defines the full data model for feature flags and user segments, in the format provided by the SDK endpoints of
- * the LaunchDarkly service. All sub-objects contained within flags and segments are also defined here as inner
- * classes.
- * 
- * These classes should all have package-private scope. They should not provide any logic other than standard
- * property getters; the evaluation logic is in Evaluator.
+ * the LaunchDarkly service.
  */
-abstract class FlagModel {
+abstract class DataModel {
+  // All of these inner data model classes should have package-private scope. They should have only property
+  // accessors; the evaluator logic is in Evaluator, EvaluatorBucketing, and EvaluatorOperators.
+  
   @JsonAdapter(JsonHelpers.PostProcessingDeserializableTypeAdapterFactory.class)
   static final class FeatureFlag implements VersionedData, JsonHelpers.PostProcessingDeserializable {
     private String key;
@@ -397,5 +396,27 @@ abstract class FlagModel {
     String getBucketBy() {
       return bucketBy;
     }
+  }
+
+  /**
+   * This enum can be directly deserialized from JSON, avoiding the need for a mapping of strings to
+   * operators. The implementation of each operator is in EvaluatorOperators.
+   */
+  static enum Operator {
+    in,
+    endsWith,
+    startsWith,
+    matches,
+    contains,
+    lessThan,
+    lessThanOrEqual,
+    greaterThan,
+    greaterThanOrEqual,
+    before,
+    after,
+    semVerEqual,
+    semVerLessThan,
+    semVerGreaterThan,
+    segmentMatch
   }
 }

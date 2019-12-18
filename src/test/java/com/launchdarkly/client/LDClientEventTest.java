@@ -148,7 +148,7 @@ public class LDClientEventTest {
 
   @Test
   public void boolVariationSendsEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
     featureStore.upsert(FEATURES, flag);
 
     client.boolVariation("key", user, false);
@@ -165,7 +165,7 @@ public class LDClientEventTest {
 
   @Test
   public void boolVariationDetailSendsEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
     featureStore.upsert(FEATURES, flag);
 
     client.boolVariationDetail("key", user, false);
@@ -183,7 +183,7 @@ public class LDClientEventTest {
   
   @Test
   public void intVariationSendsEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2));
     featureStore.upsert(FEATURES, flag);
 
     client.intVariation("key", user, 1);
@@ -200,7 +200,7 @@ public class LDClientEventTest {
 
   @Test
   public void intVariationDetailSendsEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2));
     featureStore.upsert(FEATURES, flag);
 
     client.intVariationDetail("key", user, 1);
@@ -218,7 +218,7 @@ public class LDClientEventTest {
 
   @Test
   public void doubleVariationSendsEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2.5d));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2.5d));
     featureStore.upsert(FEATURES, flag);
 
     client.doubleVariation("key", user, 1.0d);
@@ -235,7 +235,7 @@ public class LDClientEventTest {
 
   @Test
   public void doubleVariationDetailSendsEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2.5d));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2.5d));
     featureStore.upsert(FEATURES, flag);
 
     client.doubleVariationDetail("key", user, 1.0d);
@@ -253,7 +253,7 @@ public class LDClientEventTest {
 
   @Test
   public void stringVariationSendsEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of("b"));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of("b"));
     featureStore.upsert(FEATURES, flag);
 
     client.stringVariation("key", user, "a");
@@ -270,7 +270,7 @@ public class LDClientEventTest {
 
   @Test
   public void stringVariationDetailSendsEvent() throws Exception {
-    FlagModel.FeatureFlag flag = flagWithValue("key", LDValue.of("b"));
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of("b"));
     featureStore.upsert(FEATURES, flag);
 
     client.stringVariationDetail("key", user, "a");
@@ -290,7 +290,7 @@ public class LDClientEventTest {
   @Test
   public void jsonVariationSendsEvent() throws Exception {
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    FlagModel.FeatureFlag flag = flagWithValue("key", data);
+    DataModel.FeatureFlag flag = flagWithValue("key", data);
     featureStore.upsert(FEATURES, flag);
     LDValue defaultVal = LDValue.of(42);
     
@@ -313,7 +313,7 @@ public class LDClientEventTest {
   @Test
   public void jsonVariationDetailSendsEvent() throws Exception {
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    FlagModel.FeatureFlag flag = flagWithValue("key", data);
+    DataModel.FeatureFlag flag = flagWithValue("key", data);
     featureStore.upsert(FEATURES, flag);
     LDValue defaultVal = LDValue.of(42);
     
@@ -336,7 +336,7 @@ public class LDClientEventTest {
   @Test
   public void jsonValueVariationDetailSendsEvent() throws Exception {
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    FlagModel.FeatureFlag flag = flagWithValue("key", data);
+    DataModel.FeatureFlag flag = flagWithValue("key", data);
     featureStore.upsert(FEATURES, flag);
     LDValue defaultVal = LDValue.of(42);
     
@@ -357,9 +357,9 @@ public class LDClientEventTest {
 
   @Test
   public void eventTrackingAndReasonCanBeForcedForRule() throws Exception {
-    FlagModel.Clause clause = clauseMatchingUser(user);
-    FlagModel.Rule rule = ruleBuilder().id("id").clauses(clause).variation(1).trackEvents(true).build();
-    FlagModel.FeatureFlag flag = flagBuilder("flag")
+    DataModel.Clause clause = clauseMatchingUser(user);
+    DataModel.Rule rule = ruleBuilder().id("id").clauses(clause).variation(1).trackEvents(true).build();
+    DataModel.FeatureFlag flag = flagBuilder("flag")
         .on(true)
         .rules(rule)
         .offVariation(0)
@@ -380,11 +380,11 @@ public class LDClientEventTest {
 
   @Test
   public void eventTrackingAndReasonAreNotForcedIfFlagIsNotSetForMatchingRule() throws Exception {
-    FlagModel.Clause clause0 = clauseNotMatchingUser(user);
-    FlagModel.Clause clause1 = clauseMatchingUser(user);
-    FlagModel.Rule rule0 = ruleBuilder().id("id0").clauses(clause0).variation(1).trackEvents(true).build();
-    FlagModel.Rule rule1 = ruleBuilder().id("id1").clauses(clause1).variation(1).trackEvents(false).build();
-    FlagModel.FeatureFlag flag = flagBuilder("flag")
+    DataModel.Clause clause0 = clauseNotMatchingUser(user);
+    DataModel.Clause clause1 = clauseMatchingUser(user);
+    DataModel.Rule rule0 = ruleBuilder().id("id0").clauses(clause0).variation(1).trackEvents(true).build();
+    DataModel.Rule rule1 = ruleBuilder().id("id1").clauses(clause1).variation(1).trackEvents(false).build();
+    DataModel.FeatureFlag flag = flagBuilder("flag")
         .on(true)
         .rules(rule0, rule1)
         .offVariation(0)
@@ -404,9 +404,9 @@ public class LDClientEventTest {
 
   @Test
   public void eventTrackingAndReasonCanBeForcedForFallthrough() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flag")
+    DataModel.FeatureFlag flag = flagBuilder("flag")
         .on(true)
-        .fallthrough(new FlagModel.VariationOrRollout(0, null))
+        .fallthrough(new DataModel.VariationOrRollout(0, null))
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .trackEventsFallthrough(true)
         .build();
@@ -425,9 +425,9 @@ public class LDClientEventTest {
 
   @Test
   public void eventTrackingAndReasonAreNotForcedForFallthroughIfFlagIsNotSet() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flag")
+    DataModel.FeatureFlag flag = flagBuilder("flag")
         .on(true)
-        .fallthrough(new FlagModel.VariationOrRollout(0, null))
+        .fallthrough(new DataModel.VariationOrRollout(0, null))
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .trackEventsFallthrough(false)
         .build();
@@ -443,10 +443,10 @@ public class LDClientEventTest {
 
   @Test
   public void eventTrackingAndReasonAreNotForcedForFallthroughIfReasonIsNotFallthrough() throws Exception {
-    FlagModel.FeatureFlag flag = flagBuilder("flag")
+    DataModel.FeatureFlag flag = flagBuilder("flag")
         .on(false) // so the evaluation reason will be OFF, not FALLTHROUGH
         .offVariation(1)
-        .fallthrough(new FlagModel.VariationOrRollout(0, null))
+        .fallthrough(new DataModel.VariationOrRollout(0, null))
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .trackEventsFallthrough(true)
         .build();
@@ -462,7 +462,7 @@ public class LDClientEventTest {
   
   @Test
   public void eventIsSentForExistingPrererequisiteFlag() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -470,7 +470,7 @@ public class LDClientEventTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .version(1)
         .build();
-    FlagModel.FeatureFlag f1 = flagBuilder("feature1")
+    DataModel.FeatureFlag f1 = flagBuilder("feature1")
         .on(true)
         .fallthrough(fallthroughVariation(1))
         .variations(LDValue.of("nogo"), LDValue.of("go"))
@@ -488,7 +488,7 @@ public class LDClientEventTest {
 
   @Test
   public void eventIsSentWithReasonForExistingPrererequisiteFlag() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -496,7 +496,7 @@ public class LDClientEventTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .version(1)
         .build();
-    FlagModel.FeatureFlag f1 = flagBuilder("feature1")
+    DataModel.FeatureFlag f1 = flagBuilder("feature1")
         .on(true)
         .fallthrough(fallthroughVariation(1))
         .variations(LDValue.of("nogo"), LDValue.of("go"))
@@ -514,7 +514,7 @@ public class LDClientEventTest {
 
   @Test
   public void eventIsNotSentForUnknownPrererequisiteFlag() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -532,7 +532,7 @@ public class LDClientEventTest {
 
   @Test
   public void failureReasonIsGivenForUnknownPrererequisiteFlagIfDetailsWereRequested() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -549,7 +549,7 @@ public class LDClientEventTest {
         EvaluationReason.prerequisiteFailed("feature1"));
   }
   
-  private void checkFeatureEvent(Event e, FlagModel.FeatureFlag flag, LDValue value, LDValue defaultVal,
+  private void checkFeatureEvent(Event e, DataModel.FeatureFlag flag, LDValue value, LDValue defaultVal,
       String prereqOf, EvaluationReason reason) {
     assertEquals(Event.FeatureRequest.class, e.getClass());
     Event.FeatureRequest fe = (Event.FeatureRequest)e;

@@ -22,8 +22,8 @@ import static org.junit.Assert.assertNotNull;
 public class EvaluatorClauseTest {
   @Test
   public void clauseCanMatchBuiltInAttribute() throws Exception {
-    FlagModel.Clause clause = clause("name", Operator.in, LDValue.of("Bob"));
-    FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    DataModel.Clause clause = clause("name", DataModel.Operator.in, LDValue.of("Bob"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(LDValue.of(true), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
@@ -31,8 +31,8 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanMatchCustomAttribute() throws Exception {
-    FlagModel.Clause clause = clause("legs", Operator.in, LDValue.of(4));
-    FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    DataModel.Clause clause = clause("legs", DataModel.Operator.in, LDValue.of(4));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").custom("legs", 4).build();
     
     assertEquals(LDValue.of(true), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
@@ -40,8 +40,8 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseReturnsFalseForMissingAttribute() throws Exception {
-    FlagModel.Clause clause = clause("legs", Operator.in, LDValue.of(4));
-    FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    DataModel.Clause clause = clause("legs", DataModel.Operator.in, LDValue.of(4));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(LDValue.of(false), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
@@ -49,8 +49,8 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanBeNegated() throws Exception {
-    FlagModel.Clause clause = clause("name", Operator.in, true, LDValue.of("Bob"));
-    FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    DataModel.Clause clause = clause("name", DataModel.Operator.in, true, LDValue.of("Bob"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(LDValue.of(false), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
@@ -63,7 +63,7 @@ public class EvaluatorClauseTest {
     // and the SDK hasn't been upgraded yet.
     String badClauseJson = "{\"attribute\":\"name\",\"operator\":\"doesSomethingUnsupported\",\"values\":[\"x\"]}";
     Gson gson = new Gson();
-    FlagModel.Clause clause = gson.fromJson(badClauseJson, FlagModel.Clause.class);
+    DataModel.Clause clause = gson.fromJson(badClauseJson, DataModel.Clause.class);
     assertNotNull(clause);
     
     JsonElement json = gson.toJsonTree(clause);
@@ -73,8 +73,8 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseWithNullOperatorDoesNotMatch() throws Exception {
-    FlagModel.Clause badClause = clause("name", null, LDValue.of("Bob"));
-    FlagModel.FeatureFlag f = booleanFlagWithClauses("flag", badClause);
+    DataModel.Clause badClause = clause("name", null, LDValue.of("Bob"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", badClause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
     assertEquals(LDValue.of(false), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
@@ -82,11 +82,11 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseWithNullOperatorDoesNotStopSubsequentRuleFromMatching() throws Exception {
-    FlagModel.Clause badClause = clause("name", null, LDValue.of("Bob"));
-    FlagModel.Rule badRule = ruleBuilder().id("rule1").clauses(badClause).variation(1).build();
-    FlagModel.Clause goodClause = clause("name", Operator.in, LDValue.of("Bob"));
-    FlagModel.Rule goodRule = ruleBuilder().id("rule2").clauses(goodClause).variation(1).build();
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.Clause badClause = clause("name", null, LDValue.of("Bob"));
+    DataModel.Rule badRule = ruleBuilder().id("rule1").clauses(badClause).variation(1).build();
+    DataModel.Clause goodClause = clause("name", DataModel.Operator.in, LDValue.of("Bob"));
+    DataModel.Rule goodRule = ruleBuilder().id("rule2").clauses(goodClause).variation(1).build();
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .rules(badRule, goodRule)
         .fallthrough(fallthroughVariation(0))
@@ -101,13 +101,13 @@ public class EvaluatorClauseTest {
   
   @Test
   public void testSegmentMatchClauseRetrievesSegmentFromStore() throws Exception {
-    FlagModel.Segment segment = segmentBuilder("segkey")
+    DataModel.Segment segment = segmentBuilder("segkey")
         .included("foo")
         .version(1)
         .build();
     Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
     
-    FlagModel.FeatureFlag flag = segmentMatchBooleanFlag("segkey");
+    DataModel.FeatureFlag flag = segmentMatchBooleanFlag("segkey");
     LDUser user = new LDUser.Builder("foo").build();
     
     Evaluator.EvalResult result = e.evaluate(flag, user, EventFactory.DEFAULT);
@@ -116,7 +116,7 @@ public class EvaluatorClauseTest {
 
   @Test
   public void testSegmentMatchClauseFallsThroughIfSegmentNotFound() throws Exception {
-    FlagModel.FeatureFlag flag = segmentMatchBooleanFlag("segkey");
+    DataModel.FeatureFlag flag = segmentMatchBooleanFlag("segkey");
     LDUser user = new LDUser.Builder("foo").build();
     
     Evaluator e = evaluatorBuilder().withNonexistentSegment("segkey").build();
@@ -124,8 +124,8 @@ public class EvaluatorClauseTest {
     assertEquals(LDValue.of(false), result.getDetails().getValue());
   }
   
-  private FlagModel.FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
-    FlagModel.Clause clause = clause("", Operator.segmentMatch, LDValue.of(segmentKey));
+  private DataModel.FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
+    DataModel.Clause clause = clause("", DataModel.Operator.segmentMatch, LDValue.of(segmentKey));
     return booleanFlagWithClauses("flag", clause);
   }
 }

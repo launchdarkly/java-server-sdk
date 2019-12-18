@@ -8,12 +8,12 @@ import java.util.regex.PatternSyntaxException;
 
 import static org.junit.Assert.assertFalse;
 
-// Any special-case tests that can't be handled by OperatorParameterizedTest.
+// Any special-case tests that can't be handled by EvaluatorOperatorsParameterizedTest.
 @SuppressWarnings("javadoc")
-public class OperatorTest {
+public class EvaluatorOperatorsTest {
   // This is probably not desired behavior, but it is the current behavior
   @Test(expected = PatternSyntaxException.class)
   public void testInvalidRegexThrowsException() {
-    assertFalse(Operator.matches.apply(LDValue.of("hello world"), LDValue.of("***not a regex")));    
+    assertFalse(EvaluatorOperators.apply(DataModel.Operator.matches, LDValue.of("hello world"), LDValue.of("***not a regex")));    
   }
 }

@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableList;
-import com.launchdarkly.client.FlagModel.FeatureFlag;
+import com.launchdarkly.client.DataModel.FeatureFlag;
 import com.launchdarkly.client.value.LDValue;
 
 import java.util.ArrayList;
@@ -14,12 +14,12 @@ public abstract class ModelBuilders {
     return new FlagBuilder(key);
   }
   
-  public static FlagBuilder flagBuilder(FlagModel.FeatureFlag fromFlag) {
+  public static FlagBuilder flagBuilder(DataModel.FeatureFlag fromFlag) {
     return new FlagBuilder(fromFlag);
   }
   
-  public static FlagModel.FeatureFlag booleanFlagWithClauses(String key, FlagModel.Clause... clauses) {
-    FlagModel.Rule rule = ruleBuilder().variation(1).clauses(clauses).build();
+  public static DataModel.FeatureFlag booleanFlagWithClauses(String key, DataModel.Clause... clauses) {
+    DataModel.Rule rule = ruleBuilder().variation(1).clauses(clauses).build();
     return flagBuilder(key)
         .on(true)
         .rules(rule)
@@ -29,7 +29,7 @@ public abstract class ModelBuilders {
         .build();
   }
 
-  public static FlagModel.FeatureFlag flagWithValue(String key, LDValue value) {
+  public static DataModel.FeatureFlag flagWithValue(String key, LDValue value) {
     return flagBuilder(key)
         .on(false)
         .offVariation(0)
@@ -37,40 +37,40 @@ public abstract class ModelBuilders {
         .build();
   }
   
-  public static FlagModel.VariationOrRollout fallthroughVariation(int variation) {
-    return new FlagModel.VariationOrRollout(variation, null);
+  public static DataModel.VariationOrRollout fallthroughVariation(int variation) {
+    return new DataModel.VariationOrRollout(variation, null);
   }
 
   public static RuleBuilder ruleBuilder() {
     return new RuleBuilder();
   }
 
-  public static FlagModel.Clause clause(String attribute, Operator op, boolean negate, LDValue... values) {
-    return new FlagModel.Clause(attribute, op, Arrays.asList(values), negate);
+  public static DataModel.Clause clause(String attribute, DataModel.Operator op, boolean negate, LDValue... values) {
+    return new DataModel.Clause(attribute, op, Arrays.asList(values), negate);
   }
 
-  public static FlagModel.Clause clause(String attribute, Operator op, LDValue... values) {
+  public static DataModel.Clause clause(String attribute, DataModel.Operator op, LDValue... values) {
     return clause(attribute, op, false, values);
   }
   
-  public static FlagModel.Clause clauseMatchingUser(LDUser user) {
-    return clause("key", Operator.in, user.getKey());
+  public static DataModel.Clause clauseMatchingUser(LDUser user) {
+    return clause("key", DataModel.Operator.in, user.getKey());
   }
 
-  public static FlagModel.Clause clauseNotMatchingUser(LDUser user) {
-    return clause("key", Operator.in, LDValue.of("not-" + user.getKeyAsString()));
+  public static DataModel.Clause clauseNotMatchingUser(LDUser user) {
+    return clause("key", DataModel.Operator.in, LDValue.of("not-" + user.getKeyAsString()));
   }
 
-  public static FlagModel.Target target(int variation, String... userKeys) {
-    return new FlagModel.Target(Arrays.asList(userKeys), variation);
+  public static DataModel.Target target(int variation, String... userKeys) {
+    return new DataModel.Target(Arrays.asList(userKeys), variation);
   }
   
-  public static FlagModel.Prerequisite prerequisite(String key, int variation) {
-    return new FlagModel.Prerequisite(key, variation);
+  public static DataModel.Prerequisite prerequisite(String key, int variation) {
+    return new DataModel.Prerequisite(key, variation);
   }
   
-  public static FlagModel.Rollout emptyRollout() {
-    return new FlagModel.Rollout(ImmutableList.<FlagModel.WeightedVariation>of(), null);
+  public static DataModel.Rollout emptyRollout() {
+    return new DataModel.Rollout(ImmutableList.<DataModel.WeightedVariation>of(), null);
   }
   
   public static SegmentBuilder segmentBuilder(String key) {
@@ -85,11 +85,11 @@ public abstract class ModelBuilders {
     private String key;
     private int version;
     private boolean on;
-    private List<FlagModel.Prerequisite> prerequisites = new ArrayList<>();
+    private List<DataModel.Prerequisite> prerequisites = new ArrayList<>();
     private String salt;
-    private List<FlagModel.Target> targets = new ArrayList<>();
-    private List<FlagModel.Rule> rules = new ArrayList<>();
-    private FlagModel.VariationOrRollout fallthrough;
+    private List<DataModel.Target> targets = new ArrayList<>();
+    private List<DataModel.Rule> rules = new ArrayList<>();
+    private DataModel.VariationOrRollout fallthrough;
     private Integer offVariation;
     private List<LDValue> variations = new ArrayList<>();
     private boolean clientSide;
@@ -102,7 +102,7 @@ public abstract class ModelBuilders {
       this.key = key;
     }
   
-    private FlagBuilder(FlagModel.FeatureFlag f) {
+    private FlagBuilder(DataModel.FeatureFlag f) {
       if (f != null) {
         this.key = f.getKey();
         this.version = f.getVersion();
@@ -132,7 +132,7 @@ public abstract class ModelBuilders {
       return this;
     }
   
-    FlagBuilder prerequisites(FlagModel.Prerequisite... prerequisites) {
+    FlagBuilder prerequisites(DataModel.Prerequisite... prerequisites) {
       this.prerequisites = Arrays.asList(prerequisites);
       return this;
     }
@@ -142,17 +142,17 @@ public abstract class ModelBuilders {
       return this;
     }
   
-    FlagBuilder targets(FlagModel.Target... targets) {
+    FlagBuilder targets(DataModel.Target... targets) {
       this.targets = Arrays.asList(targets);
       return this;
     }
 
-    FlagBuilder rules(FlagModel.Rule... rules) {
+    FlagBuilder rules(DataModel.Rule... rules) {
       this.rules = Arrays.asList(rules);
       return this;
     }
   
-    FlagBuilder fallthrough(FlagModel.VariationOrRollout fallthrough) {
+    FlagBuilder fallthrough(DataModel.VariationOrRollout fallthrough) {
       this.fallthrough = fallthrough;
       return this;
     }
@@ -192,8 +192,8 @@ public abstract class ModelBuilders {
       return this;
     }
   
-    FlagModel.FeatureFlag build() {
-      FeatureFlag flag = new FlagModel.FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
+    DataModel.FeatureFlag build() {
+      FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
           clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);
       flag.afterDeserialized();
       return flag;
@@ -202,16 +202,16 @@ public abstract class ModelBuilders {
   
   public static class RuleBuilder {
     private String id;
-    private List<FlagModel.Clause> clauses = new ArrayList<>();
+    private List<DataModel.Clause> clauses = new ArrayList<>();
     private Integer variation;
-    private FlagModel.Rollout rollout;
+    private DataModel.Rollout rollout;
     private boolean trackEvents;
 
     private RuleBuilder() {
     }
     
-    public FlagModel.Rule build() {
-      return new FlagModel.Rule(id, clauses, variation, rollout, trackEvents);
+    public DataModel.Rule build() {
+      return new DataModel.Rule(id, clauses, variation, rollout, trackEvents);
     }
     
     public RuleBuilder id(String id) {
@@ -219,7 +219,7 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    public RuleBuilder clauses(FlagModel.Clause... clauses) {
+    public RuleBuilder clauses(DataModel.Clause... clauses) {
       this.clauses = ImmutableList.copyOf(clauses);
       return this;
     }
@@ -229,7 +229,7 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    public RuleBuilder rollout(FlagModel.Rollout rollout) {
+    public RuleBuilder rollout(DataModel.Rollout rollout) {
       this.rollout = rollout;
       return this;
     }
@@ -245,7 +245,7 @@ public abstract class ModelBuilders {
     private List<String> included = new ArrayList<>();
     private List<String> excluded = new ArrayList<>();
     private String salt = "";
-    private List<FlagModel.SegmentRule> rules = new ArrayList<>();
+    private List<DataModel.SegmentRule> rules = new ArrayList<>();
     private int version = 0;
     private boolean deleted;
 
@@ -253,7 +253,7 @@ public abstract class ModelBuilders {
       this.key = key;
     }
     
-    private SegmentBuilder(FlagModel.Segment from) {
+    private SegmentBuilder(DataModel.Segment from) {
       this.key = from.getKey();
       this.included = ImmutableList.copyOf(from.getIncluded());
       this.excluded = ImmutableList.copyOf(from.getExcluded());
@@ -263,8 +263,8 @@ public abstract class ModelBuilders {
       this.deleted = from.isDeleted();
     }
     
-    public FlagModel.Segment build() {
-      return new FlagModel.Segment(key, included, excluded, salt, rules, version, deleted);
+    public DataModel.Segment build() {
+      return new DataModel.Segment(key, included, excluded, salt, rules, version, deleted);
     }
     
     public SegmentBuilder included(String... included) {
@@ -282,7 +282,7 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    public SegmentBuilder rules(FlagModel.SegmentRule... rules) {
+    public SegmentBuilder rules(DataModel.SegmentRule... rules) {
       this.rules = Arrays.asList(rules);
       return this;
     }
@@ -299,18 +299,18 @@ public abstract class ModelBuilders {
   }
 
   public static class SegmentRuleBuilder {
-    private List<FlagModel.Clause> clauses = new ArrayList<>();
+    private List<DataModel.Clause> clauses = new ArrayList<>();
     private Integer weight;
     private String bucketBy;
 
     private SegmentRuleBuilder() {
     }
     
-    public FlagModel.SegmentRule build() {
-      return new FlagModel.SegmentRule(clauses, weight, bucketBy);
+    public DataModel.SegmentRule build() {
+      return new DataModel.SegmentRule(clauses, weight, bucketBy);
     }
     
-    public SegmentRuleBuilder clauses(FlagModel.Clause... clauses) {
+    public SegmentRuleBuilder clauses(DataModel.Clause... clauses) {
       this.clauses = ImmutableList.copyOf(clauses);
       return this;
     }

@@ -81,11 +81,11 @@ public final class LDClient implements LDClientInterface {
     this.featureStore = new FeatureStoreClientWrapper(store);
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
-      public FlagModel.FeatureFlag getFlag(String key) {
+      public DataModel.FeatureFlag getFlag(String key) {
         return LDClient.this.featureStore.get(VersionedDataKind.FEATURES, key);
       }
 
-      public FlagModel.Segment getSegment(String key) {
+      public DataModel.Segment getSegment(String key) {
         return LDClient.this.featureStore.get(VersionedDataKind.SEGMENTS, key);
       }
     });
@@ -202,9 +202,9 @@ public final class LDClient implements LDClientInterface {
     }
 
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
-    Map<String, FlagModel.FeatureFlag> flags = featureStore.all(FEATURES);
-    for (Map.Entry<String, FlagModel.FeatureFlag> entry : flags.entrySet()) {
-      FlagModel.FeatureFlag flag = entry.getValue();
+    Map<String, DataModel.FeatureFlag> flags = featureStore.all(FEATURES);
+    for (Map.Entry<String, DataModel.FeatureFlag> entry : flags.entrySet()) {
+      DataModel.FeatureFlag flag = entry.getValue();
       if (clientSideOnly && !flag.isClientSide()) {
         continue;
       }
@@ -342,7 +342,7 @@ public final class LDClient implements LDClientInterface {
       }
     }
 
-    FlagModel.FeatureFlag featureFlag = null;
+    DataModel.FeatureFlag featureFlag = null;
     try {
       featureFlag = featureStore.get(FEATURES, featureKey);
       if (featureFlag == null) {

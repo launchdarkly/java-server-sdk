@@ -26,7 +26,7 @@ public class EvaluatorTest {
   
   @Test
   public void flagReturnsOffVariationIfFlagIsOff() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(false)
         .offVariation(1)
         .fallthrough(fallthroughVariation(0))
@@ -40,7 +40,7 @@ public class EvaluatorTest {
 
   @Test
   public void flagReturnsNullIfFlagIsOffAndOffVariationIsUnspecified() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(false)
         .fallthrough(fallthroughVariation(0))
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
@@ -53,7 +53,7 @@ public class EvaluatorTest {
   
   @Test
   public void flagReturnsErrorIfFlagIsOffAndOffVariationIsTooHigh() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(false)
         .offVariation(999)
         .fallthrough(fallthroughVariation(0))
@@ -67,7 +67,7 @@ public class EvaluatorTest {
 
   @Test
   public void flagReturnsErrorIfFlagIsOffAndOffVariationIsNegative() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(false)
         .offVariation(-1)
         .fallthrough(fallthroughVariation(0))
@@ -81,7 +81,7 @@ public class EvaluatorTest {
   
   @Test
   public void flagReturnsFallthroughIfFlagIsOnAndThereAreNoRules() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .offVariation(1)
         .fallthrough(fallthroughVariation(0))
@@ -95,7 +95,7 @@ public class EvaluatorTest {
 
   @Test
   public void flagReturnsErrorIfFallthroughHasTooHighVariation() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .offVariation(1)
         .fallthrough(fallthroughVariation(999))
@@ -109,7 +109,7 @@ public class EvaluatorTest {
 
   @Test
   public void flagReturnsErrorIfFallthroughHasNegativeVariation() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .offVariation(1)
         .fallthrough(fallthroughVariation(-1))
@@ -123,10 +123,10 @@ public class EvaluatorTest {
 
   @Test
   public void flagReturnsErrorIfFallthroughHasNeitherVariationNorRollout() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .offVariation(1)
-        .fallthrough(new FlagModel.VariationOrRollout(null, null))
+        .fallthrough(new DataModel.VariationOrRollout(null, null))
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
@@ -137,10 +137,10 @@ public class EvaluatorTest {
   
   @Test
   public void flagReturnsErrorIfFallthroughHasEmptyRolloutVariationList() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .offVariation(1)
-        .fallthrough(new FlagModel.VariationOrRollout(null, ModelBuilders.emptyRollout()))
+        .fallthrough(new DataModel.VariationOrRollout(null, ModelBuilders.emptyRollout()))
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
@@ -151,7 +151,7 @@ public class EvaluatorTest {
   
   @Test
   public void flagReturnsOffVariationIfPrerequisiteIsNotFound() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -168,7 +168,7 @@ public class EvaluatorTest {
 
   @Test
   public void flagReturnsOffVariationAndEventIfPrerequisiteIsOff() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -176,7 +176,7 @@ public class EvaluatorTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .version(1)
         .build();
-    FlagModel.FeatureFlag f1 = flagBuilder("feature1")
+    DataModel.FeatureFlag f1 = flagBuilder("feature1")
         .on(false)
         .offVariation(1)
         // note that even though it returns the desired variation, it is still off and therefore not a match
@@ -200,7 +200,7 @@ public class EvaluatorTest {
 
   @Test
   public void flagReturnsOffVariationAndEventIfPrerequisiteIsNotMet() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -208,7 +208,7 @@ public class EvaluatorTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .version(1)
         .build();
-    FlagModel.FeatureFlag f1 = flagBuilder("feature1")
+    DataModel.FeatureFlag f1 = flagBuilder("feature1")
         .on(true)
         .fallthrough(fallthroughVariation(0))
         .variations(LDValue.of("nogo"), LDValue.of("go"))
@@ -230,7 +230,7 @@ public class EvaluatorTest {
 
   @Test
   public void prerequisiteFailedReasonInstanceIsReusedForSamePrerequisite() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -248,7 +248,7 @@ public class EvaluatorTest {
 
   @Test
   public void flagReturnsFallthroughVariationAndEventIfPrerequisiteIsMetAndThereAreNoRules() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -256,7 +256,7 @@ public class EvaluatorTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .version(1)
         .build();
-    FlagModel.FeatureFlag f1 = flagBuilder("feature1")
+    DataModel.FeatureFlag f1 = flagBuilder("feature1")
         .on(true)
         .fallthrough(fallthroughVariation(1))
         .variations(LDValue.of("nogo"), LDValue.of("go"))
@@ -277,7 +277,7 @@ public class EvaluatorTest {
 
   @Test
   public void multipleLevelsOfPrerequisitesProduceMultipleEvents() throws Exception {
-    FlagModel.FeatureFlag f0 = flagBuilder("feature0")
+    DataModel.FeatureFlag f0 = flagBuilder("feature0")
         .on(true)
         .prerequisites(prerequisite("feature1", 1))
         .fallthrough(fallthroughVariation(0))
@@ -285,14 +285,14 @@ public class EvaluatorTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .version(1)
         .build();
-    FlagModel.FeatureFlag f1 = flagBuilder("feature1")
+    DataModel.FeatureFlag f1 = flagBuilder("feature1")
         .on(true)
         .prerequisites(prerequisite("feature2", 1))
         .fallthrough(fallthroughVariation(1))
         .variations(LDValue.of("nogo"), LDValue.of("go"))
         .version(2)
         .build();
-    FlagModel.FeatureFlag f2 = flagBuilder("feature2")
+    DataModel.FeatureFlag f2 = flagBuilder("feature2")
         .on(true)
         .fallthrough(fallthroughVariation(1))
         .variations(LDValue.of("nogo"), LDValue.of("go"))
@@ -319,7 +319,7 @@ public class EvaluatorTest {
   
   @Test
   public void flagMatchesUserFromTargets() throws Exception {
-    FlagModel.FeatureFlag f = flagBuilder("feature")
+    DataModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
         .targets(target(2, "whoever", "userkey"))
         .fallthrough(fallthroughVariation(0))
@@ -335,11 +335,11 @@ public class EvaluatorTest {
   
   @Test
   public void flagMatchesUserFromRules() {
-    FlagModel.Clause clause0 = clause("key", Operator.in, LDValue.of("wrongkey"));
-    FlagModel.Clause clause1 = clause("key", Operator.in, LDValue.of("userkey"));
-    FlagModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
-    FlagModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2).build();
-    FlagModel.FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);
+    DataModel.Clause clause0 = clause("key", DataModel.Operator.in, LDValue.of("wrongkey"));
+    DataModel.Clause clause1 = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
+    DataModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2).build();
+    DataModel.FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);
     LDUser user = new LDUser.Builder("userkey").build();
     Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
     
@@ -347,7 +347,7 @@ public class EvaluatorTest {
     assertThat(result.getPrerequisiteEvents(), emptyIterable());
   }
  
-  private FlagModel.FeatureFlag featureFlagWithRules(String flagKey, FlagModel.Rule... rules) {
+  private DataModel.FeatureFlag featureFlagWithRules(String flagKey, DataModel.Rule... rules) {
     return flagBuilder(flagKey)
         .on(true)
         .rules(rules)

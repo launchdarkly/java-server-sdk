@@ -27,8 +27,8 @@ class Evaluator {
    * and simplifies testing.
    */
   static interface Getters {
-    FlagModel.FeatureFlag getFlag(String key);
-    FlagModel.Segment getSegment(String key);
+    DataModel.FeatureFlag getFlag(String key);
+    DataModel.Segment getSegment(String key);
   }
 
   /**
@@ -105,7 +105,7 @@ class Evaluator {
    * @param eventFactory produces feature request events
    * @return an {@link EvalResult}
    */
-  EvalResult evaluate(FlagModel.FeatureFlag flag, LDUser user, EventFactory eventFactory) {
+  EvalResult evaluate(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory) {
     if (user == null || user.getKey() == null) {
       // this should have been prevented by LDClient.evaluateInternal
       logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", flag.getKey());
@@ -123,7 +123,7 @@ class Evaluator {
     return result;
   }
 
-  private EvalResult evaluateInternal(FlagModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
+  private EvalResult evaluateInternal(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
       List<Event.FeatureRequest> eventsOut) {
     if (!flag.isOn()) {
       return getOffValue(flag, EvaluationReason.off());
@@ -135,9 +135,9 @@ class Evaluator {
     }
     
     // Check to see if targets match
-    List<FlagModel.Target> targets = flag.getTargets();
+    List<DataModel.Target> targets = flag.getTargets();
     if (targets != null) {
-      for (FlagModel.Target target: targets) {
+      for (DataModel.Target target: targets) {
         for (String v : target.getValues()) {
           if (v.equals(user.getKey().stringValue())) {
             return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
@@ -146,10 +146,10 @@ class Evaluator {
       }
     }
     // Now walk through the rules and see if any match
-    List<FlagModel.Rule> rules = flag.getRules();
+    List<DataModel.Rule> rules = flag.getRules();
     if (rules != null) {
       for (int i = 0; i < rules.size(); i++) {
-        FlagModel.Rule rule = rules.get(i);
+        DataModel.Rule rule = rules.get(i);
         if (ruleMatchesUser(flag, rule, user)) {
           EvaluationReason.RuleMatch precomputedReason = rule.getRuleMatchReason();
           EvaluationReason.RuleMatch reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
@@ -163,15 +163,15 @@ class Evaluator {
 
   // Checks prerequisites if any; returns null if successful, or an EvaluationReason if we have to
   // short-circuit due to a prerequisite failure.
-  private EvaluationReason checkPrerequisites(FlagModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
+  private EvaluationReason checkPrerequisites(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
       List<Event.FeatureRequest> eventsOut) {
-    List<FlagModel.Prerequisite> prerequisites = flag.getPrerequisites();
+    List<DataModel.Prerequisite> prerequisites = flag.getPrerequisites();
     if (prerequisites == null) {
       return null;
     }
-    for (FlagModel.Prerequisite prereq: prerequisites) {
+    for (DataModel.Prerequisite prereq: prerequisites) {
       boolean prereqOk = true;
-      FlagModel.FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
+      DataModel.FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
       if (prereqFeatureFlag == null) {
         logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), flag.getKey());
         prereqOk = false;
@@ -194,7 +194,7 @@ class Evaluator {
     return null;
   }
 
-  private EvalResult getVariation(FlagModel.FeatureFlag flag, int variation, EvaluationReason reason) {
+  private EvalResult getVariation(DataModel.FeatureFlag flag, int variation, EvaluationReason reason) {
     List<LDValue> variations = flag.getVariations();
     if (variation < 0 || variation >= variations.size()) {
       logger.error("Data inconsistency in feature flag \"{}\": invalid variation index", flag.getKey());
@@ -204,7 +204,7 @@ class Evaluator {
     }
   }
 
-  private EvalResult getOffValue(FlagModel.FeatureFlag flag, EvaluationReason reason) {
+  private EvalResult getOffValue(DataModel.FeatureFlag flag, EvaluationReason reason) {
     Integer offVariation = flag.getOffVariation();
     if (offVariation == null) { // off variation unspecified - return default value
       return new EvalResult(null, null, reason);
@@ -213,7 +213,7 @@ class Evaluator {
     }
   }
   
-  private EvalResult getValueForVariationOrRollout(FlagModel.FeatureFlag flag, FlagModel.VariationOrRollout vr, LDUser user, EvaluationReason reason) {
+  private EvalResult getValueForVariationOrRollout(DataModel.FeatureFlag flag, DataModel.VariationOrRollout vr, LDUser user, EvaluationReason reason) {
     Integer index = EvaluatorBucketing.variationIndexForUser(vr, user, flag.getKey(), flag.getSalt());
     if (index == null) {
       logger.error("Data inconsistency in feature flag \"{}\": variation/rollout object with no variation or rollout", flag.getKey());
@@ -223,10 +223,10 @@ class Evaluator {
     }
   }
 
-  private boolean ruleMatchesUser(FlagModel.FeatureFlag flag, FlagModel.Rule rule, LDUser user) {
-    Iterable<FlagModel.Clause> clauses = rule.getClauses();
+  private boolean ruleMatchesUser(DataModel.FeatureFlag flag, DataModel.Rule rule, LDUser user) {
+    Iterable<DataModel.Clause> clauses = rule.getClauses();
     if (clauses != null) {
-      for (FlagModel.Clause clause: clauses) {
+      for (DataModel.Clause clause: clauses) {
         if (!clauseMatchesUser(clause, user)) {
           return false;
         }
@@ -235,13 +235,13 @@ class Evaluator {
     return true;
   }
 
-  private boolean clauseMatchesUser(FlagModel.Clause clause, LDUser user) {
+  private boolean clauseMatchesUser(DataModel.Clause clause, LDUser user) {
     // In the case of a segment match operator, we check if the user is in any of the segments,
     // and possibly negate
-    if (clause.getOp() == Operator.segmentMatch) {
+    if (clause.getOp() == DataModel.Operator.segmentMatch) {
       for (LDValue j: clause.getValues()) {
         if (j.isString()) {
-          FlagModel.Segment segment = getters.getSegment(j.stringValue());
+          DataModel.Segment segment = getters.getSegment(j.stringValue());
           if (segment != null) {
             if (segmentMatchesUser(segment, user)) {
               return maybeNegate(clause, true);
@@ -255,7 +255,7 @@ class Evaluator {
     return clauseMatchesUserNoSegments(clause, user);
   }
   
-  private boolean clauseMatchesUserNoSegments(FlagModel.Clause clause, LDUser user) {
+  private boolean clauseMatchesUserNoSegments(DataModel.Clause clause, LDUser user) {
     LDValue userValue = user.getValueForEvaluation(clause.getAttribute());
     if (userValue.isNull()) {
       return false;
@@ -280,11 +280,11 @@ class Evaluator {
     return false;
   }
   
-  private boolean clauseMatchAny(FlagModel.Clause clause, LDValue userValue) {
-    Operator op = clause.getOp();
+  private boolean clauseMatchAny(DataModel.Clause clause, LDValue userValue) {
+    DataModel.Operator op = clause.getOp();
     if (op != null) {
       for (LDValue v : clause.getValues()) {
-        if (op.apply(userValue, v)) {
+        if (EvaluatorOperators.apply(op, userValue, v)) {
           return true;
         }
       }
@@ -292,11 +292,11 @@ class Evaluator {
     return false;
   }
 
-  private boolean maybeNegate(FlagModel.Clause clause, boolean b) {
+  private boolean maybeNegate(DataModel.Clause clause, boolean b) {
     return clause.isNegate() ? !b : b;
   }
   
-  private boolean segmentMatchesUser(FlagModel.Segment segment, LDUser user) {
+  private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
     String userKey = user.getKeyAsString();
     if (userKey == null) {
       return false;
@@ -307,7 +307,7 @@ class Evaluator {
     if (Iterables.contains(segment.getExcluded(), userKey)) {
       return false;
     }
-    for (FlagModel.SegmentRule rule: segment.getRules()) {
+    for (DataModel.SegmentRule rule: segment.getRules()) {
       if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
         return true;
       }
@@ -315,8 +315,8 @@ class Evaluator {
     return false;
   }
 
-  private boolean segmentRuleMatchesUser(FlagModel.SegmentRule segmentRule, LDUser user, String segmentKey, String salt) {
-    for (FlagModel.Clause c: segmentRule.getClauses()) {
+  private boolean segmentRuleMatchesUser(DataModel.SegmentRule segmentRule, LDUser user, String segmentKey, String salt) {
+    for (DataModel.Clause c: segmentRule.getClauses()) {
       if (!clauseMatchesUserNoSegments(c, user)) {
         return false;
       }
