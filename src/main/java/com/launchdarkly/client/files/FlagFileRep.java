@@ -1,6 +1,6 @@
 package com.launchdarkly.client.files;
 
-import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
 
 import java.util.Map;
 
@@ -9,13 +9,13 @@ import java.util.Map;
  * parse the flags or segments at this level; that will be done by {@link FlagFactory}.
  */
 final class FlagFileRep {
-  Map<String, JsonElement> flags;
-  Map<String, JsonElement> flagValues;
-  Map<String, JsonElement> segments;
+  Map<String, LDValue> flags;
+  Map<String, LDValue> flagValues;
+  Map<String, LDValue> segments;
   
   FlagFileRep() {}
 
-  FlagFileRep(Map<String, JsonElement> flags, Map<String, JsonElement> flagValues, Map<String, JsonElement> segments) {
+  FlagFileRep(Map<String, LDValue> flags, Map<String, LDValue> flagValues, Map<String, LDValue> segments) {
     this.flags = flags;
     this.flagValues = flagValues;
     this.segments = segments;

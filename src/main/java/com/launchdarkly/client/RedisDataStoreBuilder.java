@@ -1,13 +1,12 @@
 package com.launchdarkly.client;
 
-import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.Protocol;
-
 import com.launchdarkly.client.interfaces.DataStoreFactory;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
+
+import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.Protocol;
 
 /**
  * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> for configuring the Redis-based persistent data store.
@@ -35,13 +34,6 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
    */
   public static final String DEFAULT_PREFIX = "launchdarkly";
   
-  /**
-   * The default value for {@link #cacheTime(long, TimeUnit)} (in seconds).
-   * @deprecated Use {@link DataStoreCacheConfig#DEFAULT}.
-   * @since 4.0.0
-   */
-  public static final long DEFAULT_CACHE_TIME_SECONDS = DataStoreCacheConfig.DEFAULT_TIME_SECONDS;
-  
   final URI uri;
   String prefix = DEFAULT_PREFIX;
   int connectTimeout = Protocol.DEFAULT_TIMEOUT;
@@ -50,11 +42,9 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
   String password = null;
   boolean tls = false;
   DataStoreCacheConfig caching = DataStoreCacheConfig.DEFAULT;
-  boolean refreshStaleValues = false; // this and asyncRefresh are redundant with DataStoreCacheConfig, but are used by deprecated setters
-  boolean asyncRefresh = false;
   JedisPoolConfig poolConfig = null;
 
-  // These constructors are called only from Implementations
+  // These constructors are called only from Components
   RedisDataStoreBuilder() {
     this.uri = DEFAULT_URI;
   }
@@ -63,33 +53,6 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
     this.uri = uri;
   }
   
-  /**
-   * The constructor accepts the mandatory fields that must be specified at a minimum to construct a {@link com.launchdarkly.client.RedisDataStore}.
-   *
-   * @param uri the uri of the Redis resource to connect to.
-   * @param cacheTimeSecs the cache time in seconds. See {@link RedisDataStoreBuilder#cacheTime(long, TimeUnit)} for more information.
-   * @deprecated Please use {@link Components#redisDataStore(java.net.URI)}.
-   */
-  public RedisDataStoreBuilder(URI uri, long cacheTimeSecs) {
-    this.uri = uri;
-    this.cacheTime(cacheTimeSecs, TimeUnit.SECONDS);
-  }
-
-  /**
-   * The constructor accepts the mandatory fields that must be specified at a minimum to construct a {@link com.launchdarkly.client.RedisDataStore}.
-   *
-   * @param scheme the URI scheme to use
-   * @param host the hostname to connect to
-   * @param port the port to connect to
-   * @param cacheTimeSecs the cache time in seconds. See {@link RedisDataStoreBuilder#cacheTime(long, TimeUnit)} for more information.
-   * @throws URISyntaxException if the URI is not valid
-   * @deprecated Please use {@link Components#redisDataStore(java.net.URI)}.
-   */
-  public RedisDataStoreBuilder(String scheme, String host, int port, long cacheTimeSecs) throws URISyntaxException {
-    this.uri = new URI(scheme, null, host, port, null, null, null);
-    this.cacheTime(cacheTimeSecs, TimeUnit.SECONDS);
-  }
-
   /**
    * Specifies the database number to use.
    * <p>
@@ -155,50 +118,6 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
   }
   
   /**
-   * Deprecated method for setting the cache expiration policy to {@link DataStoreCacheConfig.StaleValuesPolicy#REFRESH}
-   * or {@link DataStoreCacheConfig.StaleValuesPolicy#REFRESH_ASYNC}.
-   *
-   * @param enabled turns on lazy refresh of cached values
-   * @return the builder
-   * 
-   * @deprecated Use {@link #caching(DataStoreCacheConfig)} and
-   * {@link DataStoreCacheConfig#staleValuesPolicy(com.launchdarkly.client.DataStoreCacheConfig.StaleValuesPolicy)}.
-   */
-  public RedisDataStoreBuilder refreshStaleValues(boolean enabled) {
-    this.refreshStaleValues = enabled;
-    updateCachingStaleValuesPolicy();
-    return this;
-  }
-
-  /**
-   * Deprecated method for setting the cache expiration policy to {@link DataStoreCacheConfig.StaleValuesPolicy#REFRESH_ASYNC}.
-   *
-   * @param enabled turns on asynchronous refresh of cached values (only if {@link #refreshStaleValues(boolean)}
-   * is also true)
-   * @return the builder
-   * 
-   * @deprecated Use {@link #caching(DataStoreCacheConfig)} and
-   * {@link DataStoreCacheConfig#staleValuesPolicy(com.launchdarkly.client.DataStoreCacheConfig.StaleValuesPolicy)}.
-   */
-  public RedisDataStoreBuilder asyncRefresh(boolean enabled) {
-    this.asyncRefresh = enabled;
-    updateCachingStaleValuesPolicy();
-    return this;
-  }
-
-  private void updateCachingStaleValuesPolicy() {
-    // We need this logic in order to support the existing behavior of the deprecated methods above:
-    // asyncRefresh is supposed to have no effect unless refreshStaleValues is true
-    if (this.refreshStaleValues) {
-      this.caching = this.caching.staleValuesPolicy(this.asyncRefresh ?
-          DataStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC :
-          DataStoreCacheConfig.StaleValuesPolicy.REFRESH);
-    } else {
-      this.caching = this.caching.staleValuesPolicy(DataStoreCacheConfig.StaleValuesPolicy.EVICT);
-    }
-  }
-  
-  /**
    * Optionally configures the namespace prefix for all keys stored in Redis.
    *
    * @param prefix the namespace prefix
@@ -206,22 +125,6 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
    */
   public RedisDataStoreBuilder prefix(String prefix) {
     this.prefix = prefix;
-    return this;
-  }
-
-  /**
-   * Deprecated method for enabling local caching and setting the cache TTL. Local caching is enabled
-   * by default; see {@link DataStoreCacheConfig#DEFAULT}.
-   *
-   * @param cacheTime the time value to cache for, or 0 to disable local caching
-   * @param timeUnit the time unit for the time value
-   * @return the builder
-   * 
-   * @deprecated use {@link #caching(DataStoreCacheConfig)} and {@link DataStoreCacheConfig#ttl(long, TimeUnit)}.
-   */
-  public RedisDataStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
-    this.caching = this.caching.ttl(cacheTime, timeUnit)
-        .staleValuesPolicy(this.caching.getStaleValuesPolicy());
     return this;
   }
 

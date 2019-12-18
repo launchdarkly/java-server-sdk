@@ -1,13 +1,12 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
 import com.launchdarkly.client.events.Event;
-import com.launchdarkly.client.interfaces.EventProcessor;
-import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.DataStore;
-import com.launchdarkly.client.interfaces.DataStoreFactory;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.EventProcessor;
+import com.launchdarkly.client.interfaces.EventProcessorFactory;
 import com.launchdarkly.client.value.LDValue;
 
 import org.apache.commons.codec.binary.Hex;
@@ -130,18 +129,6 @@ public final class LDClient implements LDClientInterface {
     }
   }
 
-  @SuppressWarnings("deprecation")
-  @Override
-  public void track(String eventName, LDUser user, JsonElement data) {
-    trackData(eventName, user, LDValue.unsafeFromJsonElement(data));
-  }
-
-  @SuppressWarnings("deprecation")
-  @Override
-  public void track(String eventName, LDUser user, JsonElement data, double metricValue) {
-    trackMetric(eventName, user, LDValue.unsafeFromJsonElement(data), metricValue);
-  }
-
   @Override
   public void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
     if (user == null || user.getKeyAsString() == null) {
@@ -163,15 +150,6 @@ public final class LDClient implements LDClientInterface {
   private void sendFlagRequestEvent(Event.FeatureRequest event) {
     eventProcessor.sendEvent(event);
     NewRelicReflector.annotateTransaction(event.getKey(), String.valueOf(event.getValue()));
-  }
-
-  @Override
-  public Map<String, JsonElement> allFlags(LDUser user) {
-    FeatureFlagsState state = allFlagsState(user);
-    if (!state.isValid()) {
-      return null;
-    }
-    return state.toValuesMap();
   }
 
   @Override
@@ -235,12 +213,6 @@ public final class LDClient implements LDClientInterface {
     return evaluate(featureKey, user, LDValue.of(defaultValue), true).stringValue();
   }
 
-  @SuppressWarnings("deprecation")
-  @Override
-  public JsonElement jsonVariation(String featureKey, LDUser user, JsonElement defaultValue) {
-    return evaluate(featureKey, user, LDValue.unsafeFromJsonElement(defaultValue), false).asUnsafeJsonElement();
-  }
-
   @Override
   public LDValue jsonValueVariation(String featureKey, LDUser user, LDValue defaultValue) {
     return evaluate(featureKey, user, defaultValue == null ? LDValue.ofNull() : defaultValue, false);
@@ -275,15 +247,6 @@ public final class LDClient implements LDClientInterface {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
          EventFactory.DEFAULT_WITH_REASONS);
     return EvaluationDetail.fromValue(result.getValue().stringValue(),
-        result.getVariationIndex(), result.getReason());
-  }
-
-  @SuppressWarnings("deprecation")
-  @Override
-  public EvaluationDetail<JsonElement> jsonVariationDetail(String featureKey, LDUser user, JsonElement defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.unsafeFromJsonElement(defaultValue), false,
-         EventFactory.DEFAULT_WITH_REASONS);
-    return EvaluationDetail.fromValue(result.getValue().asUnsafeJsonElement(),
         result.getVariationIndex(), result.getReason());
   }
 

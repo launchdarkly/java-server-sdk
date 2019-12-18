@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
+import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
@@ -71,8 +71,8 @@ public class EvaluationReasonTest {
   }
   
   private void assertJsonEqual(String expectedString, String actualString) {
-    JsonElement expected = gson.fromJson(expectedString, JsonElement.class);
-    JsonElement actual = gson.fromJson(actualString, JsonElement.class);
+    LDValue expected = LDValue.parse(expectedString);
+    LDValue actual = LDValue.parse(actualString);
     assertEquals(expected, actual);
   }
 }

@@ -46,7 +46,6 @@ public final class LDConfig {
   private static final int DEFAULT_FLUSH_INTERVAL_SECONDS = 5;
   private static final long MIN_POLLING_INTERVAL_MILLIS = 30000L;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
-  private static final int DEFAULT_SAMPLING_INTERVAL = 0;
   private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
   private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
   private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
@@ -71,7 +70,6 @@ public final class LDConfig {
   final boolean sendEvents;
   final long pollingIntervalMillis;
   final long startWaitMillis;
-  final int samplingInterval;
   final long reconnectTimeMs;
   final int userKeysCapacity;
   final int userKeysFlushInterval;
@@ -106,7 +104,6 @@ public final class LDConfig {
       this.pollingIntervalMillis = builder.pollingIntervalMillis;
     }
     this.startWaitMillis = builder.startWaitMillis;
-    this.samplingInterval = builder.samplingInterval;
     this.reconnectTimeMs = builder.reconnectTimeMillis;
     this.userKeysCapacity = builder.userKeysCapacity;
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
@@ -162,7 +159,6 @@ public final class LDConfig {
     private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
     private DataSourceFactory dataSourceFactory = Components.defaultDataSource();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
-    private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
     private Set<String> privateAttrNames = new HashSet<>();
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
@@ -478,22 +474,6 @@ public final class LDConfig {
      */
     public Builder startWaitMillis(long startWaitMillis) {
       this.startWaitMillis = startWaitMillis;
-      return this;
-    }
-
-    /**
-     * Enable event sampling. When set to the default of zero, sampling is disabled and all events
-     * are sent back to LaunchDarkly. When set to greater than zero, there is a 1 in
-     * <code>samplingInterval</code> chance events will be will be sent.
-     * <p>Example: if you want 5% sampling rate, set <code>samplingInterval</code> to 20.
-     *
-     * @param samplingInterval the sampling interval
-     * @return the builder
-     * @deprecated This feature will be removed in a future version of the SDK.
-     */
-    @Deprecated
-    public Builder samplingInterval(int samplingInterval) {
-      this.samplingInterval = samplingInterval;
       return this;
     }
 

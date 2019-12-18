@@ -129,14 +129,6 @@ public class RedisDataStore implements DataStore {
         .build();
   }
 
-  /**
-   * Creates a new store instance that connects to Redis with a default connection (localhost port 6379) and no in-memory cache.
-   * @deprecated Please use {@link Components#redisDataStore()} instead.
-   */
-  public RedisDataStore() {
-    this(new RedisDataStoreBuilder().caching(DataStoreCacheConfig.disabled()));
-  }
-
   static class Core implements DataStoreCore {    
     private final JedisPool pool;
     private final String prefix;

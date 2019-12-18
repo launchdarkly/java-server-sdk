@@ -1,10 +1,8 @@
 package com.launchdarkly.client.files;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.launchdarkly.client.DataModel;
 import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.value.LDValue;
 
 /**
  * Creates flag or segment objects from raw JSON.
@@ -19,26 +17,23 @@ class FlagFactory {
     return DataModel.DataKinds.FEATURES.deserialize(jsonString);
   }
   
-  public static VersionedData flagFromJson(JsonElement jsonTree) {
-    return flagFromJson(jsonTree.toString());
+  public static VersionedData flagFromJson(LDValue jsonTree) {
+    return flagFromJson(jsonTree.toJsonString());
   }
   
   /**
    * Constructs a flag that always returns the same value. This is done by giving it a single
    * variation and setting the fallthrough variation to that.
    */
-  public static VersionedData flagWithValue(String key, JsonElement jsonValue) {
-    JsonObject o = new JsonObject();
-    o.addProperty("key", key);
-    o.addProperty("on", true);
-    JsonArray vs = new JsonArray();
-    vs.add(jsonValue);
-    o.add("variations", vs);
+  public static VersionedData flagWithValue(String key, LDValue jsonValue) {
+    LDValue o = LDValue.buildObject()
+          .put("key", key)
+          .put("on", true)
+          .put("variations", LDValue.buildArray().add(jsonValue).build())
+          .put("fallthrough", LDValue.buildObject().put("variation", 0).build())
+          .build();
     // Note that LaunchDarkly normally prevents you from creating a flag with just one variation,
     // but it's the application that validates that; the SDK doesn't care.
-    JsonObject ft = new JsonObject();
-    ft.addProperty("variation", 0);
-    o.add("fallthrough", ft);
     return flagFromJson(o);
   }
   
@@ -46,7 +41,7 @@ class FlagFactory {
     return DataModel.DataKinds.SEGMENTS.deserialize(jsonString);
   }
   
-  public static VersionedData segmentFromJson(JsonElement jsonTree) {
-    return segmentFromJson(jsonTree.toString());
+  public static VersionedData segmentFromJson(LDValue jsonTree) {
+    return segmentFromJson(jsonTree.toJsonString());
   }
 }

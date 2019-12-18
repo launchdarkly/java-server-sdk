@@ -1,6 +1,5 @@
 package com.launchdarkly.client.value;
 
-import com.google.gson.JsonElement;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonWriter;
 
@@ -26,10 +25,5 @@ final class LDValueNull extends LDValue {
   @Override
   void write(JsonWriter writer) throws IOException {
     writer.nullValue();
-  }
-  
-  @Override
-  JsonElement computeJsonElement() {
-    return null;
   }
 }

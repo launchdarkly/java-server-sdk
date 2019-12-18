@@ -2,19 +2,17 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.events.Event;
-import com.launchdarkly.client.interfaces.EventProcessor;
-import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.DataStore;
-import com.launchdarkly.client.interfaces.DataStoreFactory;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.EventProcessor;
+import com.launchdarkly.client.interfaces.EventProcessorFactory;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
+import com.launchdarkly.client.value.LDValueType;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -147,22 +145,6 @@ public class TestUtil {
     public void flush() {}
   }
   
-  public static JsonPrimitive js(String s) {
-    return new JsonPrimitive(s);
-  }
-
-  public static JsonPrimitive jint(int n) {
-    return new JsonPrimitive(n);
-  }
-
-  public static JsonPrimitive jdouble(double d) {
-    return new JsonPrimitive(d);
-  }
-  
-  public static JsonPrimitive jbool(boolean b) {
-    return new JsonPrimitive(b);
-  }
-  
   public static class DataBuilder {
     private Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data = new HashMap<>();
     
@@ -188,33 +170,28 @@ public class TestUtil {
     return new Evaluator.EvalResult(value, variation, EvaluationReason.fallthrough());
   }
   
-  public static Matcher<JsonElement> hasJsonProperty(final String name, JsonElement value) {
+  public static Matcher<LDValue> hasJsonProperty(final String name, LDValue value) {
     return hasJsonProperty(name, equalTo(value));
   }
 
-  @SuppressWarnings("deprecation")
-  public static Matcher<JsonElement> hasJsonProperty(final String name, LDValue value) {
-    return hasJsonProperty(name, equalTo(value.asUnsafeJsonElement()));
-  }
-
-  public static Matcher<JsonElement> hasJsonProperty(final String name, String value) {
-    return hasJsonProperty(name, new JsonPrimitive(value));
+  public static Matcher<LDValue> hasJsonProperty(final String name, String value) {
+    return hasJsonProperty(name, LDValue.of(value));
   }
     
-  public static Matcher<JsonElement> hasJsonProperty(final String name, int value) {
-    return hasJsonProperty(name, new JsonPrimitive(value));
+  public static Matcher<LDValue> hasJsonProperty(final String name, int value) {
+    return hasJsonProperty(name, LDValue.of(value));
   }
     
-  public static Matcher<JsonElement> hasJsonProperty(final String name, double value) {
-    return hasJsonProperty(name, new JsonPrimitive(value));
+  public static Matcher<LDValue> hasJsonProperty(final String name, double value) {
+    return hasJsonProperty(name, LDValue.of(value));
   }
     
-  public static Matcher<JsonElement> hasJsonProperty(final String name, boolean value) {
-    return hasJsonProperty(name, new JsonPrimitive(value));
+  public static Matcher<LDValue> hasJsonProperty(final String name, boolean value) {
+    return hasJsonProperty(name, LDValue.of(value));
   }
     
-  public static Matcher<JsonElement> hasJsonProperty(final String name, final Matcher<JsonElement> matcher) {
-    return new TypeSafeDiagnosingMatcher<JsonElement>() {
+  public static Matcher<LDValue> hasJsonProperty(final String name, final Matcher<LDValue> matcher) {
+    return new TypeSafeDiagnosingMatcher<LDValue>() {
       @Override
       public void describeTo(Description description) {
         description.appendText(name + ": ");
@@ -222,8 +199,8 @@ public class TestUtil {
       }
       
       @Override
-      protected boolean matchesSafely(JsonElement item, Description mismatchDescription) {
-        JsonElement value = item.getAsJsonObject().get(name);
+      protected boolean matchesSafely(LDValue item, Description mismatchDescription) {
+        LDValue value = item.get(name);
         if (!matcher.matches(value)) {
           matcher.describeMismatch(value, mismatchDescription);
           return false;
@@ -233,8 +210,8 @@ public class TestUtil {
     };
   }
 
-  public static Matcher<JsonElement> isJsonArray(final Matcher<Iterable<? extends JsonElement>> matcher) {
-    return new TypeSafeDiagnosingMatcher<JsonElement>() {
+  public static Matcher<LDValue> isJsonArray(final Matcher<Iterable<? extends LDValue>> matcher) {
+    return new TypeSafeDiagnosingMatcher<LDValue>() {
       @Override
       public void describeTo(Description description) {
         description.appendText("array: ");
@@ -242,11 +219,16 @@ public class TestUtil {
       }
       
       @Override
-      protected boolean matchesSafely(JsonElement item, Description mismatchDescription) {
-        JsonArray value = item.getAsJsonArray();
-        if (!matcher.matches(value)) {
-          matcher.describeMismatch(value, mismatchDescription);
+      protected boolean matchesSafely(LDValue item, Description mismatchDescription) {
+        if (item.getType() != LDValueType.ARRAY) {
+          matcher.describeMismatch(item, mismatchDescription);
           return false;
+        } else {
+          Iterable<LDValue> values = item.values();
+          if (!matcher.matches(values)) {
+            matcher.describeMismatch(values, mismatchDescription);
+            return false;
+          }
         }
         return true;
       }

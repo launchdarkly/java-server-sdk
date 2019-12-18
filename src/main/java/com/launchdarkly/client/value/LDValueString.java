@@ -1,7 +1,5 @@
 package com.launchdarkly.client.value;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonWriter;
 
@@ -37,10 +35,5 @@ final class LDValueString extends LDValue {
   @Override
   void write(JsonWriter writer) throws IOException {
     writer.value(value);
-  }
-
-  @Override
-  JsonElement computeJsonElement() {
-    return new JsonPrimitive(value);
   }
 }

@@ -1,7 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.EvaluationReason.ErrorKind;
 import com.launchdarkly.client.events.Event;
 import com.launchdarkly.client.interfaces.DataStore;
@@ -17,8 +15,8 @@ import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
 import static com.launchdarkly.client.ModelBuilders.prerequisite;
 import static com.launchdarkly.client.ModelBuilders.ruleBuilder;
-import static com.launchdarkly.client.TestUtil.specificEventProcessor;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
+import static com.launchdarkly.client.TestUtil.specificEventProcessor;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -101,38 +99,6 @@ public class LDClientEventTest {
     assertEquals(user.getKey(), ce.getUser().getKey());
     assertEquals("eventkey", ce.getKey());
     assertEquals(data, ce.getData());
-    assertEquals(new Double(metricValue), ce.getMetricValue());
-  }
-
-  @SuppressWarnings("deprecation")
-  @Test
-  public void deprecatedTrackSendsEventWithData() throws Exception {
-    JsonElement data = new JsonPrimitive("stuff"); 
-    client.track("eventkey", user, data);
-    
-    assertEquals(1, eventSink.events.size());
-    Event e = eventSink.events.get(0);
-    assertEquals(Event.Custom.class, e.getClass());
-    Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.getUser().getKey());
-    assertEquals("eventkey", ce.getKey());
-    assertEquals(data, ce.getData().asJsonElement());
-  }
-
-  @SuppressWarnings("deprecation")
-  @Test
-  public void deprecatedTrackSendsEventWithDataAndMetricValue() throws Exception {
-    JsonElement data = new JsonPrimitive("stuff"); 
-    double metricValue = 1.5;
-    client.track("eventkey", user, data, metricValue);
-    
-    assertEquals(1, eventSink.events.size());
-    Event e = eventSink.events.get(0);
-    assertEquals(Event.Custom.class, e.getClass());
-    Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.getUser().getKey());
-    assertEquals("eventkey", ce.getKey());
-    assertEquals(data, ce.getData().asJsonElement());
     assertEquals(new Double(metricValue), ce.getMetricValue());
   }
 
@@ -285,53 +251,6 @@ public class LDClientEventTest {
     client.stringVariationDetail("key", user, "a");
     assertEquals(1, eventSink.events.size());
     checkUnknownFeatureEvent(eventSink.events.get(0), "key", LDValue.of("a"), null,
-        EvaluationReason.error(ErrorKind.FLAG_NOT_FOUND));
-  }
-
-  @SuppressWarnings("deprecation")
-  @Test
-  public void jsonVariationSendsEvent() throws Exception {
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    DataModel.FeatureFlag flag = flagWithValue("key", data);
-    dataStore.upsert(FEATURES, flag);
-    LDValue defaultVal = LDValue.of(42);
-    
-    client.jsonVariation("key", user, new JsonPrimitive(defaultVal.intValue()));
-    assertEquals(1, eventSink.events.size());
-    checkFeatureEvent(eventSink.events.get(0), flag, data, defaultVal, null, null);
-  }
-
-  @SuppressWarnings("deprecation")
-  @Test
-  public void jsonVariationSendsEventForUnknownFlag() throws Exception {
-    LDValue defaultVal = LDValue.of(42);
-    
-    client.jsonVariation("key", user, new JsonPrimitive(defaultVal.intValue()));
-    assertEquals(1, eventSink.events.size());
-    checkUnknownFeatureEvent(eventSink.events.get(0), "key", defaultVal, null, null);
-  }
-
-  @SuppressWarnings("deprecation")
-  @Test
-  public void jsonVariationDetailSendsEvent() throws Exception {
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    DataModel.FeatureFlag flag = flagWithValue("key", data);
-    dataStore.upsert(FEATURES, flag);
-    LDValue defaultVal = LDValue.of(42);
-    
-    client.jsonVariationDetail("key", user, new JsonPrimitive(defaultVal.intValue()));
-    assertEquals(1, eventSink.events.size());
-    checkFeatureEvent(eventSink.events.get(0), flag, data, defaultVal, null, EvaluationReason.off());
-  }
-
-  @SuppressWarnings("deprecation")
-  @Test
-  public void jsonVariationDetailSendsEventForUnknownFlag() throws Exception {
-    LDValue defaultVal = LDValue.of(42);
-    
-    client.jsonVariationDetail("key", user, new JsonPrimitive(defaultVal.intValue()));
-    assertEquals(1, eventSink.events.size());
-    checkUnknownFeatureEvent(eventSink.events.get(0), "key", defaultVal, null,
         EvaluationReason.error(ErrorKind.FLAG_NOT_FOUND));
   }
 

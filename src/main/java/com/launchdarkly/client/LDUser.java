@@ -3,9 +3,6 @@ package com.launchdarkly.client;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -17,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -557,11 +553,11 @@ public class LDUser {
      * @return the builder
      */
     public Builder custom(String k, String v) {
-      return custom(k, v == null ? null : new JsonPrimitive(v));
+      return custom(k, LDValue.of(v));
     }
 
     /**
-     * Adds a {@link java.lang.Number}-valued custom attribute. When set to one of the
+     * Adds an integer-valued custom attribute. When set to one of the
      * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
      * user attribute keys</a>, this custom attribute will be ignored.
      *
@@ -569,12 +565,25 @@ public class LDUser {
      * @param n the value for the custom attribute
      * @return the builder
      */
-    public Builder custom(String k, Number n) {
-      return custom(k, n == null ? null : new JsonPrimitive(n));
+    public Builder custom(String k, int n) {
+      return custom(k, LDValue.of(n));
     }
 
     /**
-     * Add a {@link java.lang.Boolean}-valued custom attribute. When set to one of the
+     * Adds a double-precision numeric custom attribute. When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
+     *
+     * @param k the key for the custom attribute
+     * @param n the value for the custom attribute
+     * @return the builder
+     */
+    public Builder custom(String k, double n) {
+      return custom(k, LDValue.of(n));
+    }
+
+    /**
+     * Add a boolean-valued custom attribute. When set to one of the
      * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
      * user attribute keys</a>, this custom attribute will be ignored.
      *
@@ -582,8 +591,8 @@ public class LDUser {
      * @param b the value for the custom attribute
      * @return the builder
      */
-    public Builder custom(String k, Boolean b) {
-      return custom(k, b == null ? null : new JsonPrimitive(b));
+    public Builder custom(String k, boolean b) {
+      return custom(k, LDValue.of(b));
     }
 
     /**
@@ -608,78 +617,6 @@ public class LDUser {
     }
     
     /**
-     * Add a custom attribute whose value can be any JSON type. This is equivalent to {@link #custom(String, LDValue)}
-     * but uses the Gson type {@link JsonElement}. Using {@link LDValue} is preferred; the Gson types may be removed
-     * from the public API in the future.
-     *
-     * @param k the key for the custom attribute
-     * @param v the value for the custom attribute
-     * @return the builder
-     * @deprecated Use {@link #custom(String, LDValue)}.
-     */
-    @Deprecated
-    public Builder custom(String k, JsonElement v) {
-      return custom(k, LDValue.unsafeFromJsonElement(v));
-    }
-    
-    /**
-     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
-     * user attribute keys</a>, this custom attribute will be ignored.
-     *
-     * @param k  the key for the list
-     * @param vs the values for the attribute
-     * @return the builder
-     */
-    public Builder customString(String k, List<String> vs) {
-      JsonArray array = new JsonArray();
-      for (String v : vs) {
-        if (v != null) {
-          array.add(new JsonPrimitive(v));
-        }
-      }
-      return custom(k, array);
-    }
-
-    /**
-     * Add a list of {@link java.lang.Number}-valued custom attributes. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
-     * user attribute keys</a>, this custom attribute will be ignored.
-     *
-     * @param k  the key for the list
-     * @param vs the values for the attribute
-     * @return the builder
-     */
-    public Builder customNumber(String k, List<Number> vs) {
-      JsonArray array = new JsonArray();
-      for (Number v : vs) {
-        if (v != null) {
-          array.add(new JsonPrimitive(v));
-        }
-      }
-      return custom(k, array);
-    }
-    
-    /**
-     * Add a custom attribute with a list of arbitrary JSON values. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
-     * user attribute keys</a>, this custom attribute will be ignored.
-     *
-     * @param k  the key for the list
-     * @param vs the values for the attribute
-     * @return the builder
-     */
-    public Builder customValues(String k, List<JsonElement> vs) {
-      JsonArray array = new JsonArray();
-      for (JsonElement v : vs) {
-        if (v != null) {
-          array.add(v);
-        }
-      }
-      return custom(k, array);
-    }
-    
-    /**
      * Add a {@link java.lang.String}-valued custom attribute that will not be sent back to LaunchDarkly.
      * When set to one of the
      * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
@@ -695,7 +632,7 @@ public class LDUser {
     }
 
     /**
-     * Add a {@link java.lang.Number}-valued custom attribute that will not be sent back to LaunchDarkly.
+     * Add an int-valued custom attribute that will not be sent back to LaunchDarkly.
      * When set to one of the
      * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
      * user attribute keys</a>, this custom attribute will be ignored.
@@ -704,13 +641,28 @@ public class LDUser {
      * @param n the value for the custom attribute
      * @return the builder
      */
-    public Builder privateCustom(String k, Number n) {
+    public Builder privateCustom(String k, int n) {
       addPrivate(k);
       return custom(k, n);
     }
 
     /**
-     * Add a {@link java.lang.Boolean}-valued custom attribute that will not be sent back to LaunchDarkly.
+     * Add a double-precision numeric custom attribute that will not be sent back to LaunchDarkly.
+     * When set to one of the
+     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
+     * user attribute keys</a>, this custom attribute will be ignored.
+     *
+     * @param k the key for the custom attribute
+     * @param n the value for the custom attribute
+     * @return the builder
+     */
+    public Builder privateCustom(String k, double n) {
+      addPrivate(k);
+      return custom(k, n);
+    }
+
+    /**
+     * Add a boolean-valued custom attribute that will not be sent back to LaunchDarkly.
      * When set to one of the
      * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
      * user attribute keys</a>, this custom attribute will be ignored.
@@ -719,7 +671,7 @@ public class LDUser {
      * @param b the value for the custom attribute
      * @return the builder
      */
-    public Builder privateCustom(String k, Boolean b) {
+    public Builder privateCustom(String k, boolean b) {
       addPrivate(k);
       return custom(k, b);
     }
@@ -738,68 +690,6 @@ public class LDUser {
     public Builder privateCustom(String k, LDValue v) {
       addPrivate(k);
       return custom(k, v);
-    }
-    
-    /**
-     * Add a custom attribute of any JSON type, that will not be sent back to LaunchDarkly.
-     * When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">built-in
-     * user attribute keys</a>, this custom attribute will be ignored.
-     *
-     * @param k the key for the custom attribute
-     * @param v the value for the custom attribute
-     * @return the builder
-     * @deprecated Use {@link #privateCustom(String, LDValue)}.
-     */
-    @Deprecated
-    public Builder privateCustom(String k, JsonElement v) {
-      addPrivate(k);
-      return custom(k, v);
-    }
-    
-    /**
-     * Add a list of {@link java.lang.String}-valued custom attributes. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
-     *   back to LaunchDarkly in analytics events.
-     *
-     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
-     * @param vs the values for the attribute
-     * @return the builder
-     */
-    public Builder privateCustomString(String k, List<String> vs) {
-      addPrivate(k);
-      return customString(k, vs);
-    }
-
-    /**
-     * Add a list of {@link java.lang.Integer}-valued custom attributes. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     *   built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
-     *   back to LaunchDarkly in analytics events.
-     *
-     * @param k  the key for the list. When set to one of the built-in user attribute keys, this custom attribute will be ignored.
-     * @param vs the values for the attribute
-     * @return the builder
-     */
-    public Builder privateCustomNumber(String k, List<Number> vs) {
-      addPrivate(k);
-      return customNumber(k, vs);
-    }
-
-    /**
-     * Add a custom attribute with a list of arbitrary JSON values. When set to one of the
-     * <a href="http://docs.launchdarkly.com/docs/targeting-users#targeting-based-on-user-attributes">
-     * built-in user attribute keys</a>, this custom attribute will be ignored. The custom attribute value will not be sent
-     * back to LaunchDarkly in analytics events.
-     *
-     * @param k  the key for the list
-     * @param vs the values for the attribute
-     * @return the builder
-     */
-    public Builder privateCustomValues(String k, List<JsonElement> vs) {
-      addPrivate(k);
-      return customValues(k, vs);
     }
     
     private void checkCustomAttribute(String key) {

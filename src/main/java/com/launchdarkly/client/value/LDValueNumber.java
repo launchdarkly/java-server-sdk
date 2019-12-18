@@ -1,7 +1,5 @@
 package com.launchdarkly.client.value;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonWriter;
 
@@ -66,10 +64,5 @@ final class LDValueNumber extends LDValue {
     } else {
       writer.value(value);
     }
-  }
-  
-  @Override
-  JsonElement computeJsonElement() {
-    return new JsonPrimitive(value);
   }
 }

@@ -1,7 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
@@ -34,8 +32,8 @@ public class TestDataStore extends InMemoryDataStore {
    * @param value the new value of the feature flag
    * @return the feature flag
    */
-  public DataModel.FeatureFlag setBooleanValue(String key, Boolean value) {
-    return setJsonValue(key, value == null ? null : new JsonPrimitive(value.booleanValue()));
+  public DataModel.FeatureFlag setBooleanValue(String key, boolean value) {
+    return setJsonValue(key, LDValue.of(value));
   }
 
   /**
@@ -66,8 +64,8 @@ public class TestDataStore extends InMemoryDataStore {
    * @param value the new value of the flag
    * @return the feature flag
      */
-  public DataModel.FeatureFlag setIntegerValue(String key, Integer value) {
-    return setJsonValue(key, new JsonPrimitive(value));
+  public DataModel.FeatureFlag setIntegerValue(String key, int value) {
+    return setJsonValue(key, LDValue.of(value));
   }
 
   /**
@@ -76,8 +74,8 @@ public class TestDataStore extends InMemoryDataStore {
    * @param value the new value of the flag
    * @return the feature flag
      */
-  public DataModel.FeatureFlag setDoubleValue(String key, Double value) {
-    return setJsonValue(key, new JsonPrimitive(value));
+  public DataModel.FeatureFlag setDoubleValue(String key, double value) {
+    return setJsonValue(key, LDValue.of(value));
   }
 
   /**
@@ -87,16 +85,16 @@ public class TestDataStore extends InMemoryDataStore {
    * @return the feature flag
      */
   public DataModel.FeatureFlag setStringValue(String key, String value) {
-    return setJsonValue(key, new JsonPrimitive(value));
+    return setJsonValue(key, LDValue.of(value));
   }
 
   /**
-   * Sets the value of a JsonElement multivariate feature flag, for all users.
+   * Sets the value of a multivariate feature flag, for all users.
    * @param key the key of the flag
    * @param value the new value of the flag
    * @return the feature flag
      */
-  public DataModel.FeatureFlag setJsonValue(String key, JsonElement value) {
+  public DataModel.FeatureFlag setJsonValue(String key, LDValue value) {
     DataModel.FeatureFlag newFeature = new DataModel.FeatureFlag(key,
         version.incrementAndGet(),
         false,
@@ -106,7 +104,7 @@ public class TestDataStore extends InMemoryDataStore {
         null,
         null,
         0,
-        Arrays.asList(LDValue.fromJsonElement(value)),
+        Arrays.asList(value),
         false,
         false,
         false,
