@@ -4,10 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.FeatureStoreFactory;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
-import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataSourceFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,10 +61,9 @@ public final class LDConfig {
   final Proxy proxy;
   final Authenticator proxyAuthenticator;
   final boolean stream;
-  final FeatureStore deprecatedFeatureStore;
-  final FeatureStoreFactory featureStoreFactory;
+  final DataStoreFactory dataStoreFactory;
   final EventProcessorFactory eventProcessorFactory;
-  final UpdateProcessorFactory updateProcessorFactory;
+  final DataSourceFactory dataSourceFactory;
   final boolean useLdd;
   final boolean offline;
   final boolean allAttributesPrivate;
@@ -93,10 +92,9 @@ public final class LDConfig {
     this.proxyAuthenticator = builder.proxyAuthenticator();
     this.streamURI = builder.streamURI;
     this.stream = builder.stream;
-    this.deprecatedFeatureStore = builder.featureStore;
-    this.featureStoreFactory = builder.featureStoreFactory;
+    this.dataStoreFactory = builder.dataStoreFactory;
     this.eventProcessorFactory = builder.eventProcessorFactory;
-    this.updateProcessorFactory = builder.updateProcessorFactory;
+    this.dataSourceFactory = builder.dataSourceFactory;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
     this.allAttributesPrivate = builder.allAttributesPrivate;
@@ -160,10 +158,9 @@ public final class LDConfig {
     private boolean allAttributesPrivate = false;
     private boolean sendEvents = true;
     private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
-    private FeatureStore featureStore = null;
-    private FeatureStoreFactory featureStoreFactory = Components.inMemoryFeatureStore();
+    private DataStoreFactory dataStoreFactory = Components.inMemoryDataStore();
     private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
-    private UpdateProcessorFactory updateProcessorFactory = Components.defaultUpdateProcessor();
+    private DataSourceFactory dataSourceFactory = Components.defaultDataSource();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
@@ -214,29 +211,16 @@ public final class LDConfig {
     }
 
     /**
-     * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
-     * related data received from LaunchDarkly. The default is {@link InMemoryFeatureStore}, but
-     * you may use {@link RedisFeatureStore} or a custom implementation.
-     * @param store the feature store implementation
-     * @return the builder
-     * @deprecated Please use {@link #featureStoreFactory(FeatureStoreFactory)}.
-     */
-    public Builder featureStore(FeatureStore store) {
-      this.featureStore = store;
-      return this;
-    }
-
-    /**
-     * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
+     * Sets the implementation of {@link DataStore} to be used for holding feature flags and
      * related data received from LaunchDarkly, using a factory object. The default is
-     * {@link Components#inMemoryFeatureStore()}, but you may use {@link Components#redisFeatureStore()}
+     * {@link Components#inMemoryDataStore()}, but you may use {@link Components#redisDataStore()}
      * or a custom implementation.
      * @param factory the factory object
      * @return the builder
-     * @since 4.0.0
+     * @since 5.0.0
      */
-    public Builder featureStoreFactory(FeatureStoreFactory factory) {
-      this.featureStoreFactory = factory;
+    public Builder dataStore(DataStoreFactory factory) {
+      this.dataStoreFactory = factory;
       return this;
     }
     
@@ -246,23 +230,23 @@ public final class LDConfig {
      * you may choose to use a custom implementation (for instance, a test fixture).
      * @param factory the factory object
      * @return the builder
-     * @since 4.0.0
+     * @since 5.0.0
      */
-    public Builder eventProcessorFactory(EventProcessorFactory factory) {
+    public Builder eventProcessor(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
       return this;
     }
     
     /**
-     * Sets the implementation of {@link UpdateProcessor} to be used for receiving feature flag data,
-     * using a factory object. The default is {@link Components#defaultUpdateProcessor()}, but
+     * Sets the implementation of {@link DataSource} to be used for receiving feature flag data,
+     * using a factory object. The default is {@link Components#defaultDataSource()}, but
      * you may choose to use a custom implementation (for instance, a test fixture).
      * @param factory the factory object
      * @return the builder
-     * @since 4.0.0
+     * @since 5.0.0
      */
-    public Builder updateProcessorFactory(UpdateProcessorFactory factory) {
-      this.updateProcessorFactory = factory;
+    public Builder dataSource(DataSourceFactory factory) {
+      this.dataSourceFactory = factory;
       return this;
     }
     

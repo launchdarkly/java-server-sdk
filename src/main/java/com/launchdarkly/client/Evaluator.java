@@ -24,7 +24,7 @@ class Evaluator {
   private final Getters getters;
   
   /**
-   * An abstraction of getting flags or segments by key. This ensures that Evaluator cannot modify the feature store,
+   * An abstraction of getting flags or segments by key. This ensures that Evaluator cannot modify the data store,
    * and simplifies testing.
    */
   static interface Getters {

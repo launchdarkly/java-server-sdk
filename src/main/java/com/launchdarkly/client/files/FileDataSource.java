@@ -1,8 +1,8 @@
 package com.launchdarkly.client.files;
 
 import com.google.common.util.concurrent.Futures;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataSource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,18 +25,18 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
 /**
- * Implements taking flag data from files and putting it into the feature store, at startup time and
+ * Implements taking flag data from files and putting it into the data store, at startup time and
  * optionally whenever files change.
  */
-class FileDataSource implements UpdateProcessor {
+class FileDataSource implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(FileDataSource.class);
 
-  private final FeatureStore store;
+  private final DataStore store;
   private final DataLoader dataLoader;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final FileWatcher fileWatcher;
   
-  FileDataSource(FeatureStore store, DataLoader dataLoader, boolean autoUpdate) {
+  FileDataSource(DataStore store, DataLoader dataLoader, boolean autoUpdate) {
     this.store = store;
     this.dataLoader = dataLoader;
 

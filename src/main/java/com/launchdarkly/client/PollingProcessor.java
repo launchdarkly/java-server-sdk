@@ -2,8 +2,8 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataSource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,19 +19,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 
-class PollingProcessor implements UpdateProcessor {
+class PollingProcessor implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
   private final FeatureRequestor requestor;
   private final LDConfig config;
-  private final FeatureStore store;
+  private final DataStore store;
   private AtomicBoolean initialized = new AtomicBoolean(false);
   private ScheduledExecutorService scheduler = null;
 
-  PollingProcessor(LDConfig config, FeatureRequestor requestor, FeatureStore featureStore) {
+  PollingProcessor(LDConfig config, FeatureRequestor requestor, DataStore dataStore) {
     this.requestor = requestor;
     this.config = config;
-    this.store = featureStore;
+    this.store = dataStore;
   }
 
   @Override

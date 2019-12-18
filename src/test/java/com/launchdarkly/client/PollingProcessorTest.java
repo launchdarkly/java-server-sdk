@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.DataStore;
 
 import org.junit.Test;
 
@@ -20,7 +20,7 @@ public class PollingProcessorTest {
   public void testConnectionOk() throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.allData = new FeatureRequestor.AllData(new HashMap<String, DataModel.FeatureFlag>(), new HashMap<String, DataModel.Segment>());
-    FeatureStore store = new InMemoryFeatureStore();
+    DataStore store = new InMemoryDataStore();
     
     try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {    
       Future<Void> initFuture = pollingProcessor.start();
@@ -34,7 +34,7 @@ public class PollingProcessorTest {
   public void testConnectionProblem() throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.ioException = new IOException("This exception is part of a test and yes you should be seeing it.");
-    FeatureStore store = new InMemoryFeatureStore();
+    DataStore store = new InMemoryDataStore();
 
     try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {
       Future<Void> initFuture = pollingProcessor.start();
@@ -82,7 +82,7 @@ public class PollingProcessorTest {
   private void testUnrecoverableHttpError(int status) throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.httpException = new HttpErrorException(status);
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore())) {  
+    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryDataStore())) {  
       long startTime = System.currentTimeMillis();
       Future<Void> initFuture = pollingProcessor.start();
       try {
@@ -99,7 +99,7 @@ public class PollingProcessorTest {
   private void testRecoverableHttpError(int status) throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.httpException = new HttpErrorException(status);
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore())) {
+    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryDataStore())) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200, TimeUnit.MILLISECONDS);

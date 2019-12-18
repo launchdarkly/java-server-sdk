@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.RedisFeatureStore.UpdateListener;
+import com.launchdarkly.client.RedisDataStore.UpdateListener;
 
 import org.junit.Assume;
 import org.junit.BeforeClass;
@@ -11,11 +11,11 @@ import static org.junit.Assume.assumeTrue;
 
 import redis.clients.jedis.Jedis;
 
-public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFeatureStore> {
+public class RedisDataStoreTest extends DataStoreDatabaseTestBase<RedisDataStore> {
 
   private static final URI REDIS_URI = URI.create("redis://localhost:6379");
   
-  public RedisFeatureStoreTest(boolean cached) {
+  public RedisDataStoreTest(boolean cached) {
     super(cached);
   }
   
@@ -26,15 +26,15 @@ public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFea
   }
   
   @Override
-  protected RedisFeatureStore makeStore() {
-    RedisFeatureStoreBuilder builder = new RedisFeatureStoreBuilder(REDIS_URI);
-    builder.caching(cached ? FeatureStoreCacheConfig.enabled().ttlSeconds(30) : FeatureStoreCacheConfig.disabled());
+  protected RedisDataStore makeStore() {
+    RedisDataStoreBuilder builder = new RedisDataStoreBuilder(REDIS_URI);
+    builder.caching(cached ? DataStoreCacheConfig.enabled().ttlSeconds(30) : DataStoreCacheConfig.disabled());
     return builder.build();
   }
   
   @Override
-  protected RedisFeatureStore makeStoreWithPrefix(String prefix) {
-    return new RedisFeatureStoreBuilder(REDIS_URI).caching(FeatureStoreCacheConfig.disabled()).prefix(prefix).build();
+  protected RedisDataStore makeStoreWithPrefix(String prefix) {
+    return new RedisDataStoreBuilder(REDIS_URI).caching(DataStoreCacheConfig.disabled()).prefix(prefix).build();
   }
   
   @Override
@@ -45,7 +45,7 @@ public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFea
   }
   
   @Override
-  protected boolean setUpdateHook(RedisFeatureStore storeUnderTest, final Runnable hook) {
+  protected boolean setUpdateHook(RedisDataStore storeUnderTest, final Runnable hook) {
     storeUnderTest.setUpdateListener(new UpdateListener() {
       @Override
       public void aboutToUpdate(String baseKey, String itemKey) {

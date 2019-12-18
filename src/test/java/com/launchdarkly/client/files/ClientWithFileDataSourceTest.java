@@ -22,7 +22,7 @@ public class ClientWithFileDataSourceTest {
     FileDataSourceFactory fdsf = FileComponents.fileDataSource()
         .filePaths(resourceFilePath("all-properties.json"));
     LDConfig config = new LDConfig.Builder()
-        .updateProcessorFactory(fdsf)
+        .dataSource(fdsf)
         .sendEvents(false)
         .build();
     return new LDClient("sdkKey", config);

@@ -1,13 +1,13 @@
 package com.launchdarkly.client;
 
 import com.google.common.cache.CacheBuilder;
-import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.DataStore;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Parameters that can be used for {@link FeatureStore} implementations that support local caching.
+ * Parameters that can be used for {@link DataStore} implementations that support local caching.
  * If a store implementation uses this class, then it is using the standard caching mechanism that
  * is built into the SDK, and is guaranteed to support all the properties defined in this class. 
  * <p>
@@ -16,39 +16,39 @@ import java.util.concurrent.TimeUnit;
  * to set other properties:
  * 
  * <pre><code>
- *     Components.redisFeatureStore()
+ *     Components.redisDataStore()
  *         .caching(
- *             FeatureStoreCacheConfig.enabled()
+ *             DataStoreCacheConfig.enabled()
  *                 .ttlSeconds(30)
- *                 .staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH)
+ *                 .staleValuesPolicy(DataStoreCacheConfig.StaleValuesPolicy.REFRESH)
  *         )
  * </code></pre>
  * 
- * @see RedisFeatureStoreBuilder#caching(FeatureStoreCacheConfig)
+ * @see RedisDataStoreBuilder#caching(DataStoreCacheConfig)
  * @since 4.6.0
  */
-public final class FeatureStoreCacheConfig {
+public final class DataStoreCacheConfig {
   /**
    * The default TTL, in seconds, used by {@link #DEFAULT}.
    */
   public static final long DEFAULT_TIME_SECONDS = 15;
 
   /**
-   * The caching parameters that feature store should use by default. Caching is enabled, with a
+   * The caching parameters that the data store should use by default. Caching is enabled, with a
    * TTL of {@link #DEFAULT_TIME_SECONDS} and the {@link StaleValuesPolicy#EVICT} policy. 
    */
-  public static final FeatureStoreCacheConfig DEFAULT =
-      new FeatureStoreCacheConfig(DEFAULT_TIME_SECONDS, TimeUnit.SECONDS, StaleValuesPolicy.EVICT);
+  public static final DataStoreCacheConfig DEFAULT =
+      new DataStoreCacheConfig(DEFAULT_TIME_SECONDS, TimeUnit.SECONDS, StaleValuesPolicy.EVICT);
   
-  private static final FeatureStoreCacheConfig DISABLED =
-      new FeatureStoreCacheConfig(0, TimeUnit.MILLISECONDS, StaleValuesPolicy.EVICT);
+  private static final DataStoreCacheConfig DISABLED =
+      new DataStoreCacheConfig(0, TimeUnit.MILLISECONDS, StaleValuesPolicy.EVICT);
   
   private final long cacheTime;
   private final TimeUnit cacheTimeUnit;
   private final StaleValuesPolicy staleValuesPolicy;
   
   /**
-   * Possible values for {@link FeatureStoreCacheConfig#staleValuesPolicy(StaleValuesPolicy)}.
+   * Possible values for {@link DataStoreCacheConfig#staleValuesPolicy(StaleValuesPolicy)}.
    */
   public enum StaleValuesPolicy {
     /**
@@ -82,7 +82,7 @@ public final class FeatureStoreCacheConfig {
      * the previously cached value to be retained.
      * <p>
      * This setting is ideal to enable when you desire high performance reads and can accept returning
-     * stale values for the period of the async refresh. For example, configuring this feature store
+     * stale values for the period of the async refresh. For example, configuring this data store
      * with a very low cache time and enabling this feature would see great performance benefit by
      * decoupling calls from network I/O.
      * <p>
@@ -95,9 +95,9 @@ public final class FeatureStoreCacheConfig {
   /**
    * Returns a parameter object indicating that caching should be disabled. Specifying any additional
    * properties on this object will have no effect.
-   * @return a {@link FeatureStoreCacheConfig} instance
+   * @return a {@link DataStoreCacheConfig} instance
    */
-  public static FeatureStoreCacheConfig disabled() {
+  public static DataStoreCacheConfig disabled() {
     return DISABLED;
   }
   
@@ -105,13 +105,13 @@ public final class FeatureStoreCacheConfig {
    * Returns a parameter object indicating that caching should be enabled, using the default TTL of
    * {@link #DEFAULT_TIME_SECONDS}. You can further modify the cache properties using the other
    * methods of this class.
-   * @return a {@link FeatureStoreCacheConfig} instance
+   * @return a {@link DataStoreCacheConfig} instance
    */
-  public static FeatureStoreCacheConfig enabled() {
+  public static DataStoreCacheConfig enabled() {
     return DEFAULT;
   }
 
-  private FeatureStoreCacheConfig(long cacheTime, TimeUnit cacheTimeUnit, StaleValuesPolicy staleValuesPolicy) {
+  private DataStoreCacheConfig(long cacheTime, TimeUnit cacheTimeUnit, StaleValuesPolicy staleValuesPolicy) {
     this.cacheTime = cacheTime;
     this.cacheTimeUnit = cacheTimeUnit;
     this.staleValuesPolicy = staleValuesPolicy;
@@ -167,8 +167,8 @@ public final class FeatureStoreCacheConfig {
    * @param timeUnit the time unit
    * @return an updated parameters object
    */
-  public FeatureStoreCacheConfig ttl(long cacheTime, TimeUnit timeUnit) {
-    return new FeatureStoreCacheConfig(cacheTime, timeUnit, staleValuesPolicy);
+  public DataStoreCacheConfig ttl(long cacheTime, TimeUnit timeUnit) {
+    return new DataStoreCacheConfig(cacheTime, timeUnit, staleValuesPolicy);
   }
 
   /**
@@ -177,7 +177,7 @@ public final class FeatureStoreCacheConfig {
    * @param millis the cache TTL in milliseconds
    * @return an updated parameters object
    */
-  public FeatureStoreCacheConfig ttlMillis(long millis) {
+  public DataStoreCacheConfig ttlMillis(long millis) {
     return ttl(millis, TimeUnit.MILLISECONDS);
   }
 
@@ -187,7 +187,7 @@ public final class FeatureStoreCacheConfig {
    * @param seconds the cache TTL in seconds
    * @return an updated parameters object
    */
-  public FeatureStoreCacheConfig ttlSeconds(long seconds) {
+  public DataStoreCacheConfig ttlSeconds(long seconds) {
     return ttl(seconds, TimeUnit.SECONDS);
   }
   
@@ -198,14 +198,14 @@ public final class FeatureStoreCacheConfig {
    * @param policy a {@link StaleValuesPolicy} constant
    * @return an updated parameters object
    */
-  public FeatureStoreCacheConfig staleValuesPolicy(StaleValuesPolicy policy) {
-    return new FeatureStoreCacheConfig(cacheTime, cacheTimeUnit, policy);
+  public DataStoreCacheConfig staleValuesPolicy(StaleValuesPolicy policy) {
+    return new DataStoreCacheConfig(cacheTime, cacheTimeUnit, policy);
   }
   
   @Override
   public boolean equals(Object other) {
-    if (other instanceof FeatureStoreCacheConfig) {
-      FeatureStoreCacheConfig o = (FeatureStoreCacheConfig) other;
+    if (other instanceof DataStoreCacheConfig) {
+      DataStoreCacheConfig o = (DataStoreCacheConfig) other;
       return o.cacheTime == this.cacheTime && o.cacheTimeUnit == this.cacheTimeUnit &&
           o.staleValuesPolicy == this.staleValuesPolicy;
     }

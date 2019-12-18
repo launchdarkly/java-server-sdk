@@ -6,9 +6,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.client.events.Event;
+import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.EventProcessor;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
@@ -33,9 +33,9 @@ import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
 import static com.launchdarkly.client.ModelBuilders.prerequisite;
 import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
-import static com.launchdarkly.client.TestUtil.initedFeatureStore;
-import static com.launchdarkly.client.TestUtil.specificFeatureStore;
-import static com.launchdarkly.client.TestUtil.updateProcessorWithData;
+import static com.launchdarkly.client.TestUtil.dataSourceWithData;
+import static com.launchdarkly.client.TestUtil.initedDataStore;
+import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
@@ -52,7 +52,7 @@ import junit.framework.AssertionFailedError;
  */
 @SuppressWarnings("javadoc")
 public class LDClientTest extends EasyMockSupport {
-  private UpdateProcessor updateProcessor;
+  private DataSource dataSource;
   private EventProcessor eventProcessor;
   private Future<Void> initFuture;
   private LDClientInterface client;
@@ -60,7 +60,7 @@ public class LDClientTest extends EasyMockSupport {
   @SuppressWarnings("unchecked")
   @Before
   public void before() {
-    updateProcessor = createStrictMock(UpdateProcessor.class);
+    dataSource = createStrictMock(DataSource.class);
     eventProcessor = createStrictMock(EventProcessor.class);
     initFuture = createStrictMock(Future.class);
   }
@@ -114,7 +114,7 @@ public class LDClientTest extends EasyMockSupport {
         .sendEvents(false)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertEquals(EventProcessor.NullEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(Components.NullEventProcessor.class, client.eventProcessor.getClass());
     }
   }
   
@@ -126,7 +126,7 @@ public class LDClientTest extends EasyMockSupport {
         .startWaitMillis(0)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertEquals(StreamProcessor.class, client.updateProcessor.getClass());
+      assertEquals(StreamProcessor.class, client.dataSource.getClass());
     }
   }
 
@@ -138,17 +138,17 @@ public class LDClientTest extends EasyMockSupport {
         .startWaitMillis(0)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertEquals(PollingProcessor.class, client.updateProcessor.getClass());
+      assertEquals(PollingProcessor.class, client.dataSource.getClass());
     }
   }
 
   @Test
-  public void noWaitForUpdateProcessorIfWaitMillisIsZero() throws Exception {
+  public void noWaitForDataSourceIfWaitMillisIsZero() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
         .startWaitMillis(0L);
 
-    expect(updateProcessor.start()).andReturn(initFuture);
-    expect(updateProcessor.initialized()).andReturn(false);
+    expect(dataSource.start()).andReturn(initFuture);
+    expect(dataSource.initialized()).andReturn(false);
     replayAll();
 
     client = createMockClient(config);
@@ -158,13 +158,13 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
-  public void willWaitForUpdateProcessorIfWaitMillisIsNonZero() throws Exception {
+  public void willWaitForDataSourceIfWaitMillisIsNonZero() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
         .startWaitMillis(10L);
 
-    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(null);
-    expect(updateProcessor.initialized()).andReturn(false).anyTimes();
+    expect(dataSource.initialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
@@ -174,13 +174,13 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
-  public void updateProcessorCanTimeOut() throws Exception {
+  public void dataSourceCanTimeOut() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
         .startWaitMillis(10L);
 
-    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    expect(updateProcessor.initialized()).andReturn(false).anyTimes();
+    expect(dataSource.initialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
@@ -190,13 +190,13 @@ public class LDClientTest extends EasyMockSupport {
   }
   
   @Test
-  public void clientCatchesRuntimeExceptionFromUpdateProcessor() throws Exception {
+  public void clientCatchesRuntimeExceptionFromDataSource() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
         .startWaitMillis(10L);
 
-    expect(updateProcessor.start()).andReturn(initFuture);
+    expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new RuntimeException());
-    expect(updateProcessor.initialized()).andReturn(false).anyTimes();
+    expect(dataSource.initialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
@@ -207,29 +207,29 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void isFlagKnownReturnsTrueForExistingFlag() throws Exception {
-    FeatureStore testFeatureStore = initedFeatureStore();
+    DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStoreFactory(specificFeatureStore(testFeatureStore));
-    expect(updateProcessor.start()).andReturn(initFuture);
-    expect(updateProcessor.initialized()).andReturn(true).times(1);
+            .dataStore(specificDataStore(testDataStore));
+    expect(dataSource.start()).andReturn(initFuture);
+    expect(dataSource.initialized()).andReturn(true).times(1);
     replayAll();
 
     client = createMockClient(config);
 
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
+    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
     assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
 
   @Test
   public void isFlagKnownReturnsFalseForUnknownFlag() throws Exception {
-    FeatureStore testFeatureStore = initedFeatureStore();
+    DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStoreFactory(specificFeatureStore(testFeatureStore));
-    expect(updateProcessor.start()).andReturn(initFuture);
-    expect(updateProcessor.initialized()).andReturn(true).times(1);
+            .dataStore(specificDataStore(testDataStore));
+    expect(dataSource.start()).andReturn(initFuture);
+    expect(dataSource.initialized()).andReturn(true).times(1);
     replayAll();
 
     client = createMockClient(config);
@@ -240,71 +240,71 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void isFlagKnownReturnsFalseIfStoreAndClientAreNotInitialized() throws Exception {
-    FeatureStore testFeatureStore = new InMemoryFeatureStore();
+    DataStore testDataStore = new InMemoryDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStoreFactory(specificFeatureStore(testFeatureStore));
-    expect(updateProcessor.start()).andReturn(initFuture);
-    expect(updateProcessor.initialized()).andReturn(false).times(1);
+            .dataStore(specificDataStore(testDataStore));
+    expect(dataSource.start()).andReturn(initFuture);
+    expect(dataSource.initialized()).andReturn(false).times(1);
     replayAll();
 
     client = createMockClient(config);
 
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
+    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
     assertFalse(client.isFlagKnown("key"));
     verifyAll();
   }
 
   @Test
   public void isFlagKnownUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
-    FeatureStore testFeatureStore = initedFeatureStore();
+    DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStoreFactory(specificFeatureStore(testFeatureStore));
-    expect(updateProcessor.start()).andReturn(initFuture);
-    expect(updateProcessor.initialized()).andReturn(false).times(1);
+            .dataStore(specificDataStore(testDataStore));
+    expect(dataSource.start()).andReturn(initFuture);
+    expect(dataSource.initialized()).andReturn(false).times(1);
     replayAll();
 
     client = createMockClient(config);
 
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
+    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
     assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
   
   @Test
   public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
-    FeatureStore testFeatureStore = initedFeatureStore();
+    DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
-        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .dataStore(specificDataStore(testDataStore))
         .startWaitMillis(0L);
-    expect(updateProcessor.start()).andReturn(initFuture);
-    expect(updateProcessor.initialized()).andReturn(false);
+    expect(dataSource.start()).andReturn(initFuture);
+    expect(dataSource.initialized()).andReturn(false);
     expectEventsSent(1);
     replayAll();
 
     client = createMockClient(config);
     
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
+    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
     assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
     
     verifyAll();
   }
 
   @Test
-  public void dataSetIsPassedToFeatureStoreInCorrectOrder() throws Exception {
-    // This verifies that the client is using FeatureStoreClientWrapper and that it is applying the
+  public void dataSetIsPassedToDataStoreInCorrectOrder() throws Exception {
+    // This verifies that the client is using DataStoreClientWrapper and that it is applying the
     // correct ordering for flag prerequisites, etc. This should work regardless of what kind of
-    // UpdateProcessor we're using.
+    // DataSource we're using.
     
     Capture<Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>>> captureData = Capture.newInstance();
-    FeatureStore store = createStrictMock(FeatureStore.class);
+    DataStore store = createStrictMock(DataStore.class);
     store.init(EasyMock.capture(captureData));
     replay(store);
     
     LDConfig.Builder config = new LDConfig.Builder()
-        .updateProcessorFactory(updateProcessorWithData(DEPENDENCY_ORDERING_TEST_DATA))
-        .featureStoreFactory(specificFeatureStore(store))
+        .dataSource(dataSourceWithData(DEPENDENCY_ORDERING_TEST_DATA))
+        .dataStore(specificDataStore(store))
         .sendEvents(false);
     client = new LDClient("SDK_KEY", config.build());
     
@@ -349,8 +349,8 @@ public class LDClientTest extends EasyMockSupport {
   }
   
   private LDClientInterface createMockClient(LDConfig.Builder config) {
-    config.updateProcessorFactory(TestUtil.specificUpdateProcessor(updateProcessor));
-    config.eventProcessorFactory(TestUtil.specificEventProcessor(eventProcessor));
+    config.dataSource(TestUtil.specificDataSource(dataSource));
+    config.eventProcessor(TestUtil.specificEventProcessor(eventProcessor));
     return new LDClient("SDK_KEY", config.build());
   }
   

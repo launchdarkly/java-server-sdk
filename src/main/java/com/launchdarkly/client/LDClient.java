@@ -4,10 +4,10 @@ import com.google.gson.JsonElement;
 import com.launchdarkly.client.events.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.FeatureStoreFactory;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
-import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.value.LDValue;
 
 import org.apache.commons.codec.binary.Hex;
@@ -46,9 +46,8 @@ public final class LDClient implements LDClientInterface {
   private final String sdkKey;
   private final Evaluator evaluator;
   final EventProcessor eventProcessor;
-  final UpdateProcessor updateProcessor;
-  final FeatureStore featureStore;
-  final boolean shouldCloseFeatureStore;
+  final DataSource dataSource;
+  final DataStore dataStore;
   
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -71,30 +70,18 @@ public final class LDClient implements LDClientInterface {
     this.config = checkNotNull(config, "config must not be null");
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
     
-    FeatureStore store;
-    if (config.deprecatedFeatureStore != null) {
-      store = config.deprecatedFeatureStore;
-      // The following line is for backward compatibility with the obsolete mechanism by which the
-      // caller could pass in a FeatureStore implementation instance that we did not create.  We
-      // were not disposing of that instance when the client was closed, so we should continue not
-      // doing so until the next major version eliminates that mechanism.  We will always dispose
-      // of instances that we created ourselves from a factory.
-      this.shouldCloseFeatureStore = false;
-    } else {
-      FeatureStoreFactory factory = config.featureStoreFactory == null ?
-          Components.inMemoryFeatureStore() : config.featureStoreFactory;
-      store = factory.createFeatureStore();
-      this.shouldCloseFeatureStore = true;
-    }
-    this.featureStore = new FeatureStoreClientWrapper(store);
+    DataStoreFactory factory = config.dataStoreFactory == null ?
+        Components.inMemoryDataStore() : config.dataStoreFactory;
+    DataStore store = factory.createDataStore();
+    this.dataStore = new DataStoreClientWrapper(store);
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
-        return LDClient.this.featureStore.get(FEATURES, key);
+        return LDClient.this.dataStore.get(FEATURES, key);
       }
 
       public DataModel.Segment getSegment(String key) {
-        return LDClient.this.featureStore.get(SEGMENTS, key);
+        return LDClient.this.dataStore.get(SEGMENTS, key);
       }
     });
     
@@ -102,10 +89,10 @@ public final class LDClient implements LDClientInterface {
         Components.defaultEventProcessor() : config.eventProcessorFactory;
     this.eventProcessor = epFactory.createEventProcessor(sdkKey, config);
     
-    UpdateProcessorFactory upFactory = config.updateProcessorFactory == null ?
-        Components.defaultUpdateProcessor() : config.updateProcessorFactory;
-    this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, config, featureStore);
-    Future<Void> startFuture = updateProcessor.start();
+    DataSourceFactory dataSourceFactory = config.dataSourceFactory == null ?
+        Components.defaultDataSource() : config.dataSourceFactory;
+    this.dataSource = dataSourceFactory.createDataSource(sdkKey, config, dataStore);
+    Future<Void> startFuture = dataSource.start();
     if (config.startWaitMillis > 0L) {
       if (!config.offline && !config.useLdd) {
         logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
@@ -118,7 +105,7 @@ public final class LDClient implements LDClientInterface {
         logger.error("Exception encountered waiting for LaunchDarkly client initialization: {}", e.toString());
         logger.debug(e.toString(), e);
       }
-      if (!updateProcessor.initialized()) {
+      if (!dataSource.initialized()) {
         logger.warn("LaunchDarkly client was not successfully initialized");
       }
     }
@@ -126,7 +113,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public boolean initialized() {
-    return updateProcessor.initialized();
+    return dataSource.initialized();
   }
 
   @Override
@@ -196,10 +183,10 @@ public final class LDClient implements LDClientInterface {
     }
     
     if (!initialized()) {
-      if (featureStore.initialized()) {
-        logger.warn("allFlagsState() was called before client initialized; using last known values from feature store");
+      if (dataStore.initialized()) {
+        logger.warn("allFlagsState() was called before client initialized; using last known values from data store");
       } else {
-        logger.warn("allFlagsState() was called before client initialized; feature store unavailable, returning no data");
+        logger.warn("allFlagsState() was called before client initialized; data store unavailable, returning no data");
         return builder.valid(false).build();
       }
     }
@@ -210,7 +197,7 @@ public final class LDClient implements LDClientInterface {
     }
 
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
-    Map<String, DataModel.FeatureFlag> flags = featureStore.all(FEATURES);
+    Map<String, DataModel.FeatureFlag> flags = dataStore.all(FEATURES);
     for (Map.Entry<String, DataModel.FeatureFlag> entry : flags.entrySet()) {
       DataModel.FeatureFlag flag = entry.getValue();
       if (clientSideOnly && !flag.isClientSide()) {
@@ -309,16 +296,16 @@ public final class LDClient implements LDClientInterface {
   @Override
   public boolean isFlagKnown(String featureKey) {
     if (!initialized()) {
-      if (featureStore.initialized()) {
-        logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; using last known values from feature store", featureKey);
+      if (dataStore.initialized()) {
+        logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {
-        logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; feature store unavailable, returning false", featureKey);
+        logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; data store unavailable, returning false", featureKey);
         return false;
       }
     }
 
     try {
-      if (featureStore.get(FEATURES, featureKey) != null) {
+      if (dataStore.get(FEATURES, featureKey) != null) {
         return true;
       }
     } catch (Exception e) {
@@ -340,10 +327,10 @@ public final class LDClient implements LDClientInterface {
   private Evaluator.EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue, boolean checkType,
       EventFactory eventFactory) {
     if (!initialized()) {
-      if (featureStore.initialized()) {
-        logger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from feature store", featureKey);
+      if (dataStore.initialized()) {
+        logger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {
-        logger.warn("Evaluation called before client initialized for feature flag \"{}\"; feature store unavailable, returning default value", featureKey);
+        logger.warn("Evaluation called before client initialized for feature flag \"{}\"; data store unavailable, returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
             EvaluationReason.ErrorKind.CLIENT_NOT_READY));
         return errorResult(EvaluationReason.ErrorKind.CLIENT_NOT_READY, defaultValue);
@@ -352,7 +339,7 @@ public final class LDClient implements LDClientInterface {
 
     DataModel.FeatureFlag featureFlag = null;
     try {
-      featureFlag = featureStore.get(FEATURES, featureKey);
+      featureFlag = dataStore.get(FEATURES, featureKey);
       if (featureFlag == null) {
         logger.info("Unknown feature flag \"{}\"; returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
@@ -402,11 +389,9 @@ public final class LDClient implements LDClientInterface {
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly Client");
-    if (shouldCloseFeatureStore) { // see comment in constructor about this variable
-      this.featureStore.close();
-    }
+    this.dataStore.close();
     this.eventProcessor.close();
-    this.updateProcessor.close();
+    this.dataSource.close();
   }
 
   @Override

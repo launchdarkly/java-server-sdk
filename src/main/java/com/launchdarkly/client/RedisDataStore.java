@@ -2,11 +2,11 @@ package com.launchdarkly.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheStats;
-import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreCore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
-import com.launchdarkly.client.utils.FeatureStoreCore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,8 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.launchdarkly.client.utils.FeatureStoreHelpers.marshalJson;
-import static com.launchdarkly.client.utils.FeatureStoreHelpers.unmarshalJson;
+import static com.launchdarkly.client.utils.DataStoreHelpers.marshalJson;
+import static com.launchdarkly.client.utils.DataStoreHelpers.unmarshalJson;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -26,15 +26,15 @@ import redis.clients.jedis.Transaction;
 import redis.clients.util.JedisURIHelper;
 
 /**
- * An implementation of {@link FeatureStore} backed by Redis. Also
+ * An implementation of {@link DataStore} backed by Redis. Also
  * supports an optional in-memory cache configuration that can be used to improve performance.
  */
-public class RedisFeatureStore implements FeatureStore {
-  private static final Logger logger = LoggerFactory.getLogger(RedisFeatureStore.class);
+public class RedisDataStore implements DataStore {
+  private static final Logger logger = LoggerFactory.getLogger(RedisDataStore.class);
 
   // Note that we could avoid the indirection of delegating everything to CachingStoreWrapper if we
-  // simply returned the wrapper itself as the FeatureStore; however, for historical reasons we can't,
-  // because we have already exposed the RedisFeatureStore type.
+  // simply returned the wrapper itself as the DataStore; however, for historical reasons we can't,
+  // because we have already exposed the RedisDataStore type.
   private final CachingStoreWrapper wrapper;
   private final Core core;
   
@@ -83,13 +83,13 @@ public class RedisFeatureStore implements FeatureStore {
   }
 
   /**
-   * Creates a new store instance that connects to Redis based on the provided {@link RedisFeatureStoreBuilder}.
+   * Creates a new store instance that connects to Redis based on the provided {@link RedisDataStoreBuilder}.
    * <p>
-   * See the {@link RedisFeatureStoreBuilder} for information on available configuration options and what they do.
+   * See the {@link RedisDataStoreBuilder} for information on available configuration options and what they do.
    *
    * @param builder the configured builder to construct the store with.
    */
-  protected RedisFeatureStore(RedisFeatureStoreBuilder builder) {
+  protected RedisDataStore(RedisDataStoreBuilder builder) {
     // There is no builder for JedisPool, just a large number of constructor overloads. Unfortunately,
     // the overloads that accept a URI do not accept the other parameters we need to set, so we need
     // to decompose the URI.
@@ -103,7 +103,7 @@ public class RedisFeatureStore implements FeatureStore {
     if (password != null) {
       extra = extra + (extra.isEmpty() ? " with" : " and") + " password";
     }
-    logger.info(String.format("Connecting to Redis feature store at %s:%d/%d%s", host, port, database, extra));
+    logger.info(String.format("Connecting to Redis data store at %s:%d/%d%s", host, port, database, extra));
 
     JedisPoolConfig poolConfig = (builder.poolConfig != null) ? builder.poolConfig : new JedisPoolConfig();    
     JedisPool pool = new JedisPool(poolConfig,
@@ -121,7 +121,7 @@ public class RedisFeatureStore implements FeatureStore {
         );
 
     String prefix = (builder.prefix == null || builder.prefix.isEmpty()) ?
-        RedisFeatureStoreBuilder.DEFAULT_PREFIX :
+        RedisDataStoreBuilder.DEFAULT_PREFIX :
         builder.prefix;
     
     this.core = new Core(pool, prefix);
@@ -131,13 +131,13 @@ public class RedisFeatureStore implements FeatureStore {
 
   /**
    * Creates a new store instance that connects to Redis with a default connection (localhost port 6379) and no in-memory cache.
-   * @deprecated Please use {@link Components#redisFeatureStore()} instead.
+   * @deprecated Please use {@link Components#redisDataStore()} instead.
    */
-  public RedisFeatureStore() {
-    this(new RedisFeatureStoreBuilder().caching(FeatureStoreCacheConfig.disabled()));
+  public RedisDataStore() {
+    this(new RedisDataStoreBuilder().caching(DataStoreCacheConfig.disabled()));
   }
 
-  static class Core implements FeatureStoreCore {    
+  static class Core implements DataStoreCore {    
     private final JedisPool pool;
     private final String prefix;
     private UpdateListener updateListener;
@@ -241,7 +241,7 @@ public class RedisFeatureStore implements FeatureStore {
     
     @Override
     public void close() throws IOException {
-      logger.info("Closing LaunchDarkly RedisFeatureStore");
+      logger.info("Closing LaunchDarkly RedisDataStore");
       pool.destroy();
     }
 

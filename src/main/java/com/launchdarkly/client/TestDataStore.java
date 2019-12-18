@@ -14,14 +14,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 
 /**
- * A decorated {@link InMemoryFeatureStore} which provides functionality to create (or override) true or false feature flags for all users.
+ * A decorated {@link InMemoryDataStore} which provides functionality to create (or override) true or false feature flags for all users.
  * <p>
  * Using this store is useful for testing purposes when you want to have runtime support for turning specific features on or off.
  *
  * @deprecated Will be replaced by a file-based test fixture.
  */
 @Deprecated
-public class TestFeatureStore extends InMemoryFeatureStore {
+public class TestDataStore extends InMemoryDataStore {
   static List<LDValue> TRUE_FALSE_VARIATIONS = Arrays.asList(LDValue.of(true), LDValue.of(false));
 
   private AtomicInteger version = new AtomicInteger(0);
@@ -128,7 +128,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
   }
   
   /**
-   * Sets the initialization status that the feature store will report to the SDK 
+   * Sets the initialization status that the data store will report to the SDK 
    * @param value true if the store should show as initialized
    */
   public void setInitialized(boolean value) {

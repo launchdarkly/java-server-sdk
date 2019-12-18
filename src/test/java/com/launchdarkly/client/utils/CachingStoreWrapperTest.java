@@ -1,7 +1,8 @@
 package com.launchdarkly.client.utils;
 
 import com.google.common.collect.ImmutableMap;
-import com.launchdarkly.client.FeatureStoreCacheConfig;
+import com.launchdarkly.client.DataStoreCacheConfig;
+import com.launchdarkly.client.interfaces.DataStoreCore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
@@ -37,8 +38,8 @@ public class CachingStoreWrapperTest {
   public CachingStoreWrapperTest(boolean cached) {
     this.cached = cached;
     this.core = new MockCore();
-    this.wrapper = new CachingStoreWrapper(core, cached ? FeatureStoreCacheConfig.enabled().ttlSeconds(30) :
-      FeatureStoreCacheConfig.disabled());
+    this.wrapper = new CachingStoreWrapper(core, cached ? DataStoreCacheConfig.enabled().ttlSeconds(30) :
+      DataStoreCacheConfig.disabled());
   }
   
   @Test
@@ -271,7 +272,7 @@ public class CachingStoreWrapperTest {
     assumeThat(cached, is(true));
     
     // We need to create a different object for this test so we can set a short cache TTL
-    try (CachingStoreWrapper wrapper1 = new CachingStoreWrapper(core, FeatureStoreCacheConfig.enabled().ttlMillis(500))) {
+    try (CachingStoreWrapper wrapper1 = new CachingStoreWrapper(core, DataStoreCacheConfig.enabled().ttlMillis(500))) {
       assertThat(wrapper1.initialized(), is(false));
       assertThat(core.initedQueryCount, equalTo(1));
       
@@ -299,7 +300,7 @@ public class CachingStoreWrapperTest {
     return outerMap;
   }
   
-  static class MockCore implements FeatureStoreCore {
+  static class MockCore implements DataStoreCore {
     Map<VersionedDataKind<?>, Map<String, VersionedData>> data = new HashMap<>();
     boolean inited;
     int initedQueryCount;

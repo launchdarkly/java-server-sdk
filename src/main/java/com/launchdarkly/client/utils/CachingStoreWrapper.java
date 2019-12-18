@@ -8,8 +8,9 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.launchdarkly.client.FeatureStoreCacheConfig;
-import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.DataStoreCacheConfig;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreCore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
@@ -22,19 +23,19 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * CachingStoreWrapper is a partial implementation of {@link FeatureStore} that delegates the basic
- * functionality to an instance of {@link FeatureStoreCore}. It provides optional caching behavior and
- * other logic that would otherwise be repeated in every feature store implementation. This makes it
+ * CachingStoreWrapper is a partial implementation of {@link DataStore} that delegates the basic
+ * functionality to an instance of {@link DataStoreCore}. It provides optional caching behavior and
+ * other logic that would otherwise be repeated in every data store implementation. This makes it
  * easier to create new database integrations by implementing only the database-specific logic. 
  * <p>
- * Construct instances of this class with {@link CachingStoreWrapper#builder(FeatureStoreCore)}.
+ * Construct instances of this class with {@link CachingStoreWrapper#builder(DataStoreCore)}.
  * 
  * @since 4.6.0
  */
-public class CachingStoreWrapper implements FeatureStore {
+public class CachingStoreWrapper implements DataStore {
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "CachingStoreWrapper-refresher-pool-%d";
 
-  private final FeatureStoreCore core;
+  private final DataStoreCore core;
   private final LoadingCache<CacheKey, Optional<VersionedData>> itemCache;
   private final LoadingCache<VersionedDataKind<?>, Map<String, VersionedData>> allCache;
   private final LoadingCache<String, Boolean> initCache;
@@ -43,14 +44,14 @@ public class CachingStoreWrapper implements FeatureStore {
   
   /**
    * Creates a new builder.
-   * @param core the {@link FeatureStoreCore} instance
+   * @param core the {@link DataStoreCore} instance
    * @return the builder
    */
-  public static CachingStoreWrapper.Builder builder(FeatureStoreCore core) {
+  public static CachingStoreWrapper.Builder builder(DataStoreCore core) {
     return new Builder(core);
   }
   
-  protected CachingStoreWrapper(final FeatureStoreCore core, FeatureStoreCacheConfig caching) {
+  protected CachingStoreWrapper(final DataStoreCore core, DataStoreCacheConfig caching) {
     this.core = core;
     
     if (!caching.isEnabled()) {
@@ -98,7 +99,7 @@ public class CachingStoreWrapper implements FeatureStore {
         ExecutorService parentExecutor = Executors.newSingleThreadExecutor(threadFactory);
         executorService = MoreExecutors.listeningDecorator(parentExecutor);
 
-        if (caching.getStaleValuesPolicy() == FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC) {
+        if (caching.getStaleValuesPolicy() == DataStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC) {
           itemLoader = CacheLoader.asyncReloading(itemLoader, executorService);
         }
         itemCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(itemLoader);
@@ -213,7 +214,7 @@ public class CachingStoreWrapper implements FeatureStore {
    * 
    * @return the underlying implementation object
    */
-  public FeatureStoreCore getCore() {
+  public DataStoreCore getCore() {
     return core;
   }
   
@@ -267,19 +268,19 @@ public class CachingStoreWrapper implements FeatureStore {
    * Builder for instances of {@link CachingStoreWrapper}.
    */
   public static class Builder {
-    private final FeatureStoreCore core;
-    private FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
+    private final DataStoreCore core;
+    private DataStoreCacheConfig caching = DataStoreCacheConfig.DEFAULT;
     
-    Builder(FeatureStoreCore core) {
+    Builder(DataStoreCore core) {
       this.core = core;
     }
 
     /**
      * Sets the local caching properties.
-     * @param caching a {@link FeatureStoreCacheConfig} object specifying cache parameters
+     * @param caching a {@link DataStoreCacheConfig} object specifying cache parameters
      * @return the builder
      */
-    public Builder caching(FeatureStoreCacheConfig caching) {
+    public Builder caching(DataStoreCacheConfig caching) {
       this.caching = caching;
       return this;
     }

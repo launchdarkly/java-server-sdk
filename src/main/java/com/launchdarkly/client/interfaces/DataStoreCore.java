@@ -1,29 +1,28 @@
-package com.launchdarkly.client.utils;
+package com.launchdarkly.client.interfaces;
 
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.VersionedData;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
+import com.launchdarkly.client.utils.CachingStoreWrapper;
+import com.launchdarkly.client.utils.DataStoreHelpers;
 
 import java.io.Closeable;
 import java.util.Map;
 
 /**
- * FeatureStoreCore is an interface for a simplified subset of the functionality of
- * {@link FeatureStore}, to be used in conjunction with {@link CachingStoreWrapper}. This allows
- * developers of custom FeatureStore implementations to avoid repeating logic that would
+ * DataStoreCore is an interface for a simplified subset of the functionality of
+ * {@link DataStore}, to be used in conjunction with {@link CachingStoreWrapper}. This allows
+ * developers of custom DataStore implementations to avoid repeating logic that would
  * commonly be needed in any such implementation, such as caching. Instead, they can implement
- * only FeatureStoreCore and then create a CachingStoreWrapper.
+ * only DataStoreCore and then create a CachingStoreWrapper.
  * <p>
  * Note that these methods do not take any generic type parameters; all storeable entities are
  * treated as implementations of the {@link VersionedData} interface, and a {@link VersionedDataKind}
  * instance is used to specify what kind of entity is being referenced. If entities will be
  * marshaled and unmarshaled, this must be done by reflection, using the type specified by
- * {@link VersionedDataKind#getItemClass()}; the methods in {@link FeatureStoreHelpers} may be
+ * {@link VersionedDataKind#getItemClass()}; the methods in {@link DataStoreHelpers} may be
  * useful for this.
  * 
- * @since 4.6.0
+ * @since 5.0.0
  */
-public interface FeatureStoreCore extends Closeable {
+public interface DataStoreCore extends Closeable {
   /**
    * Returns the object to which the specified key is mapped, or null if no such item exists.
    * The method should not attempt to filter out any items based on their isDeleted() property,

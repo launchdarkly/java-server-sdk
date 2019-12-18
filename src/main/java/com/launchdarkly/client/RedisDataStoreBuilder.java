@@ -3,26 +3,26 @@ package com.launchdarkly.client;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
-import com.launchdarkly.client.interfaces.FeatureStoreFactory;
+import com.launchdarkly.client.interfaces.DataStoreFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> for configuring the Redis-based persistent feature store.
+ * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> for configuring the Redis-based persistent data store.
  *
- * Obtain an instance of this class by calling {@link Components#redisFeatureStore()} or {@link Components#redisFeatureStore(URI)}.
+ * Obtain an instance of this class by calling {@link Components#redisDataStore()} or {@link Components#redisDataStore(URI)}.
  * Builder calls can be chained, for example:
  *
  * <pre><code>
- * FeatureStore store = Components.redisFeatureStore()
+ * DataeStore store = Components.redisDataStore()
  *      .database(1)
- *      .caching(FeatureStoreCacheConfig.enabled().ttlSeconds(60))
+ *      .caching(DataStoreCacheConfig.enabled().ttlSeconds(60))
  *      .build();
  * </code></pre>
  */
-public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
+public final class RedisDataStoreBuilder implements DataStoreFactory {
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
    * @since 4.0.0
@@ -37,10 +37,10 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   
   /**
    * The default value for {@link #cacheTime(long, TimeUnit)} (in seconds).
-   * @deprecated Use {@link FeatureStoreCacheConfig#DEFAULT}.
+   * @deprecated Use {@link DataStoreCacheConfig#DEFAULT}.
    * @since 4.0.0
    */
-  public static final long DEFAULT_CACHE_TIME_SECONDS = FeatureStoreCacheConfig.DEFAULT_TIME_SECONDS;
+  public static final long DEFAULT_CACHE_TIME_SECONDS = DataStoreCacheConfig.DEFAULT_TIME_SECONDS;
   
   final URI uri;
   String prefix = DEFAULT_PREFIX;
@@ -49,43 +49,43 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   Integer database = null;
   String password = null;
   boolean tls = false;
-  FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
-  boolean refreshStaleValues = false; // this and asyncRefresh are redundant with FeatureStoreCacheConfig, but are used by deprecated setters
+  DataStoreCacheConfig caching = DataStoreCacheConfig.DEFAULT;
+  boolean refreshStaleValues = false; // this and asyncRefresh are redundant with DataStoreCacheConfig, but are used by deprecated setters
   boolean asyncRefresh = false;
   JedisPoolConfig poolConfig = null;
 
   // These constructors are called only from Implementations
-  RedisFeatureStoreBuilder() {
+  RedisDataStoreBuilder() {
     this.uri = DEFAULT_URI;
   }
   
-  RedisFeatureStoreBuilder(URI uri) {
+  RedisDataStoreBuilder(URI uri) {
     this.uri = uri;
   }
   
   /**
-   * The constructor accepts the mandatory fields that must be specified at a minimum to construct a {@link com.launchdarkly.client.RedisFeatureStore}.
+   * The constructor accepts the mandatory fields that must be specified at a minimum to construct a {@link com.launchdarkly.client.RedisDataStore}.
    *
    * @param uri the uri of the Redis resource to connect to.
-   * @param cacheTimeSecs the cache time in seconds. See {@link RedisFeatureStoreBuilder#cacheTime(long, TimeUnit)} for more information.
-   * @deprecated Please use {@link Components#redisFeatureStore(java.net.URI)}.
+   * @param cacheTimeSecs the cache time in seconds. See {@link RedisDataStoreBuilder#cacheTime(long, TimeUnit)} for more information.
+   * @deprecated Please use {@link Components#redisDataStore(java.net.URI)}.
    */
-  public RedisFeatureStoreBuilder(URI uri, long cacheTimeSecs) {
+  public RedisDataStoreBuilder(URI uri, long cacheTimeSecs) {
     this.uri = uri;
     this.cacheTime(cacheTimeSecs, TimeUnit.SECONDS);
   }
 
   /**
-   * The constructor accepts the mandatory fields that must be specified at a minimum to construct a {@link com.launchdarkly.client.RedisFeatureStore}.
+   * The constructor accepts the mandatory fields that must be specified at a minimum to construct a {@link com.launchdarkly.client.RedisDataStore}.
    *
    * @param scheme the URI scheme to use
    * @param host the hostname to connect to
    * @param port the port to connect to
-   * @param cacheTimeSecs the cache time in seconds. See {@link RedisFeatureStoreBuilder#cacheTime(long, TimeUnit)} for more information.
+   * @param cacheTimeSecs the cache time in seconds. See {@link RedisDataStoreBuilder#cacheTime(long, TimeUnit)} for more information.
    * @throws URISyntaxException if the URI is not valid
-   * @deprecated Please use {@link Components#redisFeatureStore(java.net.URI)}.
+   * @deprecated Please use {@link Components#redisDataStore(java.net.URI)}.
    */
-  public RedisFeatureStoreBuilder(String scheme, String host, int port, long cacheTimeSecs) throws URISyntaxException {
+  public RedisDataStoreBuilder(String scheme, String host, int port, long cacheTimeSecs) throws URISyntaxException {
     this.uri = new URI(scheme, null, host, port, null, null, null);
     this.cacheTime(cacheTimeSecs, TimeUnit.SECONDS);
   }
@@ -101,7 +101,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * 
    * @since 4.7.0
    */
-  public RedisFeatureStoreBuilder database(Integer database) {
+  public RedisDataStoreBuilder database(Integer database) {
     this.database = database;
     return this;
   }
@@ -117,7 +117,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * 
    * @since 4.7.0
    */
-  public RedisFeatureStoreBuilder password(String password) {
+  public RedisDataStoreBuilder password(String password) {
     this.password = password;
     return this;
   }
@@ -134,53 +134,53 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * 
    * @since 4.7.0
    */
-  public RedisFeatureStoreBuilder tls(boolean tls) {
+  public RedisDataStoreBuilder tls(boolean tls) {
     this.tls = tls;
     return this;
   }
   
   /**
    * Specifies whether local caching should be enabled and if so, sets the cache properties. Local
-   * caching is enabled by default; see {@link FeatureStoreCacheConfig#DEFAULT}. To disable it, pass
-   * {@link FeatureStoreCacheConfig#disabled()} to this method.
+   * caching is enabled by default; see {@link DataStoreCacheConfig#DEFAULT}. To disable it, pass
+   * {@link DataStoreCacheConfig#disabled()} to this method.
    * 
-   * @param caching a {@link FeatureStoreCacheConfig} object specifying caching parameters
+   * @param caching a {@link DataStoreCacheConfig} object specifying caching parameters
    * @return the builder
    * 
    * @since 4.6.0
    */
-  public RedisFeatureStoreBuilder caching(FeatureStoreCacheConfig caching) {
+  public RedisDataStoreBuilder caching(DataStoreCacheConfig caching) {
     this.caching = caching;
     return this;
   }
   
   /**
-   * Deprecated method for setting the cache expiration policy to {@link FeatureStoreCacheConfig.StaleValuesPolicy#REFRESH}
-   * or {@link FeatureStoreCacheConfig.StaleValuesPolicy#REFRESH_ASYNC}.
+   * Deprecated method for setting the cache expiration policy to {@link DataStoreCacheConfig.StaleValuesPolicy#REFRESH}
+   * or {@link DataStoreCacheConfig.StaleValuesPolicy#REFRESH_ASYNC}.
    *
    * @param enabled turns on lazy refresh of cached values
    * @return the builder
    * 
-   * @deprecated Use {@link #caching(FeatureStoreCacheConfig)} and
-   * {@link FeatureStoreCacheConfig#staleValuesPolicy(com.launchdarkly.client.FeatureStoreCacheConfig.StaleValuesPolicy)}.
+   * @deprecated Use {@link #caching(DataStoreCacheConfig)} and
+   * {@link DataStoreCacheConfig#staleValuesPolicy(com.launchdarkly.client.DataStoreCacheConfig.StaleValuesPolicy)}.
    */
-  public RedisFeatureStoreBuilder refreshStaleValues(boolean enabled) {
+  public RedisDataStoreBuilder refreshStaleValues(boolean enabled) {
     this.refreshStaleValues = enabled;
     updateCachingStaleValuesPolicy();
     return this;
   }
 
   /**
-   * Deprecated method for setting the cache expiration policy to {@link FeatureStoreCacheConfig.StaleValuesPolicy#REFRESH_ASYNC}.
+   * Deprecated method for setting the cache expiration policy to {@link DataStoreCacheConfig.StaleValuesPolicy#REFRESH_ASYNC}.
    *
    * @param enabled turns on asynchronous refresh of cached values (only if {@link #refreshStaleValues(boolean)}
    * is also true)
    * @return the builder
    * 
-   * @deprecated Use {@link #caching(FeatureStoreCacheConfig)} and
-   * {@link FeatureStoreCacheConfig#staleValuesPolicy(com.launchdarkly.client.FeatureStoreCacheConfig.StaleValuesPolicy)}.
+   * @deprecated Use {@link #caching(DataStoreCacheConfig)} and
+   * {@link DataStoreCacheConfig#staleValuesPolicy(com.launchdarkly.client.DataStoreCacheConfig.StaleValuesPolicy)}.
    */
-  public RedisFeatureStoreBuilder asyncRefresh(boolean enabled) {
+  public RedisDataStoreBuilder asyncRefresh(boolean enabled) {
     this.asyncRefresh = enabled;
     updateCachingStaleValuesPolicy();
     return this;
@@ -191,10 +191,10 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
     // asyncRefresh is supposed to have no effect unless refreshStaleValues is true
     if (this.refreshStaleValues) {
       this.caching = this.caching.staleValuesPolicy(this.asyncRefresh ?
-          FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC :
-          FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH);
+          DataStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC :
+          DataStoreCacheConfig.StaleValuesPolicy.REFRESH);
     } else {
-      this.caching = this.caching.staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.EVICT);
+      this.caching = this.caching.staleValuesPolicy(DataStoreCacheConfig.StaleValuesPolicy.EVICT);
     }
   }
   
@@ -204,22 +204,22 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @param prefix the namespace prefix
    * @return the builder
    */
-  public RedisFeatureStoreBuilder prefix(String prefix) {
+  public RedisDataStoreBuilder prefix(String prefix) {
     this.prefix = prefix;
     return this;
   }
 
   /**
    * Deprecated method for enabling local caching and setting the cache TTL. Local caching is enabled
-   * by default; see {@link FeatureStoreCacheConfig#DEFAULT}.
+   * by default; see {@link DataStoreCacheConfig#DEFAULT}.
    *
    * @param cacheTime the time value to cache for, or 0 to disable local caching
    * @param timeUnit the time unit for the time value
    * @return the builder
    * 
-   * @deprecated use {@link #caching(FeatureStoreCacheConfig)} and {@link FeatureStoreCacheConfig#ttl(long, TimeUnit)}.
+   * @deprecated use {@link #caching(DataStoreCacheConfig)} and {@link DataStoreCacheConfig#ttl(long, TimeUnit)}.
    */
-  public RedisFeatureStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
+  public RedisDataStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
     this.caching = this.caching.ttl(cacheTime, timeUnit)
         .staleValuesPolicy(this.caching.getStaleValuesPolicy());
     return this;
@@ -231,7 +231,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @param poolConfig the Jedis pool configuration.
    * @return the builder
    */
-  public RedisFeatureStoreBuilder poolConfig(JedisPoolConfig poolConfig) {
+  public RedisDataStoreBuilder poolConfig(JedisPoolConfig poolConfig) {
     this.poolConfig = poolConfig;
     return this;
   }
@@ -244,7 +244,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @param timeUnit the time unit for the timeout
    * @return the builder
    */
-  public RedisFeatureStoreBuilder connectTimeout(int connectTimeout, TimeUnit timeUnit) {
+  public RedisDataStoreBuilder connectTimeout(int connectTimeout, TimeUnit timeUnit) {
     this.connectTimeout = (int) timeUnit.toMillis(connectTimeout);
     return this;
   }
@@ -257,25 +257,25 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @param timeUnit the time unit for the timeout
    * @return the builder
    */
-  public RedisFeatureStoreBuilder socketTimeout(int socketTimeout, TimeUnit timeUnit) {
+  public RedisDataStoreBuilder socketTimeout(int socketTimeout, TimeUnit timeUnit) {
     this.socketTimeout = (int) timeUnit.toMillis(socketTimeout);
     return this;
   }
 
   /**
-   * Build a {@link RedisFeatureStore} based on the currently configured builder object.
-   * @return the {@link RedisFeatureStore} configured by this builder.
+   * Build a {@link RedisDataStore} based on the currently configured builder object.
+   * @return the {@link RedisDataStore} configured by this builder.
    */
-  public RedisFeatureStore build() {
-    return new RedisFeatureStore(this);
+  public RedisDataStore build() {
+    return new RedisDataStore(this);
   }
   
   /**
    * Synonym for {@link #build()}.
-   * @return the {@link RedisFeatureStore} configured by this builder.
+   * @return the {@link RedisDataStore} configured by this builder.
    * @since 4.0.0
    */
-  public RedisFeatureStore createFeatureStore() {
+  public RedisDataStore createDataStore() {
     return build();
   }
 }

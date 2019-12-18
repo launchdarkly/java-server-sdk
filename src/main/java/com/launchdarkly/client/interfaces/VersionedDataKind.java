@@ -3,9 +3,9 @@ package com.launchdarkly.client.interfaces;
 import com.google.common.collect.ImmutableList;
 
 /**
- * The descriptor for a specific kind of {@link VersionedData} objects that may exist in a {@link FeatureStore}.
- * You will not need to refer to this type unless you are directly manipulating a {@code FeatureStore}
- * or writing your own {@code FeatureStore} implementation. If you are implementing a custom store, for
+ * The descriptor for a specific kind of {@link VersionedData} objects that may exist in a {@link DataStore}.
+ * You will not need to refer to this type unless you are directly manipulating a {@link DataStore}
+ * or writing your own {@link DataStore} implementation. If you are implementing a custom store, for
  * maximum forward compatibility you should only refer to {@link VersionedData}, {@link VersionedDataKind},
  * and {@link VersionedDataKind#ALL}, and avoid any dependencies on specific type descriptor instances
  * or any specific fields of the types they describe.

@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Internal data structure that organizes flag/segment data into the format that the feature store
+ * Internal data structure that organizes flag/segment data into the format that the data store
  * expects. Will throw an exception if we try to add the same flag or segment key more than once.
  */
 class DataBuilder {

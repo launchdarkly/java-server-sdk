@@ -1,7 +1,7 @@
 package com.launchdarkly.client.interfaces;
 
 /**
- * Common interface for string-keyed, versioned objects that can be kept in a {@link FeatureStore}.
+ * Common interface for string-keyed, versioned objects that can be kept in a {@link DataStore}.
  * @since 3.0.0
  */
 public interface VersionedData {
