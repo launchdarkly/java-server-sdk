@@ -15,6 +15,8 @@ import static org.junit.Assert.assertEquals;
 public class EvaluatorOperatorsParameterizedTest {
   private static LDValue dateStr1 = LDValue.of("2017-12-06T00:00:00.000-07:00");
   private static LDValue dateStr2 = LDValue.of("2017-12-06T00:01:01.000-07:00");
+  private static LDValue dateStrUtc1 = LDValue.of("2017-12-06T00:00:00.000Z");
+  private static LDValue dateStrUtc2 = LDValue.of("2017-12-06T00:01:01.000Z");
   private static LDValue dateMs1 = LDValue.of(10000000);
   private static LDValue dateMs2 = LDValue.of(10000001);
   private static LDValue invalidDate = LDValue.of("hey what's this?");
@@ -83,15 +85,19 @@ public class EvaluatorOperatorsParameterizedTest {
       
       // dates
       { DataModel.Operator.before, dateStr1, dateStr2, true },
+      { DataModel.Operator.before, dateStrUtc1, dateStrUtc2, true },
       { DataModel.Operator.before, dateMs1, dateMs2, true },
       { DataModel.Operator.before, dateStr2, dateStr1, false },
+      { DataModel.Operator.before, dateStrUtc2, dateStrUtc1, false },
       { DataModel.Operator.before, dateMs2, dateMs1, false },
       { DataModel.Operator.before, dateStr1, dateStr1, false },
       { DataModel.Operator.before, dateMs1, dateMs1, false },
       { DataModel.Operator.before, dateStr1, invalidDate, false },
       { DataModel.Operator.after, dateStr1, dateStr2, false },
+      { DataModel.Operator.after, dateStrUtc1, dateStrUtc2, false },
       { DataModel.Operator.after, dateMs1, dateMs2, false },
       { DataModel.Operator.after, dateStr2, dateStr1, true },
+      { DataModel.Operator.after, dateStrUtc2, dateStrUtc1, true },
       { DataModel.Operator.after, dateMs2, dateMs1, true },
       { DataModel.Operator.after, dateStr1, dateStr1, false },
       { DataModel.Operator.after, dateMs1, dateMs1, false },
