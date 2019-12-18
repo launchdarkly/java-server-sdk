@@ -3,7 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.launchdarkly.client.events.Event;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Matcher;

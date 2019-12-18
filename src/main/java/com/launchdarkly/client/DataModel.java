@@ -15,8 +15,15 @@ import static com.google.common.collect.Iterables.transform;
 /**
  * Defines the full data model for feature flags and user segments, in the format provided by the SDK endpoints of
  * the LaunchDarkly service.
+ * 
+ * The details of the data model are not public to application code (although of course developers can easily
+ * look at the code or the data) so that changes to LaunchDarkly SDK implementation details will not be breaking
+ * changes to the application.
  */
 public abstract class DataModel {
+  /**
+   * Contains standard instances of {@link VersionedDataKind} representing the main data model types.
+   */
   public static abstract class DataKinds {
     /**
      * The {@link VersionedDataKind} instance that describes feature flag data.

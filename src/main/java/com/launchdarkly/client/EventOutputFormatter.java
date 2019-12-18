@@ -3,7 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.client.EventSummarizer.CounterKey;
 import com.launchdarkly.client.EventSummarizer.CounterValue;
-import com.launchdarkly.client.events.Event;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 
 import java.io.IOException;

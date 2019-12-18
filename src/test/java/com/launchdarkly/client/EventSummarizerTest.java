@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.events.Event;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;

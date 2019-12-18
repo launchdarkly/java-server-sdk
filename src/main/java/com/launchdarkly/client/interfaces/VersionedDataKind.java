@@ -6,9 +6,8 @@ import com.google.common.collect.ImmutableList;
  * The descriptor for a specific kind of {@link VersionedData} objects that may exist in a {@link DataStore}.
  * You will not need to refer to this type unless you are directly manipulating a {@link DataStore}
  * or writing your own {@link DataStore} implementation. If you are implementing a custom store, for
- * maximum forward compatibility you should only refer to {@link VersionedData}, {@link VersionedDataKind},
- * and {@link VersionedDataKind#ALL}, and avoid any dependencies on specific type descriptor instances
- * or any specific fields of the types they describe.
+ * maximum forward compatibility you should only refer to {@link VersionedData} and {@link VersionedDataKind},
+ * and avoid any dependencies on specific type descriptor instances or any specific fields of the types they describe.
  * @param <T> the item type
  * @since 3.0.0
  */
@@ -40,6 +39,11 @@ public abstract class VersionedDataKind<T extends VersionedData> {
    */
   public abstract T makeDeletedItem(String key, int version);
   
+  /**
+   * Deserialize an instance of this type from its string representation (normally JSON).
+   * @param serializedData the serialized data
+   * @return the deserialized object
+   */
   public abstract T deserialize(String serializedData);
   
   /**

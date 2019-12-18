@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.common.collect.Iterables;
-import com.launchdarkly.client.events.Event;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;

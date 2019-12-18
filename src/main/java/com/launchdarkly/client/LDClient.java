@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
-import com.launchdarkly.client.events.Event;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
 import com.launchdarkly.client.interfaces.DataStore;
