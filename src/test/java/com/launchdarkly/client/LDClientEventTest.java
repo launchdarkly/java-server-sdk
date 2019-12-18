@@ -3,7 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.EvaluationReason.ErrorKind;
-import com.launchdarkly.client.events.Event;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.FeatureStore;
 import com.launchdarkly.client.value.LDValue;
 
