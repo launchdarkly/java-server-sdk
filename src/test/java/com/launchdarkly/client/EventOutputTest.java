@@ -2,8 +2,9 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
-import com.launchdarkly.client.Event.FeatureRequest;
 import com.launchdarkly.client.EventSummarizer.EventSummary;
+import com.launchdarkly.client.events.Event;
+import com.launchdarkly.client.events.Event.FeatureRequest;
 import com.launchdarkly.client.value.LDValue;
 import com.launchdarkly.client.value.ObjectBuilder;
 

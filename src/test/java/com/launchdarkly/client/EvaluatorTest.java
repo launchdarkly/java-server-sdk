@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.common.collect.Iterables;
+import com.launchdarkly.client.events.Event;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
@@ -192,10 +193,10 @@ public class EvaluatorTest {
     
     assertEquals(1, Iterables.size(result.getPrerequisiteEvents()));
     Event.FeatureRequest event = Iterables.get(result.getPrerequisiteEvents(), 0);
-    assertEquals(f1.getKey(), event.key);
-    assertEquals(LDValue.of("go"), event.value);
-    assertEquals(f1.getVersion(), event.version.intValue());
-    assertEquals(f0.getKey(), event.prereqOf);
+    assertEquals(f1.getKey(), event.getKey());
+    assertEquals(LDValue.of("go"), event.getValue());
+    assertEquals(f1.getVersion(), event.getVersion().intValue());
+    assertEquals(f0.getKey(), event.getPrereqOf());
   }
 
   @Test
@@ -222,10 +223,10 @@ public class EvaluatorTest {
     
     assertEquals(1, Iterables.size(result.getPrerequisiteEvents()));
     Event.FeatureRequest event = Iterables.get(result.getPrerequisiteEvents(), 0);
-    assertEquals(f1.getKey(), event.key);
-    assertEquals(LDValue.of("nogo"), event.value);
-    assertEquals(f1.getVersion(), event.version.intValue());
-    assertEquals(f0.getKey(), event.prereqOf);
+    assertEquals(f1.getKey(), event.getKey());
+    assertEquals(LDValue.of("nogo"), event.getValue());
+    assertEquals(f1.getVersion(), event.getVersion().intValue());
+    assertEquals(f0.getKey(), event.getPrereqOf());
   }
 
   @Test
@@ -269,10 +270,10 @@ public class EvaluatorTest {
 
     assertEquals(1, Iterables.size(result.getPrerequisiteEvents()));
     Event.FeatureRequest event = Iterables.get(result.getPrerequisiteEvents(), 0);
-    assertEquals(f1.getKey(), event.key);
-    assertEquals(LDValue.of("go"), event.value);
-    assertEquals(f1.getVersion(), event.version.intValue());
-    assertEquals(f0.getKey(), event.prereqOf);
+    assertEquals(f1.getKey(), event.getKey());
+    assertEquals(LDValue.of("go"), event.getValue());
+    assertEquals(f1.getVersion(), event.getVersion().intValue());
+    assertEquals(f0.getKey(), event.getPrereqOf());
   }
 
   @Test
@@ -305,16 +306,16 @@ public class EvaluatorTest {
     assertEquals(2, Iterables.size(result.getPrerequisiteEvents()));
     
     Event.FeatureRequest event0 = Iterables.get(result.getPrerequisiteEvents(), 0);
-    assertEquals(f2.getKey(), event0.key);
-    assertEquals(LDValue.of("go"), event0.value);
-    assertEquals(f2.getVersion(), event0.version.intValue());
-    assertEquals(f1.getKey(), event0.prereqOf);
+    assertEquals(f2.getKey(), event0.getKey());
+    assertEquals(LDValue.of("go"), event0.getValue());
+    assertEquals(f2.getVersion(), event0.getVersion().intValue());
+    assertEquals(f1.getKey(), event0.getPrereqOf());
 
     Event.FeatureRequest event1 = Iterables.get(result.getPrerequisiteEvents(), 1);
-    assertEquals(f1.getKey(), event1.key);
-    assertEquals(LDValue.of("go"), event1.value);
-    assertEquals(f1.getVersion(), event1.version.intValue());
-    assertEquals(f0.getKey(), event1.prereqOf);
+    assertEquals(f1.getKey(), event1.getKey());
+    assertEquals(LDValue.of("go"), event1.getValue());
+    assertEquals(f1.getVersion(), event1.getVersion().intValue());
+    assertEquals(f0.getKey(), event1.getPrereqOf());
   }
   
   @Test

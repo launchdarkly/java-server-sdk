@@ -1,6 +1,9 @@
-package com.launchdarkly.client;
+package com.launchdarkly.client.events;
 
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.EvaluationReason;
+import com.launchdarkly.client.LDClientInterface;
+import com.launchdarkly.client.LDUser;
 import com.launchdarkly.client.value.LDValue;
 
 /**
@@ -12,12 +15,28 @@ public class Event {
 
   /**
    * Base event constructor.
-   * @param creationDate the timetamp in milliseconds
+   * @param creationDate the timestamp in milliseconds
    * @param user the user associated with the event
    */
   public Event(long creationDate, LDUser user) {
     this.creationDate = creationDate;
     this.user = user;
+  }
+  
+  /**
+   * The event timestamp.
+   * @return the timestamp in milliseconds
+   */
+  public long getCreationDate() {
+    return creationDate;
+  }
+  
+  /**
+   * The user associated with the event.
+   * @return the user object
+   */
+  public LDUser getUser() {
+    return user;
   }
   
   /**
@@ -55,6 +74,30 @@ public class Event {
     @Deprecated
     public Custom(long timestamp, String key, LDUser user, JsonElement data) {
       this(timestamp, key, user, LDValue.unsafeFromJsonElement(data), null);
+    }
+    
+    /**
+     * The custom event key.
+     * @return the event key
+     */
+    public String getKey() {
+      return key;
+    }
+    
+    /**
+     * The custom data associated with the event, if any.
+     * @return the event data (null is equivalent to {@link LDValue#ofNull()})
+     */
+    public LDValue getData() {
+      return data;
+    }
+    
+    /**
+     * The numeric metric value associated with the event, if any.
+     * @return the metric value or null
+     */
+    public Double getMetricValue() {
+      return metricValue;
     }
   }
 
@@ -176,6 +219,45 @@ public class Event {
       this(timestamp, key, user, version, variation, LDValue.unsafeFromJsonElement(value), LDValue.unsafeFromJsonElement(defaultVal),
           reason, prereqOf, trackEvents, debugEventsUntilDate, debug);
     }
-  }
 
+    public String getKey() {
+      return key;
+    }
+
+    public Integer getVariation() {
+      return variation;
+    }
+
+    public LDValue getValue() {
+      return value;
+    }
+
+    public LDValue getDefaultVal() {
+      return defaultVal;
+    }
+
+    public Integer getVersion() {
+      return version;
+    }
+
+    public String getPrereqOf() {
+      return prereqOf;
+    }
+
+    public boolean isTrackEvents() {
+      return trackEvents;
+    }
+
+    public Long getDebugEventsUntilDate() {
+      return debugEventsUntilDate;
+    }
+
+    public EvaluationReason getReason() {
+      return reason;
+    }
+
+    public boolean isDebug() {
+      return debug;
+    }
+  }
 }

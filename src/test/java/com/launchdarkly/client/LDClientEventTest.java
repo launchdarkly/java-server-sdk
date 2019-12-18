@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.EvaluationReason.ErrorKind;
+import com.launchdarkly.client.events.Event;
 import com.launchdarkly.client.interfaces.FeatureStore;
 import com.launchdarkly.client.value.LDValue;
 
@@ -45,7 +46,7 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Identify.class, e.getClass());
     Event.Identify ie = (Event.Identify)e;
-    assertEquals(user.getKey(), ie.user.getKey());
+    assertEquals(user.getKey(), ie.getUser().getKey());
   }
 
   @Test
@@ -68,9 +69,9 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.user.getKey());
-    assertEquals("eventkey", ce.key);
-    assertEquals(LDValue.ofNull(), ce.data);
+    assertEquals(user.getKey(), ce.getUser().getKey());
+    assertEquals("eventkey", ce.getKey());
+    assertEquals(LDValue.ofNull(), ce.getData());
   }
 
   @Test
@@ -82,9 +83,9 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.user.getKey());
-    assertEquals("eventkey", ce.key);
-    assertEquals(data, ce.data);
+    assertEquals(user.getKey(), ce.getUser().getKey());
+    assertEquals("eventkey", ce.getKey());
+    assertEquals(data, ce.getData());
   }
 
   @Test
@@ -97,10 +98,10 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.user.getKey());
-    assertEquals("eventkey", ce.key);
-    assertEquals(data, ce.data);
-    assertEquals(new Double(metricValue), ce.metricValue);
+    assertEquals(user.getKey(), ce.getUser().getKey());
+    assertEquals("eventkey", ce.getKey());
+    assertEquals(data, ce.getData());
+    assertEquals(new Double(metricValue), ce.getMetricValue());
   }
 
   @SuppressWarnings("deprecation")
@@ -113,9 +114,9 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.user.getKey());
-    assertEquals("eventkey", ce.key);
-    assertEquals(data, ce.data.asJsonElement());
+    assertEquals(user.getKey(), ce.getUser().getKey());
+    assertEquals("eventkey", ce.getKey());
+    assertEquals(data, ce.getData().asJsonElement());
   }
 
   @SuppressWarnings("deprecation")
@@ -129,10 +130,10 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.user.getKey());
-    assertEquals("eventkey", ce.key);
-    assertEquals(data, ce.data.asJsonElement());
-    assertEquals(new Double(metricValue), ce.metricValue);
+    assertEquals(user.getKey(), ce.getUser().getKey());
+    assertEquals("eventkey", ce.getKey());
+    assertEquals(data, ce.getData().asJsonElement());
+    assertEquals(new Double(metricValue), ce.getMetricValue());
   }
 
   @Test
@@ -375,8 +376,8 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertTrue(event.trackEvents);
-    assertEquals(EvaluationReason.ruleMatch(0, "id"), event.reason);
+    assertTrue(event.isTrackEvents());
+    assertEquals(EvaluationReason.ruleMatch(0, "id"), event.getReason());
   }
 
   @Test
@@ -399,8 +400,8 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertFalse(event.trackEvents);
-    assertNull(event.reason);
+    assertFalse(event.isTrackEvents());
+    assertNull(event.getReason());
   }
 
   @Test
@@ -420,8 +421,8 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertTrue(event.trackEvents);
-    assertEquals(EvaluationReason.fallthrough(), event.reason);
+    assertTrue(event.isTrackEvents());
+    assertEquals(EvaluationReason.fallthrough(), event.getReason());
   }
 
   @Test
@@ -438,8 +439,8 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertFalse(event.trackEvents);
-    assertNull(event.reason);
+    assertFalse(event.isTrackEvents());
+    assertNull(event.getReason());
   }
 
   @Test
@@ -457,8 +458,8 @@ public class LDClientEventTest {
     
     assertEquals(1, eventSink.events.size());
     Event.FeatureRequest event = (Event.FeatureRequest)eventSink.events.get(0);
-    assertFalse(event.trackEvents);
-    assertNull(event.reason);
+    assertFalse(event.isTrackEvents());
+    assertNull(event.getReason());
   }
   
   @Test
@@ -554,29 +555,29 @@ public class LDClientEventTest {
       String prereqOf, EvaluationReason reason) {
     assertEquals(Event.FeatureRequest.class, e.getClass());
     Event.FeatureRequest fe = (Event.FeatureRequest)e;
-    assertEquals(flag.getKey(), fe.key);
-    assertEquals(user.getKey(), fe.user.getKey());
-    assertEquals(new Integer(flag.getVersion()), fe.version);
-    assertEquals(value, fe.value);
-    assertEquals(defaultVal, fe.defaultVal);
-    assertEquals(prereqOf, fe.prereqOf);
-    assertEquals(reason, fe.reason);
-    assertEquals(flag.isTrackEvents(), fe.trackEvents);
-    assertEquals(flag.getDebugEventsUntilDate(), fe.debugEventsUntilDate);
+    assertEquals(flag.getKey(), fe.getKey());
+    assertEquals(user.getKey(), fe.getUser().getKey());
+    assertEquals(new Integer(flag.getVersion()), fe.getVersion());
+    assertEquals(value, fe.getValue());
+    assertEquals(defaultVal, fe.getDefaultVal());
+    assertEquals(prereqOf, fe.getPrereqOf());
+    assertEquals(reason, fe.getReason());
+    assertEquals(flag.isTrackEvents(), fe.isTrackEvents());
+    assertEquals(flag.getDebugEventsUntilDate(), fe.getDebugEventsUntilDate());
   }
 
   private void checkUnknownFeatureEvent(Event e, String key, LDValue defaultVal, String prereqOf,
       EvaluationReason reason) {
     assertEquals(Event.FeatureRequest.class, e.getClass());
     Event.FeatureRequest fe = (Event.FeatureRequest)e;
-    assertEquals(key, fe.key);
-    assertEquals(user.getKey(), fe.user.getKey());
-    assertNull(fe.version);
-    assertEquals(defaultVal, fe.value);
-    assertEquals(defaultVal, fe.defaultVal);
-    assertEquals(prereqOf, fe.prereqOf);
-    assertEquals(reason, fe.reason);
-    assertFalse(fe.trackEvents);
-    assertNull(fe.debugEventsUntilDate);
+    assertEquals(key, fe.getKey());
+    assertEquals(user.getKey(), fe.getUser().getKey());
+    assertNull(fe.getVersion());
+    assertEquals(defaultVal, fe.getValue());
+    assertEquals(defaultVal, fe.getDefaultVal());
+    assertEquals(prereqOf, fe.getPrereqOf());
+    assertEquals(reason, fe.getReason());
+    assertFalse(fe.isTrackEvents());
+    assertNull(fe.getDebugEventsUntilDate());
   }
 }

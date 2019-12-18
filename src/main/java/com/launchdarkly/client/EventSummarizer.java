@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.events.Event;
 import com.launchdarkly.client.value.LDValue;
 
 import java.util.HashMap;
@@ -25,8 +26,8 @@ final class EventSummarizer {
   void summarizeEvent(Event event) {
     if (event instanceof Event.FeatureRequest) {
       Event.FeatureRequest fe = (Event.FeatureRequest)event;
-      eventsState.incrementCounter(fe.key, fe.variation, fe.version, fe.value, fe.defaultVal);
-      eventsState.noteTimestamp(fe.creationDate);
+      eventsState.incrementCounter(fe.getKey(), fe.getVariation(), fe.getVersion(), fe.getValue(), fe.getDefaultVal());
+      eventsState.noteTimestamp(fe.getCreationDate());
     }
   }
   

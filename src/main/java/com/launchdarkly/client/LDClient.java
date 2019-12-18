@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.events.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
 import com.launchdarkly.client.interfaces.FeatureStore;
@@ -174,7 +175,7 @@ public final class LDClient implements LDClientInterface {
 
   private void sendFlagRequestEvent(Event.FeatureRequest event) {
     eventProcessor.sendEvent(event);
-    NewRelicReflector.annotateTransaction(event.key, String.valueOf(event.value));
+    NewRelicReflector.annotateTransaction(event.getKey(), String.valueOf(event.getValue()));
   }
 
   @Override
