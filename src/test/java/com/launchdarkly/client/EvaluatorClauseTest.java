@@ -22,7 +22,7 @@ import static org.junit.Assert.assertNotNull;
 public class EvaluatorClauseTest {
   @Test
   public void clauseCanMatchBuiltInAttribute() throws Exception {
-    DataModel.Clause clause = clause("name", Operator.in, LDValue.of("Bob"));
+    DataModel.Clause clause = clause("name", DataModel.Operator.in, LDValue.of("Bob"));
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
@@ -31,7 +31,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanMatchCustomAttribute() throws Exception {
-    DataModel.Clause clause = clause("legs", Operator.in, LDValue.of(4));
+    DataModel.Clause clause = clause("legs", DataModel.Operator.in, LDValue.of(4));
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").custom("legs", 4).build();
     
@@ -40,7 +40,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseReturnsFalseForMissingAttribute() throws Exception {
-    DataModel.Clause clause = clause("legs", Operator.in, LDValue.of(4));
+    DataModel.Clause clause = clause("legs", DataModel.Operator.in, LDValue.of(4));
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
@@ -49,7 +49,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanBeNegated() throws Exception {
-    DataModel.Clause clause = clause("name", Operator.in, true, LDValue.of("Bob"));
+    DataModel.Clause clause = clause("name", DataModel.Operator.in, true, LDValue.of("Bob"));
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
@@ -84,7 +84,7 @@ public class EvaluatorClauseTest {
   public void clauseWithNullOperatorDoesNotStopSubsequentRuleFromMatching() throws Exception {
     DataModel.Clause badClause = clause("name", null, LDValue.of("Bob"));
     DataModel.Rule badRule = ruleBuilder().id("rule1").clauses(badClause).variation(1).build();
-    DataModel.Clause goodClause = clause("name", Operator.in, LDValue.of("Bob"));
+    DataModel.Clause goodClause = clause("name", DataModel.Operator.in, LDValue.of("Bob"));
     DataModel.Rule goodRule = ruleBuilder().id("rule2").clauses(goodClause).variation(1).build();
     DataModel.FeatureFlag f = flagBuilder("feature")
         .on(true)
@@ -125,7 +125,7 @@ public class EvaluatorClauseTest {
   }
   
   private DataModel.FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
-    DataModel.Clause clause = clause("", Operator.segmentMatch, LDValue.of(segmentKey));
+    DataModel.Clause clause = clause("", DataModel.Operator.segmentMatch, LDValue.of(segmentKey));
     return booleanFlagWithClauses("flag", clause);
   }
 }

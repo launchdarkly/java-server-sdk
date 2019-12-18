@@ -19,8 +19,8 @@ import static org.junit.Assert.assertSame;
 public class EvaluatorRuleTest {
   @Test
   public void ruleMatchReasonInstanceIsReusedForSameRule() {
-    DataModel.Clause clause0 = clause("key", Operator.in, LDValue.of("wrongkey"));
-    DataModel.Clause clause1 = clause("key", Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause0 = clause("key", DataModel.Operator.in, LDValue.of("wrongkey"));
+    DataModel.Clause clause1 = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
     DataModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2).build();
     DataModel.FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);
@@ -39,7 +39,7 @@ public class EvaluatorRuleTest {
   
   @Test
   public void ruleWithTooHighVariationReturnsMalformedFlagError() {
-    DataModel.Clause clause = clause("key", Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).variation(999).build();
     DataModel.FeatureFlag f = featureFlagWithRules("feature", rule);
     LDUser user = new LDUser.Builder("userkey").build();
@@ -51,7 +51,7 @@ public class EvaluatorRuleTest {
 
   @Test
   public void ruleWithNegativeVariationReturnsMalformedFlagError() {
-    DataModel.Clause clause = clause("key", Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).variation(-1).build();
     DataModel.FeatureFlag f = featureFlagWithRules("feature", rule);
     LDUser user = new LDUser.Builder("userkey").build();
@@ -63,7 +63,7 @@ public class EvaluatorRuleTest {
   
   @Test
   public void ruleWithNoVariationOrRolloutReturnsMalformedFlagError() {
-    DataModel.Clause clause = clause("key", Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).build();
     DataModel.FeatureFlag f = featureFlagWithRules("feature", rule);
     LDUser user = new LDUser.Builder("userkey").build();
@@ -75,7 +75,7 @@ public class EvaluatorRuleTest {
 
   @Test
   public void ruleWithRolloutWithEmptyVariationsListReturnsMalformedFlagError() {
-    DataModel.Clause clause = clause("key", Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule = ruleBuilder().id("ruleid").clauses(clause).rollout(emptyRollout()).build();
     DataModel.FeatureFlag f = featureFlagWithRules("feature", rule);
     LDUser user = new LDUser.Builder("userkey").build();

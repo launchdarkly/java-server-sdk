@@ -185,7 +185,7 @@ public class LDClientEvaluationTest {
         .build();
     featureStore.upsert(SEGMENTS, segment);
     
-    DataModel.Clause clause = clause("", Operator.segmentMatch, LDValue.of("segment1"));
+    DataModel.Clause clause = clause("", DataModel.Operator.segmentMatch, LDValue.of("segment1"));
     DataModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     featureStore.upsert(FEATURES, feature);
     

@@ -238,7 +238,7 @@ class Evaluator {
   private boolean clauseMatchesUser(DataModel.Clause clause, LDUser user) {
     // In the case of a segment match operator, we check if the user is in any of the segments,
     // and possibly negate
-    if (clause.getOp() == Operator.segmentMatch) {
+    if (clause.getOp() == DataModel.Operator.segmentMatch) {
       for (LDValue j: clause.getValues()) {
         if (j.isString()) {
           DataModel.Segment segment = getters.getSegment(j.stringValue());
@@ -281,10 +281,10 @@ class Evaluator {
   }
   
   private boolean clauseMatchAny(DataModel.Clause clause, LDValue userValue) {
-    Operator op = clause.getOp();
+    DataModel.Operator op = clause.getOp();
     if (op != null) {
       for (LDValue v : clause.getValues()) {
-        if (op.apply(userValue, v)) {
+        if (EvaluatorOperators.apply(op, userValue, v)) {
           return true;
         }
       }

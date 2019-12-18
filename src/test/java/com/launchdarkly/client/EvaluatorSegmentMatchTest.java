@@ -56,7 +56,7 @@ public class EvaluatorSegmentMatchTest {
   
   @Test
   public void matchingRuleWithFullRollout() {
-    DataModel.Clause clause = clause("email", Operator.in, LDValue.of("test@example.com"));
+    DataModel.Clause clause = clause("email", DataModel.Operator.in, LDValue.of("test@example.com"));
     DataModel.SegmentRule rule = segmentRuleBuilder().clauses(clause).weight(maxWeight).build();
     DataModel.Segment s = segmentBuilder("test")
         .salt("abcdef")
@@ -69,7 +69,7 @@ public class EvaluatorSegmentMatchTest {
 
   @Test
   public void matchingRuleWithZeroRollout() {
-    DataModel.Clause clause = clause("email", Operator.in, LDValue.of("test@example.com"));
+    DataModel.Clause clause = clause("email", DataModel.Operator.in, LDValue.of("test@example.com"));
     DataModel.SegmentRule rule = segmentRuleBuilder().clauses(clause).weight(0).build();
     DataModel.Segment s = segmentBuilder("test")
         .salt("abcdef")
@@ -82,8 +82,8 @@ public class EvaluatorSegmentMatchTest {
   
   @Test
   public void matchingRuleWithMultipleClauses() {
-    DataModel.Clause clause1 = clause("email", Operator.in, LDValue.of("test@example.com"));
-    DataModel.Clause clause2 = clause("name", Operator.in, LDValue.of("bob"));
+    DataModel.Clause clause1 = clause("email", DataModel.Operator.in, LDValue.of("test@example.com"));
+    DataModel.Clause clause2 = clause("name", DataModel.Operator.in, LDValue.of("bob"));
     DataModel.SegmentRule rule = segmentRuleBuilder().clauses(clause1, clause2).build();
     DataModel.Segment s = segmentBuilder("test")
         .salt("abcdef")
@@ -96,8 +96,8 @@ public class EvaluatorSegmentMatchTest {
 
   @Test
   public void nonMatchingRuleWithMultipleClauses() {
-    DataModel.Clause clause1 = clause("email", Operator.in, LDValue.of("test@example.com"));
-    DataModel.Clause clause2 = clause("name", Operator.in, LDValue.of("bill"));
+    DataModel.Clause clause1 = clause("email", DataModel.Operator.in, LDValue.of("test@example.com"));
+    DataModel.Clause clause2 = clause("name", DataModel.Operator.in, LDValue.of("bill"));
     DataModel.SegmentRule rule = segmentRuleBuilder().clauses(clause1, clause2).build();
     DataModel.Segment s = segmentBuilder("test")
         .salt("abcdef")
@@ -109,7 +109,7 @@ public class EvaluatorSegmentMatchTest {
   }
   
   private static boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
-    DataModel.Clause clause = clause("", Operator.segmentMatch, LDValue.of(segment.getKey()));
+    DataModel.Clause clause = clause("", DataModel.Operator.segmentMatch, LDValue.of(segment.getKey()));
     DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
     return e.evaluate(flag, user, EventFactory.DEFAULT).getValue().booleanValue();

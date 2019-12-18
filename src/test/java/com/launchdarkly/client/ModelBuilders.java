@@ -45,20 +45,20 @@ public abstract class ModelBuilders {
     return new RuleBuilder();
   }
 
-  public static DataModel.Clause clause(String attribute, Operator op, boolean negate, LDValue... values) {
+  public static DataModel.Clause clause(String attribute, DataModel.Operator op, boolean negate, LDValue... values) {
     return new DataModel.Clause(attribute, op, Arrays.asList(values), negate);
   }
 
-  public static DataModel.Clause clause(String attribute, Operator op, LDValue... values) {
+  public static DataModel.Clause clause(String attribute, DataModel.Operator op, LDValue... values) {
     return clause(attribute, op, false, values);
   }
   
   public static DataModel.Clause clauseMatchingUser(LDUser user) {
-    return clause("key", Operator.in, user.getKey());
+    return clause("key", DataModel.Operator.in, user.getKey());
   }
 
   public static DataModel.Clause clauseNotMatchingUser(LDUser user) {
-    return clause("key", Operator.in, LDValue.of("not-" + user.getKeyAsString()));
+    return clause("key", DataModel.Operator.in, LDValue.of("not-" + user.getKeyAsString()));
   }
 
   public static DataModel.Target target(int variation, String... userKeys) {
