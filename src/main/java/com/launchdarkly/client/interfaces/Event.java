@@ -224,42 +224,82 @@ public class Event {
           reason, prereqOf, trackEvents, debugEventsUntilDate, debug);
     }
 
+    /**
+     * The key of the feature flag that was evaluated.
+     * @return the flag key
+     */
     public String getKey() {
       return key;
     }
 
+    /**
+     * The index of the selected flag variation, or null if the application default value was used.
+     * @return zero-based index of the variation, or null
+     */
     public Integer getVariation() {
       return variation;
     }
 
+    /**
+     * The value of the selected flag variation.
+     * @return the value
+     */
     public LDValue getValue() {
       return value;
     }
 
+    /**
+     * The application default value used in the evaluation.
+     * @return the application default
+     */
     public LDValue getDefaultVal() {
       return defaultVal;
     }
 
+    /**
+     * The version of the feature flag that was evaluated, or null if the flag was not found.
+     * @return the flag version or null
+     */
     public Integer getVersion() {
       return version;
     }
 
+    /**
+     * If this flag was evaluated as a prerequisite for another flag, the key of the other flag.
+     * @return a flag key or null
+     */
     public String getPrereqOf() {
       return prereqOf;
     }
 
+    /**
+     * True if full event tracking is enabled for this flag.
+     * @return true if full event tracking is on
+     */
     public boolean isTrackEvents() {
       return trackEvents;
     }
 
+    /**
+     * If debugging is enabled for this flag, the Unix millisecond time at which to stop debugging.
+     * @return a timestamp or null
+     */
     public Long getDebugEventsUntilDate() {
       return debugEventsUntilDate;
     }
 
+    /**
+     * The {@link EvaluationReason} for this evaluation, or null if the reason was not requested for this evaluation. 
+     * @return a reason object or null
+     */
     public EvaluationReason getReason() {
       return reason;
     }
 
+    /**
+     * True if this event was generated due to debugging being enabled.
+     * @return true if this is a debug event
+     */
     public boolean isDebug() {
       return debug;
     }

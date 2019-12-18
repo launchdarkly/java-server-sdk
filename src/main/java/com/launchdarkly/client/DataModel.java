@@ -17,6 +17,9 @@ import static com.google.common.collect.Iterables.transform;
  * the LaunchDarkly service.
  */
 public abstract class DataModel {
+  /**
+   * Contains standard instances of {@link VersionedDataKind} representing the main data model types.
+   */
   public static abstract class DataKinds {
     /**
      * The {@link VersionedDataKind} instance that describes feature flag data.
