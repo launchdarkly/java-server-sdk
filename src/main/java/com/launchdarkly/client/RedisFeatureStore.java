@@ -13,6 +13,7 @@ import java.util.Map;
  * 
  * @deprecated Use {@link com.launchdarkly.client.integrations.Redis#dataStore()}
  */
+@Deprecated
 public class RedisFeatureStore implements FeatureStore {
   // The actual implementation is now in the com.launchdarkly.integrations package. This class remains
   // visible for backward compatibility, but simply delegates to an instance of the underlying store.
