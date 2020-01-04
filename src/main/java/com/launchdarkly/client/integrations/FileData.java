@@ -2,7 +2,7 @@ package com.launchdarkly.client.integrations;
 
 /**
  * Integration between the LaunchDarkly SDK and file data.
- *
+ * <p>
  * The file data source allows you to use local files as a source of feature flag state. This would
  * typically be used in a test environment, to operate using a predetermined feature flag state
  * without an actual LaunchDarkly connection. See {@link #dataSource()} for details.
@@ -14,11 +14,11 @@ public abstract class FileData {
    * Creates a {@link FileDataSourceBuilder} which you can use to configure the file data source.
    * This allows you to use local files as a source of feature flag state, instead of using an actual
    * LaunchDarkly connection.
-   * 
+   * <p>
    * This object can be modified with {@link FileDataSourceBuilder} methods for any desired
    * custom settings, before including it in the SDK configuration with
    * {@link com.launchdarkly.client.LDConfig.Builder#dataSource(com.launchdarkly.client.UpdateProcessorFactory)}.
-   * 
+   * <p>
    * At a minimum, you will want to call {@link FileDataSourceBuilder#filePaths(String...)} to specify
    * your data file(s); you can also use {@link FileDataSourceBuilder#autoUpdate(boolean)} to
    * specify that flags should be reloaded when a file is modified. See {@link FileDataSourceBuilder}

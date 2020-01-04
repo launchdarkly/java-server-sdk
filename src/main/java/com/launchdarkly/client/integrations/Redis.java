@@ -8,7 +8,7 @@ package com.launchdarkly.client.integrations;
 public abstract class Redis {
   /**
    * Returns a builder object for creating a Redis-backed data store.
-   * 
+   * <p>
    * This object can be modified with {@link RedisDataStoreBuilder} methods for any desired
    * custom settings, before including it in the SDK configuration with
    * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(com.launchdarkly.client.FeatureStoreFactory)}.
