@@ -1,4 +1,8 @@
-package com.launchdarkly.client.files;
+package com.launchdarkly.client.integrations;
+
+import com.launchdarkly.client.integrations.FileDataSourceParsing.FileDataException;
+import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileParser;
+import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileRep;
 
 import org.junit.Test;
 
@@ -6,14 +10,15 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
-import static com.launchdarkly.client.files.TestData.FLAG_VALUES;
-import static com.launchdarkly.client.files.TestData.FULL_FLAGS;
-import static com.launchdarkly.client.files.TestData.FULL_SEGMENTS;
-import static com.launchdarkly.client.files.TestData.resourceFilePath;
+import static com.launchdarkly.client.integrations.FileDataSourceTestData.FLAG_VALUES;
+import static com.launchdarkly.client.integrations.FileDataSourceTestData.FULL_FLAGS;
+import static com.launchdarkly.client.integrations.FileDataSourceTestData.FULL_SEGMENTS;
+import static com.launchdarkly.client.integrations.FileDataSourceTestData.resourceFilePath;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
+@SuppressWarnings("javadoc")
 public abstract class FlagFileParserTestBase {
   private final FlagFileParser parser;
   private final String fileExtension;
@@ -63,7 +68,7 @@ public abstract class FlagFileParserTestBase {
     }
   }
   
-  @Test(expected = DataLoaderException.class)
+  @Test(expected = FileDataException.class)
   public void throwsExpectedErrorForBadFile() throws Exception {
     try (FileInputStream input = openFile("malformed")) {
       parser.parse(input);
