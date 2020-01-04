@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * To use the file data source, obtain a new instance of this class with {@link FileComponents#fileDataSource()},
  * call the builder method {@link #filePaths(String...)} to specify file path(s),
- * then pass the resulting object to {@link com.launchdarkly.client.LDConfig.Builder#updateProcessorFactory(UpdateProcessorFactory)}.
+ * then pass the resulting object to {@link com.launchdarkly.client.LDConfig.Builder#dataSource(UpdateProcessorFactory)}.
  * <p>
  * For more details, see {@link FileComponents}.
  * 

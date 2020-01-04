@@ -65,7 +65,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Before
   public void setup() {
     featureStore = new InMemoryFeatureStore();
-    configBuilder = new LDConfig.Builder().featureStoreFactory(specificFeatureStore(featureStore));
+    configBuilder = new LDConfig.Builder().dataStore(specificFeatureStore(featureStore));
     mockRequestor = createStrictMock(FeatureRequestor.class);
     mockEventSource = createStrictMock(EventSource.class);
   }

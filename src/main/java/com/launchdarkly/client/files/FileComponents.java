@@ -16,7 +16,7 @@ package com.launchdarkly.client.files;
  *         .filePaths("./testData/flags.json")
  *         .autoUpdate(true);
  *     LDConfig config = new LDConfig.Builder()
- *         .updateProcessorFactory(f)
+ *         .dataSource(f)
  *         .build();
  * </pre>
  * <p>
