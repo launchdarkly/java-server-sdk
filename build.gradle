@@ -88,7 +88,7 @@ buildscript {
     }
     dependencies {
         classpath 'org.ajoberstar:gradle-git:1.5.0-rc.1'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.4'
         classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.8.0"
         classpath "org.eclipse.virgo.util:org.eclipse.virgo.util.osgi.manifest:3.5.0.RELEASE"
         classpath "org.osgi:osgi_R4_core:1.0"
