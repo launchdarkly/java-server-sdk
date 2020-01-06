@@ -35,7 +35,7 @@ public class FileDataSourceTest {
   }
   
   private static FileDataSourceBuilder makeFactoryWithFile(Path path) {
-    return com.launchdarkly.client.integrations.FileData.dataSource().filePaths(path);
+    return FileData.dataSource().filePaths(path);
   }
   
   @Test
