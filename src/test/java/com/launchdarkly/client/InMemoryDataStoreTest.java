@@ -1,9 +1,12 @@
 package com.launchdarkly.client;
 
-public class InMemoryDataStoreTest extends DataStoreTestBase<InMemoryDataStore> {
+import com.launchdarkly.client.interfaces.DataStore;
+
+@SuppressWarnings("javadoc")
+public class InMemoryDataStoreTest extends DataStoreTestBase {
 
   @Override
-  protected InMemoryDataStore makeStore() {
+  protected DataStore makeStore() {
     return new InMemoryDataStore();
   }
 }
