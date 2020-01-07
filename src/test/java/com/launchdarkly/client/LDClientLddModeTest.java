@@ -50,7 +50,7 @@ public class LDClientLddModeTest {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .useLdd(true)
-        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .dataStore(specificFeatureStore(testFeatureStore))
         .build();
     FeatureFlag flag = flagWithValue("key", LDValue.of(true));
     testFeatureStore.upsert(FEATURES, flag);
