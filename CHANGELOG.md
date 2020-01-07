@@ -5,7 +5,7 @@ All notable changes to the LaunchDarkly Java SDK will be documented in this file
 
 ## [4.10.1] - 2020-01-06
 ### Fixed:
-- The `pom.xml` dependencies were incorrectly specifying `runtime` scope rather than `compile`, causing problems for application that did not have their own dependencies on Gson and SLF4J. ([#151](https://github.com/launchdarkly/java-client/issues/151))
+- The `pom.xml` dependencies were incorrectly specifying `runtime` scope rather than `compile`, causing problems for applications that did not have their own dependencies on Gson and SLF4J. ([#151](https://github.com/launchdarkly/java-client/issues/151))
 
 ## [4.10.0] - 2019-12-13
 ### Added:
