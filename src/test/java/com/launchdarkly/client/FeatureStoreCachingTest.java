@@ -10,12 +10,14 @@ import static com.launchdarkly.client.FeatureStoreCacheConfig.StaleValuesPolicy.
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+@SuppressWarnings("javadoc")
 public class FeatureStoreCachingTest {
   @Test
   public void disabledHasExpectedProperties() {
     FeatureStoreCacheConfig fsc = FeatureStoreCacheConfig.disabled();
     assertThat(fsc.getCacheTime(), equalTo(0L));
     assertThat(fsc.isEnabled(), equalTo(false));
+    assertThat(fsc.isInfiniteTtl(), equalTo(false));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(EVICT));
   }
   
@@ -25,6 +27,7 @@ public class FeatureStoreCachingTest {
     assertThat(fsc.getCacheTime(), equalTo(FeatureStoreCacheConfig.DEFAULT_TIME_SECONDS));
     assertThat(fsc.getCacheTimeUnit(), equalTo(TimeUnit.SECONDS));
     assertThat(fsc.isEnabled(), equalTo(true));
+    assertThat(fsc.isInfiniteTtl(), equalTo(false));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(EVICT));
   }
   
@@ -72,13 +75,15 @@ public class FeatureStoreCachingTest {
     FeatureStoreCacheConfig fsc = FeatureStoreCacheConfig.enabled()
         .ttl(0, TimeUnit.SECONDS);
     assertThat(fsc.isEnabled(), equalTo(false));
+    assertThat(fsc.isInfiniteTtl(), equalTo(false));
   }
   
   @Test
-  public void negativeTtlMeansDisabled() {
+  public void negativeTtlMeansEnabledAndInfinite() {
     FeatureStoreCacheConfig fsc = FeatureStoreCacheConfig.enabled()
         .ttl(-1, TimeUnit.SECONDS);
-    assertThat(fsc.isEnabled(), equalTo(false));
+    assertThat(fsc.isEnabled(), equalTo(true));
+    assertThat(fsc.isInfiniteTtl(), equalTo(true));
   }
   
   @Test
