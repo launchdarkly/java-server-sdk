@@ -1,24 +1,28 @@
-package com.launchdarkly.client.files;
+package com.launchdarkly.client.integrations;
 
 import com.launchdarkly.client.LDConfig;
 import com.launchdarkly.client.interfaces.FeatureStore;
 import com.launchdarkly.client.interfaces.UpdateProcessor;
 import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
-import com.launchdarkly.client.integrations.FileDataSourceBuilder;
-import com.launchdarkly.client.integrations.FileData;
 
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Deprecated name for {@link FileDataSourceBuilder}. Use {@link FileData#dataSource()} to obtain the
- * new builder.
+ * To use the file data source, obtain a new instance of this class with {@link FileData#dataSource()},
+ * call the builder method {@link #filePaths(String...)} to specify file path(s),
+ * then pass the resulting object to {@link com.launchdarkly.client.LDConfig.Builder#dataSource(UpdateProcessorFactory)}.
+ * <p>
+ * For more details, see {@link FileData}.
  * 
- * @since 4.5.0
- * @deprecated
+ * @since 4.11.0
  */
-public class FileDataSourceFactory implements UpdateProcessorFactory {
-  private final FileDataSourceBuilder wrappedBuilder = new FileDataSourceBuilder();
+public final class FileDataSourceBuilder implements UpdateProcessorFactory {
+  private final List<Path> sources = new ArrayList<>();
+  private boolean autoUpdate = false;
   
   /**
    * Adds any number of source files for loading flag data, specifying each file path as a string. The files will
@@ -31,8 +35,10 @@ public class FileDataSourceFactory implements UpdateProcessorFactory {
    * 
    * @throws InvalidPathException if one of the parameters is not a valid file path
    */
-  public FileDataSourceFactory filePaths(String... filePaths) throws InvalidPathException {
-    wrappedBuilder.filePaths(filePaths);
+  public FileDataSourceBuilder filePaths(String... filePaths) throws InvalidPathException {
+    for (String p: filePaths) {
+      sources.add(Paths.get(p));
+    }
     return this;
   }
 
@@ -45,8 +51,10 @@ public class FileDataSourceFactory implements UpdateProcessorFactory {
    * @param filePaths path(s) to the source file(s); may be absolute or relative to the current working directory
    * @return the same factory object
    */
-  public FileDataSourceFactory filePaths(Path... filePaths) {
-    wrappedBuilder.filePaths(filePaths);
+  public FileDataSourceBuilder filePaths(Path... filePaths) {
+    for (Path p: filePaths) {
+      sources.add(p);
+    }
     return this;
   }
   
@@ -60,8 +68,8 @@ public class FileDataSourceFactory implements UpdateProcessorFactory {
    * @param autoUpdate true if flags should be reloaded whenever a source file changes
    * @return the same factory object
    */
-  public FileDataSourceFactory autoUpdate(boolean autoUpdate) {
-    wrappedBuilder.autoUpdate(autoUpdate);
+  public FileDataSourceBuilder autoUpdate(boolean autoUpdate) {
+    this.autoUpdate = autoUpdate;
     return this;
   }
   
@@ -70,6 +78,6 @@ public class FileDataSourceFactory implements UpdateProcessorFactory {
    */
   @Override
   public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
-    return wrappedBuilder.createUpdateProcessor(sdkKey, config, featureStore);
+    return new FileDataSourceImpl(featureStore, sources, autoUpdate);
   }
 }

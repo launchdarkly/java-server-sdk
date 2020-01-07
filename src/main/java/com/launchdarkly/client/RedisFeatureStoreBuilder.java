@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
-import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.Protocol;
+import com.launchdarkly.client.integrations.Redis;
+import com.launchdarkly.client.integrations.RedisDataStoreBuilder;
 
 import com.launchdarkly.client.interfaces.FeatureStoreFactory;
 
@@ -9,19 +9,17 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 
+import redis.clients.jedis.JedisPoolConfig;
+
 /**
- * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> for configuring the Redis-based persistent feature store.
- *
- * Obtain an instance of this class by calling {@link Components#redisFeatureStore()} or {@link Components#redisFeatureStore(URI)}.
- * Builder calls can be chained, for example:
- *
- * <pre><code>
- * FeatureStore store = Components.redisFeatureStore()
- *      .database(1)
- *      .caching(FeatureStoreCacheConfig.enabled().ttlSeconds(60))
- *      .build();
- * </code></pre>
+ * Deprecated builder class for the Redis-based persistent data store.
+ * <p>
+ * The replacement for this class is {@link com.launchdarkly.client.integrations.RedisDataStoreBuilder}.
+ * This class is retained for backward compatibility and will be removed in a future version. 
+ * 
+ * @deprecated Use {@link com.launchdarkly.client.integrations.Redis#dataStore()}
  */
+@Deprecated
 public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
@@ -42,25 +40,21 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    */
   public static final long DEFAULT_CACHE_TIME_SECONDS = FeatureStoreCacheConfig.DEFAULT_TIME_SECONDS;
   
-  final URI uri;
-  String prefix = DEFAULT_PREFIX;
-  int connectTimeout = Protocol.DEFAULT_TIMEOUT;
-  int socketTimeout = Protocol.DEFAULT_TIMEOUT;
-  Integer database = null;
-  String password = null;
-  boolean tls = false;
+  final RedisDataStoreBuilder wrappedBuilder;
+  
+  // We have to keep track of these caching parameters separately in order to support some deprecated setters
   FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
-  boolean refreshStaleValues = false; // this and asyncRefresh are redundant with FeatureStoreCacheConfig, but are used by deprecated setters
+  boolean refreshStaleValues = false;
   boolean asyncRefresh = false;
-  JedisPoolConfig poolConfig = null;
 
-  // These constructors are called only from Implementations
+  // These constructors are called only from Components
   RedisFeatureStoreBuilder() {
-    this.uri = DEFAULT_URI;
+    wrappedBuilder = Redis.dataStore();
   }
   
   RedisFeatureStoreBuilder(URI uri) {
-    this.uri = uri;
+    this();
+    wrappedBuilder.uri(uri);
   }
   
   /**
@@ -71,8 +65,10 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @deprecated Please use {@link Components#redisFeatureStore(java.net.URI)}.
    */
   public RedisFeatureStoreBuilder(URI uri, long cacheTimeSecs) {
-    this.uri = uri;
-    this.cacheTime(cacheTimeSecs, TimeUnit.SECONDS);
+    this();
+    wrappedBuilder.uri(uri);
+    caching = caching.ttlSeconds(cacheTimeSecs);
+    wrappedBuilder.caching(caching);
   }
 
   /**
@@ -86,8 +82,10 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @deprecated Please use {@link Components#redisFeatureStore(java.net.URI)}.
    */
   public RedisFeatureStoreBuilder(String scheme, String host, int port, long cacheTimeSecs) throws URISyntaxException {
-    this.uri = new URI(scheme, null, host, port, null, null, null);
-    this.cacheTime(cacheTimeSecs, TimeUnit.SECONDS);
+    this();
+    wrappedBuilder.uri(new URI(scheme, null, host, port, null, null, null));
+    caching = caching.ttlSeconds(cacheTimeSecs);
+    wrappedBuilder.caching(caching);
   }
 
   /**
@@ -102,7 +100,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @since 4.7.0
    */
   public RedisFeatureStoreBuilder database(Integer database) {
-    this.database = database;
+    wrappedBuilder.database(database);
     return this;
   }
   
@@ -118,7 +116,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @since 4.7.0
    */
   public RedisFeatureStoreBuilder password(String password) {
-    this.password = password;
+    wrappedBuilder.password(password);
     return this;
   }
   
@@ -135,7 +133,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @since 4.7.0
    */
   public RedisFeatureStoreBuilder tls(boolean tls) {
-    this.tls = tls;
+    wrappedBuilder.tls(tls);
     return this;
   }
   
@@ -151,6 +149,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    */
   public RedisFeatureStoreBuilder caching(FeatureStoreCacheConfig caching) {
     this.caching = caching;
+    wrappedBuilder.caching(caching);
     return this;
   }
   
@@ -189,13 +188,14 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   private void updateCachingStaleValuesPolicy() {
     // We need this logic in order to support the existing behavior of the deprecated methods above:
     // asyncRefresh is supposed to have no effect unless refreshStaleValues is true
-    if (this.refreshStaleValues) {
-      this.caching = this.caching.staleValuesPolicy(this.asyncRefresh ?
+    if (refreshStaleValues) {
+      caching = caching.staleValuesPolicy(this.asyncRefresh ?
           FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC :
           FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH);
     } else {
-      this.caching = this.caching.staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.EVICT);
+      caching = caching.staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.EVICT);
     }
+    wrappedBuilder.caching(caching);
   }
   
   /**
@@ -205,7 +205,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @return the builder
    */
   public RedisFeatureStoreBuilder prefix(String prefix) {
-    this.prefix = prefix;
+    wrappedBuilder.prefix(prefix);
     return this;
   }
 
@@ -220,8 +220,9 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @deprecated use {@link #caching(FeatureStoreCacheConfig)} and {@link FeatureStoreCacheConfig#ttl(long, TimeUnit)}.
    */
   public RedisFeatureStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
-    this.caching = this.caching.ttl(cacheTime, timeUnit)
+    caching = caching.ttl(cacheTime, timeUnit)
         .staleValuesPolicy(this.caching.getStaleValuesPolicy());
+    wrappedBuilder.caching(caching);
     return this;
   }
 
@@ -232,7 +233,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @return the builder
    */
   public RedisFeatureStoreBuilder poolConfig(JedisPoolConfig poolConfig) {
-    this.poolConfig = poolConfig;
+    wrappedBuilder.poolConfig(poolConfig);
     return this;
   }
 
@@ -245,7 +246,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @return the builder
    */
   public RedisFeatureStoreBuilder connectTimeout(int connectTimeout, TimeUnit timeUnit) {
-    this.connectTimeout = (int) timeUnit.toMillis(connectTimeout);
+    wrappedBuilder.connectTimeout(connectTimeout, timeUnit);
     return this;
   }
 
@@ -258,7 +259,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @return the builder
    */
   public RedisFeatureStoreBuilder socketTimeout(int socketTimeout, TimeUnit timeUnit) {
-    this.socketTimeout = (int) timeUnit.toMillis(socketTimeout);
+    wrappedBuilder.socketTimeout(socketTimeout, timeUnit);
     return this;
   }
 

@@ -1,4 +1,4 @@
-package com.launchdarkly.client.files;
+package com.launchdarkly.client.integrations;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -14,7 +14,8 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Set;
 
-public class TestData {
+@SuppressWarnings("javadoc")
+public class FileDataSourceTestData {
   private static final Gson gson = new Gson();
   
   // These should match the data in our test files
@@ -40,12 +41,11 @@ public class TestData {
   public static final Set<String> ALL_SEGMENT_KEYS = ImmutableSet.of(FULL_SEGMENT_1_KEY);
   
   public static Path resourceFilePath(String filename) throws URISyntaxException {
-    URL resource = TestData.class.getClassLoader().getResource("filesource/" + filename);
+    URL resource = FileDataSourceTestData.class.getClassLoader().getResource("filesource/" + filename);
     return Paths.get(resource.toURI());
   }
   
   public static String getResourceContents(String filename) throws Exception {
     return new String(Files.readAllBytes(resourceFilePath(filename)));
   }
-
 }

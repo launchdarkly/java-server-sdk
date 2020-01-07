@@ -1,4 +1,4 @@
-package com.launchdarkly.client.files;
+package com.launchdarkly.client.integrations;
 
 import com.launchdarkly.client.InMemoryFeatureStore;
 import com.launchdarkly.client.LDConfig;
@@ -15,11 +15,10 @@ import java.util.concurrent.Future;
 
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
-import static com.launchdarkly.client.files.FileComponents.fileDataSource;
-import static com.launchdarkly.client.files.TestData.ALL_FLAG_KEYS;
-import static com.launchdarkly.client.files.TestData.ALL_SEGMENT_KEYS;
-import static com.launchdarkly.client.files.TestData.getResourceContents;
-import static com.launchdarkly.client.files.TestData.resourceFilePath;
+import static com.launchdarkly.client.integrations.FileDataSourceTestData.ALL_FLAG_KEYS;
+import static com.launchdarkly.client.integrations.FileDataSourceTestData.ALL_SEGMENT_KEYS;
+import static com.launchdarkly.client.integrations.FileDataSourceTestData.getResourceContents;
+import static com.launchdarkly.client.integrations.FileDataSourceTestData.resourceFilePath;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.fail;
@@ -30,14 +29,14 @@ public class FileDataSourceTest {
   
   private final FeatureStore store = new InMemoryFeatureStore();
   private final LDConfig config = new LDConfig.Builder().build();
-  private final FileDataSourceFactory factory;
+  private final FileDataSourceBuilder factory;
   
   public FileDataSourceTest() throws Exception {
     factory = makeFactoryWithFile(resourceFilePath("all-properties.json"));
   }
   
-  private static FileDataSourceFactory makeFactoryWithFile(Path path) {
-    return fileDataSource().filePaths(path);
+  private static FileDataSourceBuilder makeFactoryWithFile(Path path) {
+    return FileData.dataSource().filePaths(path);
   }
   
   @Test
@@ -96,7 +95,7 @@ public class FileDataSourceTest {
   @Test
   public void modifiedFileIsNotReloadedIfAutoUpdateIsOff() throws Exception {
     File file = makeTempFlagFile();
-    FileDataSourceFactory factory1 = makeFactoryWithFile(file.toPath());
+    FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath());
     try {
       setFileContents(file, getResourceContents("flag-only.json"));
       try (UpdateProcessor fp = factory1.createUpdateProcessor("", config, store)) {
@@ -117,7 +116,7 @@ public class FileDataSourceTest {
   @Test
   public void modifiedFileIsReloadedIfAutoUpdateIsOn() throws Exception {
     File file = makeTempFlagFile();
-    FileDataSourceFactory factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
+    FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
     long maxMsToWait = 10000;
     try {
       setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
@@ -144,7 +143,7 @@ public class FileDataSourceTest {
   public void ifFilesAreBadAtStartTimeAutoUpdateCanStillLoadGoodDataLater() throws Exception {
     File file = makeTempFlagFile();
     setFileContents(file, "not valid");
-    FileDataSourceFactory factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
+    FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
     long maxMsToWait = 10000;
     try {
       try (UpdateProcessor fp = factory1.createUpdateProcessor("", config, store)) {

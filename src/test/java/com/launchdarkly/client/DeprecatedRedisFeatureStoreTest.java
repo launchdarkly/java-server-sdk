@@ -1,8 +1,5 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.RedisFeatureStore.UpdateListener;
-
-import org.junit.Assume;
 import org.junit.BeforeClass;
 
 import java.net.URI;
@@ -11,11 +8,12 @@ import static org.junit.Assume.assumeTrue;
 
 import redis.clients.jedis.Jedis;
 
-public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFeatureStore> {
+@SuppressWarnings({ "javadoc", "deprecation" })
+public class DeprecatedRedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFeatureStore> {
 
   private static final URI REDIS_URI = URI.create("redis://localhost:6379");
   
-  public RedisFeatureStoreTest(boolean cached) {
+  public DeprecatedRedisFeatureStoreTest(boolean cached) {
     super(cached);
   }
   
@@ -42,16 +40,5 @@ public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<RedisFea
     try (Jedis client = new Jedis("localhost")) {
       client.flushDB();
     }
-  }
-  
-  @Override
-  protected boolean setUpdateHook(RedisFeatureStore storeUnderTest, final Runnable hook) {
-    storeUnderTest.setUpdateListener(new UpdateListener() {
-      @Override
-      public void aboutToUpdate(String baseKey, String itemKey) {
-        hook.run();
-      }
-    });
-    return true;
   }
 }
