@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  *         )
  * </code></pre>
  * 
- * @see RedisDataStoreBuilder#caching(DataStoreCacheConfig)
+ * @see com.launchdarkly.client.integrations.RedisDataStoreBuilder#caching(DataStoreCacheConfig)
  * @since 4.6.0
  */
 public final class DataStoreCacheConfig {
