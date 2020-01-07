@@ -1,9 +1,9 @@
-package com.launchdarkly.client.files;
+package com.launchdarkly.client.integrations;
 
 import com.launchdarkly.client.LDConfig;
-import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
+import com.launchdarkly.client.interfaces.DataStore;
 
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -12,15 +12,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * To use the file data source, obtain a new instance of this class with {@link FileComponents#fileDataSource()},
+ * To use the file data source, obtain a new instance of this class with {@link FileData#dataSource()},
  * call the builder method {@link #filePaths(String...)} to specify file path(s),
  * then pass the resulting object to {@link com.launchdarkly.client.LDConfig.Builder#dataSource(DataSourceFactory)}.
  * <p>
- * For more details, see {@link FileComponents}.
+ * For more details, see {@link FileData}.
  * 
- * @since 4.5.0
+ * @since 4.11.0
  */
-public class FileDataSourceFactory implements DataSourceFactory {
+public final class FileDataSourceBuilder implements DataSourceFactory {
   private final List<Path> sources = new ArrayList<>();
   private boolean autoUpdate = false;
   
@@ -35,7 +35,7 @@ public class FileDataSourceFactory implements DataSourceFactory {
    * 
    * @throws InvalidPathException if one of the parameters is not a valid file path
    */
-  public FileDataSourceFactory filePaths(String... filePaths) throws InvalidPathException {
+  public FileDataSourceBuilder filePaths(String... filePaths) throws InvalidPathException {
     for (String p: filePaths) {
       sources.add(Paths.get(p));
     }
@@ -51,7 +51,7 @@ public class FileDataSourceFactory implements DataSourceFactory {
    * @param filePaths path(s) to the source file(s); may be absolute or relative to the current working directory
    * @return the same factory object
    */
-  public FileDataSourceFactory filePaths(Path... filePaths) {
+  public FileDataSourceBuilder filePaths(Path... filePaths) {
     for (Path p: filePaths) {
       sources.add(p);
     }
@@ -68,7 +68,7 @@ public class FileDataSourceFactory implements DataSourceFactory {
    * @param autoUpdate true if flags should be reloaded whenever a source file changes
    * @return the same factory object
    */
-  public FileDataSourceFactory autoUpdate(boolean autoUpdate) {
+  public FileDataSourceBuilder autoUpdate(boolean autoUpdate) {
     this.autoUpdate = autoUpdate;
     return this;
   }
@@ -77,7 +77,7 @@ public class FileDataSourceFactory implements DataSourceFactory {
    * Used internally by the LaunchDarkly client.
    */
   @Override
-  public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore) {
-    return new FileDataSource(dataStore, new DataLoader(sources), autoUpdate);
+  public DataSource createDataSource(String sdkKey, LDConfig config, DataStore featureStore) {
+    return new FileDataSourceImpl(featureStore, sources, autoUpdate);
   }
 }

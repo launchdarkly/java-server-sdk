@@ -1,4 +1,4 @@
-package com.launchdarkly.client.files;
+package com.launchdarkly.client.integrations;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 @SuppressWarnings("javadoc")
-public class TestData {
+public class FileDataSourceTestData {
   // These should match the data in our test files
   public static final String FULL_FLAG_1_KEY = "flag1";
   public static final LDValue FULL_FLAG_1 =
@@ -36,12 +36,11 @@ public class TestData {
   public static final Set<String> ALL_SEGMENT_KEYS = ImmutableSet.of(FULL_SEGMENT_1_KEY);
   
   public static Path resourceFilePath(String filename) throws URISyntaxException {
-    URL resource = TestData.class.getClassLoader().getResource("filesource/" + filename);
+    URL resource = FileDataSourceTestData.class.getClassLoader().getResource("filesource/" + filename);
     return Paths.get(resource.toURI());
   }
   
   public static String getResourceContents(String filename) throws Exception {
     return new String(Files.readAllBytes(resourceFilePath(filename)));
   }
-
 }

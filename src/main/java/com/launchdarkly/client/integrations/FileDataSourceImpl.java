@@ -1,21 +1,35 @@
-package com.launchdarkly.client.files;
+package com.launchdarkly.client.integrations;
 
 import com.google.common.util.concurrent.Futures;
-import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.DataModel;
+import com.launchdarkly.client.integrations.FileDataSourceParsing.FileDataException;
+import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFactory;
+import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileParser;
+import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileRep;
 import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
+import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.Watchable;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,17 +42,17 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
  * Implements taking flag data from files and putting it into the data store, at startup time and
  * optionally whenever files change.
  */
-class FileDataSource implements DataSource {
-  private static final Logger logger = LoggerFactory.getLogger(FileDataSource.class);
+final class FileDataSourceImpl implements DataSource {
+  private static final Logger logger = LoggerFactory.getLogger(FileDataSourceImpl.class);
 
   private final DataStore store;
   private final DataLoader dataLoader;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final FileWatcher fileWatcher;
   
-  FileDataSource(DataStore store, DataLoader dataLoader, boolean autoUpdate) {
+  FileDataSourceImpl(DataStore store, List<Path> sources, boolean autoUpdate) {
     this.store = store;
-    this.dataLoader = dataLoader;
+    this.dataLoader = new DataLoader(sources);
 
     FileWatcher fw = null;
     if (autoUpdate) {
@@ -65,7 +79,7 @@ class FileDataSource implements DataSource {
     if (fileWatcher != null) {
       fileWatcher.start(new Runnable() {
         public void run() {
-          FileDataSource.this.reload();
+          FileDataSourceImpl.this.reload();
         }
       });
     }
@@ -77,7 +91,7 @@ class FileDataSource implements DataSource {
     DataBuilder builder = new DataBuilder(); 
     try {
       dataLoader.load(builder); 
-    } catch (DataLoaderException e) {
+    } catch (FileDataException e) {
       logger.error(e.getDescription());
       return false;
     }
@@ -101,7 +115,7 @@ class FileDataSource implements DataSource {
   /**
    * If auto-updating is enabled, this component watches for file changes on a worker thread.
    */
-  private static class FileWatcher implements Runnable {
+  private static final class FileWatcher implements Runnable {
     private final WatchService watchService;
     private final Set<Path> watchedFilePaths;
     private Runnable fileModifiedAction;
@@ -165,7 +179,7 @@ class FileDataSource implements DataSource {
     
     public void start(Runnable fileModifiedAction) {
       this.fileModifiedAction = fileModifiedAction;
-      thread = new Thread(this, FileDataSource.class.getName());
+      thread = new Thread(this, FileDataSourceImpl.class.getName());
       thread.setDaemon(true);
       thread.start();
     }
@@ -175,6 +189,77 @@ class FileDataSource implements DataSource {
       if (thread != null) {
         thread.interrupt();
       }
+    }
+  }
+  
+  /**
+   * Implements the loading of flag data from one or more files. Will throw an exception if any file can't
+   * be read or parsed, or if any flag or segment keys are duplicates.
+   */
+  static final class DataLoader {
+    private final List<Path> files;
+
+    public DataLoader(List<Path> files) {
+      this.files = new ArrayList<Path>(files);
+    }
+    
+    public Iterable<Path> getFiles() {
+      return files;
+    }
+    
+    public void load(DataBuilder builder) throws FileDataException
+    {
+      for (Path p: files) {
+        try {
+          byte[] data = Files.readAllBytes(p);
+          FlagFileParser parser = FlagFileParser.selectForContent(data);
+          FlagFileRep fileContents = parser.parse(new ByteArrayInputStream(data));
+          if (fileContents.flags != null) {
+            for (Map.Entry<String, LDValue> e: fileContents.flags.entrySet()) {
+              builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagFromJson(e.getValue()));
+            }
+          }
+          if (fileContents.flagValues != null) {
+            for (Map.Entry<String, LDValue> e: fileContents.flagValues.entrySet()) {
+              builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagWithValue(e.getKey(), e.getValue()));
+            }
+          }
+          if (fileContents.segments != null) {
+            for (Map.Entry<String, LDValue> e: fileContents.segments.entrySet()) {
+              builder.add(DataModel.DataKinds.SEGMENTS, FlagFactory.segmentFromJson(e.getValue()));
+            }
+          }
+        } catch (FileDataException e) {
+          throw new FileDataException(e.getMessage(), e.getCause(), p);
+        } catch (IOException e) {
+          throw new FileDataException(null, e, p);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Internal data structure that organizes flag/segment data into the format that the feature store
+   * expects. Will throw an exception if we try to add the same flag or segment key more than once.
+   */
+  static final class DataBuilder {
+    private final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = new HashMap<>();
+    
+    public Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> build() {
+      return allData;
+    }
+    
+    public void add(VersionedDataKind<?> kind, VersionedData item) throws FileDataException {
+      @SuppressWarnings("unchecked")
+      Map<String, VersionedData> items = (Map<String, VersionedData>)allData.get(kind);
+      if (items == null) {
+        items = new HashMap<String, VersionedData>();
+        allData.put(kind, items);
+      }
+      if (items.containsKey(item.getKey())) {
+        throw new FileDataException("in " + kind.getNamespace() + ", key \"" + item.getKey() + "\" was already defined", null, null);
+      }
+      items.put(item.getKey(), item);
     }
   }
 }

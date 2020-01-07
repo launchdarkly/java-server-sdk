@@ -2,12 +2,10 @@ package com.launchdarkly.client;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.launchdarkly.client.interfaces.DataSourceFactory;
+import com.launchdarkly.client.interfaces.DataStoreFactory;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.DataStore;
-import com.launchdarkly.client.interfaces.DataStoreFactory;
-import com.launchdarkly.client.interfaces.DataSource;
-import com.launchdarkly.client.interfaces.DataSourceFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -207,13 +205,14 @@ public final class LDConfig {
     }
 
     /**
-     * Sets the implementation of {@link DataStore} to be used for holding feature flags and
+     * Sets the implementation of the data store to be used for holding feature flags and
      * related data received from LaunchDarkly, using a factory object. The default is
-     * {@link Components#inMemoryDataStore()}, but you may use {@link Components#redisDataStore()}
-     * or a custom implementation.
+     * {@link Components#inMemoryDataStore()}, but you may use a custom implementation such as
+     * {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
+     * 
      * @param factory the factory object
      * @return the builder
-     * @since 5.0.0
+     * @since 4.11.0
      */
     public Builder dataStore(DataStoreFactory factory) {
       this.dataStoreFactory = factory;
@@ -226,7 +225,7 @@ public final class LDConfig {
      * you may choose to use a custom implementation (for instance, a test fixture).
      * @param factory the factory object
      * @return the builder
-     * @since 5.0.0
+     * @since 4.11.0
      */
     public Builder eventProcessor(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
@@ -234,12 +233,13 @@ public final class LDConfig {
     }
     
     /**
-     * Sets the implementation of {@link DataSource} to be used for receiving feature flag data,
+     * Sets the implementation of the component that receives feature flag data from LaunchDarkly,
      * using a factory object. The default is {@link Components#defaultDataSource()}, but
      * you may choose to use a custom implementation (for instance, a test fixture).
+     * 
      * @param factory the factory object
      * @return the builder
-     * @since 5.0.0
+     * @since 4.11.0
      */
     public Builder dataSource(DataSourceFactory factory) {
       this.dataSourceFactory = factory;

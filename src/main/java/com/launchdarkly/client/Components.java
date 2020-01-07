@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.concurrent.Future;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -23,37 +22,22 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
  */
 public abstract class Components {
   /**
-   * Returns a factory for the default in-memory implementation of {@link DataStore}.
+   * Returns a factory for the default in-memory implementation of a data store.
+   * 
    * @return a factory object
+   * @since 4.11.0
+   * @see LDConfig.Builder#dataStore(DataStoreFactory)
    */
   public static DataStoreFactory inMemoryDataStore() {
     return InMemoryDataStoreFactory.INSTANCE;
   }
-  
-  /**
-   * Returns a factory with builder methods for creating a Redis-backed implementation of {@link DataStore},
-   * using {@link RedisDataStoreBuilder#DEFAULT_URI}.
-   * @return a factory/builder object
-   */
-  public static RedisDataStoreBuilder redisDataStore() {
-    return new RedisDataStoreBuilder();
-  }
-  
-  /**
-   * Returns a factory with builder methods for creating a Redis-backed implementation of {@link DataStore},
-   * specifying the Redis URI.
-   * @param redisUri the URI of the Redis host
-   * @return a factory/builder object
-   */
-  public static RedisDataStoreBuilder redisDataStore(URI redisUri) {
-    return new RedisDataStoreBuilder(redisUri);
-  }
-  
+      
   /**
    * Returns a factory for the default implementation of {@link EventProcessor}, which
    * forwards all analytics events to LaunchDarkly (unless the client is offline or you have
    * set {@link LDConfig.Builder#sendEvents(boolean)} to {@code false}).
    * @return a factory object
+   * @see LDConfig.Builder#eventProcessor(EventProcessorFactory)
    */
   public static EventProcessorFactory defaultEventProcessor() {
     return DefaultEventProcessorFactory.INSTANCE;
@@ -63,16 +47,20 @@ public abstract class Components {
    * Returns a factory for a null implementation of {@link EventProcessor}, which will discard
    * all analytics events and not send them to LaunchDarkly, regardless of any other configuration.
    * @return a factory object
+   * @see LDConfig.Builder#eventProcessor(EventProcessorFactory)
    */
   public static EventProcessorFactory nullEventProcessor() {
     return NullEventProcessorFactory.INSTANCE;
   }
   
   /**
-   * Returns a factory for the default implementation of {@link DataSource}, which receives
-   * feature flag data from LaunchDarkly using either streaming or polling as configured (or does
-   * nothing if the client is offline, or in LDD mode).
+   * Returns a factory for the default implementation of the component for receiving feature flag data
+   * from LaunchDarkly. Based on your configuration, this implementation uses either streaming or
+   * polling, or does nothing if the client is offline, or in LDD mode.
+   * 
    * @return a factory object
+   * @since 4.11.0
+   * @see LDConfig.Builder#dataSource(DataSourceFactory)
    */
   public static DataSourceFactory defaultDataSource() {
     return DefaultDataSourceFactory.INSTANCE;
@@ -81,7 +69,10 @@ public abstract class Components {
   /**
    * Returns a factory for a null implementation of {@link DataSource}, which does not
    * connect to LaunchDarkly, regardless of any other configuration.
+   * 
    * @return a factory object
+   * @since 4.11.0
+   * @see LDConfig.Builder#dataSource(DataSourceFactory)
    */
   public static DataSourceFactory nullDataSource() {
     return NullDataSourceFactory.INSTANCE;

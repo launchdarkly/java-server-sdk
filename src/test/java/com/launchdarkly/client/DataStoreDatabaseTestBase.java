@@ -28,7 +28,7 @@ import static org.junit.Assume.assumeTrue;
  */
 @SuppressWarnings("javadoc")
 @RunWith(Parameterized.class)
-public abstract class DataStoreDatabaseTestBase<T extends DataStore> extends DataStoreTestBase<T> {
+public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
 
   @Parameters(name="cached={0}")
   public static Iterable<Boolean> data() {
@@ -43,7 +43,7 @@ public abstract class DataStoreDatabaseTestBase<T extends DataStore> extends Dat
    * Test subclasses should override this method if the data store class supports a key prefix option
    * for keeping data sets distinct within the same database.
    */
-  protected T makeStoreWithPrefix(String prefix) {
+  protected DataStore makeStoreWithPrefix(String prefix) {
     return null;
   }
 
@@ -68,7 +68,7 @@ public abstract class DataStoreDatabaseTestBase<T extends DataStore> extends Dat
    * Test classes should override this (and return true) if it is possible to instrument the feature
    * store to execute the specified Runnable during an upsert operation, for concurrent modification tests.
    */
-  protected boolean setUpdateHook(T storeUnderTest, Runnable hook) {
+  protected boolean setUpdateHook(DataStore storeUnderTest, Runnable hook) {
     return false;
   }
   
@@ -100,7 +100,7 @@ public abstract class DataStoreDatabaseTestBase<T extends DataStore> extends Dat
     assumeFalse(cached); // caching would cause the inited state to only be detected after the cache has expired
     
     clearAllData();
-    T store2 = makeStore();
+    DataStore store2 = makeStore();
     
     assertFalse(store.initialized());
     
@@ -114,7 +114,7 @@ public abstract class DataStoreDatabaseTestBase<T extends DataStore> extends Dat
     assumeFalse(cached); // caching would cause the inited state to only be detected after the cache has expired
     
     clearAllData();
-    T store2 = makeStore();
+    DataStore store2 = makeStore();
     
     assertFalse(store.initialized());
     
@@ -129,7 +129,7 @@ public abstract class DataStoreDatabaseTestBase<T extends DataStore> extends Dat
   
   @Test
   public void handlesUpsertRaceConditionAgainstExternalClientWithLowerVersion() throws Exception {
-    final T store2 = makeStore();
+    final DataStore store2 = makeStore();
     
     int startVersion = 1;
     final int store2VersionStart = 2;
@@ -166,7 +166,7 @@ public abstract class DataStoreDatabaseTestBase<T extends DataStore> extends Dat
   
   @Test
   public void handlesUpsertRaceConditionAgainstExternalClientWithHigherVersion() throws Exception {
-    final T store2 = makeStore();
+    final DataStore store2 = makeStore();
     
     int startVersion = 1;
     final int store2Version = 3;
@@ -200,9 +200,9 @@ public abstract class DataStoreDatabaseTestBase<T extends DataStore> extends Dat
   public void storesWithDifferentPrefixAreIndependent() throws Exception {
     assumeFalse(cached);
     
-    T store1 = makeStoreWithPrefix("aaa");
+    DataStore store1 = makeStoreWithPrefix("aaa");
     Assume.assumeNotNull(store1);
-    T store2 = makeStoreWithPrefix("bbb");
+    DataStore store2 = makeStoreWithPrefix("bbb");
     clearAllData();
     
     try {

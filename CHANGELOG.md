@@ -3,6 +3,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.10.1] - 2020-01-06
+### Fixed:
+- The `pom.xml` dependencies were incorrectly specifying `runtime` scope rather than `compile`, causing problems for applications that did not have their own dependencies on Gson and SLF4J. ([#151](https://github.com/launchdarkly/java-client/issues/151))
+
 ## [4.10.0] - 2019-12-13
 ### Added:
 - Method overloads in `ArrayBuilder`/`ObjectBuilder` to allow easily adding values as booleans, strings, etc. rather than converting them to `LDValue` first.

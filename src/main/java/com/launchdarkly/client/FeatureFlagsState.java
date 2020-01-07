@@ -144,7 +144,6 @@ public class FeatureFlagsState {
       return this;
     }
     
-    @SuppressWarnings("deprecation")
     Builder addFlag(DataModel.FeatureFlag flag, Evaluator.EvalResult eval) {
       flagValues.put(flag.getKey(), eval.getValue());
       final boolean flagIsTracked = flag.isTrackEvents() ||

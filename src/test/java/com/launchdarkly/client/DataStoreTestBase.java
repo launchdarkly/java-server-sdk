@@ -26,9 +26,9 @@ import static org.junit.Assert.assertTrue;
  * comprehensive DataStoreDatabaseTestBase.
  */
 @SuppressWarnings("javadoc")
-public abstract class DataStoreTestBase<T extends DataStore> {
+public abstract class DataStoreTestBase {
 
-  protected T store;
+  protected DataStore store;
   protected boolean cached;
   
   protected DataModel.FeatureFlag feature1 = flagBuilder("foo")
@@ -58,7 +58,7 @@ public abstract class DataStoreTestBase<T extends DataStore> {
    * caching either enabled or disabled depending on the "cached" property.
    * @return
    */
-  protected abstract T makeStore();
+  protected abstract DataStore makeStore();
   
   /**
    * Test classes should override this to clear all data from the underlying database, if it is

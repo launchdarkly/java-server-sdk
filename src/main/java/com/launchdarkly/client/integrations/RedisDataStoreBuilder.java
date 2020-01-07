@@ -1,40 +1,53 @@
-package com.launchdarkly.client;
+package com.launchdarkly.client.integrations;
 
+import com.launchdarkly.client.DataStoreCacheConfig;
+import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.utils.CachingStoreWrapper;
 
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
 /**
  * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> for configuring the Redis-based persistent data store.
- *
- * Obtain an instance of this class by calling {@link Components#redisDataStore()} or {@link Components#redisDataStore(URI)}.
+ * <p>
+ * Obtain an instance of this class by calling {@link Redis#dataStore()}. After calling its methods
+ * to specify any desired custom settings, you can pass it directly into the SDK configuration with
+ * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(com.launchdarkly.client.interfaces.DataStoreFactory)}.
+ * You do not need to call {@link #createDataStore()} yourself to build the actual data store; that
+ * will be done by the SDK.
+ * <p>
  * Builder calls can be chained, for example:
  *
  * <pre><code>
- * DataeStore store = Components.redisDataStore()
- *      .database(1)
- *      .caching(DataStoreCacheConfig.enabled().ttlSeconds(60))
+ * LDConfig config = new LDConfig.Builder()
+ *      .dataStore(
+ *           Redis.dataStore()
+ *               .database(1)
+ *               .caching(FeatureStoreCacheConfig.enabled().ttlSeconds(60))
+ *      )
  *      .build();
  * </code></pre>
+ * 
+ * @since 4.11.0
  */
 public final class RedisDataStoreBuilder implements DataStoreFactory {
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
-   * @since 4.0.0
    */
   public static final URI DEFAULT_URI = URI.create("redis://localhost:6379");
   
   /**
    * The default value for {@link #prefix(String)}.
-   * @since 4.0.0
    */
   public static final String DEFAULT_PREFIX = "launchdarkly";
   
-  final URI uri;
+  URI uri = DEFAULT_URI;
   String prefix = DEFAULT_PREFIX;
   int connectTimeout = Protocol.DEFAULT_TIMEOUT;
   int socketTimeout = Protocol.DEFAULT_TIMEOUT;
@@ -44,13 +57,8 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
   DataStoreCacheConfig caching = DataStoreCacheConfig.DEFAULT;
   JedisPoolConfig poolConfig = null;
 
-  // These constructors are called only from Components
+  // These constructors are called only from Implementations
   RedisDataStoreBuilder() {
-    this.uri = DEFAULT_URI;
-  }
-  
-  RedisDataStoreBuilder(URI uri) {
-    this.uri = uri;
   }
   
   /**
@@ -61,8 +69,6 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
    * 
    * @param database the database number, or null to fall back to the URI or the default
    * @return the builder
-   * 
-   * @since 4.7.0
    */
   public RedisDataStoreBuilder database(Integer database) {
     this.database = database;
@@ -77,8 +83,6 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
    * 
    * @param password the password
    * @return the builder
-   * 
-   * @since 4.7.0
    */
   public RedisDataStoreBuilder password(String password) {
     this.password = password;
@@ -94,11 +98,20 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
    * 
    * @param tls true to enable TLS
    * @return the builder
-   * 
-   * @since 4.7.0
    */
   public RedisDataStoreBuilder tls(boolean tls) {
     this.tls = tls;
+    return this;
+  }
+  
+  /**
+   * Specifies a Redis host URI other than {@link #DEFAULT_URI}.
+   * 
+   * @param redisUri the URI of the Redis host
+   * @return the builder
+   */
+  public RedisDataStoreBuilder uri(URI redisUri) {
+    this.uri = checkNotNull(uri);
     return this;
   }
   
@@ -109,8 +122,6 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
    * 
    * @param caching a {@link DataStoreCacheConfig} object specifying caching parameters
    * @return the builder
-   * 
-   * @since 4.6.0
    */
   public RedisDataStoreBuilder caching(DataStoreCacheConfig caching) {
     this.caching = caching;
@@ -166,19 +177,11 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
   }
 
   /**
-   * Build a {@link RedisDataStore} based on the currently configured builder object.
-   * @return the {@link RedisDataStore} configured by this builder.
+   * Called internally by the SDK to create the actual data store instance.
+   * @return the data store configured by this builder
    */
-  public RedisDataStore build() {
-    return new RedisDataStore(this);
-  }
-  
-  /**
-   * Synonym for {@link #build()}.
-   * @return the {@link RedisDataStore} configured by this builder.
-   * @since 4.0.0
-   */
-  public RedisDataStore createDataStore() {
-    return build();
+  public DataStore createDataStore() {
+    RedisDataStoreImpl core = new RedisDataStoreImpl(this);
+    return CachingStoreWrapper.builder(core).caching(this.caching).build();
   }
 }
