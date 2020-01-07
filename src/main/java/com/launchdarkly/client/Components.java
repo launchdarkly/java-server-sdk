@@ -41,22 +41,23 @@ public abstract class Components {
   }
   
   /**
-   * Returns a factory with builder methods for creating a Redis-backed implementation of {@link FeatureStore},
-   * using {@link RedisFeatureStoreBuilder#DEFAULT_URI}.
+   * Deprecated name for {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    * @return a factory/builder object
-   * @see LDConfig.Builder#dataStore(FeatureStoreFactory)
+   * @deprecated Use {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    */
+  @Deprecated
   public static RedisFeatureStoreBuilder redisFeatureStore() {
     return new RedisFeatureStoreBuilder();
   }
   
   /**
-   * Returns a factory with builder methods for creating a Redis-backed implementation of {@link FeatureStore},
-   * specifying the Redis URI.
+   * Deprecated name for {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    * @param redisUri the URI of the Redis host
    * @return a factory/builder object
-   * @see LDConfig.Builder#dataStore(FeatureStoreFactory)
+   * @deprecated Use {@link com.launchdarkly.client.integrations.Redis#dataStore()} and
+   *   {@link com.launchdarkly.client.integrations.RedisDataStoreBuilder#uri(URI)}.
    */
+  @Deprecated
   public static RedisFeatureStoreBuilder redisFeatureStore(URI redisUri) {
     return new RedisFeatureStoreBuilder(redisUri);
   }
