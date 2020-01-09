@@ -248,7 +248,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public LDValue jsonValueVariation(String featureKey, LDUser user, LDValue defaultValue) {
-    return evaluate(featureKey, user, defaultValue == null ? LDValue.ofNull() : defaultValue, false);
+    return evaluate(featureKey, user, LDValue.normalize(defaultValue), false);
   }
 
   @Override
@@ -294,7 +294,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, defaultValue == null ? LDValue.ofNull() : defaultValue, false, EventFactory.DEFAULT_WITH_REASONS);
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue), false, EventFactory.DEFAULT_WITH_REASONS);
     return EvaluationDetail.fromValue(result.getValue(), result.getVariationIndex(), result.getReason());
   }
   
