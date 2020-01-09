@@ -134,8 +134,20 @@ public class LDClientEvaluationTest {
   }
 
   @Test
+  public void stringVariationWithNullDefaultReturnsFlagValue() throws Exception {
+    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("b")));
+
+    assertEquals("b", client.stringVariation("key", user, null));
+  }
+
+  @Test
   public void stringVariationReturnsDefaultValueForUnknownFlag() throws Exception {
     assertEquals("a", client.stringVariation("key", user, "a"));
+  }
+
+  @Test
+  public void stringVariationWithNullDefaultReturnsDefaultValueForUnknownFlag() throws Exception {
+    assertNull(client.stringVariation("key", user, null));
   }
 
   @Test

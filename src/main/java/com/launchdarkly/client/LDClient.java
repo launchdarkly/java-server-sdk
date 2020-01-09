@@ -367,8 +367,8 @@ public final class LDClient implements LDClientInterface {
       if (evalResult.isDefault()) {
         evalResult.setValue(defaultValue);
       } else {
-        LDValue value = evalResult.getValue();
-        if (checkType && value != null && !value.isNull() && defaultValue.getType() != value.getType()) {
+        LDValue value = evalResult.getValue(); // guaranteed not to be an actual Java null, but can be LDValue.ofNull()
+        if (checkType && !value.isNull() && !defaultValue.isNull() && defaultValue.getType() != value.getType()) {
           logger.error("Feature flag evaluation expected result as {}, but got {}", defaultValue.getType(), value.getType());
           sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
               EvaluationReason.ErrorKind.WRONG_TYPE));
