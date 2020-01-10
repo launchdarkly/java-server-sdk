@@ -2,14 +2,15 @@ package com.launchdarkly.client.integrations;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.gson.JsonElement;
-import com.launchdarkly.client.FeatureStore;
-import com.launchdarkly.client.UpdateProcessor;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.DataModel;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FileDataException;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFactory;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileParser;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileRep;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -215,17 +216,17 @@ final class FileDataSourceImpl implements UpdateProcessor {
           FlagFileRep fileContents = parser.parse(new ByteArrayInputStream(data));
           if (fileContents.flags != null) {
             for (Map.Entry<String, JsonElement> e: fileContents.flags.entrySet()) {
-              builder.add(VersionedDataKind.FEATURES, FlagFactory.flagFromJson(e.getValue()));
+              builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagFromJson(e.getValue()));
             }
           }
           if (fileContents.flagValues != null) {
             for (Map.Entry<String, JsonElement> e: fileContents.flagValues.entrySet()) {
-              builder.add(VersionedDataKind.FEATURES, FlagFactory.flagWithValue(e.getKey(), e.getValue()));
+              builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagWithValue(e.getKey(), e.getValue()));
             }
           }
           if (fileContents.segments != null) {
             for (Map.Entry<String, JsonElement> e: fileContents.segments.entrySet()) {
-              builder.add(VersionedDataKind.SEGMENTS, FlagFactory.segmentFromJson(e.getValue()));
+              builder.add(DataModel.DataKinds.SEGMENTS, FlagFactory.segmentFromJson(e.getValue()));
             }
           }
         } catch (FileDataException e) {

@@ -4,12 +4,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.interfaces.FeatureStore;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
 import java.util.Map;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.client.ModelBuilders.clause;
 import static com.launchdarkly.client.ModelBuilders.fallthroughVariation;
@@ -20,8 +23,6 @@ import static com.launchdarkly.client.TestUtil.failedUpdateProcessor;
 import static com.launchdarkly.client.TestUtil.featureStoreThatThrowsException;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificUpdateProcessor;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;

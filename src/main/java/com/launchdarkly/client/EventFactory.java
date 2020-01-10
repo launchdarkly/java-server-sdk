@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 
 abstract class EventFactory {
@@ -55,8 +56,8 @@ abstract class EventFactory {
   }
 
   public Event.FeatureRequest newDebugEvent(Event.FeatureRequest from) {
-    return new Event.FeatureRequest(from.creationDate, from.key, from.user, from.version, from.variation, from.value,
-        from.defaultVal, from.reason, from.prereqOf, from.trackEvents, from.debugEventsUntilDate, true);
+    return new Event.FeatureRequest(from.getCreationDate(), from.getKey(), from.getUser(), from.getVersion(), from.getVariation(), from.getValue(),
+        from.getDefaultVal(), from.getReason(), from.getPrereqOf(), from.isTrackEvents(), from.getDebugEventsUntilDate(), true);
   }
   
   public Event.Custom newCustomEvent(String key, LDUser user, LDValue data, Double metricValue) {

@@ -1,6 +1,13 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.interfaces.Event;
+import com.launchdarkly.client.interfaces.EventProcessor;
+import com.launchdarkly.client.interfaces.EventProcessorFactory;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.FeatureStoreFactory;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
 import com.launchdarkly.client.value.LDValue;
 
 import org.apache.commons.codec.binary.Hex;
@@ -23,7 +30,8 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
@@ -82,11 +90,11 @@ public final class LDClient implements LDClientInterface {
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
-        return LDClient.this.featureStore.get(VersionedDataKind.FEATURES, key);
+        return LDClient.this.featureStore.get(FEATURES, key);
       }
 
       public DataModel.Segment getSegment(String key) {
-        return LDClient.this.featureStore.get(VersionedDataKind.SEGMENTS, key);
+        return LDClient.this.featureStore.get(SEGMENTS, key);
       }
     });
     
@@ -167,7 +175,7 @@ public final class LDClient implements LDClientInterface {
 
   private void sendFlagRequestEvent(Event.FeatureRequest event) {
     eventProcessor.sendEvent(event);
-    NewRelicReflector.annotateTransaction(event.key, String.valueOf(event.value));
+    NewRelicReflector.annotateTransaction(event.getKey(), String.valueOf(event.getValue()));
   }
 
   @Override

@@ -3,6 +3,9 @@ package com.launchdarkly.client;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
@@ -17,11 +20,11 @@ import java.net.URI;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
@@ -120,20 +123,20 @@ final class StreamProcessor implements UpdateProcessor {
           }
           case PATCH: {
             PatchData data = gson.fromJson(event.getData(), PatchData.class);
-            if (FEATURES.getKeyFromStreamApiPath(data.path) != null) {
+            if (getKeyFromStreamApiPath(FEATURES, data.path) != null) {
               store.upsert(FEATURES, gson.fromJson(data.data, DataModel.FeatureFlag.class));
-            } else if (SEGMENTS.getKeyFromStreamApiPath(data.path) != null) {
+            } else if (getKeyFromStreamApiPath(SEGMENTS, data.path) != null) {
               store.upsert(SEGMENTS, gson.fromJson(data.data, DataModel.Segment.class));
             }
             break;
           }
           case DELETE: {
             DeleteData data = gson.fromJson(event.getData(), DeleteData.class);
-            String featureKey = FEATURES.getKeyFromStreamApiPath(data.path);
+            String featureKey = getKeyFromStreamApiPath(FEATURES, data.path);
             if (featureKey != null) {
               store.delete(FEATURES, featureKey, data.version);
             } else {
-              String segmentKey = SEGMENTS.getKeyFromStreamApiPath(data.path);
+              String segmentKey = getKeyFromStreamApiPath(SEGMENTS, data.path);
               if (segmentKey != null) {
                 store.delete(SEGMENTS, segmentKey, data.version);
               }
@@ -156,12 +159,12 @@ final class StreamProcessor implements UpdateProcessor {
           case INDIRECT_PATCH:
             String path = event.getData();
             try {
-              String featureKey = FEATURES.getKeyFromStreamApiPath(path);
+              String featureKey = getKeyFromStreamApiPath(FEATURES, path);
               if (featureKey != null) {
                 DataModel.FeatureFlag feature = requestor.getFlag(featureKey);
                 store.upsert(FEATURES, feature);
               } else {
-                String segmentKey = SEGMENTS.getKeyFromStreamApiPath(path);
+                String segmentKey = getKeyFromStreamApiPath(SEGMENTS, path);
                 if (segmentKey != null) {
                   DataModel.Segment segment = requestor.getSegment(segmentKey);
                   store.upsert(SEGMENTS, segment);
@@ -215,6 +218,10 @@ final class StreamProcessor implements UpdateProcessor {
     return initialized.get();
   }
 
+  private static String getKeyFromStreamApiPath(VersionedDataKind<?> kind, String path) {
+    return path.startsWith(kind.getStreamApiPath()) ? path.substring(kind.getStreamApiPath().length()) : null;
+  }
+  
   private static final class PutData {
     FeatureRequestor.AllData data;
     

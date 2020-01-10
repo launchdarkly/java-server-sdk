@@ -8,10 +8,10 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import java.io.IOException;
 import java.util.HashMap;

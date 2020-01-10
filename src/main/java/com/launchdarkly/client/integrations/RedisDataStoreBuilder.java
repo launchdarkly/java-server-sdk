@@ -1,8 +1,8 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
-import com.launchdarkly.client.FeatureStoreFactory;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.FeatureStoreFactory;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
 
 import java.net.URI;
@@ -18,7 +18,7 @@ import redis.clients.jedis.Protocol;
  * <p>
  * Obtain an instance of this class by calling {@link Redis#dataStore()}. After calling its methods
  * to specify any desired custom settings, you can pass it directly into the SDK configuration with
- * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(com.launchdarkly.client.FeatureStoreFactory)}.
+ * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(com.launchdarkly.client.interfaces.FeatureStoreFactory)}.
  * You do not need to call {@link #createFeatureStore()} yourself to build the actual data store; that
  * will be done by the SDK.
  * <p>

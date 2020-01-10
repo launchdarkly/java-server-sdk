@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 import com.launchdarkly.client.value.LDValueType;
 

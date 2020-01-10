@@ -1,8 +1,8 @@
 package com.launchdarkly.client.utils;
 
-import com.launchdarkly.client.FeatureStore;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import java.io.Closeable;
 import java.util.Map;

@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.client.EventSummarizer.CounterKey;
 import com.launchdarkly.client.EventSummarizer.CounterValue;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 
 import java.io.IOException;
@@ -41,41 +42,41 @@ class EventOutputFormatter {
   private boolean writeOutputEvent(Event event, JsonWriter jw) throws IOException {
     if (event instanceof Event.FeatureRequest) {
       Event.FeatureRequest fe = (Event.FeatureRequest)event;
-      startEvent(fe, fe.debug ? "debug" : "feature", fe.key, jw);
-      writeUserOrKey(fe, fe.debug, jw);
-      if (fe.version != null) {
+      startEvent(fe, fe.isDebug() ? "debug" : "feature", fe.getKey(), jw);
+      writeUserOrKey(fe, fe.isDebug(), jw);
+      if (fe.getVersion() != null) {
         jw.name("version");
-        jw.value(fe.version);
+        jw.value(fe.getVersion());
       }
-      if (fe.variation != null) {
+      if (fe.getVariation() != null) {
         jw.name("variation");
-        jw.value(fe.variation);
+        jw.value(fe.getVariation());
       }
-      writeLDValue("value", fe.value, jw);
-      writeLDValue("default", fe.defaultVal, jw);
-      if (fe.prereqOf != null) {
+      writeLDValue("value", fe.getValue(), jw);
+      writeLDValue("default", fe.getDefaultVal(), jw);
+      if (fe.getPrereqOf() != null) {
         jw.name("prereqOf");
-        jw.value(fe.prereqOf);
+        jw.value(fe.getPrereqOf());
       }
-      writeEvaluationReason("reason", fe.reason, jw);
+      writeEvaluationReason("reason", fe.getReason(), jw);
       jw.endObject();
     } else if (event instanceof Event.Identify) {
-      startEvent(event, "identify", event.user == null ? null : event.user.getKeyAsString(), jw);
-      writeUser(event.user, jw);
+      startEvent(event, "identify", event.getUser() == null ? null : event.getUser().getKeyAsString(), jw);
+      writeUser(event.getUser(), jw);
       jw.endObject();
     } else if (event instanceof Event.Custom) {
       Event.Custom ce = (Event.Custom)event;
-      startEvent(event, "custom", ce.key, jw);
+      startEvent(event, "custom", ce.getKey(), jw);
       writeUserOrKey(ce, false, jw);
-      writeLDValue("data", ce.data, jw);
-      if (ce.metricValue != null) {
+      writeLDValue("data", ce.getData(), jw);
+      if (ce.getMetricValue() != null) {
         jw.name("metricValue");
-        jw.value(ce.metricValue);
+        jw.value(ce.getMetricValue());
       }
       jw.endObject();
     } else if (event instanceof Event.Index) {
       startEvent(event, "index", null, jw);
-      writeUser(event.user, jw);
+      writeUser(event.getUser(), jw);
       jw.endObject();
     } else {
       return false;
@@ -157,7 +158,7 @@ class EventOutputFormatter {
     jw.name("kind");
     jw.value(kind);
     jw.name("creationDate");
-    jw.value(event.creationDate);
+    jw.value(event.getCreationDate());
     if (key != null) {
       jw.name("key");
       jw.value(key);
@@ -165,7 +166,7 @@ class EventOutputFormatter {
   }
   
   private void writeUserOrKey(Event event, boolean forceInline, JsonWriter jw) throws IOException {
-    LDUser user = event.user;
+    LDUser user = event.getUser();
     if (user != null) {
       if (config.inlineUsersInEvents || forceInline) {
         writeUser(user, jw);

@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.FeatureStore;
+
 import org.junit.Test;
 
 import java.io.IOException;

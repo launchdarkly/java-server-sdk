@@ -5,8 +5,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.DataModel;
+import com.launchdarkly.client.interfaces.VersionedData;
 
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
@@ -189,7 +189,7 @@ abstract class FileDataSourceParsing {
     }
     
     static VersionedData flagFromJson(JsonElement jsonTree) {
-      return gson.fromJson(jsonTree, VersionedDataKind.FEATURES.getItemClass());
+      return gson.fromJson(jsonTree, DataModel.DataKinds.FEATURES.getItemClass());
     }
     
     /**
@@ -217,7 +217,7 @@ abstract class FileDataSourceParsing {
     }
     
     static VersionedData segmentFromJson(JsonElement jsonTree) {
-      return gson.fromJson(jsonTree, VersionedDataKind.SEGMENTS.getItemClass());
+      return gson.fromJson(jsonTree, DataModel.DataKinds.SEGMENTS.getItemClass());
     }
   }
 }

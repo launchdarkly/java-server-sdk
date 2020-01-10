@@ -2,9 +2,9 @@ package com.launchdarkly.client.utils;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
-import com.launchdarkly.client.FeatureStore;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 /**
  * Helper methods that may be useful for implementing a {@link FeatureStore} or {@link FeatureStoreCore}.

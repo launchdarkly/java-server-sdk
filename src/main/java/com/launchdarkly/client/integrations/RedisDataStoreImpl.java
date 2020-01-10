@@ -1,8 +1,8 @@
 package com.launchdarkly.client.integrations;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.utils.FeatureStoreCore;
 
 import org.slf4j.Logger;

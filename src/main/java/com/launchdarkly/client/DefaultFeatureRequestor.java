@@ -1,6 +1,8 @@
 package com.launchdarkly.client;
 
 import com.google.common.io.Files;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,11 +12,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.getRequestBuilder;
 import static com.launchdarkly.client.Util.shutdownHttpClient;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
 import okhttp3.Cache;
 import okhttp3.OkHttpClient;

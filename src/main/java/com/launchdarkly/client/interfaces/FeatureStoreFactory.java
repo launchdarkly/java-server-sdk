@@ -1,4 +1,6 @@
-package com.launchdarkly.client;
+package com.launchdarkly.client.interfaces;
+
+import com.launchdarkly.client.Components;
 
 /**
  * Interface for a factory that creates some implementation of {@link FeatureStore}.

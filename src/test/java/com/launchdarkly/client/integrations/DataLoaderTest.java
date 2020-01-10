@@ -4,19 +4,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.launchdarkly.client.VersionedData;
-import com.launchdarkly.client.VersionedDataKind;
 import com.launchdarkly.client.integrations.FileDataSourceImpl.DataBuilder;
 import com.launchdarkly.client.integrations.FileDataSourceImpl.DataLoader;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FileDataException;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Map;
 
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.FLAG_VALUE_1_KEY;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.resourceFilePath;
 import static org.hamcrest.MatcherAssert.assertThat;

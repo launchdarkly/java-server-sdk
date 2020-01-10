@@ -1,15 +1,17 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
 import java.io.IOException;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
 import static com.launchdarkly.client.TestUtil.initedFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 

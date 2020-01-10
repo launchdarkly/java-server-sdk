@@ -5,6 +5,15 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.interfaces.Event;
+import com.launchdarkly.client.interfaces.EventProcessor;
+import com.launchdarkly.client.interfaces.EventProcessorFactory;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.FeatureStoreFactory;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Description;

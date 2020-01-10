@@ -21,13 +21,13 @@ import java.util.concurrent.TimeoutException;
 
 import javax.net.ssl.SSLHandshakeException;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

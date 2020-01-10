@@ -3,6 +3,8 @@ package com.launchdarkly.client;
 import com.launchdarkly.client.integrations.Redis;
 import com.launchdarkly.client.integrations.RedisDataStoreBuilder;
 
+import com.launchdarkly.client.interfaces.FeatureStoreFactory;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;

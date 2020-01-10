@@ -1,4 +1,4 @@
-package com.launchdarkly.client;
+package com.launchdarkly.client.interfaces;
 
 /**
  * Common interface for string-keyed, versioned objects that can be kept in a {@link FeatureStore}.

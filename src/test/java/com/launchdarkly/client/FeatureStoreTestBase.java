@@ -1,6 +1,9 @@
 package com.launchdarkly.client;
 
 import com.launchdarkly.client.TestUtil.DataBuilder;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import org.junit.After;
 import org.junit.Before;
@@ -8,10 +11,10 @@ import org.junit.Test;
 
 import java.util.Map;
 
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;

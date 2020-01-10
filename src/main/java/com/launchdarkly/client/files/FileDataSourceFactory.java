@@ -1,9 +1,9 @@
 package com.launchdarkly.client.files;
 
-import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.LDConfig;
-import com.launchdarkly.client.UpdateProcessor;
-import com.launchdarkly.client.UpdateProcessorFactory;
+import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
 import com.launchdarkly.client.integrations.FileDataSourceBuilder;
 import com.launchdarkly.client.integrations.FileData;
 

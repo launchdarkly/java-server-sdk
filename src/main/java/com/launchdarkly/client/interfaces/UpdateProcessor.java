@@ -1,4 +1,6 @@
-package com.launchdarkly.client;
+package com.launchdarkly.client.interfaces;
+
+import com.launchdarkly.client.Components;
 
 import java.io.Closeable;
 import java.io.IOException;

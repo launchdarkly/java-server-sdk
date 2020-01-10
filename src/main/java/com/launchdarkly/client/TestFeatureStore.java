@@ -1,15 +1,17 @@
 package com.launchdarkly.client;
 
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.VersionedDataKind;
+import com.launchdarkly.client.value.LDValue;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
-import com.launchdarkly.client.value.LDValue;
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 
 /**
  * A decorated {@link InMemoryFeatureStore} which provides functionality to create (or override) true or false feature flags for all users.

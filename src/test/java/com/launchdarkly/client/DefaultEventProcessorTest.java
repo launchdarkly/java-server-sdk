@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Matcher;
@@ -276,7 +277,7 @@ public class DefaultEventProcessorTest {
   
       assertThat(getEventsFromLastRequest(server), contains(
           isIndexEvent(fe, userJson),
-          isSummaryEvent(fe.creationDate, fe.creationDate)
+          isSummaryEvent(fe.getCreationDate(), fe.getCreationDate())
       ));
     }
   }
@@ -311,7 +312,7 @@ public class DefaultEventProcessorTest {
       // Should get a summary event only, not a full feature event
       assertThat(getEventsFromLastRequest(server), contains(
           isIndexEvent(fe, userJson),
-          isSummaryEvent(fe.creationDate, fe.creationDate)
+          isSummaryEvent(fe.getCreationDate(), fe.getCreationDate())
       ));
     }
   }
@@ -337,7 +338,7 @@ public class DefaultEventProcessorTest {
           isIndexEvent(fe1, userJson),
           isFeatureEvent(fe1, flag1, false, null),
           isFeatureEvent(fe2, flag2, false, null),
-          isSummaryEvent(fe1.creationDate, fe2.creationDate)
+          isSummaryEvent(fe1.getCreationDate(), fe2.getCreationDate())
       ));
     }
   }
@@ -371,7 +372,7 @@ public class DefaultEventProcessorTest {
       assertThat(getEventsFromLastRequest(server), contains(
           isIndexEvent(fe1a, userJson),
           allOf(
-              isSummaryEvent(fe1a.creationDate, fe2.creationDate),
+              isSummaryEvent(fe1a.getCreationDate(), fe2.getCreationDate()),
               hasSummaryFlag(flag1.getKey(), default1,
                   Matchers.containsInAnyOrder(
                       isSummaryEventCounter(flag1, 1, value1, 2),
@@ -617,7 +618,7 @@ public class DefaultEventProcessorTest {
   private Matcher<JsonElement> isIdentifyEvent(Event sourceEvent, JsonElement user) {
     return allOf(
         hasJsonProperty("kind", "identify"),
-        hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
+        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         hasJsonProperty("user", user)
     );
   }
@@ -625,7 +626,7 @@ public class DefaultEventProcessorTest {
   private Matcher<JsonElement> isIndexEvent(Event sourceEvent, JsonElement user) {
     return allOf(
         hasJsonProperty("kind", "index"),
-        hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
+        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         hasJsonProperty("user", user)
     );
   }
@@ -639,13 +640,13 @@ public class DefaultEventProcessorTest {
       EvaluationReason reason) {
     return allOf(
         hasJsonProperty("kind", debug ? "debug" : "feature"),
-        hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
+        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         hasJsonProperty("key", flag.getKey()),
         hasJsonProperty("version", (double)flag.getVersion()),
-        hasJsonProperty("variation", sourceEvent.variation),
-        hasJsonProperty("value", sourceEvent.value),
+        hasJsonProperty("variation", sourceEvent.getVariation()),
+        hasJsonProperty("value", sourceEvent.getValue()),
         (inlineUser != null) ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
-          hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
+          hasJsonProperty("userKey", sourceEvent.getUser().getKeyAsString()),
         (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
           hasJsonProperty("user", nullValue(JsonElement.class)),
         (reason == null) ? hasJsonProperty("reason", nullValue(JsonElement.class)) :
@@ -657,15 +658,15 @@ public class DefaultEventProcessorTest {
   private Matcher<JsonElement> isCustomEvent(Event.Custom sourceEvent, JsonElement inlineUser) {
     return allOf(
         hasJsonProperty("kind", "custom"),
-        hasJsonProperty("creationDate", (double)sourceEvent.creationDate),
+        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         hasJsonProperty("key", "eventkey"),
         (inlineUser != null) ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
-          hasJsonProperty("userKey", sourceEvent.user.getKeyAsString()),
+          hasJsonProperty("userKey", sourceEvent.getUser().getKeyAsString()),
         (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
           hasJsonProperty("user", nullValue(JsonElement.class)),
-        hasJsonProperty("data", sourceEvent.data),
-        (sourceEvent.metricValue == null) ? hasJsonProperty("metricValue", nullValue(JsonElement.class)) :
-          hasJsonProperty("metricValue", sourceEvent.metricValue.doubleValue())              
+        hasJsonProperty("data", sourceEvent.getData()),
+        (sourceEvent.getMetricValue() == null) ? hasJsonProperty("metricValue", nullValue(JsonElement.class)) :
+          hasJsonProperty("metricValue", sourceEvent.getMetricValue().doubleValue())              
     );
   }
 

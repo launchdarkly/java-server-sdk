@@ -3,6 +3,8 @@ package com.launchdarkly.client;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.client.EventSummarizer.EventSummary;
+import com.launchdarkly.client.interfaces.Event;
+import com.launchdarkly.client.interfaces.EventProcessor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -334,7 +336,7 @@ final class DefaultEventProcessor implements EventProcessor {
       if (e instanceof Event.FeatureRequest) {
         if (shouldSampleEvent()) {
           Event.FeatureRequest fe = (Event.FeatureRequest)e;
-          addFullEvent = fe.trackEvents;
+          addFullEvent = fe.isTrackEvents();
           if (shouldDebugEvent(fe)) {
             debugEvent = EventFactory.DEFAULT.newDebugEvent(fe);
           }
@@ -346,7 +348,8 @@ final class DefaultEventProcessor implements EventProcessor {
       // For each user we haven't seen before, we add an index event - unless this is already
       // an identify event for that user.
       if (!addFullEvent || !config.inlineUsersInEvents) {
-        if (e.user != null && e.user.getKey() != null && !noticeUser(e.user, userKeys)) {
+        LDUser user = e.getUser();
+        if (user != null && user.getKey() != null && !noticeUser(user, userKeys)) {
           if (!(e instanceof Event.Identify)) {
             addIndexEvent = true;
           }          
@@ -354,7 +357,7 @@ final class DefaultEventProcessor implements EventProcessor {
       }
       
       if (addIndexEvent) {
-        Event.Index ie = new Event.Index(e.creationDate, e.user);
+        Event.Index ie = new Event.Index(e.getCreationDate(), e.getUser());
         outbox.add(ie);
       }
       if (addFullEvent) {
@@ -379,14 +382,15 @@ final class DefaultEventProcessor implements EventProcessor {
     }
     
     private boolean shouldDebugEvent(Event.FeatureRequest fe) {
-      if (fe.debugEventsUntilDate != null) {
+      Long debugEventsUntilDate = fe.getDebugEventsUntilDate();
+      if (debugEventsUntilDate != null) {
         // The "last known past time" comes from the last HTTP response we got from the server.
         // In case the client's time is set wrong, at least we know that any expiration date
         // earlier than that point is definitely in the past.  If there's any discrepancy, we
         // want to err on the side of cutting off event debugging sooner.
         long lastPast = lastKnownPastTime.get();
-        if (fe.debugEventsUntilDate > lastPast &&
-            fe.debugEventsUntilDate > System.currentTimeMillis()) {
+        if (debugEventsUntilDate > lastPast &&
+            debugEventsUntilDate > System.currentTimeMillis()) {
           return true;
         }
       }

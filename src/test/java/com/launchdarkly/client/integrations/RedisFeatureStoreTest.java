@@ -1,9 +1,9 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.FeatureStoreDatabaseTestBase;
 import com.launchdarkly.client.integrations.RedisDataStoreImpl.UpdateListener;
+import com.launchdarkly.client.interfaces.FeatureStore;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
 
 import org.junit.BeforeClass;
