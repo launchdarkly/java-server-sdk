@@ -21,7 +21,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static com.launchdarkly.client.TestUtil.flagWithValue;
+import static com.launchdarkly.client.ModelBuilders.flagBuilder;
+import static com.launchdarkly.client.ModelBuilders.flagWithValue;
+import static com.launchdarkly.client.ModelBuilders.prerequisite;
+import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestUtil.initedFeatureStore;
 import static com.launchdarkly.client.TestUtil.specificFeatureStore;
 import static com.launchdarkly.client.TestUtil.updateProcessorWithData;
@@ -312,9 +315,9 @@ public class LDClientTest extends EasyMockSupport {
     List<VersionedData> list1 = ImmutableList.copyOf(map1.values());
     assertEquals(DEPENDENCY_ORDERING_TEST_DATA.get(FEATURES).size(), map1.size());
     for (int itemIndex = 0; itemIndex < list1.size(); itemIndex++) {
-      FeatureFlag item = (FeatureFlag)list1.get(itemIndex);
-      for (Prerequisite prereq: item.getPrerequisites()) {
-        FeatureFlag depFlag = (FeatureFlag)map1.get(prereq.getKey());
+      DataModel.FeatureFlag item = (DataModel.FeatureFlag)list1.get(itemIndex);
+      for (DataModel.Prerequisite prereq: item.getPrerequisites()) {
+        DataModel.FeatureFlag depFlag = (DataModel.FeatureFlag)map1.get(prereq.getKey());
         int depIndex = list1.indexOf(depFlag);
         if (depIndex > itemIndex) {
           Iterable<String> allKeys = Iterables.transform(list1, new Function<VersionedData, String>() {
@@ -349,18 +352,18 @@ public class LDClientTest extends EasyMockSupport {
       ImmutableMap.<VersionedDataKind<?>, Map<String, ? extends VersionedData>>of(
           FEATURES,
           ImmutableMap.<String, VersionedData>builder()
-              .put("a", new FeatureFlagBuilder("a")
-                  .prerequisites(ImmutableList.of(new Prerequisite("b", 0), new Prerequisite("c", 0))).build())
-              .put("b", new FeatureFlagBuilder("b")
-                  .prerequisites(ImmutableList.of(new Prerequisite("c", 0), new Prerequisite("e", 0))).build())
-              .put("c", new FeatureFlagBuilder("c").build())
-              .put("d", new FeatureFlagBuilder("d").build())
-              .put("e", new FeatureFlagBuilder("e").build())
-              .put("f", new FeatureFlagBuilder("f").build())
+              .put("a", flagBuilder("a")
+                  .prerequisites(prerequisite("b", 0), prerequisite("c", 0)).build())
+              .put("b", flagBuilder("b")
+                  .prerequisites(prerequisite("c", 0), prerequisite("e", 0)).build())
+              .put("c", flagBuilder("c").build())
+              .put("d", flagBuilder("d").build())
+              .put("e", flagBuilder("e").build())
+              .put("f", flagBuilder("f").build())
               .build(),
           SEGMENTS,
           ImmutableMap.<String, VersionedData>of(
-              "o", new Segment.Builder("o").build()
+              "o", segmentBuilder("o").build()
           )
       );
 }

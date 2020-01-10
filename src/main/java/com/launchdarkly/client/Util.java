@@ -1,11 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.gson.JsonPrimitive;
-import com.launchdarkly.client.value.LDValue;
-
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.ConnectionPool;
@@ -13,25 +7,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
 class Util {
-  /**
-   * Converts either a unix epoch millis number or RFC3339/ISO8601 timestamp as {@link JsonPrimitive} to a {@link DateTime} object.
-   * @param maybeDate wraps either a nubmer or a string that may contain a valid timestamp.
-   * @return null if input is not a valid format.
-   */
-  static DateTime jsonPrimitiveToDateTime(LDValue maybeDate) {
-    if (maybeDate.isNumber()) {
-      return new DateTime((long)maybeDate.doubleValue());
-    } else if (maybeDate.isString()) {
-      try {
-        return new DateTime(maybeDate.stringValue(), DateTimeZone.UTC);
-      } catch (Throwable t) {
-        return null;
-      }
-    } else {
-      return null;
-    }
-  }
-  
   static void configureHttpClientBuilder(LDConfig config, OkHttpClient.Builder builder) {
     builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
       .connectTimeout(config.connectTimeout, config.connectTimeoutUnit)

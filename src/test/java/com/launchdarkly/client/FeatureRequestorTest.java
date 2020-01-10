@@ -62,7 +62,7 @@ public class FeatureRequestorTest {
     
     try (MockWebServer server = makeStartedServer(resp)) {
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {      
-        FeatureFlag flag = r.getFlag(flag1Key);
+        DataModel.FeatureFlag flag = r.getFlag(flag1Key);
         
         RecordedRequest req = server.takeRequest();
         assertEquals("/sdk/latest-flags/" + flag1Key, req.getPath());
@@ -79,7 +79,7 @@ public class FeatureRequestorTest {
     
     try (MockWebServer server = makeStartedServer(resp)) {
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {     
-        Segment segment = r.getSegment(segment1Key);
+        DataModel.Segment segment = r.getSegment(segment1Key);
         
         RecordedRequest req = server.takeRequest();
         assertEquals("/sdk/latest-segments/" + segment1Key, req.getPath());
@@ -130,7 +130,7 @@ public class FeatureRequestorTest {
     
     try (MockWebServer server = makeStartedServer(cacheableResp)) {
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {
-        FeatureFlag flag1a = r.getFlag(flag1Key);
+        DataModel.FeatureFlag flag1a = r.getFlag(flag1Key);
         
         RecordedRequest req1 = server.takeRequest();
         assertEquals("/sdk/latest-flags/" + flag1Key, req1.getPath());
@@ -138,7 +138,7 @@ public class FeatureRequestorTest {
         
         verifyFlag(flag1a, flag1Key);
         
-        FeatureFlag flag1b = r.getFlag(flag1Key);
+        DataModel.FeatureFlag flag1b = r.getFlag(flag1Key);
         verifyFlag(flag1b, flag1Key);
         assertNull(server.takeRequest(0, TimeUnit.SECONDS)); // there was no second request, due to the cache hit
       }
@@ -172,7 +172,7 @@ public class FeatureRequestorTest {
           .build();
 
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config)) {
-        FeatureFlag flag = r.getFlag(flag1Key);
+        DataModel.FeatureFlag flag = r.getFlag(flag1Key);
         verifyFlag(flag, flag1Key);
       }
     }
@@ -190,7 +190,7 @@ public class FeatureRequestorTest {
           .build();
       
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config)) {
-        FeatureFlag flag = r.getFlag(flag1Key);
+        DataModel.FeatureFlag flag = r.getFlag(flag1Key);
         verifyFlag(flag, flag1Key);
         
         assertEquals(1, server.getRequestCount());
@@ -208,12 +208,12 @@ public class FeatureRequestorTest {
     assertEquals("JavaClient/" + LDClient.CLIENT_VERSION, req.getHeader("User-Agent"));
   }
   
-  private void verifyFlag(FeatureFlag flag, String key) {
+  private void verifyFlag(DataModel.FeatureFlag flag, String key) {
     assertNotNull(flag);
     assertEquals(key, flag.getKey());
   }
   
-  private void verifySegment(Segment segment, String key) {
+  private void verifySegment(DataModel.Segment segment, String key) {
     assertNotNull(segment);
     assertEquals(key, segment.getKey());
   }

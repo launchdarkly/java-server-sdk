@@ -13,7 +13,6 @@ import org.hamcrest.TypeSafeDiagnosingMatcher;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -155,37 +154,6 @@ public class TestUtil {
     return new JsonPrimitive(b);
   }
   
-  public static VariationOrRollout fallthroughVariation(int variation) {
-    return new VariationOrRollout(variation, null);
-  }
-  
-  public static FeatureFlag booleanFlagWithClauses(String key, Clause... clauses) {
-    Rule rule = new Rule(null, Arrays.asList(clauses), 1, null);
-    return new FeatureFlagBuilder(key)
-        .on(true)
-        .rules(Arrays.asList(rule))
-        .fallthrough(fallthroughVariation(0))
-        .offVariation(0)
-        .variations(LDValue.of(false), LDValue.of(true))
-        .build();
-  }
-
-  public static FeatureFlag flagWithValue(String key, LDValue value) {
-    return new FeatureFlagBuilder(key)
-        .on(false)
-        .offVariation(0)
-        .variations(value)
-        .build();
-  }
-  
-  public static Clause makeClauseToMatchUser(LDUser user) {
-    return new Clause("key", Operator.in, Arrays.asList(user.getKey()), false);
-  }
-
-  public static Clause makeClauseToNotMatchUser(LDUser user) {
-    return new Clause("key", Operator.in, Arrays.asList(LDValue.of("not-" + user.getKeyAsString())), false);
-  }
-  
   public static class DataBuilder {
     private Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data = new HashMap<>();
     
@@ -207,8 +175,8 @@ public class TestUtil {
     }
   }
   
-  public static EvaluationDetail<LDValue> simpleEvaluation(int variation, LDValue value) {
-    return EvaluationDetail.fromValue(value, variation, EvaluationReason.fallthrough());
+  public static Evaluator.EvalResult simpleEvaluation(int variation, LDValue value) {
+    return new Evaluator.EvalResult(value, variation, EvaluationReason.fallthrough());
   }
   
   public static Matcher<JsonElement> hasJsonProperty(final String name, JsonElement value) {

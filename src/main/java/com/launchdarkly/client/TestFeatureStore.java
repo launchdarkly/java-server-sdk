@@ -32,15 +32,8 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param value the new value of the feature flag
    * @return the feature flag
    */
-  public FeatureFlag setBooleanValue(String key, Boolean value) {
-    FeatureFlag newFeature = new FeatureFlagBuilder(key)
-            .on(false)
-            .offVariation(value ? 0 : 1)
-            .variations(TRUE_FALSE_VARIATIONS)
-            .version(version.incrementAndGet())
-            .build();
-    upsert(FEATURES, newFeature);
-    return newFeature;
+  public DataModel.FeatureFlag setBooleanValue(String key, Boolean value) {
+    return setJsonValue(key, value == null ? null : new JsonPrimitive(value.booleanValue()));
   }
 
   /**
@@ -50,7 +43,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param key the key of the feature flag to evaluate to true
    * @return the feature flag
    */
-  public FeatureFlag setFeatureTrue(String key) {
+  public DataModel.FeatureFlag setFeatureTrue(String key) {
     return setBooleanValue(key, true);
   }
   
@@ -61,7 +54,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param key the key of the feature flag to evaluate to false
    * @return the feature flag
    */
-  public FeatureFlag setFeatureFalse(String key) {
+  public DataModel.FeatureFlag setFeatureFalse(String key) {
     return setBooleanValue(key, false);
   }
   
@@ -71,7 +64,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param value the new value of the flag
    * @return the feature flag
      */
-  public FeatureFlag setIntegerValue(String key, Integer value) {
+  public DataModel.FeatureFlag setIntegerValue(String key, Integer value) {
     return setJsonValue(key, new JsonPrimitive(value));
   }
 
@@ -81,7 +74,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param value the new value of the flag
    * @return the feature flag
      */
-  public FeatureFlag setDoubleValue(String key, Double value) {
+  public DataModel.FeatureFlag setDoubleValue(String key, Double value) {
     return setJsonValue(key, new JsonPrimitive(value));
   }
 
@@ -91,7 +84,7 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param value the new value of the flag
    * @return the feature flag
      */
-  public FeatureFlag setStringValue(String key, String value) {
+  public DataModel.FeatureFlag setStringValue(String key, String value) {
     return setJsonValue(key, new JsonPrimitive(value));
   }
 
@@ -101,13 +94,22 @@ public class TestFeatureStore extends InMemoryFeatureStore {
    * @param value the new value of the flag
    * @return the feature flag
      */
-  public FeatureFlag setJsonValue(String key, JsonElement value) {
-    FeatureFlag newFeature = new FeatureFlagBuilder(key)
-            .on(false)
-            .offVariation(0)
-            .variations(Arrays.asList(LDValue.fromJsonElement(value)))
-            .version(version.incrementAndGet())
-            .build();
+  public DataModel.FeatureFlag setJsonValue(String key, JsonElement value) {
+    DataModel.FeatureFlag newFeature = new DataModel.FeatureFlag(key,
+        version.incrementAndGet(),
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        Arrays.asList(LDValue.fromJsonElement(value)),
+        false,
+        false,
+        false,
+        null,
+        false);
     upsert(FEATURES, newFeature);
     return newFeature;
   }

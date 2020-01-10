@@ -17,7 +17,7 @@ public class PollingProcessorTest {
   @Test
   public void testConnectionOk() throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
-    requestor.allData = new FeatureRequestor.AllData(new HashMap<String, FeatureFlag>(), new HashMap<String, Segment>());
+    requestor.allData = new FeatureRequestor.AllData(new HashMap<String, DataModel.FeatureFlag>(), new HashMap<String, DataModel.Segment>());
     FeatureStore store = new InMemoryFeatureStore();
     
     try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {    
@@ -116,11 +116,11 @@ public class PollingProcessorTest {
     
     public void close() throws IOException {}
 
-    public FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
+    public DataModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
       return null;
     }
 
-    public Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
+    public DataModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
       return null;
     }
 

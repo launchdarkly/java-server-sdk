@@ -8,6 +8,8 @@ import org.junit.Test;
 
 import java.util.Map;
 
+import static com.launchdarkly.client.ModelBuilders.flagBuilder;
+import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.junit.Assert.assertEquals;
@@ -20,22 +22,23 @@ import static org.junit.Assert.assertTrue;
  * Basic tests for FeatureStore implementations. For database implementations, use the more
  * comprehensive FeatureStoreDatabaseTestBase.
  */
+@SuppressWarnings("javadoc")
 public abstract class FeatureStoreTestBase<T extends FeatureStore> {
 
   protected T store;
   protected boolean cached;
   
-  protected FeatureFlag feature1 = new FeatureFlagBuilder("foo")
+  protected DataModel.FeatureFlag feature1 = flagBuilder("foo")
       .version(10)
       .salt("abc")
       .build();
   
-  protected FeatureFlag feature2 = new FeatureFlagBuilder("bar")
+  protected DataModel.FeatureFlag feature2 = flagBuilder("bar")
       .version(10)
       .salt("abc")
       .build();
   
-  protected Segment segment1 = new Segment.Builder("foo")
+  protected DataModel.Segment segment1 = segmentBuilder("foo")
       .version(11)
       .build();
   
@@ -92,12 +95,12 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
         new DataBuilder().add(FEATURES, feature1, feature2).add(SEGMENTS, segment1).build();
     store.init(allData);
     
-    FeatureFlag feature2v2 = new FeatureFlagBuilder(feature2).version(feature2.getVersion() + 1).build();
+    DataModel.FeatureFlag feature2v2 = flagBuilder(feature2).version(feature2.getVersion() + 1).build();
     allData = new DataBuilder().add(FEATURES, feature2v2).add(SEGMENTS).build();
     store.init(allData);
     
     assertNull(store.get(FEATURES, feature1.getKey()));
-    FeatureFlag item2 = store.get(FEATURES, feature2.getKey());
+    DataModel.FeatureFlag item2 = store.get(FEATURES, feature2.getKey());
     assertNotNull(item2);
     assertEquals(feature2v2.getVersion(), item2.getVersion());
     assertNull(store.get(SEGMENTS, segment1.getKey()));
@@ -106,7 +109,7 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
   @Test
   public void getExistingFeature() {
     store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    FeatureFlag result = store.get(FEATURES, feature1.getKey());
+    DataModel.FeatureFlag result = store.get(FEATURES, feature1.getKey());
     assertEquals(feature1.getKey(), result.getKey());
   }
   
@@ -119,12 +122,12 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
   @Test
   public void getAll() {
     store.init(new DataBuilder().add(FEATURES, feature1, feature2).add(SEGMENTS, segment1).build());
-    Map<String, FeatureFlag> items = store.all(FEATURES);
+    Map<String, DataModel.FeatureFlag> items = store.all(FEATURES);
     assertEquals(2, items.size());
-    FeatureFlag item1 = items.get(feature1.getKey());
+    DataModel.FeatureFlag item1 = items.get(feature1.getKey());
     assertNotNull(item1);
     assertEquals(feature1.getVersion(), item1.getVersion());
-    FeatureFlag item2 = items.get(feature2.getKey());
+    DataModel.FeatureFlag item2 = items.get(feature2.getKey());
     assertNotNull(item2);
     assertEquals(feature2.getVersion(), item2.getVersion());
   }
@@ -133,9 +136,9 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
   public void getAllWithDeletedItem() {
     store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
     store.delete(FEATURES, feature1.getKey(), feature1.getVersion() + 1);
-    Map<String, FeatureFlag> items = store.all(FEATURES);
+    Map<String, DataModel.FeatureFlag> items = store.all(FEATURES);
     assertEquals(1, items.size());
-    FeatureFlag item2 = items.get(feature2.getKey());
+    DataModel.FeatureFlag item2 = items.get(feature2.getKey());
     assertNotNull(item2);
     assertEquals(feature2.getVersion(), item2.getVersion());
   }
@@ -143,33 +146,33 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
   @Test
   public void upsertWithNewerVersion() {
     store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    FeatureFlag newVer = new FeatureFlagBuilder(feature1)
+    DataModel.FeatureFlag newVer = flagBuilder(feature1)
         .version(feature1.getVersion() + 1)
         .build();
     store.upsert(FEATURES, newVer);
-    FeatureFlag result = store.get(FEATURES, newVer.getKey());
+    DataModel.FeatureFlag result = store.get(FEATURES, newVer.getKey());
     assertEquals(newVer.getVersion(), result.getVersion());
   }
   
   @Test
   public void upsertWithOlderVersion() {
     store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    FeatureFlag oldVer = new FeatureFlagBuilder(feature1)
+    DataModel.FeatureFlag oldVer = flagBuilder(feature1)
         .version(feature1.getVersion() - 1)
         .build();
     store.upsert(FEATURES, oldVer);
-    FeatureFlag result = store.get(FEATURES, oldVer.getKey());
+    DataModel.FeatureFlag result = store.get(FEATURES, oldVer.getKey());
     assertEquals(feature1.getVersion(), result.getVersion());
   }
   
   @Test
   public void upsertNewFeature() {
     store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    FeatureFlag newFeature = new FeatureFlagBuilder("biz")
+    DataModel.FeatureFlag newFeature = flagBuilder("biz")
         .version(99)
         .build();
     store.upsert(FEATURES, newFeature);
-    FeatureFlag result = store.get(FEATURES, newFeature.getKey());
+    DataModel.FeatureFlag result = store.get(FEATURES, newFeature.getKey());
     assertEquals(newFeature.getKey(), result.getKey());
   }
   
