@@ -11,7 +11,7 @@ public abstract class Redis {
    * <p>
    * This object can be modified with {@link RedisDataStoreBuilder} methods for any desired
    * custom settings, before including it in the SDK configuration with
-   * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(com.launchdarkly.client.interfaces.FeatureStoreFactory)}.
+   * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(com.launchdarkly.client.interfaces.DataStoreFactory)}.
    * 
    * @return a data store configuration object
    */

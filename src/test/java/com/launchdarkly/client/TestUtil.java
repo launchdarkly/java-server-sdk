@@ -8,10 +8,10 @@ import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.FeatureStoreFactory;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
-import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
@@ -33,16 +33,16 @@ import static org.hamcrest.Matchers.equalTo;
 @SuppressWarnings("javadoc")
 public class TestUtil {
 
-  public static FeatureStoreFactory specificFeatureStore(final FeatureStore store) {
-    return new FeatureStoreFactory() {
-      public FeatureStore createFeatureStore() {
+  public static DataStoreFactory specificDataStore(final DataStore store) {
+    return new DataStoreFactory() {
+      public DataStore createDataStore() {
         return store;
       }
     };
   }
   
-  public static FeatureStore initedFeatureStore() {
-    FeatureStore store = new InMemoryFeatureStore();
+  public static DataStore initedDataStore() {
+    DataStore store = new InMemoryDataStore();
     store.init(Collections.<VersionedDataKind<?>, Map<String, ? extends VersionedData>>emptyMap());
     return store;
   }
@@ -55,20 +55,20 @@ public class TestUtil {
     };
   }
   
-  public static UpdateProcessorFactory specificUpdateProcessor(final UpdateProcessor up) {
-    return new UpdateProcessorFactory() {
-      public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
+  public static DataSourceFactory specificDataSource(final DataSource up) {
+    return new DataSourceFactory() {
+      public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore) {
         return up;
       }
     };
   }
 
-  public static UpdateProcessorFactory updateProcessorWithData(final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data) {
-    return new UpdateProcessorFactory() {
-      public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, final FeatureStore featureStore) {
-        return new UpdateProcessor() {
+  public static DataSourceFactory dataSourceWithData(final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data) {
+    return new DataSourceFactory() {
+      public DataSource createDataSource(String sdkKey, LDConfig config, final DataStore dataStore) {
+        return new DataSource() {
           public Future<Void> start() {
-            featureStore.init(data);
+            dataStore.init(data);
             return Futures.immediateFuture(null);
           }
 
@@ -83,8 +83,8 @@ public class TestUtil {
     };
   }
   
-  public static FeatureStore featureStoreThatThrowsException(final RuntimeException e) {
-    return new FeatureStore() {
+  public static DataStore dataStoreThatThrowsException(final RuntimeException e) {
+    return new DataStore() {
       @Override
       public void close() throws IOException { }
 
@@ -114,8 +114,8 @@ public class TestUtil {
     };
   }
   
-  public static UpdateProcessor failedUpdateProcessor() {
-    return new UpdateProcessor() {
+  public static DataSource failedDataSource() {
+    return new DataSource() {
       @Override
       public Future<Void> start() {
         return SettableFuture.create();

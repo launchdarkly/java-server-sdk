@@ -1,9 +1,9 @@
 package com.launchdarkly.client.integrations;
 
 import com.launchdarkly.client.LDConfig;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
-import com.launchdarkly.client.interfaces.UpdateProcessorFactory;
+import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataSourceFactory;
+import com.launchdarkly.client.interfaces.DataStore;
 
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -14,13 +14,13 @@ import java.util.List;
 /**
  * To use the file data source, obtain a new instance of this class with {@link FileData#dataSource()},
  * call the builder method {@link #filePaths(String...)} to specify file path(s),
- * then pass the resulting object to {@link com.launchdarkly.client.LDConfig.Builder#dataSource(UpdateProcessorFactory)}.
+ * then pass the resulting object to {@link com.launchdarkly.client.LDConfig.Builder#dataSource(DataSourceFactory)}.
  * <p>
  * For more details, see {@link FileData}.
  * 
  * @since 4.11.0
  */
-public final class FileDataSourceBuilder implements UpdateProcessorFactory {
+public final class FileDataSourceBuilder implements DataSourceFactory {
   private final List<Path> sources = new ArrayList<>();
   private boolean autoUpdate = false;
   
@@ -77,7 +77,7 @@ public final class FileDataSourceBuilder implements UpdateProcessorFactory {
    * Used internally by the LaunchDarkly client.
    */
   @Override
-  public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
+  public DataSource createDataSource(String sdkKey, LDConfig config, DataStore featureStore) {
     return new FileDataSourceImpl(featureStore, sources, autoUpdate);
   }
 }

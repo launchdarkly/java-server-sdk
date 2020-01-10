@@ -20,21 +20,4 @@ public interface EventProcessor extends Closeable {
    * any events that were not yet delivered prior to shutting down.
    */
   void flush();
-  
-  /**
-   * Stub implementation of {@link EventProcessor} for when we don't want to send any events.
-   */
-  static final class NullEventProcessor implements EventProcessor {
-    @Override
-    public void sendEvent(Event e) {
-    }
-    
-    @Override
-    public void flush() {
-    }
-    
-    @Override
-    public void close() {
-    }
-  }
 }

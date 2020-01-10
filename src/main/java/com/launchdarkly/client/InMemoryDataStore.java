@@ -1,6 +1,6 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
@@ -14,10 +14,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * A thread-safe, versioned store for feature flags and related data based on a
- * {@link HashMap}. This is the default implementation of {@link FeatureStore}.
+ * {@link HashMap}. This is the default implementation of {@link DataStore}.
  */
-public class InMemoryFeatureStore implements FeatureStore {
-  private static final Logger logger = LoggerFactory.getLogger(InMemoryFeatureStore.class);
+public class InMemoryDataStore implements DataStore {
+  private static final Logger logger = LoggerFactory.getLogger(InMemoryDataStore.class);
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private final Map<VersionedDataKind<?>, Map<String, VersionedData>> allData = new HashMap<>();
@@ -79,7 +79,7 @@ public class InMemoryFeatureStore implements FeatureStore {
       lock.writeLock().lock();
       this.allData.clear();
       for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> entry: allData.entrySet()) {
-        // Note, the FeatureStore contract specifies that we should clone all of the maps. This doesn't
+        // Note, the DataStore contract specifies that we should clone all of the maps. This doesn't
         // really make a difference in regular use of the SDK, but not doing it could cause unexpected
         // behavior in tests.
         this.allData.put(entry.getKey(), new HashMap<String, VersionedData>(entry.getValue()));

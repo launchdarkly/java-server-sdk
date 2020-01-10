@@ -10,12 +10,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Implements a dependency graph ordering for data to be stored in a feature store. We must use this
- * on every data set that will be passed to {@link com.launchdarkly.client.interfaces.FeatureStore#init(Map)}.
+ * Implements a dependency graph ordering for data to be stored in a data store. We must use this
+ * on every data set that will be passed to {@link com.launchdarkly.client.interfaces.DataStore#init(Map)}.
  *
  * @since 4.6.1
  */
-abstract class FeatureStoreDataSetSorter {
+abstract class DataStoreDataSetSorter {
   /**
    * Returns a copy of the input map that has the following guarantees: the iteration order of the outer
    * map will be in ascending order by {@link VersionedDataKind#getPriority()}; and for each data kind

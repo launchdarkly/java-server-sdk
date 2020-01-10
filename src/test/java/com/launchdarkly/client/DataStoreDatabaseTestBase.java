@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
 import com.launchdarkly.client.TestUtil.DataBuilder;
-import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.DataStore;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -23,31 +23,32 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 /**
- * Extends FeatureStoreTestBase with tests for feature stores where multiple store instances can
+ * Extends DataStoreTestBase with tests for data stores where multiple store instances can
  * use the same underlying data store (i.e. database implementations in general).
  */
+@SuppressWarnings("javadoc")
 @RunWith(Parameterized.class)
-public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> extends FeatureStoreTestBase<T> {
+public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
 
   @Parameters(name="cached={0}")
   public static Iterable<Boolean> data() {
     return Arrays.asList(new Boolean[] { false, true });
   }
   
-  public FeatureStoreDatabaseTestBase(boolean cached) {
+  public DataStoreDatabaseTestBase(boolean cached) {
     super(cached);
   }
   
   /**
-   * Test subclasses should override this method if the feature store class supports a key prefix option
+   * Test subclasses should override this method if the data store class supports a key prefix option
    * for keeping data sets distinct within the same database.
    */
-  protected T makeStoreWithPrefix(String prefix) {
+  protected DataStore makeStoreWithPrefix(String prefix) {
     return null;
   }
 
   /**
-   * Test classes should override this to return false if the feature store class does not have a local
+   * Test classes should override this to return false if the data store class does not have a local
    * caching option (e.g. the in-memory store).
    * @return
    */
@@ -57,7 +58,7 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
   
   /**
    * Test classes should override this to clear all data from the underlying database, if it is
-   * possible for data to exist there before the feature store is created (i.e. if
+   * possible for data to exist there before the data store is created (i.e. if
    * isUnderlyingDataSharedByAllInstances() returns true).
    */
   protected void clearAllData() {
@@ -67,7 +68,7 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
    * Test classes should override this (and return true) if it is possible to instrument the feature
    * store to execute the specified Runnable during an upsert operation, for concurrent modification tests.
    */
-  protected boolean setUpdateHook(T storeUnderTest, Runnable hook) {
+  protected boolean setUpdateHook(DataStore storeUnderTest, Runnable hook) {
     return false;
   }
   
@@ -99,7 +100,7 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
     assumeFalse(cached); // caching would cause the inited state to only be detected after the cache has expired
     
     clearAllData();
-    T store2 = makeStore();
+    DataStore store2 = makeStore();
     
     assertFalse(store.initialized());
     
@@ -113,7 +114,7 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
     assumeFalse(cached); // caching would cause the inited state to only be detected after the cache has expired
     
     clearAllData();
-    T store2 = makeStore();
+    DataStore store2 = makeStore();
     
     assertFalse(store.initialized());
     
@@ -128,7 +129,7 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
   
   @Test
   public void handlesUpsertRaceConditionAgainstExternalClientWithLowerVersion() throws Exception {
-    final T store2 = makeStore();
+    final DataStore store2 = makeStore();
     
     int startVersion = 1;
     final int store2VersionStart = 2;
@@ -165,7 +166,7 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
   
   @Test
   public void handlesUpsertRaceConditionAgainstExternalClientWithHigherVersion() throws Exception {
-    final T store2 = makeStore();
+    final DataStore store2 = makeStore();
     
     int startVersion = 1;
     final int store2Version = 3;
@@ -199,9 +200,9 @@ public abstract class FeatureStoreDatabaseTestBase<T extends FeatureStore> exten
   public void storesWithDifferentPrefixAreIndependent() throws Exception {
     assumeFalse(cached);
     
-    T store1 = makeStoreWithPrefix("aaa");
+    DataStore store1 = makeStoreWithPrefix("aaa");
     Assume.assumeNotNull(store1);
-    T store2 = makeStoreWithPrefix("bbb");
+    DataStore store2 = makeStoreWithPrefix("bbb");
     clearAllData();
     
     try {

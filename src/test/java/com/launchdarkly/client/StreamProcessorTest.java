@@ -27,7 +27,7 @@ import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
-import static com.launchdarkly.client.TestUtil.specificFeatureStore;
+import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.easymock.EasyMock.expect;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -55,7 +55,7 @@ public class StreamProcessorTest extends EasyMockSupport {
       "event: put\n" +
       "data: {\"data\":{\"flags\":{},\"segments\":{}}}\n\n";
 
-  private InMemoryFeatureStore featureStore;
+  private InMemoryDataStore dataStore;
   private LDConfig.Builder configBuilder;
   private FeatureRequestor mockRequestor;
   private EventSource mockEventSource;
@@ -66,8 +66,8 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Before
   public void setup() {
-    featureStore = new InMemoryFeatureStore();
-    configBuilder = new LDConfig.Builder().dataStore(specificFeatureStore(featureStore));
+    dataStore = new InMemoryDataStore();
+    configBuilder = new LDConfig.Builder().dataStore(specificDataStore(dataStore));
     mockRequestor = createStrictMock(FeatureRequestor.class);
     mockEventSource = createStrictMock(EventSource.class);
   }
@@ -121,14 +121,14 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void storeNotInitializedByDefault() throws Exception {
     createStreamProcessor(SDK_KEY, configBuilder.build()).start();
-    assertFalse(featureStore.initialized());
+    assertFalse(dataStore.initialized());
   }
   
   @Test
   public void putCausesStoreToBeInitialized() throws Exception {
     createStreamProcessor(SDK_KEY, configBuilder.build()).start();
     eventHandler.onMessage("put", emptyPutEvent());
-    assertTrue(featureStore.initialized());
+    assertTrue(dataStore.initialized());
   }
 
   @Test
@@ -191,28 +191,28 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void deleteDeletesFeature() throws Exception {
     createStreamProcessor(SDK_KEY, configBuilder.build()).start();
     eventHandler.onMessage("put", emptyPutEvent());
-    featureStore.upsert(FEATURES, FEATURE);
+    dataStore.upsert(FEATURES, FEATURE);
     
     String path = "/flags/" + FEATURE1_KEY;
     MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"version\":" +
         (FEATURE1_VERSION + 1) + "}");
     eventHandler.onMessage("delete", event);
     
-    assertNull(featureStore.get(FEATURES, FEATURE1_KEY));
+    assertNull(dataStore.get(FEATURES, FEATURE1_KEY));
   }
   
   @Test
   public void deleteDeletesSegment() throws Exception {
     createStreamProcessor(SDK_KEY, configBuilder.build()).start();
     eventHandler.onMessage("put", emptyPutEvent());
-    featureStore.upsert(SEGMENTS, SEGMENT);
+    dataStore.upsert(SEGMENTS, SEGMENT);
     
     String path = "/segments/" + SEGMENT1_KEY;
     MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"version\":" +
         (SEGMENT1_VERSION + 1) + "}");
     eventHandler.onMessage("delete", event);
     
-    assertNull(featureStore.get(SEGMENTS, SEGMENT1_KEY));
+    assertNull(dataStore.get(SEGMENTS, SEGMENT1_KEY));
   }
   
   @Test
@@ -234,7 +234,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     
     eventHandler.onMessage("indirect/put", new MessageEvent(""));
     
-    assertTrue(featureStore.initialized());
+    assertTrue(dataStore.initialized());
   }
 
   @Test
@@ -246,7 +246,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     
     eventHandler.onMessage("indirect/put", new MessageEvent(""));
     
-    assertTrue(featureStore.initialized());
+    assertTrue(dataStore.initialized());
   }
 
   @Test
@@ -343,7 +343,7 @@ public class StreamProcessorTest extends EasyMockSupport {
           .build();
       
       try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, featureStore, null)) {
+          mockRequestor, dataStore, null)) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -367,7 +367,7 @@ public class StreamProcessorTest extends EasyMockSupport {
           .build();
       
       try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, featureStore, null)) {
+          mockRequestor, dataStore, null)) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -390,7 +390,7 @@ public class StreamProcessorTest extends EasyMockSupport {
           .build();
       
       try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, featureStore, null)) {
+          mockRequestor, dataStore, null)) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -449,7 +449,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config) {
-    return new StreamProcessor(sdkKey, config, mockRequestor, featureStore, new StubEventSourceCreator());
+    return new StreamProcessor(sdkKey, config, mockRequestor, dataStore, new StubEventSourceCreator());
   }
   
   private String featureJson(String key, int version) {
@@ -471,11 +471,11 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private void assertFeatureInStore(DataModel.FeatureFlag feature) {
-    assertEquals(feature.getVersion(), featureStore.get(FEATURES, feature.getKey()).getVersion());
+    assertEquals(feature.getVersion(), dataStore.get(FEATURES, feature.getKey()).getVersion());
   }
   
   private void assertSegmentInStore(DataModel.Segment segment) {
-    assertEquals(segment.getVersion(), featureStore.get(SEGMENTS, segment.getKey()).getVersion());
+    assertEquals(segment.getVersion(), dataStore.get(SEGMENTS, segment.getKey()).getVersion());
   }
   
   private class StubEventSourceCreator implements StreamProcessor.EventSourceCreator {

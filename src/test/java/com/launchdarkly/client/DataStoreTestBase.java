@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
 import com.launchdarkly.client.TestUtil.DataBuilder;
-import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
@@ -22,13 +22,13 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Basic tests for FeatureStore implementations. For database implementations, use the more
- * comprehensive FeatureStoreDatabaseTestBase.
+ * Basic tests for DataStore implementations. For database implementations, use the more
+ * comprehensive DataStoreDatabaseTestBase.
  */
 @SuppressWarnings("javadoc")
-public abstract class FeatureStoreTestBase<T extends FeatureStore> {
+public abstract class DataStoreTestBase {
 
-  protected T store;
+  protected DataStore store;
   protected boolean cached;
   
   protected DataModel.FeatureFlag feature1 = flagBuilder("foo")
@@ -45,24 +45,24 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
       .version(11)
       .build();
   
-  public FeatureStoreTestBase() {
+  public DataStoreTestBase() {
     this(false);
   }
   
-  public FeatureStoreTestBase(boolean cached) {
+  public DataStoreTestBase(boolean cached) {
     this.cached = cached;
   }
   
   /**
-   * Test subclasses must override this method to create an instance of the feature store class, with
+   * Test subclasses must override this method to create an instance of the data store class, with
    * caching either enabled or disabled depending on the "cached" property.
    * @return
    */
-  protected abstract T makeStore();
+  protected abstract DataStore makeStore();
   
   /**
    * Test classes should override this to clear all data from the underlying database, if it is
-   * possible for data to exist there before the feature store is created (i.e. if
+   * possible for data to exist there before the data store is created (i.e. if
    * isUnderlyingDataSharedByAllInstances() returns true).
    */
   protected void clearAllData() {

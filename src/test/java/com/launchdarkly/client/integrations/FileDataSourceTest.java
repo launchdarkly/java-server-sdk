@@ -1,9 +1,9 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.InMemoryFeatureStore;
+import com.launchdarkly.client.InMemoryDataStore;
 import com.launchdarkly.client.LDConfig;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataSource;
 
 import org.junit.Test;
 
@@ -27,7 +27,7 @@ import static org.junit.Assert.fail;
 public class FileDataSourceTest {
   private static final Path badFilePath = Paths.get("no-such-file.json");
   
-  private final FeatureStore store = new InMemoryFeatureStore();
+  private final DataStore store = new InMemoryDataStore();
   private final LDConfig config = new LDConfig.Builder().build();
   private final FileDataSourceBuilder factory;
   
@@ -41,7 +41,7 @@ public class FileDataSourceTest {
   
   @Test
   public void flagsAreNotLoadedUntilStart() throws Exception {
-    try (UpdateProcessor fp = factory.createUpdateProcessor("", config, store)) {
+    try (DataSource fp = factory.createDataSource("", config, store)) {
       assertThat(store.initialized(), equalTo(false));
       assertThat(store.all(FEATURES).size(), equalTo(0));
       assertThat(store.all(SEGMENTS).size(), equalTo(0));
@@ -50,7 +50,7 @@ public class FileDataSourceTest {
   
   @Test
   public void flagsAreLoadedOnStart() throws Exception {
-    try (UpdateProcessor fp = factory.createUpdateProcessor("", config, store)) {
+    try (DataSource fp = factory.createDataSource("", config, store)) {
       fp.start();
       assertThat(store.initialized(), equalTo(true));
       assertThat(store.all(FEATURES).keySet(), equalTo(ALL_FLAG_KEYS));
@@ -60,7 +60,7 @@ public class FileDataSourceTest {
   
   @Test
   public void startFutureIsCompletedAfterSuccessfulLoad() throws Exception {
-    try (UpdateProcessor fp = factory.createUpdateProcessor("", config, store)) {
+    try (DataSource fp = factory.createDataSource("", config, store)) {
       Future<Void> future = fp.start();
       assertThat(future.isDone(), equalTo(true));
     }
@@ -68,7 +68,7 @@ public class FileDataSourceTest {
   
   @Test
   public void initializedIsTrueAfterSuccessfulLoad() throws Exception {
-    try (UpdateProcessor fp = factory.createUpdateProcessor("", config, store)) {
+    try (DataSource fp = factory.createDataSource("", config, store)) {
       fp.start();
       assertThat(fp.initialized(), equalTo(true));
     }
@@ -77,7 +77,7 @@ public class FileDataSourceTest {
   @Test
   public void startFutureIsCompletedAfterUnsuccessfulLoad() throws Exception {
     factory.filePaths(badFilePath);
-    try (UpdateProcessor fp = factory.createUpdateProcessor("", config, store)) {
+    try (DataSource fp = factory.createDataSource("", config, store)) {
       Future<Void> future = fp.start();
       assertThat(future.isDone(), equalTo(true));
     }
@@ -86,7 +86,7 @@ public class FileDataSourceTest {
   @Test
   public void initializedIsFalseAfterUnsuccessfulLoad() throws Exception {
     factory.filePaths(badFilePath);
-    try (UpdateProcessor fp = factory.createUpdateProcessor("", config, store)) {
+    try (DataSource fp = factory.createDataSource("", config, store)) {
       fp.start();
       assertThat(fp.initialized(), equalTo(false));
     }
@@ -98,7 +98,7 @@ public class FileDataSourceTest {
     FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath());
     try {
       setFileContents(file, getResourceContents("flag-only.json"));
-      try (UpdateProcessor fp = factory1.createUpdateProcessor("", config, store)) {
+      try (DataSource fp = factory1.createDataSource("", config, store)) {
         fp.start();
         setFileContents(file, getResourceContents("segment-only.json"));
         Thread.sleep(400);
@@ -120,7 +120,7 @@ public class FileDataSourceTest {
     long maxMsToWait = 10000;
     try {
       setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
-      try (UpdateProcessor fp = factory1.createUpdateProcessor("", config, store)) {
+      try (DataSource fp = factory1.createDataSource("", config, store)) {
         fp.start();
         Thread.sleep(1000);
         setFileContents(file, getResourceContents("all-properties.json"));  // this file has all the flags
@@ -146,7 +146,7 @@ public class FileDataSourceTest {
     FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
     long maxMsToWait = 10000;
     try {
-      try (UpdateProcessor fp = factory1.createUpdateProcessor("", config, store)) {
+      try (DataSource fp = factory1.createDataSource("", config, store)) {
         fp.start();
         Thread.sleep(1000);
         setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag

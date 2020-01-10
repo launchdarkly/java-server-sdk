@@ -2,9 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonElement;
-import com.launchdarkly.client.interfaces.EventProcessor;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
@@ -14,9 +12,9 @@ import java.util.Map;
 
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
-import static com.launchdarkly.client.TestUtil.initedFeatureStore;
+import static com.launchdarkly.client.TestUtil.initedDataStore;
 import static com.launchdarkly.client.TestUtil.jbool;
-import static com.launchdarkly.client.TestUtil.specificFeatureStore;
+import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -25,12 +23,12 @@ public class LDClientOfflineTest {
   private static final LDUser user = new LDUser("user");
   
   @Test
-  public void offlineClientHasNullUpdateProcessor() throws IOException {
+  public void offlineClientHasNullDataSource() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(UpdateProcessor.NullUpdateProcessor.class, client.updateProcessor.getClass());
+      assertEquals(Components.NullDataSource.class, client.dataSource.getClass());
     }
   }
 
@@ -40,7 +38,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(EventProcessor.NullEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(Components.NullEventProcessor.class, client.eventProcessor.getClass());
     }
   }
   
@@ -65,13 +63,13 @@ public class LDClientOfflineTest {
   }
   
   @Test
-  public void offlineClientGetsAllFlagsFromFeatureStore() throws IOException {
-    FeatureStore testFeatureStore = initedFeatureStore();
+  public void offlineClientGetsAllFlagsFromDataStore() throws IOException {
+    DataStore testDataStore = initedDataStore();
     LDConfig config = new LDConfig.Builder()
         .offline(true)
-        .dataStore(specificFeatureStore(testFeatureStore))
+        .dataStore(specificDataStore(testDataStore))
         .build();
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
+    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       Map<String, JsonElement> allFlags = client.allFlags(user);
       assertEquals(ImmutableMap.<String, JsonElement>of("key", jbool(true)), allFlags);
@@ -79,13 +77,13 @@ public class LDClientOfflineTest {
   }
 
   @Test
-  public void offlineClientGetsFlagsStateFromFeatureStore() throws IOException {
-    FeatureStore testFeatureStore = initedFeatureStore();
+  public void offlineClientGetsFlagsStateFromDataStore() throws IOException {
+    DataStore testDataStore = initedDataStore();
     LDConfig config = new LDConfig.Builder()
         .offline(true)
-        .dataStore(specificFeatureStore(testFeatureStore))
+        .dataStore(specificDataStore(testDataStore))
         .build();
-    testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
+    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       FeatureFlagsState state = client.allFlagsState(user);
       assertTrue(state.isValid());

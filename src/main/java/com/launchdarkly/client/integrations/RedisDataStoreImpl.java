@@ -1,9 +1,9 @@
 package com.launchdarkly.client.integrations;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.launchdarkly.client.interfaces.DataStoreCore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
-import com.launchdarkly.client.utils.FeatureStoreCore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,8 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.launchdarkly.client.utils.FeatureStoreHelpers.marshalJson;
-import static com.launchdarkly.client.utils.FeatureStoreHelpers.unmarshalJson;
+import static com.launchdarkly.client.utils.DataStoreHelpers.marshalJson;
+import static com.launchdarkly.client.utils.DataStoreHelpers.unmarshalJson;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -22,7 +22,7 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
 import redis.clients.util.JedisURIHelper;
 
-class RedisDataStoreImpl implements FeatureStoreCore {
+class RedisDataStoreImpl implements DataStoreCore {
   private static final Logger logger = LoggerFactory.getLogger(RedisDataStoreImpl.class);
 
   private final JedisPool pool;

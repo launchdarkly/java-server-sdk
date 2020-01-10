@@ -12,9 +12,9 @@ import java.util.Map;
  * <p>
  * These semantics support the primary use case for the store, which synchronizes a collection
  * of objects based on update messages that may be received out-of-order.
- * @since 3.0.0
+ * @since 5.0.0
  */
-public interface FeatureStore extends Closeable {
+public interface DataStore extends Closeable {
   /**
    * Returns the object to which the specified key is mapped, or
    * null if the key is not associated or the associated object has

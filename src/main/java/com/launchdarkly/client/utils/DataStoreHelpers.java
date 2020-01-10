@@ -2,21 +2,22 @@ package com.launchdarkly.client.utils;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
-import com.launchdarkly.client.interfaces.FeatureStore;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreCore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 /**
- * Helper methods that may be useful for implementing a {@link FeatureStore} or {@link FeatureStoreCore}.
+ * Helper methods that may be useful for implementing a {@link DataStore} or {@link DataStoreCore}.
  *
  * @since 4.6.0
  */
-public abstract class FeatureStoreHelpers {
+public abstract class DataStoreHelpers {
   private static final Gson gson = new Gson();
   
   /**
-   * Unmarshals a feature store item from a JSON string. This is a very simple wrapper around a Gson
-   * method, just to allow external feature store implementations to make use of the Gson instance
+   * Unmarshals a data store item from a JSON string. This is a very simple wrapper around a Gson
+   * method, just to allow external data store implementations to make use of the Gson instance
    * that's inside the SDK rather than having to import Gson themselves.
    * 
    * @param <T> class of the object that will be returned
@@ -34,8 +35,8 @@ public abstract class FeatureStoreHelpers {
   }
   
   /**
-   * Marshals a feature store item into a JSON string. This is a very simple wrapper around a Gson
-   * method, just to allow external feature store implementations to make use of the Gson instance
+   * Marshals a data store item into a JSON string. This is a very simple wrapper around a Gson
+   * method, just to allow external data store implementations to make use of the Gson instance
    * that's inside the SDK rather than having to import Gson themselves.
    * @param item the item to be marshaled
    * @return the JSON string
@@ -45,7 +46,7 @@ public abstract class FeatureStoreHelpers {
   }
   
   /**
-   * Thrown by {@link FeatureStoreHelpers#unmarshalJson(VersionedDataKind, String)} for a deserialization error.
+   * Thrown by {@link DataStoreHelpers#unmarshalJson(VersionedDataKind, String)} for a deserialization error.
    */
   @SuppressWarnings("serial")
   public static class UnmarshalException extends RuntimeException {

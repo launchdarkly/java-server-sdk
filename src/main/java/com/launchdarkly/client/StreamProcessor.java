@@ -3,8 +3,8 @@ package com.launchdarkly.client;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
@@ -29,7 +29,7 @@ import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
-final class StreamProcessor implements UpdateProcessor {
+final class StreamProcessor implements DataSource {
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
@@ -38,7 +38,7 @@ final class StreamProcessor implements UpdateProcessor {
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
   private static final int DEAD_CONNECTION_INTERVAL_MS = 300 * 1000;
 
-  private final FeatureStore store;
+  private final DataStore store;
   private final LDConfig config;
   private final String sdkKey;
   private final FeatureRequestor requestor;
@@ -52,9 +52,9 @@ final class StreamProcessor implements UpdateProcessor {
     EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
   }
   
-  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore,
+  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, DataStore dataStore,
       EventSourceCreator eventSourceCreator) {
-    this.store = featureStore;
+    this.store = dataStore;
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = requestor;

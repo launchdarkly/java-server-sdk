@@ -7,8 +7,8 @@ import com.launchdarkly.client.integrations.FileDataSourceParsing.FileDataExcept
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFactory;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileParser;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileRep;
-import com.launchdarkly.client.interfaces.FeatureStore;
-import com.launchdarkly.client.interfaces.UpdateProcessor;
+import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
@@ -42,15 +42,15 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
  * Implements taking flag data from files and putting it into the data store, at startup time and
  * optionally whenever files change.
  */
-final class FileDataSourceImpl implements UpdateProcessor {
+final class FileDataSourceImpl implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(FileDataSourceImpl.class);
 
-  private final FeatureStore store;
+  private final DataStore store;
   private final DataLoader dataLoader;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final FileWatcher fileWatcher;
   
-  FileDataSourceImpl(FeatureStore store, List<Path> sources, boolean autoUpdate) {
+  FileDataSourceImpl(DataStore store, List<Path> sources, boolean autoUpdate) {
     this.store = store;
     this.dataLoader = new DataLoader(sources);
 
