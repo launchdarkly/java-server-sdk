@@ -3,7 +3,6 @@ package com.launchdarkly.client;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.value.LDValue;
 
@@ -25,7 +24,6 @@ import static com.launchdarkly.client.TestUtil.specificDataSource;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
@@ -158,22 +156,6 @@ public class LDClientEvaluationTest {
     assertEquals("a", client.stringVariation("key", user, "a"));
   }
   
-  @SuppressWarnings("deprecation")
-  @Test
-  public void deprecatedJsonVariationReturnsFlagValue() throws Exception {
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    dataStore.upsert(FEATURES, flagWithValue("key", data));
-    
-    assertEquals(data.asJsonElement(), client.jsonVariation("key", user, new JsonPrimitive(42)));
-  }
-  
-  @SuppressWarnings("deprecation")
-  @Test
-  public void deprecatedJsonVariationReturnsDefaultValueForUnknownFlag() throws Exception {
-    JsonElement defaultVal = new JsonPrimitive(42);
-    assertEquals(defaultVal, client.jsonVariation("key", user, defaultVal));
-  }
-
   @Test
   public void jsonValueVariationReturnsFlagValue() throws Exception {
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
@@ -289,32 +271,6 @@ public class LDClientEvaluationTest {
     }
   }
   
-  @SuppressWarnings("deprecation")
-  @Test
-  public void allFlagsReturnsFlagValues() throws Exception {
-    dataStore.upsert(FEATURES, flagWithValue("key1", LDValue.of("value1")));
-    dataStore.upsert(FEATURES, flagWithValue("key2", LDValue.of("value2")));
-    
-    Map<String, JsonElement> result = client.allFlags(user);
-    assertEquals(ImmutableMap.<String, JsonElement>of("key1", new JsonPrimitive("value1"), "key2", new JsonPrimitive("value2")), result);
-  }
-  
-  @SuppressWarnings("deprecation")
-  @Test
-  public void allFlagsReturnsNullForNullUser() throws Exception {
-    dataStore.upsert(FEATURES, flagWithValue("key", LDValue.of("value")));
-
-    assertNull(client.allFlags(null));
-  }
-  
-  @SuppressWarnings("deprecation")
-  @Test
-  public void allFlagsReturnsNullForNullUserKey() throws Exception {
-    dataStore.upsert(FEATURES, flagWithValue("key", LDValue.of("value")));
-
-    assertNull(client.allFlags(userWithNullKey));
-  }
-  
   @Test
   public void allFlagsStateReturnsState() throws Exception {
     DataModel.FeatureFlag flag1 = flagBuilder("key1")
@@ -368,8 +324,8 @@ public class LDClientEvaluationTest {
     FeatureFlagsState state = client.allFlagsState(user, FlagsStateOption.CLIENT_SIDE_ONLY);
     assertTrue(state.isValid());
     
-    Map<String, JsonElement> allValues = state.toValuesMap();
-    assertEquals(ImmutableMap.<String, JsonElement>of("client-side-1", new JsonPrimitive("value1"), "client-side-2", new JsonPrimitive("value2")), allValues);
+    Map<String, LDValue> allValues = state.toValuesMap();
+    assertEquals(ImmutableMap.<String, LDValue>of("client-side-1", LDValue.of("value1"), "client-side-2", LDValue.of("value2")), allValues);
   }
   
   @Test

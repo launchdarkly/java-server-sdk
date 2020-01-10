@@ -1,12 +1,11 @@
 package com.launchdarkly.client.integrations;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.launchdarkly.client.DataModel;
 import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.value.LDValue;
 
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
@@ -65,13 +64,13 @@ abstract class FileDataSourceParsing {
    * parse the flags or segments at this level; that will be done by {@link FlagFactory}.
    */
   static final class FlagFileRep {
-    Map<String, JsonElement> flags;
-    Map<String, JsonElement> flagValues;
-    Map<String, JsonElement> segments;
+    Map<String, LDValue> flags;
+    Map<String, LDValue> flagValues;
+    Map<String, LDValue> segments;
     
     FlagFileRep() {}
   
-    FlagFileRep(Map<String, JsonElement> flags, Map<String, JsonElement> flagValues, Map<String, JsonElement> segments) {
+    FlagFileRep(Map<String, LDValue> flags, Map<String, LDValue> flagValues, Map<String, LDValue> segments) {
       this.flags = flags;
       this.flagValues = flagValues;
       this.segments = segments;
@@ -182,42 +181,36 @@ abstract class FileDataSourceParsing {
    * build some JSON and then parse that.
    */
   static final class FlagFactory {
-    private static final Gson gson = new Gson();
-  
     static VersionedData flagFromJson(String jsonString) {
-      return flagFromJson(gson.fromJson(jsonString, JsonElement.class));
+      return DataModel.DataKinds.FEATURES.deserialize(jsonString);
     }
     
-    static VersionedData flagFromJson(JsonElement jsonTree) {
-      return gson.fromJson(jsonTree, DataModel.DataKinds.FEATURES.getItemClass());
+    static VersionedData flagFromJson(LDValue jsonTree) {
+      return flagFromJson(jsonTree.toJsonString());
     }
     
     /**
      * Constructs a flag that always returns the same value. This is done by giving it a single
      * variation and setting the fallthrough variation to that.
      */
-    static VersionedData flagWithValue(String key, JsonElement value) {
-      JsonElement jsonValue = gson.toJsonTree(value);
-      JsonObject o = new JsonObject();
-      o.addProperty("key", key);
-      o.addProperty("on", true);
-      JsonArray vs = new JsonArray();
-      vs.add(jsonValue);
-      o.add("variations", vs);
+    static VersionedData flagWithValue(String key, LDValue jsonValue) {
+      LDValue o = LDValue.buildObject()
+            .put("key", key)
+            .put("on", true)
+            .put("variations", LDValue.buildArray().add(jsonValue).build())
+            .put("fallthrough", LDValue.buildObject().put("variation", 0).build())
+            .build();
       // Note that LaunchDarkly normally prevents you from creating a flag with just one variation,
       // but it's the application that validates that; the SDK doesn't care.
-      JsonObject ft = new JsonObject();
-      ft.addProperty("variation", 0);
-      o.add("fallthrough", ft);
       return flagFromJson(o);
     }
     
     static VersionedData segmentFromJson(String jsonString) {
-      return segmentFromJson(gson.fromJson(jsonString, JsonElement.class));
+      return DataModel.DataKinds.SEGMENTS.deserialize(jsonString);
     }
     
-    static VersionedData segmentFromJson(JsonElement jsonTree) {
-      return gson.fromJson(jsonTree, DataModel.DataKinds.SEGMENTS.getItemClass());
+    static VersionedData segmentFromJson(LDValue jsonTree) {
+      return segmentFromJson(jsonTree.toJsonString());
     }
   }
 }

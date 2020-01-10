@@ -8,7 +8,6 @@ import com.launchdarkly.client.value.LDValue;
 import org.junit.Test;
 
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
-import static com.launchdarkly.client.TestUtil.js;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -22,7 +21,7 @@ public class FeatureFlagsStateTest {
     DataModel.FeatureFlag flag = flagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
-    assertEquals(js("value"), state.getFlagValue("key"));
+    assertEquals(LDValue.of("value"), state.getFlagValue("key"));
   }
   
   @Test
@@ -64,7 +63,7 @@ public class FeatureFlagsStateTest {
     DataModel.FeatureFlag flag = flagBuilder("key").build();
     FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
     
-    assertNull(state.getFlagValue("key"));
+    assertEquals(LDValue.ofNull(), state.getFlagValue("key"));
   }
 
   @Test
@@ -76,7 +75,7 @@ public class FeatureFlagsStateTest {
     FeatureFlagsState state = new FeatureFlagsState.Builder()
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
     
-    ImmutableMap<String, JsonElement> expected = ImmutableMap.<String, JsonElement>of("key1", js("value1"), "key2", js("value2"));
+    ImmutableMap<String, LDValue> expected = ImmutableMap.<String, LDValue>of("key1", LDValue.of("value1"), "key2", LDValue.of("value2"));
     assertEquals(expected, state.toValuesMap());
   }
   

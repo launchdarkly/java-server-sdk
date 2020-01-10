@@ -1,8 +1,6 @@
 package com.launchdarkly.client.value;
 
 import com.google.common.collect.ImmutableList;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonWriter;
 
@@ -50,15 +48,5 @@ final class LDValueArray extends LDValue {
       v.write(writer);
     }
     writer.endArray();
-  }
-  
-  @Override
-  @SuppressWarnings("deprecation")
-  JsonElement computeJsonElement() {
-    JsonArray a = new JsonArray();
-    for (LDValue item: list) {
-      a.add(item.asUnsafeJsonElement());
-    }
-    return a;
   }
 }

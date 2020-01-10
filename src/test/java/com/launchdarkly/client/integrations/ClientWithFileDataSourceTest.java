@@ -1,9 +1,9 @@
 package com.launchdarkly.client.integrations;
 
-import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.LDClient;
 import com.launchdarkly.client.LDConfig;
 import com.launchdarkly.client.LDUser;
+import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
@@ -32,7 +32,7 @@ public class ClientWithFileDataSourceTest {
   @Test
   public void fullFlagDefinitionEvaluatesAsExpected() throws Exception {
     try (LDClient client = makeClient()) {
-      assertThat(client.jsonVariation(FULL_FLAG_1_KEY, user, new JsonPrimitive("default")),
+      assertThat(client.jsonValueVariation(FULL_FLAG_1_KEY, user, LDValue.of("default")),
           equalTo(FULL_FLAG_1_VALUE));
     }
   }
@@ -40,7 +40,7 @@ public class ClientWithFileDataSourceTest {
   @Test
   public void simplifiedFlagEvaluatesAsExpected() throws Exception {
     try (LDClient client = makeClient()) {
-      assertThat(client.jsonVariation(FLAG_VALUE_1_KEY, user, new JsonPrimitive("default")),
+      assertThat(client.jsonValueVariation(FLAG_VALUE_1_KEY, user, LDValue.of("default")),
           equalTo(FLAG_VALUE_1));
     }
   }

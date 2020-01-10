@@ -1,6 +1,5 @@
 package com.launchdarkly.client.interfaces;
 
-import com.google.gson.JsonElement;
 import com.launchdarkly.client.EvaluationReason;
 import com.launchdarkly.client.LDClientInterface;
 import com.launchdarkly.client.LDUser;
@@ -67,19 +66,6 @@ public class Event {
       this.metricValue = metricValue;
     }
 
-    /**
-     * Deprecated constructor.
-     * @param timestamp the timestamp in milliseconds
-     * @param key the event key
-     * @param user the user associated with the event
-     * @param data custom data if any (null is the same as {@link LDValue#ofNull()})
-     * @deprecated
-     */
-    @Deprecated
-    public Custom(long timestamp, String key, LDUser user, JsonElement data) {
-      this(timestamp, key, user, LDValue.unsafeFromJsonElement(data), null);
-    }
-    
     /**
      * The custom event key.
      * @return the event key
@@ -177,51 +163,6 @@ public class Event {
       this.debugEventsUntilDate = debugEventsUntilDate;
       this.reason = reason;
       this.debug = debug;
-    }
-    
-    /**
-     * Deprecated constructor.
-     * @param timestamp the timestamp in milliseconds
-     * @param key the flag key
-     * @param user the user associated with the event
-     * @param version the flag version, or null if the flag was not found
-     * @param variation the result variation, or null if there was an error
-     * @param value the result value
-     * @param defaultVal the default value passed by the application
-     * @param prereqOf if this flag was evaluated as a prerequisite, this is the key of the flag that referenced it
-     * @param trackEvents true if full event tracking is turned on for this flag
-     * @param debugEventsUntilDate if non-null, the time until which event debugging should be enabled
-     * @param debug true if this is a debugging event
-     * @deprecated
-     */
-    @Deprecated
-    public FeatureRequest(long timestamp, String key, LDUser user, Integer version, Integer variation, JsonElement value,
-        JsonElement defaultVal, String prereqOf, boolean trackEvents, Long debugEventsUntilDate, boolean debug) {
-      this(timestamp, key, user, version, variation, LDValue.unsafeFromJsonElement(value), LDValue.unsafeFromJsonElement(defaultVal),
-          null, prereqOf, trackEvents, debugEventsUntilDate, debug);
-    }
-
-    /**
-     * Deprecated constructor.
-     * @param timestamp the timestamp in milliseconds
-     * @param key the flag key
-     * @param user the user associated with the event
-     * @param version the flag version, or null if the flag was not found
-     * @param variation the result variation, or null if there was an error
-     * @param value the result value
-     * @param defaultVal the default value passed by the application
-     * @param reason the evaluation reason, if it is to be included in the event
-     * @param prereqOf if this flag was evaluated as a prerequisite, this is the key of the flag that referenced it
-     * @param trackEvents true if full event tracking is turned on for this flag
-     * @param debugEventsUntilDate if non-null, the time until which event debugging should be enabled
-     * @param debug true if this is a debugging event
-     * @deprecated
-     */
-    @Deprecated
-    public FeatureRequest(long timestamp, String key, LDUser user, Integer version, Integer variation, JsonElement value,
-        JsonElement defaultVal, String prereqOf, boolean trackEvents, Long debugEventsUntilDate, EvaluationReason reason, boolean debug) {
-      this(timestamp, key, user, version, variation, LDValue.unsafeFromJsonElement(value), LDValue.unsafeFromJsonElement(defaultVal),
-          reason, prereqOf, trackEvents, debugEventsUntilDate, debug);
     }
 
     /**

@@ -16,7 +16,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
@@ -190,7 +189,6 @@ final class DefaultEventProcessor implements EventProcessor {
     private final OkHttpClient httpClient;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;
-    private final Random random = new Random();
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
 
@@ -334,15 +332,13 @@ final class DefaultEventProcessor implements EventProcessor {
       Event debugEvent = null;
       
       if (e instanceof Event.FeatureRequest) {
-        if (shouldSampleEvent()) {
-          Event.FeatureRequest fe = (Event.FeatureRequest)e;
-          addFullEvent = fe.isTrackEvents();
-          if (shouldDebugEvent(fe)) {
-            debugEvent = EventFactory.DEFAULT.newDebugEvent(fe);
-          }
+        Event.FeatureRequest fe = (Event.FeatureRequest)e;
+        addFullEvent = fe.isTrackEvents();
+        if (shouldDebugEvent(fe)) {
+          debugEvent = EventFactory.DEFAULT.newDebugEvent(fe);
         }
       } else {
-        addFullEvent = shouldSampleEvent();
+        addFullEvent = true;
       }
       
       // For each user we haven't seen before, we add an index event - unless this is already
@@ -375,10 +371,6 @@ final class DefaultEventProcessor implements EventProcessor {
       }
       String key = user.getKeyAsString();
       return userKeys.put(key, key) != null;
-    }
-    
-    private boolean shouldSampleEvent() {
-      return config.samplingInterval <= 0 || random.nextInt(config.samplingInterval) == 0;
     }
     
     private boolean shouldDebugEvent(Event.FeatureRequest fe) {

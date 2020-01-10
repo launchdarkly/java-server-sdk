@@ -4,7 +4,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.client.LDClientInterface;
@@ -29,9 +28,6 @@ import java.util.Map;
 @JsonAdapter(LDValueTypeAdapter.class)
 public abstract class LDValue {
   static final Gson gson = new Gson();
-  
-  private boolean haveComputedJsonElement = false;
-  private JsonElement computedJsonElement = null;
   
   /**
    * Returns the same value if non-null, or {@link #ofNull()} if null.
@@ -147,33 +143,12 @@ public abstract class LDValue {
   }
   
   /**
-   * Returns an instance based on a {@link JsonElement} value. If the value is a complex type, it is
-   * deep-copied; primitive types are used as is.
-   * 
-   * @param value a nullable {@link JsonElement} reference
-   * @return an LDValue containing the specified value, or {@link #ofNull()} if the value was null.
-   * @deprecated The Gson types may be removed from the public API at some point; it is preferable to
-   * use factory methods like {@link #of(boolean)}.
+   * Parses an LDValue from a JSON representation.
+   * @param json a JSON string
+   * @return an LDValue
    */
-  @Deprecated
-  public static LDValue fromJsonElement(JsonElement value) {
-    return value == null || value.isJsonNull() ? ofNull() : LDValueJsonElement.copyValue(value); 
-  }
-  
-  /**
-   * Returns an instance that wraps an existing {@link JsonElement} value without copying it. This
-   * method exists only to support deprecated SDK methods where a {@link JsonElement} is needed, to
-   * avoid the inefficiency of a deep-copy; application code should not use it, since it can break
-   * the immutability contract of {@link LDValue}.
-   * 
-   * @param value a nullable {@link JsonElement} reference
-   * @return an LDValue containing the specified value, or {@link #ofNull()} if the value was null.
-   * @deprecated This method will be removed in a future version. Application code should use
-   * {@link #fromJsonElement(JsonElement)} or, preferably, factory methods like {@link #of(boolean)}.
-   */
-  @Deprecated
-  public static LDValue unsafeFromJsonElement(JsonElement value) {
-    return value == null || value.isJsonNull() ? ofNull() : LDValueJsonElement.wrapUnsafeValue(value);
+  public static LDValue parse(String json) {
+    return gson.fromJson(json, LDValue.class);
   }
   
   /**
@@ -366,43 +341,6 @@ public abstract class LDValue {
     return gson.toJson(this);
   }
   
-  /**
-   * Converts this value to a {@link JsonElement}. If the value is a complex type, it is deep-copied
-   * deep-copied, so modifying the return value will not affect the {@link LDValue}.
-   * 
-   * @return a {@link JsonElement}, or {@code null} if the value is a null
-   * @deprecated The Gson types may be removed from the public API at some point; it is preferable to
-   * use getters like {@link #booleanValue()} and {@link #getType()}.
-   */
-  @Deprecated
-  public JsonElement asJsonElement() {
-    return LDValueJsonElement.deepCopy(asUnsafeJsonElement());
-  }
-  
-  /**
-   * Returns the original {@link JsonElement} if the value was created from one, otherwise converts the
-   * value to a {@link JsonElement}. This method exists only to support deprecated SDK methods where a
-   * {@link JsonElement} is needed, to avoid the inefficiency of a deep-copy; application code should not
-   * use it, since it can break the immutability contract of {@link LDValue}.
-   * 
-   * @return a {@link JsonElement}, or {@code null} if the value is a null
-   * @deprecated This method will be removed in a future version. Application code should always use
-   * {@link #asJsonElement()}.
-   */
-  @Deprecated
-  public JsonElement asUnsafeJsonElement() {
-    // Lazily compute this value
-    synchronized (this) {
-      if (!haveComputedJsonElement) {
-        computedJsonElement = computeJsonElement();
-        haveComputedJsonElement = true;
-      }
-      return computedJsonElement;
-    }
-  }
-  
-  abstract JsonElement computeJsonElement();
-  
   abstract void write(JsonWriter writer) throws IOException;
   
   static boolean isInteger(double value) {
@@ -413,9 +351,6 @@ public abstract class LDValue {
   public String toString() {
     return toJsonString();
   }
-  
-  // equals() and hashCode() are defined here in the base class so that we don't have to worry about
-  // whether a value is stored as LDValueJsonElement vs. one of our own primitive types.
   
   @Override
   public boolean equals(Object o) {

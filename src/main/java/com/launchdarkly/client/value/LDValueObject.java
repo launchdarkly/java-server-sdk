@@ -1,8 +1,6 @@
 package com.launchdarkly.client.value;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonWriter;
 
@@ -55,15 +53,5 @@ final class LDValueObject extends LDValue {
       e.getValue().write(writer);
     }
     writer.endObject();
-  }
-  
-  @Override
-  @SuppressWarnings("deprecation")
-  JsonElement computeJsonElement() {
-    JsonObject o = new JsonObject();
-    for (String key: map.keySet()) {
-      o.add(key, map.get(key).asUnsafeJsonElement());
-    }
-    return o;
   }
 }

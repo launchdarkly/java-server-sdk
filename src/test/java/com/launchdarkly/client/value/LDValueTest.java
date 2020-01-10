@@ -3,9 +3,6 @@ package com.launchdarkly.client.value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 
 import org.junit.Test;
 
@@ -16,11 +13,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-@SuppressWarnings({"deprecation", "javadoc"})
+@SuppressWarnings("javadoc")
 public class LDValueTest {
   private static final Gson gson = new Gson();
   
@@ -40,33 +36,10 @@ public class LDValueTest {
   private static final LDValue anArrayValue = LDValue.buildArray().add(LDValue.of(3)).build();
   private static final LDValue anObjectValue = LDValue.buildObject().put("1", LDValue.of("x")).build();
   
-  private static final LDValue aTrueBoolValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(true));
-  private static final LDValue anIntValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someInt));
-  private static final LDValue aLongValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someLong));
-  private static final LDValue aFloatValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someFloat));
-  private static final LDValue aDoubleValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someDouble));
-  private static final LDValue aStringValueFromJsonElement = LDValue.fromJsonElement(new JsonPrimitive(someString));
-  private static final LDValue anArrayValueFromJsonElement = LDValue.fromJsonElement(anArrayValue.asJsonElement());
-  private static final LDValue anObjectValueFromJsonElement = LDValue.fromJsonElement(anObjectValue.asJsonElement());
-  
-  @Test
-  public void defaultValueJsonElementsAreReused() {
-    assertSame(LDValue.ofNull(), LDValue.ofNull());
-    assertSame(LDValue.of(true).asJsonElement(), LDValue.of(true).asJsonElement());
-    assertSame(LDValue.of(false).asJsonElement(), LDValue.of(false).asJsonElement());
-    assertSame(LDValue.of((int)0).asJsonElement(), LDValue.of((int)0).asJsonElement());
-    assertSame(LDValue.of((long)0).asJsonElement(), LDValue.of((long)0).asJsonElement());
-    assertSame(LDValue.of((float)0).asJsonElement(), LDValue.of((float)0).asJsonElement());
-    assertSame(LDValue.of((double)0).asJsonElement(), LDValue.of((double)0).asJsonElement());
-    assertSame(LDValue.of("").asJsonElement(), LDValue.of("").asJsonElement());
-  }
-  
   @Test
   public void canGetValueAsBoolean() {
     assertEquals(LDValueType.BOOLEAN, aTrueBoolValue.getType());
     assertTrue(aTrueBoolValue.booleanValue());
-    assertEquals(LDValueType.BOOLEAN, aTrueBoolValueFromJsonElement.getType());
-    assertTrue(aTrueBoolValueFromJsonElement.booleanValue());
   }
   
   @Test
@@ -74,19 +47,12 @@ public class LDValueTest {
     LDValue[] values = new LDValue[] {
         LDValue.ofNull(),
         aStringValue,
-        aStringValueFromJsonElement,
         anIntValue,
-        anIntValueFromJsonElement,
         aLongValue,
-        aLongValueFromJsonElement,
         aFloatValue,
-        aFloatValueFromJsonElement,
         aDoubleValue,
-        aDoubleValueFromJsonElement,
         anArrayValue,
-        anArrayValueFromJsonElement,
         anObjectValue,
-        anObjectValueFromJsonElement
     };
     for (LDValue value: values) {
       assertNotEquals(value.toString(), LDValueType.BOOLEAN, value.getType());
@@ -98,8 +64,6 @@ public class LDValueTest {
   public void canGetValueAsString() {
     assertEquals(LDValueType.STRING, aStringValue.getType());
     assertEquals(someString, aStringValue.stringValue());
-    assertEquals(LDValueType.STRING, aStringValueFromJsonElement.getType());
-    assertEquals(someString, aStringValueFromJsonElement.stringValue());
   }
 
   @Test
@@ -107,19 +71,12 @@ public class LDValueTest {
     LDValue[] values = new LDValue[] {
         LDValue.ofNull(),
         aTrueBoolValue,
-        aTrueBoolValueFromJsonElement,
         anIntValue,
-        anIntValueFromJsonElement,
         aLongValue,
-        aLongValueFromJsonElement,
         aFloatValue,
-        aFloatValueFromJsonElement,
         aDoubleValue,
-        aDoubleValueFromJsonElement,
         anArrayValue,
-        anArrayValueFromJsonElement,
-        anObjectValue,
-        anObjectValueFromJsonElement
+        anObjectValue
     };
     for (LDValue value: values) {
       assertNotEquals(value.toString(), LDValueType.STRING, value.getType());
@@ -184,14 +141,10 @@ public class LDValueTest {
     LDValue[] values = new LDValue[] {
         LDValue.ofNull(),
         aTrueBoolValue,
-        aTrueBoolValueFromJsonElement,
         aStringValue,
-        aStringValueFromJsonElement,
         aNumericLookingStringValue,
         anArrayValue,
-        anArrayValueFromJsonElement,
-        anObjectValue,
-        anObjectValueFromJsonElement
+        anObjectValue
     };
     for (LDValue value: values) {
       assertNotEquals(value.toString(), LDValueType.NUMBER, value.getType());
@@ -202,21 +155,16 @@ public class LDValueTest {
   }
   
   @Test
-  public void canGetSizeOfArrayOrObject() {
+  public void canGetSizeOfArray() {
     assertEquals(1, anArrayValue.size());
-    assertEquals(1, anArrayValueFromJsonElement.size());
   }
   
   @Test
   public void arrayCanGetItemByIndex() {
     assertEquals(LDValueType.ARRAY, anArrayValue.getType());
-    assertEquals(LDValueType.ARRAY, anArrayValueFromJsonElement.getType());
     assertEquals(LDValue.of(3), anArrayValue.get(0));
-    assertEquals(LDValue.of(3), anArrayValueFromJsonElement.get(0));
     assertEquals(LDValue.ofNull(), anArrayValue.get(-1));
     assertEquals(LDValue.ofNull(), anArrayValue.get(1));
-    assertEquals(LDValue.ofNull(), anArrayValueFromJsonElement.get(-1));
-    assertEquals(LDValue.ofNull(), anArrayValueFromJsonElement.get(1));
   }
   
   @Test
@@ -235,7 +183,6 @@ public class LDValueTest {
     LDValue[] values = new LDValue[] {
         LDValue.ofNull(),
         aTrueBoolValue,
-        aTrueBoolValueFromJsonElement,
         anIntValue,
         aLongValue,
         aFloatValue,
@@ -256,19 +203,14 @@ public class LDValueTest {
   @Test
   public void canGetSizeOfObject() {
     assertEquals(1, anObjectValue.size());
-    assertEquals(1, anObjectValueFromJsonElement.size());
   }
   
   @Test
   public void objectCanGetValueByName() {
     assertEquals(LDValueType.OBJECT, anObjectValue.getType());
-    assertEquals(LDValueType.OBJECT, anObjectValueFromJsonElement.getType());
     assertEquals(LDValue.of("x"), anObjectValue.get("1"));
-    assertEquals(LDValue.of("x"), anObjectValueFromJsonElement.get("1"));
     assertEquals(LDValue.ofNull(), anObjectValue.get(null));
-    assertEquals(LDValue.ofNull(), anObjectValueFromJsonElement.get(null));
     assertEquals(LDValue.ofNull(), anObjectValue.get("2"));
-    assertEquals(LDValue.ofNull(), anObjectValueFromJsonElement.get("2"));
   }
   
   @Test
@@ -296,7 +238,6 @@ public class LDValueTest {
     LDValue[] values = new LDValue[] {
         LDValue.ofNull(),
         aTrueBoolValue,
-        aTrueBoolValueFromJsonElement,
         anIntValue,
         aLongValue,
         aFloatValue,
@@ -340,75 +281,49 @@ public class LDValueTest {
   }
 
   @Test
-  public void samePrimitivesWithOrWithoutJsonElementAreEqual() {
-    assertValueAndHashEqual(aTrueBoolValue, aTrueBoolValueFromJsonElement);
-    assertValueAndHashEqual(anIntValue, anIntValueFromJsonElement);
-    assertValueAndHashEqual(aLongValue, aLongValueFromJsonElement);
-    assertValueAndHashEqual(aFloatValue, aFloatValueFromJsonElement);
-    assertValueAndHashEqual(aStringValue, aStringValueFromJsonElement);
-    assertValueAndHashEqual(anArrayValue, anArrayValueFromJsonElement);
-    assertValueAndHashEqual(anObjectValue, anObjectValueFromJsonElement);
-  }
-
-  @Test
   public void equalsUsesDeepEqualityForArrays()
   {
-    LDValue a0 = LDValue.buildArray().add("a")
+    LDValue a1 = LDValue.buildArray().add("a")
           .add(LDValue.buildArray().add("b").add("c").build())
           .build();
-    JsonArray ja1 = new JsonArray();
-    ja1.add(new JsonPrimitive("a"));
-    JsonArray ja1a = new JsonArray();
-    ja1a.add(new JsonPrimitive("b"));
-    ja1a.add(new JsonPrimitive("c"));
-    ja1.add(ja1a);
-    LDValue a1 = LDValue.fromJsonElement(ja1);
-    assertValueAndHashEqual(a0, a1);
 
     LDValue a2 = LDValue.buildArray().add("a").build();
-    assertValueAndHashNotEqual(a0, a2);
+    assertValueAndHashNotEqual(a1, a2);
 
     LDValue a3 = LDValue.buildArray().add("a").add("b").add("c").build();
-    assertValueAndHashNotEqual(a0, a3);
+    assertValueAndHashNotEqual(a1, a3);
 
     LDValue a4 = LDValue.buildArray().add("a")
         .add(LDValue.buildArray().add("b").add("x").build())
         .build();
-    assertValueAndHashNotEqual(a0, a4);
+    assertValueAndHashNotEqual(a1, a4);
   }
 
   @Test
   public void equalsUsesDeepEqualityForObjects()
   {
-      LDValue o0 = LDValue.buildObject()
+      LDValue o1 = LDValue.buildObject()
           .put("a", "b")
           .put("c", LDValue.buildObject().put("d", "e").build())
           .build();
-      JsonObject jo1 = new JsonObject();
-      jo1.add("a", new JsonPrimitive("b"));
-      JsonObject jo1a = new JsonObject();
-      jo1a.add("d", new JsonPrimitive("e"));
-      jo1.add("c", jo1a);
-      LDValue o1 = LDValue.fromJsonElement(jo1);
-      assertValueAndHashEqual(o0, o1);
 
       LDValue o2 = LDValue.buildObject()
           .put("a", "b")
           .build();
-      assertValueAndHashNotEqual(o0, o2);
+      assertValueAndHashNotEqual(o1, o2);
 
       LDValue o3 = LDValue.buildObject()
           .put("a", "b")
           .put("c", LDValue.buildObject().put("d", "e").build())
           .put("f", "g")
           .build();
-      assertValueAndHashNotEqual(o0, o3);
+      assertValueAndHashNotEqual(o1, o3);
       
       LDValue o4 = LDValue.buildObject()
           .put("a", "b")
           .put("c", LDValue.buildObject().put("d", "f").build())
           .build();
-      assertValueAndHashNotEqual(o0, o4);
+      assertValueAndHashNotEqual(o1, o4);
   }
 
   @Test
@@ -431,22 +346,14 @@ public class LDValueTest {
   public void testToJsonString() {
     assertEquals("null", LDValue.ofNull().toJsonString());
     assertEquals("true", aTrueBoolValue.toJsonString());
-    assertEquals("true", aTrueBoolValueFromJsonElement.toJsonString());
     assertEquals("false", LDValue.of(false).toJsonString());
     assertEquals(String.valueOf(someInt), anIntValue.toJsonString());
-    assertEquals(String.valueOf(someInt), anIntValueFromJsonElement.toJsonString());
     assertEquals(String.valueOf(someLong), aLongValue.toJsonString());
-    assertEquals(String.valueOf(someLong), aLongValueFromJsonElement.toJsonString());
     assertEquals(String.valueOf(someFloat), aFloatValue.toJsonString());
-    assertEquals(String.valueOf(someFloat), aFloatValueFromJsonElement.toJsonString());
     assertEquals(String.valueOf(someDouble), aDoubleValue.toJsonString());
-    assertEquals(String.valueOf(someDouble), aDoubleValueFromJsonElement.toJsonString());
     assertEquals("\"hi\"", aStringValue.toJsonString());
-    assertEquals("\"hi\"", aStringValueFromJsonElement.toJsonString());
     assertEquals("[3]", anArrayValue.toJsonString());
-    assertEquals("[3.0]", anArrayValueFromJsonElement.toJsonString());
     assertEquals("{\"1\":\"x\"}", anObjectValue.toJsonString());
-    assertEquals("{\"1\":\"x\"}", anObjectValueFromJsonElement.toJsonString());
   }
   
   @Test
@@ -454,37 +361,18 @@ public class LDValueTest {
     LDValue[] values = new LDValue[] {
         LDValue.ofNull(),
         aTrueBoolValue,
-        aTrueBoolValueFromJsonElement,
         anIntValue,
-        anIntValueFromJsonElement,
         aLongValue,
-        aLongValueFromJsonElement,
         aFloatValue,
-        aFloatValueFromJsonElement,
         aDoubleValue,
-        aDoubleValueFromJsonElement,
         aStringValue,
-        aStringValueFromJsonElement,
         anArrayValue,
-        anArrayValueFromJsonElement,
-        anObjectValue,
-        anObjectValueFromJsonElement
+        anObjectValue
     };
     for (LDValue value: values) {
       assertEquals(value.toString(), value.toJsonString(), gson.toJson(value));
       assertEquals(value.toString(), value, LDValue.normalize(gson.fromJson(value.toJsonString(), LDValue.class)));
     }
-  }
-  
-  @Test
-  public void valueToJsonElement() {
-    assertNull(LDValue.ofNull().asJsonElement());
-    assertEquals(new JsonPrimitive(true), aTrueBoolValue.asJsonElement());
-    assertEquals(new JsonPrimitive(someInt), anIntValue.asJsonElement());
-    assertEquals(new JsonPrimitive(someLong), aLongValue.asJsonElement());
-    assertEquals(new JsonPrimitive(someFloat), aFloatValue.asJsonElement());
-    assertEquals(new JsonPrimitive(someDouble), aDoubleValue.asJsonElement());
-    assertEquals(new JsonPrimitive(someString), aStringValue.asJsonElement());
   }
   
   @Test

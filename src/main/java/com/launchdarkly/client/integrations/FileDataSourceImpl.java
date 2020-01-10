@@ -1,7 +1,6 @@
 package com.launchdarkly.client.integrations;
 
 import com.google.common.util.concurrent.Futures;
-import com.google.gson.JsonElement;
 import com.launchdarkly.client.DataModel;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FileDataException;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFactory;
@@ -11,6 +10,7 @@ import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
+import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -215,17 +215,17 @@ final class FileDataSourceImpl implements DataSource {
           FlagFileParser parser = FlagFileParser.selectForContent(data);
           FlagFileRep fileContents = parser.parse(new ByteArrayInputStream(data));
           if (fileContents.flags != null) {
-            for (Map.Entry<String, JsonElement> e: fileContents.flags.entrySet()) {
+            for (Map.Entry<String, LDValue> e: fileContents.flags.entrySet()) {
               builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagFromJson(e.getValue()));
             }
           }
           if (fileContents.flagValues != null) {
-            for (Map.Entry<String, JsonElement> e: fileContents.flagValues.entrySet()) {
+            for (Map.Entry<String, LDValue> e: fileContents.flagValues.entrySet()) {
               builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagWithValue(e.getKey(), e.getValue()));
             }
           }
           if (fileContents.segments != null) {
-            for (Map.Entry<String, JsonElement> e: fileContents.segments.entrySet()) {
+            for (Map.Entry<String, LDValue> e: fileContents.segments.entrySet()) {
               builder.add(DataModel.DataKinds.SEGMENTS, FlagFactory.segmentFromJson(e.getValue()));
             }
           }

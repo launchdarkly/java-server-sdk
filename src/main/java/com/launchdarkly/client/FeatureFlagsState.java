@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import com.google.common.base.Objects;
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
@@ -27,7 +26,7 @@ import java.util.Map;
 public class FeatureFlagsState {
   private static final Gson gson = new Gson();
   
-  private final Map<String, JsonElement> flagValues;
+  private final Map<String, LDValue> flagValues;
   private final Map<String, FlagMetadata> flagMetadata;
   private final boolean valid;
     
@@ -65,7 +64,7 @@ public class FeatureFlagsState {
     }
   }
   
-  private FeatureFlagsState(Map<String, JsonElement> flagValues,
+  private FeatureFlagsState(Map<String, LDValue> flagValues,
       Map<String, FlagMetadata> flagMetadata, boolean valid) {
     this.flagValues = Collections.unmodifiableMap(flagValues);
     this.flagMetadata = Collections.unmodifiableMap(flagMetadata);
@@ -86,7 +85,7 @@ public class FeatureFlagsState {
    * @param key the feature flag key
    * @return the flag's JSON value; null if the flag returned the default value, or if there was no such flag
    */
-  public JsonElement getFlagValue(String key) {
+  public LDValue getFlagValue(String key) {
     return flagValues.get(key);
   }
 
@@ -108,7 +107,7 @@ public class FeatureFlagsState {
    * Instead, serialize the FeatureFlagsState object to JSON using {@code Gson.toJson()} or {@code Gson.toJsonTree()}.
    * @return an immutable map of flag keys to JSON values
    */
-  public Map<String, JsonElement> toValuesMap() {
+  public Map<String, LDValue> toValuesMap() {
     return flagValues;
   }
   
@@ -129,7 +128,7 @@ public class FeatureFlagsState {
   }
   
   static class Builder {
-    private Map<String, JsonElement> flagValues = new HashMap<>();
+    private Map<String, LDValue> flagValues = new HashMap<>();
     private Map<String, FlagMetadata> flagMetadata = new HashMap<>();
     private final boolean saveReasons;
     private final boolean detailsOnlyForTrackedFlags;
@@ -145,9 +144,8 @@ public class FeatureFlagsState {
       return this;
     }
     
-    @SuppressWarnings("deprecation")
     Builder addFlag(DataModel.FeatureFlag flag, Evaluator.EvalResult eval) {
-      flagValues.put(flag.getKey(), eval.getValue().asUnsafeJsonElement());
+      flagValues.put(flag.getKey(), eval.getValue());
       final boolean flagIsTracked = flag.isTrackEvents() ||
           (flag.getDebugEventsUntilDate() != null && flag.getDebugEventsUntilDate() > System.currentTimeMillis());
       final boolean wantDetails = !detailsOnlyForTrackedFlags || flagIsTracked;
@@ -169,9 +167,9 @@ public class FeatureFlagsState {
     @Override
     public void write(JsonWriter out, FeatureFlagsState state) throws IOException {
       out.beginObject();
-      for (Map.Entry<String, JsonElement> entry: state.flagValues.entrySet()) {
+      for (Map.Entry<String, LDValue> entry: state.flagValues.entrySet()) {
         out.name(entry.getKey());
-        gson.toJson(entry.getValue(), out);
+        gson.toJson(entry.getValue(), LDValue.class, out);
       }
       out.name("$flagsState");
       gson.toJson(state.flagMetadata, Map.class, out);
@@ -183,7 +181,7 @@ public class FeatureFlagsState {
     // There isn't really a use case for deserializing this, but we have to implement it
     @Override
     public FeatureFlagsState read(JsonReader in) throws IOException {
-      Map<String, JsonElement> flagValues = new HashMap<>();
+      Map<String, LDValue> flagValues = new HashMap<>();
       Map<String, FlagMetadata> flagMetadata = new HashMap<>();
       boolean valid = true;
       in.beginObject();
@@ -200,7 +198,7 @@ public class FeatureFlagsState {
         } else if (name.equals("$valid")) {
           valid = in.nextBoolean();
         } else {
-          JsonElement value = gson.fromJson(in, JsonElement.class);
+          LDValue value = gson.fromJson(in, LDValue.class);
           flagValues.put(name, value);
         }
       }

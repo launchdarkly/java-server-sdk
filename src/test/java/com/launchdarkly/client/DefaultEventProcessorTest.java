@@ -1,8 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 
@@ -38,10 +36,9 @@ public class DefaultEventProcessorTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
   private static final Gson gson = new Gson();
-  private static final JsonElement userJson =
-      gson.fromJson("{\"key\":\"userkey\",\"name\":\"Red\"}", JsonElement.class);
-  private static final JsonElement filteredUserJson =
-      gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
+  private static final LDValue userJson = LDValue.buildObject().put("key", "userkey").put("name", "Red").build();
+  private static final LDValue filteredUserJson = LDValue.buildObject().put("key", "userkey")
+      .put("privateAttrs", LDValue.buildArray().add("name").build()).build();
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
@@ -609,13 +606,13 @@ public class DefaultEventProcessorTest {
     return response.addHeader("Date", httpDateFormat.format(new Date(timestamp)));
   }
   
-  private JsonArray getEventsFromLastRequest(MockWebServer server) throws Exception {
+  private Iterable<LDValue> getEventsFromLastRequest(MockWebServer server) throws Exception {
     RecordedRequest req = server.takeRequest(0, TimeUnit.MILLISECONDS);
     assertNotNull(req);
-    return gson.fromJson(req.getBody().readUtf8(), JsonElement.class).getAsJsonArray();
+    return gson.fromJson(req.getBody().readUtf8(), LDValue.class).values();
   }
   
-  private Matcher<JsonElement> isIdentifyEvent(Event sourceEvent, JsonElement user) {
+  private Matcher<LDValue> isIdentifyEvent(Event sourceEvent, LDValue user) {
     return allOf(
         hasJsonProperty("kind", "identify"),
         hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
@@ -623,7 +620,7 @@ public class DefaultEventProcessorTest {
     );
   }
 
-  private Matcher<JsonElement> isIndexEvent(Event sourceEvent, JsonElement user) {
+  private Matcher<LDValue> isIndexEvent(Event sourceEvent, LDValue user) {
     return allOf(
         hasJsonProperty("kind", "index"),
         hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
@@ -631,12 +628,12 @@ public class DefaultEventProcessorTest {
     );
   }
 
-  private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, JsonElement inlineUser) {
+  private Matcher<LDValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser) {
     return isFeatureEvent(sourceEvent, flag, debug, inlineUser, null);
   }
 
   @SuppressWarnings("unchecked")
-  private Matcher<JsonElement> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, JsonElement inlineUser,
+  private Matcher<LDValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser,
       EvaluationReason reason) {
     return allOf(
         hasJsonProperty("kind", debug ? "debug" : "feature"),
@@ -645,36 +642,30 @@ public class DefaultEventProcessorTest {
         hasJsonProperty("version", (double)flag.getVersion()),
         hasJsonProperty("variation", sourceEvent.getVariation()),
         hasJsonProperty("value", sourceEvent.getValue()),
-        (inlineUser != null) ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
-          hasJsonProperty("userKey", sourceEvent.getUser().getKeyAsString()),
-        (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
-          hasJsonProperty("user", nullValue(JsonElement.class)),
-        (reason == null) ? hasJsonProperty("reason", nullValue(JsonElement.class)) :
-          hasJsonProperty("reason", gson.toJsonTree(reason))
+        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKeyAsString()) : LDValue.ofNull()),
+        hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
+        hasJsonProperty("reason", reason == null ? LDValue.ofNull() : LDValue.parse(gson.toJson(reason)))
     );
   }
 
   @SuppressWarnings("unchecked")
-  private Matcher<JsonElement> isCustomEvent(Event.Custom sourceEvent, JsonElement inlineUser) {
+  private Matcher<LDValue> isCustomEvent(Event.Custom sourceEvent, LDValue inlineUser) {
     return allOf(
         hasJsonProperty("kind", "custom"),
         hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         hasJsonProperty("key", "eventkey"),
-        (inlineUser != null) ? hasJsonProperty("userKey", nullValue(JsonElement.class)) :
-          hasJsonProperty("userKey", sourceEvent.getUser().getKeyAsString()),
-        (inlineUser != null) ? hasJsonProperty("user", inlineUser) :
-          hasJsonProperty("user", nullValue(JsonElement.class)),
+        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKeyAsString()) : LDValue.ofNull()),
+        hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
         hasJsonProperty("data", sourceEvent.getData()),
-        (sourceEvent.getMetricValue() == null) ? hasJsonProperty("metricValue", nullValue(JsonElement.class)) :
-          hasJsonProperty("metricValue", sourceEvent.getMetricValue().doubleValue())              
+        hasJsonProperty("metricValue", sourceEvent.getMetricValue() == null ? LDValue.ofNull() : LDValue.of(sourceEvent.getMetricValue()))              
     );
   }
 
-  private Matcher<JsonElement> isSummaryEvent() {
+  private Matcher<LDValue> isSummaryEvent() {
     return hasJsonProperty("kind", "summary");
   }
 
-  private Matcher<JsonElement> isSummaryEvent(long startDate, long endDate) {
+  private Matcher<LDValue> isSummaryEvent(long startDate, long endDate) {
     return allOf(
         hasJsonProperty("kind", "summary"),
         hasJsonProperty("startDate", (double)startDate),
@@ -682,7 +673,7 @@ public class DefaultEventProcessorTest {
     );
   }
   
-  private Matcher<JsonElement> hasSummaryFlag(String key, LDValue defaultVal, Matcher<Iterable<? extends JsonElement>> counters) {
+  private Matcher<LDValue> hasSummaryFlag(String key, LDValue defaultVal, Matcher<Iterable<? extends LDValue>> counters) {
     return hasJsonProperty("features",
         hasJsonProperty(key, allOf(
           hasJsonProperty("default", defaultVal),
@@ -690,7 +681,7 @@ public class DefaultEventProcessorTest {
     )));
   }
   
-  private Matcher<JsonElement> isSummaryEventCounter(DataModel.FeatureFlag flag, Integer variation, LDValue value, int count) {
+  private Matcher<LDValue> isSummaryEventCounter(DataModel.FeatureFlag flag, Integer variation, LDValue value, int count) {
     return allOf(
         hasJsonProperty("variation", variation),
         hasJsonProperty("version", (double)flag.getVersion()),
