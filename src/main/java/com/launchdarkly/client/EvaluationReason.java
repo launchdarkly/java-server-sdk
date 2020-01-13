@@ -78,7 +78,7 @@ public abstract class EvaluationReason {
     WRONG_TYPE,
     /**
      * Indicates that an unexpected exception stopped flag evaluation. An error message will always be logged
-     * in this case, and the exception should be available via {@link Error#getException()}.
+     * in this case, and the exception should be available via {@link EvaluationReason.Error#getException()}.
      */
     EXCEPTION
   }
