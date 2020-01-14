@@ -11,6 +11,7 @@ import org.junit.Test;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
@@ -22,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
@@ -482,6 +484,50 @@ public class DefaultEventProcessorTest {
 
       RecordedRequest req = server.takeRequest();
       assertThat(req.getHeader("X-LaunchDarkly-Event-Schema"), equalTo("3"));
+    }
+  }
+
+  @Test
+  public void eventPayloadIdIsSent() throws Exception {
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(e);
+      }
+
+      RecordedRequest req = server.takeRequest();
+      String payloadHeaderValue = req.getHeader("X-LaunchDarkly-Payload-ID");
+      assertThat(payloadHeaderValue, notNullValue(String.class));
+      assertThat(UUID.fromString(payloadHeaderValue), notNullValue(UUID.class));
+    }
+  }
+
+  @Test
+  public void eventPayloadIdReusedOnRetry() throws Exception {
+    MockResponse errorResponse = new MockResponse().setResponseCode(429);
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+
+    try (MockWebServer server = makeStartedServer(errorResponse, eventsSuccessResponse(), eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+        ep.sendEvent(e);
+        ep.flush();
+        // Necessary to ensure the retry occurs before the second request for test assertion ordering
+        ep.waitUntilInactive();
+        ep.sendEvent(e);
+      }
+
+      // Failed response request
+      RecordedRequest req = server.takeRequest(0, TimeUnit.SECONDS);
+      String payloadId = req.getHeader("X-LaunchDarkly-Payload-ID");
+      // Retry request has same payload ID as failed request
+      req = server.takeRequest(0, TimeUnit.SECONDS);
+      String retryId = req.getHeader("X-LaunchDarkly-Payload-ID");
+      assertThat(retryId, equalTo(payloadId));
+      // Second request has different payload ID from first request
+      req = server.takeRequest(0, TimeUnit.SECONDS);
+      payloadId = req.getHeader("X-LaunchDarkly-Payload-ID");
+      assertThat(retryId, not(equalTo(payloadId)));
     }
   }
 
