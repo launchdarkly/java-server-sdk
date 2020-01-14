@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 public class LDClientOfflineTest {
   private static final LDUser user = new LDUser("user");
   
+  @SuppressWarnings("deprecation")
   @Test
   public void offlineClientHasNullUpdateProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()

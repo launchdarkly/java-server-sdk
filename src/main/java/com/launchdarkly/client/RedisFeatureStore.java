@@ -57,6 +57,9 @@ public class RedisFeatureStore implements FeatureStore {
   
   /**
    * Return the underlying Guava cache stats object.
+   * <p>
+   * In the newer data store API, there is a different way to do this. See
+   * {@link com.launchdarkly.client.integrations.PersistentDataStoreBuilder#cacheMonitor(com.launchdarkly.client.integrations.CacheMonitor)}. 
    *
    * @return the cache statistics object.
    */

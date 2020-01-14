@@ -35,8 +35,8 @@ public class LDClientEvaluationTest {
 
   private LDConfig config = new LDConfig.Builder()
       .dataStore(specificFeatureStore(featureStore))
-      .eventProcessorFactory(Components.nullEventProcessor())
-      .dataSource(Components.nullUpdateProcessor())
+      .eventProcessor(Components.nullEventProcessor())
+      .dataSource(Components.nullDataSource())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
   
@@ -223,7 +223,7 @@ public class LDClientEvaluationTest {
     FeatureStore badFeatureStore = new InMemoryFeatureStore();
     LDConfig badConfig = new LDConfig.Builder()
         .dataStore(specificFeatureStore(badFeatureStore))
-        .eventProcessorFactory(Components.nullEventProcessor())
+        .eventProcessor(Components.nullEventProcessor())
         .dataSource(specificUpdateProcessor(failedUpdateProcessor()))
         .startWaitMillis(0)
         .build();
@@ -264,8 +264,8 @@ public class LDClientEvaluationTest {
     FeatureStore badFeatureStore = featureStoreThatThrowsException(new RuntimeException("sorry"));
     LDConfig badConfig = new LDConfig.Builder()
         .dataStore(specificFeatureStore(badFeatureStore))
-        .eventProcessorFactory(Components.nullEventProcessor())
-        .dataSource(Components.nullUpdateProcessor())
+        .eventProcessor(Components.nullEventProcessor())
+        .dataSource(Components.nullDataSource())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,

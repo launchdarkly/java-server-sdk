@@ -21,13 +21,13 @@ public abstract class Components {
   
   /**
    * Returns a factory for the default in-memory implementation of a data store.
-   * 
+   * <p>
    * Note that the interface is still named {@link FeatureStoreFactory}, but in a future version it
    * will be renamed to {@code DataStoreFactory}.
    * 
    * @return a factory object
-   * @since 4.11.0
    * @see LDConfig.Builder#dataStore(FeatureStoreFactory)
+   * @since 4.11.0
    */
   public static FeatureStoreFactory inMemoryDataStore() {
     return inMemoryFeatureStoreFactory;
@@ -39,15 +39,14 @@ public abstract class Components {
    * This method is used in conjunction with another factory object provided by specific components
    * such as the Redis integration. The latter provides builder methods for options that are specific
    * to that integration, while the {@link PersistentDataStoreBuilder} provides options like
-   * that are
-   * applicable to <i>any</i> persistent data store (such as caching). For example:
+   * that are applicable to <i>any</i> persistent data store (such as caching). For example:
    * 
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
    *         .dataStore(
    *             Components.persistentDataStore(
    *                 Redis.dataStore().url("redis://my-redis-host")
-   *             ).ttlSeconds(15)
+   *             ).cacheSeconds(15)
    *         )
    *         .build();
    * </code></pre>
@@ -56,6 +55,9 @@ public abstract class Components {
    *  
    * @param storeFactory the factory/builder for the specific kind of persistent data store
    * @return a {@link PersistentDataStoreBuilder}
+   * @see LDConfig.Builder#dataStore(FeatureStoreFactory)
+   * @see com.launchdarkly.client.integrations.Redis
+   * @since 4.11.0
    */
   public static PersistentDataStoreBuilder persistentDataStore(PersistentDataStoreFactory storeFactory) {
     return new PersistentDataStoreBuilder(storeFactory);
@@ -74,7 +76,8 @@ public abstract class Components {
   /**
    * Deprecated name for {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    * @return a factory/builder object
-   * @deprecated Use {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
+   * @deprecated Use {@link #persistentDataStore(PersistentDataStoreFactory)} with
+   * {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    */
   @Deprecated
   public static RedisFeatureStoreBuilder redisFeatureStore() {
@@ -85,8 +88,9 @@ public abstract class Components {
    * Deprecated name for {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    * @param redisUri the URI of the Redis host
    * @return a factory/builder object
-   * @deprecated Use {@link com.launchdarkly.client.integrations.Redis#dataStore()} and
-   *   {@link com.launchdarkly.client.integrations.RedisDataStoreBuilder#uri(URI)}.
+   * @deprecated Use {@link #persistentDataStore(PersistentDataStoreFactory)} with
+   * {@link com.launchdarkly.client.integrations.Redis#dataStore()} and
+   * {@link com.launchdarkly.client.integrations.RedisDataStoreBuilder#uri(URI)}.
    */
   @Deprecated
   public static RedisFeatureStoreBuilder redisFeatureStore(URI redisUri) {

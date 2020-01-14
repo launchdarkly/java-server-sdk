@@ -1,6 +1,5 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.Components;
 import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.FeatureStoreFactory;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
@@ -15,27 +14,21 @@ import java.util.concurrent.TimeUnit;
  * There is also universal behavior that the SDK provides for all persistent data stores, such as caching;
  * the {@link PersistentDataStoreBuilder} adds this.
  * <p>
- * An example of using  
- * <p>
-   * options that are specific to that implementation; the builder implements {@link PersistentDataStoreFactory}.
-   * Then call {@link Components#persistentDataStore(PersistentDataStoreFactory)} to wrap that object in the
-   * standard SDK persistent data store behavior, in the form of a {@link PersistentDataStoreBuilder}
-   * which can be configured with caching options. Finally, pass this to
-   * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(FeatureStoreFactory)}.
-   * For example, using the Redis integration:
-   * 
-   * <pre><code>
-   *     LDConfig config = new LDConfig.Builder()
-   *         .dataStore(
-   *             Components.persistentDataStore(
-   *                 Redis.dataStore().url("redis://my-redis-host")
-   *             ).cacheSeconds(15)
-   *         )
-   *         .build();
-   * </code></pre>
-   * 
-   * In this example, {@code .url()} is an option specifically for the Redis integration, whereas
-   * {@code ttlSeconds()} is an option that can be used for any persistent data store. 
+ * After configuring this object, pass it to {@link com.launchdarkly.client.LDConfig.Builder#dataStore(FeatureStoreFactory)}
+ * to use it in the SDK configuration. For example, using the Redis integration:
+ * 
+ * <pre><code>
+ *     LDConfig config = new LDConfig.Builder()
+ *         .dataStore(
+ *             Components.persistentDataStore(
+ *                 Redis.dataStore().url("redis://my-redis-host")
+ *             ).cacheSeconds(15)
+ *         )
+ *         .build();
+ * </code></pre>
+ * 
+ * In this example, {@code .url()} is an option specifically for the Redis integration, whereas
+ * {@code ttlSeconds()} is an option that can be used for any persistent data store. 
  * 
  * @since 4.11.0
  */
@@ -140,7 +133,7 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
    * @param millis the cache TTL in milliseconds
    * @return the builder
    */
-  public PersistentDataStoreBuilder cacheTtlMillis(long millis) {
+  public PersistentDataStoreBuilder cacheMillis(long millis) {
     return cacheTime(millis, TimeUnit.MILLISECONDS);
   }
 
@@ -150,7 +143,7 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
    * @param seconds the cache TTL in seconds
    * @return the builder
    */
-  public PersistentDataStoreBuilder cacheTtlSeconds(long seconds) {
+  public PersistentDataStoreBuilder cacheSeconds(long seconds) {
     return cacheTime(seconds, TimeUnit.SECONDS);
   }
   

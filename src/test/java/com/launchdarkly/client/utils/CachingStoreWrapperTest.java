@@ -6,7 +6,6 @@ import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
 import com.launchdarkly.client.integrations.CacheMonitor;
 
-import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;

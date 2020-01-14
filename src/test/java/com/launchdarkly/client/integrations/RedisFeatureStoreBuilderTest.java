@@ -13,7 +13,7 @@ import static org.junit.Assert.assertNull;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
-@SuppressWarnings("javadoc")
+@SuppressWarnings({ "deprecation", "javadoc" })
 public class RedisFeatureStoreBuilderTest {
   @Test
   public void testDefaultValues() {

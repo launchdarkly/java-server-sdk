@@ -341,7 +341,7 @@ public class LDClientTest extends EasyMockSupport {
   
   private LDClientInterface createMockClient(LDConfig.Builder config) {
     config.dataSource(TestUtil.specificUpdateProcessor(updateProcessor));
-    config.eventProcessorFactory(TestUtil.specificEventProcessor(eventProcessor));
+    config.eventProcessor(TestUtil.specificEventProcessor(eventProcessor));
     return new LDClient("SDK_KEY", config.build());
   }
   

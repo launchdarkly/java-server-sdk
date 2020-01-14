@@ -1,7 +1,7 @@
 package com.launchdarkly.client.integrations;
 
+import com.launchdarkly.client.Components;
 import com.launchdarkly.client.FeatureStore;
-import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.FeatureStoreDatabaseTestBase;
 import com.launchdarkly.client.integrations.RedisDataStoreImpl.UpdateListener;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
@@ -31,14 +31,21 @@ public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<FeatureS
   
   @Override
   protected FeatureStore makeStore() {
-    RedisDataStoreBuilder builder = Redis.dataStore().uri(REDIS_URI);
-    builder.caching(cached ? FeatureStoreCacheConfig.enabled().ttlSeconds(30) : FeatureStoreCacheConfig.disabled());
+    RedisDataStoreBuilder redisBuilder = Redis.dataStore().uri(REDIS_URI);
+    PersistentDataStoreBuilder builder = Components.persistentDataStore(redisBuilder);
+    if (cached) {
+      builder.cacheSeconds(30);
+    } else {
+      builder.noCaching();
+    }
     return builder.createFeatureStore();
   }
   
   @Override
   protected FeatureStore makeStoreWithPrefix(String prefix) {
-    return Redis.dataStore().uri(REDIS_URI).caching(FeatureStoreCacheConfig.disabled()).prefix(prefix).createFeatureStore();
+    return Components.persistentDataStore(
+        Redis.dataStore().uri(REDIS_URI).prefix(prefix)
+        ).noCaching().createFeatureStore();
   }
   
   @Override

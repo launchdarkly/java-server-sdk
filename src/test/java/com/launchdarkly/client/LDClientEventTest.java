@@ -30,8 +30,8 @@ public class LDClientEventTest {
   private TestUtil.TestEventProcessor eventSink = new TestUtil.TestEventProcessor();
   private LDConfig config = new LDConfig.Builder()
       .dataStore(specificFeatureStore(featureStore))
-      .eventProcessorFactory(specificEventProcessor(eventSink))
-      .dataSource(Components.nullUpdateProcessor())
+      .eventProcessor(specificEventProcessor(eventSink))
+      .dataSource(Components.nullDataSource())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
   

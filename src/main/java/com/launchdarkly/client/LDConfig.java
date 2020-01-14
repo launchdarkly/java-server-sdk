@@ -210,9 +210,9 @@ public final class LDConfig {
     /**
      * Sets the implementation of the data store to be used for holding feature flags and
      * related data received from LaunchDarkly, using a factory object. The default is
-     * {@link Components#inMemoryDataStore()}, but you may use {@link Components#redisFeatureStore()}
-     * or a custom implementation.
-     * 
+     * {@link Components#inMemoryDataStore()}; for database integrations, use
+     * {@link Components#persistentDataStore(com.launchdarkly.client.interfaces.PersistentDataStoreFactory)}.
+     * <p>
      * Note that the interface is still called {@link FeatureStoreFactory}, but in a future version
      * it will be renamed to {@code DataStoreFactory}.
      * 

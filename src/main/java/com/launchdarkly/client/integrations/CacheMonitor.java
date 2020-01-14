@@ -5,8 +5,8 @@ import java.util.concurrent.Callable;
 
 /**
  * A conduit that an application can use to monitor caching behavior of a persistent data store.
- * <p>
- * See {@link PersistentDataStoreBuilder#cacheMonitor(CacheMonitor)}
+ *
+ * @see PersistentDataStoreBuilder#cacheMonitor(CacheMonitor)
  * @since 4.11.0
  */
 public final class CacheMonitor {
@@ -44,6 +44,8 @@ public final class CacheMonitor {
    * This is based on the data provided by Guava's caching framework. The SDK currently uses Guava
    * internally, but is not guaranteed to always do so, and to avoid embedding Guava API details in
    * the SDK API this is provided as a separate class.
+   * 
+   * @since 4.11.0
    */
   public static final class CacheStats {
     private final long hitCount;

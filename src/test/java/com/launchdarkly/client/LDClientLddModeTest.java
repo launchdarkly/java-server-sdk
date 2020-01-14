@@ -15,6 +15,7 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDClientLddModeTest {
+  @SuppressWarnings("deprecation")
   @Test
   public void lddModeClientHasNullUpdateProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
