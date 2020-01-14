@@ -75,7 +75,7 @@ public class RedisFeatureStore implements FeatureStore {
    * @param builder the configured builder to construct the store with.
    */
   protected RedisFeatureStore(RedisFeatureStoreBuilder builder) {
-    wrappedStore = builder.wrappedBuilder.createFeatureStore();
+    wrappedStore = builder.wrappedOuterBuilder.createFeatureStore();
   }
 
   /**

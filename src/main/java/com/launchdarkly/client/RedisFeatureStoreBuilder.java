@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.launchdarkly.client.integrations.CacheMonitor;
+import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.client.integrations.Redis;
 import com.launchdarkly.client.integrations.RedisDataStoreBuilder;
 
@@ -39,22 +40,23 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    */
   public static final long DEFAULT_CACHE_TIME_SECONDS = FeatureStoreCacheConfig.DEFAULT_TIME_SECONDS;
   
+  final PersistentDataStoreBuilder wrappedOuterBuilder;
   final RedisDataStoreBuilder wrappedBuilder;
   
   // We have to keep track of these caching parameters separately in order to support some deprecated setters
-  FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
   boolean refreshStaleValues = false;
   boolean asyncRefresh = false;
 
   // These constructors are called only from Components
   RedisFeatureStoreBuilder() {
     wrappedBuilder = Redis.dataStore();
+    wrappedOuterBuilder = Components.persistentDataStore(wrappedBuilder);
     
     // In order to make the cacheStats() method on the deprecated RedisFeatureStore class work, we need to
     // turn on cache monitoring. In the newer API, cache monitoring would only be turned on if the application
     // specified its own CacheMonitor, but in the deprecated API there's no way to know if they will want the
     // statistics or not.
-    wrappedBuilder.cacheMonitor(new CacheMonitor());
+    wrappedOuterBuilder.cacheMonitor(new CacheMonitor());
   }
   
   RedisFeatureStoreBuilder(URI uri) {
@@ -72,8 +74,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   public RedisFeatureStoreBuilder(URI uri, long cacheTimeSecs) {
     this();
     wrappedBuilder.uri(uri);
-    caching = caching.ttlSeconds(cacheTimeSecs);
-    wrappedBuilder.caching(caching);
+    wrappedOuterBuilder.cacheSeconds(cacheTimeSecs);
   }
 
   /**
@@ -89,8 +90,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   public RedisFeatureStoreBuilder(String scheme, String host, int port, long cacheTimeSecs) throws URISyntaxException {
     this();
     wrappedBuilder.uri(new URI(scheme, null, host, port, null, null, null));
-    caching = caching.ttlSeconds(cacheTimeSecs);
-    wrappedBuilder.caching(caching);
+    wrappedOuterBuilder.cacheSeconds(cacheTimeSecs);
   }
 
   /**
@@ -153,8 +153,8 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @since 4.6.0
    */
   public RedisFeatureStoreBuilder caching(FeatureStoreCacheConfig caching) {
-    this.caching = caching;
-    wrappedBuilder.caching(caching);
+    wrappedOuterBuilder.cacheTime(caching.getCacheTime(), caching.getCacheTimeUnit());
+    wrappedOuterBuilder.staleValuesPolicy(caching.getStaleValuesPolicy().toNewEnum());
     return this;
   }
   
@@ -194,13 +194,12 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
     // We need this logic in order to support the existing behavior of the deprecated methods above:
     // asyncRefresh is supposed to have no effect unless refreshStaleValues is true
     if (refreshStaleValues) {
-      caching = caching.staleValuesPolicy(this.asyncRefresh ?
-          FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC :
-          FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH);
+      wrappedOuterBuilder.staleValuesPolicy(this.asyncRefresh ?
+          PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH_ASYNC :
+          PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH);
     } else {
-      caching = caching.staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.EVICT);
+      wrappedOuterBuilder.staleValuesPolicy(PersistentDataStoreBuilder.StaleValuesPolicy.EVICT);
     }
-    wrappedBuilder.caching(caching);
   }
   
   /**
@@ -225,9 +224,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    * @deprecated use {@link #caching(FeatureStoreCacheConfig)} and {@link FeatureStoreCacheConfig#ttl(long, TimeUnit)}.
    */
   public RedisFeatureStoreBuilder cacheTime(long cacheTime, TimeUnit timeUnit) {
-    caching = caching.ttl(cacheTime, timeUnit)
-        .staleValuesPolicy(this.caching.getStaleValuesPolicy());
-    wrappedBuilder.caching(caching);
+    wrappedOuterBuilder.cacheTime(cacheTime, timeUnit);
     return this;
   }
 

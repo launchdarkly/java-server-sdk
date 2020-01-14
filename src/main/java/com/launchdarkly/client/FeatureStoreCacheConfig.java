@@ -91,7 +91,40 @@ public final class FeatureStoreCacheConfig {
      * See: <a href="https://github.com/google/guava/wiki/CachesExplained#refresh">CacheBuilder</a> for
      * more specific information on cache semantics.
      */
-    REFRESH_ASYNC
+    REFRESH_ASYNC;
+    
+    /**
+     * Used internally for backward compatibility.
+     * @return the equivalent enum value
+     * @since 4.11.0
+     */
+    public PersistentDataStoreBuilder.StaleValuesPolicy toNewEnum() {
+      switch (this) {
+      case REFRESH:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH;
+      case REFRESH_ASYNC:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH_ASYNC;
+      default:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.EVICT;
+      }
+    }
+    
+    /**
+     * Used internally for backward compatibility.
+     * @param policy the enum value in the new API
+     * @return the equivalent enum value
+     * @since 4.11.0
+     */
+    public static StaleValuesPolicy fromNewEnum(PersistentDataStoreBuilder.StaleValuesPolicy policy) {
+      switch (policy) {
+      case REFRESH:
+        return StaleValuesPolicy.REFRESH;
+      case REFRESH_ASYNC:
+        return StaleValuesPolicy.REFRESH_ASYNC;
+      default:
+        return StaleValuesPolicy.EVICT;
+      }
+    }
   };
   
   /**
@@ -239,22 +272,6 @@ public final class FeatureStoreCacheConfig {
     return new FeatureStoreCacheConfig(cacheTime, cacheTimeUnit, policy);
   }
   
-  /**
-   * Used internally for backward compatibility from the newer builder API.
-   * 
-   * @param policy a {@link com.launchdarkly.client.integrations.PersistentDataStoreBuilder.StaleValuesPolicy} constant
-   * @return an updated parameters object
-   */
-  public FeatureStoreCacheConfig staleValuesPolicy(PersistentDataStoreBuilder.StaleValuesPolicy policy) {
-    switch (policy) {
-    case REFRESH:
-      return staleValuesPolicy(StaleValuesPolicy.REFRESH);
-    case REFRESH_ASYNC:
-      return staleValuesPolicy(StaleValuesPolicy.REFRESH_ASYNC);
-      default:
-        return staleValuesPolicy(StaleValuesPolicy.EVICT);
-    }
-  }
   @Override
   public boolean equals(Object other) {
     if (other instanceof FeatureStoreCacheConfig) {

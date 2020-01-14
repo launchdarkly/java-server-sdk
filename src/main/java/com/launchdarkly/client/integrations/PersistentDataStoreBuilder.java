@@ -1,8 +1,11 @@
 package com.launchdarkly.client.integrations;
 
 import com.launchdarkly.client.FeatureStore;
+import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.FeatureStoreFactory;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.client.utils.CachingStoreWrapper;
+import com.launchdarkly.client.utils.FeatureStoreCore;
 
 import java.util.concurrent.TimeUnit;
 
@@ -32,6 +35,7 @@ import java.util.concurrent.TimeUnit;
  * 
  * @since 4.11.0
  */
+@SuppressWarnings("deprecation")
 public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
   /**
    * The default value for the cache TTL.
@@ -39,7 +43,9 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
   public static final int DEFAULT_CACHE_TTL_SECONDS = 15;
 
   private final PersistentDataStoreFactory persistentDataStoreFactory;
-  
+  FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
+  CacheMonitor cacheMonitor = null;
+
   /**
    * Possible values for {@link #staleValuesPolicy(StaleValuesPolicy)}.
    */
@@ -96,7 +102,11 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
 
   @Override
   public FeatureStore createFeatureStore() {
-    return persistentDataStoreFactory.createFeatureStore();
+    FeatureStoreCore core = persistentDataStoreFactory.createPersistentDataStore();
+    return CachingStoreWrapper.builder(core)
+        .caching(caching)
+        .cacheMonitor(cacheMonitor)
+        .build();
   }
   
   /**
@@ -121,9 +131,8 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
    * @param cacheTimeUnit the time unit
    * @return the builder
    */
-  @SuppressWarnings("deprecation")
   public PersistentDataStoreBuilder cacheTime(long cacheTime, TimeUnit cacheTimeUnit) {
-    persistentDataStoreFactory.cacheTime(cacheTime, cacheTimeUnit);
+    caching = caching.ttl(cacheTime, cacheTimeUnit);
     return this;
   }
 
@@ -170,9 +179,8 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
    * @param staleValuesPolicy a {@link StaleValuesPolicy} constant
    * @return the builder
    */
-  @SuppressWarnings("deprecation")
   public PersistentDataStoreBuilder staleValuesPolicy(StaleValuesPolicy staleValuesPolicy) {
-    persistentDataStoreFactory.staleValuesPolicy(staleValuesPolicy);
+    caching = caching.staleValuesPolicy(FeatureStoreCacheConfig.StaleValuesPolicy.fromNewEnum(staleValuesPolicy));
     return this;
   }
   
@@ -201,9 +209,8 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
    * @param cacheMonitor an instance of {@link CacheMonitor}
    * @return the builder
    */
-  @SuppressWarnings("deprecation")
   public PersistentDataStoreBuilder cacheMonitor(CacheMonitor cacheMonitor) {
-    persistentDataStoreFactory.cacheMonitor(cacheMonitor);
+    this.cacheMonitor = cacheMonitor;
     return this;
   }
 }

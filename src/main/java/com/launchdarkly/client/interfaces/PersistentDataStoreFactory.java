@@ -1,11 +1,7 @@
 package com.launchdarkly.client.interfaces;
 
-import com.launchdarkly.client.FeatureStoreFactory;
-import com.launchdarkly.client.integrations.CacheMonitor;
 import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
-import com.launchdarkly.client.integrations.PersistentDataStoreBuilder.StaleValuesPolicy;
-
-import java.util.concurrent.TimeUnit;
+import com.launchdarkly.client.utils.FeatureStoreCore;
 
 /**
  * Interface for a factory that creates some implementation of a persistent data store.
@@ -19,35 +15,15 @@ import java.util.concurrent.TimeUnit;
  * @see com.launchdarkly.client.Components
  * @since 4.11.0
  */
-public interface PersistentDataStoreFactory extends FeatureStoreFactory {
+public interface PersistentDataStoreFactory {
   /**
-   * Called internally from {@link PersistentDataStoreBuilder}.
+   * Called internally from {@link PersistentDataStoreBuilder} to create the implementation object
+   * for the specific type of data store.
    * 
-   * @param cacheTime the cache TTL in whatever units you wish
-   * @param cacheTimeUnit the time unit
-   * @deprecated Calling this method directly on this component is deprecated. See {@link com.launchdarkly.client.Components#persistentDataStore}
-   * for the new usage. 
+   * @return the implementation object
+   * @deprecated Do not reference this method directly, as the {@link FeatureStoreCore} interface
+   * will be replaced in 5.0.
    */
   @Deprecated
-  void cacheTime(long cacheTime, TimeUnit cacheTimeUnit);
-  
-  /**
-   * Called internally from {@link PersistentDataStoreBuilder}.
-   * 
-   * @param staleValuesPolicy a {@link StaleValuesPolicy} constant
-   * @deprecated Calling this method directly on this component is deprecated. See {@link com.launchdarkly.client.Components#persistentDataStore}
-   * for the new usage. 
-   */
-  @Deprecated
-  void staleValuesPolicy(StaleValuesPolicy staleValuesPolicy);
-  
-  /**
-   * Called internally from {@link PersistentDataStoreBuilder}.
-   * 
-   * @param cacheMonitor an instance of {@link CacheMonitor}
-   * @deprecated Calling this method directly on this component is deprecated. See {@link com.launchdarkly.client.Components#persistentDataStore}
-   * for the new usage. 
-   */
-  @Deprecated
-  void cacheMonitor(CacheMonitor cacheMonitor);
+  FeatureStoreCore createPersistentDataStore();
 }

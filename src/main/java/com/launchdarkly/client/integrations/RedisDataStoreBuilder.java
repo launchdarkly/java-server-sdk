@@ -1,10 +1,7 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.FeatureStore;
-import com.launchdarkly.client.FeatureStoreCacheConfig;
-import com.launchdarkly.client.integrations.PersistentDataStoreBuilder.StaleValuesPolicy;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
-import com.launchdarkly.client.utils.CachingStoreWrapper;
+import com.launchdarkly.client.utils.FeatureStoreCore;
 
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
@@ -20,7 +17,7 @@ import redis.clients.jedis.Protocol;
  * Obtain an instance of this class by calling {@link Redis#dataStore()}. After calling its methods
  * to specify any desired custom settings, you can pass it directly into the SDK configuration with
  * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(com.launchdarkly.client.FeatureStoreFactory)}.
- * You do not need to call {@link #createFeatureStore()} yourself to build the actual data store; that
+ * You do not need to call {@link #createPersistentDataStore()} yourself to build the actual data store; that
  * will be done by the SDK.
  * <p>
  * Builder calls can be chained, for example:
@@ -37,7 +34,6 @@ import redis.clients.jedis.Protocol;
  * 
  * @since 4.11.0
  */
-@SuppressWarnings("deprecation")
 public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
@@ -56,8 +52,6 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
   Integer database = null;
   String password = null;
   boolean tls = false;
-  FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
-  CacheMonitor cacheMonitor = null;
   JedisPoolConfig poolConfig = null;
 
   // These constructors are called only from Implementations
@@ -119,36 +113,6 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
   }
   
   /**
-   * Specifies whether local caching should be enabled and if so, sets the cache properties. Local
-   * caching is enabled by default; see {@link FeatureStoreCacheConfig#DEFAULT}. To disable it, pass
-   * {@link FeatureStoreCacheConfig#disabled()} to this method.
-   * 
-   * @param caching a {@link FeatureStoreCacheConfig} object specifying caching parameters
-   * @return the builder
-   * @deprecated This has been superseded by the {@link PersistentDataStoreBuilder} interface.
-   */
-  @Deprecated
-  public RedisDataStoreBuilder caching(FeatureStoreCacheConfig caching) {
-    this.caching = caching;
-    return this;
-  }
-  
-  @Override
-  public void cacheTime(long cacheTime, TimeUnit cacheTimeUnit) {
-    this.caching = caching.ttl(cacheTime, cacheTimeUnit);
-  }
-  
-  @Override
-  public void staleValuesPolicy(StaleValuesPolicy staleValuesPolicy) {
-    this.caching = caching.staleValuesPolicy(staleValuesPolicy);
-  }
-  
-  @Override
-  public void cacheMonitor(CacheMonitor cacheMonitor) {
-    this.cacheMonitor = cacheMonitor;
-  }
-  
-  /**
    * Optionally configures the namespace prefix for all keys stored in Redis.
    *
    * @param prefix the namespace prefix
@@ -196,12 +160,8 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
     return this;
   }
 
-  /**
-   * Called internally by the SDK to create the actual data store instance.
-   * @return the data store configured by this builder
-   */
-  public FeatureStore createFeatureStore() {
-    RedisDataStoreImpl core = new RedisDataStoreImpl(this);
-    return CachingStoreWrapper.builder(core).caching(this.caching).cacheMonitor(this.cacheMonitor).build();
+  @Override
+  public FeatureStoreCore createPersistentDataStore() {
+    return new RedisDataStoreImpl(this);
   }
 }

@@ -1,7 +1,5 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.FeatureStoreCacheConfig;
-
 import org.junit.Test;
 
 import java.net.URISyntaxException;
@@ -13,13 +11,12 @@ import static org.junit.Assert.assertNull;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
-@SuppressWarnings({ "deprecation", "javadoc" })
+@SuppressWarnings("javadoc")
 public class RedisFeatureStoreBuilderTest {
   @Test
   public void testDefaultValues() {
     RedisDataStoreBuilder conf = Redis.dataStore();
     assertEquals(RedisDataStoreBuilder.DEFAULT_URI, conf.uri);
-    assertEquals(FeatureStoreCacheConfig.DEFAULT, conf.caching);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
     assertEquals(RedisDataStoreBuilder.DEFAULT_PREFIX, conf.prefix);
