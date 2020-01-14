@@ -33,8 +33,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Construct instances of this class with {@link CachingStoreWrapper#builder(FeatureStoreCore)}.
  * 
  * @since 4.6.0
+ * @deprecated Referencing this class directly is deprecated; it is now part of the implementation
+ * of {@link com.launchdarkly.client.integrations.PersistentDataStoreBuilder} and will be made
+ * package-private starting in version 5.0. 
  */
-@SuppressWarnings("deprecation")
+@Deprecated
 public class CachingStoreWrapper implements FeatureStore {
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "CachingStoreWrapper-refresher-pool-%d";
 
