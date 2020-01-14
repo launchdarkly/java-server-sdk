@@ -20,7 +20,10 @@ public final class CacheMonitor {
   /**
    * Called internally by the SDK to establish a source for the statistics.
    * @param source provided by an internal SDK component
+   * @deprecated Referencing this method directly is deprecated. In a future version, it will
+   * only be visible to SDK implementation code.
    */
+  @Deprecated
   public void setSource(Callable<CacheStats> source) {
     this.source = source;
   }
@@ -58,12 +61,12 @@ public final class CacheMonitor {
     /**
      * Constructs a new instance.
      * 
-     * @param hitCount
-     * @param missCount
-     * @param loadSuccessCount
-     * @param loadExceptionCount
-     * @param totalLoadTime
-     * @param evictionCount
+     * @param hitCount number of queries that produced a cache hit
+     * @param missCount number of queries that produced a cache miss
+     * @param loadSuccessCount number of cache misses that loaded a value without an exception
+     * @param loadExceptionCount number of cache misses that tried to load a value but got an exception
+     * @param totalLoadTime number of nanoseconds spent loading new values
+     * @param evictionCount number of cache entries that have been evicted
      */
     public CacheStats(long hitCount, long missCount, long loadSuccessCount, long loadExceptionCount,
         long totalLoadTime, long evictionCount) {
