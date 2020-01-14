@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.CacheMonitor;
 import com.launchdarkly.client.integrations.Redis;
 import com.launchdarkly.client.integrations.RedisDataStoreBuilder;
 
@@ -48,6 +49,12 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
   // These constructors are called only from Components
   RedisFeatureStoreBuilder() {
     wrappedBuilder = Redis.dataStore();
+    
+    // In order to make the cacheStats() method on the deprecated RedisFeatureStore class work, we need to
+    // turn on cache monitoring. In the newer API, cache monitoring would only be turned on if the application
+    // specified its own CacheMonitor, but in the deprecated API there's no way to know if they will want the
+    // statistics or not.
+    wrappedBuilder.cacheMonitor(new CacheMonitor());
   }
   
   RedisFeatureStoreBuilder(URI uri) {

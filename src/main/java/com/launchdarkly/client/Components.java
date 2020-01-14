@@ -1,5 +1,8 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
+import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +31,34 @@ public abstract class Components {
    */
   public static FeatureStoreFactory inMemoryDataStore() {
     return inMemoryFeatureStoreFactory;
+  }
+  
+  /**
+   * Returns a configurable factory for some implementation of a persistent data store.
+   * <p>
+   * This method is used in conjunction with another factory object provided by specific components
+   * such as the Redis integration. The latter provides builder methods for options that are specific
+   * to that integration, while the {@link PersistentDataStoreBuilder} provides options like
+   * that are
+   * applicable to <i>any</i> persistent data store (such as caching). For example:
+   * 
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .dataStore(
+   *             Components.persistentDataStore(
+   *                 Redis.dataStore().url("redis://my-redis-host")
+   *             ).ttlSeconds(15)
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * See {@link PersistentDataStoreBuilder} for more on how this method is used.
+   *  
+   * @param storeFactory the factory/builder for the specific kind of persistent data store
+   * @return a {@link PersistentDataStoreBuilder}
+   */
+  public static PersistentDataStoreBuilder persistentDataStore(PersistentDataStoreFactory storeFactory) {
+    return new PersistentDataStoreBuilder(storeFactory);
   }
 
   /**

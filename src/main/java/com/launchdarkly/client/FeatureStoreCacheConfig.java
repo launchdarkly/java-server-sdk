@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.common.cache.CacheBuilder;
+import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -25,7 +26,9 @@ import java.util.concurrent.TimeUnit;
  * 
  * @see RedisFeatureStoreBuilder#caching(FeatureStoreCacheConfig)
  * @since 4.6.0
+ * @deprecated This has been superseded by the {@link PersistentDataStoreBuilder} interface.
  */
+@Deprecated
 public final class FeatureStoreCacheConfig {
   /**
    * The default TTL, in seconds, used by {@link #DEFAULT}.
@@ -236,6 +239,22 @@ public final class FeatureStoreCacheConfig {
     return new FeatureStoreCacheConfig(cacheTime, cacheTimeUnit, policy);
   }
   
+  /**
+   * Used internally for backward compatibility from the newer builder API.
+   * 
+   * @param policy a {@link com.launchdarkly.client.integrations.PersistentDataStoreBuilder.StaleValuesPolicy} constant
+   * @return an updated parameters object
+   */
+  public FeatureStoreCacheConfig staleValuesPolicy(PersistentDataStoreBuilder.StaleValuesPolicy policy) {
+    switch (policy) {
+    case REFRESH:
+      return staleValuesPolicy(StaleValuesPolicy.REFRESH);
+    case REFRESH_ASYNC:
+      return staleValuesPolicy(StaleValuesPolicy.REFRESH_ASYNC);
+      default:
+        return staleValuesPolicy(StaleValuesPolicy.EVICT);
+    }
+  }
   @Override
   public boolean equals(Object other) {
     if (other instanceof FeatureStoreCacheConfig) {

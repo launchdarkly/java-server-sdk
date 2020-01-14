@@ -2,7 +2,8 @@ package com.launchdarkly.client.integrations;
 
 import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
-import com.launchdarkly.client.FeatureStoreFactory;
+import com.launchdarkly.client.integrations.PersistentDataStoreBuilder.StaleValuesPolicy;
+import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
 
 import java.net.URI;
@@ -36,7 +37,8 @@ import redis.clients.jedis.Protocol;
  * 
  * @since 4.11.0
  */
-public final class RedisDataStoreBuilder implements FeatureStoreFactory {
+@SuppressWarnings("deprecation")
+public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
    */
@@ -55,6 +57,7 @@ public final class RedisDataStoreBuilder implements FeatureStoreFactory {
   String password = null;
   boolean tls = false;
   FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
+  CacheMonitor cacheMonitor = null;
   JedisPoolConfig poolConfig = null;
 
   // These constructors are called only from Implementations
@@ -122,10 +125,27 @@ public final class RedisDataStoreBuilder implements FeatureStoreFactory {
    * 
    * @param caching a {@link FeatureStoreCacheConfig} object specifying caching parameters
    * @return the builder
+   * @deprecated This has been superseded by the {@link PersistentDataStoreBuilder} interface.
    */
+  @Deprecated
   public RedisDataStoreBuilder caching(FeatureStoreCacheConfig caching) {
     this.caching = caching;
     return this;
+  }
+  
+  @Override
+  public void cacheTime(long cacheTime, TimeUnit cacheTimeUnit) {
+    this.caching = caching.ttl(cacheTime, cacheTimeUnit);
+  }
+  
+  @Override
+  public void staleValuesPolicy(StaleValuesPolicy staleValuesPolicy) {
+    this.caching = caching.staleValuesPolicy(staleValuesPolicy);
+  }
+  
+  @Override
+  public void cacheMonitor(CacheMonitor cacheMonitor) {
+    this.cacheMonitor = cacheMonitor;
   }
   
   /**
@@ -182,6 +202,6 @@ public final class RedisDataStoreBuilder implements FeatureStoreFactory {
    */
   public FeatureStore createFeatureStore() {
     RedisDataStoreImpl core = new RedisDataStoreImpl(this);
-    return CachingStoreWrapper.builder(core).caching(this.caching).build();
+    return CachingStoreWrapper.builder(core).caching(this.caching).cacheMonitor(this.cacheMonitor).build();
   }
 }
