@@ -14,7 +14,7 @@ import static org.junit.Assume.assumeTrue;
 
 import redis.clients.jedis.Jedis;
 
-@SuppressWarnings("javadoc")
+@SuppressWarnings({ "deprecation", "javadoc" })
 public class RedisFeatureStoreTest extends FeatureStoreDatabaseTestBase<FeatureStore> {
 
   private static final URI REDIS_URI = URI.create("redis://localhost:6379");
