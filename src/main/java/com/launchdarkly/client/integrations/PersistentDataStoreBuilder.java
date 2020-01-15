@@ -159,7 +159,7 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
   /**
    * Specifies that the in-memory cache should never expire. In this mode, data will be written
    * to both the underlying persistent store and the cache, but will only ever be read <i>from</i>
-   * persistent store if the SDK is restarted.
+   * the persistent store if the SDK is restarted.
    * <p>
    * Use this mode with caution: it means that in a scenario where multiple processes are sharing
    * the database, and the current process loses connectivity to LaunchDarkly while other processes

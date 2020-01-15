@@ -38,8 +38,8 @@ public abstract class Components {
    * <p>
    * This method is used in conjunction with another factory object provided by specific components
    * such as the Redis integration. The latter provides builder methods for options that are specific
-   * to that integration, while the {@link PersistentDataStoreBuilder} provides options like
-   * that are applicable to <i>any</i> persistent data store (such as caching). For example:
+   * to that integration, while the {@link PersistentDataStoreBuilder} provides options that are
+   * applicable to <i>any</i> persistent data store (such as caching). For example:
    * 
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
