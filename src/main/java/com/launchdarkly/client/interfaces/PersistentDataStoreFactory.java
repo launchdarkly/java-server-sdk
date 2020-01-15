@@ -6,11 +6,8 @@ import com.launchdarkly.client.utils.FeatureStoreCore;
 /**
  * Interface for a factory that creates some implementation of a persistent data store.
  * <p>
- * Note that currently this interface contains methods that are duplicates of the methods in
- * {@link PersistentDataStoreBuilder}. This is necessary to preserve backward compatibility with the
- * implementation of persistent data stores in earlier versions of the SDK. The new recommended usage
- * is described in {@link com.launchdarkly.client.Components#persistentDataStore}, and starting in
- * version 5.0 these redundant methods will be removed.
+ * This interface is implemented by database integrations. Usage is described in
+ * {@link com.launchdarkly.client.Components#persistentDataStore}.
  * 
  * @see com.launchdarkly.client.Components
  * @since 4.11.0
