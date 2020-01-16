@@ -1,7 +1,13 @@
 # Change log
 
-
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
+
+## [4.11.0] - 2020-01-16
+### Added:
+- When an `EvaluationReason` indicates that flag evaluation failed due to an unexpected exception (`getKind()` is `ERROR`, and `EvaluationReason.Error.getErrorKind()` is `EXCEPTION`), you can now examine the underlying exception via `EvaluationReason.Error.getException()`. ([#180](https://github.com/launchdarkly/java-server-sdk/issues/180))
+
+### Fixed:
+- The SDK now specifies a uniquely identifiable request header when sending events to LaunchDarkly to ensure that events are only processed once, even if the SDK sends them two times due to a failed initial attempt.
 
 ## [4.10.1] - 2020-01-06
 ### Fixed:
