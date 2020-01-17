@@ -118,31 +118,14 @@ public final class FeatureStoreCacheConfig {
 
   /**
    * Returns true if caching will be enabled.
-   * @return true if the cache TTL is non-zero
+   * @return true if the cache TTL is greater than 0
    */
   public boolean isEnabled() {
-    return getCacheTime() != 0;
+    return getCacheTime() > 0;
   }
   
   /**
-   * Returns true if caching is enabled and does not have a finite TTL.
-   * @return true if the cache TTL is negative
-   */
-  public boolean isInfiniteTtl() {
-    return getCacheTime() < 0;
-  }
-  
-  /**
-   * Returns the cache TTL.
-   * <p>
-   * If the value is zero, caching is disabled.
-   * <p>
-   * If the value is negative, data is cached forever (i.e. it will only be read again from the database
-   * if the SDK is restarted). Use the "cached forever" mode with caution: it means that in a scenario
-   * where multiple processes are sharing the database, and the current process loses connectivity to
-   * LaunchDarkly while other processes are still receiving updates and writing them to the database,
-   * the current process will have stale data.
-   * 
+   * Returns the cache TTL. Caching is enabled if this is greater than zero.
    * @return the cache TTL in whatever units were specified
    * @see #getCacheTimeUnit()
    */
@@ -160,15 +143,6 @@ public final class FeatureStoreCacheConfig {
   
   /**
    * Returns the cache TTL converted to milliseconds.
-   * <p>
-   * If the value is zero, caching is disabled.
-   * <p>
-   * If the value is negative, data is cached forever (i.e. it will only be read again from the database
-   * if the SDK is restarted). Use the "cached forever" mode with caution: it means that in a scenario
-   * where multiple processes are sharing the database, and the current process loses connectivity to
-   * LaunchDarkly while other processes are still receiving updates and writing them to the database,
-   * the current process will have stale data.
-   *
    * @return the TTL in milliseconds
    */
   public long getCacheTimeMillis() {

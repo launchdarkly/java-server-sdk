@@ -5,7 +5,6 @@ import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
 
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -23,46 +22,23 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assume.assumeThat;
 
-@SuppressWarnings("javadoc")
 @RunWith(Parameterized.class)
 public class CachingStoreWrapperTest {
 
-  private final RuntimeException FAKE_ERROR = new RuntimeException("fake error");
-  
-  private final CachingMode cachingMode;
+  private final boolean cached;
   private final MockCore core;
   private final CachingStoreWrapper wrapper;
   
-  static enum CachingMode {
-    UNCACHED,
-    CACHED_WITH_FINITE_TTL,
-    CACHED_INDEFINITELY;
-    
-    FeatureStoreCacheConfig toCacheConfig() {
-      switch (this) {
-      case CACHED_WITH_FINITE_TTL:
-        return FeatureStoreCacheConfig.enabled().ttlSeconds(30);
-      case CACHED_INDEFINITELY:
-        return FeatureStoreCacheConfig.enabled().ttlSeconds(-1);
-      default:
-        return FeatureStoreCacheConfig.disabled(); 
-      }
-    }
-    
-    boolean isCached() {
-      return this != UNCACHED;
-    }
-  };
-  
   @Parameters(name="cached={0}")
-  public static Iterable<CachingMode> data() {
-    return Arrays.asList(CachingMode.values());
+  public static Iterable<Boolean> data() {
+    return Arrays.asList(new Boolean[] { false, true });
   }
   
-  public CachingStoreWrapperTest(CachingMode cachingMode) {
-    this.cachingMode = cachingMode;
+  public CachingStoreWrapperTest(boolean cached) {
+    this.cached = cached;
     this.core = new MockCore();
-    this.wrapper = new CachingStoreWrapper(core, cachingMode.toCacheConfig());
+    this.wrapper = new CachingStoreWrapper(core, cached ? FeatureStoreCacheConfig.enabled().ttlSeconds(30) :
+      FeatureStoreCacheConfig.disabled());
   }
   
   @Test
@@ -75,7 +51,7 @@ public class CachingStoreWrapperTest {
     
     core.forceSet(THINGS, itemv2);
     MockItem result = wrapper.get(THINGS, itemv1.key);
-    assertThat(result, equalTo(cachingMode.isCached() ? itemv1 : itemv2)); // if cached, we will not see the new underlying value yet
+    assertThat(result, equalTo(cached ? itemv1 : itemv2)); // if cached, we will not see the new underlying value yet
   }
   
   @Test
@@ -88,7 +64,7 @@ public class CachingStoreWrapperTest {
     
     core.forceSet(THINGS, itemv2);
     MockItem result = wrapper.get(THINGS, itemv1.key);
-    assertThat(result, cachingMode.isCached() ? nullValue(MockItem.class) : equalTo(itemv2)); // if cached, we will not see the new underlying value yet
+    assertThat(result, cached ? nullValue(MockItem.class) : equalTo(itemv2)); // if cached, we will not see the new underlying value yet
   }
 
   @Test
@@ -99,12 +75,14 @@ public class CachingStoreWrapperTest {
     
     core.forceSet(THINGS, item);
     MockItem result = wrapper.get(THINGS, item.key);
-    assertThat(result, cachingMode.isCached() ? nullValue(MockItem.class) : equalTo(item)); // the cache can retain a null result
+    assertThat(result, cached ? nullValue(MockItem.class) : equalTo(item)); // the cache can retain a null result
   }
   
   @Test
   public void cachedGetUsesValuesFromInit() {
-    assumeThat(cachingMode.isCached(), is(true));
+    if (!cached) {
+      return;
+    }
     
     MockItem item1 = new MockItem("flag1", 1, false);
     MockItem item2 = new MockItem("flag2", 1, false);
@@ -129,7 +107,7 @@ public class CachingStoreWrapperTest {
     
     core.forceRemove(THINGS, item2.key);
     items = wrapper.all(THINGS);
-    if (cachingMode.isCached()) {
+    if (cached) {
       assertThat(items, equalTo(expected));
     } else {
       Map<String, MockItem> expected1 = ImmutableMap.<String, MockItem>of(item1.key, item1);
@@ -151,7 +129,9 @@ public class CachingStoreWrapperTest {
   
   @Test
   public void cachedAllUsesValuesFromInit() {
-    assumeThat(cachingMode.isCached(), is(true));
+    if (!cached) {
+      return;
+    }
     
     MockItem item1 = new MockItem("flag1", 1, false);
     MockItem item2 = new MockItem("flag2", 1, false);
@@ -164,44 +144,33 @@ public class CachingStoreWrapperTest {
     Map<String, MockItem> expected = ImmutableMap.<String, MockItem>of(item1.key, item1, item2.key, item2);
     assertThat(items, equalTo(expected));
   }
-
+  
   @Test
-  public void cachedStoreWithFiniteTtlDoesNotUpdateCacheIfCoreInitFails() {
-    assumeThat(cachingMode, is(CachingMode.CACHED_WITH_FINITE_TTL));
-    
-    MockItem item = new MockItem("flag", 1, false);
-    
-    core.fakeError = FAKE_ERROR;
-    try {
-      wrapper.init(makeData(item));
-      Assert.fail("expected exception");
-    } catch(RuntimeException e) {
-      assertThat(e, is(FAKE_ERROR));
+  public void cachedAllUsesFreshValuesIfThereHasBeenAnUpdate() {
+    if (!cached) {
+      return;
     }
     
-    core.fakeError = null;
-    assertThat(wrapper.all(THINGS).size(), equalTo(0));
-  }
+    MockItem item1 = new MockItem("flag1", 1, false);
+    MockItem item1v2 = new MockItem("flag1", 2, false);
+    MockItem item2 = new MockItem("flag2", 1, false);
+    MockItem item2v2 = new MockItem("flag2", 2, false);
+    
+    Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = makeData(item1, item2);
+    wrapper.init(allData);
 
-  @Test
-  public void cachedStoreWithInfiniteTtlUpdatesCacheEvenIfCoreInitFails() {
-    assumeThat(cachingMode, is(CachingMode.CACHED_INDEFINITELY));
+    // make a change to item1 via the wrapper - this should flush the cache
+    wrapper.upsert(THINGS, item1v2);
     
-    MockItem item = new MockItem("flag", 1, false);
+    // make a change to item2 that bypasses the cache
+    core.forceSet(THINGS, item2v2);
     
-    core.fakeError = FAKE_ERROR;
-    try {
-      wrapper.init(makeData(item));
-      Assert.fail("expected exception");
-    } catch(RuntimeException e) {
-      assertThat(e, is(FAKE_ERROR));
-    }
-    
-    core.fakeError = null;
-    Map<String, MockItem> expected = ImmutableMap.<String, MockItem>of(item.key, item);
-    assertThat(wrapper.all(THINGS), equalTo(expected));
+    // we should now see both changes since the cache was flushed
+    Map<String, MockItem> items = wrapper.all(THINGS);
+    Map<String, MockItem> expected = ImmutableMap.<String, MockItem>of(item1.key, item1v2, item2.key, item2v2);
+    assertThat(items, equalTo(expected));
   }
-
+  
   @Test
   public void upsertSuccessful() {
     MockItem itemv1 = new MockItem("flag", 1, false);
@@ -215,7 +184,7 @@ public class CachingStoreWrapperTest {
     
     // if we have a cache, verify that the new item is now cached by writing a different value
     // to the underlying data - Get should still return the cached item
-    if (cachingMode.isCached()) {
+    if (cached) {
       MockItem item1v3 = new MockItem("flag", 3, false);
       core.forceSet(THINGS, item1v3);
     }
@@ -225,7 +194,9 @@ public class CachingStoreWrapperTest {
   
   @Test
   public void cachedUpsertUnsuccessful() {
-    assumeThat(cachingMode.isCached(), is(true));
+    if (!cached) {
+      return;
+    }
     
     // This is for an upsert where the data in the store has a higher version. In an uncached
     // store, this is just a no-op as far as the wrapper is concerned so there's nothing to
@@ -247,94 +218,6 @@ public class CachingStoreWrapperTest {
   }
   
   @Test
-  public void cachedStoreWithFiniteTtlDoesNotUpdateCacheIfCoreUpdateFails() {
-    assumeThat(cachingMode, is(CachingMode.CACHED_WITH_FINITE_TTL));
-    
-    MockItem itemv1 = new MockItem("flag", 1, false);
-    MockItem itemv2 = new MockItem("flag", 2, false);
-    
-    wrapper.init(makeData(itemv1));
-
-    core.fakeError = FAKE_ERROR;
-    try {
-      wrapper.upsert(THINGS, itemv2);
-      Assert.fail("expected exception");
-    } catch(RuntimeException e) {
-      assertThat(e, is(FAKE_ERROR));
-    }
-    
-    core.fakeError = null;
-    assertThat(wrapper.get(THINGS, itemv1.key), equalTo(itemv1)); // cache still has old item, same as underlying store
-  }
-  
-  @Test
-  public void cachedStoreWithInfiniteTtlUpdatesCacheEvenIfCoreUpdateFails() {
-    assumeThat(cachingMode, is(CachingMode.CACHED_INDEFINITELY));
-    
-    MockItem itemv1 = new MockItem("flag", 1, false);
-    MockItem itemv2 = new MockItem("flag", 2, false);
-    
-    wrapper.init(makeData(itemv1));
-
-    core.fakeError = FAKE_ERROR;
-    try {
-      wrapper.upsert(THINGS, itemv2);
-      Assert.fail("expected exception");
-    } catch(RuntimeException e) {
-      assertThat(e, is(FAKE_ERROR));
-    }
-    
-    core.fakeError = null;
-    assertThat(wrapper.get(THINGS, itemv1.key), equalTo(itemv2)); // underlying store has old item but cache has new item
-  }
-
-  @Test
-  public void cachedStoreWithFiniteTtlRemovesCachedAllDataIfOneItemIsUpdated() {
-    assumeThat(cachingMode, is(CachingMode.CACHED_WITH_FINITE_TTL));
-    
-    MockItem item1v1 = new MockItem("item1", 1, false);
-    MockItem item1v2 = new MockItem("item1", 2, false);
-    MockItem item2v1 = new MockItem("item2", 1, false);
-    MockItem item2v2 = new MockItem("item2", 2, false);
-
-    wrapper.init(makeData(item1v1, item2v1));
-    wrapper.all(THINGS); // now the All data is cached
-    
-    // do an upsert for item1 - this should drop the previous all() data from the cache
-    wrapper.upsert(THINGS, item1v2);
-
-    // modify item2 directly in the underlying data
-    core.forceSet(THINGS, item2v2);
-
-    // now, all() should reread the underlying data so we see both changes
-    Map<String, MockItem> expected = ImmutableMap.<String, MockItem>of(item1v1.key, item1v2, item2v1.key, item2v2);
-    assertThat(wrapper.all(THINGS), equalTo(expected));
-  }
-
-  @Test
-  public void cachedStoreWithInfiniteTtlUpdatesCachedAllDataIfOneItemIsUpdated() {
-    assumeThat(cachingMode, is(CachingMode.CACHED_INDEFINITELY));
-    
-    MockItem item1v1 = new MockItem("item1", 1, false);
-    MockItem item1v2 = new MockItem("item1", 2, false);
-    MockItem item2v1 = new MockItem("item2", 1, false);
-    MockItem item2v2 = new MockItem("item2", 2, false);
-
-    wrapper.init(makeData(item1v1, item2v1));
-    wrapper.all(THINGS); // now the All data is cached
-    
-    // do an upsert for item1 - this should update the underlying data *and* the cached all() data
-    wrapper.upsert(THINGS, item1v2);
-
-    // modify item2 directly in the underlying data
-    core.forceSet(THINGS, item2v2);
-
-    // now, all() should *not* reread the underlying data - we should only see the change to item1
-    Map<String, MockItem> expected = ImmutableMap.<String, MockItem>of(item1v1.key, item1v2, item2v1.key, item2v1);
-    assertThat(wrapper.all(THINGS), equalTo(expected));
-  }
-
-  @Test
   public void delete() {
     MockItem itemv1 = new MockItem("flag", 1, false);
     MockItem itemv2 = new MockItem("flag", 2, true);
@@ -351,12 +234,12 @@ public class CachingStoreWrapperTest {
     core.forceSet(THINGS, itemv3);
     
     MockItem result = wrapper.get(THINGS, itemv1.key);
-    assertThat(result, cachingMode.isCached() ? nullValue(MockItem.class) : equalTo(itemv3));
+    assertThat(result, cached ? nullValue(MockItem.class) : equalTo(itemv3));
   }
   
   @Test
   public void initializedCallsInternalMethodOnlyIfNotAlreadyInited() {
-    assumeThat(cachingMode.isCached(), is(false));
+    assumeThat(cached, is(false));
     
     assertThat(wrapper.initialized(), is(false));
     assertThat(core.initedQueryCount, equalTo(1));
@@ -372,7 +255,7 @@ public class CachingStoreWrapperTest {
   
   @Test
   public void initializedDoesNotCallInternalMethodAfterInitHasBeenCalled() {
-    assumeThat(cachingMode.isCached(), is(false));
+    assumeThat(cached, is(false));
     
     assertThat(wrapper.initialized(), is(false));
     assertThat(core.initedQueryCount, equalTo(1));
@@ -385,7 +268,7 @@ public class CachingStoreWrapperTest {
   
   @Test
   public void initializedCanCacheFalseResult() throws Exception {
-    assumeThat(cachingMode.isCached(), is(true));
+    assumeThat(cached, is(true));
     
     // We need to create a different object for this test so we can set a short cache TTL
     try (CachingStoreWrapper wrapper1 = new CachingStoreWrapper(core, FeatureStoreCacheConfig.enabled().ttlMillis(500))) {
@@ -420,7 +303,6 @@ public class CachingStoreWrapperTest {
     Map<VersionedDataKind<?>, Map<String, VersionedData>> data = new HashMap<>();
     boolean inited;
     int initedQueryCount;
-    RuntimeException fakeError;
     
     @Override
     public void close() throws IOException {
@@ -428,7 +310,6 @@ public class CachingStoreWrapperTest {
 
     @Override
     public VersionedData getInternal(VersionedDataKind<?> kind, String key) {
-      maybeThrow();
       if (data.containsKey(kind)) {
         return data.get(kind).get(key);
       }
@@ -437,13 +318,11 @@ public class CachingStoreWrapperTest {
 
     @Override
     public Map<String, VersionedData> getAllInternal(VersionedDataKind<?> kind) {
-      maybeThrow();
       return data.get(kind);
     }
 
     @Override
     public void initInternal(Map<VersionedDataKind<?>, Map<String, VersionedData>> allData) {
-      maybeThrow();
       data.clear();
       for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> entry: allData.entrySet()) {
         data.put(entry.getKey(), new LinkedHashMap<String, VersionedData>(entry.getValue()));
@@ -453,7 +332,6 @@ public class CachingStoreWrapperTest {
 
     @Override
     public VersionedData upsertInternal(VersionedDataKind<?> kind, VersionedData item) {
-      maybeThrow();
       if (!data.containsKey(kind)) {
         data.put(kind, new HashMap<String, VersionedData>());
       }
@@ -468,7 +346,6 @@ public class CachingStoreWrapperTest {
 
     @Override
     public boolean initializedInternal() {
-      maybeThrow();
       initedQueryCount++;
       return inited;
     }
@@ -484,12 +361,6 @@ public class CachingStoreWrapperTest {
     public void forceRemove(VersionedDataKind<?> kind, String key) {
       if (data.containsKey(kind)) {
         data.get(kind).remove(key);
-      }
-    }
-    
-    private void maybeThrow() {
-      if (fakeError != null) {
-        throw fakeError;
       }
     }
   }
