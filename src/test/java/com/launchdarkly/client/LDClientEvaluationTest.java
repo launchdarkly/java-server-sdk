@@ -24,6 +24,7 @@ import static com.launchdarkly.client.TestUtil.specificDataSource;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
@@ -134,7 +135,7 @@ public class LDClientEvaluationTest {
 
   @Test
   public void stringVariationWithNullDefaultReturnsFlagValue() throws Exception {
-    featureStore.upsert(FEATURES, flagWithValue("key", LDValue.of("b")));
+    dataStore.upsert(FEATURES, flagWithValue("key", LDValue.of("b")));
 
     assertEquals("b", client.stringVariation("key", user, null));
   }
