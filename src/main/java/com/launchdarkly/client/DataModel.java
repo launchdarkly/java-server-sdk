@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.annotations.JsonAdapter;
@@ -42,11 +41,7 @@ public abstract class DataModel {
         if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
           return ImmutableList.of();
         }
-        return transform(flag.getPrerequisites(), new Function<DataModel.Prerequisite, String>() {
-          public String apply(DataModel.Prerequisite p) {
-            return p.getKey();
-          }
-        });
+        return transform(flag.getPrerequisites(), p -> p.getKey());
       }
     };
     

@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -326,11 +325,7 @@ public class LDClientTest extends EasyMockSupport {
         DataModel.FeatureFlag depFlag = (DataModel.FeatureFlag)map1.get(prereq.getKey());
         int depIndex = list1.indexOf(depFlag);
         if (depIndex > itemIndex) {
-          Iterable<String> allKeys = Iterables.transform(list1, new Function<VersionedData, String>() {
-            public String apply(VersionedData d) {
-              return d.getKey();
-            }
-          });
+          Iterable<String> allKeys = Iterables.transform(list1, d -> d.getKey());
           fail(String.format("%s depends on %s, but %s was listed first; keys in order are [%s]",
               item.getKey(), prereq.getKey(), item.getKey(),
               Joiner.on(", ").join(allKeys)));
