@@ -1,4 +1,4 @@
-package com.launchdarkly.client.integrations;
+package com.launchdarkly.client.files;
 
 import com.google.gson.JsonPrimitive;
 import com.launchdarkly.client.LDClient;
@@ -7,23 +7,22 @@ import com.launchdarkly.client.LDUser;
 
 import org.junit.Test;
 
-import static com.launchdarkly.client.integrations.FileDataSourceTestData.FLAG_VALUE_1;
-import static com.launchdarkly.client.integrations.FileDataSourceTestData.FLAG_VALUE_1_KEY;
-import static com.launchdarkly.client.integrations.FileDataSourceTestData.FULL_FLAG_1_KEY;
-import static com.launchdarkly.client.integrations.FileDataSourceTestData.FULL_FLAG_1_VALUE;
-import static com.launchdarkly.client.integrations.FileDataSourceTestData.resourceFilePath;
+import static com.launchdarkly.client.files.TestData.FLAG_VALUE_1;
+import static com.launchdarkly.client.files.TestData.FLAG_VALUE_1_KEY;
+import static com.launchdarkly.client.files.TestData.FULL_FLAG_1_KEY;
+import static com.launchdarkly.client.files.TestData.FULL_FLAG_1_VALUE;
+import static com.launchdarkly.client.files.TestData.resourceFilePath;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
-@SuppressWarnings("javadoc")
 public class ClientWithFileDataSourceTest {
   private static final LDUser user = new LDUser.Builder("userkey").build();
 
   private LDClient makeClient() throws Exception {
-    FileDataSourceBuilder fdsb = FileData.dataSource()
+    FileDataSourceFactory fdsf = FileComponents.fileDataSource()
         .filePaths(resourceFilePath("all-properties.json"));
     LDConfig config = new LDConfig.Builder()
-        .dataSource(fdsb)
+        .dataSource(fdsf)
         .sendEvents(false)
         .build();
     return new LDClient("sdkKey", config);
