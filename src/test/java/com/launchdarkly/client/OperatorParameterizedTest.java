@@ -115,7 +115,13 @@ public class OperatorParameterizedTest {
       { Operator.semVerGreaterThan, LDValue.of("2.0"), LDValue.of("2.0.1"), false },
       { Operator.semVerGreaterThan, LDValue.of("2.0.0-rc.1"), LDValue.of("2.0.0-rc.0"), true },
       { Operator.semVerLessThan, LDValue.of("2.0.1"), invalidVer, false },
-      { Operator.semVerGreaterThan, LDValue.of("2.0.1"), invalidVer, false }
+      { Operator.semVerGreaterThan, LDValue.of("2.0.1"), invalidVer, false },
+      { Operator.semVerEqual, LDValue.ofNull(), LDValue.of("2.0.0"), false },
+      { Operator.semVerEqual, LDValue.of(1), LDValue.of("2.0.0"), false },
+      { Operator.semVerEqual, LDValue.of(true), LDValue.of("2.0.0"), false },
+      { Operator.semVerEqual, LDValue.of("2.0.0"), LDValue.ofNull(), false },
+      { Operator.semVerEqual, LDValue.of("2.0.0"), LDValue.of(1), false },
+      { Operator.semVerEqual, LDValue.of("2.0.0"), LDValue.of(true), false }
     });
   }
 
