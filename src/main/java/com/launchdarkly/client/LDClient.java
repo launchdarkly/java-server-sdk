@@ -72,8 +72,8 @@ public final class LDClient implements LDClientInterface {
       // of instances that we created ourselves from a factory.
       this.shouldCloseFeatureStore = false;
     } else {
-      FeatureStoreFactory factory = config.dataStoreFactory == null ?
-          Components.inMemoryDataStore() : config.dataStoreFactory;
+      FeatureStoreFactory factory = config.featureStoreFactory == null ?
+          Components.inMemoryFeatureStore() : config.featureStoreFactory;
       store = factory.createFeatureStore();
       this.shouldCloseFeatureStore = true;
     }
@@ -83,8 +83,8 @@ public final class LDClient implements LDClientInterface {
         Components.defaultEventProcessor() : config.eventProcessorFactory;
     this.eventProcessor = epFactory.createEventProcessor(sdkKey, config);
     
-    UpdateProcessorFactory upFactory = config.dataSourceFactory == null ?
-        Components.defaultDataSource() : config.dataSourceFactory;
+    UpdateProcessorFactory upFactory = config.updateProcessorFactory == null ?
+        Components.defaultUpdateProcessor() : config.updateProcessorFactory;
     this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, config, featureStore);
     Future<Void> startFuture = updateProcessor.start();
     if (config.startWaitMillis > 0L) {

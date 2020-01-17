@@ -56,9 +56,9 @@ public final class LDConfig {
   final Authenticator proxyAuthenticator;
   final boolean stream;
   final FeatureStore deprecatedFeatureStore;
-  final FeatureStoreFactory dataStoreFactory;
+  final FeatureStoreFactory featureStoreFactory;
   final EventProcessorFactory eventProcessorFactory;
-  final UpdateProcessorFactory dataSourceFactory;
+  final UpdateProcessorFactory updateProcessorFactory;
   final boolean useLdd;
   final boolean offline;
   final boolean allAttributesPrivate;
@@ -88,9 +88,9 @@ public final class LDConfig {
     this.streamURI = builder.streamURI;
     this.stream = builder.stream;
     this.deprecatedFeatureStore = builder.featureStore;
-    this.dataStoreFactory = builder.dataStoreFactory;
+    this.featureStoreFactory = builder.featureStoreFactory;
     this.eventProcessorFactory = builder.eventProcessorFactory;
-    this.dataSourceFactory = builder.dataSourceFactory;
+    this.updateProcessorFactory = builder.updateProcessorFactory;
     this.useLdd = builder.useLdd;
     this.offline = builder.offline;
     this.allAttributesPrivate = builder.allAttributesPrivate;
@@ -155,9 +155,9 @@ public final class LDConfig {
     private boolean sendEvents = true;
     private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = null;
-    private FeatureStoreFactory dataStoreFactory = Components.inMemoryDataStore();
+    private FeatureStoreFactory featureStoreFactory = Components.inMemoryFeatureStore();
     private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
-    private UpdateProcessorFactory dataSourceFactory = Components.defaultDataSource();
+    private UpdateProcessorFactory updateProcessorFactory = Components.defaultUpdateProcessor();
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
@@ -208,24 +208,6 @@ public final class LDConfig {
     }
 
     /**
-     * Sets the implementation of the data store to be used for holding feature flags and
-     * related data received from LaunchDarkly, using a factory object. The default is
-     * {@link Components#inMemoryDataStore()}, but you may use {@link Components#redisFeatureStore()}
-     * or a custom implementation.
-     * 
-     * Note that the interface is still called {@link FeatureStoreFactory}, but in a future version
-     * it will be renamed to {@code DataStoreFactory}.
-     * 
-     * @param factory the factory object
-     * @return the builder
-     * @since 4.11.0
-     */
-    public Builder dataStore(FeatureStoreFactory factory) {
-      this.dataStoreFactory = factory;
-      return this;
-    }
-    
-    /**
      * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
      * related data received from LaunchDarkly. The default is {@link InMemoryFeatureStore}, but
      * you may use {@link RedisFeatureStore} or a custom implementation.
@@ -239,37 +221,26 @@ public final class LDConfig {
     }
 
     /**
-     * Deprecated name for {@link #dataStore(FeatureStoreFactory)}.
+     * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
+     * related data received from LaunchDarkly, using a factory object. The default is
+     * {@link Components#inMemoryFeatureStore()}, but you may use {@link Components#redisFeatureStore()}
+     * or a custom implementation.
      * @param factory the factory object
      * @return the builder
      * @since 4.0.0
-     * @deprecated Use {@link #dataStore(FeatureStoreFactory)}.
      */
-    @Deprecated
     public Builder featureStoreFactory(FeatureStoreFactory factory) {
-      this.dataStoreFactory = factory;
+      this.featureStoreFactory = factory;
       return this;
     }
-
+    
     /**
      * Sets the implementation of {@link EventProcessor} to be used for processing analytics events,
      * using a factory object. The default is {@link Components#defaultEventProcessor()}, but
      * you may choose to use a custom implementation (for instance, a test fixture).
      * @param factory the factory object
      * @return the builder
-     * @since 4.11.0
-     */
-    public Builder eventProcessor(EventProcessorFactory factory) {
-      this.eventProcessorFactory = factory;
-      return this;
-    }
-
-    /**
-     * Deprecated name for {@link #eventProcessor(EventProcessorFactory)}.
-     * @param factory the factory object
-     * @return the builder
      * @since 4.0.0
-     * @deprecated Use {@link #eventProcessor(EventProcessorFactory)}.
      */
     public Builder eventProcessorFactory(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
@@ -277,32 +248,15 @@ public final class LDConfig {
     }
     
     /**
-     * Sets the implementation of the component that receives feature flag data from LaunchDarkly,
-     * using a factory object. The default is {@link Components#defaultDataSource()}, but
+     * Sets the implementation of {@link UpdateProcessor} to be used for receiving feature flag data,
+     * using a factory object. The default is {@link Components#defaultUpdateProcessor()}, but
      * you may choose to use a custom implementation (for instance, a test fixture).
-     * 
-     * Note that the interface is still named {@link UpdateProcessorFactory}, but in a future version
-     * it will be renamed to {@code DataSourceFactory}.
-     * 
-     * @param factory the factory object
-     * @return the builder
-     * @since 4.11.0
-     */
-    public Builder dataSource(UpdateProcessorFactory factory) {
-      this.dataSourceFactory = factory;
-      return this;
-    }
-
-    /**
-     * Deprecated name for {@link #dataSource(UpdateProcessorFactory)}.
      * @param factory the factory object
      * @return the builder
      * @since 4.0.0
-     * @deprecated Use {@link #dataSource(UpdateProcessorFactory)}.
      */
-    @Deprecated
     public Builder updateProcessorFactory(UpdateProcessorFactory factory) {
-      this.dataSourceFactory = factory;
+      this.updateProcessorFactory = factory;
       return this;
     }
     
