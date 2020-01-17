@@ -118,10 +118,10 @@ public final class FeatureStoreCacheConfig {
 
   /**
    * Returns true if caching will be enabled.
-   * @return true if the cache TTL is non-zero
+   * @return true if the cache TTL is greater than 0
    */
   public boolean isEnabled() {
-    return getCacheTime() != 0;
+    return getCacheTime() > 0;
   }
   
   /**
@@ -190,6 +190,12 @@ public final class FeatureStoreCacheConfig {
    * after this amount of time from the time when they were originally cached.
    * <p>
    * If the value is zero, caching is disabled.
+   * <p>
+   * If the value is negative, data is cached forever (i.e. it will only be read again from the database
+   * if the SDK is restarted). Use the "cached forever" mode with caution: it means that in a scenario
+   * where multiple processes are sharing the database, and the current process loses connectivity to
+   * LaunchDarkly while other processes are still receiving updates and writing them to the database,
+   * the current process will have stale data.
    * 
    * @param cacheTime the cache TTL in whatever units you wish
    * @param timeUnit the time unit
