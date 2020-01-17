@@ -2,6 +2,12 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.11.1] - 2020-01-17
+### Fixed:
+- Flag evaluation would fail (with a NullPointerException that would be logged, but not thrown to the caller) if a flag rule used a semantic version operator and the specified user attribute did not have a string value.
+- The recently-added exception property of `EvaluationReason.Error` should not be serialized to JSON when sending reasons in analytics events, since the LaunchDarkly events service does not process that field and the serialization of an exception can be lengthy. The property is only meant for programmatic use.
+- The SDK now specifies a uniquely identifiable request header when sending events to LaunchDarkly to ensure that events are only processed once, even if the SDK sends them two times due to a failed initial attempt. _(An earlier release note incorrectly stated that this behavior was added in 4.11.0. It is new in this release.)_
+
 ## [4.11.0] - 2020-01-16
 ### Added:
 - When an `EvaluationReason` indicates that flag evaluation failed due to an unexpected exception (`getKind()` is `ERROR`, and `EvaluationReason.Error.getErrorKind()` is `EXCEPTION`), you can now examine the underlying exception via `EvaluationReason.Error.getException()`. ([#180](https://github.com/launchdarkly/java-server-sdk/issues/180))
