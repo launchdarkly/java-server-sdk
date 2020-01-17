@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.time.Duration;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -71,14 +72,14 @@ public class LDConfigTest {
 
   @Test
   public void testMinimumPollingIntervalIsEnforcedProperly(){
-    LDConfig config = new LDConfig.Builder().pollingIntervalMillis(10L).build();
-    assertEquals(30000L, config.pollingIntervalMillis);
+    LDConfig config = new LDConfig.Builder().pollingInterval(Duration.ofSeconds(10)).build();
+    assertEquals(Duration.ofSeconds(30), config.pollingInterval);
   }
 
   @Test
   public void testPollingIntervalIsEnforcedProperly(){
-    LDConfig config = new LDConfig.Builder().pollingIntervalMillis(30001L).build();
-    assertEquals(30001L, config.pollingIntervalMillis);
+    LDConfig config = new LDConfig.Builder().pollingInterval(Duration.ofMillis(30001)).build();
+    assertEquals(Duration.ofMillis(30001), config.pollingInterval);
   }
   
   @Test

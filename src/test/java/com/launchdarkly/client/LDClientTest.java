@@ -20,6 +20,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -96,7 +97,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .stream(false)
         .baseURI(URI.create("/fake"))
-        .startWaitMillis(0)
+        .startWait(Duration.ZERO)
         .sendEvents(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -109,7 +110,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .stream(false)
         .baseURI(URI.create("/fake"))
-        .startWaitMillis(0)
+        .startWait(Duration.ZERO)
         .sendEvents(false)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -122,7 +123,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .stream(true)
         .streamURI(URI.create("http://fake"))
-        .startWaitMillis(0)
+        .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(StreamProcessor.class, client.dataSource.getClass());
@@ -134,7 +135,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .stream(false)
         .baseURI(URI.create("http://fake"))
-        .startWaitMillis(0)
+        .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(PollingProcessor.class, client.dataSource.getClass());
@@ -144,7 +145,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void noWaitForDataSourceIfWaitMillisIsZero() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
-        .startWaitMillis(0L);
+        .startWait(Duration.ZERO);
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.initialized()).andReturn(false);
@@ -159,7 +160,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void willWaitForDataSourceIfWaitMillisIsNonZero() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
-        .startWaitMillis(10L);
+        .startWait(Duration.ofMillis(10));
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(null);
@@ -175,7 +176,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void dataSourceCanTimeOut() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
-        .startWaitMillis(10L);
+        .startWait(Duration.ofMillis(10));
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
@@ -191,7 +192,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void clientCatchesRuntimeExceptionFromDataSource() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
-        .startWaitMillis(10L);
+        .startWait(Duration.ofMillis(10));
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new RuntimeException());
@@ -208,7 +209,7 @@ public class LDClientTest extends EasyMockSupport {
   public void isFlagKnownReturnsTrueForExistingFlag() throws Exception {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
-            .startWaitMillis(0)
+            .startWait(Duration.ZERO)
             .dataStore(specificDataStore(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.initialized()).andReturn(true).times(1);
@@ -225,7 +226,7 @@ public class LDClientTest extends EasyMockSupport {
   public void isFlagKnownReturnsFalseForUnknownFlag() throws Exception {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
-            .startWaitMillis(0)
+            .startWait(Duration.ZERO)
             .dataStore(specificDataStore(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.initialized()).andReturn(true).times(1);
@@ -241,7 +242,7 @@ public class LDClientTest extends EasyMockSupport {
   public void isFlagKnownReturnsFalseIfStoreAndClientAreNotInitialized() throws Exception {
     DataStore testDataStore = new InMemoryDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
-            .startWaitMillis(0)
+            .startWait(Duration.ZERO)
             .dataStore(specificDataStore(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.initialized()).andReturn(false).times(1);
@@ -258,7 +259,7 @@ public class LDClientTest extends EasyMockSupport {
   public void isFlagKnownUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
-            .startWaitMillis(0)
+            .startWait(Duration.ZERO)
             .dataStore(specificDataStore(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.initialized()).andReturn(false).times(1);
@@ -276,7 +277,7 @@ public class LDClientTest extends EasyMockSupport {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
         .dataStore(specificDataStore(testDataStore))
-        .startWaitMillis(0L);
+        .startWait(Duration.ZERO);
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.initialized()).andReturn(false);
     expectEventsSent(1);

@@ -66,14 +66,14 @@ final class DefaultEventProcessor implements EventProcessor {
         postMessageAsync(MessageType.FLUSH, null);
       }
     };
-    this.scheduler.scheduleAtFixedRate(flusher, config.flushInterval, config.flushInterval, TimeUnit.SECONDS);
+    this.scheduler.scheduleAtFixedRate(flusher, config.flushInterval.toMillis(), config.flushInterval.toMillis(), TimeUnit.MILLISECONDS);
     Runnable userKeysFlusher = new Runnable() {
       public void run() {
         postMessageAsync(MessageType.FLUSH_USERS, null);
       }
     };
-    this.scheduler.scheduleAtFixedRate(userKeysFlusher, config.userKeysFlushInterval, config.userKeysFlushInterval,
-        TimeUnit.SECONDS);
+    this.scheduler.scheduleAtFixedRate(userKeysFlusher, config.userKeysFlushInterval.toMillis(), config.userKeysFlushInterval.toMillis(),
+        TimeUnit.MILLISECONDS);
   }
   
   @Override

@@ -49,7 +49,7 @@ class PollingProcessor implements DataSource {
   @Override
   public Future<Void> start() {
     logger.info("Starting LaunchDarkly polling client with interval: "
-        + config.pollingIntervalMillis + " milliseconds");
+        + config.pollingInterval.toMillis() + " milliseconds");
     final SettableFuture<Void> initFuture = SettableFuture.create();
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setNameFormat("LaunchDarkly-PollingProcessor-%d")
@@ -77,7 +77,7 @@ class PollingProcessor implements DataSource {
           logger.debug(e.toString(), e);
         }
       }
-    }, 0L, config.pollingIntervalMillis, TimeUnit.MILLISECONDS);
+    }, 0L, config.pollingInterval.toMillis(), TimeUnit.MILLISECONDS);
 
     return initFuture;
   }

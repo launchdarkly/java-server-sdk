@@ -14,10 +14,10 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
@@ -39,14 +39,14 @@ public final class LDConfig {
   private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
   private static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
-  private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2000;
-  private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;
-  private static final int DEFAULT_FLUSH_INTERVAL_SECONDS = 5;
-  private static final long MIN_POLLING_INTERVAL_MILLIS = 30000L;
-  private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
+  private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(2);
+  private static final Duration DEFAULT_SOCKET_TIMEOUT = Duration.ofSeconds(10);
+  private static final Duration DEFAULT_FLUSH_INTERVAL = Duration.ofSeconds(5);
+  private static final Duration MIN_POLLING_INTERVAL = Duration.ofSeconds(30);
+  private static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
   private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
-  private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
-  private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
+  private static final Duration DEFAULT_USER_KEYS_FLUSH_INTERVAL = Duration.ofMinutes(5);
+  private static final Duration DEFAULT_RECONNECT_TIME = Duration.ofSeconds(1);
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
@@ -54,7 +54,7 @@ public final class LDConfig {
   final URI eventsURI;
   final URI streamURI;
   final int capacity;
-  final int flushInterval;
+  final Duration flushInterval;
   final Proxy proxy;
   final Authenticator proxyAuthenticator;
   final boolean stream;
@@ -66,24 +66,22 @@ public final class LDConfig {
   final boolean allAttributesPrivate;
   final Set<String> privateAttrNames;
   final boolean sendEvents;
-  final long pollingIntervalMillis;
-  final long startWaitMillis;
-  final long reconnectTimeMs;
+  final Duration pollingInterval;
+  final Duration startWait;
+  final Duration reconnectTime;
   final int userKeysCapacity;
-  final int userKeysFlushInterval;
+  final Duration userKeysFlushInterval;
   final boolean inlineUsersInEvents;
   final SSLSocketFactory sslSocketFactory;
   final X509TrustManager trustManager;
-  final int connectTimeout;
-  final TimeUnit connectTimeoutUnit;
-  final int socketTimeout;
-  final TimeUnit socketTimeoutUnit;
+  final Duration connectTimeout;
+  final Duration socketTimeout;
   
   protected LDConfig(Builder builder) {
     this.baseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
     this.capacity = builder.capacity;
-    this.flushInterval = builder.flushIntervalSeconds;
+    this.flushInterval = builder.flushInterval;
     this.proxy = builder.proxy();
     this.proxyAuthenticator = builder.proxyAuthenticator();
     this.streamURI = builder.streamURI;
@@ -96,22 +94,20 @@ public final class LDConfig {
     this.allAttributesPrivate = builder.allAttributesPrivate;
     this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
     this.sendEvents = builder.sendEvents;
-    if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
-      this.pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
+    if (builder.pollingInterval.compareTo(MIN_POLLING_INTERVAL) < 0) {
+      this.pollingInterval = MIN_POLLING_INTERVAL;
     } else {
-      this.pollingIntervalMillis = builder.pollingIntervalMillis;
+      this.pollingInterval = builder.pollingInterval;
     }
-    this.startWaitMillis = builder.startWaitMillis;
-    this.reconnectTimeMs = builder.reconnectTimeMillis;
+    this.startWait = builder.startWait;
+    this.reconnectTime = builder.reconnectTime;
     this.userKeysCapacity = builder.userKeysCapacity;
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
     this.inlineUsersInEvents = builder.inlineUsersInEvents;
     this.sslSocketFactory = builder.sslSocketFactory;
     this.trustManager = builder.trustManager;
     this.connectTimeout = builder.connectTimeout;
-    this.connectTimeoutUnit = builder.connectTimeoutUnit;
     this.socketTimeout = builder.socketTimeout;
-    this.socketTimeoutUnit = builder.socketTimeoutUnit;
 
     if (proxy != null) {
       if (proxyAuthenticator != null) {
@@ -137,12 +133,10 @@ public final class LDConfig {
     private URI baseURI = DEFAULT_BASE_URI;
     private URI eventsURI = DEFAULT_EVENTS_URI;
     private URI streamURI = DEFAULT_STREAM_URI;
-    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
-    private TimeUnit connectTimeoutUnit = TimeUnit.MILLISECONDS;
-    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
-    private TimeUnit socketTimeoutUnit = TimeUnit.MILLISECONDS;
+    private Duration connectTimeout = DEFAULT_CONNECT_TIMEOUT;
+    private Duration socketTimeout = DEFAULT_SOCKET_TIMEOUT;
     private int capacity = DEFAULT_CAPACITY;
-    private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
+    private Duration flushInterval = DEFAULT_FLUSH_INTERVAL;
     private String proxyHost = "localhost";
     private int proxyPort = -1;
     private String proxyUsername = null;
@@ -152,15 +146,15 @@ public final class LDConfig {
     private boolean offline = false;
     private boolean allAttributesPrivate = false;
     private boolean sendEvents = true;
-    private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
+    private Duration pollingInterval = MIN_POLLING_INTERVAL;
     private DataStoreFactory dataStoreFactory = Components.inMemoryDataStore();
     private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
     private DataSourceFactory dataSourceFactory = Components.defaultDataSource();
-    private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
-    private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
+    private Duration startWait = DEFAULT_START_WAIT;
+    private Duration reconnectTime = DEFAULT_RECONNECT_TIME;
     private Set<String> privateAttrNames = new HashSet<>();
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
-    private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
+    private Duration userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL;
     private boolean inlineUsersInEvents = false;
     private SSLSocketFactory sslSocketFactory = null;
     private X509TrustManager trustManager = null;
@@ -259,70 +253,38 @@ public final class LDConfig {
     }
 
     /**
-     * Set the connection timeout in seconds for the configuration. This is the time allowed for the underlying HTTP client to connect
+     * Set the connection timeout for the configuration. This is the time allowed for the underlying HTTP client to connect
      * to the LaunchDarkly server. The default is 2 seconds.
-     * <p>Both this method and {@link #connectTimeoutMillis(int) connectTimeoutMillis} affect the same property internally.</p>
      *
-     * @param connectTimeout the connection timeout in seconds
+     * @param connectTimeout the connection timeout; null to use the default
      * @return the builder
      */
-    public Builder connectTimeout(int connectTimeout) {
-      this.connectTimeout = connectTimeout;
-      this.connectTimeoutUnit = TimeUnit.SECONDS;
+    public Builder connectTimeout(Duration connectTimeout) {
+      this.connectTimeout = connectTimeout == null ? DEFAULT_CONNECT_TIMEOUT : connectTimeout;
       return this;
     }
 
     /**
-     * Set the socket timeout in seconds for the configuration. This is the number of seconds between successive packets that the
+     * Set the socket timeout for the configuration. This is the number of seconds between successive packets that the
      * client will tolerate before flagging an error. The default is 10 seconds.
-     * <p>Both this method and {@link #socketTimeoutMillis(int) socketTimeoutMillis} affect the same property internally.</p>
      *
-     * @param socketTimeout the socket timeout in seconds
+     * @param socketTimeout the socket timeout; null to use the default
      * @return the builder
      */
-    public Builder socketTimeout(int socketTimeout) {
-      this.socketTimeout = socketTimeout;
-      this.socketTimeoutUnit = TimeUnit.SECONDS;
+    public Builder socketTimeout(Duration socketTimeout) {
+      this.socketTimeout = socketTimeout == null ? DEFAULT_SOCKET_TIMEOUT : socketTimeout;
       return this;
     }
 
     /**
-     * Set the connection timeout in milliseconds for the configuration. This is the time allowed for the underlying HTTP client to connect
-     * to the LaunchDarkly server. The default is 2000 ms.
-     * <p>Both this method and {@link #connectTimeout(int) connectTimeoutMillis} affect the same property internally.</p>
-     *
-     * @param connectTimeoutMillis the connection timeout in milliseconds
-     * @return the builder
-     */
-    public Builder connectTimeoutMillis(int connectTimeoutMillis) {
-      this.connectTimeout = connectTimeoutMillis;
-      this.connectTimeoutUnit = TimeUnit.MILLISECONDS;
-      return this;
-    }
-
-    /**
-     * Set the socket timeout in milliseconds for the configuration. This is the number of milliseconds between successive packets that the
-     * client will tolerate before flagging an error. The default is 10,000 milliseconds.
-     * <p>Both this method and {@link #socketTimeout(int) socketTimeoutMillis} affect the same property internally.</p>
-     *
-     * @param socketTimeoutMillis the socket timeout in milliseconds
-     * @return the builder
-     */
-    public Builder socketTimeoutMillis(int socketTimeoutMillis) {
-      this.socketTimeout = socketTimeoutMillis;
-      this.socketTimeoutUnit = TimeUnit.MILLISECONDS;
-      return this;
-    }
-
-    /**
-     * Set the number of seconds between flushes of the event buffer. Decreasing the flush interval means
+     * Set the interval between flushes of the event buffer. Decreasing the flush interval means
      * that the event buffer is less likely to reach capacity. The default value is 5 seconds.
      *
-     * @param flushInterval the flush interval in seconds
+     * @param flushInterval the flush interval; null to use the default
      * @return the builder
      */
-    public Builder flushInterval(int flushInterval) {
-      this.flushIntervalSeconds = flushInterval;
+    public Builder flushInterval(Duration flushInterval) {
+      this.flushInterval = flushInterval == null ? DEFAULT_FLUSH_INTERVAL : flushInterval;
       return this;
     }
 
@@ -454,39 +416,39 @@ public final class LDConfig {
 
     /**
      * Set the polling interval (when streaming is disabled). Values less than the default of
-     * 30000 will be set to the default.
+     * 30 seconds will be set to the default.
      *
-     * @param pollingIntervalMillis rule update polling interval in milliseconds
+     * @param pollingInterval the new polling interval; null to use the default
      * @return the builder
      */
-    public Builder pollingIntervalMillis(long pollingIntervalMillis) {
-      this.pollingIntervalMillis = pollingIntervalMillis;
+    public Builder pollingInterval(Duration pollingInterval) {
+      this.pollingInterval = pollingInterval == null ? MIN_POLLING_INTERVAL : pollingInterval;
       return this;
     }
 
     /**
      * Set how long the constructor will block awaiting a successful connection to LaunchDarkly.
-     * Setting this to 0 will not block and cause the constructor to return immediately.
+     * Setting this to a zero or negative duration will not block and cause the constructor to return immediately.
      * Default value: 5000
      *
-     * @param startWaitMillis milliseconds to wait
+     * @param startWait maximum time to wait; null to use the default
      * @return the builder
      */
-    public Builder startWaitMillis(long startWaitMillis) {
-      this.startWaitMillis = startWaitMillis;
+    public Builder startWait(Duration startWait) {
+      this.startWait = startWait == null ? DEFAULT_START_WAIT : startWait;
       return this;
     }
 
     /**
-     * The reconnect base time in milliseconds for the streaming connection. The streaming connection
+     * The reconnect base time for the streaming connection. The streaming connection
      * uses an exponential backoff algorithm (with jitter) for reconnects, but will start the backoff
      * with a value near the value specified here.
      *
-     * @param reconnectTimeMs the reconnect time base value in milliseconds
+     * @param reconnectTime the initial reconnect time; null to use the default
      * @return the builder
      */
-    public Builder reconnectTimeMs(long reconnectTimeMs) {
-      this.reconnectTimeMillis = reconnectTimeMs;
+    public Builder reconnectTime(Duration reconnectTime) {
+      this.reconnectTime = reconnectTime == null ? DEFAULT_RECONNECT_TIME : reconnectTime;
       return this;
     }
 
@@ -515,14 +477,14 @@ public final class LDConfig {
     }
 
     /**
-     * Sets the interval in seconds at which the event processor will reset its set of known user keys. The
+     * Sets the interval at which the event processor will reset its set of known user keys. The
      * default value is five minutes.
      *
-     * @param flushInterval the flush interval in seconds
+     * @param userKeysFlushInterval the flush interval; null to use the default
      * @return the builder
      */
-    public Builder userKeysFlushInterval(int flushInterval) {
-      this.userKeysFlushInterval = flushInterval;
+    public Builder userKeysFlushInterval(Duration userKeysFlushInterval) {
+      this.userKeysFlushInterval = userKeysFlushInterval == null ? DEFAULT_USER_KEYS_FLUSH_INTERVAL : userKeysFlushInterval;
       return this;
     }
 
