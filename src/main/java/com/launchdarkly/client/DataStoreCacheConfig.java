@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.common.cache.CacheBuilder;
 import com.launchdarkly.client.interfaces.DataStore;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -29,22 +30,21 @@ import java.util.concurrent.TimeUnit;
  */
 public final class DataStoreCacheConfig {
   /**
-   * The default TTL, in seconds, used by {@link #DEFAULT}.
+   * The default TTL used by {@link #DEFAULT}.
    */
-  public static final long DEFAULT_TIME_SECONDS = 15;
+  public static final Duration DEFAULT_TIME = Duration.ofSeconds(15);
 
   /**
    * The caching parameters that the data store should use by default. Caching is enabled, with a
-   * TTL of {@link #DEFAULT_TIME_SECONDS} and the {@link StaleValuesPolicy#EVICT} policy. 
+   * TTL of {@link #DEFAULT_TIME} and the {@link StaleValuesPolicy#EVICT} policy. 
    */
   public static final DataStoreCacheConfig DEFAULT =
-      new DataStoreCacheConfig(DEFAULT_TIME_SECONDS, TimeUnit.SECONDS, StaleValuesPolicy.EVICT);
+      new DataStoreCacheConfig(DEFAULT_TIME, StaleValuesPolicy.EVICT);
   
   private static final DataStoreCacheConfig DISABLED =
-      new DataStoreCacheConfig(0, TimeUnit.MILLISECONDS, StaleValuesPolicy.EVICT);
+      new DataStoreCacheConfig(Duration.ZERO, StaleValuesPolicy.EVICT);
   
-  private final long cacheTime;
-  private final TimeUnit cacheTimeUnit;
+  private final Duration cacheTime;
   private final StaleValuesPolicy staleValuesPolicy;
   
   /**
@@ -103,7 +103,7 @@ public final class DataStoreCacheConfig {
   
   /**
    * Returns a parameter object indicating that caching should be enabled, using the default TTL of
-   * {@link #DEFAULT_TIME_SECONDS}. You can further modify the cache properties using the other
+   * {@link #DEFAULT_TIME}. You can further modify the cache properties using the other
    * methods of this class.
    * @return a {@link DataStoreCacheConfig} instance
    */
@@ -111,9 +111,8 @@ public final class DataStoreCacheConfig {
     return DEFAULT;
   }
 
-  private DataStoreCacheConfig(long cacheTime, TimeUnit cacheTimeUnit, StaleValuesPolicy staleValuesPolicy) {
-    this.cacheTime = cacheTime;
-    this.cacheTimeUnit = cacheTimeUnit;
+  private DataStoreCacheConfig(Duration cacheTime, StaleValuesPolicy staleValuesPolicy) {
+    this.cacheTime = cacheTime == null ? DEFAULT_TIME : cacheTime;
     this.staleValuesPolicy = staleValuesPolicy;
   }
 
@@ -122,32 +121,15 @@ public final class DataStoreCacheConfig {
    * @return true if the cache TTL is greater than 0
    */
   public boolean isEnabled() {
-    return getCacheTime() > 0;
+    return !cacheTime.isZero() && !cacheTime.isNegative();
   }
   
   /**
    * Returns the cache TTL. Caching is enabled if this is greater than zero.
-   * @return the cache TTL in whatever units were specified
-   * @see #getCacheTimeUnit()
+   * @return the cache TTL
    */
-  public long getCacheTime() {
+  public Duration getCacheTime() {
     return cacheTime;
-  }
-  
-  /**
-   * Returns the time unit for the cache TTL.
-   * @return the time unit
-   */
-  public TimeUnit getCacheTimeUnit() {
-    return cacheTimeUnit;
-  }
-  
-  /**
-   * Returns the cache TTL converted to milliseconds.
-   * @return the TTL in milliseconds
-   */
-  public long getCacheTimeMillis() {
-    return cacheTimeUnit.toMillis(cacheTime);
   }
   
   /**
@@ -163,32 +145,31 @@ public final class DataStoreCacheConfig {
    * after this amount of time from the time when they were originally cached. If the time is less
    * than or equal to zero, caching is disabled.
    * 
-   * @param cacheTime the cache TTL in whatever units you wish
-   * @param timeUnit the time unit
+   * @param cacheTime the cache TTL
    * @return an updated parameters object
    */
-  public DataStoreCacheConfig ttl(long cacheTime, TimeUnit timeUnit) {
-    return new DataStoreCacheConfig(cacheTime, timeUnit, staleValuesPolicy);
+  public DataStoreCacheConfig ttl(Duration cacheTime) {
+    return new DataStoreCacheConfig(cacheTime, staleValuesPolicy);
   }
 
   /**
-   * Shortcut for calling {@link #ttl(long, TimeUnit)} with {@link TimeUnit#MILLISECONDS}.
+   * Shortcut for calling {@link #ttl(Duration)} with a duration in milliseconds.
    * 
    * @param millis the cache TTL in milliseconds
    * @return an updated parameters object
    */
   public DataStoreCacheConfig ttlMillis(long millis) {
-    return ttl(millis, TimeUnit.MILLISECONDS);
+    return ttl(Duration.ofMillis(millis));
   }
 
   /**
-   * Shortcut for calling {@link #ttl(long, TimeUnit)} with {@link TimeUnit#SECONDS}.
+   * Shortcut for calling {@link #ttl(Duration)} with a duration in seconds.
    * 
    * @param seconds the cache TTL in seconds
    * @return an updated parameters object
    */
   public DataStoreCacheConfig ttlSeconds(long seconds) {
-    return ttl(seconds, TimeUnit.SECONDS);
+    return ttl(Duration.ofSeconds(seconds));
   }
   
   /**
@@ -199,21 +180,20 @@ public final class DataStoreCacheConfig {
    * @return an updated parameters object
    */
   public DataStoreCacheConfig staleValuesPolicy(StaleValuesPolicy policy) {
-    return new DataStoreCacheConfig(cacheTime, cacheTimeUnit, policy);
+    return new DataStoreCacheConfig(cacheTime, policy);
   }
   
   @Override
   public boolean equals(Object other) {
     if (other instanceof DataStoreCacheConfig) {
       DataStoreCacheConfig o = (DataStoreCacheConfig) other;
-      return o.cacheTime == this.cacheTime && o.cacheTimeUnit == this.cacheTimeUnit &&
-          o.staleValuesPolicy == this.staleValuesPolicy;
+      return o.cacheTime.equals(this.cacheTime) && o.staleValuesPolicy == this.staleValuesPolicy;
     }
     return false;
   }
   
   @Override
   public int hashCode() {
-    return Objects.hash(cacheTime, cacheTimeUnit, staleValuesPolicy);
+    return Objects.hash(cacheTime, staleValuesPolicy);
   }
 }

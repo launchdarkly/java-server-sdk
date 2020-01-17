@@ -6,7 +6,7 @@ import com.launchdarkly.client.interfaces.DataStoreFactory;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
 
 import java.net.URI;
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -49,8 +49,8 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
   
   URI uri = DEFAULT_URI;
   String prefix = DEFAULT_PREFIX;
-  int connectTimeout = Protocol.DEFAULT_TIMEOUT;
-  int socketTimeout = Protocol.DEFAULT_TIMEOUT;
+  Duration connectTimeout = Duration.ofMillis(Protocol.DEFAULT_TIMEOUT);
+  Duration socketTimeout = Duration.ofMillis(Protocol.DEFAULT_TIMEOUT);
   Integer database = null;
   String password = null;
   boolean tls = false;
@@ -152,27 +152,25 @@ public final class RedisDataStoreBuilder implements DataStoreFactory {
 
   /**
    * Optional override which sets the connection timeout for the underlying Jedis pool which otherwise defaults to
-   * {@link redis.clients.jedis.Protocol#DEFAULT_TIMEOUT}
+   * {@link redis.clients.jedis.Protocol#DEFAULT_TIMEOUT} milliseconds.
    *
    * @param connectTimeout the timeout
-   * @param timeUnit the time unit for the timeout
    * @return the builder
    */
-  public RedisDataStoreBuilder connectTimeout(int connectTimeout, TimeUnit timeUnit) {
-    this.connectTimeout = (int) timeUnit.toMillis(connectTimeout);
+  public RedisDataStoreBuilder connectTimeout(Duration connectTimeout) {
+    this.connectTimeout = connectTimeout == null ? Duration.ofMillis(Protocol.DEFAULT_TIMEOUT) : connectTimeout;
     return this;
   }
 
   /**
    * Optional override which sets the connection timeout for the underlying Jedis pool which otherwise defaults to
-   * {@link redis.clients.jedis.Protocol#DEFAULT_TIMEOUT}
+   * {@link redis.clients.jedis.Protocol#DEFAULT_TIMEOUT} milliseconds.
    *
    * @param socketTimeout the socket timeout
-   * @param timeUnit the time unit for the timeout
    * @return the builder
    */
-  public RedisDataStoreBuilder socketTimeout(int socketTimeout, TimeUnit timeUnit) {
-    this.socketTimeout = (int) timeUnit.toMillis(socketTimeout);
+  public RedisDataStoreBuilder socketTimeout(Duration socketTimeout) {
+    this.socketTimeout = socketTimeout == null ? Duration.ofMillis(Protocol.DEFAULT_TIMEOUT) : socketTimeout;
     return this;
   }
 

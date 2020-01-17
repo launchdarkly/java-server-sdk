@@ -5,7 +5,7 @@ import com.launchdarkly.client.DataStoreCacheConfig;
 import org.junit.Test;
 
 import java.net.URISyntaxException;
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -20,8 +20,8 @@ public class RedisDataStoreBuilderTest {
     RedisDataStoreBuilder conf = Redis.dataStore();
     assertEquals(RedisDataStoreBuilder.DEFAULT_URI, conf.uri);
     assertEquals(DataStoreCacheConfig.DEFAULT, conf.caching);
-    assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
-    assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
+    assertEquals(Duration.ofMillis(Protocol.DEFAULT_TIMEOUT), conf.connectTimeout);
+    assertEquals(Duration.ofMillis(Protocol.DEFAULT_TIMEOUT), conf.socketTimeout);
     assertEquals(RedisDataStoreBuilder.DEFAULT_PREFIX, conf.prefix);
     assertNull(conf.poolConfig);
   }
@@ -34,14 +34,14 @@ public class RedisDataStoreBuilderTest {
 
   @Test
   public void testConnectTimeoutConfigured() throws URISyntaxException {
-    RedisDataStoreBuilder conf = Redis.dataStore().connectTimeout(1, TimeUnit.SECONDS);
-    assertEquals(1000, conf.connectTimeout);
+    RedisDataStoreBuilder conf = Redis.dataStore().connectTimeout(Duration.ofSeconds(1));
+    assertEquals(Duration.ofSeconds(1), conf.connectTimeout);
   }
 
   @Test
   public void testSocketTimeoutConfigured() throws URISyntaxException {
-    RedisDataStoreBuilder conf = Redis.dataStore().socketTimeout(1, TimeUnit.SECONDS);
-    assertEquals(1000, conf.socketTimeout);
+    RedisDataStoreBuilder conf = Redis.dataStore().socketTimeout(Duration.ofSeconds(1));
+    assertEquals(Duration.ofSeconds(1), conf.socketTimeout);
   }
 
   @Test

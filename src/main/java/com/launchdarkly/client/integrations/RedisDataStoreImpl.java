@@ -49,8 +49,8 @@ class RedisDataStoreImpl implements DataStoreCore {
     JedisPool pool = new JedisPool(poolConfig,
         host,
         port,
-        builder.connectTimeout,
-        builder.socketTimeout,
+        (int)builder.connectTimeout.toMillis(),
+        (int)builder.socketTimeout.toMillis(),
         password,
         database,
         null, // clientName
