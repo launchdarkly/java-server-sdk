@@ -1,5 +1,14 @@
 package com.launchdarkly.client;
 
+import com.google.gson.Gson;
+import com.google.gson.TypeAdapter;
+import com.google.gson.TypeAdapterFactory;
+import com.google.gson.annotations.JsonAdapter;
+import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+
+import java.io.IOException;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -317,7 +326,10 @@ public abstract class EvaluationReason {
    */
   public static class Error extends EvaluationReason {
     private final ErrorKind errorKind;
-    private final Exception exception;
+    private transient final Exception exception;
+    // The exception field is transient because we don't want it to be included in the JSON representation that
+    // is used in analytics events; the LD event service wouldn't know what to do with it (and it would include
+    // a potentially large amount of stacktrace data).
     
     private Error(ErrorKind errorKind, Exception exception) {
       super(Kind.ERROR);
