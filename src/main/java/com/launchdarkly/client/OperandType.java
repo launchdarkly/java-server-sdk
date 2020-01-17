@@ -27,6 +27,9 @@ enum OperandType {
     case date:
       return Util.jsonPrimitiveToDateTime(value);
     case semVer:
+      if (!value.isString()) {
+        return null;
+      }
       try {
         return SemanticVersion.parse(value.stringValue(), true);
       } catch (SemanticVersion.InvalidVersionException e) {

@@ -161,6 +161,9 @@ public final class FeatureStoreCacheConfig {
    * Specifies the cache TTL. Items will be evicted or refreshed (depending on {@link #staleValuesPolicy(StaleValuesPolicy)})
    * after this amount of time from the time when they were originally cached. If the time is less
    * than or equal to zero, caching is disabled.
+   * after this amount of time from the time when they were originally cached.
+   * <p>
+   * If the value is zero, caching is disabled.
    * 
    * @param cacheTime the cache TTL in whatever units you wish
    * @param timeUnit the time unit
