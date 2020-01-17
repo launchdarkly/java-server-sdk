@@ -154,7 +154,7 @@ public final class FeatureStoreCacheConfig {
 
   /**
    * Returns true if caching will be enabled.
-   * @return true if the cache TTL is non-zero
+   * @return true if the cache TTL is nonzero
    */
   public boolean isEnabled() {
     return getCacheTime() != 0;

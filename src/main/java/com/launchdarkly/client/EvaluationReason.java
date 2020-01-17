@@ -78,18 +78,18 @@ public abstract class EvaluationReason {
     WRONG_TYPE,
     /**
      * Indicates that an unexpected exception stopped flag evaluation. An error message will always be logged
-     * in this case.
+     * in this case, and the exception should be available via {@link EvaluationReason.Error#getException()}.
      */
     EXCEPTION
   }
   
   // static instances to avoid repeatedly allocating reasons for the same errors
-  private static final Error ERROR_CLIENT_NOT_READY = new Error(ErrorKind.CLIENT_NOT_READY);
-  private static final Error ERROR_FLAG_NOT_FOUND = new Error(ErrorKind.FLAG_NOT_FOUND);
-  private static final Error ERROR_MALFORMED_FLAG = new Error(ErrorKind.MALFORMED_FLAG);
-  private static final Error ERROR_USER_NOT_SPECIFIED = new Error(ErrorKind.USER_NOT_SPECIFIED);
-  private static final Error ERROR_WRONG_TYPE = new Error(ErrorKind.WRONG_TYPE);
-  private static final Error ERROR_EXCEPTION = new Error(ErrorKind.EXCEPTION);
+  private static final Error ERROR_CLIENT_NOT_READY = new Error(ErrorKind.CLIENT_NOT_READY, null);
+  private static final Error ERROR_FLAG_NOT_FOUND = new Error(ErrorKind.FLAG_NOT_FOUND, null);
+  private static final Error ERROR_MALFORMED_FLAG = new Error(ErrorKind.MALFORMED_FLAG, null);
+  private static final Error ERROR_USER_NOT_SPECIFIED = new Error(ErrorKind.USER_NOT_SPECIFIED, null);
+  private static final Error ERROR_WRONG_TYPE = new Error(ErrorKind.WRONG_TYPE, null);
+  private static final Error ERROR_EXCEPTION = new Error(ErrorKind.EXCEPTION, null);
   
   private final Kind kind;
   
@@ -168,8 +168,18 @@ public abstract class EvaluationReason {
     case MALFORMED_FLAG: return ERROR_MALFORMED_FLAG;
     case USER_NOT_SPECIFIED: return ERROR_USER_NOT_SPECIFIED;
     case WRONG_TYPE: return ERROR_WRONG_TYPE;
-    default: return new Error(errorKind);
+    default: return new Error(errorKind, null);
     }
+  }
+
+  /**
+   * Returns an instance of {@link Error} with the kind {@link ErrorKind#EXCEPTION} and an exception instance.
+   * @param exception the exception that caused the error
+   * @return a reason object
+   * @since 4.11.0
+   */
+  public static Error exception(Exception exception) {
+    return new Error(ErrorKind.EXCEPTION, exception);
   }
   
   /**
@@ -307,11 +317,16 @@ public abstract class EvaluationReason {
    */
   public static class Error extends EvaluationReason {
     private final ErrorKind errorKind;
+    private transient final Exception exception;
+    // The exception field is transient because we don't want it to be included in the JSON representation that
+    // is used in analytics events; the LD event service wouldn't know what to do with it (and it would include
+    // a potentially large amount of stacktrace data).
     
-    private Error(ErrorKind errorKind) {
+    private Error(ErrorKind errorKind, Exception exception) {
       super(Kind.ERROR);
       checkNotNull(errorKind);
       this.errorKind = errorKind;
+      this.exception = exception;
     }
     
     /**
@@ -322,19 +337,31 @@ public abstract class EvaluationReason {
       return errorKind;
     }
     
+    /**
+     * Returns the exception that caused the error condition, if applicable.
+     * <p>
+     * This is only set if {@link #getErrorKind()} is {@link ErrorKind#EXCEPTION}.
+     * 
+     * @return the exception instance
+     * @since 4.11.0
+     */
+    public Exception getException() {
+      return exception;
+    }
+    
     @Override
     public boolean equals(Object other) {
-      return other instanceof Error && errorKind == ((Error) other).errorKind;
+      return other instanceof Error && errorKind == ((Error) other).errorKind && Objects.equals(exception, ((Error) other).exception);
     }
     
     @Override
     public int hashCode() {
-      return errorKind.hashCode();
+      return Objects.hash(errorKind, exception);
     }
     
     @Override
     public String toString() {
-      return getKind().name() + "(" + errorKind.name() + ")";
+      return getKind().name() + "(" + errorKind.name() + (exception == null ? "" : ("," + exception)) + ")";
     }
   }
 }
