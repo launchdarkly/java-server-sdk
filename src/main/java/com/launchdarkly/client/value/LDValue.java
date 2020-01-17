@@ -1,6 +1,5 @@
 package com.launchdarkly.client.value;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
@@ -303,11 +302,7 @@ public abstract class LDValue {
    * @return an iterable of values of the specified type
    */
   public <T> Iterable<T> valuesAs(final Converter<T> converter) {
-    return Iterables.transform(values(), new Function<LDValue, T>() {
-      public T apply(LDValue value) {
-        return converter.toType(value);
-      }
-    });
+    return Iterables.transform(values(), converter::toType);
   }
   
   /**

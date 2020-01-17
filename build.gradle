@@ -42,7 +42,7 @@ ext.libraries = [:]
 // in the other two SDK jars.
 libraries.internal = [
     "commons-codec:commons-codec:1.10",
-    "com.google.guava:guava:19.0",
+    "com.google.guava:guava:28.2-jre",
     "joda-time:joda-time:2.9.3",
     "com.launchdarkly:okhttp-eventsource:1.10.0",
     "org.yaml:snakeyaml:1.19",
