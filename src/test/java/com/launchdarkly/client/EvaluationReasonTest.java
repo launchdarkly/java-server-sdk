@@ -54,10 +54,20 @@ public class EvaluationReasonTest {
   
   @Test
   public void testErrorSerialization() {
-    EvaluationReason reason = EvaluationReason.error(EvaluationReason.ErrorKind.EXCEPTION);
+    EvaluationReason reason = EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND);
+    String json = "{\"kind\":\"ERROR\",\"errorKind\":\"FLAG_NOT_FOUND\"}";
+    assertJsonEqual(json, gson.toJson(reason));
+    assertEquals("ERROR(FLAG_NOT_FOUND)", reason.toString());
+  }
+
+  @Test
+  public void testErrorSerializationWithException() {
+    // We do *not* want the JSON representation to include the exception, because that is used in events, and
+    // the LD event service won't know what to do with that field (which will also contain a big stacktrace).
+    EvaluationReason reason = EvaluationReason.exception(new Exception("something happened"));
     String json = "{\"kind\":\"ERROR\",\"errorKind\":\"EXCEPTION\"}";
     assertJsonEqual(json, gson.toJson(reason));
-    assertEquals("ERROR(EXCEPTION)", reason.toString());
+    assertEquals("ERROR(EXCEPTION,java.lang.Exception: something happened)", reason.toString());
   }
   
   @Test

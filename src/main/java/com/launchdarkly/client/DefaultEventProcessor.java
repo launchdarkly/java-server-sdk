@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -44,7 +45,8 @@ final class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "3";
-
+  private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
+  
   private final BlockingQueue<EventProcessorMessage> inbox;
   private final ScheduledExecutorService scheduler;
   private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -658,7 +660,9 @@ final class DefaultEventProcessor implements EventProcessor {
     }
 
     private void postEvents(String json, int outputEventCount) {
-      postJson(httpClient, headers, json, uriStr, String.format("%d event(s)", outputEventCount), responseListener, httpDateFormat);
+      String eventPayloadId = UUID.randomUUID().toString();
+      Headers newHeaders = this.headers.newBuilder().add(EVENT_PAYLOAD_ID_HEADER, eventPayloadId).build();
+      postJson(httpClient, newHeaders, json, uriStr, String.format("%d event(s)", outputEventCount), responseListener, httpDateFormat);
     }
   }
 

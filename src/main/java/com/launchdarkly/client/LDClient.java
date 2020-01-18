@@ -221,7 +221,7 @@ public final class LDClient implements LDClientInterface {
       } catch (Exception e) {
         logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
         logger.debug(e.toString(), e);
-        builder.addFlag(entry.getValue(), EvaluationDetail.error(EvaluationReason.ErrorKind.EXCEPTION, LDValue.ofNull()));
+        builder.addFlag(entry.getValue(), EvaluationDetail.fromValue(LDValue.ofNull(), null, EvaluationReason.exception(e)));
       }
     }
     return builder.build();
@@ -393,7 +393,7 @@ public final class LDClient implements LDClientInterface {
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
             EvaluationReason.ErrorKind.EXCEPTION));
       }
-      return EvaluationDetail.error(EvaluationReason.ErrorKind.EXCEPTION, defaultValue);
+      return EvaluationDetail.fromValue(defaultValue, null, EvaluationReason.exception(e));
     }
   }
 
