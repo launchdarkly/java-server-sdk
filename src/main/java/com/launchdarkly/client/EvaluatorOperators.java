@@ -3,7 +3,7 @@ package com.launchdarkly.client;
 import com.launchdarkly.client.value.LDValue;
 
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
@@ -118,7 +118,7 @@ abstract class EvaluatorOperators {
   
   private static ZonedDateTime valueToDateTime(LDValue value) {
     if (value.isNumber()) {
-      return ZonedDateTime.ofInstant(Instant.ofEpochMilli(value.longValue()), ZoneId.systemDefault());
+      return ZonedDateTime.ofInstant(Instant.ofEpochMilli(value.longValue()), ZoneOffset.UTC);
     } else if (value.isString()) {
       try {
         return ZonedDateTime.parse(value.stringValue());
