@@ -10,7 +10,6 @@ import com.launchdarkly.client.interfaces.EventProcessorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
@@ -24,9 +23,6 @@ import javax.net.ssl.X509TrustManager;
 
 import okhttp3.Authenticator;
 import okhttp3.Credentials;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.Route;
 
 /**
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
@@ -512,15 +508,13 @@ public final class LDConfig {
     Authenticator proxyAuthenticator() {
       if (this.proxyUsername != null && this.proxyPassword != null) {
         final String credential = Credentials.basic(proxyUsername, proxyPassword);
-        return new Authenticator() {
-          public Request authenticate(Route route, Response response) throws IOException {
-            if (response.request().header("Proxy-Authorization") != null) {
-              return null; // Give up, we've already failed to authenticate with the proxy.
-            } else {
-              return response.request().newBuilder()
-                  .header("Proxy-Authorization", credential)
-                  .build();
-            }
+        return (route, response) -> {
+          if (response.request().header("Proxy-Authorization") != null) {
+            return null; // Give up, we've already failed to authenticate with the proxy.
+          } else {
+            return response.request().newBuilder()
+                .header("Proxy-Authorization", credential)
+                .build();
           }
         };
       }

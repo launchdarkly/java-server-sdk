@@ -174,11 +174,9 @@ public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
     
     final DataModel.FeatureFlag flag1 = flagBuilder("foo").version(startVersion).build();
     
-    Runnable concurrentModifier = new Runnable() {
-      public void run() {
-        DataModel.FeatureFlag f = flagBuilder(flag1).version(store2Version).build();
-        store2.upsert(FEATURES, f);
-      }
+    Runnable concurrentModifier = () -> {
+      DataModel.FeatureFlag f = flagBuilder(flag1).version(store2Version).build();
+      store2.upsert(FEATURES, f);
     };
     
     try {

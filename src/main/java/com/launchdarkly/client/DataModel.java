@@ -89,13 +89,6 @@ public abstract class DataModel {
       public T deserialize(String serializedData) {
         return gson.fromJson(serializedData, itemClass);
       }
-      
-      /**
-       * Used internally to match data URLs in the streaming API.
-       * @param path path from an API message
-       * @return the parsed key if the path refers to an object of this kind, otherwise null 
-       */
-      
     }
   }
 

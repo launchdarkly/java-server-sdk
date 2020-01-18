@@ -61,16 +61,12 @@ final class DefaultEventProcessor implements EventProcessor {
 
     new EventDispatcher(sdkKey, config, inbox, threadFactory, closed);
 
-    Runnable flusher = new Runnable() {
-      public void run() {
-        postMessageAsync(MessageType.FLUSH, null);
-      }
+    Runnable flusher = () -> {
+      postMessageAsync(MessageType.FLUSH, null);
     };
     this.scheduler.scheduleAtFixedRate(flusher, config.flushInterval.toMillis(), config.flushInterval.toMillis(), TimeUnit.MILLISECONDS);
-    Runnable userKeysFlusher = new Runnable() {
-      public void run() {
-        postMessageAsync(MessageType.FLUSH_USERS, null);
-      }
+    Runnable userKeysFlusher = () -> {
+      postMessageAsync(MessageType.FLUSH_USERS, null);
     };
     this.scheduler.scheduleAtFixedRate(userKeysFlusher, config.userKeysFlushInterval.toMillis(), config.userKeysFlushInterval.toMillis(),
         TimeUnit.MILLISECONDS);
@@ -211,10 +207,8 @@ final class DefaultEventProcessor implements EventProcessor {
       final EventBuffer outbox = new EventBuffer(config.capacity);
       final SimpleLRUCache<String, String> userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
       
-      Thread mainThread = threadFactory.newThread(new Runnable() {
-        public void run() {
-          runMainLoop(inbox, outbox, userKeys, payloadQueue);
-        }
+      Thread mainThread = threadFactory.newThread(() -> {
+        runMainLoop(inbox, outbox, userKeys, payloadQueue);
       });
       mainThread.setDaemon(true);
       
@@ -239,11 +233,7 @@ final class DefaultEventProcessor implements EventProcessor {
       mainThread.start();
       
       flushWorkers = new ArrayList<>();
-      EventResponseListener listener = new EventResponseListener() {
-          public void handleResponse(Response response, Date responseDate) {
-            EventDispatcher.this.handleResponse(response, responseDate);
-          }
-        };
+      EventResponseListener listener = this::handleResponse;
       for (int i = 0; i < MAX_FLUSH_THREADS; i++) {
         SendEventsTask task = new SendEventsTask(sdkKey, config, httpClient, listener, payloadQueue,
             busyFlushWorkersCount, threadFactory);
