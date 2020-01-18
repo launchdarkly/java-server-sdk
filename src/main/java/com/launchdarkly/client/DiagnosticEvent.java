@@ -57,6 +57,7 @@ class DiagnosticEvent {
       this.configuration = new DiagnosticConfiguration(config);
     }
 
+    @SuppressWarnings("unused") // fields are for JSON serialization only
     static class DiagnosticConfiguration {
       private final boolean customBaseURI;
       private final boolean customEventsURI;
@@ -125,15 +126,30 @@ class DiagnosticEvent {
       }
     }
 
+    @SuppressWarnings("unused") // fields are for JSON serialization only
     static class DiagnosticPlatform {
       private final String name = "Java";
       private final String javaVendor = System.getProperty("java.vendor");
       private final String javaVersion = System.getProperty("java.version");
       private final String osArch = System.getProperty("os.arch");
-      private final String osName = System.getProperty("os.name");
+      private final String osName = normalizeOsName(System.getProperty("os.name"));
       private final String osVersion = System.getProperty("os.version");
 
       DiagnosticPlatform() {
+      }
+      
+      private static String normalizeOsName(String osName) {
+        // For our diagnostics data, we prefer the standard names "Linux", "MacOS", and "Windows".
+        // "Linux" is already what the JRE returns in Linux. In Windows, we get "Windows 10" etc.
+        if (osName != null) {
+          if (osName.equals("Mac OS X")) {
+            return "MacOS";
+          }
+          if (osName.startsWith("Windows")) {
+            return "Windows";
+          }
+        }
+        return osName;
       }
     }
   }
