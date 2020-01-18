@@ -2,7 +2,7 @@ package com.launchdarkly.client;
 
 import org.junit.Test;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 import static com.launchdarkly.client.DataStoreCacheConfig.StaleValuesPolicy.EVICT;
 import static com.launchdarkly.client.DataStoreCacheConfig.StaleValuesPolicy.REFRESH;
@@ -15,7 +15,7 @@ public class DataStoreCachingTest {
   @Test
   public void disabledHasExpectedProperties() {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.disabled();
-    assertThat(fsc.getCacheTime(), equalTo(0L));
+    assertThat(fsc.getCacheTime(), equalTo(Duration.ZERO));
     assertThat(fsc.isEnabled(), equalTo(false));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(EVICT));
   }
@@ -23,8 +23,7 @@ public class DataStoreCachingTest {
   @Test
   public void enabledHasExpectedProperties() {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.enabled();
-    assertThat(fsc.getCacheTime(), equalTo(DataStoreCacheConfig.DEFAULT_TIME_SECONDS));
-    assertThat(fsc.getCacheTimeUnit(), equalTo(TimeUnit.SECONDS));
+    assertThat(fsc.getCacheTime(), equalTo(DataStoreCacheConfig.DEFAULT_TIME));
     assertThat(fsc.isEnabled(), equalTo(true));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(EVICT));
   }
@@ -32,8 +31,7 @@ public class DataStoreCachingTest {
   @Test
   public void defaultIsEnabled() {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.DEFAULT;
-    assertThat(fsc.getCacheTime(), equalTo(DataStoreCacheConfig.DEFAULT_TIME_SECONDS));
-    assertThat(fsc.getCacheTimeUnit(), equalTo(TimeUnit.SECONDS));
+    assertThat(fsc.getCacheTime(), equalTo(DataStoreCacheConfig.DEFAULT_TIME));
     assertThat(fsc.isEnabled(), equalTo(true));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(EVICT));
   }
@@ -42,9 +40,8 @@ public class DataStoreCachingTest {
   public void canSetTtl() {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.enabled()
         .staleValuesPolicy(REFRESH)
-        .ttl(3, TimeUnit.DAYS);
-    assertThat(fsc.getCacheTime(), equalTo(3L));
-    assertThat(fsc.getCacheTimeUnit(), equalTo(TimeUnit.DAYS));
+        .ttl(Duration.ofDays(3));
+    assertThat(fsc.getCacheTime(), equalTo(Duration.ofDays(3)));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(REFRESH));
   }
   
@@ -53,8 +50,7 @@ public class DataStoreCachingTest {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.enabled()
         .staleValuesPolicy(REFRESH)
         .ttlMillis(3);
-    assertThat(fsc.getCacheTime(), equalTo(3L));
-    assertThat(fsc.getCacheTimeUnit(), equalTo(TimeUnit.MILLISECONDS));
+    assertThat(fsc.getCacheTime(), equalTo(Duration.ofMillis(3)));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(REFRESH));
   }
   
@@ -63,22 +59,21 @@ public class DataStoreCachingTest {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.enabled()
         .staleValuesPolicy(REFRESH)
         .ttlSeconds(3);
-    assertThat(fsc.getCacheTime(), equalTo(3L));
-    assertThat(fsc.getCacheTimeUnit(), equalTo(TimeUnit.SECONDS));
+    assertThat(fsc.getCacheTime(), equalTo(Duration.ofSeconds(3)));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(REFRESH));
   }
 
   @Test
   public void zeroTtlMeansDisabled() {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.enabled()
-        .ttl(0, TimeUnit.SECONDS);
+        .ttl(Duration.ZERO);
     assertThat(fsc.isEnabled(), equalTo(false));
   }
   
   @Test
   public void negativeTtlMeansDisabled() {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.enabled()
-        .ttl(-1, TimeUnit.SECONDS);
+        .ttl(Duration.ofSeconds(-1));
     assertThat(fsc.isEnabled(), equalTo(false));
   }
   
@@ -88,8 +83,7 @@ public class DataStoreCachingTest {
         .ttlMillis(3)
         .staleValuesPolicy(REFRESH_ASYNC);
     assertThat(fsc.getStaleValuesPolicy(), equalTo(REFRESH_ASYNC));
-    assertThat(fsc.getCacheTime(), equalTo(3L));
-    assertThat(fsc.getCacheTimeUnit(), equalTo(TimeUnit.MILLISECONDS));
+    assertThat(fsc.getCacheTime(), equalTo(Duration.ofMillis(3)));
   }
   
   @Test
@@ -97,15 +91,6 @@ public class DataStoreCachingTest {
     DataStoreCacheConfig fsc1 = DataStoreCacheConfig.enabled().ttlMillis(3);
     DataStoreCacheConfig fsc2 = DataStoreCacheConfig.enabled().ttlMillis(3);
     DataStoreCacheConfig fsc3 = DataStoreCacheConfig.enabled().ttlMillis(4);
-    assertThat(fsc1.equals(fsc2), equalTo(true));
-    assertThat(fsc1.equals(fsc3), equalTo(false));
-  }
-
-  @Test
-  public void equalityUsesTimeUnit() {
-    DataStoreCacheConfig fsc1 = DataStoreCacheConfig.enabled().ttlMillis(3);
-    DataStoreCacheConfig fsc2 = DataStoreCacheConfig.enabled().ttlMillis(3);
-    DataStoreCacheConfig fsc3 = DataStoreCacheConfig.enabled().ttlSeconds(3);
     assertThat(fsc1.equals(fsc2), equalTo(true));
     assertThat(fsc1.equals(fsc3), equalTo(false));
   }

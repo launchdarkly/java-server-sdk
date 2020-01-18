@@ -92,12 +92,12 @@ public final class LDClient implements LDClientInterface {
         Components.defaultDataSource() : config.dataSourceFactory;
     this.dataSource = dataSourceFactory.createDataSource(sdkKey, config, dataStore);
     Future<Void> startFuture = dataSource.start();
-    if (config.startWaitMillis > 0L) {
+    if (!config.startWait.isZero() && !config.startWait.isNegative()) {
       if (!config.offline && !config.useLdd) {
-        logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
+        logger.info("Waiting up to " + config.startWait.toMillis() + " milliseconds for LaunchDarkly client to start...");
       }
       try {
-        startFuture.get(config.startWaitMillis, TimeUnit.MILLISECONDS);
+        startFuture.get(config.startWait.toMillis(), TimeUnit.MILLISECONDS);
       } catch (TimeoutException e) {
         logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
       } catch (Exception e) {

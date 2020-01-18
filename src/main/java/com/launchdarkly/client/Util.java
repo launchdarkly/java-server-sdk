@@ -9,9 +9,9 @@ import okhttp3.Request;
 class Util {
   static void configureHttpClientBuilder(LDConfig config, OkHttpClient.Builder builder) {
     builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-      .connectTimeout(config.connectTimeout, config.connectTimeoutUnit)
-      .readTimeout(config.socketTimeout, config.socketTimeoutUnit)
-      .writeTimeout(config.socketTimeout, config.socketTimeoutUnit)
+      .connectTimeout(config.connectTimeout.toMillis(), TimeUnit.MILLISECONDS)
+      .readTimeout(config.socketTimeout.toMillis(), TimeUnit.MILLISECONDS)
+      .writeTimeout(config.socketTimeout.toMillis(), TimeUnit.MILLISECONDS)
       .retryOnConnectionFailure(false); // we will implement our own retry logic
 
     if (config.sslSocketFactory != null) {

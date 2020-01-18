@@ -2,9 +2,9 @@ package com.launchdarkly.client;
 
 import com.launchdarkly.client.value.LDValue;
 
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
 /**
@@ -99,8 +99,8 @@ abstract class EvaluatorOperators {
   }
 
   private static boolean compareDate(ComparisonOp op, LDValue userValue, LDValue clauseValue) {
-    DateTime dt1 = valueToDateTime(userValue);
-    DateTime dt2 = valueToDateTime(clauseValue);
+    ZonedDateTime dt1 = valueToDateTime(userValue);
+    ZonedDateTime dt2 = valueToDateTime(clauseValue);
     if (dt1 == null || dt2 == null) {
       return false;
     }
@@ -116,12 +116,12 @@ abstract class EvaluatorOperators {
     return op.test(sv1.compareTo(sv2));
   }
   
-  private static DateTime valueToDateTime(LDValue value) {
+  private static ZonedDateTime valueToDateTime(LDValue value) {
     if (value.isNumber()) {
-      return new DateTime(value.longValue());
+      return ZonedDateTime.ofInstant(Instant.ofEpochMilli(value.longValue()), ZoneOffset.UTC);
     } else if (value.isString()) {
       try {
-        return new DateTime(value.stringValue(), DateTimeZone.UTC);
+        return ZonedDateTime.parse(value.stringValue());
       } catch (Throwable t) {
         return null;
       }

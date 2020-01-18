@@ -8,6 +8,7 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
+import java.time.Duration;
 import java.util.Map;
 
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
@@ -223,7 +224,7 @@ public class LDClientEvaluationTest {
         .dataStore(specificDataStore(badDataStore))
         .eventProcessor(Components.nullEventProcessor())
         .dataSource(specificDataSource(failedDataSource()))
-        .startWaitMillis(0)
+        .startWait(Duration.ZERO)
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,

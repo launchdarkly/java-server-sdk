@@ -258,7 +258,7 @@ final class StreamProcessor implements DataSource {
           })
           .connectionErrorHandler(errorHandler)
           .headers(headers)
-          .reconnectTimeMs(config.reconnectTimeMs)
+          .reconnectTimeMs(config.reconnectTime.toMillis())
           .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS)
           .connectTimeoutMs(EventSource.DEFAULT_CONNECT_TIMEOUT_MS)
           .writeTimeoutMs(EventSource.DEFAULT_WRITE_TIMEOUT_MS);

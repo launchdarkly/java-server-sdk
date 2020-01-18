@@ -84,8 +84,8 @@ public class CachingStoreWrapper implements DataStore {
         // We are using an "expire after write" cache. This will evict stale values and block while loading the latest
         // from the underlying data store.
 
-        itemCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(itemLoader);
-        allCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(allLoader);
+        itemCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime()).build(itemLoader);
+        allCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime()).build(allLoader);
         executorService = null;
         break;
         
@@ -102,11 +102,11 @@ public class CachingStoreWrapper implements DataStore {
         if (caching.getStaleValuesPolicy() == DataStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC) {
           itemLoader = CacheLoader.asyncReloading(itemLoader, executorService);
         }
-        itemCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(itemLoader);
-        allCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(allLoader);        
+        itemCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime()).build(itemLoader);
+        allCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime()).build(allLoader);        
       }
 
-      initCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(initLoader);
+      initCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime()).build(initLoader);
     }
   }
   
