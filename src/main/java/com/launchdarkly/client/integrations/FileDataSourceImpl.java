@@ -77,10 +77,8 @@ final class FileDataSourceImpl implements DataSource {
     // if we are told to reload by the file watcher.
 
     if (fileWatcher != null) {
-      fileWatcher.start(new Runnable() {
-        public void run() {
-          FileDataSourceImpl.this.reload();
-        }
+      fileWatcher.start(() -> {
+        FileDataSourceImpl.this.reload();
       });
     }
     

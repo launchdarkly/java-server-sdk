@@ -32,11 +32,7 @@ import static org.hamcrest.Matchers.equalTo;
 public class TestUtil {
 
   public static DataStoreFactory specificDataStore(final DataStore store) {
-    return new DataStoreFactory() {
-      public DataStore createDataStore() {
-        return store;
-      }
-    };
+    return () -> store;
   }
   
   public static DataStore initedDataStore() {
@@ -46,38 +42,28 @@ public class TestUtil {
   }
   
   public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {
-    return new EventProcessorFactory() {
-      public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-        return ep;
-      }
-    };
+    return (String sdkKey, LDConfig config) -> ep;
   }
   
   public static DataSourceFactory specificDataSource(final DataSource up) {
-    return new DataSourceFactory() {
-      public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore) {
-        return up;
-      }
-    };
+    return (String sdkKey, LDConfig config, DataStore dataStore) -> up;
   }
 
   public static DataSourceFactory dataSourceWithData(final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data) {
-    return new DataSourceFactory() {
-      public DataSource createDataSource(String sdkKey, LDConfig config, final DataStore dataStore) {
-        return new DataSource() {
-          public Future<Void> start() {
-            dataStore.init(data);
-            return Futures.immediateFuture(null);
-          }
+    return (String sdkKey, LDConfig config, final DataStore dataStore) -> {
+      return new DataSource() {
+        public Future<Void> start() {
+          dataStore.init(data);
+          return Futures.immediateFuture(null);
+        }
 
-          public boolean initialized() {
-            return true;
-          }
+        public boolean initialized() {
+          return true;
+        }
 
-          public void close() throws IOException {
-          }          
-        };
-      }
+        public void close() throws IOException {
+        }          
+      };
     };
   }
   

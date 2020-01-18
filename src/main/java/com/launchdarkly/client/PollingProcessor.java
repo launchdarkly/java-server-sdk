@@ -56,26 +56,23 @@ class PollingProcessor implements DataSource {
         .build();
     scheduler = Executors.newScheduledThreadPool(1, threadFactory);
 
-    scheduler.scheduleAtFixedRate(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          FeatureRequestor.AllData allData = requestor.getAllData();
-          store.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
-          if (!initialized.getAndSet(true)) {
-            logger.info("Initialized LaunchDarkly client.");
-            initFuture.set(null);
-          }
-        } catch (HttpErrorException e) {
-          logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
-          if (!isHttpErrorRecoverable(e.getStatus())) {
-            scheduler.shutdown();
-            initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
-          }
-        } catch (IOException e) {
-          logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
-          logger.debug(e.toString(), e);
+    scheduler.scheduleAtFixedRate(() -> {
+      try {
+        FeatureRequestor.AllData allData = requestor.getAllData();
+        store.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
+        if (!initialized.getAndSet(true)) {
+          logger.info("Initialized LaunchDarkly client.");
+          initFuture.set(null);
         }
+      } catch (HttpErrorException e) {
+        logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
+        if (!isHttpErrorRecoverable(e.getStatus())) {
+          scheduler.shutdown();
+          initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
+        }
+      } catch (IOException e) {
+        logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
+        logger.debug(e.toString(), e);
       }
     }, 0L, config.pollingInterval.toMillis(), TimeUnit.MILLISECONDS);
 

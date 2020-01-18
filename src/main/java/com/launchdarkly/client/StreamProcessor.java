@@ -7,6 +7,7 @@ import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
+import com.launchdarkly.eventsource.ConnectionErrorHandler.Action;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
@@ -62,18 +63,15 @@ final class StreamProcessor implements DataSource {
   }
 
   private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
-    return new ConnectionErrorHandler() {
-      @Override
-      public Action onConnectionError(Throwable t) {
-        if (t instanceof UnsuccessfulResponseException) {
-          int status = ((UnsuccessfulResponseException)t).getCode();
-          logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
-          if (!isHttpErrorRecoverable(status)) {
-            return Action.SHUTDOWN;
-          }
+    return (Throwable t) -> {
+      if (t instanceof UnsuccessfulResponseException) {
+        int status = ((UnsuccessfulResponseException)t).getCode();
+        logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
+        if (!isHttpErrorRecoverable(status)) {
+          return Action.SHUTDOWN;
         }
-        return Action.PROCEED;
       }
+      return Action.PROCEED;
     };
   }
   
@@ -87,15 +85,12 @@ final class StreamProcessor implements DataSource {
         .add("Accept", "text/event-stream")
         .build();
 
-    ConnectionErrorHandler wrappedConnectionErrorHandler = new ConnectionErrorHandler() {
-      @Override
-      public Action onConnectionError(Throwable t) {
-        Action result = connectionErrorHandler.onConnectionError(t);
-        if (result == Action.SHUTDOWN) {
-          initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
-        }
-        return result;
+    ConnectionErrorHandler wrappedConnectionErrorHandler = (Throwable t) -> {
+      Action result = connectionErrorHandler.onConnectionError(t);
+      if (result == Action.SHUTDOWN) {
+        initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
       }
+      return result;
     };
     
     EventHandler handler = new EventHandler() {

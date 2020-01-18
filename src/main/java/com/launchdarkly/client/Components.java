@@ -29,7 +29,7 @@ public abstract class Components {
    * @see LDConfig.Builder#dataStore(DataStoreFactory)
    */
   public static DataStoreFactory inMemoryDataStore() {
-    return InMemoryDataStoreFactory.INSTANCE;
+    return IN_MEMORY_DATA_STORE_FACTORY;
   }
       
   /**
@@ -40,7 +40,7 @@ public abstract class Components {
    * @see LDConfig.Builder#eventProcessor(EventProcessorFactory)
    */
   public static EventProcessorFactory defaultEventProcessor() {
-    return DefaultEventProcessorFactory.INSTANCE;
+    return DEFAULT_EVENT_PROCESSOR_FACTORY;
   }
   
   /**
@@ -50,7 +50,7 @@ public abstract class Components {
    * @see LDConfig.Builder#eventProcessor(EventProcessorFactory)
    */
   public static EventProcessorFactory nullEventProcessor() {
-    return NullEventProcessorFactory.INSTANCE;
+    return NULL_EVENT_PROCESSOR_FACTORY;
   }
   
   /**
@@ -75,44 +75,20 @@ public abstract class Components {
    * @see LDConfig.Builder#dataSource(DataSourceFactory)
    */
   public static DataSourceFactory nullDataSource() {
-    return NullDataSourceFactory.INSTANCE;
+    return NULL_DATA_SOURCE_FACTORY;
   }
   
-  private static final class InMemoryDataStoreFactory implements DataStoreFactory {
-    static final InMemoryDataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
-    
-    private InMemoryDataStoreFactory() {}
-    
-    @Override
-    public DataStore createDataStore() {
-      return new InMemoryDataStore();
-    }
-  }
+  private static final DataStoreFactory IN_MEMORY_DATA_STORE_FACTORY = () -> new InMemoryDataStore();
   
-  private static final class DefaultEventProcessorFactory implements EventProcessorFactory {
-    static final DefaultEventProcessorFactory INSTANCE = new DefaultEventProcessorFactory();
-    
-    private DefaultEventProcessorFactory() {}
-    
-    @Override
-    public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
+  private static final EventProcessorFactory DEFAULT_EVENT_PROCESSOR_FACTORY = (sdkKey, config) -> {
       if (config.offline || !config.sendEvents) {
         return new NullEventProcessor();
       } else {
         return new DefaultEventProcessor(sdkKey, config);
-      }
-    }
-  }
+      } 
+    };
   
-  private static final class NullEventProcessorFactory implements EventProcessorFactory {
-    static final NullEventProcessorFactory INSTANCE = new NullEventProcessorFactory();
-    
-    private NullEventProcessorFactory() {}
-    
-    public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-      return NullEventProcessor.INSTANCE;
-    }
-  }
+  private static final EventProcessorFactory NULL_EVENT_PROCESSOR_FACTORY = (sdkKey, config) -> NullEventProcessor.INSTANCE;
   
   /**
    * Stub implementation of {@link EventProcessor} for when we don't want to send any events.
@@ -164,16 +140,7 @@ public abstract class Components {
     }
   }
   
-  private static final class NullDataSourceFactory implements DataSourceFactory {
-    static final NullDataSourceFactory INSTANCE = new NullDataSourceFactory();
-    
-    private NullDataSourceFactory() {}
-    
-    @Override
-    public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore) {
-      return NullDataSource.INSTANCE;
-    }
-  }
+  private static final DataSourceFactory NULL_DATA_SOURCE_FACTORY = (sdkKey, config, dataStore) -> NullDataSource.INSTANCE;
 
   // exposed as package-private for testing
   static final class NullDataSource implements DataSource {
