@@ -31,7 +31,9 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
  * a single {@code LDClient} for the lifetime of their application.
  */
 public final class LDClient implements LDClientInterface {
+  // Package-private so other classes can log under the top-level logger's tag
   static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   static final String CLIENT_VERSION = getClientVersion();
 
