@@ -36,11 +36,13 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   private final LDConfig config;
   private final URI baseUri;
   private final OkHttpClient httpClient;
+  private final boolean useCache;
 
   DefaultFeatureRequestor(String sdkKey, LDConfig config, URI baseUri, boolean useCache) {
     this.sdkKey = sdkKey;
     this.config = config; // this is no longer the source of truth for baseURI, but it can still affect HTTP behavior
     this.baseUri = baseUri;
+    this.useCache = useCache;
     
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(config, httpBuilder);
@@ -98,7 +100,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
       }
       logger.debug("Get flag(s) response: " + response.toString() + " with body: " + body);
       logger.debug("Network response: " + response.networkResponse());
-      if(!config.stream) {
+      if (useCache) {
         logger.debug("Cache hit count: " + httpClient.cache().hitCount() + " Cache network Count: " + httpClient.cache().networkCount());
         logger.debug("Cache response: " + response.cacheResponse());
       }
