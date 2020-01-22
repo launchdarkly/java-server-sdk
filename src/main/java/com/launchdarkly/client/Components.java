@@ -276,13 +276,14 @@ public abstract class Components {
       // into using externalUpdatesOnly() by LDConfig.Builder.
       if (config.stream) {
         return streamingDataSource()
-            .baseUri(config.streamURI)
-            .initialReconnectDelayMillis(config.reconnectTimeMs)
+            .baseUri(config.deprecatedStreamURI)
+            .pollingBaseUri(config.deprecatedBaseURI)
+            .initialReconnectDelayMillis(config.deprecatedReconnectTimeMs)
             .createUpdateProcessor(sdkKey, config, featureStore);
       } else {
         return pollingDataSource()
-            .baseUri(config.baseURI)
-            .pollIntervalMillis(config.pollingIntervalMillis)
+            .baseUri(config.deprecatedBaseURI)
+            .pollIntervalMillis(config.deprecatedPollingIntervalMillis)
             .createUpdateProcessor(sdkKey, config, featureStore);
       }
     }

@@ -435,7 +435,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri) {
     return new StreamProcessor(SDK_KEY, config, mockRequestor, featureStore, new StubEventSourceCreator(),
-        streamUri, config.reconnectTimeMs);
+        streamUri, config.deprecatedReconnectTimeMs);
   }
 
   private StreamProcessor createStreamProcessor(URI streamUri) {
@@ -444,7 +444,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
     return new StreamProcessor(SDK_KEY, config, mockRequestor, featureStore, null,
-        streamUri, config.reconnectTimeMs);
+        streamUri, config.deprecatedReconnectTimeMs);
   }
 
   private String featureJson(String key, int version) {

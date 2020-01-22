@@ -49,9 +49,9 @@ public final class LDConfig {
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
-  final URI baseURI;
+  final URI deprecatedBaseURI;
   final URI eventsURI;
-  final URI streamURI;
+  final URI deprecatedStreamURI;
   final int capacity;
   final int flushInterval;
   final Proxy proxy;
@@ -65,10 +65,10 @@ public final class LDConfig {
   final boolean allAttributesPrivate;
   final Set<String> privateAttrNames;
   final boolean sendEvents;
-  final long pollingIntervalMillis;
+  final long deprecatedPollingIntervalMillis;
   final long startWaitMillis;
   final int samplingInterval;
-  final long reconnectTimeMs;
+  final long deprecatedReconnectTimeMs;
   final int userKeysCapacity;
   final int userKeysFlushInterval;
   final boolean inlineUsersInEvents;
@@ -80,13 +80,13 @@ public final class LDConfig {
   final TimeUnit socketTimeoutUnit;
   
   protected LDConfig(Builder builder) {
-    this.baseURI = builder.baseURI;
+    this.deprecatedBaseURI = builder.baseURI;
     this.eventsURI = builder.eventsURI;
     this.capacity = builder.capacity;
     this.flushInterval = builder.flushIntervalSeconds;
     this.proxy = builder.proxy();
     this.proxyAuthenticator = builder.proxyAuthenticator();
-    this.streamURI = builder.streamURI;
+    this.deprecatedStreamURI = builder.streamURI;
     this.stream = builder.stream;
     this.deprecatedFeatureStore = builder.featureStore;
     this.dataStoreFactory = builder.dataStoreFactory;
@@ -97,13 +97,13 @@ public final class LDConfig {
     this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
     this.sendEvents = builder.sendEvents;
     if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
-      this.pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
+      this.deprecatedPollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
     } else {
-      this.pollingIntervalMillis = builder.pollingIntervalMillis;
+      this.deprecatedPollingIntervalMillis = builder.pollingIntervalMillis;
     }
     this.startWaitMillis = builder.startWaitMillis;
     this.samplingInterval = builder.samplingInterval;
-    this.reconnectTimeMs = builder.reconnectTimeMillis;
+    this.deprecatedReconnectTimeMs = builder.reconnectTimeMillis;
     this.userKeysCapacity = builder.userKeysCapacity;
     this.userKeysFlushInterval = builder.userKeysFlushInterval;
     this.inlineUsersInEvents = builder.inlineUsersInEvents;
