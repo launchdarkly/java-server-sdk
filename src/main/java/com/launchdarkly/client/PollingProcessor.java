@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 
-class PollingProcessor implements UpdateProcessor {
+final class PollingProcessor implements UpdateProcessor {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
   private final FeatureRequestor requestor;

@@ -25,7 +25,7 @@ import okhttp3.Response;
 /**
  * Implementation of getting flag data via a polling request. Used by both streaming and polling components.
  */
-class DefaultFeatureRequestor implements FeatureRequestor {
+final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultFeatureRequestor.class);
   private static final String GET_LATEST_FLAGS_PATH = "/sdk/latest-flags";
   private static final String GET_LATEST_SEGMENTS_PATH = "/sdk/latest-segments";
