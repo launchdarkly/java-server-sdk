@@ -37,7 +37,7 @@ public class EventOutputTest {
       .lastName("last")
       .name("me")
       .secondary("s");
-  private LDValue userJsonWithAllAttributes = parseValue("{" +
+  private static final LDValue userJsonWithAllAttributes = parseValue("{" +
       "\"key\":\"userkey\"," +
       "\"anonymous\":true," +
       "\"avatar\":\"http://avatar\"," +
@@ -54,21 +54,21 @@ public class EventOutputTest {
   @Test
   public void allUserAttributesAreSerialized() throws Exception {
     testInlineUserSerialization(userBuilderWithAllAttributes.build(), userJsonWithAllAttributes,
-        new LDConfig.Builder());
+        TestUtil.defaultEventsConfig());
   }
 
   @Test
   public void unsetUserAttributesAreNotSerialized() throws Exception {
       LDUser user = new LDUser("userkey");
       LDValue userJson = parseValue("{\"key\":\"userkey\"}");
-      testInlineUserSerialization(user, userJson, new LDConfig.Builder());
+      testInlineUserSerialization(user, userJson, TestUtil.defaultEventsConfig());
   }
 
   @Test
   public void userKeyIsSetInsteadOfUserWhenNotInlined() throws Exception {
     LDUser user = new LDUser.Builder("userkey").name("me").build();
     LDValue userJson = parseValue("{\"key\":\"userkey\",\"name\":\"me\"}");
-    EventOutputFormatter f = new EventOutputFormatter(new LDConfig.Builder().build());
+    EventOutputFormatter f = new EventOutputFormatter(TestUtil.defaultEventsConfig());
 
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
         new FeatureFlagBuilder("flag").build(),
@@ -98,7 +98,7 @@ public class EventOutputTest {
   @Test
   public void allAttributesPrivateMakesAttributesPrivate() throws Exception {
     LDUser user = userBuilderWithAllAttributes.build();
-    LDConfig config = new LDConfig.Builder().allAttributesPrivate(true).build();
+    EventsConfiguration config = TestUtil.makeEventsConfig(true, false, null);
     testPrivateAttributes(config, user, attributesThatCanBePrivate);
   }
 
@@ -106,7 +106,7 @@ public class EventOutputTest {
   public void globalPrivateAttributeNamesMakeAttributesPrivate() throws Exception {
     LDUser user = userBuilderWithAllAttributes.build();
     for (String attrName: attributesThatCanBePrivate) {
-      LDConfig config = new LDConfig.Builder().privateAttributeNames(attrName).build();
+      EventsConfiguration config = TestUtil.makeEventsConfig(false, false, ImmutableSet.of(attrName));
       testPrivateAttributes(config, user, attrName);
     }
   }
@@ -114,7 +114,7 @@ public class EventOutputTest {
   @Test
   public void perUserPrivateAttributesMakeAttributePrivate() throws Exception {
     LDUser baseUser = userBuilderWithAllAttributes.build();
-    LDConfig config = new LDConfig.Builder().build();
+    EventsConfiguration config = TestUtil.defaultEventsConfig();
     
     testPrivateAttributes(config, new LDUser.Builder(baseUser).privateAvatar("x").build(), "avatar");
     testPrivateAttributes(config, new LDUser.Builder(baseUser).privateCountry("US").build(), "country");
@@ -126,7 +126,7 @@ public class EventOutputTest {
     testPrivateAttributes(config, new LDUser.Builder(baseUser).privateSecondary("x").build(), "secondary");
   }
   
-  private void testPrivateAttributes(LDConfig config, LDUser user, String... privateAttrNames) throws IOException {
+  private void testPrivateAttributes(EventsConfiguration config, LDUser user, String... privateAttrNames) throws IOException {
     EventOutputFormatter f = new EventOutputFormatter(config);
     Set<String> privateAttrNamesSet = ImmutableSet.copyOf(privateAttrNames);
     Event.Identify identifyEvent = EventFactory.DEFAULT.newIdentifyEvent(user);
@@ -164,7 +164,7 @@ public class EventOutputTest {
     EventFactory factoryWithReason = eventFactoryWithTimestamp(100000, true);
     FeatureFlag flag = new FeatureFlagBuilder("flag").version(11).build();
     LDUser user = new LDUser.Builder("userkey").name("me").build();
-    EventOutputFormatter f = new EventOutputFormatter(LDConfig.DEFAULT);
+    EventOutputFormatter f = new EventOutputFormatter(TestUtil.defaultEventsConfig());
     
     FeatureRequest feWithVariation = factory.newFeatureRequestEvent(flag, user,
         new EvaluationDetail<LDValue>(EvaluationReason.off(), 1, LDValue.of("flagvalue")),
@@ -241,7 +241,7 @@ public class EventOutputTest {
   public void identifyEventIsSerialized() throws IOException {
     EventFactory factory = eventFactoryWithTimestamp(100000, false);
     LDUser user = new LDUser.Builder("userkey").name("me").build();
-    EventOutputFormatter f = new EventOutputFormatter(LDConfig.DEFAULT);
+    EventOutputFormatter f = new EventOutputFormatter(TestUtil.defaultEventsConfig());
 
     Event.Identify ie = factory.newIdentifyEvent(user);
     LDValue ieJson = parseValue("{" +
@@ -257,7 +257,7 @@ public class EventOutputTest {
   public void customEventIsSerialized() throws IOException {
     EventFactory factory = eventFactoryWithTimestamp(100000, false);
     LDUser user = new LDUser.Builder("userkey").name("me").build();
-    EventOutputFormatter f = new EventOutputFormatter(LDConfig.DEFAULT);
+    EventOutputFormatter f = new EventOutputFormatter(TestUtil.defaultEventsConfig());
 
     Event.Custom ceWithoutData = factory.newCustomEvent("customkey", user, LDValue.ofNull(), null);
     LDValue ceJson1 = parseValue("{" +
@@ -323,7 +323,7 @@ public class EventOutputTest {
     summary.noteTimestamp(1000);
     summary.noteTimestamp(1002);
 
-    EventOutputFormatter f = new EventOutputFormatter(new LDConfig.Builder().build());
+    EventOutputFormatter f = new EventOutputFormatter(TestUtil.defaultEventsConfig());
     StringWriter w = new StringWriter();
     int count = f.writeOutputEvents(new Event[0], summary, w);
     assertEquals(1, count);
@@ -358,7 +358,7 @@ public class EventOutputTest {
     ));
   }
   
-  private LDValue parseValue(String json) {
+  private static LDValue parseValue(String json) {
     return gson.fromJson(json, LDValue.class);
   }
 
@@ -381,9 +381,9 @@ public class EventOutputTest {
     return parseValue(w.toString()).get(0);
   }
   
-  private void testInlineUserSerialization(LDUser user, LDValue expectedJsonValue, LDConfig.Builder baseConfig) throws IOException {
-    baseConfig.inlineUsersInEvents(true);
-    EventOutputFormatter f = new EventOutputFormatter(baseConfig.build());
+  private void testInlineUserSerialization(LDUser user, LDValue expectedJsonValue, EventsConfiguration baseConfig) throws IOException {
+    EventsConfiguration config = TestUtil.makeEventsConfig(baseConfig.allAttributesPrivate, true, baseConfig.privateAttrNames);
+    EventOutputFormatter f = new EventOutputFormatter(config);
 
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
         new FeatureFlagBuilder("flag").build(),

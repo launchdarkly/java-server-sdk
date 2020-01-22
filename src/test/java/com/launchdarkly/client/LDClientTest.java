@@ -84,6 +84,42 @@ public class LDClientTest extends EasyMockSupport {
   }
   
   @Test
+  public void clientHasDefaultEventProcessorWithDefaultConfig() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .startWaitMillis(0)
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
+    }
+  }
+
+  @Test
+  public void clientHasDefaultEventProcessorWithSendEvents() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.sendEvents())
+        .startWaitMillis(0)
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
+    }
+  }
+
+  @Test
+  public void clientHasNullEventProcessorWithNoEvents() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.noEvents())
+        .startWaitMillis(0)
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      assertEquals(Components.NullEventProcessor.class, client.eventProcessor.getClass());
+    }
+  }
+  
+  @SuppressWarnings("deprecation")
+  @Test
   public void clientHasDefaultEventProcessorIfSendEventsIsTrue() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
@@ -94,7 +130,8 @@ public class LDClientTest extends EasyMockSupport {
       assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
     }
   }
-  
+
+  @SuppressWarnings("deprecation")
   @Test
   public void clientHasNullEventProcessorIfSendEventsIsFalse() throws IOException {
     LDConfig config = new LDConfig.Builder()
@@ -103,7 +140,7 @@ public class LDClientTest extends EasyMockSupport {
         .sendEvents(false)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertEquals(EventProcessor.NullEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(Components.NullEventProcessor.class, client.eventProcessor.getClass());
     }
   }
   
@@ -292,7 +329,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig.Builder config = new LDConfig.Builder()
         .dataSource(updateProcessorWithData(DEPENDENCY_ORDERING_TEST_DATA))
         .dataStore(specificFeatureStore(store))
-        .sendEvents(false);
+        .events(Components.noEvents());
     client = new LDClient("SDK_KEY", config.build());
     
     Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> dataMap = captureData.getValue();
@@ -337,7 +374,7 @@ public class LDClientTest extends EasyMockSupport {
   
   private LDClientInterface createMockClient(LDConfig.Builder config) {
     config.dataSource(TestUtil.specificUpdateProcessor(updateProcessor));
-    config.eventProcessor(TestUtil.specificEventProcessor(eventProcessor));
+    config.events(TestUtil.specificEventProcessor(eventProcessor));
     return new LDClient("SDK_KEY", config.build());
   }
   

@@ -434,7 +434,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri) {
-    return new StreamProcessor(SDK_KEY, config, mockRequestor, featureStore, new StubEventSourceCreator(),
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, featureStore, new StubEventSourceCreator(),
         streamUri, config.deprecatedReconnectTimeMs);
   }
 
@@ -443,7 +443,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
-    return new StreamProcessor(SDK_KEY, config, mockRequestor, featureStore, null,
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, featureStore, null,
         streamUri, config.deprecatedReconnectTimeMs);
   }
 
@@ -474,8 +474,8 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private class StubEventSourceCreator implements StreamProcessor.EventSourceCreator {
-    public EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri,
-        long initialReconnectDelay, ConnectionErrorHandler errorHandler, Headers headers) {  
+    public EventSource createEventSource(EventHandler handler, URI streamUri,
+        long initialReconnectDelay, ConnectionErrorHandler errorHandler, Headers headers, HttpConfiguration httpConfig) {  
       StreamProcessorTest.this.eventHandler = handler;
       StreamProcessorTest.this.actualStreamUri = streamUri;
       StreamProcessorTest.this.errorHandler = errorHandler;
