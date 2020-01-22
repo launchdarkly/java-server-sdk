@@ -20,7 +20,7 @@ import java.net.URI;
  * These properties will override any equivalent deprecated properties that were set with {@code LDConfig.Builder},
  * such as {@link com.launchdarkly.client.LDConfig.Builder#reconnectTimeMs(long)}.
  * <p>
- * Note that this class is abstract; the actual implementation is created by calling {@link Components#pollingDataSource()}.
+ * Note that this class is abstract; the actual implementation is created by calling {@link Components#streamingDataSource()}.
  * 
  * @since 4.12.0
  */
