@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 public class LDClientOfflineTest {
   private static final LDUser user = new LDUser("user");
   
+  @SuppressWarnings("deprecation")
   @Test
   public void offlineClientHasNullUpdateProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
@@ -66,7 +67,7 @@ public class LDClientOfflineTest {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .offline(true)
-        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .dataStore(specificFeatureStore(testFeatureStore))
         .build();
     testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -80,7 +81,7 @@ public class LDClientOfflineTest {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .offline(true)
-        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .dataStore(specificFeatureStore(testFeatureStore))
         .build();
     testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {

@@ -10,7 +10,7 @@ import static com.launchdarkly.client.FeatureStoreCacheConfig.StaleValuesPolicy.
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
-@SuppressWarnings("javadoc")
+@SuppressWarnings({ "deprecation", "javadoc" })
 public class FeatureStoreCachingTest {
   @Test
   public void disabledHasExpectedProperties() {

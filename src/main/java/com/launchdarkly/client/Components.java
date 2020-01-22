@@ -1,5 +1,8 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
+import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,28 +20,79 @@ public abstract class Components {
   private static final UpdateProcessorFactory nullUpdateProcessorFactory = new NullUpdateProcessorFactory();
   
   /**
-   * Returns a factory for the default in-memory implementation of {@link FeatureStore}.
+   * Returns a factory for the default in-memory implementation of a data store.
+   * <p>
+   * Note that the interface is still named {@link FeatureStoreFactory}, but in a future version it
+   * will be renamed to {@code DataStoreFactory}.
+   * 
    * @return a factory object
+   * @see LDConfig.Builder#dataStore(FeatureStoreFactory)
+   * @since 4.11.0
    */
+  public static FeatureStoreFactory inMemoryDataStore() {
+    return inMemoryFeatureStoreFactory;
+  }
+  
+  /**
+   * Returns a configurable factory for some implementation of a persistent data store.
+   * <p>
+   * This method is used in conjunction with another factory object provided by specific components
+   * such as the Redis integration. The latter provides builder methods for options that are specific
+   * to that integration, while the {@link PersistentDataStoreBuilder} provides options that are
+   * applicable to <i>any</i> persistent data store (such as caching). For example:
+   * 
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .dataStore(
+   *             Components.persistentDataStore(
+   *                 Redis.dataStore().url("redis://my-redis-host")
+   *             ).cacheSeconds(15)
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * See {@link PersistentDataStoreBuilder} for more on how this method is used.
+   *  
+   * @param storeFactory the factory/builder for the specific kind of persistent data store
+   * @return a {@link PersistentDataStoreBuilder}
+   * @see LDConfig.Builder#dataStore(FeatureStoreFactory)
+   * @see com.launchdarkly.client.integrations.Redis
+   * @since 4.11.0
+   */
+  public static PersistentDataStoreBuilder persistentDataStore(PersistentDataStoreFactory storeFactory) {
+    return new PersistentDataStoreBuilder(storeFactory);
+  }
+
+  /**
+   * Deprecated name for {@link #inMemoryDataStore()}.
+   * @return a factory object
+   * @deprecated Use {@link #inMemoryDataStore()}.
+   */
+  @Deprecated
   public static FeatureStoreFactory inMemoryFeatureStore() {
     return inMemoryFeatureStoreFactory;
   }
   
   /**
-   * Returns a factory with builder methods for creating a Redis-backed implementation of {@link FeatureStore},
-   * using {@link RedisFeatureStoreBuilder#DEFAULT_URI}.
+   * Deprecated name for {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    * @return a factory/builder object
+   * @deprecated Use {@link #persistentDataStore(PersistentDataStoreFactory)} with
+   * {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    */
+  @Deprecated
   public static RedisFeatureStoreBuilder redisFeatureStore() {
     return new RedisFeatureStoreBuilder();
   }
   
   /**
-   * Returns a factory with builder methods for creating a Redis-backed implementation of {@link FeatureStore},
-   * specifying the Redis URI.
+   * Deprecated name for {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
    * @param redisUri the URI of the Redis host
    * @return a factory/builder object
+   * @deprecated Use {@link #persistentDataStore(PersistentDataStoreFactory)} with
+   * {@link com.launchdarkly.client.integrations.Redis#dataStore()} and
+   * {@link com.launchdarkly.client.integrations.RedisDataStoreBuilder#uri(URI)}.
    */
+  @Deprecated
   public static RedisFeatureStoreBuilder redisFeatureStore(URI redisUri) {
     return new RedisFeatureStoreBuilder(redisUri);
   }
@@ -48,6 +102,7 @@ public abstract class Components {
    * forwards all analytics events to LaunchDarkly (unless the client is offline or you have
    * set {@link LDConfig.Builder#sendEvents(boolean)} to {@code false}).
    * @return a factory object
+   * @see LDConfig.Builder#eventProcessorFactory(EventProcessorFactory)
    */
   public static EventProcessorFactory defaultEventProcessor() {
     return defaultEventProcessorFactory;
@@ -57,17 +112,34 @@ public abstract class Components {
    * Returns a factory for a null implementation of {@link EventProcessor}, which will discard
    * all analytics events and not send them to LaunchDarkly, regardless of any other configuration.
    * @return a factory object
+   * @see LDConfig.Builder#eventProcessorFactory(EventProcessorFactory)
    */
   public static EventProcessorFactory nullEventProcessor() {
     return nullEventProcessorFactory;
   }
   
   /**
-   * Returns a factory for the default implementation of {@link UpdateProcessor}, which receives
-   * feature flag data from LaunchDarkly using either streaming or polling as configured (or does
-   * nothing if the client is offline, or in LDD mode).
+   * Returns a factory for the default implementation of the component for receiving feature flag data
+   * from LaunchDarkly. Based on your configuration, this implementation uses either streaming or
+   * polling, or does nothing if the client is offline, or in LDD mode.
+   * 
+   * Note that the interface is still named {@link UpdateProcessorFactory}, but in a future version it
+   * will be renamed to {@code DataSourceFactory}.
+   *  
    * @return a factory object
+   * @since 4.11.0
+   * @see LDConfig.Builder#dataSource(UpdateProcessorFactory)
    */
+  public static UpdateProcessorFactory defaultDataSource() {
+    return defaultUpdateProcessorFactory;
+  }
+
+  /**
+   * Deprecated name for {@link #defaultDataSource()}.
+   * @return a factory object
+   * @deprecated Use {@link #defaultDataSource()}.
+   */
+  @Deprecated
   public static UpdateProcessorFactory defaultUpdateProcessor() {
     return defaultUpdateProcessorFactory;
   }
@@ -75,8 +147,24 @@ public abstract class Components {
   /**
    * Returns a factory for a null implementation of {@link UpdateProcessor}, which does not
    * connect to LaunchDarkly, regardless of any other configuration.
+   * 
+   * Note that the interface is still named {@link UpdateProcessorFactory}, but in a future version it
+   * will be renamed to {@code DataSourceFactory}.
+   * 
    * @return a factory object
+   * @since 4.11.0
+   * @see LDConfig.Builder#dataSource(UpdateProcessorFactory)
    */
+  public static UpdateProcessorFactory nullDataSource() {
+    return nullUpdateProcessorFactory;
+  }
+
+  /**
+   * Deprecated name for {@link #nullDataSource()}.
+   * @return a factory object
+   * @deprecated Use {@link #nullDataSource()}.
+   */
+  @Deprecated
   public static UpdateProcessorFactory nullUpdateProcessor() {
     return nullUpdateProcessorFactory;
   }
@@ -109,6 +197,7 @@ public abstract class Components {
     // Note, logger uses LDClient class name for backward compatibility
     private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
     
+    @SuppressWarnings("deprecation")
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       if (config.offline) {
@@ -132,6 +221,7 @@ public abstract class Components {
   }
   
   private static final class NullUpdateProcessorFactory implements UpdateProcessorFactory {
+    @SuppressWarnings("deprecation")
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       return new UpdateProcessor.NullUpdateProcessor();

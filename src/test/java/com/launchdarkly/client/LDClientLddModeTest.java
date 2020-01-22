@@ -15,6 +15,7 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDClientLddModeTest {
+  @SuppressWarnings("deprecation")
   @Test
   public void lddModeClientHasNullUpdateProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
@@ -50,7 +51,7 @@ public class LDClientLddModeTest {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .useLdd(true)
-        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .dataStore(specificFeatureStore(testFeatureStore))
         .build();
     FeatureFlag flag = flagWithValue("key", LDValue.of(true));
     testFeatureStore.upsert(FEATURES, flag);
