@@ -15,11 +15,11 @@ import java.net.URI;
  * <p>
  * To use polling mode, create a builder with {@link Components#pollingDataSource()},
  * change its properties with the methods of this class, and pass it to {@link com.launchdarkly.client.LDConfig.Builder#dataSource(UpdateProcessorFactory)}:
- * <code><pre>
+ * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .dataSource(Components.pollingDataSource().pollIntervalMillis(45000))
  *         .build();
- * </pre></code>
+ * </code></pre>
  * <p>
  * These properties will override any equivalent deprecated properties that were set with {@code LDConfig.Builder},
  * such as {@link com.launchdarkly.client.LDConfig.Builder#pollingIntervalMillis(long)}.

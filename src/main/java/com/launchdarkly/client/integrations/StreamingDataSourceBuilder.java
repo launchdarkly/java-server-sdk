@@ -11,11 +11,11 @@ import java.net.URI;
  * By default, the SDK uses a streaming connection to receive feature flag data from LaunchDarkly. If you want
  * to customize the behavior of the connection, create a builder with {@link Components#streamingDataSource()},
  * change its properties with the methods of this class, and pass it to {@link com.launchdarkly.client.LDConfig.Builder#dataSource(UpdateProcessorFactory)}:
- * <code><pre>
+ * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .dataSource(Components.streamingDataSource().initialReconnectDelayMillis(500))
  *         .build();
- * </pre></code>
+ * </code></pre>
  * <p>
  * These properties will override any equivalent deprecated properties that were set with {@code LDConfig.Builder},
  * such as {@link com.launchdarkly.client.LDConfig.Builder#reconnectTimeMs(long)}.

@@ -131,11 +131,11 @@ public abstract class Components {
    * default behavior, you do not need to call this method. However, if you want to customize the behavior of
    * the connection, call this method to obtain a builder, change its properties with the
    * {@link StreamingDataSourceBuilder} methods, and pass it to {@link LDConfig.Builder#dataSource(UpdateProcessorFactory)}:
-   * <code><pre> 
+   * <pre><code> 
    *     LDConfig config = new LDConfig.Builder()
    *         .dataSource(Components.streamingDataSource().initialReconnectDelayMillis(500))
    *         .build();
-   * </pre></code>
+   * </code></pre>
    * <p>
    * These properties will override any equivalent deprecated properties that were set with {@code LDConfig.Builder},
    * such as {@link LDConfig.Builder#reconnectTimeMs(long)}.
@@ -160,11 +160,11 @@ public abstract class Components {
    * <p>
    * To use polling mode, call this method to obtain a builder, change its properties with the
    * {@link PollingDataSourceBuilder} methods, and pass it to {@link LDConfig.Builder#dataSource(UpdateProcessorFactory)}:
-   * <code><pre>
+   * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
    *         .dataSource(Components.pollingDataSource().pollIntervalMillis(45000))
    *         .build();
-   * </pre></code>
+   * </code></pre>
    * <p>
    * These properties will override any equivalent deprecated properties that were set with {@code LDConfig.Builder},
    * such as {@link LDConfig.Builder#pollingIntervalMillis(long)}. However, setting {@link LDConfig.Builder#offline(boolean)}
@@ -193,6 +193,7 @@ public abstract class Components {
    * and {@link LDConfig.Builder#pollingIntervalMillis(long)}.
    * <li> Otherwise, it will use streaming mode-- equivalent to using {@link #streamingDataSource()} with
    * the options set by {@link LDConfig.Builder#streamURI(URI)} and {@link LDConfig.Builder#reconnectTimeMs(long)}.
+   * </ul>
    * 
    * @return a factory object
    * @deprecated Use {@link #streamingDataSource()}, {@link #pollingDataSource()}, or {@link #externalUpdatesOnly()}.
@@ -213,12 +214,12 @@ public abstract class Components {
    * another process that is running the LaunchDarkly SDK. If there is no external process updating
    * the data store, then the SDK will not have any feature flag data and will return application
    * default values only.
-   * <code><pre>
+   * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
    *         .dataSource(Components.externalUpdatesOnly())
    *         .dataStore(Components.persistentDataStore(Redis.dataStore())) // assuming the Relay Proxy is using Redis
    *         .build();
-   * </pre></code>
+   * </code></pre>
    * <p>
    * (Note that the interface is still named {@link UpdateProcessorFactory}, but in a future version it
    * will be renamed to {@code DataSourceFactory}.)
