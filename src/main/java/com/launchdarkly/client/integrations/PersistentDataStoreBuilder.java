@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
  * In this example, {@code .url()} is an option specifically for the Redis integration, whereas
  * {@code ttlSeconds()} is an option that can be used for any persistent data store. 
  * 
- * @since 4.11.0
+ * @since 4.12.0
  */
 @SuppressWarnings("deprecation")
 public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
