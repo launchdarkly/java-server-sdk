@@ -110,11 +110,11 @@ public abstract class Components {
    * The default configuration has events enabled with default settings. If you want to
    * customize this behavior, call this method to obtain a builder, change its properties
    * with the {@link EventProcessorBuilder} properties, and pass it to {@link LDConfig.Builder#events(EventProcessorFactory)}:
-   * <code><pre>
+   * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
-   *         .event(Components.sendEvents().capacity(5000).flushIntervalSeconds(2))
+   *         .events(Components.sendEvents().capacity(5000).flushIntervalSeconds(2))
    *         .build();
-   * </pre></code>
+   * </code></pre>
    * To completely disable sending analytics events, use {@link #noEvents()} instead.
    *
    * @return a builder for setting streaming connection properties
@@ -122,7 +122,7 @@ public abstract class Components {
    * @since 4.12.0
    */
   public static EventProcessorBuilder sendEvents() {
-    return new EventsConfigBuilderImpl();
+    return new EventProcessorBuilderImpl();
   }
   
   /**
@@ -136,6 +136,7 @@ public abstract class Components {
    * LaunchDarkly.
    * <li> Otherwise, it will send events, using the properties set by the deprecated events configuration
    * methods such as {@link LDConfig.Builder#capacity(int)}.
+   * </ul>
    * 
    * @return a factory object
    * @deprecated Use {@link #sendEvents()} or {@link #noEvents}.
@@ -150,11 +151,11 @@ public abstract class Components {
    * <p>
    * Passing this to {@link LDConfig.Builder#events(EventProcessorFactory)} causes the SDK
    * to discard all analytics events and not send them to LaunchDarkly, regardless of any other configuration.
-   * <code><pre>
+   * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
-   *         .eventProcessor(Components.noEvents())
+   *         .events(Components.noEvents())
    *         .build();
-   * </pre></code>
+   * </code></pre>
    * 
    * @return a factory object
    * @see LDConfig.Builder#events(EventProcessorFactory)
@@ -456,7 +457,7 @@ public abstract class Components {
     }
   }
   
-  private static final class EventsConfigBuilderImpl extends EventProcessorBuilder {
+  private static final class EventProcessorBuilderImpl extends EventProcessorBuilder {
     @Override
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
       if (config.offline) {
