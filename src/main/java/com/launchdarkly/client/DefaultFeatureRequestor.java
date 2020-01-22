@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +22,9 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+/**
+ * Implementation of getting flag data via a polling request. Used by both streaming and polling components.
+ */
 class DefaultFeatureRequestor implements FeatureRequestor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultFeatureRequestor.class);
   private static final String GET_LATEST_FLAGS_PATH = "/sdk/latest-flags";
@@ -30,18 +34,20 @@ class DefaultFeatureRequestor implements FeatureRequestor {
   
   private final String sdkKey;
   private final LDConfig config;
+  private final URI baseUri;
   private final OkHttpClient httpClient;
 
-  DefaultFeatureRequestor(String sdkKey, LDConfig config) {
+  DefaultFeatureRequestor(String sdkKey, LDConfig config, URI baseUri, boolean useCache) {
     this.sdkKey = sdkKey;
-    this.config = config;
+    this.config = config; // this is no longer the source of truth for baseURI, but it can still affect HTTP behavior
+    this.baseUri = baseUri;
     
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(config, httpBuilder);
 
     // HTTP caching is used only for FeatureRequestor. However, when streaming is enabled, HTTP GETs
     // made by FeatureRequester will always guarantee a new flag state, so we disable the cache.
-    if (!config.stream) {
+    if (useCache) {
       File cacheDir = Files.createTempDir();
       Cache cache = new Cache(cacheDir, MAX_HTTP_CACHE_SIZE_BYTES);
       httpBuilder.cache(cache);
@@ -78,7 +84,7 @@ class DefaultFeatureRequestor implements FeatureRequestor {
   
   private String get(String path) throws IOException, HttpErrorException {
     Request request = getRequestBuilder(sdkKey)
-        .url(config.baseURI.resolve(path).toURL())
+        .url(baseUri.resolve(path).toURL())
         .get()
         .build();
 

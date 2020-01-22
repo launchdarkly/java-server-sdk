@@ -2,6 +2,8 @@ package com.launchdarkly.client;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
+import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,9 +33,9 @@ public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
   final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapterWithPrivateAttributeBehavior(this)).create();
 
-  private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
-  private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
-  private static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
+  static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
+  static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
+  static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
   private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2000;
   private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;
@@ -59,7 +61,6 @@ public final class LDConfig {
   final FeatureStoreFactory dataStoreFactory;
   final EventProcessorFactory eventProcessorFactory;
   final UpdateProcessorFactory dataSourceFactory;
-  final boolean useLdd;
   final boolean offline;
   final boolean allAttributesPrivate;
   final Set<String> privateAttrNames;
@@ -91,7 +92,6 @@ public final class LDConfig {
     this.dataStoreFactory = builder.dataStoreFactory;
     this.eventProcessorFactory = builder.eventProcessorFactory;
     this.dataSourceFactory = builder.dataSourceFactory;
-    this.useLdd = builder.useLdd;
     this.offline = builder.offline;
     this.allAttributesPrivate = builder.allAttributesPrivate;
     this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
@@ -149,15 +149,14 @@ public final class LDConfig {
     private String proxyUsername = null;
     private String proxyPassword = null;
     private boolean stream = true;
-    private boolean useLdd = false;
     private boolean offline = false;
     private boolean allAttributesPrivate = false;
     private boolean sendEvents = true;
     private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = null;
-    private FeatureStoreFactory dataStoreFactory = Components.inMemoryDataStore();
-    private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
-    private UpdateProcessorFactory dataSourceFactory = Components.defaultDataSource();
+    private FeatureStoreFactory dataStoreFactory = null;
+    private EventProcessorFactory eventProcessorFactory = null;
+    private UpdateProcessorFactory dataSourceFactory = null;
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
@@ -175,11 +174,17 @@ public final class LDConfig {
     }
 
     /**
-     * Set the base URL of the LaunchDarkly server for this configuration.
+     * Deprecated method for setting the base URI for the polling service.
+     * <p>
+     * This method has no effect if you have used {@link #dataSource(UpdateProcessorFactory)} to
+     * specify polling or streaming options, which is the preferred method.
      *
      * @param baseURI the base URL of the LaunchDarkly server for this configuration.
      * @return the builder
+     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseUri(URI)},
+     * or {@link Components#pollingDataSource()} with {@link PollingDataSourceBuilder#baseUri(URI)}.
      */
+    @Deprecated
     public Builder baseURI(URI baseURI) {
       this.baseURI = baseURI;
       return this;
@@ -197,11 +202,16 @@ public final class LDConfig {
     }
 
     /**
-     * Set the base URL of the LaunchDarkly streaming server for this configuration.
+     * Deprecated method for setting the base URI for the streaming service.
+     * <p>
+     * This method has no effect if you have used {@link #dataSource(UpdateProcessorFactory)} to
+     * specify polling or streaming options, which is the preferred method.
      *
      * @param streamURI the base URL of the LaunchDarkly streaming server
      * @return the builder
+     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseUri(URI)}.
      */
+    @Deprecated
     public Builder streamURI(URI streamURI) {
       this.streamURI = streamURI;
       return this;
@@ -218,7 +228,7 @@ public final class LDConfig {
      * 
      * @param factory the factory object
      * @return the builder
-     * @since 4.11.0
+     * @since 4.12.0
      */
     public Builder dataStore(FeatureStoreFactory factory) {
       this.dataStoreFactory = factory;
@@ -257,7 +267,7 @@ public final class LDConfig {
      * you may choose to use a custom implementation (for instance, a test fixture).
      * @param factory the factory object
      * @return the builder
-     * @since 4.11.0
+     * @since 4.12.0
      */
     public Builder eventProcessor(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
@@ -278,15 +288,20 @@ public final class LDConfig {
     
     /**
      * Sets the implementation of the component that receives feature flag data from LaunchDarkly,
-     * using a factory object. The default is {@link Components#defaultDataSource()}, but
-     * you may choose to use a custom implementation (for instance, a test fixture).
-     * 
+     * using a factory object. Depending on the implementation, the factory may be a builder that
+     * allows you to set other configuration options as well.
+     * <p>
+     * The default is {@link Components#streamingDataSource()}. You may instead use
+     * {@link Components#pollingDataSource()}, or a test fixture such as
+     * {@link com.launchdarkly.client.integrations.FileData#dataSource()}. See those methods
+     * for details on how to configure them.
+     * <p>
      * Note that the interface is still named {@link UpdateProcessorFactory}, but in a future version
      * it will be renamed to {@code DataSourceFactory}.
      * 
      * @param factory the factory object
      * @return the builder
-     * @since 4.11.0
+     * @since 4.12.0
      */
     public Builder dataSource(UpdateProcessorFactory factory) {
       this.dataSourceFactory = factory;
@@ -307,12 +322,18 @@ public final class LDConfig {
     }
     
     /**
-     * Set whether streaming mode should be enabled. By default, streaming is enabled. It should only be
-     * disabled on the advice of LaunchDarkly support.
-     *
+     * Deprecated method for enabling or disabling streaming mode.
+     * <p>
+     * By default, streaming is enabled. It should only be disabled on the advice of LaunchDarkly support.
+     * <p>
+     * This method has no effect if you have specified a data source with {@link #dataSource(UpdateProcessorFactory)},
+     * which is the preferred method.
+     * 
      * @param stream whether streaming mode should be enabled
      * @return the builder
+     * @deprecated Use {@link Components#streamingDataSource()} or {@link Components#pollingDataSource()}.
      */
+    @Deprecated
     public Builder stream(boolean stream) {
       this.stream = stream;
       return this;
@@ -465,20 +486,34 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
-     * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
-     *
+     * Deprecated method for using the LaunchDarkly Relay Proxy in daemon mode.
+     * <p>
+     * See {@link Components#externalUpdatesOnly()} for the preferred way to do this.
+     * 
      * @param useLdd true to use the relay in daemon mode; false to use streaming or polling
      * @return the builder
+     * @deprecated Use {@link Components#externalUpdatesOnly()}.
      */
+    @Deprecated
     public Builder useLdd(boolean useLdd) {
-      this.useLdd = useLdd;
-      return this;
+      if (useLdd) {
+        return dataSource(Components.externalUpdatesOnly());
+      } else {
+        return dataSource(null);
+      }
     }
 
     /**
      * Set whether this client is offline.
-     *
+     * <p>
+     * In offline mode, the SDK will not make network connections to LaunchDarkly for any purpose. Feature
+     * flag data will only be available if it already exists in the data store, and analytics events will
+     * not be sent.
+     * <p>
+     * This is equivalent to calling {@code dataSource(Components.externalUpdatesOnly())} and
+     * {@code sendEvents(false)}. It overrides any other values you may have set for
+     * {@link #dataSource(UpdateProcessorFactory)} or {@link #eventProcessor(EventProcessorFactory)}.
+     * 
      * @param offline when set to true no calls to LaunchDarkly will be made
      * @return the builder
      */
@@ -513,12 +548,18 @@ public final class LDConfig {
     }
 
     /**
-     * Set the polling interval (when streaming is disabled). Values less than the default of
-     * 30000 will be set to the default.
+     * Deprecated method for setting the polling interval in polling mode.
+     * <p>
+     * Values less than the default of 30000 will be set to the default.
+     * <p>
+     * This method has no effect if you have <i>not</i> disabled streaming mode, or if you have specified
+     * a non-polling data source with {@link #dataSource(UpdateProcessorFactory)}.
      *
      * @param pollingIntervalMillis rule update polling interval in milliseconds
      * @return the builder
+     * @deprecated Use {@link Components#pollingDataSource()} and {@link PollingDataSourceBuilder#pollIntervalMillis(long)}.
      */
+    @Deprecated
     public Builder pollingIntervalMillis(long pollingIntervalMillis) {
       this.pollingIntervalMillis = pollingIntervalMillis;
       return this;
@@ -554,13 +595,16 @@ public final class LDConfig {
     }
 
     /**
-     * The reconnect base time in milliseconds for the streaming connection. The streaming connection
-     * uses an exponential backoff algorithm (with jitter) for reconnects, but will start the backoff
-     * with a value near the value specified here.
+     * Deprecated method for setting the initial reconnect delay for the streaming connection.
+     * <p>
+     * This method has no effect if you have disabled streaming mode, or if you have specified a
+     * non-streaming data source with {@link #dataSource(UpdateProcessorFactory)}.
      *
      * @param reconnectTimeMs the reconnect time base value in milliseconds
      * @return the builder
+     * @deprecated Use {@link Components#streamingDataSource()} and {@link StreamingDataSourceBuilder#initialReconnectDelayMillis(long)}.
      */
+    @Deprecated
     public Builder reconnectTimeMs(long reconnectTimeMs) {
       this.reconnectTimeMillis = reconnectTimeMs;
       return this;
