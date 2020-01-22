@@ -22,7 +22,7 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
 import redis.clients.util.JedisURIHelper;
 
-class RedisDataStoreImpl implements FeatureStoreCore {
+final class RedisDataStoreImpl implements FeatureStoreCore {
   private static final Logger logger = LoggerFactory.getLogger(RedisDataStoreImpl.class);
 
   private final JedisPool pool;

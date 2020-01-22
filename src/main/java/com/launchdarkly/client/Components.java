@@ -22,6 +22,8 @@ public abstract class Components {
   private static final UpdateProcessorFactory defaultUpdateProcessorFactory = new DefaultUpdateProcessorFactory();
   private static final UpdateProcessorFactory nullUpdateProcessorFactory = new NullUpdateProcessorFactory();
   
+  private Components() {}
+  
   /**
    * Returns a configuration object for using the default in-memory implementation of a data store.
    * <p>
@@ -300,6 +302,7 @@ public abstract class Components {
     }
   }
   
+  // Package-private for visibility in tests
   static final class NullUpdateProcessor implements UpdateProcessor {
     @Override
     public Future<Void> start() {
@@ -315,7 +318,7 @@ public abstract class Components {
     public void close() throws IOException {}
   }
   
-  static final class StreamingDataSourceBuilderImpl extends StreamingDataSourceBuilder {
+  private static final class StreamingDataSourceBuilderImpl extends StreamingDataSourceBuilder {
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
@@ -356,7 +359,7 @@ public abstract class Components {
     }
   }
   
-  static final class PollingDataSourceBuilderImpl extends PollingDataSourceBuilder {
+  private static final class PollingDataSourceBuilderImpl extends PollingDataSourceBuilder {
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       // Note, we log startup messages under the LDClient class to keep logs more readable

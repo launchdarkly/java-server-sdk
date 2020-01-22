@@ -40,12 +40,12 @@ public final class LDConfig {
   private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2000;
   private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;
   private static final int DEFAULT_FLUSH_INTERVAL_SECONDS = 5;
-  private static final long MIN_POLLING_INTERVAL_MILLIS = 30000L;
+  private static final long MIN_POLLING_INTERVAL_MILLIS = PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL_MILLIS;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
   private static final int DEFAULT_SAMPLING_INTERVAL = 0;
   private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
   private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
-  private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
+  private static final long DEFAULT_RECONNECT_TIME_MILLIS = StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY_MILLIS;
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
