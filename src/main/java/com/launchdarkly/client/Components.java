@@ -206,7 +206,7 @@ public abstract class Components {
   }
   
   /**
-   * Returns a configuration object that disables connecting for feature flag updates.
+   * Returns a configuration object that disables a direct connection with LaunchDarkly for feature flag updates.
    * <p>
    * Passing this to {@link LDConfig.Builder#dataSource(UpdateProcessorFactory)} causes the SDK
    * not to retrieve feature flag data from LaunchDarkly, regardless of any other configuration.
