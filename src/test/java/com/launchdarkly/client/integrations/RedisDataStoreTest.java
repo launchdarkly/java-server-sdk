@@ -1,6 +1,6 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.DataStoreCacheConfig;
+import com.launchdarkly.client.Components;
 import com.launchdarkly.client.DataStoreDatabaseTestBase;
 import com.launchdarkly.client.integrations.RedisDataStoreImpl.UpdateListener;
 import com.launchdarkly.client.interfaces.DataStore;
@@ -16,7 +16,6 @@ import redis.clients.jedis.Jedis;
 
 @SuppressWarnings("javadoc")
 public class RedisDataStoreTest extends DataStoreDatabaseTestBase {
-
   private static final URI REDIS_URI = URI.create("redis://localhost:6379");
   
   public RedisDataStoreTest(boolean cached) {
@@ -31,14 +30,21 @@ public class RedisDataStoreTest extends DataStoreDatabaseTestBase {
   
   @Override
   protected DataStore makeStore() {
-    RedisDataStoreBuilder builder = Redis.dataStore().uri(REDIS_URI);
-    builder.caching(cached ? DataStoreCacheConfig.enabled().ttlSeconds(30) : DataStoreCacheConfig.disabled());
+    RedisDataStoreBuilder redisBuilder = Redis.dataStore().uri(REDIS_URI);
+    PersistentDataStoreBuilder builder = Components.persistentDataStore(redisBuilder);
+    if (cached) {
+      builder.cacheSeconds(30);
+    } else {
+      builder.noCaching();
+    }
     return builder.createDataStore();
   }
   
   @Override
   protected DataStore makeStoreWithPrefix(String prefix) {
-    return Redis.dataStore().uri(REDIS_URI).caching(DataStoreCacheConfig.disabled()).prefix(prefix).createDataStore();
+    return Components.persistentDataStore(
+        Redis.dataStore().uri(REDIS_URI).prefix(prefix)
+        ).noCaching().createDataStore();
   }
   
   @Override

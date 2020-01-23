@@ -37,7 +37,7 @@ import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
  * a single {@code LDClient} for the lifetime of their application.
  */
 public final class LDClient implements LDClientInterface {
-  private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  static final Logger logger = LoggerFactory.getLogger(LDClient.class);
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   static final String CLIENT_VERSION = getClientVersion();
 
@@ -66,7 +66,7 @@ public final class LDClient implements LDClientInterface {
    * @param config a client configuration object
    */
   public LDClient(String sdkKey, LDConfig config) {
-    this.config = checkNotNull(config, "config must not be null");
+    this.config = new LDConfig(checkNotNull(config, "config must not be null"));
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
     
     DataStoreFactory factory = config.dataStoreFactory == null ?
@@ -84,20 +84,40 @@ public final class LDClient implements LDClientInterface {
       }
     });
     
-    EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
-        Components.defaultEventProcessor() : config.eventProcessorFactory;
-    this.eventProcessor = epFactory.createEventProcessor(sdkKey, config);
+    EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
+        Components.defaultEventProcessor() : this.config.eventProcessorFactory;
+        
+    DiagnosticAccumulator diagnosticAccumulator = null;
+    // Do not create accumulator if config has specified is opted out, or if epFactory doesn't support diagnostics
+    if (!this.config.diagnosticOptOut && epFactory instanceof EventProcessorFactoryWithDiagnostics) {
+      diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(sdkKey));
+    }
+
+    if (epFactory instanceof EventProcessorFactoryWithDiagnostics) {
+      EventProcessorFactoryWithDiagnostics epwdFactory = ((EventProcessorFactoryWithDiagnostics) epFactory);
+      this.eventProcessor = epwdFactory.createEventProcessor(sdkKey, this.config, diagnosticAccumulator);
+    } else {
+      this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
+    }
+
     
-    DataSourceFactory dataSourceFactory = config.dataSourceFactory == null ?
-        Components.defaultDataSource() : config.dataSourceFactory;
-    this.dataSource = dataSourceFactory.createDataSource(sdkKey, config, dataStore);
+    DataSourceFactory dataSourceFactory = this.config.dataSourceFactory == null ?
+        Components.defaultDataSource() : this.config.dataSourceFactory;
+
+    if (dataSourceFactory instanceof DataSourceFactoryWithDiagnostics) {
+      DataSourceFactoryWithDiagnostics dswdFactory = ((DataSourceFactoryWithDiagnostics) dataSourceFactory);
+      this.dataSource = dswdFactory.createDataSource(sdkKey, this.config, dataStore, diagnosticAccumulator);
+    } else {
+      this.dataSource = dataSourceFactory.createDataSource(sdkKey, this.config, dataStore);
+    }
+
     Future<Void> startFuture = dataSource.start();
-    if (!config.startWait.isZero() && !config.startWait.isNegative()) {
-      if (!config.offline && !config.useLdd) {
-        logger.info("Waiting up to " + config.startWait.toMillis() + " milliseconds for LaunchDarkly client to start...");
+    if (!this.config.startWait.isZero() && !this.config.startWait.isNegative()) {
+      if (!this.config.offline && !this.config.useLdd) {
+        logger.info("Waiting up to " + this.config.startWait.toMillis() + " milliseconds for LaunchDarkly client to start...");
       }
       try {
-        startFuture.get(config.startWait.toMillis(), TimeUnit.MILLISECONDS);
+        startFuture.get(this.config.startWait.toMillis(), TimeUnit.MILLISECONDS);
       } catch (TimeoutException e) {
         logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
       } catch (Exception e) {
@@ -187,7 +207,7 @@ public final class LDClient implements LDClientInterface {
       } catch (Exception e) {
         logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
         logger.debug(e.toString(), e);
-        builder.addFlag(entry.getValue(), errorResult(EvaluationReason.ErrorKind.EXCEPTION, LDValue.ofNull()));
+        builder.addFlag(entry.getValue(), new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.exception(e)));
       }
     }
     return builder.build();
@@ -345,7 +365,7 @@ public final class LDClient implements LDClientInterface {
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
             EvaluationReason.ErrorKind.EXCEPTION));
       }
-      return errorResult(EvaluationReason.ErrorKind.EXCEPTION, defaultValue);
+      return new Evaluator.EvalResult(defaultValue, null, EvaluationReason.exception(e));
     }
   }
 

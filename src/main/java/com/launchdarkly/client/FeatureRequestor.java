@@ -19,5 +19,5 @@ interface FeatureRequestor extends Closeable {
       this.flags = flags;
       this.segments = segments;
     }
-  }  
+  }
 }

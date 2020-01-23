@@ -7,7 +7,7 @@ import java.io.Closeable;
 import java.util.Map;
 
 /**
- * DataStoreCore is an interface for a simplified subset of the functionality of
+ * PersistentDataStore is an interface for a simplified subset of the functionality of
  * {@link DataStore}, to be used in conjunction with {@link CachingStoreWrapper}. This allows
  * developers of custom DataStore implementations to avoid repeating logic that would
  * commonly be needed in any such implementation, such as caching. Instead, they can implement
@@ -22,7 +22,7 @@ import java.util.Map;
  * 
  * @since 5.0.0
  */
-public interface DataStoreCore extends Closeable {
+public interface PersistentDataStore extends Closeable {
   /**
    * Returns the object to which the specified key is mapped, or null if no such item exists.
    * The method should not attempt to filter out any items based on their isDeleted() property,

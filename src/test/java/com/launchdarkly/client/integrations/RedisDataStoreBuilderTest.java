@@ -1,7 +1,5 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.DataStoreCacheConfig;
-
 import org.junit.Test;
 
 import java.net.URISyntaxException;
@@ -19,7 +17,6 @@ public class RedisDataStoreBuilderTest {
   public void testDefaultValues() {
     RedisDataStoreBuilder conf = Redis.dataStore();
     assertEquals(RedisDataStoreBuilder.DEFAULT_URI, conf.uri);
-    assertEquals(DataStoreCacheConfig.DEFAULT, conf.caching);
     assertEquals(Duration.ofMillis(Protocol.DEFAULT_TIMEOUT), conf.connectTimeout);
     assertEquals(Duration.ofMillis(Protocol.DEFAULT_TIMEOUT), conf.socketTimeout);
     assertEquals(RedisDataStoreBuilder.DEFAULT_PREFIX, conf.prefix);

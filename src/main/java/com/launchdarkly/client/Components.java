@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
@@ -7,9 +8,7 @@ import com.launchdarkly.client.interfaces.DataStoreFactory;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
 
 import java.io.IOException;
 import java.util.concurrent.Future;
@@ -31,7 +30,37 @@ public abstract class Components {
   public static DataStoreFactory inMemoryDataStore() {
     return IN_MEMORY_DATA_STORE_FACTORY;
   }
-      
+
+  /**
+   * Returns a configurable factory for some implementation of a persistent data store.
+   * <p>
+   * This method is used in conjunction with another factory object provided by specific components
+   * such as the Redis integration. The latter provides builder methods for options that are specific
+   * to that integration, while the {@link PersistentDataStoreBuilder} provides options that are
+   * applicable to <i>any</i> persistent data store (such as caching). For example:
+   * 
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .dataStore(
+   *             Components.persistentDataStore(
+   *                 Redis.dataStore().url("redis://my-redis-host")
+   *             ).cacheSeconds(15)
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * See {@link PersistentDataStoreBuilder} for more on how this method is used.
+   *  
+   * @param storeFactory the factory/builder for the specific kind of persistent data store
+   * @return a {@link PersistentDataStoreBuilder}
+   * @see LDConfig.Builder#dataStore(DataStoreFactory)
+   * @see com.launchdarkly.client.integrations.Redis
+   * @since 4.11.0
+   */
+  public static PersistentDataStoreBuilder persistentDataStore(PersistentDataStoreFactory storeFactory) {
+    return new PersistentDataStoreBuilder(storeFactory);
+  }
+
   /**
    * Returns a factory for the default implementation of {@link EventProcessor}, which
    * forwards all analytics events to LaunchDarkly (unless the client is offline or you have
@@ -40,7 +69,7 @@ public abstract class Components {
    * @see LDConfig.Builder#eventProcessor(EventProcessorFactory)
    */
   public static EventProcessorFactory defaultEventProcessor() {
-    return DEFAULT_EVENT_PROCESSOR_FACTORY;
+    return DefaultEventProcessorFactory.INSTANCE;
   }
   
   /**
@@ -80,13 +109,24 @@ public abstract class Components {
   
   private static final DataStoreFactory IN_MEMORY_DATA_STORE_FACTORY = () -> new InMemoryDataStore();
   
-  private static final EventProcessorFactory DEFAULT_EVENT_PROCESSOR_FACTORY = (sdkKey, config) -> {
+  private static final class DefaultEventProcessorFactory implements EventProcessorFactoryWithDiagnostics {
+    static final EventProcessorFactory INSTANCE = new DefaultEventProcessorFactory();
+    
+    @Override
+    public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
+      return createEventProcessor(sdkKey, config, null);
+    }
+
+    @Override
+    public EventProcessor createEventProcessor(String sdkKey, LDConfig config,
+                                               DiagnosticAccumulator diagnosticAccumulator) {
       if (config.offline || !config.sendEvents) {
         return new NullEventProcessor();
       } else {
-        return new DefaultEventProcessor(sdkKey, config);
-      } 
-    };
+        return new DefaultEventProcessor(sdkKey, config, diagnosticAccumulator);
+      }
+    }
+  }
   
   private static final EventProcessorFactory NULL_EVENT_PROCESSOR_FACTORY = (sdkKey, config) -> NullEventProcessor.INSTANCE;
   
@@ -111,29 +151,33 @@ public abstract class Components {
     }
   }
   
-  private static final class DefaultDataSourceFactory implements DataSourceFactory {
-    // Note, logger uses LDClient class name for backward compatibility
-    private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  private static final class DefaultDataSourceFactory implements DataSourceFactoryWithDiagnostics {
     static final DefaultDataSourceFactory INSTANCE = new DefaultDataSourceFactory();
     
     private DefaultDataSourceFactory() {}
     
     @Override
     public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore) {
+      return createDataSource(sdkKey, config, dataStore, null);
+    }
+
+    @Override
+    public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore,
+                                       DiagnosticAccumulator diagnosticAccumulator) {
       if (config.offline) {
-        logger.info("Starting LaunchDarkly client in offline mode");
+        LDClient.logger.info("Starting LaunchDarkly client in offline mode");
         return new NullDataSource();
       } else if (config.useLdd) {
-        logger.info("Starting LaunchDarkly in LDD mode. Skipping direct feature retrieval.");
+        LDClient.logger.info("Starting LaunchDarkly in LDD mode. Skipping direct feature retrieval.");
         return new NullDataSource();
       } else {
         DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(sdkKey, config);
         if (config.stream) {
-          logger.info("Enabling streaming API");
-          return new StreamProcessor(sdkKey, config, requestor, dataStore, null);
+          LDClient.logger.info("Enabling streaming API");
+          return new StreamProcessor(sdkKey, config, requestor, dataStore, null, diagnosticAccumulator);
         } else {
-          logger.info("Disabling streaming API");
-          logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
+          LDClient.logger.info("Disabling streaming API");
+          LDClient.logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
           return new PollingProcessor(config, requestor, dataStore);
         }
       }

@@ -3,12 +3,12 @@ package com.launchdarkly.client.utils;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.launchdarkly.client.interfaces.DataStore;
-import com.launchdarkly.client.interfaces.DataStoreCore;
+import com.launchdarkly.client.interfaces.PersistentDataStore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 /**
- * Helper methods that may be useful for implementing a {@link DataStore} or {@link DataStoreCore}.
+ * Helper methods that may be useful for implementing a {@link DataStore} or {@link PersistentDataStore}.
  *
  * @since 4.6.0
  */

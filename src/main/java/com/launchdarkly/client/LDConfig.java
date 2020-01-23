@@ -31,9 +31,9 @@ public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
   final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapterWithPrivateAttributeBehavior(this)).create();
 
-  private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
-  private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
-  private static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
+  static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
+  static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
+  static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
   private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(2);
   private static final Duration DEFAULT_SOCKET_TIMEOUT = Duration.ofSeconds(10);
@@ -43,6 +43,8 @@ public final class LDConfig {
   private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
   private static final Duration DEFAULT_USER_KEYS_FLUSH_INTERVAL = Duration.ofMinutes(5);
   private static final Duration DEFAULT_RECONNECT_TIME = Duration.ofSeconds(1);
+  private static final Duration DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL = Duration.ofMinutes(15);
+  private static final Duration MIN_DIAGNOSTIC_RECORDING_INTERVAL = Duration.ofMinutes(1);
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
@@ -68,6 +70,10 @@ public final class LDConfig {
   final int userKeysCapacity;
   final Duration userKeysFlushInterval;
   final boolean inlineUsersInEvents;
+  final Duration diagnosticRecordingInterval;
+  final boolean diagnosticOptOut;
+  final String wrapperName;
+  final String wrapperVersion;
   final SSLSocketFactory sslSocketFactory;
   final X509TrustManager trustManager;
   final Duration connectTimeout;
@@ -104,7 +110,11 @@ public final class LDConfig {
     this.trustManager = builder.trustManager;
     this.connectTimeout = builder.connectTimeout;
     this.socketTimeout = builder.socketTimeout;
-
+    this.diagnosticOptOut = builder.diagnosticOptOut;
+    this.diagnosticRecordingInterval = builder.diagnosticRecordingInterval;
+    this.wrapperName = builder.wrapperName;
+    this.wrapperVersion = builder.wrapperVersion;
+    
     if (proxy != null) {
       if (proxyAuthenticator != null) {
         logger.info("Using proxy: " + proxy + " with authentication.");
@@ -112,6 +122,39 @@ public final class LDConfig {
         logger.info("Using proxy: " + proxy + " without authentication.");
       }
     }
+  }
+
+  LDConfig(LDConfig config) {
+    this.baseURI = config.baseURI;
+    this.eventsURI = config.eventsURI;
+    this.streamURI = config.streamURI;
+    this.capacity = config.capacity;
+    this.flushInterval = config.flushInterval;
+    this.proxy = config.proxy;
+    this.proxyAuthenticator = config.proxyAuthenticator;
+    this.stream = config.stream;
+    this.dataSourceFactory = config.dataSourceFactory;
+    this.dataStoreFactory = config.dataStoreFactory;
+    this.eventProcessorFactory = config.eventProcessorFactory;
+    this.useLdd = config.useLdd;
+    this.offline = config.offline;
+    this.allAttributesPrivate = config.allAttributesPrivate;
+    this.privateAttrNames = config.privateAttrNames;
+    this.sendEvents = config.sendEvents;
+    this.pollingInterval = config.pollingInterval;
+    this.startWait = config.startWait;
+    this.reconnectTime = config.reconnectTime;
+    this.userKeysCapacity = config.userKeysCapacity;
+    this.userKeysFlushInterval = config.userKeysFlushInterval;
+    this.inlineUsersInEvents = config.inlineUsersInEvents;
+    this.sslSocketFactory = config.sslSocketFactory;
+    this.trustManager = config.trustManager;
+    this.connectTimeout = config.connectTimeout;
+    this.socketTimeout = config.socketTimeout;
+    this.diagnosticRecordingInterval = config.diagnosticRecordingInterval;
+    this.diagnosticOptOut = config.diagnosticOptOut;
+    this.wrapperName = config.wrapperName;
+    this.wrapperVersion = config.wrapperVersion;
   }
 
   /**
@@ -154,6 +197,10 @@ public final class LDConfig {
     private boolean inlineUsersInEvents = false;
     private SSLSocketFactory sslSocketFactory = null;
     private X509TrustManager trustManager = null;
+    private boolean diagnosticOptOut = false;
+    private Duration diagnosticRecordingInterval = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL;
+    private String wrapperName = null;
+    private String wrapperVersion = null;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -197,8 +244,8 @@ public final class LDConfig {
     /**
      * Sets the implementation of the data store to be used for holding feature flags and
      * related data received from LaunchDarkly, using a factory object. The default is
-     * {@link Components#inMemoryDataStore()}, but you may use a custom implementation such as
-     * {@link com.launchdarkly.client.integrations.Redis#dataStore()}.
+     * {@link Components#inMemoryDataStore()}; for database integrations, use
+     * {@link Components#persistentDataStore(com.launchdarkly.client.interfaces.PersistentDataStoreFactory)}.
      * 
      * @param factory the factory object
      * @return the builder
@@ -495,7 +542,70 @@ public final class LDConfig {
       this.inlineUsersInEvents = inlineUsersInEvents;
       return this;
     }
-    
+
+    /**
+     * Sets the interval at which periodic diagnostic data is sent. The default is every 15 minutes and the
+     * minimum value is every 60 seconds.
+     *
+     * @see #diagnosticOptOut(boolean)
+     *
+     * @param diagnosticRecordingInterval the diagnostics interval; null to use the default
+     * @return the builder
+     */
+    public Builder diagnosticRecordingInterval(Duration diagnosticRecordingInterval) {
+      if (diagnosticRecordingInterval == null) {
+        this.diagnosticRecordingInterval = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL;
+      } else if (diagnosticRecordingInterval.compareTo(MIN_DIAGNOSTIC_RECORDING_INTERVAL) < 0) {
+        this.diagnosticRecordingInterval = MIN_DIAGNOSTIC_RECORDING_INTERVAL;
+      } else {
+        this.diagnosticRecordingInterval = diagnosticRecordingInterval;
+      }
+      return this;
+    }
+
+    /**
+     * Set to true to opt out of sending diagnostics data.
+     *
+     * Unless the diagnosticOptOut field is set to true, the client will send some diagnostics data to the
+     * LaunchDarkly servers in order to assist in the development of future SDK improvements. These diagnostics
+     * consist of an initial payload containing some details of SDK in use, the SDK's configuration, and the platform
+     * the SDK is being run on; as well as payloads sent periodically with information on irregular occurrences such
+     * as dropped events.
+     *
+     * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data
+     * @return the builder
+     */
+    public Builder diagnosticOptOut(boolean diagnosticOptOut) {
+      this.diagnosticOptOut = diagnosticOptOut;
+      return this;
+    }
+
+    /**
+     * For use by wrapper libraries to set an identifying name for the wrapper being used. This will be included in a
+     * header during requests to the LaunchDarkly servers to allow recording metrics on the usage of
+     * these wrapper libraries.
+     *
+     * @param wrapperName an identifying name for the wrapper library
+     * @return the builder
+     */
+    public Builder wrapperName(String wrapperName) {
+      this.wrapperName = wrapperName;
+      return this;
+    }
+
+    /**
+     * For use by wrapper libraries to report the version of the library in use. If {@link #wrapperName(String)} is not
+     * set, this field will be ignored. Otherwise the version string will be included in a header along
+     * with the wrapperName during requests to the LaunchDarkly servers.
+     *
+     * @param wrapperVersion Version string for the wrapper library
+     * @return the builder
+     */
+    public Builder wrapperVersion(String wrapperVersion) {
+      this.wrapperVersion = wrapperVersion;
+      return this;
+    }
+
     // returns null if none of the proxy bits were configured. Minimum required part: port.
     Proxy proxy() {
       if (this.proxyPort == -1) {

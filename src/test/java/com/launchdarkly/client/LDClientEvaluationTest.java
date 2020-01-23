@@ -260,7 +260,8 @@ public class LDClientEvaluationTest {
   
   @Test
   public void appropriateErrorForUnexpectedException() throws Exception {
-    DataStore badDataStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    RuntimeException exception = new RuntimeException("sorry");
+    DataStore badDataStore = dataStoreThatThrowsException(exception);
     LDConfig badConfig = new LDConfig.Builder()
         .dataStore(specificDataStore(badDataStore))
         .eventProcessor(Components.nullEventProcessor())
@@ -268,7 +269,7 @@ public class LDClientEvaluationTest {
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,
-          EvaluationReason.error(EvaluationReason.ErrorKind.EXCEPTION));
+          EvaluationReason.exception(exception));
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }
   }

@@ -15,7 +15,7 @@ import java.util.Map;
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
-import static com.launchdarkly.client.Util.getRequestBuilder;
+import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.Util.shutdownHttpClient;
 
 import okhttp3.Cache;
@@ -79,8 +79,9 @@ class DefaultFeatureRequestor implements FeatureRequestor {
   }
   
   private String get(String path) throws IOException, HttpErrorException {
-    Request request = getRequestBuilder(sdkKey)
+    Request request = new Request.Builder()
         .url(config.baseURI.resolve(path).toURL())
+        .headers(getHeadersBuilderFor(sdkKey, config).build())
         .get()
         .build();
 

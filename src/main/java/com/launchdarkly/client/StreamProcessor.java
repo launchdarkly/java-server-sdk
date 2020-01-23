@@ -3,8 +3,8 @@ package com.launchdarkly.client;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.ConnectionErrorHandler.Action;
@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
+import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 
@@ -43,9 +44,11 @@ final class StreamProcessor implements DataSource {
   private final LDConfig config;
   private final String sdkKey;
   private final FeatureRequestor requestor;
+  private final DiagnosticAccumulator diagnosticAccumulator;
   private final EventSourceCreator eventSourceCreator;
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
+  private volatile long esStarted = 0;
 
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
@@ -54,22 +57,26 @@ final class StreamProcessor implements DataSource {
   }
   
   StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, DataStore dataStore,
-      EventSourceCreator eventSourceCreator) {
+      EventSourceCreator eventSourceCreator, DiagnosticAccumulator diagnosticAccumulator) {
     this.store = dataStore;
     this.config = config;
     this.sdkKey = sdkKey;
     this.requestor = requestor;
+    this.diagnosticAccumulator = diagnosticAccumulator;
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
   }
 
   private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
     return (Throwable t) -> {
+      recordStreamInit(true);
       if (t instanceof UnsuccessfulResponseException) {
         int status = ((UnsuccessfulResponseException)t).getCode();
         logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
         if (!isHttpErrorRecoverable(status)) {
           return Action.SHUTDOWN;
         }
+        esStarted = System.currentTimeMillis();
+        return Action.PROCEED;
       }
       return Action.PROCEED;
     };
@@ -79,9 +86,7 @@ final class StreamProcessor implements DataSource {
   public Future<Void> start() {
     final SettableFuture<Void> initFuture = SettableFuture.create();
 
-    Headers headers = new Headers.Builder()
-        .add("Authorization", this.sdkKey)
-        .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION)
+    Headers headers = getHeadersBuilderFor(sdkKey, config)
         .add("Accept", "text/event-stream")
         .build();
 
@@ -92,7 +97,7 @@ final class StreamProcessor implements DataSource {
       }
       return result;
     };
-    
+
     EventHandler handler = new EventHandler() {
 
       @Override
@@ -108,6 +113,8 @@ final class StreamProcessor implements DataSource {
         Gson gson = new Gson();
         switch (name) {
           case PUT: {
+            recordStreamInit(false);
+            esStarted = 0;
             PutData putData = gson.fromJson(event.getData(), PutData.class); 
             store.init(DefaultFeatureRequestor.toVersionedDataMap(putData.data));
             if (!initialized.getAndSet(true)) {
@@ -192,10 +199,17 @@ final class StreamProcessor implements DataSource {
         URI.create(config.streamURI.toASCIIString() + "/all"),
         wrappedConnectionErrorHandler,
         headers);
+    esStarted = System.currentTimeMillis();
     es.start();
     return initFuture;
   }
-  
+
+  private void recordStreamInit(boolean failed) {
+    if (diagnosticAccumulator != null && esStarted != 0) {
+      diagnosticAccumulator.recordStreamInit(esStarted, System.currentTimeMillis() - esStarted, failed);
+    }
+  }
+
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly StreamProcessor");

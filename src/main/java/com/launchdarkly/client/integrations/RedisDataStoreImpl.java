@@ -1,7 +1,7 @@
 package com.launchdarkly.client.integrations;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.launchdarkly.client.interfaces.DataStoreCore;
+import com.launchdarkly.client.interfaces.PersistentDataStore;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
@@ -22,7 +22,7 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
 import redis.clients.util.JedisURIHelper;
 
-class RedisDataStoreImpl implements DataStoreCore {
+class RedisDataStoreImpl implements PersistentDataStore {
   private static final Logger logger = LoggerFactory.getLogger(RedisDataStoreImpl.class);
 
   private final JedisPool pool;

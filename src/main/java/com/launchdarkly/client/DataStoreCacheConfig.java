@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.common.cache.CacheBuilder;
+import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.client.interfaces.DataStore;
 
 import java.time.Duration;
@@ -25,7 +26,6 @@ import java.util.concurrent.TimeUnit;
  *         )
  * </code></pre>
  * 
- * @see com.launchdarkly.client.integrations.RedisDataStoreBuilder#caching(DataStoreCacheConfig)
  * @since 4.6.0
  */
 public final class DataStoreCacheConfig {
@@ -89,7 +89,40 @@ public final class DataStoreCacheConfig {
      * See: <a href="https://github.com/google/guava/wiki/CachesExplained#refresh">CacheBuilder</a> for
      * more specific information on cache semantics.
      */
-    REFRESH_ASYNC
+    REFRESH_ASYNC;
+    
+    /**
+     * Used internally for backward compatibility.
+     * @return the equivalent enum value
+     * @since 4.11.0
+     */
+    public PersistentDataStoreBuilder.StaleValuesPolicy toNewEnum() {
+      switch (this) {
+      case REFRESH:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH;
+      case REFRESH_ASYNC:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH_ASYNC;
+      default:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.EVICT;
+      }
+    }
+    
+    /**
+     * Used internally for backward compatibility.
+     * @param policy the enum value in the new API
+     * @return the equivalent enum value
+     * @since 4.11.0
+     */
+    public static StaleValuesPolicy fromNewEnum(PersistentDataStoreBuilder.StaleValuesPolicy policy) {
+      switch (policy) {
+      case REFRESH:
+        return StaleValuesPolicy.REFRESH;
+      case REFRESH_ASYNC:
+        return StaleValuesPolicy.REFRESH_ASYNC;
+      default:
+        return StaleValuesPolicy.EVICT;
+      }
+    }
   };
   
   /**
@@ -118,14 +151,31 @@ public final class DataStoreCacheConfig {
 
   /**
    * Returns true if caching will be enabled.
-   * @return true if the cache TTL is greater than 0
+   * @return true if the cache TTL is nonzero
    */
   public boolean isEnabled() {
-    return !cacheTime.isZero() && !cacheTime.isNegative();
+    return !cacheTime.isZero();
+  }
+    
+  /**
+   * Returns true if caching is enabled and does not have a finite TTL.
+   * @return true if the cache TTL is negative
+   */
+  public boolean isInfiniteTtl() {
+    return cacheTime.isNegative();
   }
   
   /**
-   * Returns the cache TTL. Caching is enabled if this is greater than zero.
+   * Returns the cache TTL.
+   * <p>
+   * If the value is zero, caching is disabled.
+   * <p>
+   * If the value is negative, data is cached forever (i.e. it will only be read again from the database
+   * if the SDK is restarted). Use the "cached forever" mode with caution: it means that in a scenario
+   * where multiple processes are sharing the database, and the current process loses connectivity to
+   * LaunchDarkly while other processes are still receiving updates and writing them to the database,
+   * the current process will have stale data.
+   * 
    * @return the cache TTL
    */
   public Duration getCacheTime() {
@@ -144,6 +194,15 @@ public final class DataStoreCacheConfig {
    * Specifies the cache TTL. Items will be evicted or refreshed (depending on {@link #staleValuesPolicy(StaleValuesPolicy)})
    * after this amount of time from the time when they were originally cached. If the time is less
    * than or equal to zero, caching is disabled.
+   * after this amount of time from the time when they were originally cached.
+   * <p>
+   * If the value is zero, caching is disabled.
+   * <p>
+   * If the value is negative, data is cached forever (i.e. it will only be read again from the database
+   * if the SDK is restarted). Use the "cached forever" mode with caution: it means that in a scenario
+   * where multiple processes are sharing the database, and the current process loses connectivity to
+   * LaunchDarkly while other processes are still receiving updates and writing them to the database,
+   * the current process will have stale data.
    * 
    * @param cacheTime the cache TTL
    * @return an updated parameters object

@@ -33,6 +33,7 @@ public class DataStoreCachingTest {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.DEFAULT;
     assertThat(fsc.getCacheTime(), equalTo(DataStoreCacheConfig.DEFAULT_TIME));
     assertThat(fsc.isEnabled(), equalTo(true));
+    assertThat(fsc.isInfiniteTtl(), equalTo(false));
     assertThat(fsc.getStaleValuesPolicy(), equalTo(EVICT));
   }
   
@@ -68,13 +69,15 @@ public class DataStoreCachingTest {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.enabled()
         .ttl(Duration.ZERO);
     assertThat(fsc.isEnabled(), equalTo(false));
+    assertThat(fsc.isInfiniteTtl(), equalTo(false));
   }
   
   @Test
-  public void negativeTtlMeansDisabled() {
+  public void negativeTtlMeansInfinite() {
     DataStoreCacheConfig fsc = DataStoreCacheConfig.enabled()
         .ttl(Duration.ofSeconds(-1));
-    assertThat(fsc.isEnabled(), equalTo(false));
+    assertThat(fsc.isEnabled(), equalTo(true));
+    assertThat(fsc.isInfiniteTtl(), equalTo(true));
   }
   
   @Test

@@ -1,0 +1,152 @@
+package com.launchdarkly.client;
+
+import java.util.List;
+
+class DiagnosticEvent {
+
+  final String kind;
+  final long creationDate;
+  final DiagnosticId id;
+
+  DiagnosticEvent(String kind, long creationDate, DiagnosticId id) {
+    this.kind = kind;
+    this.creationDate = creationDate;
+    this.id = id;
+  }
+
+  static class StreamInit {
+    long timestamp;
+    long durationMillis;
+    boolean failed;
+
+    StreamInit(long timestamp, long durationMillis, boolean failed) {
+      this.timestamp = timestamp;
+      this.durationMillis = durationMillis;
+      this.failed = failed;
+    }
+  }
+
+  static class Statistics extends DiagnosticEvent {
+
+    final long dataSinceDate;
+    final long droppedEvents;
+    final long deduplicatedUsers;
+    final long eventsInLastBatch;
+    final List<StreamInit> streamInits;
+
+    Statistics(long creationDate, DiagnosticId id, long dataSinceDate, long droppedEvents, long deduplicatedUsers,
+      long eventsInLastBatch, List<StreamInit> streamInits) {
+      super("diagnostic", creationDate, id);
+      this.dataSinceDate = dataSinceDate;
+      this.droppedEvents = droppedEvents;
+      this.deduplicatedUsers = deduplicatedUsers;
+      this.eventsInLastBatch = eventsInLastBatch;
+      this.streamInits = streamInits;
+    }
+  }
+
+  static class Init extends DiagnosticEvent {
+
+    final DiagnosticSdk sdk;
+    final DiagnosticConfiguration configuration;
+    final DiagnosticPlatform platform = new DiagnosticPlatform();
+
+    Init(long creationDate, DiagnosticId diagnosticId, LDConfig config) {
+      super("diagnostic-init", creationDate, diagnosticId);
+      this.sdk = new DiagnosticSdk(config);
+      this.configuration = new DiagnosticConfiguration(config);
+    }
+
+    @SuppressWarnings("unused") // fields are for JSON serialization only
+    static class DiagnosticConfiguration {
+      private final boolean customBaseURI;
+      private final boolean customEventsURI;
+      private final boolean customStreamURI;
+      private final int eventsCapacity;
+      private final int connectTimeoutMillis;
+      private final int socketTimeoutMillis;
+      private final long eventsFlushIntervalMillis;
+      private final boolean usingProxy;
+      private final boolean usingProxyAuthenticator;
+      private final boolean streamingDisabled;
+      private final boolean usingRelayDaemon;
+      private final boolean offline;
+      private final boolean allAttributesPrivate;
+      private final long pollingIntervalMillis;
+      private final long startWaitMillis;
+      private final long reconnectTimeMillis;
+      private final int userKeysCapacity;
+      private final long userKeysFlushIntervalMillis;
+      private final boolean inlineUsersInEvents;
+      private final int diagnosticRecordingIntervalMillis;
+      private final String featureStore;
+
+      DiagnosticConfiguration(LDConfig config) {
+        this.customBaseURI = !(LDConfig.DEFAULT_BASE_URI.equals(config.baseURI));
+        this.customEventsURI = !(LDConfig.DEFAULT_EVENTS_URI.equals(config.eventsURI));
+        this.customStreamURI = !(LDConfig.DEFAULT_STREAM_URI.equals(config.streamURI));
+        this.eventsCapacity = config.capacity;
+        this.connectTimeoutMillis = (int)config.connectTimeout.toMillis();
+        this.socketTimeoutMillis = (int)config.socketTimeout.toMillis();
+        this.eventsFlushIntervalMillis = config.flushInterval.toMillis();
+        this.usingProxy = config.proxy != null;
+        this.usingProxyAuthenticator = config.proxyAuthenticator != null;
+        this.streamingDisabled = !config.stream;
+        this.usingRelayDaemon = config.useLdd;
+        this.offline = config.offline;
+        this.allAttributesPrivate = config.allAttributesPrivate;
+        this.pollingIntervalMillis = config.pollingInterval.toMillis();
+        this.startWaitMillis = config.startWait.toMillis();
+        this.reconnectTimeMillis = config.reconnectTime.toMillis();
+        this.userKeysCapacity = config.userKeysCapacity;
+        this.userKeysFlushIntervalMillis = config.userKeysFlushInterval.toMillis();
+        this.inlineUsersInEvents = config.inlineUsersInEvents;
+        this.diagnosticRecordingIntervalMillis = (int)config.diagnosticRecordingInterval.toMillis();
+        if (config.dataStoreFactory != null) {
+          this.featureStore = "memory"; // TODO: add interface to describe the component
+        } else {
+          this.featureStore = null;
+        }
+      }
+    }
+
+    static class DiagnosticSdk {
+      final String name = "java-server-sdk";
+      final String version = LDClient.CLIENT_VERSION;
+      final String wrapperName;
+      final String wrapperVersion;
+
+      DiagnosticSdk(LDConfig config) {
+        this.wrapperName = config.wrapperName;
+        this.wrapperVersion = config.wrapperVersion;
+      }
+    }
+
+    @SuppressWarnings("unused") // fields are for JSON serialization only
+    static class DiagnosticPlatform {
+      private final String name = "Java";
+      private final String javaVendor = System.getProperty("java.vendor");
+      private final String javaVersion = System.getProperty("java.version");
+      private final String osArch = System.getProperty("os.arch");
+      private final String osName = normalizeOsName(System.getProperty("os.name"));
+      private final String osVersion = System.getProperty("os.version");
+
+      DiagnosticPlatform() {
+      }
+      
+      private static String normalizeOsName(String osName) {
+        // For our diagnostics data, we prefer the standard names "Linux", "MacOS", and "Windows".
+        // "Linux" is already what the JRE returns in Linux. In Windows, we get "Windows 10" etc.
+        if (osName != null) {
+          if (osName.equals("Mac OS X")) {
+            return "MacOS";
+          }
+          if (osName.startsWith("Windows")) {
+            return "Windows";
+          }
+        }
+        return osName;
+      }
+    }
+  }
+}

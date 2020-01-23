@@ -3,10 +3,26 @@ package com.launchdarkly.client;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.ConnectionPool;
+import okhttp3.Headers;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 
 class Util {
+  static Headers.Builder getHeadersBuilderFor(String sdkKey, LDConfig config) {
+    Headers.Builder builder = new Headers.Builder()
+        .add("Authorization", sdkKey)
+        .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
+
+    if (config.wrapperName != null) {
+      String wrapperVersion = "";
+      if (config.wrapperVersion != null) {
+        wrapperVersion = "/" + config.wrapperVersion;
+      }
+      builder.add("X-LaunchDarkly-Wrapper", config.wrapperName + wrapperVersion);
+    }
+
+    return builder;
+  }
+  
   static void configureHttpClientBuilder(LDConfig config, OkHttpClient.Builder builder) {
     builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
       .connectTimeout(config.connectTimeout.toMillis(), TimeUnit.MILLISECONDS)
@@ -24,12 +40,6 @@ class Util {
         builder.proxyAuthenticator(config.proxyAuthenticator);
       }
     }
-  }
-  
-  static Request.Builder getRequestBuilder(String sdkKey) {
-    return new Request.Builder()
-        .addHeader("Authorization", sdkKey)
-        .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
   }
   
   static void shutdownHttpClient(OkHttpClient client) {
