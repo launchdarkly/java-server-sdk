@@ -8,7 +8,7 @@ import java.net.URI;
 /**
  * Contains methods for configuring the polling data source.
  * <p>
- * This is not the default behavior; by default, the SDK uses a streaming connection to receive feature flag
+ * Polling is not the default behavior; by default, the SDK uses a streaming connection to receive feature flag
  * data from LaunchDarkly. In polling mode, the SDK instead makes a new HTTP request to LaunchDarkly at regular
  * intervals. HTTP caching allows it to avoid redundantly downloading data if there have been no changes, but
  * polling is still less efficient than streaming and should only be used on the advice of LaunchDarkly support.
