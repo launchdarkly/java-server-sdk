@@ -36,7 +36,7 @@ public class LDClientEvaluationTest {
   private LDConfig config = new LDConfig.Builder()
       .dataStore(specificFeatureStore(featureStore))
       .eventProcessor(Components.nullEventProcessor())
-      .dataSource(Components.nullDataSource())
+      .dataSource(Components.externalUpdatesOnly())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
   
@@ -266,7 +266,7 @@ public class LDClientEvaluationTest {
     LDConfig badConfig = new LDConfig.Builder()
         .dataStore(specificFeatureStore(badFeatureStore))
         .eventProcessor(Components.nullEventProcessor())
-        .dataSource(Components.nullDataSource())
+        .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,

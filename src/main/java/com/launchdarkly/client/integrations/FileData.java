@@ -7,7 +7,7 @@ package com.launchdarkly.client.integrations;
  * typically be used in a test environment, to operate using a predetermined feature flag state
  * without an actual LaunchDarkly connection. See {@link #dataSource()} for details.
  * 
- * @since 4.11.0
+ * @since 4.12.0
  */
 public abstract class FileData {
   /**
@@ -106,7 +106,7 @@ public abstract class FileData {
    * duplicate key-- it will not load flags from any of the files.
    * 
    * @return a data source configuration object
-   * @since 4.11.0
+   * @since 4.12.0
    */
   public static FileDataSourceBuilder dataSource() {
     return new FileDataSourceBuilder();

@@ -71,14 +71,16 @@ public class LDConfigTest {
 
   @Test
   public void testMinimumPollingIntervalIsEnforcedProperly(){
+    @SuppressWarnings("deprecation")
     LDConfig config = new LDConfig.Builder().pollingIntervalMillis(10L).build();
-    assertEquals(30000L, config.pollingIntervalMillis);
+    assertEquals(30000L, config.deprecatedPollingIntervalMillis);
   }
 
   @Test
   public void testPollingIntervalIsEnforcedProperly(){
+    @SuppressWarnings("deprecation")
     LDConfig config = new LDConfig.Builder().pollingIntervalMillis(30001L).build();
-    assertEquals(30001L, config.pollingIntervalMillis);
+    assertEquals(30001L, config.deprecatedPollingIntervalMillis);
   }
   
   @Test

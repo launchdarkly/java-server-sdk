@@ -10,7 +10,7 @@ import com.launchdarkly.client.utils.FeatureStoreCore;
  * {@link com.launchdarkly.client.Components#persistentDataStore}.
  * 
  * @see com.launchdarkly.client.Components
- * @since 4.11.0
+ * @since 4.12.0
  */
 public interface PersistentDataStoreFactory {
   /**

@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
 @SuppressWarnings("serial")
-class HttpErrorException extends Exception {
+final class HttpErrorException extends Exception {
   private final int status;
   
   public HttpErrorException(int status) {

@@ -21,14 +21,13 @@ import static org.junit.Assert.assertTrue;
 public class LDClientOfflineTest {
   private static final LDUser user = new LDUser("user");
   
-  @SuppressWarnings("deprecation")
   @Test
   public void offlineClientHasNullUpdateProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(UpdateProcessor.NullUpdateProcessor.class, client.updateProcessor.getClass());
+      assertEquals(Components.NullUpdateProcessor.class, client.updateProcessor.getClass());
     }
   }
 

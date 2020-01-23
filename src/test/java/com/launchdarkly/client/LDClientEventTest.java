@@ -31,7 +31,7 @@ public class LDClientEventTest {
   private LDConfig config = new LDConfig.Builder()
       .dataStore(specificFeatureStore(featureStore))
       .eventProcessor(specificEventProcessor(eventSink))
-      .dataSource(Components.nullDataSource())
+      .dataSource(Components.externalUpdatesOnly())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
   
