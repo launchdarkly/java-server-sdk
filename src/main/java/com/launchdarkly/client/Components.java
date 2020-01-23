@@ -127,7 +127,7 @@ public abstract class Components {
   }
 
   /**
-   * Returns a configuration object for using streaming mode to get feature flag data.
+   * Returns a configurable factory for using streaming mode to get feature flag data.
    * <p>
    * By default, the SDK uses a streaming connection to receive feature flag data from LaunchDarkly. To use the
    * default behavior, you do not need to call this method. However, if you want to customize the behavior of
