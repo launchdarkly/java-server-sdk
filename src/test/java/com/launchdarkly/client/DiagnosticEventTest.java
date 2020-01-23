@@ -3,6 +3,8 @@ package com.launchdarkly.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
+import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
@@ -14,6 +16,7 @@ import java.util.UUID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+@SuppressWarnings("javadoc")
 public class DiagnosticEventTest {
 
   private static Gson gson = new Gson();
@@ -47,31 +50,31 @@ public class DiagnosticEventTest {
   @Test
   public void testDefaultDiagnosticConfiguration() {
     LDConfig ldConfig = new LDConfig.Builder().build();
-    DiagnosticEvent.Init.DiagnosticConfiguration diagnosticConfiguration = new DiagnosticEvent.Init.DiagnosticConfiguration(ldConfig);
-    JsonObject diagnosticJson = new Gson().toJsonTree(diagnosticConfiguration).getAsJsonObject();
-    JsonObject expected = new JsonObject();
-    expected.addProperty("allAttributesPrivate", false);
-    expected.addProperty("connectTimeoutMillis", 2_000);
-    expected.addProperty("customBaseURI", false);
-    expected.addProperty("customEventsURI", false);
-    expected.addProperty("customStreamURI", false);
-    expected.addProperty("diagnosticRecordingIntervalMillis", 900_000);
-    expected.addProperty("eventsCapacity", 10_000);
-    expected.addProperty("eventsFlushIntervalMillis",5_000);
-    expected.addProperty("featureStore", "InMemoryFeatureStoreFactory");
-    expected.addProperty("inlineUsersInEvents", false);
-    expected.addProperty("offline", false);
-    expected.addProperty("pollingIntervalMillis", 30_000);
-    expected.addProperty("reconnectTimeMillis", 1_000);
-    expected.addProperty("samplingInterval", 0);
-    expected.addProperty("socketTimeoutMillis", 10_000);
-    expected.addProperty("startWaitMillis", 5_000);
-    expected.addProperty("streamingDisabled", false);
-    expected.addProperty("userKeysCapacity", 1_000);
-    expected.addProperty("userKeysFlushIntervalMillis", 300_000);
-    expected.addProperty("usingProxy", false);
-    expected.addProperty("usingProxyAuthenticator", false);
-    expected.addProperty("usingRelayDaemon", false);
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = LDValue.buildObject()
+        .put("allAttributesPrivate", false)
+        .put("connectTimeoutMillis", 2_000)
+        .put("customBaseURI", false)
+        .put("customEventsURI", false)
+        .put("customStreamURI", false)
+        .put("dataStore", "memory")
+        .put("diagnosticRecordingIntervalMillis", 900_000)
+        .put("eventsCapacity", 10_000)
+        .put("eventsFlushIntervalMillis",5_000)
+        .put("inlineUsersInEvents", false)
+        .put("offline", false)
+        .put("pollingIntervalMillis", 30_000)
+        .put("reconnectTimeMillis", 1_000)
+        .put("samplingInterval", 0)
+        .put("socketTimeoutMillis", 10_000)
+        .put("startWaitMillis", 5_000)
+        .put("streamingDisabled", false)
+        .put("userKeysCapacity", 1_000)
+        .put("userKeysFlushIntervalMillis", 300_000)
+        .put("usingProxy", false)
+        .put("usingProxyAuthenticator", false)
+        .put("usingRelayDaemon", false)
+        .build();
 
     assertEquals(expected, diagnosticJson);
   }
@@ -89,7 +92,7 @@ public class DiagnosticEventTest {
             .sendEvents(false)
             .capacity(20_000)
             .flushInterval(10)
-            .featureStoreFactory(Components.redisFeatureStore())
+            .dataStore(Components.redisFeatureStore())
             .inlineUsersInEvents(true)
             .offline(true)
             .pollingIntervalMillis(60_000)
@@ -106,33 +109,59 @@ public class DiagnosticEventTest {
             .useLdd(true)
             .build();
 
-    DiagnosticEvent.Init.DiagnosticConfiguration diagnosticConfiguration = new DiagnosticEvent.Init.DiagnosticConfiguration(ldConfig);
-    JsonObject diagnosticJson = gson.toJsonTree(diagnosticConfiguration).getAsJsonObject();
-    JsonObject expected = new JsonObject();
-    expected.addProperty("allAttributesPrivate", true);
-    expected.addProperty("connectTimeoutMillis", 5_000);
-    expected.addProperty("customBaseURI", true);
-    expected.addProperty("customEventsURI", true);
-    expected.addProperty("customStreamURI", true);
-    expected.addProperty("diagnosticRecordingIntervalMillis", 1_800_000);
-    expected.addProperty("eventsCapacity", 20_000);
-    expected.addProperty("eventsFlushIntervalMillis",10_000);
-    expected.addProperty("featureStore", "RedisFeatureStoreBuilder");
-    expected.addProperty("inlineUsersInEvents", true);
-    expected.addProperty("offline", true);
-    expected.addProperty("pollingIntervalMillis", 60_000);
-    expected.addProperty("reconnectTimeMillis", 2_000);
-    expected.addProperty("samplingInterval", 1);
-    expected.addProperty("socketTimeoutMillis", 20_000);
-    expected.addProperty("startWaitMillis", 10_000);
-    expected.addProperty("streamingDisabled", true);
-    expected.addProperty("userKeysCapacity",  2_000);
-    expected.addProperty("userKeysFlushIntervalMillis", 600_000);
-    expected.addProperty("usingProxy", true);
-    expected.addProperty("usingProxyAuthenticator", true);
-    expected.addProperty("usingRelayDaemon", true);
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = LDValue.buildObject()
+        .put("allAttributesPrivate", true)
+        .put("connectTimeoutMillis", 5_000)
+        .put("customBaseURI", true)
+        .put("customEventsURI", true)
+        .put("customStreamURI", true)
+        .put("dataStore", "Redis")
+        .put("diagnosticRecordingIntervalMillis", 1_800_000)
+        .put("eventsCapacity", 20_000)
+        .put("eventsFlushIntervalMillis",10_000)
+        .put("inlineUsersInEvents", true)
+        .put("offline", true)
+        .put("pollingIntervalMillis", 60_000)
+        .put("reconnectTimeMillis", 2_000)
+        .put("samplingInterval", 1)
+        .put("socketTimeoutMillis", 20_000)
+        .put("startWaitMillis", 10_000)
+        .put("streamingDisabled", true)
+        .put("userKeysCapacity",  2_000)
+        .put("userKeysFlushIntervalMillis", 600_000)
+        .put("usingProxy", true)
+        .put("usingProxyAuthenticator", true)
+        .put("usingRelayDaemon", true)
+        .build();
 
     assertEquals(expected, diagnosticJson);
   }
 
+  @Test
+  public void customComponentCannotInjectOverlyLongData() {
+    LDConfig ldConfig = new LDConfig.Builder().dataStore(new FakeStoreFactory()).build();
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    assertEquals(FakeStoreFactory.veryLongString().substring(0, 100), diagnosticJson.get("dataStore").stringValue());
+  }
+  
+  private static class FakeStoreFactory implements FeatureStoreFactory, DiagnosticDescription {
+    @Override
+    public LDValue describeConfiguration() {
+      return LDValue.of(veryLongString());
+    }
+
+    @Override
+    public FeatureStore createFeatureStore() {
+      return null;
+    }    
+    
+    public static String veryLongString() {
+      StringBuilder b = new StringBuilder();
+      for (int i = 0; i < 128; i++) {
+        b.append('@' + i);
+      }
+      return b.toString();
+    }
+  }
 }

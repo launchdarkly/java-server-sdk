@@ -1,7 +1,9 @@
 package com.launchdarkly.client;
 
 import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -169,10 +171,15 @@ public abstract class Components {
     return nullUpdateProcessorFactory;
   }
   
-  private static final class InMemoryFeatureStoreFactory implements FeatureStoreFactory {
+  private static final class InMemoryFeatureStoreFactory implements FeatureStoreFactory, DiagnosticDescription {
     @Override
     public FeatureStore createFeatureStore() {
       return new InMemoryFeatureStore();
+    }
+
+    @Override
+    public LDValue describeConfiguration() {
+      return LDValue.of("memory");
     }
   }
   
@@ -202,12 +209,12 @@ public abstract class Components {
     // Note, logger uses LDClient class name for backward compatibility
     private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
     
-    @SuppressWarnings("deprecation")
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       return createUpdateProcessor(sdkKey, config, featureStore, null);
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore,
                                                  DiagnosticAccumulator diagnosticAccumulator) {

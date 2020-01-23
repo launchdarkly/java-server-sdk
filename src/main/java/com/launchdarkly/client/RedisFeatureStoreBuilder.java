@@ -4,6 +4,8 @@ import com.launchdarkly.client.integrations.CacheMonitor;
 import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.client.integrations.Redis;
 import com.launchdarkly.client.integrations.RedisDataStoreBuilder;
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
+import com.launchdarkly.client.value.LDValue;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -20,7 +22,7 @@ import redis.clients.jedis.JedisPoolConfig;
  * @deprecated Use {@link com.launchdarkly.client.integrations.Redis#dataStore()}
  */
 @Deprecated
-public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
+public final class RedisFeatureStoreBuilder implements FeatureStoreFactory, DiagnosticDescription {
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
    * @since 4.0.0
@@ -280,5 +282,10 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory {
    */
   public RedisFeatureStore createFeatureStore() {
     return build();
+  }
+
+  @Override
+  public LDValue describeConfiguration() {
+    return LDValue.of("Redis");
   }
 }
