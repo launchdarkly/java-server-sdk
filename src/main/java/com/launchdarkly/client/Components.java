@@ -13,7 +13,16 @@ import java.util.concurrent.Future;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 /**
- * Provides factories for the standard implementations of LaunchDarkly component interfaces.
+ * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.
+ * <p>
+ * Some of the configuration options in {@link LDConfig.Builder} affect the entire SDK, but others are
+ * specific to one area of functionality, such as how the SDK receives feature flag updates or processes
+ * analytics events. For the latter, the standard way to specify a configuration is to call one of the
+ * static methods in {@link Components} (such as {@link #streamingDataSource()}), apply any desired
+ * configuration change to the object that that method returns (such as {@link StreamingDataSourceBuilder#initialReconnectDelayMillis(long)},
+ * and then use the corresponding method in {@link LDConfig.Builder} (such as {@link LDConfig.Builder#dataSource(UpdateProcessorFactory)})
+ * to use that configured component in the SDK.
+ * 
  * @since 4.0.0
  */
 public abstract class Components {
