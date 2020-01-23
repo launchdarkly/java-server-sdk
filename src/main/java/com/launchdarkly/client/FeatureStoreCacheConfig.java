@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.common.cache.CacheBuilder;
+import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -25,7 +26,9 @@ import java.util.concurrent.TimeUnit;
  * 
  * @see RedisFeatureStoreBuilder#caching(FeatureStoreCacheConfig)
  * @since 4.6.0
+ * @deprecated This has been superseded by the {@link PersistentDataStoreBuilder} interface.
  */
+@Deprecated
 public final class FeatureStoreCacheConfig {
   /**
    * The default TTL, in seconds, used by {@link #DEFAULT}.
@@ -88,7 +91,40 @@ public final class FeatureStoreCacheConfig {
      * See: <a href="https://github.com/google/guava/wiki/CachesExplained#refresh">CacheBuilder</a> for
      * more specific information on cache semantics.
      */
-    REFRESH_ASYNC
+    REFRESH_ASYNC;
+    
+    /**
+     * Used internally for backward compatibility.
+     * @return the equivalent enum value
+     * @since 4.11.0
+     */
+    public PersistentDataStoreBuilder.StaleValuesPolicy toNewEnum() {
+      switch (this) {
+      case REFRESH:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH;
+      case REFRESH_ASYNC:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH_ASYNC;
+      default:
+        return PersistentDataStoreBuilder.StaleValuesPolicy.EVICT;
+      }
+    }
+    
+    /**
+     * Used internally for backward compatibility.
+     * @param policy the enum value in the new API
+     * @return the equivalent enum value
+     * @since 4.11.0
+     */
+    public static StaleValuesPolicy fromNewEnum(PersistentDataStoreBuilder.StaleValuesPolicy policy) {
+      switch (policy) {
+      case REFRESH:
+        return StaleValuesPolicy.REFRESH;
+      case REFRESH_ASYNC:
+        return StaleValuesPolicy.REFRESH_ASYNC;
+      default:
+        return StaleValuesPolicy.EVICT;
+      }
+    }
   };
   
   /**

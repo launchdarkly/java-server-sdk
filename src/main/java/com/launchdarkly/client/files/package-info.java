@@ -1,6 +1,4 @@
 /**
- * Package for the file data source component, which may be useful in tests.
- * <p>
- * The entry point is {@link com.launchdarkly.client.files.FileComponents}. 
+ * Deprecated package replaced by {@link com.launchdarkly.client.integrations.FileData}. 
  */
 package com.launchdarkly.client.files;

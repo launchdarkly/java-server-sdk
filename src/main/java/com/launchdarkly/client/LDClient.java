@@ -72,8 +72,8 @@ public final class LDClient implements LDClientInterface {
       // of instances that we created ourselves from a factory.
       this.shouldCloseFeatureStore = false;
     } else {
-      FeatureStoreFactory factory = this.config.featureStoreFactory == null ?
-          Components.inMemoryFeatureStore() : this.config.featureStoreFactory;
+      FeatureStoreFactory factory = config.dataStoreFactory == null ?
+          Components.inMemoryDataStore() : config.dataStoreFactory;
       store = factory.createFeatureStore();
       this.shouldCloseFeatureStore = true;
     }
@@ -81,8 +81,6 @@ public final class LDClient implements LDClientInterface {
 
     EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
         Components.defaultEventProcessor() : this.config.eventProcessorFactory;
-    UpdateProcessorFactory upFactory = this.config.updateProcessorFactory == null ?
-            Components.defaultUpdateProcessor() : this.config.updateProcessorFactory;
 
     DiagnosticAccumulator diagnosticAccumulator = null;
     // Do not create accumulator if config has specified is opted out, or if epFactory doesn't support diagnostics
@@ -97,6 +95,9 @@ public final class LDClient implements LDClientInterface {
       this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
     }
 
+    UpdateProcessorFactory upFactory = this.config.dataSourceFactory == null ?
+        Components.defaultDataSource() : this.config.dataSourceFactory;
+    
     if (upFactory instanceof UpdateProcessorFactoryWithDiagnostics) {
       UpdateProcessorFactoryWithDiagnostics upwdFactory = ((UpdateProcessorFactoryWithDiagnostics) upFactory);
       this.updateProcessor = upwdFactory.createUpdateProcessor(sdkKey, this.config, featureStore, diagnosticAccumulator);

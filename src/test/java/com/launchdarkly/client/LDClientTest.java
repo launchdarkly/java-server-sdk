@@ -150,8 +150,8 @@ public class LDClientTest extends EasyMockSupport {
             .stream(false)
             .baseURI(URI.create("http://fake"))
             .startWaitMillis(0)
-            .eventProcessorFactory(mockEventProcessorFactory)
-            .updateProcessorFactory(mockUpdateProcessorFactory)
+            .eventProcessor(mockEventProcessorFactory)
+            .dataSource(mockUpdateProcessorFactory)
             .build();
 
     Capture<DiagnosticAccumulator> capturedEventAccumulator = Capture.newInstance();
@@ -177,8 +177,8 @@ public class LDClientTest extends EasyMockSupport {
             .stream(false)
             .baseURI(URI.create("http://fake"))
             .startWaitMillis(0)
-            .eventProcessorFactory(mockEventProcessorFactory)
-            .updateProcessorFactory(mockUpdateProcessorFactory)
+            .eventProcessor(mockEventProcessorFactory)
+            .dataSource(mockUpdateProcessorFactory)
             .diagnosticOptOut(true)
             .build();
 
@@ -201,8 +201,8 @@ public class LDClientTest extends EasyMockSupport {
             .stream(false)
             .baseURI(URI.create("http://fake"))
             .startWaitMillis(0)
-            .eventProcessorFactory(mockEventProcessorFactory)
-            .updateProcessorFactory(mockUpdateProcessorFactory)
+            .eventProcessor(mockEventProcessorFactory)
+            .dataSource(mockUpdateProcessorFactory)
             .build();
 
     expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class))).andReturn(niceMock(EventProcessor.class));
@@ -283,7 +283,7 @@ public class LDClientTest extends EasyMockSupport {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStoreFactory(specificFeatureStore(testFeatureStore));
+            .dataStore(specificFeatureStore(testFeatureStore));
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(true).times(1);
     replayAll();
@@ -300,7 +300,7 @@ public class LDClientTest extends EasyMockSupport {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStoreFactory(specificFeatureStore(testFeatureStore));
+            .dataStore(specificFeatureStore(testFeatureStore));
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(true).times(1);
     replayAll();
@@ -316,7 +316,7 @@ public class LDClientTest extends EasyMockSupport {
     FeatureStore testFeatureStore = new InMemoryFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStoreFactory(specificFeatureStore(testFeatureStore));
+            .dataStore(specificFeatureStore(testFeatureStore));
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(false).times(1);
     replayAll();
@@ -333,7 +333,7 @@ public class LDClientTest extends EasyMockSupport {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWaitMillis(0)
-            .featureStoreFactory(specificFeatureStore(testFeatureStore));
+            .dataStore(specificFeatureStore(testFeatureStore));
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(false).times(1);
     replayAll();
@@ -349,7 +349,7 @@ public class LDClientTest extends EasyMockSupport {
   public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig.Builder config = new LDConfig.Builder()
-        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .dataStore(specificFeatureStore(testFeatureStore))
         .startWaitMillis(0L);
     expect(updateProcessor.start()).andReturn(initFuture);
     expect(updateProcessor.initialized()).andReturn(false);
@@ -376,8 +376,8 @@ public class LDClientTest extends EasyMockSupport {
     replay(store);
     
     LDConfig.Builder config = new LDConfig.Builder()
-        .updateProcessorFactory(updateProcessorWithData(DEPENDENCY_ORDERING_TEST_DATA))
-        .featureStoreFactory(specificFeatureStore(store))
+        .dataSource(updateProcessorWithData(DEPENDENCY_ORDERING_TEST_DATA))
+        .dataStore(specificFeatureStore(store))
         .sendEvents(false);
     client = new LDClient(SDK_KEY, config.build());
     
@@ -422,8 +422,8 @@ public class LDClientTest extends EasyMockSupport {
   }
   
   private LDClientInterface createMockClient(LDConfig.Builder config) {
-    config.updateProcessorFactory(TestUtil.specificUpdateProcessor(updateProcessor));
-    config.eventProcessorFactory(TestUtil.specificEventProcessor(eventProcessor));
+    config.dataSource(TestUtil.specificUpdateProcessor(updateProcessor));
+    config.eventProcessor(TestUtil.specificEventProcessor(eventProcessor));
     return new LDClient(SDK_KEY, config.build());
   }
   

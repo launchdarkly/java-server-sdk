@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * A thread-safe, versioned store for {@link FeatureFlag} objects and related data based on a
+ * A thread-safe, versioned store for feature flags and related data based on a
  * {@link HashMap}. This is the default implementation of {@link FeatureStore}.
  */
 public class InMemoryFeatureStore implements FeatureStore {

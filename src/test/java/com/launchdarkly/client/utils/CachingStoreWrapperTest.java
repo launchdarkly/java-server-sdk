@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.integrations.CacheMonitor;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -21,9 +22,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeThat;
 
-@SuppressWarnings("javadoc")
+@SuppressWarnings({ "javadoc", "deprecation" })
 @RunWith(Parameterized.class)
 public class CachingStoreWrapperTest {
 
@@ -62,7 +64,7 @@ public class CachingStoreWrapperTest {
   public CachingStoreWrapperTest(CachingMode cachingMode) {
     this.cachingMode = cachingMode;
     this.core = new MockCore();
-    this.wrapper = new CachingStoreWrapper(core, cachingMode.toCacheConfig());
+    this.wrapper = new CachingStoreWrapper(core, cachingMode.toCacheConfig(), null);
   }
   
   @Test
@@ -388,7 +390,7 @@ public class CachingStoreWrapperTest {
     assumeThat(cachingMode.isCached(), is(true));
     
     // We need to create a different object for this test so we can set a short cache TTL
-    try (CachingStoreWrapper wrapper1 = new CachingStoreWrapper(core, FeatureStoreCacheConfig.enabled().ttlMillis(500))) {
+    try (CachingStoreWrapper wrapper1 = new CachingStoreWrapper(core, FeatureStoreCacheConfig.enabled().ttlMillis(500), null)) {
       assertThat(wrapper1.initialized(), is(false));
       assertThat(core.initedQueryCount, equalTo(1));
       
@@ -403,6 +405,51 @@ public class CachingStoreWrapperTest {
       // From this point on it should remain true and the method should not be called
       assertThat(wrapper1.initialized(), is(true));
       assertThat(core.initedQueryCount, equalTo(2));
+    }
+  }
+  
+  @Test
+  public void canGetCacheStats() throws Exception {
+    assumeThat(cachingMode, is(CachingMode.CACHED_WITH_FINITE_TTL));
+    
+    CacheMonitor cacheMonitor = new CacheMonitor();
+    
+    try (CachingStoreWrapper w = new CachingStoreWrapper(core, FeatureStoreCacheConfig.enabled().ttlSeconds(30), cacheMonitor)) {
+      CacheMonitor.CacheStats stats = cacheMonitor.getCacheStats();
+      
+      assertThat(stats, equalTo(new CacheMonitor.CacheStats(0, 0, 0, 0, 0, 0)));
+      
+      // Cause a cache miss
+      w.get(THINGS, "key1");
+      stats = cacheMonitor.getCacheStats();
+      assertThat(stats.getHitCount(), equalTo(0L));
+      assertThat(stats.getMissCount(), equalTo(1L));
+      assertThat(stats.getLoadSuccessCount(), equalTo(1L)); // even though it's a miss, it's a "success" because there was no exception
+      assertThat(stats.getLoadExceptionCount(), equalTo(0L));
+      
+      // Cause a cache hit
+      core.forceSet(THINGS, new MockItem("key2", 1, false));
+      w.get(THINGS, "key2"); // this one is a cache miss, but causes the item to be loaded and cached
+      w.get(THINGS, "key2"); // now it's a cache hit
+      stats = cacheMonitor.getCacheStats();
+      assertThat(stats.getHitCount(), equalTo(1L));
+      assertThat(stats.getMissCount(), equalTo(2L));
+      assertThat(stats.getLoadSuccessCount(), equalTo(2L));
+      assertThat(stats.getLoadExceptionCount(), equalTo(0L));
+      
+      // Cause a load exception
+      core.fakeError = new RuntimeException("sorry");
+      try {
+        w.get(THINGS, "key3"); // cache miss -> tries to load the item -> gets an exception
+        fail("expected exception");
+      } catch (RuntimeException e) {
+        assertThat(e.getCause(), is((Throwable)core.fakeError));
+      }
+      stats = cacheMonitor.getCacheStats();
+      assertThat(stats.getHitCount(), equalTo(1L));
+      assertThat(stats.getMissCount(), equalTo(3L));
+      assertThat(stats.getLoadSuccessCount(), equalTo(2L));
+      assertThat(stats.getLoadExceptionCount(), equalTo(1L));
     }
   }
   

@@ -106,8 +106,8 @@ class DiagnosticEvent {
         this.diagnosticRecordingIntervalMillis = config.diagnosticRecordingIntervalMillis;
         if (config.deprecatedFeatureStore != null) {
           this.featureStore = config.deprecatedFeatureStore.getClass().getSimpleName();
-        } else if (config.featureStoreFactory != null) {
-          this.featureStore = config.featureStoreFactory.getClass().getSimpleName();
+        } else if (config.dataStoreFactory != null) {
+          this.featureStore = config.dataStoreFactory.getClass().getSimpleName();
         } else {
           this.featureStore = null;
         }
