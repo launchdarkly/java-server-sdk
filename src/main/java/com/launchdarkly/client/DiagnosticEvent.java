@@ -83,9 +83,9 @@ class DiagnosticEvent {
       private final String featureStore;
 
       DiagnosticConfiguration(LDConfig config) {
-        this.customBaseURI = !(LDConfig.DEFAULT_BASE_URI.equals(config.baseURI));
+        this.customBaseURI = !(LDConfig.DEFAULT_BASE_URI.equals(config.deprecatedBaseURI)); // TODO: get actual config from components
         this.customEventsURI = !(LDConfig.DEFAULT_EVENTS_URI.equals(config.eventsURI));
-        this.customStreamURI = !(LDConfig.DEFAULT_STREAM_URI.equals(config.streamURI));
+        this.customStreamURI = !(LDConfig.DEFAULT_STREAM_URI.equals(config.deprecatedStreamURI));
         this.eventsCapacity = config.capacity;
         this.connectTimeoutMillis = (int)config.connectTimeoutUnit.toMillis(config.connectTimeout);
         this.socketTimeoutMillis = (int)config.socketTimeoutUnit.toMillis(config.socketTimeout);
@@ -93,13 +93,16 @@ class DiagnosticEvent {
         this.usingProxy = config.proxy != null;
         this.usingProxyAuthenticator = config.proxyAuthenticator != null;
         this.streamingDisabled = !config.stream;
-        this.usingRelayDaemon = config.useLdd;
+        this.usingRelayDaemon =
+            config.dataSourceFactory == Components.externalUpdatesOnly() &&
+            config.dataStoreFactory != null &&
+            config.dataStoreFactory != Components.inMemoryDataStore();
         this.offline = config.offline;
         this.allAttributesPrivate = config.allAttributesPrivate;
-        this.pollingIntervalMillis = config.pollingIntervalMillis;
+        this.pollingIntervalMillis = config.deprecatedPollingIntervalMillis;
         this.startWaitMillis = config.startWaitMillis;
         this.samplingInterval = config.samplingInterval;
-        this.reconnectTimeMillis = config.reconnectTimeMs;
+        this.reconnectTimeMillis = config.deprecatedReconnectTimeMs;
         this.userKeysCapacity = config.userKeysCapacity;
         this.userKeysFlushIntervalMillis = config.userKeysFlushInterval * 1000;
         this.inlineUsersInEvents = config.inlineUsersInEvents;
@@ -109,7 +112,7 @@ class DiagnosticEvent {
         } else if (config.dataStoreFactory != null) {
           this.featureStore = config.dataStoreFactory.getClass().getSimpleName();
         } else {
-          this.featureStore = null;
+          this.featureStore = Components.inMemoryDataStore().getClass().getSimpleName();
         }
       }
     }

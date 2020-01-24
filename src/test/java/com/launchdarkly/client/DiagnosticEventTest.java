@@ -14,12 +14,12 @@ import java.util.UUID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+@SuppressWarnings("javadoc")
 public class DiagnosticEventTest {
 
   private static Gson gson = new Gson();
   private static List<DiagnosticEvent.StreamInit> testStreamInits = Collections.singletonList(new DiagnosticEvent.StreamInit(1500, 100, true));
 
-  @SuppressWarnings("ResultOfMethodCallIgnored")
   @Test
   public void testSerialization() {
     DiagnosticId diagnosticId = new DiagnosticId("SDK_KEY");
@@ -31,7 +31,8 @@ public class DiagnosticEventTest {
     JsonObject idObject = jsonObject.getAsJsonObject("id");
     assertEquals("DK_KEY", idObject.getAsJsonPrimitive("sdkKeySuffix").getAsString());
     // Throws InvalidArgumentException on invalid UUID
-    UUID.fromString(idObject.getAsJsonPrimitive("diagnosticId").getAsString());
+    @SuppressWarnings("unused")
+    UUID uuid = UUID.fromString(idObject.getAsJsonPrimitive("diagnosticId").getAsString());
     assertEquals(1000, jsonObject.getAsJsonPrimitive("dataSinceDate").getAsLong());
     assertEquals(1, jsonObject.getAsJsonPrimitive("droppedEvents").getAsLong());
     assertEquals(2, jsonObject.getAsJsonPrimitive("deduplicatedUsers").getAsLong());

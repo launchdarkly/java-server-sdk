@@ -94,8 +94,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void clientHasDefaultEventProcessorIfSendEventsIsTrue() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .stream(false)
-        .baseURI(URI.create("/fake"))
+        .dataSource(Components.externalUpdatesOnly())
         .startWaitMillis(0)
         .sendEvents(true)
         .build();
@@ -107,8 +106,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void clientHasNullEventProcessorIfSendEventsIsFalse() throws IOException {
     LDConfig config = new LDConfig.Builder()
-        .stream(false)
-        .baseURI(URI.create("/fake"))
+        .dataSource(Components.externalUpdatesOnly())
         .startWaitMillis(0)
         .sendEvents(false)
         .build();
@@ -120,8 +118,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .stream(true)
-        .streamURI(URI.create("http://fake"))
+        .dataSource(Components.streamingDataSource().baseUri(URI.create("http://fake")))
         .startWaitMillis(0)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -132,8 +129,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
-        .stream(false)
-        .baseURI(URI.create("http://fake"))
+        .dataSource(Components.pollingDataSource().baseUri(URI.create("http://fake")))
         .startWaitMillis(0)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {

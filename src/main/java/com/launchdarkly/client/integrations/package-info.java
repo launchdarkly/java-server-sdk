@@ -1,5 +1,6 @@
 /**
- * This package contains integration tools for connecting the SDK to other software components.
+ * This package contains integration tools for connecting the SDK to other software components, or
+ * configuring how it connects to LaunchDarkly.
  * <p>
  * In the current main LaunchDarkly Java SDK library, this package contains {@link com.launchdarkly.client.integrations.Redis}
  * (for using Redis as a store for flag data) and {@link com.launchdarkly.client.integrations.FileData}

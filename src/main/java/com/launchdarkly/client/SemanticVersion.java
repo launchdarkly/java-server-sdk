@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
  * Simple implementation of semantic version parsing and comparison according to the Semantic
  * Versions 2.0.0 standard (http://semver.org).
  */
-class SemanticVersion implements Comparable<SemanticVersion> {
+final class SemanticVersion implements Comparable<SemanticVersion> {
 
   private static Pattern VERSION_REGEX = Pattern.compile(
       "^(?<major>0|[1-9]\\d*)(\\.(?<minor>0|[1-9]\\d*))?(\\.(?<patch>0|[1-9]\\d*))?" +
