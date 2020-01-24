@@ -2,11 +2,30 @@ package com.launchdarkly.client;
 
 import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.value.LDValue;
+import com.launchdarkly.client.value.LDValueType;
 import com.launchdarkly.client.value.ObjectBuilder;
 
 import java.util.List;
 
 class DiagnosticEvent {
+  static enum ConfigProperty {
+    CUSTOM_BASE_URI("customBaseURI", LDValueType.BOOLEAN),
+    CUSTOM_EVENTS_URI("customEventsURI", LDValueType.BOOLEAN),
+    CUSTOM_STREAM_URI("customStreamURI", LDValueType.BOOLEAN),
+    POLLING_INTERVAL_MILLIS("pollingIntervalMillis", LDValueType.NUMBER),
+    RECONNECT_TIME_MILLIS("reconnectTimeMillis", LDValueType.NUMBER),
+    STREAMING_DISABLED("streamingDisabled", LDValueType.BOOLEAN),
+    USING_RELAY_DAEMON("usingRelayDaemon", LDValueType.BOOLEAN);
+    
+    String name;
+    LDValueType type;
+    
+    private ConfigProperty(String name, LDValueType type) {
+      this.name = name;
+      this.type = type;
+    }
+  }
+  
   final String kind;
   final long creationDate;
   final DiagnosticId id;
@@ -49,9 +68,6 @@ class DiagnosticEvent {
   }
 
   static class Init extends DiagnosticEvent {
-    // Arbitrary limit to prevent custom components from injecting too much data into the configuration object
-    private static final int MAX_COMPONENT_PROPERTY_LENGTH = 100;
-    
     final DiagnosticSdk sdk;
     final LDValue configuration;
     final DiagnosticPlatform platform = new DiagnosticPlatform();
@@ -62,64 +78,72 @@ class DiagnosticEvent {
       this.configuration = getConfigurationData(config);
     }
 
+    @SuppressWarnings("deprecation")
     static LDValue getConfigurationData(LDConfig config) {
       ObjectBuilder builder = LDValue.buildObject();
-      builder.put("customBaseURI", !(LDConfig.DEFAULT_BASE_URI.equals(config.baseURI)));
+      
+      // Add the top-level properties that are not specific to a particular component type.
       builder.put("customEventsURI", !(LDConfig.DEFAULT_EVENTS_URI.equals(config.eventsURI)));
-      builder.put("customStreamURI", !(LDConfig.DEFAULT_STREAM_URI.equals(config.streamURI)));
       builder.put("eventsCapacity", config.capacity);
       builder.put("connectTimeoutMillis", config.connectTimeoutUnit.toMillis(config.connectTimeout));
       builder.put("socketTimeoutMillis", config.socketTimeoutUnit.toMillis(config.socketTimeout));
       builder.put("eventsFlushIntervalMillis", config.flushInterval * 1000);
       builder.put("usingProxy", config.proxy != null);
       builder.put("usingProxyAuthenticator", config.proxyAuthenticator != null);
-      builder.put("streamingDisabled", !config.stream);
-      builder.put("usingRelayDaemon", config.useLdd);
       builder.put("offline", config.offline);
       builder.put("allAttributesPrivate", config.allAttributesPrivate);
-      builder.put("pollingIntervalMillis", config.pollingIntervalMillis);
       builder.put("startWaitMillis", config.startWaitMillis);
       builder.put("samplingInterval", config.samplingInterval);
-      builder.put("reconnectTimeMillis", config.reconnectTimeMs);
       builder.put("userKeysCapacity", config.userKeysCapacity);
       builder.put("userKeysFlushIntervalMillis", config.userKeysFlushInterval * 1000);
       builder.put("inlineUsersInEvents", config.inlineUsersInEvents);
       builder.put("diagnosticRecordingIntervalMillis", config.diagnosticRecordingIntervalMillis);
-      mergeComponentProperties(builder, config.deprecatedFeatureStore, "dataStore");
-      mergeComponentProperties(builder, config.dataStoreFactory, "dataStore");
+      
+      // Allow each pluggable component to describe its own relevant properties. 
+      mergeComponentProperties(builder, config.deprecatedFeatureStore, config, "dataStoreType");
+      mergeComponentProperties(builder,
+          config.dataStoreFactory == null ? Components.inMemoryDataStore() : config.dataStoreFactory,
+          config, "dataStoreType");
+      mergeComponentProperties(builder,
+          config.dataSourceFactory == null ? Components.defaultUpdateProcessor() : config.dataSourceFactory,
+          config, null);
       return builder.build();
     }
     
     // Attempts to add relevant configuration properties, if any, from a customizable component:
     // - If the component does not implement DiagnosticDescription, set the defaultPropertyName property to its class name.
     // - If it does implement DiagnosticDescription, call its describeConfiguration() method to get a value.
-    //   Currently the only supported value is a string; the defaultPropertyName property will be set to this.
-    //   In the future, we will support JSON objects so that our own components can report properties that are
-    //   not in LDConfig.
-    private static void mergeComponentProperties(ObjectBuilder builder, Object component, String defaultPropertyName) {
+    // - If the value is a string, then set the defaultPropertyName property to that value.
+    // - If the value is an object, then copy all of its properties as long as they are ones we recognize
+    //   and have the expected type.
+    private static void mergeComponentProperties(ObjectBuilder builder, Object component, LDConfig config, String defaultPropertyName) {
       if (component == null) {
         return;
       }
       if (!(component instanceof DiagnosticDescription)) {
         if (defaultPropertyName != null) {
-          builder.put(defaultPropertyName, validateSimpleValue(LDValue.of(component.getClass().getSimpleName())));
+          builder.put(defaultPropertyName, LDValue.of(component.getClass().getSimpleName()));
         }
         return;
       }
-      LDValue componentDesc = validateSimpleValue(((DiagnosticDescription)component).describeConfiguration());
-      if (!componentDesc.isNull() && defaultPropertyName != null) {
+      LDValue componentDesc = ((DiagnosticDescription)component).describeConfiguration(config);
+      if (componentDesc == null || componentDesc.isNull()) {
+        return;
+      }
+      if (componentDesc.isString() && defaultPropertyName != null) {
         builder.put(defaultPropertyName, componentDesc);
-      }
-    }
-    
-    private static LDValue validateSimpleValue(LDValue value) {
-      if (value != null && value.isString()) {
-        if (value.stringValue().length() > MAX_COMPONENT_PROPERTY_LENGTH) {
-          return LDValue.of(value.stringValue().substring(0, MAX_COMPONENT_PROPERTY_LENGTH)); 
+      } else if (componentDesc.getType() == LDValueType.OBJECT) {
+        for (String key: componentDesc.keys()) {
+          for (ConfigProperty prop: ConfigProperty.values()) {
+            if (prop.name.equals(key)) {
+              LDValue value = componentDesc.get(key);
+              if (value.isNull() || value.getType() == prop.type) {
+                builder.put(key, value);
+              }
+            }
+          }
         }
-        return value;
       }
-      return LDValue.ofNull();
     }
     
     static class DiagnosticSdk {

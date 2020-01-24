@@ -142,7 +142,7 @@ public class InMemoryFeatureStore implements FeatureStore, DiagnosticDescription
   }
 
   @Override
-  public LDValue describeConfiguration() {
+  public LDValue describeConfiguration(LDConfig config) {
     return LDValue.of("memory");
   }
 }

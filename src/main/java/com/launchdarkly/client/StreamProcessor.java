@@ -18,9 +18,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
+import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
-import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 
@@ -37,8 +37,10 @@ final class StreamProcessor implements UpdateProcessor {
   private static final int DEAD_CONNECTION_INTERVAL_MS = 300 * 1000;
 
   private final FeatureStore store;
-  private final LDConfig config;
   private final String sdkKey;
+  private final LDConfig config;
+  private final URI streamUri;
+  private final long initialReconnectDelayMillis;
   private final FeatureRequestor requestor;
   private final DiagnosticAccumulator diagnosticAccumulator;
   private final EventSourceCreator eventSourceCreator;
@@ -49,17 +51,28 @@ final class StreamProcessor implements UpdateProcessor {
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
   public static interface EventSourceCreator {
-    EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
+    EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
+        ConnectionErrorHandler errorHandler, Headers headers);
   }
   
-  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore,
-      EventSourceCreator eventSourceCreator, DiagnosticAccumulator diagnosticAccumulator) {
+  StreamProcessor(
+      String sdkKey,
+      LDConfig config,
+      FeatureRequestor requestor,
+      FeatureStore featureStore,
+      EventSourceCreator eventSourceCreator,
+      DiagnosticAccumulator diagnosticAccumulator,
+      URI streamUri,
+      long initialReconnectDelayMillis
+      ) {
     this.store = featureStore;
-    this.config = config;
     this.sdkKey = sdkKey;
+    this.config = config; // this is no longer the source of truth for streamUri or initialReconnectDelayMillis, but it can affect HTTP behavior
     this.requestor = requestor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
+    this.streamUri = streamUri;
+    this.initialReconnectDelayMillis = initialReconnectDelayMillis;
   }
 
   private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
@@ -197,7 +210,8 @@ final class StreamProcessor implements UpdateProcessor {
     };
 
     es = eventSourceCreator.createEventSource(config, handler,
-        URI.create(config.streamURI.toASCIIString() + "/all"),
+        URI.create(streamUri.toASCIIString() + "/all"),
+        initialReconnectDelayMillis,
         wrappedConnectionErrorHandler,
         headers);
     esStarted = System.currentTimeMillis();
@@ -231,31 +245,29 @@ final class StreamProcessor implements UpdateProcessor {
   private static final class PutData {
     FeatureRequestor.AllData data;
     
-    public PutData() {
-      
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public PutData() { }
   }
   
   private static final class PatchData {
     String path;
     JsonElement data;
 
-    public PatchData() {
-
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public PatchData() { }
   }
 
   private static final class DeleteData {
     String path;
     int version;
 
-    public DeleteData() {
-
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public DeleteData() { }
   }
   
   private class DefaultEventSourceCreator implements EventSourceCreator {
-    public EventSource createEventSource(final LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
+    public EventSource createEventSource(final LDConfig config, EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
+        ConnectionErrorHandler errorHandler, Headers headers) {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
           .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
             public void configure(OkHttpClient.Builder builder) {
@@ -264,7 +276,7 @@ final class StreamProcessor implements UpdateProcessor {
           })
           .connectionErrorHandler(errorHandler)
           .headers(headers)
-          .reconnectTimeMs(config.reconnectTimeMs)
+          .reconnectTimeMs(initialReconnectDelayMillis)
           .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS)
           .connectTimeoutMs(EventSource.DEFAULT_CONNECT_TIMEOUT_MS)
           .writeTimeoutMs(EventSource.DEFAULT_WRITE_TIMEOUT_MS);

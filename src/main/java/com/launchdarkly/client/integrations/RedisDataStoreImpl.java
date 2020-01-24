@@ -3,9 +3,7 @@ package com.launchdarkly.client.integrations;
 import com.google.common.annotations.VisibleForTesting;
 import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
-import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.utils.FeatureStoreCore;
-import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +22,7 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
 import redis.clients.util.JedisURIHelper;
 
-class RedisDataStoreImpl implements FeatureStoreCore, DiagnosticDescription {
+final class RedisDataStoreImpl implements FeatureStoreCore {
   private static final Logger logger = LoggerFactory.getLogger(RedisDataStoreImpl.class);
 
   private final JedisPool pool;
@@ -194,10 +192,5 @@ class RedisDataStoreImpl implements FeatureStoreCore, DiagnosticDescription {
   
   static interface UpdateListener {
     void aboutToUpdate(String baseKey, String itemKey);
-  }
-
-  @Override
-  public LDValue describeConfiguration() {
-    return LDValue.of("Redis");
   }
 }

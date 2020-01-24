@@ -285,7 +285,7 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory, Diag
   }
 
   @Override
-  public LDValue describeConfiguration() {
+  public LDValue describeConfiguration(LDConfig config) {
     return LDValue.of("Redis");
   }
 }

@@ -13,7 +13,7 @@ import java.io.Writer;
  * Rather than creating intermediate objects to represent this schema, we use the Gson streaming
  * output API to construct JSON directly.
  */
-class EventOutputFormatter {
+final class EventOutputFormatter {
   private final LDConfig config;
   
   EventOutputFormatter(LDConfig config) {

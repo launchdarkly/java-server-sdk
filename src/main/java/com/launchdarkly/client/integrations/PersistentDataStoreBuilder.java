@@ -3,6 +3,7 @@ package com.launchdarkly.client.integrations;
 import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.FeatureStoreFactory;
+import com.launchdarkly.client.LDConfig;
 import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
@@ -35,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * In this example, {@code .url()} is an option specifically for the Redis integration, whereas
  * {@code ttlSeconds()} is an option that can be used for any persistent data store. 
  * 
- * @since 4.11.0
+ * @since 4.12.0
  */
 @SuppressWarnings("deprecation")
 public final class PersistentDataStoreBuilder implements FeatureStoreFactory, DiagnosticDescription {
@@ -217,9 +218,9 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory, Di
   }
 
   @Override
-  public LDValue describeConfiguration() {
+  public LDValue describeConfiguration(LDConfig config) {
     if (persistentDataStoreFactory instanceof DiagnosticDescription) {
-      return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration();
+      return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
     }
     return LDValue.of("?");
   }

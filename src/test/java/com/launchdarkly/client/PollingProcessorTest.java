@@ -14,13 +14,15 @@ import static org.junit.Assert.fail;
 
 @SuppressWarnings("javadoc")
 public class PollingProcessorTest {
+  private static final long LENGTHY_INTERVAL = 60000;
+  
   @Test
   public void testConnectionOk() throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.allData = new FeatureRequestor.AllData(new HashMap<String, FeatureFlag>(), new HashMap<String, Segment>());
     FeatureStore store = new InMemoryFeatureStore();
     
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {    
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, store, LENGTHY_INTERVAL)) {    
       Future<Void> initFuture = pollingProcessor.start();
       initFuture.get(1000, TimeUnit.MILLISECONDS);
       assertTrue(pollingProcessor.initialized());
@@ -34,7 +36,7 @@ public class PollingProcessorTest {
     requestor.ioException = new IOException("This exception is part of a test and yes you should be seeing it.");
     FeatureStore store = new InMemoryFeatureStore();
 
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, store, LENGTHY_INTERVAL)) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200L, TimeUnit.MILLISECONDS);
@@ -80,7 +82,7 @@ public class PollingProcessorTest {
   private void testUnrecoverableHttpError(int status) throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.httpException = new HttpErrorException(status);
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore())) {  
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, new InMemoryFeatureStore(), LENGTHY_INTERVAL)) {  
       long startTime = System.currentTimeMillis();
       Future<Void> initFuture = pollingProcessor.start();
       try {
@@ -97,7 +99,7 @@ public class PollingProcessorTest {
   private void testRecoverableHttpError(int status) throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.httpException = new HttpErrorException(status);
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryFeatureStore())) {
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, new InMemoryFeatureStore(), LENGTHY_INTERVAL)) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200, TimeUnit.MILLISECONDS);

@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.Components.NullUpdateProcessor;
 import com.launchdarkly.client.value.LDValue;
 
 import org.apache.commons.codec.binary.Hex;
@@ -30,7 +31,9 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
  * a single {@code LDClient} for the lifetime of their application.
  */
 public final class LDClient implements LDClientInterface {
-  private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  // Package-private so other classes can log under the top-level logger's tag
+  static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   static final String CLIENT_VERSION = getClientVersion();
 
@@ -95,8 +98,9 @@ public final class LDClient implements LDClientInterface {
       this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
     }
 
-    UpdateProcessorFactory upFactory = this.config.dataSourceFactory == null ?
-        Components.defaultDataSource() : this.config.dataSourceFactory;
+    @SuppressWarnings("deprecation") // defaultUpdateProcessor will be replaced by streamingDataSource once the deprecated config.stream is removed
+    UpdateProcessorFactory upFactory = config.dataSourceFactory == null ?
+        Components.defaultUpdateProcessor() : config.dataSourceFactory;
     
     if (upFactory instanceof UpdateProcessorFactoryWithDiagnostics) {
       UpdateProcessorFactoryWithDiagnostics upwdFactory = ((UpdateProcessorFactoryWithDiagnostics) upFactory);
@@ -107,7 +111,7 @@ public final class LDClient implements LDClientInterface {
 
     Future<Void> startFuture = updateProcessor.start();
     if (this.config.startWaitMillis > 0L) {
-      if (!this.config.offline && !this.config.useLdd) {
+      if (!(updateProcessor instanceof NullUpdateProcessor)) {
         logger.info("Waiting up to " + this.config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
       }
       try {

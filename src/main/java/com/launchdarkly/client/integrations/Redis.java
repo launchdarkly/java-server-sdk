@@ -3,7 +3,7 @@ package com.launchdarkly.client.integrations;
 /**
  * Integration between the LaunchDarkly SDK and Redis.
  * 
- * @since 4.11.0
+ * @since 4.12.0
  */
 public abstract class Redis {
   /**
