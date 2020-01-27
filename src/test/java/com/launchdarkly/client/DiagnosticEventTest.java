@@ -49,6 +49,11 @@ public class DiagnosticEventTest {
   }
 
   private ObjectBuilder expectedDefaultProperties() {
+    return expectedDefaultPropertiesWithoutStreaming()
+        .put("reconnectTimeMillis", 1_000);
+  }
+
+  private ObjectBuilder expectedDefaultPropertiesWithoutStreaming() {
     return LDValue.buildObject()
         .put("allAttributesPrivate", false)
         .put("connectTimeoutMillis", 2_000)
@@ -76,9 +81,7 @@ public class DiagnosticEventTest {
   public void testDefaultDiagnosticConfiguration() {
     LDConfig ldConfig = new LDConfig.Builder().build();
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
-        .put("reconnectTimeMillis", 1_000)
-        .build();
+    LDValue expected = expectedDefaultProperties().build();
 
     assertEquals(expected, diagnosticJson);
   }
@@ -86,16 +89,9 @@ public class DiagnosticEventTest {
   @Test
   public void testCustomDiagnosticConfigurationGeneralProperties() {
     LDConfig ldConfig = new LDConfig.Builder()
-            .allAttributesPrivate(true)
             .connectTimeout(5)
-            .diagnosticRecordingIntervalMillis(1_800_000)
-            .capacity(20_000)
-            .flushInterval(10)
-            .inlineUsersInEvents(true)
             .socketTimeout(20)
             .startWaitMillis(10_000)
-            .userKeysCapacity(2_000)
-            .userKeysFlushInterval(600)
             .proxyPort(1234)
             .proxyUsername("username")
             .proxyPassword("password")
@@ -103,17 +99,9 @@ public class DiagnosticEventTest {
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
     LDValue expected = expectedDefaultProperties()
-        .put("allAttributesPrivate", true)
         .put("connectTimeoutMillis", 5_000)
-        .put("diagnosticRecordingIntervalMillis", 1_800_000)
-        .put("eventsCapacity", 20_000)
-        .put("eventsFlushIntervalMillis", 10_000)
-        .put("inlineUsersInEvents", true)
-        .put("reconnectTimeMillis", 1_000)
         .put("socketTimeoutMillis",  20_000)
         .put("startWaitMillis", 10_000)
-        .put("userKeysCapacity", 2_000)
-        .put("userKeysFlushIntervalMillis", 600_000)
         .put("usingProxy", true)
         .put("usingProxyAuthenticator", true)
         .build();
@@ -133,7 +121,7 @@ public class DiagnosticEventTest {
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("customBaseURI", true)
         .put("customStreamURI", true)
         .put("reconnectTimeMillis", 2_000)
@@ -153,10 +141,39 @@ public class DiagnosticEventTest {
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("customBaseURI", true)
         .put("pollingIntervalMillis", 60_000)
         .put("streamingDisabled", true)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
+
+  @Test
+  public void testCustomDiagnosticConfigurationForEvents() {
+    LDConfig ldConfig = new LDConfig.Builder()
+          .events(
+              Components.sendEvents()
+                .allAttributesPrivate(true)
+                .capacity(20_000)
+                .diagnosticRecordingIntervalSeconds(1_800)
+                .flushIntervalSeconds(10)
+                .inlineUsersInEvents(true)
+                .userKeysCapacity(2_000)
+                .userKeysFlushIntervalSeconds(600)
+              )
+          .build();
+
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultProperties()
+        .put("allAttributesPrivate", true)
+        .put("diagnosticRecordingIntervalMillis", 1_800_000)
+        .put("eventsCapacity", 20_000)
+        .put("eventsFlushIntervalMillis", 10_000)
+        .put("inlineUsersInEvents", true)
+        .put("userKeysCapacity", 2_000)
+        .put("userKeysFlushIntervalMillis", 600_000)
         .build();
 
     assertEquals(expected, diagnosticJson);
@@ -170,7 +187,7 @@ public class DiagnosticEventTest {
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("dataStoreType", "Redis")
         .put("usingRelayDaemon", true)
         .build();
@@ -185,7 +202,7 @@ public class DiagnosticEventTest {
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("offline", true)
         .build();
 
@@ -202,7 +219,7 @@ public class DiagnosticEventTest {
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("customBaseURI", true)
         .put("customStreamURI", true)
         .put("reconnectTimeMillis", 2_000)
@@ -221,7 +238,7 @@ public class DiagnosticEventTest {
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("customBaseURI", true)
         .put("pollingIntervalMillis", 60_000)
         .put("streamingDisabled", true)
@@ -239,7 +256,7 @@ public class DiagnosticEventTest {
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("dataStoreType", "Redis")
         .put("usingRelayDaemon", true)
         .build();

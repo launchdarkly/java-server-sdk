@@ -16,10 +16,11 @@ final class EventsConfiguration {
   final int samplingInterval;
   final int userKeysCapacity;
   final int userKeysFlushIntervalSeconds;
+  final int diagnosticRecordingIntervalSeconds;
   
   EventsConfiguration(boolean allAttributesPrivate, int capacity, URI eventsUri, int flushIntervalSeconds,
       boolean inlineUsersInEvents, Set<String> privateAttrNames, int samplingInterval,
-      int userKeysCapacity, int userKeysFlushIntervalSeconds) {
+      int userKeysCapacity, int userKeysFlushIntervalSeconds, int diagnosticRecordingIntervalSeconds) {
     super();
     this.allAttributesPrivate = allAttributesPrivate;
     this.capacity = capacity;
@@ -30,5 +31,6 @@ final class EventsConfiguration {
     this.samplingInterval = samplingInterval;
     this.userKeysCapacity = userKeysCapacity;
     this.userKeysFlushIntervalSeconds = userKeysFlushIntervalSeconds;
+    this.diagnosticRecordingIntervalSeconds = diagnosticRecordingIntervalSeconds;
   }
 }

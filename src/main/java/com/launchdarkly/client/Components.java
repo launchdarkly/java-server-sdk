@@ -318,7 +318,7 @@ public abstract class Components {
     }
   }
   
-  private static final class DefaultEventProcessorFactory implements EventProcessorFactoryWithDiagnostics {
+  private static final class DefaultEventProcessorFactory implements EventProcessorFactoryWithDiagnostics, DiagnosticDescription {
     @Override
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
       return createEventProcessor(sdkKey, config, null);
@@ -340,6 +340,23 @@ public abstract class Components {
       } else {
         return new NullEventProcessor();
       }
+    }
+    
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      return LDValue.buildObject()
+          .put(ConfigProperty.ALL_ATTRIBUTES_PRIVATE.name, config.deprecatedAllAttributesPrivate)
+          .put(ConfigProperty.CUSTOM_EVENTS_URI.name, config.deprecatedEventsURI != null &&
+              !config.deprecatedEventsURI.equals(LDConfig.DEFAULT_EVENTS_URI))
+          .put(ConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name,
+              EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS * 1000) // not configurable via deprecated API
+          .put(ConfigProperty.EVENTS_CAPACITY.name, config.deprecatedCapacity)
+          .put(ConfigProperty.EVENTS_FLUSH_INTERVAL_MILLIS.name, config.deprecatedFlushInterval * 1000)
+          .put(ConfigProperty.INLINE_USERS_IN_EVENTS.name, config.deprecatedInlineUsersInEvents)
+          .put(ConfigProperty.SAMPLING_INTERVAL.name, config.deprecatedSamplingInterval)
+          .put(ConfigProperty.USER_KEYS_CAPACITY.name, config.deprecatedUserKeysCapacity)
+          .put(ConfigProperty.USER_KEYS_FLUSH_INTERVAL_MILLIS.name, config.deprecatedUserKeysFlushInterval * 1000)
+          .build();
     }
   }
   
@@ -381,12 +398,11 @@ public abstract class Components {
       // by StreamingDataSourceBuilder and PollingDataSourceBuilder, and setting the latter is translated
       // into using externalUpdatesOnly() by LDConfig.Builder.
       if (config.deprecatedStream) {
-        StreamingDataSourceBuilder builder = streamingDataSource()
+        UpdateProcessorFactory upf = streamingDataSource()
             .baseUri(config.deprecatedStreamURI)
             .pollingBaseUri(config.deprecatedBaseURI)
             .initialReconnectDelayMillis(config.deprecatedReconnectTimeMs);
-        return ((UpdateProcessorFactoryWithDiagnostics)builder).createUpdateProcessor(sdkKey, config,
-            featureStore, diagnosticAccumulator);
+        return ((UpdateProcessorFactoryWithDiagnostics)upf).createUpdateProcessor(sdkKey, config, featureStore, diagnosticAccumulator);
       } else {
         return pollingDataSource()
             .baseUri(config.deprecatedBaseURI)
@@ -497,7 +513,6 @@ public abstract class Components {
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           sdkKey,
-          config,
           config.httpConfig,
           pollUri,
           false
@@ -505,7 +520,6 @@ public abstract class Components {
       
       return new StreamProcessor(
           sdkKey,
-          config,
           config.httpConfig,
           requestor,
           featureStore,
@@ -548,7 +562,6 @@ public abstract class Components {
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           sdkKey,
-          config,
           config.httpConfig,
           baseUri == null ? LDConfig.DEFAULT_BASE_URI : baseUri,
           true
@@ -573,7 +586,7 @@ public abstract class Components {
   }
   
   private static final class EventProcessorBuilderImpl extends EventProcessorBuilder
-      implements EventProcessorFactoryWithDiagnostics {
+      implements DiagnosticDescription, EventProcessorFactoryWithDiagnostics {
     @Override
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
       return createEventProcessor(sdkKey, config, null);
@@ -595,11 +608,27 @@ public abstract class Components {
               privateAttrNames,
               0, // deprecated samplingInterval isn't supported in new builder
               userKeysCapacity,
-              userKeysFlushIntervalSeconds
+              userKeysFlushIntervalSeconds,
+              diagnosticRecordingIntervalSeconds
               ),
           config.httpConfig,
           diagnosticAccumulator
           );
+    }
+    
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      return LDValue.buildObject()
+          .put(ConfigProperty.ALL_ATTRIBUTES_PRIVATE.name, allAttributesPrivate)
+          .put(ConfigProperty.CUSTOM_EVENTS_URI.name, baseUri != null && !baseUri.equals(LDConfig.DEFAULT_EVENTS_URI))
+          .put(ConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name, diagnosticRecordingIntervalSeconds * 1000)
+          .put(ConfigProperty.EVENTS_CAPACITY.name, capacity)
+          .put(ConfigProperty.EVENTS_FLUSH_INTERVAL_MILLIS.name, flushIntervalSeconds * 1000)
+          .put(ConfigProperty.INLINE_USERS_IN_EVENTS.name, inlineUsersInEvents)
+          .put(ConfigProperty.SAMPLING_INTERVAL.name, 0)
+          .put(ConfigProperty.USER_KEYS_CAPACITY.name, userKeysCapacity)
+          .put(ConfigProperty.USER_KEYS_FLUSH_INTERVAL_MILLIS.name, userKeysFlushIntervalSeconds * 1000)
+          .build();
     }
   }
 }

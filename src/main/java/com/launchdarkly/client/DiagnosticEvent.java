@@ -9,12 +9,20 @@ import java.util.List;
 
 class DiagnosticEvent {
   static enum ConfigProperty {
+    ALL_ATTRIBUTES_PRIVATE("allAttributesPrivate", LDValueType.BOOLEAN),
     CUSTOM_BASE_URI("customBaseURI", LDValueType.BOOLEAN),
     CUSTOM_EVENTS_URI("customEventsURI", LDValueType.BOOLEAN),
     CUSTOM_STREAM_URI("customStreamURI", LDValueType.BOOLEAN),
+    DIAGNOSTIC_RECORDING_INTERVAL_MILLIS("diagnosticRecordingIntervalMillis", LDValueType.NUMBER),
+    EVENTS_CAPACITY("eventsCapacity", LDValueType.NUMBER),
+    EVENTS_FLUSH_INTERVAL_MILLIS("eventsFlushIntervalMillis", LDValueType.NUMBER),
+    INLINE_USERS_IN_EVENTS("inlineUsersInEvents", LDValueType.BOOLEAN),
     POLLING_INTERVAL_MILLIS("pollingIntervalMillis", LDValueType.NUMBER),
     RECONNECT_TIME_MILLIS("reconnectTimeMillis", LDValueType.NUMBER),
+    SAMPLING_INTERVAL("samplingInterval", LDValueType.NUMBER),
     STREAMING_DISABLED("streamingDisabled", LDValueType.BOOLEAN),
+    USER_KEYS_CAPACITY("userKeysCapacity", LDValueType.NUMBER),
+    USER_KEYS_FLUSH_INTERVAL_MILLIS("userKeysFlushIntervalMillis", LDValueType.NUMBER),
     USING_RELAY_DAEMON("usingRelayDaemon", LDValueType.BOOLEAN);
     
     String name;
@@ -83,21 +91,12 @@ class DiagnosticEvent {
       ObjectBuilder builder = LDValue.buildObject();
       
       // Add the top-level properties that are not specific to a particular component type.
-      builder.put("customEventsURI", !(LDConfig.DEFAULT_EVENTS_URI.equals(config.deprecatedEventsURI)));
-      builder.put("eventsCapacity", config.deprecatedCapacity);
       builder.put("connectTimeoutMillis", config.httpConfig.connectTimeoutUnit.toMillis(config.httpConfig.connectTimeout));
       builder.put("socketTimeoutMillis", config.httpConfig.socketTimeoutUnit.toMillis(config.httpConfig.socketTimeout));
-      builder.put("eventsFlushIntervalMillis", config.deprecatedFlushInterval * 1000);
       builder.put("usingProxy", config.httpConfig.proxy != null);
       builder.put("usingProxyAuthenticator", config.httpConfig.proxyAuthenticator != null);
       builder.put("offline", config.offline);
-      builder.put("allAttributesPrivate", config.deprecatedAllAttributesPrivate);
       builder.put("startWaitMillis", config.startWaitMillis);
-      builder.put("samplingInterval", config.deprecatedSamplingInterval);
-      builder.put("userKeysCapacity", config.deprecatedUserKeysCapacity);
-      builder.put("userKeysFlushIntervalMillis", config.deprecatedUserKeysFlushInterval * 1000);
-      builder.put("inlineUsersInEvents", config.deprecatedInlineUsersInEvents);
-      builder.put("diagnosticRecordingIntervalMillis", config.diagnosticRecordingIntervalMillis);
       
       // Allow each pluggable component to describe its own relevant properties. 
       mergeComponentProperties(builder, config.deprecatedFeatureStore, config, "dataStoreType");
@@ -106,6 +105,9 @@ class DiagnosticEvent {
           config, "dataStoreType");
       mergeComponentProperties(builder,
           config.dataSourceFactory == null ? Components.defaultUpdateProcessor() : config.dataSourceFactory,
+          config, null);
+      mergeComponentProperties(builder,
+          config.eventProcessorFactory == null ? Components.defaultEventProcessor() : config.eventProcessorFactory,
           config, null);
       return builder.build();
     }
@@ -153,8 +155,8 @@ class DiagnosticEvent {
       final String wrapperVersion;
 
       DiagnosticSdk(LDConfig config) {
-        this.wrapperName = config.wrapperName;
-        this.wrapperVersion = config.wrapperVersion;
+        this.wrapperName = config.httpConfig.wrapperName;
+        this.wrapperVersion = config.httpConfig.wrapperVersion;
       }
     }
 

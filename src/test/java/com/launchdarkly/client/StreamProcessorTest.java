@@ -499,12 +499,12 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
-    return new StreamProcessor(SDK_KEY, config, config.httpConfig, mockRequestor, featureStore, new StubEventSourceCreator(), diagnosticAccumulator,
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, featureStore, new StubEventSourceCreator(), diagnosticAccumulator,
         streamUri, config.deprecatedReconnectTimeMs);
   }
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
-    return new StreamProcessor(SDK_KEY, config, config.httpConfig, mockRequestor, featureStore, null, null,
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, featureStore, null, null,
         streamUri, config.deprecatedReconnectTimeMs);
   }
 

@@ -57,7 +57,6 @@ final class StreamProcessor implements UpdateProcessor {
   
   StreamProcessor(
       String sdkKey,
-      LDConfig config,
       HttpConfiguration httpConfig,
       FeatureRequestor requestor,
       FeatureStore featureStore,
@@ -74,7 +73,7 @@ final class StreamProcessor implements UpdateProcessor {
     this.streamUri = streamUri;
     this.initialReconnectDelayMillis = initialReconnectDelayMillis;
 
-    this.headers = getHeadersBuilderFor(sdkKey, config)
+    this.headers = getHeadersBuilderFor(sdkKey, httpConfig)
         .add("Accept", "text/event-stream")
         .build();
   }
