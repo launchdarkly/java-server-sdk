@@ -18,10 +18,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.launchdarkly.client.JsonHelpers.gsonInstance;
+import static com.launchdarkly.client.JsonHelpers.gsonInstanceForEventsSerialization;
+import static com.launchdarkly.client.TestUtil.defaultEventsConfig;
 import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.jdouble;
 import static com.launchdarkly.client.TestUtil.jint;
 import static com.launchdarkly.client.TestUtil.js;
+import static com.launchdarkly.client.TestUtil.makeEventsConfig;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -293,8 +297,8 @@ public class LDUserTest {
   @Test
   public void testAllPropertiesInDefaultEncoding() {
     for (Map.Entry<LDUser, String> e: getUserPropertiesJsonMap().entrySet()) {
-      JsonElement expected = defaultGson.fromJson(e.getValue(), JsonElement.class);
-      JsonElement actual = defaultGson.toJsonTree(e.getKey());
+      JsonElement expected = gsonInstance().fromJson(e.getValue(), JsonElement.class);
+      JsonElement actual = gsonInstance().toJsonTree(e.getKey());
       assertEquals(expected, actual);
     }
   }
@@ -302,8 +306,8 @@ public class LDUserTest {
   @Test
   public void testAllPropertiesInPrivateAttributeEncoding() {
     for (Map.Entry<LDUser, String> e: getUserPropertiesJsonMap().entrySet()) {
-      JsonElement expected = defaultGson.fromJson(e.getValue(), JsonElement.class);
-      JsonElement actual = LDConfig.DEFAULT.gson.toJsonTree(e.getKey());
+      JsonElement expected = gsonInstance().fromJson(e.getValue(), JsonElement.class);
+      JsonElement actual = gsonInstance().toJsonTree(e.getKey());
       assertEquals(expected, actual);
     }
   }
@@ -343,7 +347,8 @@ public class LDUserTest {
   
   @Test
   public void privateAttributeEncodingRedactsAllPrivateAttributes() {
-    LDConfig config = new LDConfig.Builder().allAttributesPrivate(true).build();
+    EventsConfiguration config = makeEventsConfig(true, false, null);
+    @SuppressWarnings("deprecation")
     LDUser user = new LDUser.Builder("userkey")
         .secondary("s")
         .ip("i")
@@ -358,7 +363,7 @@ public class LDUserTest {
         .build();
     Set<String> redacted = ImmutableSet.of("secondary", "ip", "email", "name", "avatar", "firstName", "lastName", "country", "thing");
 
-    JsonObject o = config.gson.toJsonTree(user).getAsJsonObject();
+    JsonObject o = gsonInstanceForEventsSerialization(config).toJsonTree(user).getAsJsonObject();
     assertEquals("userkey", o.get("key").getAsString());
     assertEquals(true, o.get("anonymous").getAsBoolean());
     for (String attr: redacted) {
@@ -377,7 +382,7 @@ public class LDUserTest {
         .privateCustom("foo", 42)
         .build();
     
-    JsonObject o = LDConfig.DEFAULT.gson.toJsonTree(user).getAsJsonObject();
+    JsonObject o = gsonInstanceForEventsSerialization(defaultEventsConfig()).toJsonTree(user).getAsJsonObject();
     assertEquals("e", o.get("email").getAsString());
     assertNull(o.get("name"));
     assertEquals(43, o.get("custom").getAsJsonObject().get("bar").getAsInt());
@@ -387,7 +392,7 @@ public class LDUserTest {
 
   @Test
   public void privateAttributeEncodingRedactsSpecificGlobalPrivateAttributes() {
-    LDConfig config = new LDConfig.Builder().privateAttributeNames("name", "foo").build();
+    EventsConfiguration config = makeEventsConfig(false, false, ImmutableSet.of("name", "foo"));
     LDUser user = new LDUser.Builder("userkey")
         .email("e")
         .name("n")
@@ -395,7 +400,7 @@ public class LDUserTest {
         .custom("foo", 42)
         .build();
     
-    JsonObject o = config.gson.toJsonTree(user).getAsJsonObject();
+    JsonObject o = gsonInstanceForEventsSerialization(config).toJsonTree(user).getAsJsonObject();
     assertEquals("e", o.get("email").getAsString());
     assertNull(o.get("name"));
     assertEquals(43, o.get("custom").getAsJsonObject().get("bar").getAsInt());
@@ -405,10 +410,10 @@ public class LDUserTest {
   
   @Test
   public void privateAttributeEncodingWorksForMinimalUser() {
-    LDConfig config = new LDConfig.Builder().allAttributesPrivate(true).build();
+    EventsConfiguration config = makeEventsConfig(true, false, null);
     LDUser user = new LDUser("userkey");
     
-    JsonObject o = config.gson.toJsonTree(user).getAsJsonObject();
+    JsonObject o = gsonInstanceForEventsSerialization(config).toJsonTree(user).getAsJsonObject();
     JsonObject expected = new JsonObject();
     expected.addProperty("key", "userkey");
     assertEquals(expected, o);
@@ -462,7 +467,7 @@ public class LDUserTest {
         .customString("foo", ImmutableList.of("a", "b"))
         .build();
     JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", js("a"), js("b"));
-    JsonObject jo = LDConfig.DEFAULT.gson.toJsonTree(user).getAsJsonObject();
+    JsonObject jo = gsonInstance().toJsonTree(user).getAsJsonObject();
     assertEquals(expectedAttr, jo.get("custom"));
   }
   
@@ -472,7 +477,7 @@ public class LDUserTest {
         .customNumber("foo", ImmutableList.<Number>of(new Integer(1), new Double(2)))
         .build();
     JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", jint(1), jdouble(2));
-    JsonObject jo = LDConfig.DEFAULT.gson.toJsonTree(user).getAsJsonObject();
+    JsonObject jo = gsonInstance().toJsonTree(user).getAsJsonObject();
     assertEquals(expectedAttr, jo.get("custom"));
   }
 
@@ -482,7 +487,7 @@ public class LDUserTest {
         .customValues("foo", ImmutableList.<JsonElement>of(js("a"), jint(1), jbool(true)))
         .build();
     JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", js("a"), jint(1), jbool(true));
-    JsonObject jo = LDConfig.DEFAULT.gson.toJsonTree(user).getAsJsonObject();
+    JsonObject jo = gsonInstance().toJsonTree(user).getAsJsonObject();
     assertEquals(expectedAttr, jo.get("custom"));
   }
   

@@ -6,6 +6,7 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
+import static com.launchdarkly.client.Components.noEvents;
 import static com.launchdarkly.client.TestHttpUtil.basePollingConfig;
 import static com.launchdarkly.client.TestHttpUtil.baseStreamingConfig;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
@@ -34,7 +35,7 @@ public class LDClientEndToEndTest {
     try (MockWebServer server = makeStartedServer(resp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(basePollingConfig(server))
-          .sendEvents(false)
+          .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -51,7 +52,7 @@ public class LDClientEndToEndTest {
     try (MockWebServer server = makeStartedServer(resp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(basePollingConfig(server))
-          .sendEvents(false)
+          .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -68,7 +69,7 @@ public class LDClientEndToEndTest {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(basePollingConfig(serverWithCert.server))
-          .sendEvents(false)
+          .events(noEvents())
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
       
@@ -88,7 +89,7 @@ public class LDClientEndToEndTest {
     try (MockWebServer server = makeStartedServer(resp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(baseStreamingConfig(server))
-          .sendEvents(false)
+          .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -105,7 +106,7 @@ public class LDClientEndToEndTest {
     try (MockWebServer server = makeStartedServer(resp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(baseStreamingConfig(server))
-          .sendEvents(false)
+          .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -124,7 +125,7 @@ public class LDClientEndToEndTest {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(baseStreamingConfig(serverWithCert.server))
-          .sendEvents(false)
+          .events(noEvents())
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
       

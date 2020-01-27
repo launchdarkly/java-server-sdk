@@ -83,20 +83,20 @@ class DiagnosticEvent {
       ObjectBuilder builder = LDValue.buildObject();
       
       // Add the top-level properties that are not specific to a particular component type.
-      builder.put("customEventsURI", !(LDConfig.DEFAULT_EVENTS_URI.equals(config.eventsURI)));
-      builder.put("eventsCapacity", config.capacity);
-      builder.put("connectTimeoutMillis", config.connectTimeoutUnit.toMillis(config.connectTimeout));
-      builder.put("socketTimeoutMillis", config.socketTimeoutUnit.toMillis(config.socketTimeout));
-      builder.put("eventsFlushIntervalMillis", config.flushInterval * 1000);
-      builder.put("usingProxy", config.proxy != null);
-      builder.put("usingProxyAuthenticator", config.proxyAuthenticator != null);
+      builder.put("customEventsURI", !(LDConfig.DEFAULT_EVENTS_URI.equals(config.deprecatedEventsURI)));
+      builder.put("eventsCapacity", config.deprecatedCapacity);
+      builder.put("connectTimeoutMillis", config.httpConfig.connectTimeoutUnit.toMillis(config.httpConfig.connectTimeout));
+      builder.put("socketTimeoutMillis", config.httpConfig.socketTimeoutUnit.toMillis(config.httpConfig.socketTimeout));
+      builder.put("eventsFlushIntervalMillis", config.deprecatedFlushInterval * 1000);
+      builder.put("usingProxy", config.httpConfig.proxy != null);
+      builder.put("usingProxyAuthenticator", config.httpConfig.proxyAuthenticator != null);
       builder.put("offline", config.offline);
-      builder.put("allAttributesPrivate", config.allAttributesPrivate);
+      builder.put("allAttributesPrivate", config.deprecatedAllAttributesPrivate);
       builder.put("startWaitMillis", config.startWaitMillis);
-      builder.put("samplingInterval", config.samplingInterval);
-      builder.put("userKeysCapacity", config.userKeysCapacity);
-      builder.put("userKeysFlushIntervalMillis", config.userKeysFlushInterval * 1000);
-      builder.put("inlineUsersInEvents", config.inlineUsersInEvents);
+      builder.put("samplingInterval", config.deprecatedSamplingInterval);
+      builder.put("userKeysCapacity", config.deprecatedUserKeysCapacity);
+      builder.put("userKeysFlushIntervalMillis", config.deprecatedUserKeysFlushInterval * 1000);
+      builder.put("inlineUsersInEvents", config.deprecatedInlineUsersInEvents);
       builder.put("diagnosticRecordingIntervalMillis", config.diagnosticRecordingIntervalMillis);
       
       // Allow each pluggable component to describe its own relevant properties. 

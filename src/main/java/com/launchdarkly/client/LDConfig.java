@@ -1,7 +1,7 @@
 package com.launchdarkly.client;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.common.collect.ImmutableSet;
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 
@@ -12,9 +12,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLSocketFactory;
@@ -31,7 +28,6 @@ import okhttp3.Route;
  */
 public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
-  final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapterWithPrivateAttributeBehavior(this)).create();
 
   static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
@@ -51,74 +47,62 @@ public final class LDConfig {
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
-  final URI deprecatedBaseURI;
-  final URI eventsURI;
-  final URI deprecatedStreamURI;
-  final int capacity;
-  final int flushInterval;
-  final Proxy proxy;
-  final Authenticator proxyAuthenticator;
-  final boolean stream;
-  final FeatureStore deprecatedFeatureStore;
   final FeatureStoreFactory dataStoreFactory;
   final EventProcessorFactory eventProcessorFactory;
   final UpdateProcessorFactory dataSourceFactory;
   final boolean offline;
-  final boolean allAttributesPrivate;
-  final Set<String> privateAttrNames;
-  final boolean sendEvents;
-  final long deprecatedPollingIntervalMillis;
   final long startWaitMillis;
-  final int samplingInterval;
+  final HttpConfiguration httpConfig;
+
+  final URI deprecatedBaseURI;
+  final URI deprecatedEventsURI;
+  final URI deprecatedStreamURI;
+  final int deprecatedCapacity;
+  final int deprecatedFlushInterval;
+  final boolean deprecatedStream;
+  final FeatureStore deprecatedFeatureStore;
+  final boolean deprecatedAllAttributesPrivate;
+  final ImmutableSet<String> deprecatedPrivateAttrNames;
+  final boolean deprecatedSendEvents;
+  final long deprecatedPollingIntervalMillis;
+  final int deprecatedSamplingInterval;
   final long deprecatedReconnectTimeMs;
-  final int userKeysCapacity;
-  final int userKeysFlushInterval;
-  final boolean inlineUsersInEvents;
+  final int deprecatedUserKeysCapacity;
+  final int deprecatedUserKeysFlushInterval;
+  final boolean deprecatedInlineUsersInEvents;
+
   final int diagnosticRecordingIntervalMillis;
   final boolean diagnosticOptOut;
   final String wrapperName;
   final String wrapperVersion;
-  final SSLSocketFactory sslSocketFactory;
-  final X509TrustManager trustManager;
-  final int connectTimeout;
-  final TimeUnit connectTimeoutUnit;
-  final int socketTimeout;
-  final TimeUnit socketTimeoutUnit;
 
   protected LDConfig(Builder builder) {
-    this.deprecatedBaseURI = builder.baseURI;
-    this.eventsURI = builder.eventsURI;
-    this.capacity = builder.capacity;
-    this.flushInterval = builder.flushIntervalSeconds;
-    this.proxy = builder.proxy();
-    this.proxyAuthenticator = builder.proxyAuthenticator();
-    this.deprecatedStreamURI = builder.streamURI;
-    this.stream = builder.stream;
-    this.deprecatedFeatureStore = builder.featureStore;
     this.dataStoreFactory = builder.dataStoreFactory;
     this.eventProcessorFactory = builder.eventProcessorFactory;
     this.dataSourceFactory = builder.dataSourceFactory;
     this.offline = builder.offline;
-    this.allAttributesPrivate = builder.allAttributesPrivate;
-    this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
-    this.sendEvents = builder.sendEvents;
+    this.startWaitMillis = builder.startWaitMillis;
+
+    this.deprecatedBaseURI = builder.baseURI;
+    this.deprecatedEventsURI = builder.eventsURI;
+    this.deprecatedCapacity = builder.capacity;
+    this.deprecatedFlushInterval = builder.flushIntervalSeconds;
+    this.deprecatedStreamURI = builder.streamURI;
+    this.deprecatedStream = builder.stream;
+    this.deprecatedFeatureStore = builder.featureStore;
+    this.deprecatedAllAttributesPrivate = builder.allAttributesPrivate;
+    this.deprecatedPrivateAttrNames = builder.privateAttrNames;
+    this.deprecatedSendEvents = builder.sendEvents;
     if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
       this.deprecatedPollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
     } else {
       this.deprecatedPollingIntervalMillis = builder.pollingIntervalMillis;
     }
-    this.startWaitMillis = builder.startWaitMillis;
-    this.samplingInterval = builder.samplingInterval;
+    this.deprecatedSamplingInterval = builder.samplingInterval;
     this.deprecatedReconnectTimeMs = builder.reconnectTimeMillis;
-    this.userKeysCapacity = builder.userKeysCapacity;
-    this.userKeysFlushInterval = builder.userKeysFlushInterval;
-    this.inlineUsersInEvents = builder.inlineUsersInEvents;
-    this.sslSocketFactory = builder.sslSocketFactory;
-    this.trustManager = builder.trustManager;
-    this.connectTimeout = builder.connectTimeout;
-    this.connectTimeoutUnit = builder.connectTimeoutUnit;
-    this.socketTimeout = builder.socketTimeout;
-    this.socketTimeoutUnit = builder.socketTimeoutUnit;
+    this.deprecatedUserKeysCapacity = builder.userKeysCapacity;
+    this.deprecatedUserKeysFlushInterval = builder.userKeysFlushInterval;
+    this.deprecatedInlineUsersInEvents = builder.inlineUsersInEvents;
 
     if (builder.diagnosticRecordingIntervalMillis < MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS) {
       this.diagnosticRecordingIntervalMillis = MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS;
@@ -129,6 +113,8 @@ public final class LDConfig {
     this.wrapperName = builder.wrapperName;
     this.wrapperVersion = builder.wrapperVersion;
     
+    Proxy proxy = builder.proxy();
+    Authenticator proxyAuthenticator = builder.proxyAuthenticator();
     if (proxy != null) {
       if (proxyAuthenticator != null) {
         logger.info("Using proxy: " + proxy + " with authentication.");
@@ -136,42 +122,40 @@ public final class LDConfig {
         logger.info("Using proxy: " + proxy + " without authentication.");
       }
     }
+    
+    this.httpConfig = new HttpConfiguration(builder.connectTimeout, builder.connectTimeoutUnit,
+        proxy, proxyAuthenticator, builder.socketTimeout, builder.socketTimeoutUnit,
+        builder.sslSocketFactory, builder.trustManager);
   }
 
   LDConfig(LDConfig config) {
-    this.deprecatedBaseURI = config.deprecatedBaseURI;
-    this.eventsURI = config.eventsURI;
-    this.deprecatedStreamURI = config.deprecatedStreamURI;
-    this.capacity = config.capacity;
-    this.flushInterval = config.flushInterval;
-    this.proxy = config.proxy;
-    this.proxyAuthenticator = config.proxyAuthenticator;
-    this.stream = config.stream;
-    this.deprecatedFeatureStore = config.deprecatedFeatureStore;
     this.dataSourceFactory = config.dataSourceFactory;
     this.dataStoreFactory = config.dataStoreFactory;
-    this.eventProcessorFactory = config.eventProcessorFactory;
-    this.offline = config.offline;
-    this.allAttributesPrivate = config.allAttributesPrivate;
-    this.privateAttrNames = config.privateAttrNames;
-    this.sendEvents = config.sendEvents;
-    this.deprecatedPollingIntervalMillis = config.deprecatedPollingIntervalMillis;
-    this.startWaitMillis = config.startWaitMillis;
-    this.samplingInterval = config.samplingInterval;
-    this.deprecatedReconnectTimeMs = config.deprecatedReconnectTimeMs;
-    this.userKeysCapacity = config.userKeysCapacity;
-    this.userKeysFlushInterval = config.userKeysFlushInterval;
-    this.inlineUsersInEvents = config.inlineUsersInEvents;
-    this.sslSocketFactory = config.sslSocketFactory;
-    this.trustManager = config.trustManager;
-    this.connectTimeout = config.connectTimeout;
-    this.connectTimeoutUnit = config.connectTimeoutUnit;
-    this.socketTimeout = config.socketTimeout;
-    this.socketTimeoutUnit = config.socketTimeoutUnit;
-    this.diagnosticRecordingIntervalMillis = config.diagnosticRecordingIntervalMillis;
     this.diagnosticOptOut = config.diagnosticOptOut;
+    this.diagnosticRecordingIntervalMillis = config.diagnosticRecordingIntervalMillis;
+    this.eventProcessorFactory = config.eventProcessorFactory;
+    this.httpConfig = config.httpConfig;
+    this.offline = config.offline;
+    this.startWaitMillis = config.startWaitMillis;
     this.wrapperName = config.wrapperName;
     this.wrapperVersion = config.wrapperVersion;
+
+    this.deprecatedAllAttributesPrivate = config.deprecatedAllAttributesPrivate;
+    this.deprecatedBaseURI = config.deprecatedBaseURI;
+    this.deprecatedCapacity = config.deprecatedCapacity;
+    this.deprecatedEventsURI = config.deprecatedEventsURI;
+    this.deprecatedFeatureStore = config.deprecatedFeatureStore;
+    this.deprecatedFlushInterval = config.deprecatedFlushInterval;
+    this.deprecatedInlineUsersInEvents = config.deprecatedInlineUsersInEvents;
+    this.deprecatedReconnectTimeMs = config.deprecatedReconnectTimeMs;
+    this.deprecatedStream = config.deprecatedStream;
+    this.deprecatedStreamURI = config.deprecatedStreamURI;
+    this.deprecatedPollingIntervalMillis = config.deprecatedPollingIntervalMillis;
+    this.deprecatedPrivateAttrNames = config.deprecatedPrivateAttrNames;
+    this.deprecatedSamplingInterval = config.deprecatedSamplingInterval;
+    this.deprecatedSendEvents = config.deprecatedSendEvents;
+    this.deprecatedUserKeysCapacity = config.deprecatedUserKeysCapacity;
+    this.deprecatedUserKeysFlushInterval = config.deprecatedUserKeysFlushInterval;
   }
 
   /**
@@ -211,7 +195,7 @@ public final class LDConfig {
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
-    private Set<String> privateAttrNames = new HashSet<>();
+    private ImmutableSet<String> privateAttrNames = ImmutableSet.of();
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
     private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
     private boolean inlineUsersInEvents = false;
@@ -317,24 +301,26 @@ public final class LDConfig {
     }
 
     /**
-     * Sets the implementation of {@link EventProcessor} to be used for processing analytics events,
-     * using a factory object. The default is {@link Components#defaultEventProcessor()}, but
-     * you may choose to use a custom implementation (for instance, a test fixture).
-     * @param factory the factory object
+     * Sets the implementation of {@link EventProcessor} to be used for processing analytics events.
+     * <p>
+     * The default is {@link Components#sendEvents()}, but you may choose to use a custom implementation
+     * (for instance, a test fixture), or disable events with {@link Components#noEvents()}.
+     * 
+     * @param factory a builder/factory object for event configuration
      * @return the builder
      * @since 4.12.0
      */
-    public Builder eventProcessor(EventProcessorFactory factory) {
+    public Builder events(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
       return this;
     }
 
     /**
-     * Deprecated name for {@link #eventProcessor(EventProcessorFactory)}.
+     * Deprecated name for {@link #events(EventProcessorFactory)}.
      * @param factory the factory object
      * @return the builder
      * @since 4.0.0
-     * @deprecated Use {@link #eventProcessor(EventProcessorFactory)}.
+     * @deprecated Use {@link #events(EventProcessorFactory)}.
      */
     public Builder eventProcessorFactory(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
@@ -451,24 +437,26 @@ public final class LDConfig {
     }
 
     /**
-     * Set the number of seconds between flushes of the event buffer. Decreasing the flush interval means
-     * that the event buffer is less likely to reach capacity. The default value is 5 seconds.
+     * Deprecated method for setting the event buffer flush interval
      *
      * @param flushInterval the flush interval in seconds
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#flushIntervalSeconds(int)}.
      */
+    @Deprecated
     public Builder flushInterval(int flushInterval) {
       this.flushIntervalSeconds = flushInterval;
       return this;
     }
 
     /**
-     * Set the capacity of the events buffer. The client buffers up to this many events in memory before flushing. If the capacity is exceeded before the buffer is flushed, events will be discarded.
-     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory. The default value is 10000 elements. The default flush interval (set by flushInterval) is 5 seconds.
+     * Deprecated method for setting the capacity of the events buffer.
      *
      * @param capacity the capacity of the event buffer
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#capacity(int)}.
      */
+    @Deprecated
     public Builder capacity(int capacity) {
       this.capacity = capacity;
       return this;
@@ -566,8 +554,8 @@ public final class LDConfig {
      * not be sent.
      * <p>
      * This is equivalent to calling {@code dataSource(Components.externalUpdatesOnly())} and
-     * {@code sendEvents(false)}. It overrides any other values you may have set for
-     * {@link #dataSource(UpdateProcessorFactory)} or {@link #eventProcessor(EventProcessorFactory)}.
+     * {@code events(Components.noEvents())}. It overrides any other values you may have set for
+     * {@link #dataSource(UpdateProcessorFactory)} or {@link #events(EventProcessorFactory)}.
      * 
      * @param offline when set to true no calls to LaunchDarkly will be made
      * @return the builder
@@ -578,25 +566,26 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether or not user attributes (other than the key) should be hidden from LaunchDarkly. If this is true, all
-     * user attribute values will be private, not just the attributes specified in {@link #privateAttributeNames(String...)}. By default,
-     * this is false.
+     * Deprecated method for making all user attributes private.
+     *
      * @param allPrivate true if all user attributes should be private
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#allAttributesPrivate(boolean)}.
      */
+    @Deprecated
     public Builder allAttributesPrivate(boolean allPrivate) {
       this.allAttributesPrivate = allPrivate;
       return this;
     }
 
     /**
-     * Set whether to send events back to LaunchDarkly. By default, the client will send
-     * events. This differs from {@link #offline(boolean)} in that it only affects sending
-     * analytics events, not streaming or polling for events from the server.
+     * Deprecated method for disabling analytics events.
      *
      * @param sendEvents when set to false, no events will be sent to LaunchDarkly
      * @return the builder
+     * @deprecated Use {@link Components#noEvents()}.
      */
+    @Deprecated
     public Builder sendEvents(boolean sendEvents) {
       this.sendEvents = sendEvents;
       return this;
@@ -666,48 +655,52 @@ public final class LDConfig {
     }
 
     /**
-     * Marks a set of attribute names private. Any users sent to LaunchDarkly with this configuration
-     * active will have attributes with these names removed.
+     * Deprecated method for specifying globally private user attributes.
      *
      * @param names a set of names that will be removed from user data set to LaunchDarkly
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#privateAttributeNames(String...)}.
      */
+    @Deprecated
     public Builder privateAttributeNames(String... names) {
-      this.privateAttrNames = new HashSet<>(Arrays.asList(names));
+      this.privateAttrNames = ImmutableSet.copyOf(names);
       return this;
     }
 
     /**
-     * Sets the number of user keys that the event processor can remember at any one time, so that
-     * duplicate user details will not be sent in analytics events.
+     * Deprecated method for setting the number of user keys that can be cached for analytics events.
      * 
      * @param capacity the maximum number of user keys to remember
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#userKeysCapacity(int)}.
      */
+    @Deprecated
     public Builder userKeysCapacity(int capacity) {
       this.userKeysCapacity = capacity;
       return this;
     }
 
     /**
-     * Sets the interval in seconds at which the event processor will reset its set of known user keys. The
-     * default value is five minutes.
+     * Deprecated method for setting the expiration time of the user key cache for analytics events.  
      *
      * @param flushInterval the flush interval in seconds
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#userKeysFlushIntervalSeconds(int)}.
      */
+    @Deprecated
     public Builder userKeysFlushInterval(int flushInterval) {
       this.userKeysFlushInterval = flushInterval;
       return this;
     }
 
     /**
-     * Sets whether to include full user details in every analytics event. The default is false (events will
-     * only include the user key, except for one "index" event that provides the full details for the user).
+     * Deprecated method for setting whether to include full user details in every analytics event.
      * 
      * @param inlineUsersInEvents true if you want full user details in each event
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#inlineUsersInEvents(boolean)}.
      */
+    @Deprecated
     public Builder inlineUsersInEvents(boolean inlineUsersInEvents) {
       this.inlineUsersInEvents = inlineUsersInEvents;
       return this;

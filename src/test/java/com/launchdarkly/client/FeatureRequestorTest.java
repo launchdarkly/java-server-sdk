@@ -40,7 +40,7 @@ public class FeatureRequestorTest {
 
   private DefaultFeatureRequestor makeRequestor(MockWebServer server, LDConfig config) {
     URI uri = server.url("").uri();
-    return new DefaultFeatureRequestor(sdkKey, config, uri, true);
+    return new DefaultFeatureRequestor(sdkKey, config, config.httpConfig, uri, true);
   }
 
   @Test
@@ -198,7 +198,7 @@ public class FeatureRequestorTest {
           .proxyPort(serverUrl.port())
           .build();
       
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config, fakeBaseUri, true)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config, config.httpConfig, fakeBaseUri, true)) {
         FeatureFlag flag = r.getFlag(flag1Key);
         verifyFlag(flag, flag1Key);
         
