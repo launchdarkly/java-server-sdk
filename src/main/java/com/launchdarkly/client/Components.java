@@ -128,6 +128,7 @@ public abstract class Components {
    *
    * @return a builder for setting streaming connection properties
    * @see #noEvents()
+   * @see LDConfig.Builder#events
    * @since 4.12.0
    */
   public static EventProcessorBuilder sendEvents() {
@@ -167,6 +168,7 @@ public abstract class Components {
    * </code></pre>
    * 
    * @return a factory object
+   * @see #sendEvents()
    * @see LDConfig.Builder#events(EventProcessorFactory)
    * @since 4.12.0
    */
@@ -205,6 +207,7 @@ public abstract class Components {
    * will be renamed to {@code DataSourceFactory}.)
    * 
    * @return a builder for setting streaming connection properties
+   * @see LDConfig.Builder#dataSource(UpdateProcessorFactory)
    * @since 4.12.0
    */
   public static StreamingDataSourceBuilder streamingDataSource() {
@@ -235,6 +238,7 @@ public abstract class Components {
    * will be renamed to {@code DataSourceFactory}.)
    * 
    * @return a builder for setting polling properties
+   * @see LDConfig.Builder#dataSource(UpdateProcessorFactory)
    * @since 4.12.0
    */
   public static PollingDataSourceBuilder pollingDataSource() {
