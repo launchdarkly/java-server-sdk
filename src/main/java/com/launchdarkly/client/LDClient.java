@@ -82,6 +82,7 @@ public final class LDClient implements LDClientInterface {
     }
     this.featureStore = new FeatureStoreClientWrapper(store);
 
+    @SuppressWarnings("deprecation") // defaultEventProcessor() will be replaced by sendEvents() once the deprecated config properties are removed
     EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
         Components.defaultEventProcessor() : this.config.eventProcessorFactory;
 
@@ -98,7 +99,7 @@ public final class LDClient implements LDClientInterface {
       this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
     }
 
-    @SuppressWarnings("deprecation") // defaultUpdateProcessor will be replaced by streamingDataSource once the deprecated config.stream is removed
+    @SuppressWarnings("deprecation") // defaultUpdateProcessor() will be replaced by streamingDataSource() once the deprecated config.stream is removed
     UpdateProcessorFactory upFactory = config.dataSourceFactory == null ?
         Components.defaultUpdateProcessor() : config.dataSourceFactory;
     

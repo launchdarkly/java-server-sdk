@@ -16,20 +16,20 @@ public class LDConfigTest {
   @Test
   public void testNoProxyConfigured() {
     LDConfig config = new LDConfig.Builder().build();
-    assertNull(config.proxy);
-    assertNull(config.proxyAuthenticator);
+    assertNull(config.httpConfig.proxy);
+    assertNull(config.httpConfig.proxyAuthenticator);
   }
 
   @Test
   public void testOnlyProxyHostConfiguredIsNull() {
     LDConfig config = new LDConfig.Builder().proxyHost("bla").build();
-    assertNull(config.proxy);
+    assertNull(config.httpConfig.proxy);
   }
 
   @Test
   public void testOnlyProxyPortConfiguredHasPortAndDefaultHost() {
     LDConfig config = new LDConfig.Builder().proxyPort(1234).build();
-    assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost", 1234)), config.proxy);
+    assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost", 1234)), config.httpConfig.proxy);
   }
   @Test
   public void testProxy() {
@@ -37,7 +37,7 @@ public class LDConfigTest {
         .proxyHost("localhost2")
         .proxyPort(4444)
         .build();
-    assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost2", 4444)), config.proxy);
+    assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost2", 4444)), config.httpConfig.proxy);
   }
 
   @Test
@@ -48,8 +48,8 @@ public class LDConfigTest {
         .proxyUsername("proxyUser")
         .proxyPassword("proxyPassword")
         .build();
-    assertNotNull(config.proxy);
-    assertNotNull(config.proxyAuthenticator);
+    assertNotNull(config.httpConfig.proxy);
+    assertNotNull(config.httpConfig.proxyAuthenticator);
   }
 
   @Test
@@ -59,28 +59,28 @@ public class LDConfigTest {
         .proxyPort(4444)
         .proxyUsername("proxyUser")
         .build();
-    assertNotNull(config.proxy);
-    assertNull(config.proxyAuthenticator);
+    assertNotNull(config.httpConfig.proxy);
+    assertNull(config.httpConfig.proxyAuthenticator);
 
     config = new LDConfig.Builder()
         .proxyHost("localhost2")
         .proxyPort(4444)
         .proxyPassword("proxyPassword")
         .build();
-    assertNotNull(config.proxy);
-    assertNull(config.proxyAuthenticator);
+    assertNotNull(config.httpConfig.proxy);
+    assertNull(config.httpConfig.proxyAuthenticator);
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void testMinimumPollingIntervalIsEnforcedProperly(){
-    @SuppressWarnings("deprecation")
     LDConfig config = new LDConfig.Builder().pollingIntervalMillis(10L).build();
     assertEquals(30000L, config.deprecatedPollingIntervalMillis);
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void testPollingIntervalIsEnforcedProperly(){
-    @SuppressWarnings("deprecation")
     LDConfig config = new LDConfig.Builder().pollingIntervalMillis(30001L).build();
     assertEquals(30001L, config.deprecatedPollingIntervalMillis);
   }
@@ -88,13 +88,14 @@ public class LDConfigTest {
   @Test
   public void testSendEventsDefaultsToTrue() {
     LDConfig config = new LDConfig.Builder().build();
-    assertEquals(true, config.sendEvents);
+    assertEquals(true, config.deprecatedSendEvents);
   }
   
+  @SuppressWarnings("deprecation")
   @Test
   public void testSendEventsCanBeSetToFalse() {
     LDConfig config = new LDConfig.Builder().sendEvents(false).build();
-    assertEquals(false, config.sendEvents);
+    assertEquals(false, config.deprecatedSendEvents);
   }
 
   @Test

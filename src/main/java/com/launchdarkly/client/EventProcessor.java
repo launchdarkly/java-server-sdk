@@ -23,7 +23,12 @@ public interface EventProcessor extends Closeable {
   
   /**
    * Stub implementation of {@link EventProcessor} for when we don't want to send any events.
+   * 
+   * @deprecated Use {@link Components#noEvents()}.
    */
+  // This was exposed because everything in an interface is public. The SDK itself no longer refers to this class;
+  // instead it uses Components.NullEventProcessor.
+  @Deprecated
   static final class NullEventProcessor implements EventProcessor {
     @Override
     public void sendEvent(Event e) {
