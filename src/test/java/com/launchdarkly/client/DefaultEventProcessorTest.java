@@ -54,7 +54,7 @@ public class DefaultEventProcessorTest {
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
 
   private EventProcessorBuilder baseConfig(MockWebServer server) {
-    return sendEvents().baseUri(server.url("").uri());
+    return sendEvents().baseURI(server.url("").uri());
   }
 
   private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec) {
@@ -771,7 +771,7 @@ public class DefaultEventProcessorTest {
   @Test
   public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
-      EventProcessorBuilder ec = sendEvents().baseUri(serverWithCert.uri());
+      EventProcessorBuilder ec = sendEvents().baseURI(serverWithCert.uri());
       try (DefaultEventProcessor ep = makeEventProcessor(ec)) {
         Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
         ep.sendEvent(e);
@@ -787,7 +787,7 @@ public class DefaultEventProcessorTest {
   @Test
   public void httpClientCanUseCustomTlsConfig() throws Exception {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
-      EventProcessorBuilder ec = sendEvents().baseUri(serverWithCert.uri());
+      EventProcessorBuilder ec = sendEvents().baseURI(serverWithCert.uri());
       LDConfig config = new LDConfig.Builder()
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();

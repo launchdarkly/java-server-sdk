@@ -7,6 +7,8 @@ import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.client.utils.CachingStoreWrapper;
+import com.launchdarkly.client.utils.FeatureStoreCore;
 import com.launchdarkly.client.value.LDValue;
 
 import java.io.IOException;
@@ -28,6 +30,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
  * 
  * @since 4.0.0
  */
+@SuppressWarnings("deprecation")
 public abstract class Components {
   private static final FeatureStoreFactory inMemoryFeatureStoreFactory = new InMemoryFeatureStoreFactory();
   private static final EventProcessorFactory defaultEventProcessorFactory = new DefaultEventProcessorFactory();
@@ -79,7 +82,7 @@ public abstract class Components {
    * @since 4.12.0
    */
   public static PersistentDataStoreBuilder persistentDataStore(PersistentDataStoreFactory storeFactory) {
-    return new PersistentDataStoreBuilder(storeFactory);
+    return new PersistentDataStoreBuilderImpl(storeFactory);
   }
 
   /**
@@ -322,6 +325,7 @@ public abstract class Components {
     }
   }
   
+  // This can be removed once the deprecated event config options have been removed.
   private static final class DefaultEventProcessorFactory implements EventProcessorFactoryWithDiagnostics, DiagnosticDescription {
     @Override
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
@@ -333,7 +337,7 @@ public abstract class Components {
       if (config.deprecatedSendEvents && !config.offline) {
         EventProcessorFactory epf = sendEvents()
             .allAttributesPrivate(config.deprecatedAllAttributesPrivate)
-            .baseUri(config.deprecatedEventsURI)
+            .baseURI(config.deprecatedEventsURI)
             .capacity(config.deprecatedCapacity)
             .flushIntervalSeconds(config.deprecatedFlushInterval)
             .inlineUsersInEvents(config.deprecatedInlineUsersInEvents)
@@ -403,13 +407,13 @@ public abstract class Components {
       // into using externalUpdatesOnly() by LDConfig.Builder.
       if (config.deprecatedStream) {
         StreamingDataSourceBuilderImpl builder = (StreamingDataSourceBuilderImpl)streamingDataSource()
-            .baseUri(config.deprecatedStreamURI)
-            .pollingBaseUri(config.deprecatedBaseURI)
+            .baseURI(config.deprecatedStreamURI)
+            .pollingBaseURI(config.deprecatedBaseURI)
             .initialReconnectDelayMillis(config.deprecatedReconnectTimeMs);
         return builder.createUpdateProcessor(sdkKey, config, featureStore, diagnosticAccumulator);
       } else {
         return pollingDataSource()
-            .baseUri(config.deprecatedBaseURI)
+            .baseURI(config.deprecatedBaseURI)
             .pollIntervalMillis(config.deprecatedPollingIntervalMillis)
             .createUpdateProcessor(sdkKey, config, featureStore);
       }
@@ -505,14 +509,14 @@ public abstract class Components {
       
       LDClient.logger.info("Enabling streaming API");
 
-      URI streamUri = baseUri == null ? LDConfig.DEFAULT_STREAM_URI : baseUri;
+      URI streamUri = baseURI == null ? LDConfig.DEFAULT_STREAM_URI : baseURI;
       URI pollUri;
-      if (pollingBaseUri != null) {
-        pollUri = pollingBaseUri;
+      if (pollingBaseURI != null) {
+        pollUri = pollingBaseURI;
       } else {
         // If they have set a custom base URI, and they did *not* set a custom polling URI, then we can
         // assume they're using Relay in which case both of those values are the same.
-        pollUri = baseUri == null ? LDConfig.DEFAULT_BASE_URI : baseUri;
+        pollUri = baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI;
       }
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
@@ -542,10 +546,10 @@ public abstract class Components {
       return LDValue.buildObject()
           .put(ConfigProperty.STREAMING_DISABLED.name, false)
           .put(ConfigProperty.CUSTOM_BASE_URI.name,
-              (pollingBaseUri != null && !pollingBaseUri.equals(LDConfig.DEFAULT_BASE_URI)) ||
-              (pollingBaseUri == null && baseUri != null && !baseUri.equals(LDConfig.DEFAULT_STREAM_URI)))
+              (pollingBaseURI != null && !pollingBaseURI.equals(LDConfig.DEFAULT_BASE_URI)) ||
+              (pollingBaseURI == null && baseURI != null && !baseURI.equals(LDConfig.DEFAULT_STREAM_URI)))
           .put(ConfigProperty.CUSTOM_STREAM_URI.name,
-              baseUri != null && !baseUri.equals(LDConfig.DEFAULT_STREAM_URI))
+              baseURI != null && !baseURI.equals(LDConfig.DEFAULT_STREAM_URI))
           .put(ConfigProperty.RECONNECT_TIME_MILLIS.name, initialReconnectDelayMillis)
           .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
           .build();
@@ -567,7 +571,7 @@ public abstract class Components {
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           sdkKey,
           config.httpConfig,
-          baseUri == null ? LDConfig.DEFAULT_BASE_URI : baseUri,
+          baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI,
           true
           );
       return new PollingProcessor(requestor, featureStore, pollIntervalMillis);
@@ -581,7 +585,7 @@ public abstract class Components {
       return LDValue.buildObject()
           .put(ConfigProperty.STREAMING_DISABLED.name, true)
           .put(ConfigProperty.CUSTOM_BASE_URI.name,
-              baseUri != null && !baseUri.equals(LDConfig.DEFAULT_BASE_URI))
+              baseURI != null && !baseURI.equals(LDConfig.DEFAULT_BASE_URI))
           .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
           .put(ConfigProperty.POLLING_INTERVAL_MILLIS.name, pollIntervalMillis)
           .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
@@ -606,7 +610,7 @@ public abstract class Components {
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
-              baseUri == null ? LDConfig.DEFAULT_EVENTS_URI : baseUri,
+              baseURI == null ? LDConfig.DEFAULT_EVENTS_URI : baseURI,
               flushIntervalSeconds,
               inlineUsersInEvents,
               privateAttrNames,
@@ -624,7 +628,7 @@ public abstract class Components {
     public LDValue describeConfiguration(LDConfig config) {
       return LDValue.buildObject()
           .put(ConfigProperty.ALL_ATTRIBUTES_PRIVATE.name, allAttributesPrivate)
-          .put(ConfigProperty.CUSTOM_EVENTS_URI.name, baseUri != null && !baseUri.equals(LDConfig.DEFAULT_EVENTS_URI))
+          .put(ConfigProperty.CUSTOM_EVENTS_URI.name, baseURI != null && !baseURI.equals(LDConfig.DEFAULT_EVENTS_URI))
           .put(ConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name, diagnosticRecordingIntervalSeconds * 1000)
           .put(ConfigProperty.EVENTS_CAPACITY.name, capacity)
           .put(ConfigProperty.EVENTS_FLUSH_INTERVAL_MILLIS.name, flushIntervalSeconds * 1000)
@@ -633,6 +637,29 @@ public abstract class Components {
           .put(ConfigProperty.USER_KEYS_CAPACITY.name, userKeysCapacity)
           .put(ConfigProperty.USER_KEYS_FLUSH_INTERVAL_MILLIS.name, userKeysFlushIntervalSeconds * 1000)
           .build();
+    }
+  }
+  
+  private static final class PersistentDataStoreBuilderImpl extends PersistentDataStoreBuilder implements DiagnosticDescription {
+    public PersistentDataStoreBuilderImpl(PersistentDataStoreFactory persistentDataStoreFactory) {
+      super(persistentDataStoreFactory);
+    }
+
+    @Override
+    public FeatureStore createFeatureStore() {
+      FeatureStoreCore core = persistentDataStoreFactory.createPersistentDataStore();
+      return CachingStoreWrapper.builder(core)
+          .caching(caching)
+          .cacheMonitor(cacheMonitor)
+          .build();
+    }
+
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      if (persistentDataStoreFactory instanceof DiagnosticDescription) {
+        return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
+      }
+      return LDValue.of("?");
     }
   }
 }

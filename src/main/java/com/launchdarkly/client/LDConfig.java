@@ -202,8 +202,8 @@ public final class LDConfig {
      *
      * @param baseURI the base URL of the LaunchDarkly server for this configuration.
      * @return the builder
-     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseUri(URI)},
-     * or {@link Components#pollingDataSource()} with {@link PollingDataSourceBuilder#baseUri(URI)}.
+     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseURI(URI)},
+     * or {@link Components#pollingDataSource()} with {@link PollingDataSourceBuilder#baseURI(URI)}.
      */
     @Deprecated
     public Builder baseURI(URI baseURI) {
@@ -230,7 +230,7 @@ public final class LDConfig {
      *
      * @param streamURI the base URL of the LaunchDarkly streaming server
      * @return the builder
-     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseUri(URI)}.
+     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseURI(URI)}.
      */
     @Deprecated
     public Builder streamURI(URI streamURI) {

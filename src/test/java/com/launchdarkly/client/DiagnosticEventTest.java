@@ -114,8 +114,8 @@ public class DiagnosticEventTest {
     LDConfig ldConfig = new LDConfig.Builder()
             .dataSource(
                 Components.streamingDataSource()
-                  .baseUri(URI.create("https://1.1.1.1"))
-                  .pollingBaseUri(URI.create("https://1.1.1.1"))
+                  .baseURI(URI.create("https://1.1.1.1"))
+                  .pollingBaseURI(URI.create("https://1.1.1.1"))
                   .initialReconnectDelayMillis(2_000)
                 )
             .build();
@@ -135,7 +135,7 @@ public class DiagnosticEventTest {
     LDConfig ldConfig = new LDConfig.Builder()
             .dataSource(
                 Components.pollingDataSource()
-                  .baseUri(URI.create("https://1.1.1.1"))
+                  .baseURI(URI.create("https://1.1.1.1"))
                   .pollIntervalMillis(60_000)
                 )
             .build();

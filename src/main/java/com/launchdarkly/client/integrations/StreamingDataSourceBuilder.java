@@ -30,8 +30,8 @@ public abstract class StreamingDataSourceBuilder implements UpdateProcessorFacto
    */
   public static final long DEFAULT_INITIAL_RECONNECT_DELAY_MILLIS = 1000;
   
-  protected URI baseUri;
-  protected URI pollingBaseUri;
+  protected URI baseURI;
+  protected URI pollingBaseURI;
   protected long initialReconnectDelayMillis = DEFAULT_INITIAL_RECONNECT_DELAY_MILLIS;
 
   /**
@@ -44,11 +44,11 @@ public abstract class StreamingDataSourceBuilder implements UpdateProcessorFacto
    * <li> You are connecting to a test server or a nonstandard endpoint for the LaunchDarkly service.
    * </ul>
    * 
-   * @param baseUri the base URI of the streaming service; null to use the default
+   * @param baseURI the base URI of the streaming service; null to use the default
    * @return the builder
    */
-  public StreamingDataSourceBuilder baseUri(URI baseUri) {
-    this.baseUri = baseUri;
+  public StreamingDataSourceBuilder baseURI(URI baseURI) {
+    this.baseURI = baseURI;
     return this;
   }
   
@@ -74,15 +74,15 @@ public abstract class StreamingDataSourceBuilder implements UpdateProcessorFacto
    * Sets a custom base URI for special polling requests.
    * <p>
    * Even in streaming mode, the SDK sometimes temporarily must do a polling request. You do not need to
-   * modify this property unless you are connecting to a test server or a nonstandard endpoing for the
+   * modify this property unless you are connecting to a test server or a nonstandard endpoint for the
    * LaunchDarkly service. If you are using the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">Relay Proxy</a>,
-   * you only need to set {@link #baseUri(URI)}.
+   * you only need to set {@link #baseURI(URI)}.
    *  
-   * @param pollingBaseUri the polling endpoint URI; null to use the default
+   * @param pollingBaseURI the polling endpoint URI; null to use the default
    * @return the builder
    */
-  public StreamingDataSourceBuilder pollingBaseUri(URI pollingBaseUri) {
-    this.pollingBaseUri = pollingBaseUri;
+  public StreamingDataSourceBuilder pollingBaseURI(URI pollingBaseURI) {
+    this.pollingBaseURI = pollingBaseURI;
     return this;
   }
 }
