@@ -37,9 +37,9 @@ final class StreamProcessor implements UpdateProcessor {
   private static final int DEAD_CONNECTION_INTERVAL_MS = 300 * 1000;
 
   private final FeatureStore store;
-  private final String sdkKey;
-  private final LDConfig config;
+  private final HttpConfiguration httpConfig;
   private final URI streamUri;
+  private final Headers headers;
   private final long initialReconnectDelayMillis;
   private final FeatureRequestor requestor;
   private final DiagnosticAccumulator diagnosticAccumulator;
@@ -51,13 +51,14 @@ final class StreamProcessor implements UpdateProcessor {
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
   public static interface EventSourceCreator {
-    EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
-        ConnectionErrorHandler errorHandler, Headers headers);
+    EventSource createEventSource(EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
+        ConnectionErrorHandler errorHandler, Headers headers, HttpConfiguration httpConfig);
   }
   
   StreamProcessor(
       String sdkKey,
       LDConfig config,
+      HttpConfiguration httpConfig,
       FeatureRequestor requestor,
       FeatureStore featureStore,
       EventSourceCreator eventSourceCreator,
@@ -66,13 +67,15 @@ final class StreamProcessor implements UpdateProcessor {
       long initialReconnectDelayMillis
       ) {
     this.store = featureStore;
-    this.sdkKey = sdkKey;
-    this.config = config; // this is no longer the source of truth for streamUri or initialReconnectDelayMillis, but it can affect HTTP behavior
+    this.httpConfig = httpConfig;
     this.requestor = requestor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
     this.streamUri = streamUri;
     this.initialReconnectDelayMillis = initialReconnectDelayMillis;
+    this.headers = getHeadersBuilderFor(sdkKey, config)
+        .add("Accept", "text/event-stream")
+        .build();
   }
 
   private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
@@ -96,11 +99,6 @@ final class StreamProcessor implements UpdateProcessor {
   @Override
   public Future<Void> start() {
     final SettableFuture<Void> initFuture = SettableFuture.create();
-
-    Headers headers = getHeadersBuilderFor(sdkKey, config)
-        .add("Accept", "text/event-stream")
-        .build();
-
     ConnectionErrorHandler wrappedConnectionErrorHandler = new ConnectionErrorHandler() {
       @Override
       public Action onConnectionError(Throwable t) {
@@ -209,11 +207,12 @@ final class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    es = eventSourceCreator.createEventSource(config, handler,
+    es = eventSourceCreator.createEventSource(handler,
         URI.create(streamUri.toASCIIString() + "/all"),
         initialReconnectDelayMillis,
         wrappedConnectionErrorHandler,
-        headers);
+        headers,
+        httpConfig);
     esStarted = System.currentTimeMillis();
     es.start();
     return initFuture;
@@ -266,12 +265,12 @@ final class StreamProcessor implements UpdateProcessor {
   }
   
   private class DefaultEventSourceCreator implements EventSourceCreator {
-    public EventSource createEventSource(final LDConfig config, EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
-        ConnectionErrorHandler errorHandler, Headers headers) {
+    public EventSource createEventSource(EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
+        ConnectionErrorHandler errorHandler, Headers headers, final HttpConfiguration httpConfig) {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
           .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
             public void configure(OkHttpClient.Builder builder) {
-              configureHttpClientBuilder(config, builder);
+              configureHttpClientBuilder(httpConfig, builder);
             }
           })
           .connectionErrorHandler(errorHandler)

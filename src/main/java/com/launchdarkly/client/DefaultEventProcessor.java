@@ -52,8 +52,9 @@ final class DefaultEventProcessor implements EventProcessor {
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private volatile boolean inputCapacityExceeded = false;
 
-  DefaultEventProcessor(String sdkKey, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    inbox = new ArrayBlockingQueue<>(config.capacity);
+  DefaultEventProcessor(String sdkKey, LDConfig config, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
+      DiagnosticAccumulator diagnosticAccumulator) {
+    inbox = new ArrayBlockingQueue<>(eventsConfig.capacity);
     
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setDaemon(true)
@@ -62,28 +63,29 @@ final class DefaultEventProcessor implements EventProcessor {
         .build();
     scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
-    new EventDispatcher(sdkKey, config, inbox, threadFactory, closed, diagnosticAccumulator);
+    new EventDispatcher(sdkKey, config, eventsConfig, httpConfig, inbox, threadFactory, closed, diagnosticAccumulator);
 
     Runnable flusher = new Runnable() {
       public void run() {
         postMessageAsync(MessageType.FLUSH, null);
       }
     };
-    this.scheduler.scheduleAtFixedRate(flusher, config.flushInterval, config.flushInterval, TimeUnit.SECONDS);
+    this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushIntervalSeconds, eventsConfig.flushIntervalSeconds, TimeUnit.SECONDS);
     Runnable userKeysFlusher = new Runnable() {
       public void run() {
         postMessageAsync(MessageType.FLUSH_USERS, null);
       }
     };
-    this.scheduler.scheduleAtFixedRate(userKeysFlusher, config.userKeysFlushInterval, config.userKeysFlushInterval,
-        TimeUnit.SECONDS);
+    this.scheduler.scheduleAtFixedRate(userKeysFlusher, eventsConfig.userKeysFlushIntervalSeconds,
+        eventsConfig.userKeysFlushIntervalSeconds, TimeUnit.SECONDS);
     if (!config.diagnosticOptOut && diagnosticAccumulator != null) {
       Runnable diagnosticsTrigger = new Runnable() {
         public void run() {
           postMessageAsync(MessageType.DIAGNOSTIC, null);
         }
       };
-      this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, config.diagnosticRecordingIntervalMillis, config.diagnosticRecordingIntervalMillis, TimeUnit.MILLISECONDS);
+      this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, config.diagnosticRecordingIntervalMillis,
+          config.diagnosticRecordingIntervalMillis, TimeUnit.MILLISECONDS);
     }
   }
 
@@ -202,7 +204,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private static final int MAX_FLUSH_THREADS = 5;
     private static final int MESSAGE_BATCH_SIZE = 50;
 
-    private final LDConfig config;
+    private final EventsConfiguration eventsConfig;
     private final OkHttpClient httpClient;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;
@@ -215,17 +217,17 @@ final class DefaultEventProcessor implements EventProcessor {
 
     private long deduplicatedUsers = 0;
 
-    private EventDispatcher(String sdkKey, LDConfig config,
+    private EventDispatcher(String sdkKey, LDConfig config, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
                             final BlockingQueue<EventProcessorMessage> inbox,
                             ThreadFactory threadFactory,
                             final AtomicBoolean closed,
                             DiagnosticAccumulator diagnosticAccumulator) {
-      this.config = config;
+      this.eventsConfig = eventsConfig;
       this.diagnosticAccumulator = diagnosticAccumulator;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
       OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-      configureHttpClientBuilder(config, httpBuilder);
+      configureHttpClientBuilder(httpConfig, httpBuilder);
       httpClient = httpBuilder.build();
       
       // This queue only holds one element; it represents a flush task that has not yet been
@@ -233,8 +235,8 @@ final class DefaultEventProcessor implements EventProcessor {
       // all the workers are busy.
       final BlockingQueue<FlushPayload> payloadQueue = new ArrayBlockingQueue<>(1);
 
-      final EventBuffer outbox = new EventBuffer(config.capacity);
-      final SimpleLRUCache<String, String> userKeys = new SimpleLRUCache<String, String>(config.userKeysCapacity);
+      final EventBuffer outbox = new EventBuffer(eventsConfig.capacity);
+      final SimpleLRUCache<String, String> userKeys = new SimpleLRUCache<String, String>(eventsConfig.userKeysCapacity);
 
       Thread mainThread = threadFactory.newThread(new Runnable() {
         public void run() {
@@ -270,14 +272,14 @@ final class DefaultEventProcessor implements EventProcessor {
           }
         };
       for (int i = 0; i < MAX_FLUSH_THREADS; i++) {
-        SendEventsTask task = new SendEventsTask(sdkKey, config, httpClient, listener, payloadQueue,
+        SendEventsTask task = new SendEventsTask(sdkKey, config, eventsConfig, httpClient, listener, payloadQueue,
             busyFlushWorkersCount, threadFactory);
         flushWorkers.add(task);
       }
 
       if (!config.diagnosticOptOut && diagnosticAccumulator != null) {
         // Set up diagnostics
-        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(sdkKey, config, httpClient);
+        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(sdkKey, config, eventsConfig, httpClient);
         diagnosticExecutor = Executors.newSingleThreadExecutor(threadFactory);
         DiagnosticEvent.Init diagnosticInitEvent = new DiagnosticEvent.Init(diagnosticAccumulator.dataSinceDate, diagnosticAccumulator.diagnosticId, config);
         diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
@@ -395,7 +397,7 @@ final class DefaultEventProcessor implements EventProcessor {
 
       // For each user we haven't seen before, we add an index event - unless this is already
       // an identify event for that user.
-      if (!addFullEvent || !config.inlineUsersInEvents) {
+      if (!addFullEvent || !eventsConfig.inlineUsersInEvents) {
         if (e.user != null && e.user.getKey() != null) {
           boolean isIndexEvent = e instanceof Event.Identify;
           boolean alreadySeen = noticeUser(e.user, userKeys);
@@ -428,7 +430,7 @@ final class DefaultEventProcessor implements EventProcessor {
     }
 
     private boolean shouldSampleEvent() {
-      return config.samplingInterval <= 0 || random.nextInt(config.samplingInterval) == 0;
+      return eventsConfig.samplingInterval <= 0 || random.nextInt(eventsConfig.samplingInterval) == 0;
     }
 
     private boolean shouldDebugEvent(Event.FeatureRequest fe) {
@@ -610,16 +612,16 @@ final class DefaultEventProcessor implements EventProcessor {
 
     private final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz"); // need one instance per task because the date parser isn't thread-safe
 
-    SendEventsTask(String sdkKey, LDConfig config, OkHttpClient httpClient, EventResponseListener responseListener,
-                   BlockingQueue<FlushPayload> payloadQueue, AtomicInteger activeFlushWorkersCount,
+    SendEventsTask(String sdkKey, LDConfig config, EventsConfiguration eventsConfig, OkHttpClient httpClient,
+                   EventResponseListener responseListener, BlockingQueue<FlushPayload> payloadQueue, AtomicInteger activeFlushWorkersCount,
                    ThreadFactory threadFactory) {
       this.httpClient = httpClient;
-      this.formatter = new EventOutputFormatter(config);
+      this.formatter = new EventOutputFormatter(eventsConfig);
       this.responseListener = responseListener;
       this.payloadQueue = payloadQueue;
       this.activeFlushWorkersCount = activeFlushWorkersCount;
       this.stopping = new AtomicBoolean(false);
-      this.uriStr = config.eventsURI.toString() + "/bulk";
+      this.uriStr = eventsConfig.eventsUri.toString() + "/bulk";
       this.headers = getHeadersBuilderFor(sdkKey, config)
           .add("Content-Type", "application/json")
           .add(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION)
@@ -667,15 +669,13 @@ final class DefaultEventProcessor implements EventProcessor {
   }
 
   private static final class SendDiagnosticTaskFactory {
-    private final LDConfig config;
     private final OkHttpClient httpClient;
     private final String uriStr;
     private final Headers headers;
 
-    SendDiagnosticTaskFactory(String sdkKey, LDConfig config, OkHttpClient httpClient) {
-      this.config = config;
+    SendDiagnosticTaskFactory(String sdkKey, LDConfig config, EventsConfiguration eventsConfig, OkHttpClient httpClient) {
       this.httpClient = httpClient;
-      this.uriStr = config.eventsURI.toString() + "/diagnostic";
+      this.uriStr = eventsConfig.eventsUri.toString() + "/diagnostic";
       this.headers = getHeadersBuilderFor(sdkKey, config)
           .add("Content-Type", "application/json")
           .build();
@@ -685,7 +685,7 @@ final class DefaultEventProcessor implements EventProcessor {
       return new Runnable() {
         @Override
         public void run() {
-          String json = config.gson.toJson(diagnosticEvent);
+          String json = JsonHelpers.gsonInstance().toJson(diagnosticEvent);
           postJson(httpClient, headers, json, uriStr, "diagnostic event", null, null);
         }
       };

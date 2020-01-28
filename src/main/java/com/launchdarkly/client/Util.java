@@ -48,7 +48,7 @@ class Util {
     return builder;
   }
   
-  static void configureHttpClientBuilder(LDConfig config, OkHttpClient.Builder builder) {
+  static void configureHttpClientBuilder(HttpConfiguration config, OkHttpClient.Builder builder) {
     builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
       .connectTimeout(config.connectTimeout, config.connectTimeoutUnit)
       .readTimeout(config.socketTimeout, config.socketTimeoutUnit)

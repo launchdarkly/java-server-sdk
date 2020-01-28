@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Future;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -274,5 +275,19 @@ public class TestUtil {
         return true;
       }
     };
+  }
+
+  static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate, boolean inlineUsersInEvents,
+      Set<String> privateAttrNames) {
+    return new EventsConfiguration(
+        allAttributesPrivate,
+        0, null, 0,
+        inlineUsersInEvents,
+        privateAttrNames,
+        0, 0, 0);
+  }
+
+  static EventsConfiguration defaultEventsConfig() {
+    return makeEventsConfig(false, false, null);
   }
 }

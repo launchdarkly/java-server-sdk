@@ -84,28 +84,28 @@ class DiagnosticEvent {
 
       DiagnosticConfiguration(LDConfig config) {
         this.customBaseURI = !(LDConfig.DEFAULT_BASE_URI.equals(config.deprecatedBaseURI)); // TODO: get actual config from components
-        this.customEventsURI = !(LDConfig.DEFAULT_EVENTS_URI.equals(config.eventsURI));
+        this.customEventsURI = !(LDConfig.DEFAULT_EVENTS_URI.equals(config.deprecatedEventsURI));
         this.customStreamURI = !(LDConfig.DEFAULT_STREAM_URI.equals(config.deprecatedStreamURI));
-        this.eventsCapacity = config.capacity;
-        this.connectTimeoutMillis = (int)config.connectTimeoutUnit.toMillis(config.connectTimeout);
-        this.socketTimeoutMillis = (int)config.socketTimeoutUnit.toMillis(config.socketTimeout);
-        this.eventsFlushIntervalMillis = config.flushInterval * 1000;
-        this.usingProxy = config.proxy != null;
-        this.usingProxyAuthenticator = config.proxyAuthenticator != null;
-        this.streamingDisabled = !config.stream;
+        this.eventsCapacity = config.deprecatedCapacity;
+        this.connectTimeoutMillis = (int)config.httpConfig.connectTimeoutUnit.toMillis(config.httpConfig.connectTimeout);
+        this.socketTimeoutMillis = (int)config.httpConfig.socketTimeoutUnit.toMillis(config.httpConfig.socketTimeout);
+        this.eventsFlushIntervalMillis = config.deprecatedFlushInterval * 1000;
+        this.usingProxy = config.httpConfig.proxy != null;
+        this.usingProxyAuthenticator = config.httpConfig.proxyAuthenticator != null;
+        this.streamingDisabled = !config.deprecatedStream;
         this.usingRelayDaemon =
             config.dataSourceFactory == Components.externalUpdatesOnly() &&
             config.dataStoreFactory != null &&
             config.dataStoreFactory != Components.inMemoryDataStore();
         this.offline = config.offline;
-        this.allAttributesPrivate = config.allAttributesPrivate;
+        this.allAttributesPrivate = config.deprecatedAllAttributesPrivate;
         this.pollingIntervalMillis = config.deprecatedPollingIntervalMillis;
         this.startWaitMillis = config.startWaitMillis;
-        this.samplingInterval = config.samplingInterval;
+        this.samplingInterval = config.deprecatedSamplingInterval;
         this.reconnectTimeMillis = config.deprecatedReconnectTimeMs;
-        this.userKeysCapacity = config.userKeysCapacity;
-        this.userKeysFlushIntervalMillis = config.userKeysFlushInterval * 1000;
-        this.inlineUsersInEvents = config.inlineUsersInEvents;
+        this.userKeysCapacity = config.deprecatedUserKeysCapacity;
+        this.userKeysFlushIntervalMillis = config.deprecatedUserKeysFlushInterval * 1000;
+        this.inlineUsersInEvents = config.deprecatedInlineUsersInEvents;
         this.diagnosticRecordingIntervalMillis = config.diagnosticRecordingIntervalMillis;
         if (config.deprecatedFeatureStore != null) {
           this.featureStore = config.deprecatedFeatureStore.getClass().getSimpleName();

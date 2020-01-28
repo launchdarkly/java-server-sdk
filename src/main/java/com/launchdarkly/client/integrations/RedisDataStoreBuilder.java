@@ -23,15 +23,15 @@ import redis.clients.jedis.Protocol;
  * Builder calls can be chained, for example:
  *
  * <pre><code>
- *     LDConfig config = new LDConfig.Builder()
- *         .dataStore(
- *             Components.persistentDataStore(
- *                 Redis.dataStore()
- *                     .url("redis://my-redis-host")
- *                     .database(1)
- *             ).cacheSeconds(15)
- *         )
- *         .build();
+   *     LDConfig config = new LDConfig.Builder()
+   *         .dataStore(
+   *             Components.persistentDataStore(
+   *                 Redis.dataStore()
+   *                     .url("redis://my-redis-host")
+   *                     .database(1)
+   *             ).cacheSeconds(15)
+   *         )
+   *         .build();
  * </code></pre>
  * 
  * @since 4.12.0
