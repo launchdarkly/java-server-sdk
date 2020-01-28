@@ -3,9 +3,12 @@ package com.launchdarkly.client.integrations;
 import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.FeatureStoreFactory;
+import com.launchdarkly.client.LDConfig;
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
 import com.launchdarkly.client.utils.CachingStoreWrapper;
 import com.launchdarkly.client.utils.FeatureStoreCore;
+import com.launchdarkly.client.value.LDValue;
 
 import java.util.concurrent.TimeUnit;
 
@@ -36,7 +39,7 @@ import java.util.concurrent.TimeUnit;
  * @since 4.12.0
  */
 @SuppressWarnings("deprecation")
-public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
+public final class PersistentDataStoreBuilder implements FeatureStoreFactory, DiagnosticDescription {
   /**
    * The default value for the cache TTL.
    */
@@ -212,5 +215,13 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory {
   public PersistentDataStoreBuilder cacheMonitor(CacheMonitor cacheMonitor) {
     this.cacheMonitor = cacheMonitor;
     return this;
+  }
+
+  @Override
+  public LDValue describeConfiguration(LDConfig config) {
+    if (persistentDataStoreFactory instanceof DiagnosticDescription) {
+      return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
+    }
+    return LDValue.of("?");
   }
 }

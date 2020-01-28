@@ -1,7 +1,10 @@
 package com.launchdarkly.client.integrations;
 
+import com.launchdarkly.client.LDConfig;
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
 import com.launchdarkly.client.utils.FeatureStoreCore;
+import com.launchdarkly.client.value.LDValue;
 
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
@@ -36,7 +39,7 @@ import redis.clients.jedis.Protocol;
  * 
  * @since 4.12.0
  */
-public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
+public final class RedisDataStoreBuilder implements PersistentDataStoreFactory, DiagnosticDescription {
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
    */
@@ -165,5 +168,10 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
   @Override
   public FeatureStoreCore createPersistentDataStore() {
     return new RedisDataStoreImpl(this);
+  }
+
+  @Override
+  public LDValue describeConfiguration(LDConfig config) {
+    return LDValue.of("Redis");
   }
 }

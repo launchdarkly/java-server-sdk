@@ -1,10 +1,13 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.DiagnosticEvent.ConfigProperty;
 import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.client.value.LDValue;
 
 import java.io.IOException;
 import java.net.URI;
@@ -30,7 +33,7 @@ public abstract class Components {
   private static final EventProcessorFactory defaultEventProcessorFactory = new DefaultEventProcessorFactory();
   private static final EventProcessorFactory nullEventProcessorFactory = new NullEventProcessorFactory();
   private static final UpdateProcessorFactory defaultUpdateProcessorFactory = new DefaultUpdateProcessorFactory();
-  private static final UpdateProcessorFactory nullUpdateProcessorFactory = new NullUpdateProcessorFactory();
+  private static final NullUpdateProcessorFactory nullUpdateProcessorFactory = new NullUpdateProcessorFactory();
   
   /**
    * Returns a configuration object for using the default in-memory implementation of a data store.
@@ -307,10 +310,15 @@ public abstract class Components {
     return nullUpdateProcessorFactory;
   }
   
-  private static final class InMemoryFeatureStoreFactory implements FeatureStoreFactory {
+  private static final class InMemoryFeatureStoreFactory implements FeatureStoreFactory, DiagnosticDescription {
     @Override
     public FeatureStore createFeatureStore() {
       return new InMemoryFeatureStore();
+    }
+
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      return LDValue.of("memory");
     }
   }
   
@@ -361,7 +369,8 @@ public abstract class Components {
   }
 
   // This can be removed once the deprecated polling/streaming config options have been removed.
-  private static final class DefaultUpdateProcessorFactory implements UpdateProcessorFactoryWithDiagnostics {
+  private static final class DefaultUpdateProcessorFactory implements UpdateProcessorFactoryWithDiagnostics,
+      DiagnosticDescription {
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       return createUpdateProcessor(sdkKey, config, featureStore, null);
@@ -370,6 +379,9 @@ public abstract class Components {
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore,
         DiagnosticAccumulator diagnosticAccumulator) {
+      if (config.offline) {
+        return Components.externalUpdatesOnly().createUpdateProcessor(sdkKey, config, featureStore);
+      }
       // We don't need to check config.offline or config.useLdd here; the former is checked automatically
       // by StreamingDataSourceBuilder and PollingDataSourceBuilder, and setting the latter is translated
       // into using externalUpdatesOnly() by LDConfig.Builder.
@@ -386,9 +398,37 @@ public abstract class Components {
             .createUpdateProcessor(sdkKey, config, featureStore);
       }
     }
+    
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      if (config.offline) {
+        return nullUpdateProcessorFactory.describeConfiguration(config);
+      }
+      if (config.deprecatedStream) {
+        return LDValue.buildObject()
+            .put(ConfigProperty.STREAMING_DISABLED.name, false)
+            .put(ConfigProperty.CUSTOM_BASE_URI.name,
+                config.deprecatedBaseURI != null && !config.deprecatedBaseURI.equals(LDConfig.DEFAULT_BASE_URI))
+            .put(ConfigProperty.CUSTOM_STREAM_URI.name,
+                config.deprecatedStreamURI != null && !config.deprecatedStreamURI.equals(LDConfig.DEFAULT_STREAM_URI))
+            .put(ConfigProperty.RECONNECT_TIME_MILLIS.name, config.deprecatedReconnectTimeMs)
+            .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
+            .build();
+      } else {
+        return LDValue.buildObject()
+            .put(ConfigProperty.STREAMING_DISABLED.name, true)
+            .put(ConfigProperty.CUSTOM_BASE_URI.name,
+                config.deprecatedBaseURI != null && !config.deprecatedBaseURI.equals(LDConfig.DEFAULT_BASE_URI))
+            .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
+            .put(ConfigProperty.POLLING_INTERVAL_MILLIS.name, config.deprecatedPollingIntervalMillis)
+            .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
+            .build();
+      }
+    }
+
   }
   
-  private static final class NullUpdateProcessorFactory implements UpdateProcessorFactory {
+  private static final class NullUpdateProcessorFactory implements UpdateProcessorFactory, DiagnosticDescription {
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       if (config.offline) {
@@ -399,6 +439,19 @@ public abstract class Components {
         LDClient.logger.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
       }
       return new NullUpdateProcessor();
+    }
+
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      // We can assume that if they don't have a data source, and they *do* have a persistent data store, then
+      // they're using Relay in daemon mode.
+      return LDValue.buildObject()
+          .put(ConfigProperty.CUSTOM_BASE_URI.name, false)
+          .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
+          .put(ConfigProperty.STREAMING_DISABLED.name, false)
+          .put(ConfigProperty.USING_RELAY_DAEMON.name,
+              config.dataStoreFactory != null && config.dataStoreFactory != Components.inMemoryDataStore())
+          .build();
     }
   }
   
@@ -418,7 +471,8 @@ public abstract class Components {
     public void close() throws IOException {}
   }
   
-  private static final class StreamingDataSourceBuilderImpl extends StreamingDataSourceBuilder implements UpdateProcessorFactoryWithDiagnostics {
+  private static final class StreamingDataSourceBuilderImpl extends StreamingDataSourceBuilder
+      implements UpdateProcessorFactoryWithDiagnostics, DiagnosticDescription {
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       return createUpdateProcessor(sdkKey, config, featureStore, null);
@@ -430,7 +484,6 @@ public abstract class Components {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
       if (config.offline) {
-        LDClient.logger.info("Starting LaunchDarkly client in offline mode");
         return Components.externalUpdatesOnly().createUpdateProcessor(sdkKey, config, featureStore);
       }
       
@@ -466,15 +519,31 @@ public abstract class Components {
           initialReconnectDelayMillis
           );
     }
+
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      if (config.offline) {
+        return nullUpdateProcessorFactory.describeConfiguration(config);
+      }
+      return LDValue.buildObject()
+          .put(ConfigProperty.STREAMING_DISABLED.name, false)
+          .put(ConfigProperty.CUSTOM_BASE_URI.name,
+              (pollingBaseUri != null && !pollingBaseUri.equals(LDConfig.DEFAULT_BASE_URI)) ||
+              (pollingBaseUri == null && baseUri != null && !baseUri.equals(LDConfig.DEFAULT_STREAM_URI)))
+          .put(ConfigProperty.CUSTOM_STREAM_URI.name,
+              baseUri != null && !baseUri.equals(LDConfig.DEFAULT_STREAM_URI))
+          .put(ConfigProperty.RECONNECT_TIME_MILLIS.name, initialReconnectDelayMillis)
+          .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
+          .build();
+    }
   }
   
-  private static final class PollingDataSourceBuilderImpl extends PollingDataSourceBuilder {
+  private static final class PollingDataSourceBuilderImpl extends PollingDataSourceBuilder implements DiagnosticDescription {
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
       if (config.offline) {
-        LDClient.logger.info("Starting LaunchDarkly client in offline mode");
         return Components.externalUpdatesOnly().createUpdateProcessor(sdkKey, config, featureStore);
       }
 
@@ -489,6 +558,21 @@ public abstract class Components {
           true
           );
       return new PollingProcessor(requestor, featureStore, pollIntervalMillis);
+    }
+
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      if (config.offline) {
+        return nullUpdateProcessorFactory.describeConfiguration(config);
+      }
+      return LDValue.buildObject()
+          .put(ConfigProperty.STREAMING_DISABLED.name, true)
+          .put(ConfigProperty.CUSTOM_BASE_URI.name,
+              baseUri != null && !baseUri.equals(LDConfig.DEFAULT_BASE_URI))
+          .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
+          .put(ConfigProperty.POLLING_INTERVAL_MILLIS.name, pollIntervalMillis)
+          .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
+          .build();
     }
   }
   

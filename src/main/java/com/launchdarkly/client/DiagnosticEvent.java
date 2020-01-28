@@ -1,9 +1,31 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
+import com.launchdarkly.client.value.LDValue;
+import com.launchdarkly.client.value.LDValueType;
+import com.launchdarkly.client.value.ObjectBuilder;
+
 import java.util.List;
 
 class DiagnosticEvent {
-
+  static enum ConfigProperty {
+    CUSTOM_BASE_URI("customBaseURI", LDValueType.BOOLEAN),
+    CUSTOM_EVENTS_URI("customEventsURI", LDValueType.BOOLEAN),
+    CUSTOM_STREAM_URI("customStreamURI", LDValueType.BOOLEAN),
+    POLLING_INTERVAL_MILLIS("pollingIntervalMillis", LDValueType.NUMBER),
+    RECONNECT_TIME_MILLIS("reconnectTimeMillis", LDValueType.NUMBER),
+    STREAMING_DISABLED("streamingDisabled", LDValueType.BOOLEAN),
+    USING_RELAY_DAEMON("usingRelayDaemon", LDValueType.BOOLEAN);
+    
+    String name;
+    LDValueType type;
+    
+    private ConfigProperty(String name, LDValueType type) {
+      this.name = name;
+      this.type = type;
+    }
+  }
+  
   final String kind;
   final long creationDate;
   final DiagnosticId id;
@@ -46,77 +68,84 @@ class DiagnosticEvent {
   }
 
   static class Init extends DiagnosticEvent {
-
     final DiagnosticSdk sdk;
-    final DiagnosticConfiguration configuration;
+    final LDValue configuration;
     final DiagnosticPlatform platform = new DiagnosticPlatform();
 
     Init(long creationDate, DiagnosticId diagnosticId, LDConfig config) {
       super("diagnostic-init", creationDate, diagnosticId);
       this.sdk = new DiagnosticSdk(config);
-      this.configuration = new DiagnosticConfiguration(config);
+      this.configuration = getConfigurationData(config);
     }
 
-    @SuppressWarnings("unused") // fields are for JSON serialization only
-    static class DiagnosticConfiguration {
-      private final boolean customBaseURI;
-      private final boolean customEventsURI;
-      private final boolean customStreamURI;
-      private final int eventsCapacity;
-      private final int connectTimeoutMillis;
-      private final int socketTimeoutMillis;
-      private final long eventsFlushIntervalMillis;
-      private final boolean usingProxy;
-      private final boolean usingProxyAuthenticator;
-      private final boolean streamingDisabled;
-      private final boolean usingRelayDaemon;
-      private final boolean offline;
-      private final boolean allAttributesPrivate;
-      private final long pollingIntervalMillis;
-      private final long startWaitMillis;
-      private final int samplingInterval;
-      private final long reconnectTimeMillis;
-      private final int userKeysCapacity;
-      private final long userKeysFlushIntervalMillis;
-      private final boolean inlineUsersInEvents;
-      private final int diagnosticRecordingIntervalMillis;
-      private final String featureStore;
-
-      DiagnosticConfiguration(LDConfig config) {
-        this.customBaseURI = !(LDConfig.DEFAULT_BASE_URI.equals(config.deprecatedBaseURI)); // TODO: get actual config from components
-        this.customEventsURI = !(LDConfig.DEFAULT_EVENTS_URI.equals(config.deprecatedEventsURI));
-        this.customStreamURI = !(LDConfig.DEFAULT_STREAM_URI.equals(config.deprecatedStreamURI));
-        this.eventsCapacity = config.deprecatedCapacity;
-        this.connectTimeoutMillis = (int)config.httpConfig.connectTimeoutUnit.toMillis(config.httpConfig.connectTimeout);
-        this.socketTimeoutMillis = (int)config.httpConfig.socketTimeoutUnit.toMillis(config.httpConfig.socketTimeout);
-        this.eventsFlushIntervalMillis = config.deprecatedFlushInterval * 1000;
-        this.usingProxy = config.httpConfig.proxy != null;
-        this.usingProxyAuthenticator = config.httpConfig.proxyAuthenticator != null;
-        this.streamingDisabled = !config.deprecatedStream;
-        this.usingRelayDaemon =
-            config.dataSourceFactory == Components.externalUpdatesOnly() &&
-            config.dataStoreFactory != null &&
-            config.dataStoreFactory != Components.inMemoryDataStore();
-        this.offline = config.offline;
-        this.allAttributesPrivate = config.deprecatedAllAttributesPrivate;
-        this.pollingIntervalMillis = config.deprecatedPollingIntervalMillis;
-        this.startWaitMillis = config.startWaitMillis;
-        this.samplingInterval = config.deprecatedSamplingInterval;
-        this.reconnectTimeMillis = config.deprecatedReconnectTimeMs;
-        this.userKeysCapacity = config.deprecatedUserKeysCapacity;
-        this.userKeysFlushIntervalMillis = config.deprecatedUserKeysFlushInterval * 1000;
-        this.inlineUsersInEvents = config.deprecatedInlineUsersInEvents;
-        this.diagnosticRecordingIntervalMillis = config.diagnosticRecordingIntervalMillis;
-        if (config.deprecatedFeatureStore != null) {
-          this.featureStore = config.deprecatedFeatureStore.getClass().getSimpleName();
-        } else if (config.dataStoreFactory != null) {
-          this.featureStore = config.dataStoreFactory.getClass().getSimpleName();
-        } else {
-          this.featureStore = Components.inMemoryDataStore().getClass().getSimpleName();
+    @SuppressWarnings("deprecation")
+    static LDValue getConfigurationData(LDConfig config) {
+      ObjectBuilder builder = LDValue.buildObject();
+      
+      // Add the top-level properties that are not specific to a particular component type.
+      builder.put("customEventsURI", !(LDConfig.DEFAULT_EVENTS_URI.equals(config.deprecatedEventsURI)));
+      builder.put("eventsCapacity", config.deprecatedCapacity);
+      builder.put("connectTimeoutMillis", config.httpConfig.connectTimeoutUnit.toMillis(config.httpConfig.connectTimeout));
+      builder.put("socketTimeoutMillis", config.httpConfig.socketTimeoutUnit.toMillis(config.httpConfig.socketTimeout));
+      builder.put("eventsFlushIntervalMillis", config.deprecatedFlushInterval * 1000);
+      builder.put("usingProxy", config.httpConfig.proxy != null);
+      builder.put("usingProxyAuthenticator", config.httpConfig.proxyAuthenticator != null);
+      builder.put("offline", config.offline);
+      builder.put("allAttributesPrivate", config.deprecatedAllAttributesPrivate);
+      builder.put("startWaitMillis", config.startWaitMillis);
+      builder.put("samplingInterval", config.deprecatedSamplingInterval);
+      builder.put("userKeysCapacity", config.deprecatedUserKeysCapacity);
+      builder.put("userKeysFlushIntervalMillis", config.deprecatedUserKeysFlushInterval * 1000);
+      builder.put("inlineUsersInEvents", config.deprecatedInlineUsersInEvents);
+      builder.put("diagnosticRecordingIntervalMillis", config.diagnosticRecordingIntervalMillis);
+      
+      // Allow each pluggable component to describe its own relevant properties. 
+      mergeComponentProperties(builder, config.deprecatedFeatureStore, config, "dataStoreType");
+      mergeComponentProperties(builder,
+          config.dataStoreFactory == null ? Components.inMemoryDataStore() : config.dataStoreFactory,
+          config, "dataStoreType");
+      mergeComponentProperties(builder,
+          config.dataSourceFactory == null ? Components.defaultUpdateProcessor() : config.dataSourceFactory,
+          config, null);
+      return builder.build();
+    }
+    
+    // Attempts to add relevant configuration properties, if any, from a customizable component:
+    // - If the component does not implement DiagnosticDescription, set the defaultPropertyName property to its class name.
+    // - If it does implement DiagnosticDescription, call its describeConfiguration() method to get a value.
+    // - If the value is a string, then set the defaultPropertyName property to that value.
+    // - If the value is an object, then copy all of its properties as long as they are ones we recognize
+    //   and have the expected type.
+    private static void mergeComponentProperties(ObjectBuilder builder, Object component, LDConfig config, String defaultPropertyName) {
+      if (component == null) {
+        return;
+      }
+      if (!(component instanceof DiagnosticDescription)) {
+        if (defaultPropertyName != null) {
+          builder.put(defaultPropertyName, LDValue.of(component.getClass().getSimpleName()));
+        }
+        return;
+      }
+      LDValue componentDesc = ((DiagnosticDescription)component).describeConfiguration(config);
+      if (componentDesc == null || componentDesc.isNull()) {
+        return;
+      }
+      if (componentDesc.isString() && defaultPropertyName != null) {
+        builder.put(defaultPropertyName, componentDesc);
+      } else if (componentDesc.getType() == LDValueType.OBJECT) {
+        for (String key: componentDesc.keys()) {
+          for (ConfigProperty prop: ConfigProperty.values()) {
+            if (prop.name.equals(key)) {
+              LDValue value = componentDesc.get(key);
+              if (value.isNull() || value.getType() == prop.type) {
+                builder.put(key, value);
+              }
+            }
+          }
         }
       }
     }
-
+    
     static class DiagnosticSdk {
       final String name = "java-server-sdk";
       final String version = LDClient.CLIENT_VERSION;
