@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import okhttp3.ConnectionPool;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 
 class Util {
   /**
@@ -66,12 +65,6 @@ class Util {
         builder.proxyAuthenticator(config.proxyAuthenticator);
       }
     }
-  }
-  
-  static Request.Builder getRequestBuilder(String sdkKey) {
-    return new Request.Builder()
-        .addHeader("Authorization", sdkKey)
-        .addHeader("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
   }
   
   static void shutdownHttpClient(OkHttpClient client) {

@@ -222,8 +222,8 @@ final class DefaultEventProcessor implements EventProcessor {
                             ThreadFactory threadFactory,
                             final AtomicBoolean closed,
                             DiagnosticAccumulator diagnosticAccumulator) {
-      this.diagnosticAccumulator = diagnosticAccumulator;
       this.eventsConfig = eventsConfig;
+      this.diagnosticAccumulator = diagnosticAccumulator;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
       OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();

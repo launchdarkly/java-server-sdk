@@ -48,7 +48,7 @@ public class DefaultEventProcessorTest {
       gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
   private static final LDConfig baseLDConfig = new LDConfig.Builder().diagnosticOptOut(true).build();
-  private static final LDConfig diagnosticLDConfig = new LDConfig.Builder().diagnosticOptOut(false).build();
+  private static final LDConfig diagLDConfig = new LDConfig.Builder().diagnosticOptOut(false).build();
   
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
@@ -66,8 +66,8 @@ public class DefaultEventProcessorTest {
   }
 
   private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
-    return (DefaultEventProcessor)
-        ((EventProcessorFactoryWithDiagnostics)ec).createEventProcessor(SDK_KEY, diagnosticLDConfig, diagnosticAccumulator);
+    return (DefaultEventProcessor)((EventProcessorFactoryWithDiagnostics)ec).createEventProcessor(SDK_KEY,
+        diagLDConfig, diagnosticAccumulator);
   }
   
   @Test
@@ -310,7 +310,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(resp1, resp2)) {
-      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) { 
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         // Send and flush an event we don't care about, just to set the last server time
         ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
         ep.flush();
@@ -700,6 +700,7 @@ public class DefaultEventProcessorTest {
   public void wrapperHeaderSentWhenSet() throws Exception {
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = new LDConfig.Builder()
+              .diagnosticOptOut(true)
               .wrapperName("Scala")
               .wrapperVersion("0.1.0")
               .build();
@@ -717,6 +718,7 @@ public class DefaultEventProcessorTest {
   public void wrapperHeaderSentWithoutVersion() throws Exception {
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = new LDConfig.Builder()
+          .diagnosticOptOut(true)
           .wrapperName("Scala")
           .build();
 

@@ -45,13 +45,13 @@ public final class LDConfig {
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
-  final FeatureStoreFactory dataStoreFactory;
-  final EventProcessorFactory eventProcessorFactory;
   final UpdateProcessorFactory dataSourceFactory;
+  final FeatureStoreFactory dataStoreFactory;
   final boolean diagnosticOptOut;
+  final EventProcessorFactory eventProcessorFactory;
+  final HttpConfiguration httpConfig;
   final boolean offline;
   final long startWaitMillis;
-  final HttpConfiguration httpConfig;
 
   final URI deprecatedBaseURI;
   final URI deprecatedEventsURI;
@@ -78,27 +78,6 @@ public final class LDConfig {
     this.offline = builder.offline;
     this.startWaitMillis = builder.startWaitMillis;
 
-    this.deprecatedBaseURI = builder.baseURI;
-    this.deprecatedEventsURI = builder.eventsURI;
-    this.deprecatedCapacity = builder.capacity;
-    this.deprecatedFlushInterval = builder.flushIntervalSeconds;
-    this.deprecatedStreamURI = builder.streamURI;
-    this.deprecatedStream = builder.stream;
-    this.deprecatedFeatureStore = builder.featureStore;
-    this.deprecatedAllAttributesPrivate = builder.allAttributesPrivate;
-    this.deprecatedPrivateAttrNames = builder.privateAttrNames;
-    this.deprecatedSendEvents = builder.sendEvents;
-    if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
-      this.deprecatedPollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
-    } else {
-      this.deprecatedPollingIntervalMillis = builder.pollingIntervalMillis;
-    }
-    this.deprecatedSamplingInterval = builder.samplingInterval;
-    this.deprecatedReconnectTimeMs = builder.reconnectTimeMillis;
-    this.deprecatedUserKeysCapacity = builder.userKeysCapacity;
-    this.deprecatedUserKeysFlushInterval = builder.userKeysFlushInterval;
-    this.deprecatedInlineUsersInEvents = builder.inlineUsersInEvents;
-
     Proxy proxy = builder.proxy();
     Authenticator proxyAuthenticator = builder.proxyAuthenticator();
     if (proxy != null) {
@@ -112,6 +91,27 @@ public final class LDConfig {
     this.httpConfig = new HttpConfiguration(builder.connectTimeout, builder.connectTimeoutUnit,
         proxy, proxyAuthenticator, builder.socketTimeout, builder.socketTimeoutUnit,
         builder.sslSocketFactory, builder.trustManager, builder.wrapperName, builder.wrapperVersion);
+
+    this.deprecatedAllAttributesPrivate = builder.allAttributesPrivate;
+    this.deprecatedBaseURI = builder.baseURI;
+    this.deprecatedCapacity = builder.capacity;
+    this.deprecatedEventsURI = builder.eventsURI;
+    this.deprecatedFeatureStore = builder.featureStore;
+    this.deprecatedFlushInterval = builder.flushIntervalSeconds;
+    this.deprecatedInlineUsersInEvents = builder.inlineUsersInEvents;
+    if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
+      this.deprecatedPollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
+    } else {
+      this.deprecatedPollingIntervalMillis = builder.pollingIntervalMillis;
+    }
+    this.deprecatedPrivateAttrNames = builder.privateAttrNames;
+    this.deprecatedSendEvents = builder.sendEvents;
+    this.deprecatedStream = builder.stream;
+    this.deprecatedStreamURI = builder.streamURI;
+    this.deprecatedSamplingInterval = builder.samplingInterval;
+    this.deprecatedReconnectTimeMs = builder.reconnectTimeMillis;
+    this.deprecatedUserKeysCapacity = builder.userKeysCapacity;
+    this.deprecatedUserKeysFlushInterval = builder.userKeysFlushInterval;
   }
 
   LDConfig(LDConfig config) {

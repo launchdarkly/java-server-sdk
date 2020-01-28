@@ -131,6 +131,7 @@ public abstract class Components {
    *
    * @return a builder for setting streaming connection properties
    * @see #noEvents()
+   * @see LDConfig.Builder#events
    * @since 4.12.0
    */
   public static EventProcessorBuilder sendEvents() {
@@ -170,6 +171,7 @@ public abstract class Components {
    * </code></pre>
    * 
    * @return a factory object
+   * @see #sendEvents()
    * @see LDConfig.Builder#events(EventProcessorFactory)
    * @since 4.12.0
    */
@@ -208,6 +210,7 @@ public abstract class Components {
    * will be renamed to {@code DataSourceFactory}.)
    * 
    * @return a builder for setting streaming connection properties
+   * @see LDConfig.Builder#dataSource(UpdateProcessorFactory)
    * @since 4.12.0
    */
   public static StreamingDataSourceBuilder streamingDataSource() {
@@ -238,6 +241,7 @@ public abstract class Components {
    * will be renamed to {@code DataSourceFactory}.)
    * 
    * @return a builder for setting polling properties
+   * @see LDConfig.Builder#dataSource(UpdateProcessorFactory)
    * @since 4.12.0
    */
   public static PollingDataSourceBuilder pollingDataSource() {
@@ -398,11 +402,11 @@ public abstract class Components {
       // by StreamingDataSourceBuilder and PollingDataSourceBuilder, and setting the latter is translated
       // into using externalUpdatesOnly() by LDConfig.Builder.
       if (config.deprecatedStream) {
-        UpdateProcessorFactory upf = streamingDataSource()
+        StreamingDataSourceBuilderImpl builder = (StreamingDataSourceBuilderImpl)streamingDataSource()
             .baseUri(config.deprecatedStreamURI)
             .pollingBaseUri(config.deprecatedBaseURI)
             .initialReconnectDelayMillis(config.deprecatedReconnectTimeMs);
-        return ((UpdateProcessorFactoryWithDiagnostics)upf).createUpdateProcessor(sdkKey, config, featureStore, diagnosticAccumulator);
+        return builder.createUpdateProcessor(sdkKey, config, featureStore, diagnosticAccumulator);
       } else {
         return pollingDataSource()
             .baseUri(config.deprecatedBaseURI)
@@ -586,7 +590,7 @@ public abstract class Components {
   }
   
   private static final class EventProcessorBuilderImpl extends EventProcessorBuilder
-      implements DiagnosticDescription, EventProcessorFactoryWithDiagnostics {
+      implements EventProcessorFactoryWithDiagnostics, DiagnosticDescription {
     @Override
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
       return createEventProcessor(sdkKey, config, null);

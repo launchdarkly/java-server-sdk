@@ -24,7 +24,7 @@ final class EventsConfiguration {
     super();
     this.allAttributesPrivate = allAttributesPrivate;
     this.capacity = capacity;
-    this.eventsUri = eventsUri;
+    this.eventsUri = eventsUri == null ? LDConfig.DEFAULT_EVENTS_URI : eventsUri;
     this.flushIntervalSeconds = flushIntervalSeconds;
     this.inlineUsersInEvents = inlineUsersInEvents;
     this.privateAttrNames = privateAttrNames == null ? ImmutableSet.<String>of() : ImmutableSet.copyOf(privateAttrNames);
