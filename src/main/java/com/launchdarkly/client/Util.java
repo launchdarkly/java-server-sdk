@@ -51,25 +51,6 @@ class Util {
     }
   }
   
-//  static void configureHttpClientBuilder(LDConfig config, OkHttpClient.Builder builder) {
-//    builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-//      .connectTimeout(config.connectTimeout, config.connectTimeoutUnit)
-//      .readTimeout(config.socketTimeout, config.socketTimeoutUnit)
-//      .writeTimeout(config.socketTimeout, config.socketTimeoutUnit)
-//      .retryOnConnectionFailure(false); // we will implement our own retry logic
-//
-//    if (config.sslSocketFactory != null) {
-//      builder.sslSocketFactory(config.sslSocketFactory, config.trustManager);
-//    }
-//
-//    if (config.proxy != null) {
-//      builder.proxy(config.proxy);
-//      if (config.proxyAuthenticator != null) {
-//        builder.proxyAuthenticator(config.proxyAuthenticator);
-//      }
-//    }
-//  }
-  
   static Request.Builder getRequestBuilder(String sdkKey) {
     return new Request.Builder()
         .addHeader("Authorization", sdkKey)
