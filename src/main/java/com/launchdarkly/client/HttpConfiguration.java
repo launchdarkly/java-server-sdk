@@ -18,9 +18,12 @@ final class HttpConfiguration {
   final TimeUnit socketTimeoutUnit;
   final SSLSocketFactory sslSocketFactory;
   final X509TrustManager trustManager;
+  final String wrapperName;
+  final String wrapperVersion;
   
   HttpConfiguration(int connectTimeout, TimeUnit connectTimeoutUnit, Proxy proxy, Authenticator proxyAuthenticator,
-      int socketTimeout, TimeUnit socketTimeoutUnit, SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
+      int socketTimeout, TimeUnit socketTimeoutUnit, SSLSocketFactory sslSocketFactory, X509TrustManager trustManager,
+      String wrapperName, String wrapperVersion) {
     super();
     this.connectTimeout = connectTimeout;
     this.connectTimeoutUnit = connectTimeoutUnit;
@@ -30,5 +33,7 @@ final class HttpConfiguration {
     this.socketTimeoutUnit = socketTimeoutUnit;
     this.sslSocketFactory = sslSocketFactory;
     this.trustManager = trustManager;
+    this.wrapperName = wrapperName;
+    this.wrapperVersion = wrapperVersion;
   }
 }

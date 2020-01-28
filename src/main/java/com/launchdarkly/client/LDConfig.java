@@ -42,21 +42,16 @@ public final class LDConfig {
   private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
   private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
   private static final long DEFAULT_RECONNECT_TIME_MILLIS = StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY_MILLIS;
-  private static final int DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS = 900_000; // 15 minutes
-  private static final int MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS = 60_000; // 1 minute
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
   final UpdateProcessorFactory dataSourceFactory;
   final FeatureStoreFactory dataStoreFactory;
-  final int diagnosticRecordingIntervalMillis;
   final boolean diagnosticOptOut;
   final EventProcessorFactory eventProcessorFactory;
   final HttpConfiguration httpConfig;
   final boolean offline;
   final long startWaitMillis;
-  final String wrapperName;
-  final String wrapperVersion;
 
   final URI deprecatedBaseURI;
   final URI deprecatedEventsURI;
@@ -80,15 +75,8 @@ public final class LDConfig {
     this.eventProcessorFactory = builder.eventProcessorFactory;
     this.dataSourceFactory = builder.dataSourceFactory;
     this.diagnosticOptOut = builder.diagnosticOptOut;
-    if (builder.diagnosticRecordingIntervalMillis < MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS) {
-      this.diagnosticRecordingIntervalMillis = MIN_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS;
-    } else {
-      this.diagnosticRecordingIntervalMillis = builder.diagnosticRecordingIntervalMillis;
-    }
     this.offline = builder.offline;
     this.startWaitMillis = builder.startWaitMillis;
-    this.wrapperName = builder.wrapperName;
-    this.wrapperVersion = builder.wrapperVersion;
 
     Proxy proxy = builder.proxy();
     Authenticator proxyAuthenticator = builder.proxyAuthenticator();
@@ -102,7 +90,7 @@ public final class LDConfig {
     
     this.httpConfig = new HttpConfiguration(builder.connectTimeout, builder.connectTimeoutUnit,
         proxy, proxyAuthenticator, builder.socketTimeout, builder.socketTimeoutUnit,
-        builder.sslSocketFactory, builder.trustManager);
+        builder.sslSocketFactory, builder.trustManager, builder.wrapperName, builder.wrapperVersion);
 
     this.deprecatedAllAttributesPrivate = builder.allAttributesPrivate;
     this.deprecatedBaseURI = builder.baseURI;
@@ -130,13 +118,10 @@ public final class LDConfig {
     this.dataSourceFactory = config.dataSourceFactory;
     this.dataStoreFactory = config.dataStoreFactory;
     this.diagnosticOptOut = config.diagnosticOptOut;
-    this.diagnosticRecordingIntervalMillis = config.diagnosticRecordingIntervalMillis;
     this.eventProcessorFactory = config.eventProcessorFactory;
     this.httpConfig = config.httpConfig;
     this.offline = config.offline;
     this.startWaitMillis = config.startWaitMillis;
-    this.wrapperName = config.wrapperName;
-    this.wrapperVersion = config.wrapperVersion;
 
     this.deprecatedAllAttributesPrivate = config.deprecatedAllAttributesPrivate;
     this.deprecatedBaseURI = config.deprecatedBaseURI;
@@ -175,6 +160,7 @@ public final class LDConfig {
     private TimeUnit connectTimeoutUnit = TimeUnit.MILLISECONDS;
     private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
     private TimeUnit socketTimeoutUnit = TimeUnit.MILLISECONDS;
+    private boolean diagnosticOptOut = false;
     private int capacity = DEFAULT_CAPACITY;
     private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
     private String proxyHost = "localhost";
@@ -199,8 +185,6 @@ public final class LDConfig {
     private boolean inlineUsersInEvents = false;
     private SSLSocketFactory sslSocketFactory = null;
     private X509TrustManager trustManager = null;
-    private int diagnosticRecordingIntervalMillis = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_MILLIS;
-    private boolean diagnosticOptOut = false;
     private String wrapperName = null;
     private String wrapperVersion = null;
 
@@ -705,27 +689,15 @@ public final class LDConfig {
     }
 
     /**
-     * Sets the interval at which periodic diagnostic data is sent. The default is every 15 minutes (900,000
-     * milliseconds) and the minimum value is 60,000.
-     *
-     * @see #diagnosticOptOut(boolean)
-     *
-     * @param diagnosticRecordingIntervalMillis the diagnostics interval in milliseconds
-     * @return the builder
-     */
-    public Builder diagnosticRecordingIntervalMillis(int diagnosticRecordingIntervalMillis) {
-      this.diagnosticRecordingIntervalMillis = diagnosticRecordingIntervalMillis;
-      return this;
-    }
-
-    /**
      * Set to true to opt out of sending diagnostics data.
-     *
-     * Unless the diagnosticOptOut field is set to true, the client will send some diagnostics data to the
+     * <p>
+     * Unless {@code diagnosticOptOut} is set to true, the client will send some diagnostics data to the
      * LaunchDarkly servers in order to assist in the development of future SDK improvements. These diagnostics
      * consist of an initial payload containing some details of SDK in use, the SDK's configuration, and the platform
      * the SDK is being run on; as well as payloads sent periodically with information on irregular occurrences such
      * as dropped events.
+     *
+     * @see com.launchdarkly.client.integrations.EventProcessorBuilder#diagnosticRecordingIntervalSeconds(int)
      *
      * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data
      * @return the builder

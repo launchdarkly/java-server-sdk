@@ -32,7 +32,7 @@ class Util {
     }
   }
 
-  static Headers.Builder getHeadersBuilderFor(String sdkKey, LDConfig config) {
+  static Headers.Builder getHeadersBuilderFor(String sdkKey, HttpConfiguration config) {
     Headers.Builder builder = new Headers.Builder()
         .add("Authorization", sdkKey)
         .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);

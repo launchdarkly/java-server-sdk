@@ -32,6 +32,11 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * The default value for {@link #capacity(int)}.
    */
   public static final int DEFAULT_CAPACITY = 10000;
+
+  /**
+   * The default value for {@link #diagnosticRecordingIntervalSeconds(int)}.
+   */
+  public static final int DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS = 60 * 15;
   
   /**
    * The default value for {@link #flushIntervalSeconds(int)}.
@@ -48,9 +53,15 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    */
   public static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
 
+  /**
+   * The minimum value for {@link #diagnosticRecordingIntervalSeconds(int)}.
+   */
+  public static final int MIN_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS = 60;
+  
   protected boolean allAttributesPrivate = false;
   protected URI baseUri;
   protected int capacity = DEFAULT_CAPACITY;
+  protected int diagnosticRecordingIntervalSeconds = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS;
   protected int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
   protected boolean inlineUsersInEvents = false;
   protected Set<String> privateAttrNames;
@@ -108,7 +119,25 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
     this.capacity = capacity;
     return this;
   }
-  
+
+  /**
+   * Sets the interval at which periodic diagnostic data is sent.
+   * <p>
+   * The default value is {@link #DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS}; the minimum value is
+   * {@link #MIN_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS}. This property is ignored if
+   * {@link com.launchdarkly.client.LDConfig.Builder#diagnosticOptOut(boolean)} is set to {@code true}.
+   *
+   * @see com.launchdarkly.client.LDConfig.Builder#diagnosticOptOut(boolean)
+   *
+   * @param diagnosticRecordingIntervalSeconds the diagnostics interval in seconds
+   * @return the builder
+   */
+  public EventProcessorBuilder diagnosticRecordingIntervalSeconds(int diagnosticRecordingIntervalSeconds) {
+    this.diagnosticRecordingIntervalSeconds = diagnosticRecordingIntervalSeconds < MIN_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS ?
+        MIN_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS : diagnosticRecordingIntervalSeconds;
+    return this;
+  }
+
   /**
    * Sets the interval between flushes of the event buffer.
    * <p>

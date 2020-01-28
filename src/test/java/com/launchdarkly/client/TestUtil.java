@@ -5,6 +5,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Description;
@@ -284,7 +285,7 @@ public class TestUtil {
         0, null, 0,
         inlineUsersInEvents,
         privateAttrNames,
-        0, 0, 0);
+        0, 0, 0, EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS);
   }
 
   static EventsConfiguration defaultEventsConfig() {

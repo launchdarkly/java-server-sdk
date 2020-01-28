@@ -56,7 +56,7 @@ public class DefaultEventProcessorTest {
   private EventProcessorBuilder baseConfig(MockWebServer server) {
     return sendEvents().baseUri(server.url("").uri());
   }
-  
+
   private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec) {
     return makeEventProcessor(ec, baseLDConfig);
   }
@@ -64,7 +64,7 @@ public class DefaultEventProcessorTest {
   private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
     return (DefaultEventProcessor)ec.createEventProcessor(SDK_KEY, config);
   }
-  
+
   private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
     return (DefaultEventProcessor)((EventProcessorFactoryWithDiagnostics)ec).createEventProcessor(SDK_KEY,
         diagLDConfig, diagnosticAccumulator);
@@ -311,7 +311,6 @@ public class DefaultEventProcessorTest {
 
     try (MockWebServer server = makeStartedServer(resp1, resp2)) {
       try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
- 
         // Send and flush an event we don't care about, just to set the last server time
         ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
         ep.flush();
@@ -379,6 +378,7 @@ public class DefaultEventProcessorTest {
     }
   }
 
+  
   @SuppressWarnings("unchecked")
   @Test
   public void nonTrackedEventsAreSummarized() throws Exception {
@@ -420,7 +420,7 @@ public class DefaultEventProcessorTest {
       ));
     }
   }
-
+  
   @SuppressWarnings("unchecked")
   @Test
   public void customEventIsQueuedWithUser() throws Exception {
@@ -593,6 +593,7 @@ public class DefaultEventProcessorTest {
     }
   }
 
+  
   @Test
   public void sdkKeyIsSent() throws Exception {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
@@ -789,7 +790,6 @@ public class DefaultEventProcessorTest {
       EventProcessorBuilder ec = sendEvents().baseUri(serverWithCert.uri());
       LDConfig config = new LDConfig.Builder()
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
-          .diagnosticOptOut(true)
           .build();
       
       try (DefaultEventProcessor ep = makeEventProcessor(ec, config)) {

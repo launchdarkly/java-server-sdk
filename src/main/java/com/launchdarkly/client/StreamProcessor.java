@@ -38,8 +38,8 @@ final class StreamProcessor implements UpdateProcessor {
 
   private final FeatureStore store;
   private final HttpConfiguration httpConfig;
-  private final URI streamUri;
   private final Headers headers;
+  private final URI streamUri;
   private final long initialReconnectDelayMillis;
   private final FeatureRequestor requestor;
   private final DiagnosticAccumulator diagnosticAccumulator;
@@ -57,7 +57,6 @@ final class StreamProcessor implements UpdateProcessor {
   
   StreamProcessor(
       String sdkKey,
-      LDConfig config,
       HttpConfiguration httpConfig,
       FeatureRequestor requestor,
       FeatureStore featureStore,
@@ -73,7 +72,8 @@ final class StreamProcessor implements UpdateProcessor {
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
     this.streamUri = streamUri;
     this.initialReconnectDelayMillis = initialReconnectDelayMillis;
-    this.headers = getHeadersBuilderFor(sdkKey, config)
+
+    this.headers = getHeadersBuilderFor(sdkKey, httpConfig)
         .add("Accept", "text/event-stream")
         .build();
   }
@@ -99,6 +99,7 @@ final class StreamProcessor implements UpdateProcessor {
   @Override
   public Future<Void> start() {
     final SettableFuture<Void> initFuture = SettableFuture.create();
+
     ConnectionErrorHandler wrappedConnectionErrorHandler = new ConnectionErrorHandler() {
       @Override
       public Action onConnectionError(Throwable t) {

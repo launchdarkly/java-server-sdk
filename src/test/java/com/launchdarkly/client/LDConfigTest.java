@@ -99,24 +99,6 @@ public class LDConfigTest {
   }
 
   @Test
-  public void testDefaultDiagnosticRecordingInterval() {
-    LDConfig config = new LDConfig.Builder().build();
-    assertEquals(900_000, config.diagnosticRecordingIntervalMillis);
-  }
-
-  @Test
-  public void testDiagnosticRecordingInterval() {
-    LDConfig config = new LDConfig.Builder().diagnosticRecordingIntervalMillis(120_000).build();
-    assertEquals(120_000, config.diagnosticRecordingIntervalMillis);
-  }
-
-  @Test
-  public void testMinimumDiagnosticRecordingIntervalEnforced() {
-    LDConfig config = new LDConfig.Builder().diagnosticRecordingIntervalMillis(10).build();
-    assertEquals(60_000, config.diagnosticRecordingIntervalMillis);
-  }
-
-  @Test
   public void testDefaultDiagnosticOptOut() {
     LDConfig config = new LDConfig.Builder().build();
     assertFalse(config.diagnosticOptOut);
@@ -131,8 +113,8 @@ public class LDConfigTest {
   @Test
   public void testWrapperNotConfigured() {
     LDConfig config = new LDConfig.Builder().build();
-    assertNull(config.wrapperName);
-    assertNull(config.wrapperVersion);
+    assertNull(config.httpConfig.wrapperName);
+    assertNull(config.httpConfig.wrapperVersion);
   }
 
   @Test public void testWrapperConfigured() {
@@ -140,7 +122,7 @@ public class LDConfigTest {
             .wrapperName("Scala")
             .wrapperVersion("0.1.0")
             .build();
-    assertEquals("Scala", config.wrapperName);
-    assertEquals("0.1.0", config.wrapperVersion);
+    assertEquals("Scala", config.httpConfig.wrapperName);
+    assertEquals("0.1.0", config.httpConfig.wrapperVersion);
   }
 }
