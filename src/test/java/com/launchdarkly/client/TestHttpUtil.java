@@ -63,6 +63,7 @@ class TestHttpUtil {
       
       cert = new HeldCertificate.Builder()
         .serialNumber("1")
+        .ca(1)
         .commonName(hostname)
         .subjectAlternativeName(hostname)
         .build();
