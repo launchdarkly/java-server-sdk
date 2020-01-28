@@ -37,7 +37,7 @@ final class StreamProcessor implements UpdateProcessor {
 
   private final FeatureStore store;
   private final String sdkKey;
-  private final LDConfig config;
+  private final HttpConfiguration httpConfig;
   private final URI streamUri;
   private final long initialReconnectDelayMillis;
   private final FeatureRequestor requestor;
@@ -48,13 +48,13 @@ final class StreamProcessor implements UpdateProcessor {
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
   public static interface EventSourceCreator {
-    EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
-        ConnectionErrorHandler errorHandler, Headers headers);
+    EventSource createEventSource(EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
+        ConnectionErrorHandler errorHandler, Headers headers, HttpConfiguration httpConfig);
   }
   
   StreamProcessor(
       String sdkKey,
-      LDConfig config,
+      HttpConfiguration httpConfig,
       FeatureRequestor requestor,
       FeatureStore featureStore,
       EventSourceCreator eventSourceCreator,
@@ -63,7 +63,7 @@ final class StreamProcessor implements UpdateProcessor {
       ) {
     this.store = featureStore;
     this.sdkKey = sdkKey;
-    this.config = config; // this is no longer the source of truth for streamUri or initialReconnectDelayMillis, but it can affect HTTP behavior
+    this.httpConfig = httpConfig;
     this.requestor = requestor;
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
     this.streamUri = streamUri;
@@ -202,11 +202,12 @@ final class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    es = eventSourceCreator.createEventSource(config, handler,
+    es = eventSourceCreator.createEventSource(handler,
         URI.create(streamUri.toASCIIString() + "/all"),
         initialReconnectDelayMillis,
         wrappedConnectionErrorHandler,
-        headers);
+        headers,
+        httpConfig);
     es.start();
     return initFuture;
   }
@@ -252,12 +253,12 @@ final class StreamProcessor implements UpdateProcessor {
   }
   
   private class DefaultEventSourceCreator implements EventSourceCreator {
-    public EventSource createEventSource(final LDConfig config, EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
-        ConnectionErrorHandler errorHandler, Headers headers) {
+    public EventSource createEventSource(EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
+        ConnectionErrorHandler errorHandler, Headers headers, final HttpConfiguration httpConfig) {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
           .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
             public void configure(OkHttpClient.Builder builder) {
-              configureHttpClientBuilder(config, builder);
+              configureHttpClientBuilder(httpConfig, builder);
             }
           })
           .connectionErrorHandler(errorHandler)

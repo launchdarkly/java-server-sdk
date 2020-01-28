@@ -35,7 +35,7 @@ public class LDClientEvaluationTest {
 
   private LDConfig config = new LDConfig.Builder()
       .dataStore(specificFeatureStore(featureStore))
-      .eventProcessor(Components.nullEventProcessor())
+      .events(Components.noEvents())
       .dataSource(Components.externalUpdatesOnly())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
@@ -223,7 +223,7 @@ public class LDClientEvaluationTest {
     FeatureStore badFeatureStore = new InMemoryFeatureStore();
     LDConfig badConfig = new LDConfig.Builder()
         .dataStore(specificFeatureStore(badFeatureStore))
-        .eventProcessor(Components.nullEventProcessor())
+        .events(Components.noEvents())
         .dataSource(specificUpdateProcessor(failedUpdateProcessor()))
         .startWaitMillis(0)
         .build();
@@ -265,7 +265,7 @@ public class LDClientEvaluationTest {
     FeatureStore badFeatureStore = featureStoreThatThrowsException(exception);
     LDConfig badConfig = new LDConfig.Builder()
         .dataStore(specificFeatureStore(badFeatureStore))
-        .eventProcessor(Components.nullEventProcessor())
+        .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {

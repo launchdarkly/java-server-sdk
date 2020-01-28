@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
@@ -12,7 +13,16 @@ import java.util.concurrent.Future;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 /**
- * Provides factories for the standard implementations of LaunchDarkly component interfaces.
+ * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.
+ * <p>
+ * Some of the configuration options in {@link LDConfig.Builder} affect the entire SDK, but others are
+ * specific to one area of functionality, such as how the SDK receives feature flag updates or processes
+ * analytics events. For the latter, the standard way to specify a configuration is to call one of the
+ * static methods in {@link Components} (such as {@link #streamingDataSource()}), apply any desired
+ * configuration change to the object that that method returns (such as {@link StreamingDataSourceBuilder#initialReconnectDelayMillis(long)},
+ * and then use the corresponding method in {@link LDConfig.Builder} (such as {@link LDConfig.Builder#dataSource(UpdateProcessorFactory)})
+ * to use that configured component in the SDK.
+ * 
  * @since 4.0.0
  */
 public abstract class Components {
@@ -21,8 +31,6 @@ public abstract class Components {
   private static final EventProcessorFactory nullEventProcessorFactory = new NullEventProcessorFactory();
   private static final UpdateProcessorFactory defaultUpdateProcessorFactory = new DefaultUpdateProcessorFactory();
   private static final UpdateProcessorFactory nullUpdateProcessorFactory = new NullUpdateProcessorFactory();
-  
-  private Components() {}
   
   /**
    * Returns a configuration object for using the default in-memory implementation of a data store.
@@ -106,22 +114,75 @@ public abstract class Components {
   }
   
   /**
-   * Returns a factory for the default implementation of {@link EventProcessor}, which
-   * forwards all analytics events to LaunchDarkly (unless the client is offline or you have
-   * set {@link LDConfig.Builder#sendEvents(boolean)} to {@code false}).
-   * @return a factory object
-   * @see LDConfig.Builder#eventProcessorFactory(EventProcessorFactory)
+   * Returns a configuration builder for analytics event delivery.
+   * <p>
+   * The default configuration has events enabled with default settings. If you want to
+   * customize this behavior, call this method to obtain a builder, change its properties
+   * with the {@link EventProcessorBuilder} properties, and pass it to {@link LDConfig.Builder#events(EventProcessorFactory)}:
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .events(Components.sendEvents().capacity(5000).flushIntervalSeconds(2))
+   *         .build();
+   * </code></pre>
+   * To completely disable sending analytics events, use {@link #noEvents()} instead.
+   *
+   * @return a builder for setting streaming connection properties
+   * @see #noEvents()
+   * @see LDConfig.Builder#events
+   * @since 4.12.0
    */
+  public static EventProcessorBuilder sendEvents() {
+    return new EventProcessorBuilderImpl();
+  }
+  
+  /**
+   * Deprecated method for using the default analytics events implementation.
+   * <p>
+   * If you pass the return value of this method to {@link LDConfig.Builder#events(EventProcessorFactory)},
+   * the behavior is as follows:
+   * <ul>
+   * <li> If you have set {@link LDConfig.Builder#offline(boolean)} to {@code true}, or
+   * {@link LDConfig.Builder#sendEvents(boolean)} to {@code false}, the SDK will <i>not</i> send events to
+   * LaunchDarkly.
+   * <li> Otherwise, it will send events, using the properties set by the deprecated events configuration
+   * methods such as {@link LDConfig.Builder#capacity(int)}.
+   * </ul>
+   * 
+   * @return a factory object
+   * @deprecated Use {@link #sendEvents()} or {@link #noEvents}.
+   */
+  @Deprecated
   public static EventProcessorFactory defaultEventProcessor() {
     return defaultEventProcessorFactory;
   }
   
   /**
-   * Returns a factory for a null implementation of {@link EventProcessor}, which will discard
-   * all analytics events and not send them to LaunchDarkly, regardless of any other configuration.
+   * Returns a configuration object that disables analytics events.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#events(EventProcessorFactory)} causes the SDK
+   * to discard all analytics events and not send them to LaunchDarkly, regardless of any other configuration.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .events(Components.noEvents())
+   *         .build();
+   * </code></pre>
+   * 
    * @return a factory object
-   * @see LDConfig.Builder#eventProcessorFactory(EventProcessorFactory)
+   * @see #sendEvents()
+   * @see LDConfig.Builder#events(EventProcessorFactory)
+   * @since 4.12.0
    */
+  public static EventProcessorFactory noEvents() {
+    return nullEventProcessorFactory;
+  }
+
+  /**
+   * Deprecated name for {@link #noEvents()}.
+   * @return a factory object
+   * @see LDConfig.Builder#events(EventProcessorFactory)
+   * @deprecated Use {@link #noEvents()}.
+   */
+  @Deprecated
   public static EventProcessorFactory nullEventProcessor() {
     return nullEventProcessorFactory;
   }
@@ -146,6 +207,7 @@ public abstract class Components {
    * will be renamed to {@code DataSourceFactory}.)
    * 
    * @return a builder for setting streaming connection properties
+   * @see LDConfig.Builder#dataSource(UpdateProcessorFactory)
    * @since 4.12.0
    */
   public static StreamingDataSourceBuilder streamingDataSource() {
@@ -176,6 +238,7 @@ public abstract class Components {
    * will be renamed to {@code DataSourceFactory}.)
    * 
    * @return a builder for setting polling properties
+   * @see LDConfig.Builder#dataSource(UpdateProcessorFactory)
    * @since 4.12.0
    */
   public static PollingDataSourceBuilder pollingDataSource() {
@@ -254,27 +317,51 @@ public abstract class Components {
   private static final class DefaultEventProcessorFactory implements EventProcessorFactory {
     @Override
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-      if (config.offline || !config.sendEvents) {
-        return new EventProcessor.NullEventProcessor();
+      if (config.deprecatedSendEvents && !config.offline) {
+        return sendEvents()
+            .allAttributesPrivate(config.deprecatedAllAttributesPrivate)
+            .baseUri(config.deprecatedEventsURI)
+            .capacity(config.deprecatedCapacity)
+            .flushIntervalSeconds(config.deprecatedFlushInterval)
+            .inlineUsersInEvents(config.deprecatedInlineUsersInEvents)
+            .privateAttributeNames(config.deprecatedPrivateAttrNames.toArray(new String[config.deprecatedPrivateAttrNames.size()]))
+            .userKeysCapacity(config.deprecatedUserKeysCapacity)
+            .userKeysFlushIntervalSeconds(config.deprecatedUserKeysFlushInterval)
+            .createEventProcessor(sdkKey, config);
       } else {
-        return new DefaultEventProcessor(sdkKey, config);
+        return new NullEventProcessor();
       }
     }
   }
   
   private static final class NullEventProcessorFactory implements EventProcessorFactory {
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-      return new EventProcessor.NullEventProcessor();
+      return new NullEventProcessor();
     }
   }
   
+  static final class NullEventProcessor implements EventProcessor {
+    @Override
+    public void sendEvent(Event e) {
+    }
+    
+    @Override
+    public void flush() {
+    }
+    
+    @Override
+    public void close() {
+    }
+  }
+
+  // This can be removed once the deprecated polling/streaming config options have been removed.
   private static final class DefaultUpdateProcessorFactory implements UpdateProcessorFactory {
     @Override
     public UpdateProcessor createUpdateProcessor(String sdkKey, LDConfig config, FeatureStore featureStore) {
       // We don't need to check config.offline or config.useLdd here; the former is checked automatically
       // by StreamingDataSourceBuilder and PollingDataSourceBuilder, and setting the latter is translated
       // into using externalUpdatesOnly() by LDConfig.Builder.
-      if (config.stream) {
+      if (config.deprecatedStream) {
         return streamingDataSource()
             .baseUri(config.deprecatedStreamURI)
             .pollingBaseUri(config.deprecatedBaseURI)
@@ -343,14 +430,14 @@ public abstract class Components {
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           sdkKey,
-          config,
+          config.httpConfig,
           pollUri,
           false
           );
       
       return new StreamProcessor(
           sdkKey,
-          config,
+          config.httpConfig,
           requestor,
           featureStore,
           null,
@@ -375,11 +462,34 @@ public abstract class Components {
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           sdkKey,
-          config,
+          config.httpConfig,
           baseUri == null ? LDConfig.DEFAULT_BASE_URI : baseUri,
           true
           );
       return new PollingProcessor(requestor, featureStore, pollIntervalMillis);
+    }
+  }
+  
+  private static final class EventProcessorBuilderImpl extends EventProcessorBuilder {
+    @Override
+    public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
+      if (config.offline) {
+        return new NullEventProcessor();
+      }
+      return new DefaultEventProcessor(sdkKey,
+          new EventsConfiguration(
+              allAttributesPrivate,
+              capacity,
+              baseUri,
+              flushIntervalSeconds,
+              inlineUsersInEvents,
+              privateAttrNames,
+              0, // deprecated samplingInterval isn't supported in new builder
+              userKeysCapacity,
+              userKeysFlushIntervalSeconds
+              ),
+          config.httpConfig
+          );
     }
   }
 }

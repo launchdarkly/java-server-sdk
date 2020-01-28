@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Matcher;
@@ -14,6 +15,7 @@ import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.launchdarkly.client.Components.sendEvents;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.hasJsonProperty;
@@ -43,16 +45,28 @@ public class DefaultEventProcessorTest {
   private static final JsonElement filteredUserJson =
       gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
-
+  
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
+
+  private EventProcessorBuilder baseConfig(MockWebServer server) {
+    return sendEvents().baseUri(server.url("").uri());
+  }
+  
+  private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec) {
+    return makeEventProcessor(ec, LDConfig.DEFAULT);
+  }
+  
+  private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
+    return (DefaultEventProcessor)ec.createEventProcessor(SDK_KEY, config);
+  }
   
   @Test
   public void identifyEventIsQueued() throws Exception {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -67,9 +81,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).allAttributesPrivate(true).build();
-      
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).allAttributesPrivate(true))) {
         ep.sendEvent(e);
       }
   
@@ -87,7 +99,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe);
       }
     
@@ -107,9 +119,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).allAttributesPrivate(true).build();
-      
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).allAttributesPrivate(true))) {
         ep.sendEvent(fe);
       }
     
@@ -129,9 +139,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
     
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
-      
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).inlineUsersInEvents(true))) {
         ep.sendEvent(fe);
       }
       
@@ -150,9 +158,8 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).allAttributesPrivate(true).build();
-
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server)
+          .inlineUsersInEvents(true).allAttributesPrivate(true))) {
         ep.sendEvent(fe);
       }
       
@@ -172,7 +179,7 @@ public class DefaultEventProcessorTest {
           EvaluationDetail.fromValue(LDValue.of("value"), 1, reason), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe);
       }
   
@@ -192,9 +199,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
-
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).inlineUsersInEvents(true))) {
         ep.sendEvent(fe);
       }
   
@@ -214,7 +219,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe);
       }
     
@@ -236,7 +241,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe);
       }
   
@@ -263,7 +268,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(resp1, resp2)) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         // Send and flush an event we don't care about, just so we'll receive "resp1" which sets the last server time
         ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
         ep.flush();
@@ -296,7 +301,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(resp1, resp2)) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         
         // Send and flush an event we don't care about, just to set the last server time
         ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
@@ -329,7 +334,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, value), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe1);
         ep.sendEvent(fe2);
       }
@@ -362,7 +367,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(2, value2), default2);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe1a);
         ep.sendEvent(fe1b);
         ep.sendEvent(fe1c);
@@ -393,7 +398,7 @@ public class DefaultEventProcessorTest {
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, metric);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(ce);
       }
       
@@ -410,9 +415,7 @@ public class DefaultEventProcessorTest {
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
-
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).inlineUsersInEvents(true))) {
         ep.sendEvent(ce);
       }
       
@@ -426,9 +429,8 @@ public class DefaultEventProcessorTest {
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).allAttributesPrivate(true).build();
-
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server)
+          .inlineUsersInEvents(true).allAttributesPrivate(true))) {
         ep.sendEvent(ce);
       }
       
@@ -441,7 +443,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
       
@@ -452,7 +454,7 @@ public class DefaultEventProcessorTest {
   @Test
   public void nothingIsSentIfThereAreNoEvents() throws Exception {
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build());
+      DefaultEventProcessor ep = makeEventProcessor(baseConfig(server));
       ep.close();
     
       assertEquals(0, server.getRequestCount());
@@ -464,7 +466,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
       
@@ -478,7 +480,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -492,7 +494,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -509,7 +511,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(errorResponse, eventsSuccessResponse(), eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
         ep.flush();
         // Necessary to ensure the retry occurs before the second request for test assertion ordering
@@ -570,11 +572,8 @@ public class DefaultEventProcessorTest {
   @Test
   public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
-      LDConfig config = new LDConfig.Builder()
-          .eventsURI(serverWithCert.uri())
-          .build();
-      
-      try (DefaultEventProcessor ep = new DefaultEventProcessor("sdk-key", config)) {
+      EventProcessorBuilder ec = sendEvents().baseUri(serverWithCert.uri());
+      try (DefaultEventProcessor ep = makeEventProcessor(ec)) {
         Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
         ep.sendEvent(e);
         
@@ -589,12 +588,12 @@ public class DefaultEventProcessorTest {
   @Test
   public void httpClientCanUseCustomTlsConfig() throws Exception {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
+      EventProcessorBuilder ec = sendEvents().baseUri(serverWithCert.uri());
       LDConfig config = new LDConfig.Builder()
-          .eventsURI(serverWithCert.uri())
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
       
-      try (DefaultEventProcessor ep = new DefaultEventProcessor("sdk-key", config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(ec, config)) {
         Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
         ep.sendEvent(e);
         
@@ -610,7 +609,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -628,7 +627,7 @@ public class DefaultEventProcessorTest {
 
     // send two errors in a row, because the flush will be retried one time
     try (MockWebServer server = makeStartedServer(errorResponse, errorResponse, eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -641,10 +640,6 @@ public class DefaultEventProcessorTest {
     }
   }
 
-  private LDConfig.Builder baseConfig(MockWebServer server) {
-    return new LDConfig.Builder().eventsURI(server.url("/").uri());
-  }
-  
   private MockResponse eventsSuccessResponse() {
     return new MockResponse().setResponseCode(202);
   }
