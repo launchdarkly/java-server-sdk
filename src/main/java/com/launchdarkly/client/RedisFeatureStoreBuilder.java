@@ -27,13 +27,13 @@ public final class RedisFeatureStoreBuilder implements FeatureStoreFactory, Diag
    * The default value for the Redis URI: {@code redis://localhost:6379}
    * @since 4.0.0
    */
-  public static final URI DEFAULT_URI = URI.create("redis://localhost:6379");
+  public static final URI DEFAULT_URI = RedisDataStoreBuilder.DEFAULT_URI;
   
   /**
    * The default value for {@link #prefix(String)}.
    * @since 4.0.0
    */
-  public static final String DEFAULT_PREFIX = "launchdarkly";
+  public static final String DEFAULT_PREFIX = RedisDataStoreBuilder.DEFAULT_PREFIX;
   
   /**
    * The default value for {@link #cacheTime(long, TimeUnit)} (in seconds).
