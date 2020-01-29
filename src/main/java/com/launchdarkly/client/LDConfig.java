@@ -701,6 +701,7 @@ public final class LDConfig {
      *
      * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data
      * @return the builder
+     * @since 4.12.0
      */
     public Builder diagnosticOptOut(boolean diagnosticOptOut) {
       this.diagnosticOptOut = diagnosticOptOut;
@@ -714,6 +715,7 @@ public final class LDConfig {
      *
      * @param wrapperName an identifying name for the wrapper library
      * @return the builder
+     * @since 4.12.0
      */
     public Builder wrapperName(String wrapperName) {
       this.wrapperName = wrapperName;
@@ -727,6 +729,7 @@ public final class LDConfig {
      *
      * @param wrapperVersion Version string for the wrapper library
      * @return the builder
+     * @since 4.12.0
      */
     public Builder wrapperVersion(String wrapperVersion) {
       this.wrapperVersion = wrapperVersion;
