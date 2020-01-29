@@ -2,27 +2,58 @@ package com.launchdarkly.client.integrations;
 
 import org.junit.Test;
 
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
 @SuppressWarnings("javadoc")
-public class RedisFeatureStoreBuilderTest {
+public class RedisDataStoreBuilderTest {
   @Test
   public void testDefaultValues() {
     RedisDataStoreBuilder conf = Redis.dataStore();
     assertEquals(RedisDataStoreBuilder.DEFAULT_URI, conf.uri);
+    assertNull(conf.database);
+    assertNull(conf.password);
+    assertFalse(conf.tls);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.connectTimeout);
     assertEquals(Protocol.DEFAULT_TIMEOUT, conf.socketTimeout);
     assertEquals(RedisDataStoreBuilder.DEFAULT_PREFIX, conf.prefix);
     assertNull(conf.poolConfig);
   }
 
+  @Test
+  public void testUriConfigured() {
+    URI uri = URI.create("redis://other:9999");
+    RedisDataStoreBuilder conf = Redis.dataStore().uri(uri);
+    assertEquals(uri, conf.uri);
+  }
+  
+  @Test
+  public void testDatabaseConfigured() {
+    RedisDataStoreBuilder conf = Redis.dataStore().database(3);
+    assertEquals(new Integer(3), conf.database);
+  }
+  
+  @Test
+  public void testPasswordConfigured() {
+    RedisDataStoreBuilder conf = Redis.dataStore().password("secret");
+    assertEquals("secret", conf.password);
+  }
+
+  @Test
+  public void testTlsConfigured() {
+    RedisDataStoreBuilder conf = Redis.dataStore().tls(true);
+    assertTrue(conf.tls);
+  }
+  
   @Test
   public void testPrefixConfigured() throws URISyntaxException {
     RedisDataStoreBuilder conf = Redis.dataStore().prefix("prefix");
