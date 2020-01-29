@@ -207,6 +207,13 @@ public class TestUtil {
     public Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> build() {
       return data;
     }
+    
+    // Silly casting helper due to difference in generic signatures between FeatureStore and FeatureStoreCore
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public Map<VersionedDataKind<?>, Map<String, VersionedData>> buildUnchecked() {
+      Map uncheckedMap = data;
+      return (Map<VersionedDataKind<?>, Map<String, VersionedData>>)uncheckedMap;
+    }
   }
   
   public static EvaluationDetail<LDValue> simpleEvaluation(int variation, LDValue value) {

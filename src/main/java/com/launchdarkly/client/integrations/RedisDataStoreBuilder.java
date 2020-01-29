@@ -121,7 +121,7 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory, 
    * @return the builder
    */
   public RedisDataStoreBuilder uri(URI redisUri) {
-    this.uri = checkNotNull(uri);
+    this.uri = checkNotNull(redisUri);
     return this;
   }
   
