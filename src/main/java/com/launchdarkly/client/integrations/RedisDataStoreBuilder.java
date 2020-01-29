@@ -1,5 +1,6 @@
 package com.launchdarkly.client.integrations;
 
+import com.google.common.base.Joiner;
 import com.launchdarkly.client.LDConfig;
 import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
@@ -43,7 +44,7 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory, 
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
    */
-  public static final URI DEFAULT_URI = URI.create("redis://localhost:6379");
+  public static final URI DEFAULT_URI = makeDefaultRedisURI();
   
   /**
    * The default value for {@link #prefix(String)}.
@@ -58,6 +59,13 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory, 
   String password = null;
   boolean tls = false;
   JedisPoolConfig poolConfig = null;
+
+  private static URI makeDefaultRedisURI() {
+    // This ungainly logic is a workaround for the overly aggressive behavior of the Shadow plugin, which
+    // wants to transform any string literal starting with "redis" because the root package of Jedis is
+    // "redis".
+    return URI.create(Joiner.on("").join("r", "e", "d", "i", "s") + "://localhost:6379");
+  }
 
   // These constructors are called only from Implementations
   RedisDataStoreBuilder() {
