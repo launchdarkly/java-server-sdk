@@ -155,7 +155,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource().baseUri(URI.create("http://fake")))
+        .dataSource(Components.streamingDataSource().baseURI(URI.create("http://fake")))
         .startWaitMillis(0)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -166,7 +166,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.pollingDataSource().baseUri(URI.create("http://fake")))
+        .dataSource(Components.pollingDataSource().baseURI(URI.create("http://fake")))
         .startWaitMillis(0)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {

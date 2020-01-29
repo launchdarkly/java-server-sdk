@@ -202,8 +202,8 @@ public final class LDConfig {
      *
      * @param baseURI the base URL of the LaunchDarkly server for this configuration.
      * @return the builder
-     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseUri(URI)},
-     * or {@link Components#pollingDataSource()} with {@link PollingDataSourceBuilder#baseUri(URI)}.
+     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseURI(URI)},
+     * or {@link Components#pollingDataSource()} with {@link PollingDataSourceBuilder#baseURI(URI)}.
      */
     @Deprecated
     public Builder baseURI(URI baseURI) {
@@ -230,7 +230,7 @@ public final class LDConfig {
      *
      * @param streamURI the base URL of the LaunchDarkly streaming server
      * @return the builder
-     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseUri(URI)}.
+     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseURI(URI)}.
      */
     @Deprecated
     public Builder streamURI(URI streamURI) {
@@ -701,6 +701,7 @@ public final class LDConfig {
      *
      * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data
      * @return the builder
+     * @since 4.12.0
      */
     public Builder diagnosticOptOut(boolean diagnosticOptOut) {
       this.diagnosticOptOut = diagnosticOptOut;
@@ -714,6 +715,7 @@ public final class LDConfig {
      *
      * @param wrapperName an identifying name for the wrapper library
      * @return the builder
+     * @since 4.12.0
      */
     public Builder wrapperName(String wrapperName) {
       this.wrapperName = wrapperName;
@@ -727,6 +729,7 @@ public final class LDConfig {
      *
      * @param wrapperVersion Version string for the wrapper library
      * @return the builder
+     * @since 4.12.0
      */
     public Builder wrapperVersion(String wrapperVersion) {
       this.wrapperVersion = wrapperVersion;

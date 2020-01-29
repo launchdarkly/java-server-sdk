@@ -34,7 +34,7 @@ public abstract class PollingDataSourceBuilder implements UpdateProcessorFactory
    */
   public static final long DEFAULT_POLL_INTERVAL_MILLIS = 30000L;
   
-  protected URI baseUri;
+  protected URI baseURI;
   protected long pollIntervalMillis = DEFAULT_POLL_INTERVAL_MILLIS;
 
   /**
@@ -47,11 +47,11 @@ public abstract class PollingDataSourceBuilder implements UpdateProcessorFactory
    * <li> You are connecting to a test server or anything else other than the standard LaunchDarkly service.
    * </ul>
    * 
-   * @param baseUri the base URI of the polling service; null to use the default
+   * @param baseURI the base URI of the polling service; null to use the default
    * @return the builder
    */
-  public PollingDataSourceBuilder baseUri(URI baseUri) {
-    this.baseUri = baseUri;
+  public PollingDataSourceBuilder baseURI(URI baseURI) {
+    this.baseURI = baseURI;
     return this;
   }
   

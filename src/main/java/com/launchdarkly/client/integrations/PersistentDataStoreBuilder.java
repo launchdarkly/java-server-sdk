@@ -1,14 +1,10 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.FeatureStore;
+import com.launchdarkly.client.Components;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.FeatureStoreFactory;
-import com.launchdarkly.client.LDConfig;
 import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
-import com.launchdarkly.client.utils.CachingStoreWrapper;
-import com.launchdarkly.client.utils.FeatureStoreCore;
-import com.launchdarkly.client.value.LDValue;
 
 import java.util.concurrent.TimeUnit;
 
@@ -35,19 +31,21 @@ import java.util.concurrent.TimeUnit;
  * 
  * In this example, {@code .url()} is an option specifically for the Redis integration, whereas
  * {@code ttlSeconds()} is an option that can be used for any persistent data store. 
- * 
+ * <p>
+ * Note that this class is abstract; the actual implementation is created by calling
+ * {@link Components#persistentDataStore(PersistentDataStoreFactory)}.
  * @since 4.12.0
  */
 @SuppressWarnings("deprecation")
-public final class PersistentDataStoreBuilder implements FeatureStoreFactory, DiagnosticDescription {
+public abstract class PersistentDataStoreBuilder implements FeatureStoreFactory, DiagnosticDescription {
   /**
    * The default value for the cache TTL.
    */
   public static final int DEFAULT_CACHE_TTL_SECONDS = 15;
 
-  private final PersistentDataStoreFactory persistentDataStoreFactory;
-  FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
-  CacheMonitor cacheMonitor = null;
+  protected final PersistentDataStoreFactory persistentDataStoreFactory;
+  protected FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
+  protected CacheMonitor cacheMonitor = null;
 
   /**
    * Possible values for {@link #staleValuesPolicy(StaleValuesPolicy)}.
@@ -99,19 +97,10 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory, Di
    * 
    * @param persistentDataStoreFactory the factory implementation for the specific data store type
    */
-  public PersistentDataStoreBuilder(PersistentDataStoreFactory persistentDataStoreFactory) {
+  protected PersistentDataStoreBuilder(PersistentDataStoreFactory persistentDataStoreFactory) {
     this.persistentDataStoreFactory = persistentDataStoreFactory;
   }
 
-  @Override
-  public FeatureStore createFeatureStore() {
-    FeatureStoreCore core = persistentDataStoreFactory.createPersistentDataStore();
-    return CachingStoreWrapper.builder(core)
-        .caching(caching)
-        .cacheMonitor(cacheMonitor)
-        .build();
-  }
-  
   /**
    * Specifies that the SDK should <i>not</i> use an in-memory cache for the persistent data store.
    * This means that every feature flag evaluation will trigger a data store query.
@@ -215,13 +204,5 @@ public final class PersistentDataStoreBuilder implements FeatureStoreFactory, Di
   public PersistentDataStoreBuilder cacheMonitor(CacheMonitor cacheMonitor) {
     this.cacheMonitor = cacheMonitor;
     return this;
-  }
-
-  @Override
-  public LDValue describeConfiguration(LDConfig config) {
-    if (persistentDataStoreFactory instanceof DiagnosticDescription) {
-      return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
-    }
-    return LDValue.of("?");
   }
 }

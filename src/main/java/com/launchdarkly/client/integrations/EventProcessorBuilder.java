@@ -59,7 +59,7 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   public static final int MIN_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS = 60;
   
   protected boolean allAttributesPrivate = false;
-  protected URI baseUri;
+  protected URI baseURI;
   protected int capacity = DEFAULT_CAPACITY;
   protected int diagnosticRecordingIntervalSeconds = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS;
   protected int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
@@ -90,16 +90,16 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * <p>
    * You will only need to change this value in the following cases:
    * <ul>
-   * <li> You are using the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">Relay Proxy</a>. Set
-   *   {@code streamUri} to the base URI of the Relay Proxy instance.
+   * <li> You are using the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">Relay Proxy</a> with
+   *   event forwarding enabled. Set {@code streamUri} to the base URI of the Relay Proxy instance.
    * <li> You are connecting to a test server or a nonstandard endpoint for the LaunchDarkly service.
    * </ul>
    * 
-   * @param baseUri the base URI of the events service; null to use the default
+   * @param baseURI the base URI of the events service; null to use the default
    * @return the builder
    */
-  public EventProcessorBuilder baseUri(URI baseUri) {
-    this.baseUri = baseUri;
+  public EventProcessorBuilder baseURI(URI baseURI) {
+    this.baseURI = baseURI;
     return this;
   }
   

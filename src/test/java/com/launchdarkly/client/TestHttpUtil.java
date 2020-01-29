@@ -34,11 +34,11 @@ class TestHttpUtil {
   }
 
   static StreamingDataSourceBuilder baseStreamingConfig(MockWebServer server) {
-    return Components.streamingDataSource().baseUri(server.url("").uri());
+    return Components.streamingDataSource().baseURI(server.url("").uri());
   }
   
   static PollingDataSourceBuilder basePollingConfig(MockWebServer server) {
-    return Components.pollingDataSource().baseUri(server.url("").uri());
+    return Components.pollingDataSource().baseURI(server.url("").uri());
   }
   
   static MockResponse jsonResponse(String body) {
