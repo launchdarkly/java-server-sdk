@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -39,9 +40,9 @@ final class StreamProcessor implements UpdateProcessor {
   private final FeatureStore store;
   private final HttpConfiguration httpConfig;
   private final Headers headers;
-  private final URI streamUri;
-  private final long initialReconnectDelayMillis;
-  private final FeatureRequestor requestor;
+  @VisibleForTesting final URI streamUri;
+  @VisibleForTesting final long initialReconnectDelayMillis;
+  @VisibleForTesting final FeatureRequestor requestor;
   private final DiagnosticAccumulator diagnosticAccumulator;
   private final EventSourceCreator eventSourceCreator;
   private volatile EventSource es;

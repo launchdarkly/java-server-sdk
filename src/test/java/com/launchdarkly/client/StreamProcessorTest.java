@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
+import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
@@ -27,6 +29,7 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.expect;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
@@ -68,6 +71,64 @@ public class StreamProcessorTest extends EasyMockSupport {
     featureStore = new InMemoryFeatureStore();
     mockRequestor = createStrictMock(FeatureRequestor.class);
     mockEventSource = createStrictMock(EventSource.class);
+  }
+
+  @Test
+  public void builderHasDefaultConfiguration() throws Exception {
+    UpdateProcessorFactory f = Components.streamingDataSource();
+    try (StreamProcessor sp = (StreamProcessor)f.createUpdateProcessor(SDK_KEY, LDConfig.DEFAULT, null)) {
+      assertThat(sp.initialReconnectDelayMillis, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY_MILLIS));
+      assertThat(sp.streamUri, equalTo(LDConfig.DEFAULT_STREAM_URI));
+      assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
+    }
+  }
+
+  @Test
+  public void builderCanSpecifyConfiguration() throws Exception {
+    URI streamUri = URI.create("http://fake");
+    URI pollUri = URI.create("http://also-fake");
+    UpdateProcessorFactory f = Components.streamingDataSource()
+        .baseURI(streamUri)
+        .initialReconnectDelayMillis(5555)
+        .pollingBaseURI(pollUri);
+    try (StreamProcessor sp = (StreamProcessor)f.createUpdateProcessor(SDK_KEY, LDConfig.DEFAULT, null)) {
+      assertThat(sp.initialReconnectDelayMillis, equalTo(5555L));
+      assertThat(sp.streamUri, equalTo(streamUri));      
+      assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(pollUri));
+    }
+  }
+  
+  @Test
+  @SuppressWarnings("deprecation")
+  public void deprecatedConfigurationIsUsedWhenBuilderIsNotUsed() throws Exception {
+    URI streamUri = URI.create("http://fake");
+    URI pollUri = URI.create("http://also-fake");
+    LDConfig config = new LDConfig.Builder()
+        .baseURI(pollUri)
+        .reconnectTimeMs(5555)
+        .streamURI(streamUri)
+        .build();
+    UpdateProcessorFactory f = Components.defaultUpdateProcessor();
+    try (StreamProcessor sp = (StreamProcessor)f.createUpdateProcessor(SDK_KEY, config, null)) {
+      assertThat(sp.initialReconnectDelayMillis, equalTo(5555L));
+      assertThat(sp.streamUri, equalTo(streamUri));      
+      assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(pollUri));
+    }
+  }
+  
+  @Test
+  @SuppressWarnings("deprecation")
+  public void deprecatedConfigurationHasSameDefaultsAsBuilder() throws Exception {
+    UpdateProcessorFactory f0 = Components.streamingDataSource();
+    UpdateProcessorFactory f1 = Components.defaultUpdateProcessor();
+    try (StreamProcessor sp0 = (StreamProcessor)f0.createUpdateProcessor(SDK_KEY, LDConfig.DEFAULT, null)) {
+      try (StreamProcessor sp1 = (StreamProcessor)f1.createUpdateProcessor(SDK_KEY, LDConfig.DEFAULT, null)) {
+        assertThat(sp1.initialReconnectDelayMillis, equalTo(sp0.initialReconnectDelayMillis));
+        assertThat(sp1.streamUri, equalTo(sp0.streamUri));      
+        assertThat(((DefaultFeatureRequestor)sp1.requestor).baseUri,
+            equalTo(((DefaultFeatureRequestor)sp0.requestor).baseUri));
+      }
+    }
   }
   
   @Test
