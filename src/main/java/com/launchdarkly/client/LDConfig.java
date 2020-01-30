@@ -1,7 +1,9 @@
 package com.launchdarkly.client;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.common.collect.ImmutableSet;
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
+import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
+import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,9 +12,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLSocketFactory;
@@ -29,91 +28,58 @@ import okhttp3.Route;
  */
 public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
-  final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapterWithPrivateAttributeBehavior(this)).create();
 
-  private static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
-  private static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
-  private static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
+  static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
+  static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
+  static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
   private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2000;
   private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;
   private static final int DEFAULT_FLUSH_INTERVAL_SECONDS = 5;
-  private static final long MIN_POLLING_INTERVAL_MILLIS = 30000L;
+  private static final long MIN_POLLING_INTERVAL_MILLIS = PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL_MILLIS;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
   private static final int DEFAULT_SAMPLING_INTERVAL = 0;
   private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
   private static final int DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS = 60 * 5;
-  private static final long DEFAULT_RECONNECT_TIME_MILLIS = 1000;
+  private static final long DEFAULT_RECONNECT_TIME_MILLIS = StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY_MILLIS;
 
   protected static final LDConfig DEFAULT = new Builder().build();
 
-  final URI baseURI;
-  final URI eventsURI;
-  final URI streamURI;
-  final int capacity;
-  final int flushInterval;
-  final Proxy proxy;
-  final Authenticator proxyAuthenticator;
-  final boolean stream;
-  final FeatureStore deprecatedFeatureStore;
-  final FeatureStoreFactory featureStoreFactory;
+  final UpdateProcessorFactory dataSourceFactory;
+  final FeatureStoreFactory dataStoreFactory;
+  final boolean diagnosticOptOut;
   final EventProcessorFactory eventProcessorFactory;
-  final UpdateProcessorFactory updateProcessorFactory;
-  final boolean useLdd;
+  final HttpConfiguration httpConfig;
   final boolean offline;
-  final boolean allAttributesPrivate;
-  final Set<String> privateAttrNames;
-  final boolean sendEvents;
-  final long pollingIntervalMillis;
   final long startWaitMillis;
-  final int samplingInterval;
-  final long reconnectTimeMs;
-  final int userKeysCapacity;
-  final int userKeysFlushInterval;
-  final boolean inlineUsersInEvents;
-  final SSLSocketFactory sslSocketFactory;
-  final X509TrustManager trustManager;
-  final int connectTimeout;
-  final TimeUnit connectTimeoutUnit;
-  final int socketTimeout;
-  final TimeUnit socketTimeoutUnit;
+
+  final URI deprecatedBaseURI;
+  final URI deprecatedEventsURI;
+  final URI deprecatedStreamURI;
+  final int deprecatedCapacity;
+  final int deprecatedFlushInterval;
+  final boolean deprecatedStream;
+  final FeatureStore deprecatedFeatureStore;
+  final boolean deprecatedAllAttributesPrivate;
+  final ImmutableSet<String> deprecatedPrivateAttrNames;
+  final boolean deprecatedSendEvents;
+  final long deprecatedPollingIntervalMillis;
+  final int deprecatedSamplingInterval;
+  final long deprecatedReconnectTimeMs;
+  final int deprecatedUserKeysCapacity;
+  final int deprecatedUserKeysFlushInterval;
+  final boolean deprecatedInlineUsersInEvents;
   
   protected LDConfig(Builder builder) {
-    this.baseURI = builder.baseURI;
-    this.eventsURI = builder.eventsURI;
-    this.capacity = builder.capacity;
-    this.flushInterval = builder.flushIntervalSeconds;
-    this.proxy = builder.proxy();
-    this.proxyAuthenticator = builder.proxyAuthenticator();
-    this.streamURI = builder.streamURI;
-    this.stream = builder.stream;
-    this.deprecatedFeatureStore = builder.featureStore;
-    this.featureStoreFactory = builder.featureStoreFactory;
+    this.dataStoreFactory = builder.dataStoreFactory;
     this.eventProcessorFactory = builder.eventProcessorFactory;
-    this.updateProcessorFactory = builder.updateProcessorFactory;
-    this.useLdd = builder.useLdd;
+    this.dataSourceFactory = builder.dataSourceFactory;
+    this.diagnosticOptOut = builder.diagnosticOptOut;
     this.offline = builder.offline;
-    this.allAttributesPrivate = builder.allAttributesPrivate;
-    this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
-    this.sendEvents = builder.sendEvents;
-    if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
-      this.pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
-    } else {
-      this.pollingIntervalMillis = builder.pollingIntervalMillis;
-    }
     this.startWaitMillis = builder.startWaitMillis;
-    this.samplingInterval = builder.samplingInterval;
-    this.reconnectTimeMs = builder.reconnectTimeMillis;
-    this.userKeysCapacity = builder.userKeysCapacity;
-    this.userKeysFlushInterval = builder.userKeysFlushInterval;
-    this.inlineUsersInEvents = builder.inlineUsersInEvents;
-    this.sslSocketFactory = builder.sslSocketFactory;
-    this.trustManager = builder.trustManager;
-    this.connectTimeout = builder.connectTimeout;
-    this.connectTimeoutUnit = builder.connectTimeoutUnit;
-    this.socketTimeout = builder.socketTimeout;
-    this.socketTimeoutUnit = builder.socketTimeoutUnit;
 
+    Proxy proxy = builder.proxy();
+    Authenticator proxyAuthenticator = builder.proxyAuthenticator();
     if (proxy != null) {
       if (proxyAuthenticator != null) {
         logger.info("Using proxy: " + proxy + " with authentication.");
@@ -121,6 +87,58 @@ public final class LDConfig {
         logger.info("Using proxy: " + proxy + " without authentication.");
       }
     }
+    
+    this.httpConfig = new HttpConfiguration(builder.connectTimeout, builder.connectTimeoutUnit,
+        proxy, proxyAuthenticator, builder.socketTimeout, builder.socketTimeoutUnit,
+        builder.sslSocketFactory, builder.trustManager, builder.wrapperName, builder.wrapperVersion);
+
+    this.deprecatedAllAttributesPrivate = builder.allAttributesPrivate;
+    this.deprecatedBaseURI = builder.baseURI;
+    this.deprecatedCapacity = builder.capacity;
+    this.deprecatedEventsURI = builder.eventsURI;
+    this.deprecatedFeatureStore = builder.featureStore;
+    this.deprecatedFlushInterval = builder.flushIntervalSeconds;
+    this.deprecatedInlineUsersInEvents = builder.inlineUsersInEvents;
+    if (builder.pollingIntervalMillis < MIN_POLLING_INTERVAL_MILLIS) {
+      this.deprecatedPollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
+    } else {
+      this.deprecatedPollingIntervalMillis = builder.pollingIntervalMillis;
+    }
+    this.deprecatedPrivateAttrNames = builder.privateAttrNames;
+    this.deprecatedSendEvents = builder.sendEvents;
+    this.deprecatedStream = builder.stream;
+    this.deprecatedStreamURI = builder.streamURI;
+    this.deprecatedSamplingInterval = builder.samplingInterval;
+    this.deprecatedReconnectTimeMs = builder.reconnectTimeMillis;
+    this.deprecatedUserKeysCapacity = builder.userKeysCapacity;
+    this.deprecatedUserKeysFlushInterval = builder.userKeysFlushInterval;
+  }
+
+  LDConfig(LDConfig config) {
+    this.dataSourceFactory = config.dataSourceFactory;
+    this.dataStoreFactory = config.dataStoreFactory;
+    this.diagnosticOptOut = config.diagnosticOptOut;
+    this.eventProcessorFactory = config.eventProcessorFactory;
+    this.httpConfig = config.httpConfig;
+    this.offline = config.offline;
+    this.startWaitMillis = config.startWaitMillis;
+
+    this.deprecatedAllAttributesPrivate = config.deprecatedAllAttributesPrivate;
+    this.deprecatedBaseURI = config.deprecatedBaseURI;
+    this.deprecatedCapacity = config.deprecatedCapacity;
+    this.deprecatedEventsURI = config.deprecatedEventsURI;
+    this.deprecatedFeatureStore = config.deprecatedFeatureStore;
+    this.deprecatedFlushInterval = config.deprecatedFlushInterval;
+    this.deprecatedInlineUsersInEvents = config.deprecatedInlineUsersInEvents;
+    this.deprecatedPollingIntervalMillis = config.deprecatedPollingIntervalMillis;
+    this.deprecatedPrivateAttrNames = config.deprecatedPrivateAttrNames;
+    this.deprecatedReconnectTimeMs = config.deprecatedReconnectTimeMs;
+    this.deprecatedSamplingInterval = config.deprecatedSamplingInterval;
+    this.deprecatedSendEvents = config.deprecatedSendEvents;
+    this.deprecatedStream = config.deprecatedStream;
+    this.deprecatedStreamURI = config.deprecatedStreamURI;
+    this.deprecatedUserKeysCapacity = config.deprecatedUserKeysCapacity;
+    this.deprecatedUserKeysFlushInterval = config.deprecatedUserKeysFlushInterval;
   }
 
   /**
@@ -142,6 +160,7 @@ public final class LDConfig {
     private TimeUnit connectTimeoutUnit = TimeUnit.MILLISECONDS;
     private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
     private TimeUnit socketTimeoutUnit = TimeUnit.MILLISECONDS;
+    private boolean diagnosticOptOut = false;
     private int capacity = DEFAULT_CAPACITY;
     private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
     private String proxyHost = "localhost";
@@ -149,24 +168,25 @@ public final class LDConfig {
     private String proxyUsername = null;
     private String proxyPassword = null;
     private boolean stream = true;
-    private boolean useLdd = false;
     private boolean offline = false;
     private boolean allAttributesPrivate = false;
     private boolean sendEvents = true;
     private long pollingIntervalMillis = MIN_POLLING_INTERVAL_MILLIS;
     private FeatureStore featureStore = null;
-    private FeatureStoreFactory featureStoreFactory = Components.inMemoryFeatureStore();
-    private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
-    private UpdateProcessorFactory updateProcessorFactory = Components.defaultUpdateProcessor();
+    private FeatureStoreFactory dataStoreFactory = null;
+    private EventProcessorFactory eventProcessorFactory = null;
+    private UpdateProcessorFactory dataSourceFactory = null;
     private long startWaitMillis = DEFAULT_START_WAIT_MILLIS;
     private int samplingInterval = DEFAULT_SAMPLING_INTERVAL;
     private long reconnectTimeMillis = DEFAULT_RECONNECT_TIME_MILLIS;
-    private Set<String> privateAttrNames = new HashSet<>();
+    private ImmutableSet<String> privateAttrNames = ImmutableSet.of();
     private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
     private int userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS;
     private boolean inlineUsersInEvents = false;
     private SSLSocketFactory sslSocketFactory = null;
     private X509TrustManager trustManager = null;
+    private String wrapperName = null;
+    private String wrapperVersion = null;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -175,38 +195,69 @@ public final class LDConfig {
     }
 
     /**
-     * Set the base URL of the LaunchDarkly server for this configuration.
+     * Deprecated method for setting the base URI for the polling service.
+     * <p>
+     * This method has no effect if you have used {@link #dataSource(UpdateProcessorFactory)} to
+     * specify polling or streaming options, which is the preferred method.
      *
      * @param baseURI the base URL of the LaunchDarkly server for this configuration.
      * @return the builder
+     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseURI(URI)},
+     * or {@link Components#pollingDataSource()} with {@link PollingDataSourceBuilder#baseURI(URI)}.
      */
+    @Deprecated
     public Builder baseURI(URI baseURI) {
       this.baseURI = baseURI;
       return this;
     }
 
     /**
-     * Set the base URL of the LaunchDarkly analytics event server for this configuration.
+     * Deprecated method for setting the base URI of the LaunchDarkly analytics event service.
      *
      * @param eventsURI the events URL of the LaunchDarkly server for this configuration
      * @return the builder
+     * @deprecated Use @link {@link Components#sendEvents()} wtih {@link EventProcessorBuilder#baseURI(URI)}.
      */
+    @Deprecated
     public Builder eventsURI(URI eventsURI) {
       this.eventsURI = eventsURI;
       return this;
     }
 
     /**
-     * Set the base URL of the LaunchDarkly streaming server for this configuration.
+     * Deprecated method for setting the base URI for the streaming service.
+     * <p>
+     * This method has no effect if you have used {@link #dataSource(UpdateProcessorFactory)} to
+     * specify polling or streaming options, which is the preferred method.
      *
      * @param streamURI the base URL of the LaunchDarkly streaming server
      * @return the builder
+     * @deprecated Use {@link Components#streamingDataSource()} with {@link StreamingDataSourceBuilder#pollingBaseURI(URI)}.
      */
+    @Deprecated
     public Builder streamURI(URI streamURI) {
       this.streamURI = streamURI;
       return this;
     }
 
+    /**
+     * Sets the implementation of the data store to be used for holding feature flags and
+     * related data received from LaunchDarkly, using a factory object. The default is
+     * {@link Components#inMemoryDataStore()}; for database integrations, use
+     * {@link Components#persistentDataStore(com.launchdarkly.client.interfaces.PersistentDataStoreFactory)}.
+     * <p>
+     * Note that the interface is still called {@link FeatureStoreFactory}, but in a future version
+     * it will be renamed to {@code DataStoreFactory}.
+     * 
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.12.0
+     */
+    public Builder dataStore(FeatureStoreFactory factory) {
+      this.dataStoreFactory = factory;
+      return this;
+    }
+    
     /**
      * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
      * related data received from LaunchDarkly. The default is {@link InMemoryFeatureStore}, but
@@ -215,32 +266,46 @@ public final class LDConfig {
      * @return the builder
      * @deprecated Please use {@link #featureStoreFactory(FeatureStoreFactory)}.
      */
+    @Deprecated
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
       return this;
     }
 
     /**
-     * Sets the implementation of {@link FeatureStore} to be used for holding feature flags and
-     * related data received from LaunchDarkly, using a factory object. The default is
-     * {@link Components#inMemoryFeatureStore()}, but you may use {@link Components#redisFeatureStore()}
-     * or a custom implementation.
+     * Deprecated name for {@link #dataStore(FeatureStoreFactory)}.
      * @param factory the factory object
      * @return the builder
      * @since 4.0.0
+     * @deprecated Use {@link #dataStore(FeatureStoreFactory)}.
      */
+    @Deprecated
     public Builder featureStoreFactory(FeatureStoreFactory factory) {
-      this.featureStoreFactory = factory;
+      this.dataStoreFactory = factory;
       return this;
     }
-    
+
     /**
-     * Sets the implementation of {@link EventProcessor} to be used for processing analytics events,
-     * using a factory object. The default is {@link Components#defaultEventProcessor()}, but
-     * you may choose to use a custom implementation (for instance, a test fixture).
+     * Sets the implementation of {@link EventProcessor} to be used for processing analytics events.
+     * <p>
+     * The default is {@link Components#sendEvents()}, but you may choose to use a custom implementation
+     * (for instance, a test fixture), or disable events with {@link Components#noEvents()}.
+     * 
+     * @param factory a builder/factory object for event configuration
+     * @return the builder
+     * @since 4.12.0
+     */
+    public Builder events(EventProcessorFactory factory) {
+      this.eventProcessorFactory = factory;
+      return this;
+    }
+
+    /**
+     * Deprecated name for {@link #events(EventProcessorFactory)}.
      * @param factory the factory object
      * @return the builder
      * @since 4.0.0
+     * @deprecated Use {@link #events(EventProcessorFactory)}.
      */
     public Builder eventProcessorFactory(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
@@ -248,25 +313,53 @@ public final class LDConfig {
     }
     
     /**
-     * Sets the implementation of {@link UpdateProcessor} to be used for receiving feature flag data,
-     * using a factory object. The default is {@link Components#defaultUpdateProcessor()}, but
-     * you may choose to use a custom implementation (for instance, a test fixture).
+     * Sets the implementation of the component that receives feature flag data from LaunchDarkly,
+     * using a factory object. Depending on the implementation, the factory may be a builder that
+     * allows you to set other configuration options as well.
+     * <p>
+     * The default is {@link Components#streamingDataSource()}. You may instead use
+     * {@link Components#pollingDataSource()}, or a test fixture such as
+     * {@link com.launchdarkly.client.integrations.FileData#dataSource()}. See those methods
+     * for details on how to configure them.
+     * <p>
+     * Note that the interface is still named {@link UpdateProcessorFactory}, but in a future version
+     * it will be renamed to {@code DataSourceFactory}.
+     * 
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.12.0
+     */
+    public Builder dataSource(UpdateProcessorFactory factory) {
+      this.dataSourceFactory = factory;
+      return this;
+    }
+
+    /**
+     * Deprecated name for {@link #dataSource(UpdateProcessorFactory)}.
      * @param factory the factory object
      * @return the builder
      * @since 4.0.0
+     * @deprecated Use {@link #dataSource(UpdateProcessorFactory)}.
      */
+    @Deprecated
     public Builder updateProcessorFactory(UpdateProcessorFactory factory) {
-      this.updateProcessorFactory = factory;
+      this.dataSourceFactory = factory;
       return this;
     }
     
     /**
-     * Set whether streaming mode should be enabled. By default, streaming is enabled. It should only be
-     * disabled on the advice of LaunchDarkly support.
-     *
+     * Deprecated method for enabling or disabling streaming mode.
+     * <p>
+     * By default, streaming is enabled. It should only be disabled on the advice of LaunchDarkly support.
+     * <p>
+     * This method has no effect if you have specified a data source with {@link #dataSource(UpdateProcessorFactory)},
+     * which is the preferred method.
+     * 
      * @param stream whether streaming mode should be enabled
      * @return the builder
+     * @deprecated Use {@link Components#streamingDataSource()} or {@link Components#pollingDataSource()}.
      */
+    @Deprecated
     public Builder stream(boolean stream) {
       this.stream = stream;
       return this;
@@ -329,24 +422,26 @@ public final class LDConfig {
     }
 
     /**
-     * Set the number of seconds between flushes of the event buffer. Decreasing the flush interval means
-     * that the event buffer is less likely to reach capacity. The default value is 5 seconds.
+     * Deprecated method for setting the event buffer flush interval
      *
      * @param flushInterval the flush interval in seconds
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#flushIntervalSeconds(int)}.
      */
+    @Deprecated
     public Builder flushInterval(int flushInterval) {
       this.flushIntervalSeconds = flushInterval;
       return this;
     }
 
     /**
-     * Set the capacity of the events buffer. The client buffers up to this many events in memory before flushing. If the capacity is exceeded before the buffer is flushed, events will be discarded.
-     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory. The default value is 10000 elements. The default flush interval (set by flushInterval) is 5 seconds.
+     * Deprecated method for setting the capacity of the events buffer.
      *
      * @param capacity the capacity of the event buffer
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#capacity(int)}.
      */
+    @Deprecated
     public Builder capacity(int capacity) {
       this.capacity = capacity;
       return this;
@@ -419,20 +514,34 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
-     * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
-     *
+     * Deprecated method for using the LaunchDarkly Relay Proxy in daemon mode.
+     * <p>
+     * See {@link Components#externalUpdatesOnly()} for the preferred way to do this.
+     * 
      * @param useLdd true to use the relay in daemon mode; false to use streaming or polling
      * @return the builder
+     * @deprecated Use {@link Components#externalUpdatesOnly()}.
      */
+    @Deprecated
     public Builder useLdd(boolean useLdd) {
-      this.useLdd = useLdd;
-      return this;
+      if (useLdd) {
+        return dataSource(Components.externalUpdatesOnly());
+      } else {
+        return dataSource(null);
+      }
     }
 
     /**
      * Set whether this client is offline.
-     *
+     * <p>
+     * In offline mode, the SDK will not make network connections to LaunchDarkly for any purpose. Feature
+     * flag data will only be available if it already exists in the data store, and analytics events will
+     * not be sent.
+     * <p>
+     * This is equivalent to calling {@code dataSource(Components.externalUpdatesOnly())} and
+     * {@code events(Components.noEvents())}. It overrides any other values you may have set for
+     * {@link #dataSource(UpdateProcessorFactory)} or {@link #events(EventProcessorFactory)}.
+     * 
      * @param offline when set to true no calls to LaunchDarkly will be made
      * @return the builder
      */
@@ -442,37 +551,44 @@ public final class LDConfig {
     }
 
     /**
-     * Set whether or not user attributes (other than the key) should be hidden from LaunchDarkly. If this is true, all
-     * user attribute values will be private, not just the attributes specified in {@link #privateAttributeNames(String...)}. By default,
-     * this is false.
+     * Deprecated method for making all user attributes private.
+     *
      * @param allPrivate true if all user attributes should be private
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#allAttributesPrivate(boolean)}.
      */
+    @Deprecated
     public Builder allAttributesPrivate(boolean allPrivate) {
       this.allAttributesPrivate = allPrivate;
       return this;
     }
 
     /**
-     * Set whether to send events back to LaunchDarkly. By default, the client will send
-     * events. This differs from {@link #offline(boolean)} in that it only affects sending
-     * analytics events, not streaming or polling for events from the server.
+     * Deprecated method for disabling analytics events.
      *
      * @param sendEvents when set to false, no events will be sent to LaunchDarkly
      * @return the builder
+     * @deprecated Use {@link Components#noEvents()}.
      */
+    @Deprecated
     public Builder sendEvents(boolean sendEvents) {
       this.sendEvents = sendEvents;
       return this;
     }
 
     /**
-     * Set the polling interval (when streaming is disabled). Values less than the default of
-     * 30000 will be set to the default.
+     * Deprecated method for setting the polling interval in polling mode.
+     * <p>
+     * Values less than the default of 30000 will be set to the default.
+     * <p>
+     * This method has no effect if you have <i>not</i> disabled streaming mode, or if you have specified
+     * a non-polling data source with {@link #dataSource(UpdateProcessorFactory)}.
      *
      * @param pollingIntervalMillis rule update polling interval in milliseconds
      * @return the builder
+     * @deprecated Use {@link Components#pollingDataSource()} and {@link PollingDataSourceBuilder#pollIntervalMillis(long)}.
      */
+    @Deprecated
     public Builder pollingIntervalMillis(long pollingIntervalMillis) {
       this.pollingIntervalMillis = pollingIntervalMillis;
       return this;
@@ -508,66 +624,121 @@ public final class LDConfig {
     }
 
     /**
-     * The reconnect base time in milliseconds for the streaming connection. The streaming connection
-     * uses an exponential backoff algorithm (with jitter) for reconnects, but will start the backoff
-     * with a value near the value specified here.
+     * Deprecated method for setting the initial reconnect delay for the streaming connection.
+     * <p>
+     * This method has no effect if you have disabled streaming mode, or if you have specified a
+     * non-streaming data source with {@link #dataSource(UpdateProcessorFactory)}.
      *
      * @param reconnectTimeMs the reconnect time base value in milliseconds
      * @return the builder
+     * @deprecated Use {@link Components#streamingDataSource()} and {@link StreamingDataSourceBuilder#initialReconnectDelayMillis(long)}.
      */
+    @Deprecated
     public Builder reconnectTimeMs(long reconnectTimeMs) {
       this.reconnectTimeMillis = reconnectTimeMs;
       return this;
     }
 
     /**
-     * Marks a set of attribute names private. Any users sent to LaunchDarkly with this configuration
-     * active will have attributes with these names removed.
+     * Deprecated method for specifying globally private user attributes.
      *
      * @param names a set of names that will be removed from user data set to LaunchDarkly
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#privateAttributeNames(String...)}.
      */
+    @Deprecated
     public Builder privateAttributeNames(String... names) {
-      this.privateAttrNames = new HashSet<>(Arrays.asList(names));
+      this.privateAttrNames = ImmutableSet.copyOf(names);
       return this;
     }
 
     /**
-     * Sets the number of user keys that the event processor can remember at any one time, so that
-     * duplicate user details will not be sent in analytics events.
+     * Deprecated method for setting the number of user keys that can be cached for analytics events.
      * 
      * @param capacity the maximum number of user keys to remember
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#userKeysCapacity(int)}.
      */
+    @Deprecated
     public Builder userKeysCapacity(int capacity) {
       this.userKeysCapacity = capacity;
       return this;
     }
 
     /**
-     * Sets the interval in seconds at which the event processor will reset its set of known user keys. The
-     * default value is five minutes.
+     * Deprecated method for setting the expiration time of the user key cache for analytics events.  
      *
      * @param flushInterval the flush interval in seconds
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#userKeysFlushIntervalSeconds(int)}.
      */
+    @Deprecated
     public Builder userKeysFlushInterval(int flushInterval) {
       this.userKeysFlushInterval = flushInterval;
       return this;
     }
 
     /**
-     * Sets whether to include full user details in every analytics event. The default is false (events will
-     * only include the user key, except for one "index" event that provides the full details for the user).
+     * Deprecated method for setting whether to include full user details in every analytics event.
      * 
      * @param inlineUsersInEvents true if you want full user details in each event
      * @return the builder
+     * @deprecated Use {@link Components#sendEvents()} with {@link EventProcessorBuilder#inlineUsersInEvents(boolean)}.
      */
+    @Deprecated
     public Builder inlineUsersInEvents(boolean inlineUsersInEvents) {
       this.inlineUsersInEvents = inlineUsersInEvents;
       return this;
     }
-    
+
+    /**
+     * Set to true to opt out of sending diagnostics data.
+     * <p>
+     * Unless {@code diagnosticOptOut} is set to true, the client will send some diagnostics data to the
+     * LaunchDarkly servers in order to assist in the development of future SDK improvements. These diagnostics
+     * consist of an initial payload containing some details of SDK in use, the SDK's configuration, and the platform
+     * the SDK is being run on; as well as payloads sent periodically with information on irregular occurrences such
+     * as dropped events.
+     *
+     * @see com.launchdarkly.client.integrations.EventProcessorBuilder#diagnosticRecordingIntervalSeconds(int)
+     *
+     * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data
+     * @return the builder
+     * @since 4.12.0
+     */
+    public Builder diagnosticOptOut(boolean diagnosticOptOut) {
+      this.diagnosticOptOut = diagnosticOptOut;
+      return this;
+    }
+
+    /**
+     * For use by wrapper libraries to set an identifying name for the wrapper being used. This will be included in a
+     * header during requests to the LaunchDarkly servers to allow recording metrics on the usage of
+     * these wrapper libraries.
+     *
+     * @param wrapperName an identifying name for the wrapper library
+     * @return the builder
+     * @since 4.12.0
+     */
+    public Builder wrapperName(String wrapperName) {
+      this.wrapperName = wrapperName;
+      return this;
+    }
+
+    /**
+     * For use by wrapper libraries to report the version of the library in use. If {@link #wrapperName(String)} is not
+     * set, this field will be ignored. Otherwise the version string will be included in a header along
+     * with the wrapperName during requests to the LaunchDarkly servers.
+     *
+     * @param wrapperVersion Version string for the wrapper library
+     * @return the builder
+     * @since 4.12.0
+     */
+    public Builder wrapperVersion(String wrapperVersion) {
+      this.wrapperVersion = wrapperVersion;
+      return this;
+    }
+
     // returns null if none of the proxy bits were configured. Minimum required part: port.
     Proxy proxy() {
       if (this.proxyPort == -1) {

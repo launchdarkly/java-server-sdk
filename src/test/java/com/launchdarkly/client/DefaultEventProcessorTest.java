@@ -1,19 +1,23 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 
+import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.launchdarkly.client.Components.sendEvents;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.hasJsonProperty;
@@ -23,11 +27,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.samePropertyValuesAs;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -43,16 +50,150 @@ public class DefaultEventProcessorTest {
   private static final JsonElement filteredUserJson =
       gson.fromJson("{\"key\":\"userkey\",\"privateAttrs\":[\"name\"]}", JsonElement.class);
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
-
+  private static final LDConfig baseLDConfig = new LDConfig.Builder().diagnosticOptOut(true).build();
+  private static final LDConfig diagLDConfig = new LDConfig.Builder().diagnosticOptOut(false).build();
+  
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
+
+  private EventProcessorBuilder baseConfig(MockWebServer server) {
+    return sendEvents().baseURI(server.url("").uri());
+  }
+
+  private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec) {
+    return makeEventProcessor(ec, baseLDConfig);
+  }
+  
+  private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
+    return (DefaultEventProcessor)ec.createEventProcessor(SDK_KEY, config);
+  }
+
+  private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
+    return (DefaultEventProcessor)((EventProcessorFactoryWithDiagnostics)ec).createEventProcessor(SDK_KEY,
+        diagLDConfig, diagnosticAccumulator);
+  }
+  
+  @Test
+  public void builderHasDefaultConfiguration() throws Exception {
+    EventProcessorFactory epf = Components.sendEvents();
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(false));
+      assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
+      assertThat(ec.diagnosticRecordingIntervalSeconds, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS));
+      assertThat(ec.eventsUri, equalTo(LDConfig.DEFAULT_EVENTS_URI));
+      assertThat(ec.flushIntervalSeconds, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL_SECONDS));
+      assertThat(ec.inlineUsersInEvents, is(false));
+      assertThat(ec.privateAttrNames, equalTo(ImmutableSet.<String>of()));
+      assertThat(ec.samplingInterval, equalTo(0));
+      assertThat(ec.userKeysCapacity, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_CAPACITY));
+      assertThat(ec.userKeysFlushIntervalSeconds, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS));
+    }
+  }
+  
+  @Test
+  public void builderCanSpecifyConfiguration() throws Exception {
+    URI uri = URI.create("http://fake");
+    EventProcessorFactory epf = Components.sendEvents()
+        .allAttributesPrivate(true)
+        .baseURI(uri)
+        .capacity(3333)
+        .diagnosticRecordingIntervalSeconds(480)
+        .flushIntervalSeconds(99)
+        .privateAttributeNames("cats", "dogs")
+        .userKeysCapacity(555)
+        .userKeysFlushIntervalSeconds(101);
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(true));
+      assertThat(ec.capacity, equalTo(3333));
+      assertThat(ec.diagnosticRecordingIntervalSeconds, equalTo(480));
+      assertThat(ec.eventsUri, equalTo(uri));
+      assertThat(ec.flushIntervalSeconds, equalTo(99));
+      assertThat(ec.inlineUsersInEvents, is(false)); // will test this separately below
+      assertThat(ec.privateAttrNames, equalTo(ImmutableSet.of("cats", "dogs")));
+      assertThat(ec.samplingInterval, equalTo(0)); // can only set this with the deprecated config API
+      assertThat(ec.userKeysCapacity, equalTo(555));
+      assertThat(ec.userKeysFlushIntervalSeconds, equalTo(101));
+    }
+    // Test inlineUsersInEvents separately to make sure it and the other boolean property (allAttributesPrivate)
+    // are really independently settable, since there's no way to distinguish between two true values
+    EventProcessorFactory epf1 = Components.sendEvents().inlineUsersInEvents(true);
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf1.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(false));
+      assertThat(ec.inlineUsersInEvents, is(true));
+    }
+  }
+
+  @Test
+  @SuppressWarnings("deprecation")
+  public void deprecatedConfigurationIsUsedWhenBuilderIsNotUsed() throws Exception {
+    URI uri = URI.create("http://fake");
+    LDConfig config = new LDConfig.Builder()
+        .allAttributesPrivate(true)
+        .capacity(3333)
+        .eventsURI(uri)
+        .flushInterval(99)
+        .privateAttributeNames("cats", "dogs")
+        .samplingInterval(7)
+        .userKeysCapacity(555)
+        .userKeysFlushInterval(101)
+        .build();
+    EventProcessorFactory epf = Components.defaultEventProcessor();
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, config)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(true));
+      assertThat(ec.capacity, equalTo(3333));
+      assertThat(ec.diagnosticRecordingIntervalSeconds, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS));
+      // can't set diagnosticRecordingIntervalSeconds with deprecated API, must use builder
+      assertThat(ec.eventsUri, equalTo(uri));
+      assertThat(ec.flushIntervalSeconds, equalTo(99));
+      assertThat(ec.inlineUsersInEvents, is(false)); // will test this separately below
+      assertThat(ec.privateAttrNames, equalTo(ImmutableSet.of("cats", "dogs")));
+      assertThat(ec.samplingInterval, equalTo(7));
+      assertThat(ec.userKeysCapacity, equalTo(555));
+      assertThat(ec.userKeysFlushIntervalSeconds, equalTo(101));
+    }
+    // Test inlineUsersInEvents separately to make sure it and the other boolean property (allAttributesPrivate)
+    // are really independently settable, since there's no way to distinguish between two true values
+    LDConfig config1 = new LDConfig.Builder().inlineUsersInEvents(true).build();
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, config1)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(false));
+      assertThat(ec.inlineUsersInEvents, is(true));
+    }
+  }
+
+  @Test
+  @SuppressWarnings("deprecation")
+  public void deprecatedConfigurationHasSameDefaultsAsBuilder() throws Exception {
+    EventProcessorFactory epf0 = Components.sendEvents();
+    EventProcessorFactory epf1 = Components.defaultEventProcessor();
+    try (DefaultEventProcessor ep0 = (DefaultEventProcessor)epf0.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+      try (DefaultEventProcessor ep1 = (DefaultEventProcessor)epf1.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+        EventsConfiguration ec0 = ep0.dispatcher.eventsConfig;
+        EventsConfiguration ec1 = ep1.dispatcher.eventsConfig;
+        assertThat(ec1.allAttributesPrivate, equalTo(ec0.allAttributesPrivate));
+        assertThat(ec1.capacity, equalTo(ec0.capacity));
+        assertThat(ec1.diagnosticRecordingIntervalSeconds, equalTo(ec1.diagnosticRecordingIntervalSeconds));
+        assertThat(ec1.eventsUri, equalTo(ec0.eventsUri));
+        assertThat(ec1.flushIntervalSeconds, equalTo(ec1.flushIntervalSeconds));
+        assertThat(ec1.inlineUsersInEvents, equalTo(ec1.inlineUsersInEvents));
+        assertThat(ec1.privateAttrNames, equalTo(ec1.privateAttrNames));
+        assertThat(ec1.samplingInterval, equalTo(ec1.samplingInterval));
+        assertThat(ec1.userKeysCapacity, equalTo(ec1.userKeysCapacity));
+        assertThat(ec1.userKeysFlushIntervalSeconds, equalTo(ec1.userKeysFlushIntervalSeconds));
+      }
+    }
+  }
   
   @Test
   public void identifyEventIsQueued() throws Exception {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -67,9 +208,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).allAttributesPrivate(true).build();
-      
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).allAttributesPrivate(true))) {
         ep.sendEvent(e);
       }
   
@@ -87,7 +226,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe);
       }
     
@@ -107,9 +246,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).allAttributesPrivate(true).build();
-      
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).allAttributesPrivate(true))) {
         ep.sendEvent(fe);
       }
     
@@ -129,9 +266,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
     
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
-      
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).inlineUsersInEvents(true))) {
         ep.sendEvent(fe);
       }
       
@@ -150,9 +285,8 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).allAttributesPrivate(true).build();
-
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server)
+          .inlineUsersInEvents(true).allAttributesPrivate(true))) {
         ep.sendEvent(fe);
       }
       
@@ -172,7 +306,7 @@ public class DefaultEventProcessorTest {
           EvaluationDetail.fromValue(LDValue.of("value"), 1, reason), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe);
       }
   
@@ -192,9 +326,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
-
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).inlineUsersInEvents(true))) {
         ep.sendEvent(fe);
       }
   
@@ -214,7 +346,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe);
       }
     
@@ -236,7 +368,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe);
       }
   
@@ -263,7 +395,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(resp1, resp2)) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         // Send and flush an event we don't care about, just so we'll receive "resp1" which sets the last server time
         ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
         ep.flush();
@@ -296,8 +428,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(resp1, resp2)) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
-        
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         // Send and flush an event we don't care about, just to set the last server time
         ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
         ep.flush();
@@ -329,7 +460,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(1, value), LDValue.ofNull());
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe1);
         ep.sendEvent(fe2);
       }
@@ -342,6 +473,29 @@ public class DefaultEventProcessorTest {
       ));
     }
   }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void identifyEventMakesIndexEventUnnecessary() throws Exception {
+    Event ie = EventFactory.DEFAULT.newIdentifyEvent(user);
+    FeatureFlag flag = new FeatureFlagBuilder("flagkey").version(11).trackEvents(true).build();
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+        simpleEvaluation(1, LDValue.of("value")), null);
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
+        ep.sendEvent(ie);
+        ep.sendEvent(fe); 
+      }
+      
+      assertThat(getEventsFromLastRequest(server), contains(
+          isIdentifyEvent(ie, userJson),
+          isFeatureEvent(fe, flag, false, null),
+          isSummaryEvent()
+      ));
+    }
+  }
+
   
   @SuppressWarnings("unchecked")
   @Test
@@ -362,7 +516,7 @@ public class DefaultEventProcessorTest {
         simpleEvaluation(2, value2), default2);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(fe1a);
         ep.sendEvent(fe1b);
         ep.sendEvent(fe1c);
@@ -393,7 +547,7 @@ public class DefaultEventProcessorTest {
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, metric);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(ce);
       }
       
@@ -410,9 +564,7 @@ public class DefaultEventProcessorTest {
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).build();
-
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server).inlineUsersInEvents(true))) {
         ep.sendEvent(ce);
       }
       
@@ -426,9 +578,8 @@ public class DefaultEventProcessorTest {
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = baseConfig(server).inlineUsersInEvents(true).allAttributesPrivate(true).build();
-
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server)
+          .inlineUsersInEvents(true).allAttributesPrivate(true))) {
         ep.sendEvent(ce);
       }
       
@@ -441,7 +592,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
       
@@ -452,19 +603,121 @@ public class DefaultEventProcessorTest {
   @Test
   public void nothingIsSentIfThereAreNoEvents() throws Exception {
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build());
+      DefaultEventProcessor ep = makeEventProcessor(baseConfig(server));
       ep.close();
     
       assertEquals(0, server.getRequestCount());
     }
   }
+
+  @Test
+  public void diagnosticEventsSentToDiagnosticEndpoint() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), diagnosticAccumulator)) {
+          RecordedRequest initReq = server.takeRequest();
+          ep.postDiagnostic();
+          RecordedRequest periodicReq = server.takeRequest();
+
+          assertThat(initReq.getPath(), equalTo("//diagnostic"));
+          assertThat(periodicReq.getPath(), equalTo("//diagnostic"));
+      }
+    }
+  }
+
+  @Test
+  public void initialDiagnosticEventHasInitBody() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
+      DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), diagnosticAccumulator)) {
+        RecordedRequest req = server.takeRequest();
+
+        assertNotNull(req);
+
+        DiagnosticEvent.Init initEvent = gson.fromJson(req.getBody().readUtf8(), DiagnosticEvent.Init.class);
+
+        assertNotNull(initEvent);
+        assertThat(initEvent.kind, equalTo("diagnostic-init"));
+        assertThat(initEvent.id, samePropertyValuesAs(diagnosticId));
+        assertNotNull(initEvent.configuration);
+        assertNotNull(initEvent.sdk);
+        assertNotNull(initEvent.platform);
+      }
+    }
+  }
+
+  @Test
+  public void periodicDiagnosticEventHasStatisticsBody() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse(), eventsSuccessResponse())) {
+      DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
+      DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
+      long dataSinceDate = diagnosticAccumulator.dataSinceDate;
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), diagnosticAccumulator)) {
+        // Ignore the initial diagnostic event
+        server.takeRequest();
+        ep.postDiagnostic();
+        RecordedRequest periodicReq = server.takeRequest();
+
+        assertNotNull(periodicReq);
+        DiagnosticEvent.Statistics statsEvent = gson.fromJson(periodicReq.getBody().readUtf8(), DiagnosticEvent.Statistics.class);
+
+        assertNotNull(statsEvent);
+        assertThat(statsEvent.kind, equalTo("diagnostic"));
+        assertThat(statsEvent.id, samePropertyValuesAs(diagnosticId));
+        assertThat(statsEvent.dataSinceDate, equalTo(dataSinceDate));
+        assertThat(statsEvent.creationDate, equalTo(diagnosticAccumulator.dataSinceDate));
+        assertThat(statsEvent.deduplicatedUsers, equalTo(0L));
+        assertThat(statsEvent.eventsInLastBatch, equalTo(0L));
+        assertThat(statsEvent.droppedEvents, equalTo(0L));
+      }
+    }
+  }
+
+  @Test
+  public void periodicDiagnosticEventGetsEventsInLastBatchAndDeduplicatedUsers() throws Exception {
+    FeatureFlag flag1 = new FeatureFlagBuilder("flagkey1").version(11).trackEvents(true).build();
+    FeatureFlag flag2 = new FeatureFlagBuilder("flagkey2").version(22).trackEvents(true).build();
+    LDValue value = LDValue.of("value");
+    Event.FeatureRequest fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
+            simpleEvaluation(1, value), LDValue.ofNull());
+    Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
+            simpleEvaluation(1, value), LDValue.ofNull());
+
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse(), eventsSuccessResponse())) {
+      DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
+      DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), diagnosticAccumulator)) {
+        // Ignore the initial diagnostic event
+        server.takeRequest();
+
+        ep.sendEvent(fe1);
+        ep.sendEvent(fe2);
+        ep.flush();
+        // Ignore normal events
+        server.takeRequest();
+
+        ep.postDiagnostic();
+        RecordedRequest periodicReq = server.takeRequest();
+
+        assertNotNull(periodicReq);
+        DiagnosticEvent.Statistics statsEvent = gson.fromJson(periodicReq.getBody().readUtf8(), DiagnosticEvent.Statistics.class);
+
+        assertNotNull(statsEvent);
+        assertThat(statsEvent.deduplicatedUsers, equalTo(1L));
+        assertThat(statsEvent.eventsInLastBatch, equalTo(3L));
+        assertThat(statsEvent.droppedEvents, equalTo(0L));
+      }
+    }
+  }
+
   
   @Test
   public void sdkKeyIsSent() throws Exception {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
       
@@ -474,11 +727,26 @@ public class DefaultEventProcessorTest {
   }
 
   @Test
+  public void sdkKeyIsSentOnDiagnosticEvents() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), diagnosticAccumulator)) {
+        RecordedRequest initReq = server.takeRequest();
+        ep.postDiagnostic();
+        RecordedRequest periodicReq = server.takeRequest();
+
+        assertThat(initReq.getHeader("Authorization"), equalTo(SDK_KEY));
+        assertThat(periodicReq.getHeader("Authorization"), equalTo(SDK_KEY));
+      }
+    }
+  }
+
+  @Test
   public void eventSchemaIsSent() throws Exception {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -492,7 +760,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -509,7 +777,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(errorResponse, eventsSuccessResponse(), eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
         ep.flush();
         // Necessary to ensure the retry occurs before the second request for test assertion ordering
@@ -528,6 +796,57 @@ public class DefaultEventProcessorTest {
       req = server.takeRequest(0, TimeUnit.SECONDS);
       payloadId = req.getHeader("X-LaunchDarkly-Payload-ID");
       assertThat(retryId, not(equalTo(payloadId)));
+    }
+  }
+  
+  @Test
+  public void eventSchemaNotSetOnDiagnosticEvents() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), diagnosticAccumulator)) {
+        RecordedRequest initReq = server.takeRequest();
+        ep.postDiagnostic();
+        RecordedRequest periodicReq = server.takeRequest();
+
+        assertNull(initReq.getHeader("X-LaunchDarkly-Event-Schema"));
+        assertNull(periodicReq.getHeader("X-LaunchDarkly-Event-Schema"));
+      }
+    }
+  }
+
+  @Test
+  public void wrapperHeaderSentWhenSet() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = new LDConfig.Builder()
+              .diagnosticOptOut(true)
+              .wrapperName("Scala")
+              .wrapperVersion("0.1.0")
+              .build();
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), config)) {
+        Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+        ep.sendEvent(e);
+      }
+
+      RecordedRequest req = server.takeRequest();
+      assertThat(req.getHeader("X-LaunchDarkly-Wrapper"), equalTo("Scala/0.1.0"));
+    }
+  }
+
+  @Test
+  public void wrapperHeaderSentWithoutVersion() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      LDConfig config = new LDConfig.Builder()
+          .diagnosticOptOut(true)
+          .wrapperName("Scala")
+          .build();
+
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), config)) {
+        Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+        ep.sendEvent(e);
+      }
+
+      RecordedRequest req = server.takeRequest();
+      assertThat(req.getHeader("X-LaunchDarkly-Wrapper"), equalTo("Scala"));
     }
   }
 
@@ -570,11 +889,8 @@ public class DefaultEventProcessorTest {
   @Test
   public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
-      LDConfig config = new LDConfig.Builder()
-          .eventsURI(serverWithCert.uri())
-          .build();
-      
-      try (DefaultEventProcessor ep = new DefaultEventProcessor("sdk-key", config)) {
+      EventProcessorBuilder ec = sendEvents().baseURI(serverWithCert.uri());
+      try (DefaultEventProcessor ep = makeEventProcessor(ec)) {
         Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
         ep.sendEvent(e);
         
@@ -589,12 +905,12 @@ public class DefaultEventProcessorTest {
   @Test
   public void httpClientCanUseCustomTlsConfig() throws Exception {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
+      EventProcessorBuilder ec = sendEvents().baseURI(serverWithCert.uri());
       LDConfig config = new LDConfig.Builder()
-          .eventsURI(serverWithCert.uri())
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
       
-      try (DefaultEventProcessor ep = new DefaultEventProcessor("sdk-key", config)) {
+      try (DefaultEventProcessor ep = makeEventProcessor(ec, config)) {
         Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
         ep.sendEvent(e);
         
@@ -610,7 +926,7 @@ public class DefaultEventProcessorTest {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
 
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -628,7 +944,7 @@ public class DefaultEventProcessorTest {
 
     // send two errors in a row, because the flush will be retried one time
     try (MockWebServer server = makeStartedServer(errorResponse, errorResponse, eventsSuccessResponse())) {
-      try (DefaultEventProcessor ep = new DefaultEventProcessor(SDK_KEY, baseConfig(server).build())) {
+      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server))) {
         ep.sendEvent(e);
       }
 
@@ -641,10 +957,6 @@ public class DefaultEventProcessorTest {
     }
   }
 
-  private LDConfig.Builder baseConfig(MockWebServer server) {
-    return new LDConfig.Builder().eventsURI(server.url("/").uri());
-  }
-  
   private MockResponse eventsSuccessResponse() {
     return new MockResponse().setResponseCode(202);
   }

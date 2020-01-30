@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
@@ -179,10 +178,9 @@ public class LDUser {
 
   // Used internally when including users in analytics events, to ensure that private attributes are stripped out.
   static class UserAdapterWithPrivateAttributeBehavior extends TypeAdapter<LDUser> {
-    private static final Gson gson = new Gson();
-    private final LDConfig config;
+    private final EventsConfiguration config;
 
-    public UserAdapterWithPrivateAttributeBehavior(LDConfig config) {
+    public UserAdapterWithPrivateAttributeBehavior(EventsConfiguration config) {
       this.config = config;
     }
 
@@ -282,7 +280,7 @@ public class LDUser {
             beganObject = true;
           }
           out.name(entry.getKey());
-          gson.toJson(entry.getValue(), LDValue.class, out);
+          JsonHelpers.gsonInstance().toJson(entry.getValue(), LDValue.class, out);
         }
       }
       if (beganObject) {
@@ -460,7 +458,6 @@ public class LDUser {
      * @deprecated As of version 4.10.0. In the next major release the SDK will no longer include the
      * LDCountryCode class. Applications should use {@link #country(String)} instead.
      */
-    @SuppressWarnings("deprecation")
     @Deprecated
     public Builder country(LDCountryCode country) {
       this.country = country == null ? null : country.getAlpha2();
@@ -475,7 +472,6 @@ public class LDUser {
      * @deprecated As of version 4.10.0. In the next major release the SDK will no longer include the
      * LDCountryCode class. Applications should use {@link #privateCountry(String)} instead.
      */
-    @SuppressWarnings("deprecation")
     @Deprecated
     public Builder privateCountry(LDCountryCode country) {
       addPrivate("country");

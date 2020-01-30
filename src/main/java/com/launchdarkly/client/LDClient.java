@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.Components.NullUpdateProcessor;
 import com.launchdarkly.client.value.LDValue;
 
 import org.apache.commons.codec.binary.Hex;
@@ -30,7 +31,9 @@ import static com.launchdarkly.client.VersionedDataKind.FEATURES;
  * a single {@code LDClient} for the lifetime of their application.
  */
 public final class LDClient implements LDClientInterface {
-  private static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  // Package-private so other classes can log under the top-level logger's tag
+  static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   static final String CLIENT_VERSION = getClientVersion();
 
@@ -59,12 +62,12 @@ public final class LDClient implements LDClientInterface {
    * @param config a client configuration object
    */
   public LDClient(String sdkKey, LDConfig config) {
-    this.config = checkNotNull(config, "config must not be null");
+    this.config = new LDConfig(checkNotNull(config, "config must not be null"));
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
-    
+
     FeatureStore store;
-    if (config.deprecatedFeatureStore != null) {
-      store = config.deprecatedFeatureStore;
+    if (this.config.deprecatedFeatureStore != null) {
+      store = this.config.deprecatedFeatureStore;
       // The following line is for backward compatibility with the obsolete mechanism by which the
       // caller could pass in a FeatureStore implementation instance that we did not create.  We
       // were not disposing of that instance when the client was closed, so we should continue not
@@ -72,27 +75,48 @@ public final class LDClient implements LDClientInterface {
       // of instances that we created ourselves from a factory.
       this.shouldCloseFeatureStore = false;
     } else {
-      FeatureStoreFactory factory = config.featureStoreFactory == null ?
-          Components.inMemoryFeatureStore() : config.featureStoreFactory;
+      FeatureStoreFactory factory = config.dataStoreFactory == null ?
+          Components.inMemoryDataStore() : config.dataStoreFactory;
       store = factory.createFeatureStore();
       this.shouldCloseFeatureStore = true;
     }
     this.featureStore = new FeatureStoreClientWrapper(store);
+
+    @SuppressWarnings("deprecation") // defaultEventProcessor() will be replaced by sendEvents() once the deprecated config properties are removed
+    EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
+        Components.defaultEventProcessor() : this.config.eventProcessorFactory;
+
+    DiagnosticAccumulator diagnosticAccumulator = null;
+    // Do not create accumulator if config has specified is opted out, or if epFactory doesn't support diagnostics
+    if (!this.config.diagnosticOptOut && epFactory instanceof EventProcessorFactoryWithDiagnostics) {
+      diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(sdkKey));
+    }
+
+    if (epFactory instanceof EventProcessorFactoryWithDiagnostics) {
+      EventProcessorFactoryWithDiagnostics epwdFactory = ((EventProcessorFactoryWithDiagnostics) epFactory);
+      this.eventProcessor = epwdFactory.createEventProcessor(sdkKey, this.config, diagnosticAccumulator);
+    } else {
+      this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
+    }
+
+    @SuppressWarnings("deprecation") // defaultUpdateProcessor() will be replaced by streamingDataSource() once the deprecated config.stream is removed
+    UpdateProcessorFactory upFactory = config.dataSourceFactory == null ?
+        Components.defaultUpdateProcessor() : config.dataSourceFactory;
     
-    EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
-        Components.defaultEventProcessor() : config.eventProcessorFactory;
-    this.eventProcessor = epFactory.createEventProcessor(sdkKey, config);
-    
-    UpdateProcessorFactory upFactory = config.updateProcessorFactory == null ?
-        Components.defaultUpdateProcessor() : config.updateProcessorFactory;
-    this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, config, featureStore);
+    if (upFactory instanceof UpdateProcessorFactoryWithDiagnostics) {
+      UpdateProcessorFactoryWithDiagnostics upwdFactory = ((UpdateProcessorFactoryWithDiagnostics) upFactory);
+      this.updateProcessor = upwdFactory.createUpdateProcessor(sdkKey, this.config, featureStore, diagnosticAccumulator);
+    } else {
+      this.updateProcessor = upFactory.createUpdateProcessor(sdkKey, this.config, featureStore);
+    }
+
     Future<Void> startFuture = updateProcessor.start();
-    if (config.startWaitMillis > 0L) {
-      if (!config.offline && !config.useLdd) {
-        logger.info("Waiting up to " + config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
+    if (this.config.startWaitMillis > 0L) {
+      if (!(updateProcessor instanceof NullUpdateProcessor)) {
+        logger.info("Waiting up to " + this.config.startWaitMillis + " milliseconds for LaunchDarkly client to start...");
       }
       try {
-        startFuture.get(config.startWaitMillis, TimeUnit.MILLISECONDS);
+        startFuture.get(this.config.startWaitMillis, TimeUnit.MILLISECONDS);
       } catch (TimeoutException e) {
         logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
       } catch (Exception e) {

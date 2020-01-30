@@ -5,6 +5,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -12,10 +13,12 @@ import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.FeatureStoreCacheConfig;
 import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.integrations.CacheMonitor;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -30,13 +33,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Construct instances of this class with {@link CachingStoreWrapper#builder(FeatureStoreCore)}.
  * 
  * @since 4.6.0
+ * @deprecated Referencing this class directly is deprecated; it is now part of the implementation
+ * of {@link com.launchdarkly.client.integrations.PersistentDataStoreBuilder} and will be made
+ * package-private starting in version 5.0. 
  */
+@Deprecated
 public class CachingStoreWrapper implements FeatureStore {
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "CachingStoreWrapper-refresher-pool-%d";
 
   private final FeatureStoreCore core;
+  private final FeatureStoreCacheConfig caching;
   private final LoadingCache<CacheKey, Optional<VersionedData>> itemCache;
-  private final LoadingCache<VersionedDataKind<?>, Map<String, VersionedData>> allCache;
+  private final LoadingCache<VersionedDataKind<?>, ImmutableMap<String, VersionedData>> allCache;
   private final LoadingCache<String, Boolean> initCache;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final ListeningExecutorService executorService;
@@ -50,8 +58,9 @@ public class CachingStoreWrapper implements FeatureStore {
     return new Builder(core);
   }
   
-  protected CachingStoreWrapper(final FeatureStoreCore core, FeatureStoreCacheConfig caching) {
+  protected CachingStoreWrapper(final FeatureStoreCore core, FeatureStoreCacheConfig caching, CacheMonitor cacheMonitor) {
     this.core = core;
+    this.caching = caching;
     
     if (!caching.isEnabled()) {
       itemCache = null;
@@ -65,9 +74,9 @@ public class CachingStoreWrapper implements FeatureStore {
           return Optional.<VersionedData>fromNullable(core.getInternal(key.kind, key.key));
         }
       };
-      CacheLoader<VersionedDataKind<?>, Map<String, VersionedData>> allLoader = new CacheLoader<VersionedDataKind<?>, Map<String, VersionedData>>() {
+      CacheLoader<VersionedDataKind<?>, ImmutableMap<String, VersionedData>> allLoader = new CacheLoader<VersionedDataKind<?>, ImmutableMap<String, VersionedData>>() {
         @Override
-        public Map<String, VersionedData> load(VersionedDataKind<?> kind) throws Exception {
+        public ImmutableMap<String, VersionedData> load(VersionedDataKind<?> kind) throws Exception {
           return itemsOnlyIfNotDeleted(core.getAllInternal(kind));
         }
       };
@@ -78,35 +87,45 @@ public class CachingStoreWrapper implements FeatureStore {
         }
       };
       
-      switch (caching.getStaleValuesPolicy()) {
-      case EVICT:
-        // We are using an "expire after write" cache. This will evict stale values and block while loading the latest
-        // from the underlying data store.
-
-        itemCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(itemLoader);
-        allCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(allLoader);
-        executorService = null;
-        break;
-        
-      default:
-        // We are using a "refresh after write" cache. This will not automatically evict stale values, allowing them
-        // to be returned if failures occur when updating them. Optionally set the cache to refresh values asynchronously,
-        // which always returns the previously cached value immediately (this is only done for itemCache, not allCache,
-        // since retrieving all flags is less frequently needed and we don't want to incur the extra overhead).
-
+      if (caching.getStaleValuesPolicy() == FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC) {
         ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CACHE_REFRESH_THREAD_POOL_NAME_FORMAT).setDaemon(true).build();
         ExecutorService parentExecutor = Executors.newSingleThreadExecutor(threadFactory);
         executorService = MoreExecutors.listeningDecorator(parentExecutor);
-
-        if (caching.getStaleValuesPolicy() == FeatureStoreCacheConfig.StaleValuesPolicy.REFRESH_ASYNC) {
-          itemLoader = CacheLoader.asyncReloading(itemLoader, executorService);
-        }
-        itemCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(itemLoader);
-        allCache = CacheBuilder.newBuilder().refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(allLoader);        
+        
+        // Note that the REFRESH_ASYNC mode is only used for itemCache, not allCache, since retrieving all flags is
+        // less frequently needed and we don't want to incur the extra overhead.
+        itemLoader = CacheLoader.asyncReloading(itemLoader, executorService);
+      } else {
+        executorService = null;
       }
-
-      initCache = CacheBuilder.newBuilder().expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit()).build(initLoader);
+      
+      itemCache = newCacheBuilder(caching, cacheMonitor).build(itemLoader);
+      allCache = newCacheBuilder(caching, cacheMonitor).build(allLoader);
+      initCache = newCacheBuilder(caching, cacheMonitor).build(initLoader);
+      
+      if (cacheMonitor != null) {
+        cacheMonitor.setSource(new CacheStatsSource());
+      }
     }
+  }
+  
+  private static CacheBuilder<Object, Object> newCacheBuilder(FeatureStoreCacheConfig caching, CacheMonitor cacheMonitor) {
+    CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder();
+    if (!caching.isInfiniteTtl()) {
+      if (caching.getStaleValuesPolicy() == FeatureStoreCacheConfig.StaleValuesPolicy.EVICT) {
+        // We are using an "expire after write" cache. This will evict stale values and block while loading the latest
+        // from the underlying data store.
+        builder = builder.expireAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit());
+      } else {
+        // We are using a "refresh after write" cache. This will not automatically evict stale values, allowing them
+        // to be returned if failures occur when updating them.
+        builder = builder.refreshAfterWrite(caching.getCacheTime(), caching.getCacheTimeUnit());
+      }
+    }
+    if (cacheMonitor != null) {
+      builder = builder.recordStats();
+    }
+    return builder;
   }
   
   @Override
@@ -146,19 +165,34 @@ public class CachingStoreWrapper implements FeatureStore {
   public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
     Map<VersionedDataKind<?>, Map<String, VersionedData>> castMap = // silly generic wildcard problem
         (Map<VersionedDataKind<?>, Map<String, VersionedData>>)((Map<?, ?>)allData);
-    core.initInternal(castMap);
+    try {
+      core.initInternal(castMap);
+    } catch (RuntimeException e) {
+      // Normally, if the underlying store failed to do the update, we do not want to update the cache -
+      // the idea being that it's better to stay in a consistent state of having old data than to act
+      // like we have new data but then suddenly fall back to old data when the cache expires. However,
+      // if the cache TTL is infinite, then it makes sense to update the cache always.
+      if (allCache != null && itemCache != null && caching.isInfiniteTtl()) {
+        updateAllCache(castMap);
+        inited.set(true);
+      }
+      throw e;
+    }
 
-    inited.set(true);
-    
     if (allCache != null && itemCache != null) {
       allCache.invalidateAll();
       itemCache.invalidateAll();
-      for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> e0: castMap.entrySet()) {
-        VersionedDataKind<?> kind = e0.getKey();
-        allCache.put(kind, itemsOnlyIfNotDeleted(e0.getValue()));
-        for (Map.Entry<String, VersionedData> e1: e0.getValue().entrySet()) {
-          itemCache.put(CacheKey.forItem(kind, e1.getKey()), Optional.of(e1.getValue()));
-        }
+      updateAllCache(castMap);
+    }
+    inited.set(true);
+  }
+  
+  private void updateAllCache(Map<VersionedDataKind<?>, Map<String, VersionedData>> allData) {
+    for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> e0: allData.entrySet()) {
+      VersionedDataKind<?> kind = e0.getKey();
+      allCache.put(kind, itemsOnlyIfNotDeleted(e0.getValue()));
+      for (Map.Entry<String, VersionedData> e1: e0.getValue().entrySet()) {
+        itemCache.put(CacheKey.forItem(kind, e1.getKey()), Optional.of(e1.getValue()));
       }
     }
   }
@@ -170,15 +204,49 @@ public class CachingStoreWrapper implements FeatureStore {
 
   @Override
   public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) {
-    VersionedData newState = core.upsertInternal(kind, item);
-    if (itemCache != null) {
-      itemCache.put(CacheKey.forItem(kind, item.getKey()), Optional.fromNullable(newState));
+    VersionedData newState = item;
+    RuntimeException failure = null;
+    try {
+      newState = core.upsertInternal(kind, item);
+    } catch (RuntimeException e) {
+      failure = e;
     }
-    if (allCache != null) {
-      allCache.invalidate(kind);
+    // Normally, if the underlying store failed to do the update, we do not want to update the cache -
+    // the idea being that it's better to stay in a consistent state of having old data than to act
+    // like we have new data but then suddenly fall back to old data when the cache expires. However,
+    // if the cache TTL is infinite, then it makes sense to update the cache always.
+    if (failure == null || caching.isInfiniteTtl()) {
+      if (itemCache != null) {
+        itemCache.put(CacheKey.forItem(kind, item.getKey()), Optional.fromNullable(newState));
+      }
+      if (allCache != null) {
+        // If the cache has a finite TTL, then we should remove the "all items" cache entry to force
+        // a reread the next time All is called. However, if it's an infinite TTL, we need to just
+        // update the item within the existing "all items" entry (since we want things to still work
+        // even if the underlying store is unavailable).
+        if (caching.isInfiniteTtl()) {
+          try {
+            ImmutableMap<String, VersionedData> cachedAll = allCache.get(kind);
+            Map<String, VersionedData> newValues = new HashMap<>();
+            newValues.putAll(cachedAll);
+            newValues.put(item.getKey(), newState);
+            allCache.put(kind, ImmutableMap.copyOf(newValues));
+          } catch (Exception e) {
+            // An exception here means that we did not have a cached value for All, so it tried to query
+            // the underlying store, which failed (not surprisingly since it just failed a moment ago
+            // when we tried to do an update). This should not happen in infinite-cache mode, but if it
+            // does happen, there isn't really anything we can do.
+          }
+        } else {
+          allCache.invalidate(kind);
+        }
+      }
+    }
+    if (failure != null) {
+      throw failure;
     }
   }
-
+  
   @Override
   public boolean initialized() {
     if (inited.get()) {
@@ -222,18 +290,35 @@ public class CachingStoreWrapper implements FeatureStore {
   }
   
   @SuppressWarnings("unchecked")
-  private <T extends VersionedData> Map<String, T> itemsOnlyIfNotDeleted(Map<String, ? extends VersionedData> items) {
-    Map<String, T> ret = new HashMap<>();
+  private <T extends VersionedData> ImmutableMap<String, T> itemsOnlyIfNotDeleted(Map<String, ? extends VersionedData> items) {
+    ImmutableMap.Builder<String, T> builder = ImmutableMap.builder();
     if (items != null) {
       for (Map.Entry<String, ? extends VersionedData> item: items.entrySet()) {
         if (!item.getValue().isDeleted()) {
-          ret.put(item.getKey(), (T) item.getValue());
+          builder.put(item.getKey(), (T) item.getValue());
         }
       }
     }
-    return ret;
+    return builder.build();
   }
   
+  private final class CacheStatsSource implements Callable<CacheMonitor.CacheStats> {
+    public CacheMonitor.CacheStats call() {
+      if (itemCache == null || allCache == null) {
+        return null;
+      }
+      CacheStats itemStats = itemCache.stats();
+      CacheStats allStats = allCache.stats();
+      return new CacheMonitor.CacheStats(
+          itemStats.hitCount() + allStats.hitCount(),
+          itemStats.missCount() + allStats.missCount(),
+          itemStats.loadSuccessCount() + allStats.loadSuccessCount(),
+          itemStats.loadExceptionCount() + allStats.loadExceptionCount(),
+          itemStats.totalLoadTime() + allStats.totalLoadTime(),
+          itemStats.evictionCount() + allStats.evictionCount());
+    }
+  }
+
   private static class CacheKey {
     final VersionedDataKind<?> kind;
     final String key;
@@ -269,6 +354,7 @@ public class CachingStoreWrapper implements FeatureStore {
   public static class Builder {
     private final FeatureStoreCore core;
     private FeatureStoreCacheConfig caching = FeatureStoreCacheConfig.DEFAULT;
+    private CacheMonitor cacheMonitor = null;
     
     Builder(FeatureStoreCore core) {
       this.core = core;
@@ -285,11 +371,21 @@ public class CachingStoreWrapper implements FeatureStore {
     }
     
     /**
+     * Sets the cache monitor instance.
+     * @param cacheMonitor an instance of {@link CacheMonitor}
+     * @return the builder 
+     */
+    public Builder cacheMonitor(CacheMonitor cacheMonitor) {
+      this.cacheMonitor = cacheMonitor;
+      return this;
+    }
+    
+    /**
      * Creates and configures the wrapper object.
      * @return a {@link CachingStoreWrapper} instance
      */
     public CachingStoreWrapper build() {
-      return new CachingStoreWrapper(core, caching);
+      return new CachingStoreWrapper(core, caching, cacheMonitor);
     }
   }
 }

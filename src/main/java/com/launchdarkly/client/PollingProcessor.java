@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -17,19 +18,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 
-class PollingProcessor implements UpdateProcessor {
+final class PollingProcessor implements UpdateProcessor {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
-  private final FeatureRequestor requestor;
-  private final LDConfig config;
+  @VisibleForTesting final FeatureRequestor requestor;
   private final FeatureStore store;
+  @VisibleForTesting final long pollIntervalMillis;
   private AtomicBoolean initialized = new AtomicBoolean(false);
   private ScheduledExecutorService scheduler = null;
 
-  PollingProcessor(LDConfig config, FeatureRequestor requestor, FeatureStore featureStore) {
-    this.requestor = requestor;
-    this.config = config;
+  PollingProcessor(FeatureRequestor requestor, FeatureStore featureStore, long pollIntervalMillis) {
+    this.requestor = requestor; // note that HTTP configuration is applied to the requestor when it is created
     this.store = featureStore;
+    this.pollIntervalMillis = pollIntervalMillis;
   }
 
   @Override
@@ -40,14 +41,16 @@ class PollingProcessor implements UpdateProcessor {
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly PollingProcessor");
-    scheduler.shutdown();
+    if (scheduler != null) {
+      scheduler.shutdown();
+    }
     requestor.close();
   }
 
   @Override
   public Future<Void> start() {
     logger.info("Starting LaunchDarkly polling client with interval: "
-        + config.pollingIntervalMillis + " milliseconds");
+        + pollIntervalMillis + " milliseconds");
     final SettableFuture<Void> initFuture = SettableFuture.create();
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setNameFormat("LaunchDarkly-PollingProcessor-%d")
@@ -75,7 +78,7 @@ class PollingProcessor implements UpdateProcessor {
           logger.debug(e.toString(), e);
         }
       }
-    }, 0L, config.pollingIntervalMillis, TimeUnit.MILLISECONDS);
+    }, 0L, pollIntervalMillis, TimeUnit.MILLISECONDS);
 
     return initFuture;
   }

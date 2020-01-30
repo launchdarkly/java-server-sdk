@@ -33,8 +33,10 @@ public interface UpdateProcessor extends Closeable {
   /**
    * An implementation of {@link UpdateProcessor} that does nothing.
    * 
-   * @deprecated Use {@link Components#nullUpdateProcessor()} instead of referring to this implementation class directly. 
+   * @deprecated Use {@link Components#externalUpdatesOnly()} instead of referring to this implementation class directly. 
    */
+  // This was exposed because everything in an interface is public. The SDK itself no longer refers to this class;
+  // instead it uses Components.NullUpdateProcessor.
   @Deprecated
   static final class NullUpdateProcessor implements UpdateProcessor {
     @Override

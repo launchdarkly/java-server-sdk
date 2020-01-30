@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.DataStoreTestTypes.TestItem;
 import com.launchdarkly.client.TestUtil.DataBuilder;
 
 import org.junit.After;
@@ -8,8 +9,8 @@ import org.junit.Test;
 
 import java.util.Map;
 
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
-import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
+import static com.launchdarkly.client.DataStoreTestTypes.OTHER_TEST_ITEMS;
+import static com.launchdarkly.client.DataStoreTestTypes.TEST_ITEMS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -20,24 +21,17 @@ import static org.junit.Assert.assertTrue;
  * Basic tests for FeatureStore implementations. For database implementations, use the more
  * comprehensive FeatureStoreDatabaseTestBase.
  */
+@SuppressWarnings("javadoc")
 public abstract class FeatureStoreTestBase<T extends FeatureStore> {
 
   protected T store;
   protected boolean cached;
+
+  protected TestItem item1 = new TestItem("first", "key1", 10);
   
-  protected FeatureFlag feature1 = new FeatureFlagBuilder("foo")
-      .version(10)
-      .salt("abc")
-      .build();
+  protected TestItem item2 = new TestItem("second", "key2", 10);
   
-  protected FeatureFlag feature2 = new FeatureFlagBuilder("bar")
-      .version(10)
-      .salt("abc")
-      .build();
-  
-  protected Segment segment1 = new Segment.Builder("foo")
-      .version(11)
-      .build();
+  protected TestItem otherItem1 = new TestItem("other-first", "key1", 11);
   
   public FeatureStoreTestBase() {
     this(false);
@@ -89,116 +83,98 @@ public abstract class FeatureStoreTestBase<T extends FeatureStore> {
     clearAllData();
     
     Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData =
-        new DataBuilder().add(FEATURES, feature1, feature2).add(SEGMENTS, segment1).build();
+        new DataBuilder().add(TEST_ITEMS, item1, item2).add(OTHER_TEST_ITEMS, otherItem1).build();
     store.init(allData);
     
-    FeatureFlag feature2v2 = new FeatureFlagBuilder(feature2).version(feature2.getVersion() + 1).build();
-    allData = new DataBuilder().add(FEATURES, feature2v2).add(SEGMENTS).build();
+    TestItem item2v2 = item2.withVersion(item2.version + 1);
+    allData = new DataBuilder().add(TEST_ITEMS, item2v2).add(OTHER_TEST_ITEMS).build();
     store.init(allData);
     
-    assertNull(store.get(FEATURES, feature1.getKey()));
-    FeatureFlag item2 = store.get(FEATURES, feature2.getKey());
-    assertNotNull(item2);
-    assertEquals(feature2v2.getVersion(), item2.getVersion());
-    assertNull(store.get(SEGMENTS, segment1.getKey()));
+    assertNull(store.get(TEST_ITEMS, item1.key));
+    assertEquals(item2v2, store.get(TEST_ITEMS, item2.key));
+    assertNull(store.get(OTHER_TEST_ITEMS, otherItem1.key));
   }
   
   @Test
-  public void getExistingFeature() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    FeatureFlag result = store.get(FEATURES, feature1.getKey());
-    assertEquals(feature1.getKey(), result.getKey());
+  public void getExistingItem() {
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    assertEquals(item1, store.get(TEST_ITEMS, item1.key));
   }
   
   @Test
-  public void getNonexistingFeature() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    assertNull(store.get(FEATURES, "biz"));
+  public void getNonexistingItem() {
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    assertNull(store.get(TEST_ITEMS, "biz"));
   }
   
   @Test
   public void getAll() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).add(SEGMENTS, segment1).build());
-    Map<String, FeatureFlag> items = store.all(FEATURES);
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).add(OTHER_TEST_ITEMS, otherItem1).build());
+    Map<String, TestItem> items = store.all(TEST_ITEMS);
     assertEquals(2, items.size());
-    FeatureFlag item1 = items.get(feature1.getKey());
-    assertNotNull(item1);
-    assertEquals(feature1.getVersion(), item1.getVersion());
-    FeatureFlag item2 = items.get(feature2.getKey());
-    assertNotNull(item2);
-    assertEquals(feature2.getVersion(), item2.getVersion());
+    assertEquals(item1, items.get(item1.key));
+    assertEquals(item2, items.get(item2.key));
   }
   
   @Test
   public void getAllWithDeletedItem() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    store.delete(FEATURES, feature1.getKey(), feature1.getVersion() + 1);
-    Map<String, FeatureFlag> items = store.all(FEATURES);
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    store.delete(TEST_ITEMS, item1.key, item1.getVersion() + 1);
+    Map<String, TestItem> items = store.all(TEST_ITEMS);
     assertEquals(1, items.size());
-    FeatureFlag item2 = items.get(feature2.getKey());
-    assertNotNull(item2);
-    assertEquals(feature2.getVersion(), item2.getVersion());
+    assertEquals(item2, items.get(item2.key));
   }
   
   @Test
   public void upsertWithNewerVersion() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    FeatureFlag newVer = new FeatureFlagBuilder(feature1)
-        .version(feature1.getVersion() + 1)
-        .build();
-    store.upsert(FEATURES, newVer);
-    FeatureFlag result = store.get(FEATURES, newVer.getKey());
-    assertEquals(newVer.getVersion(), result.getVersion());
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    TestItem newVer = item1.withVersion(item1.version + 1);
+    store.upsert(TEST_ITEMS, newVer);
+    assertEquals(newVer, store.get(TEST_ITEMS, item1.key));
   }
   
   @Test
   public void upsertWithOlderVersion() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    FeatureFlag oldVer = new FeatureFlagBuilder(feature1)
-        .version(feature1.getVersion() - 1)
-        .build();
-    store.upsert(FEATURES, oldVer);
-    FeatureFlag result = store.get(FEATURES, oldVer.getKey());
-    assertEquals(feature1.getVersion(), result.getVersion());
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    TestItem oldVer = item1.withVersion(item1.version - 1);
+    store.upsert(TEST_ITEMS, oldVer);
+    assertEquals(item1, store.get(TEST_ITEMS, item1.key));
   }
   
   @Test
-  public void upsertNewFeature() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    FeatureFlag newFeature = new FeatureFlagBuilder("biz")
-        .version(99)
-        .build();
-    store.upsert(FEATURES, newFeature);
-    FeatureFlag result = store.get(FEATURES, newFeature.getKey());
-    assertEquals(newFeature.getKey(), result.getKey());
+  public void upsertNewItem() {
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    TestItem newItem = new TestItem("new-name", "new-key", 99);
+    store.upsert(TEST_ITEMS, newItem);
+    assertEquals(newItem, store.get(TEST_ITEMS, newItem.key));
   }
   
   @Test
   public void deleteWithNewerVersion() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    store.delete(FEATURES, feature1.getKey(), feature1.getVersion() + 1);
-    assertNull(store.get(FEATURES, feature1.getKey()));
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    store.delete(TEST_ITEMS, item1.key, item1.version + 1);
+    assertNull(store.get(TEST_ITEMS, item1.key));
   }
   
   @Test
   public void deleteWithOlderVersion() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    store.delete(FEATURES, feature1.getKey(), feature1.getVersion() - 1);
-    assertNotNull(store.get(FEATURES, feature1.getKey()));
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    store.delete(TEST_ITEMS, item1.key, item1.version - 1);
+    assertNotNull(store.get(TEST_ITEMS, item1.key));
   }
   
   @Test
-  public void deleteUnknownFeature() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    store.delete(FEATURES, "biz", 11);
-    assertNull(store.get(FEATURES, "biz"));
+  public void deleteUnknownItem() {
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    store.delete(TEST_ITEMS, "biz", 11);
+    assertNull(store.get(TEST_ITEMS, "biz"));
   }
   
   @Test
   public void upsertOlderVersionAfterDelete() {
-    store.init(new DataBuilder().add(FEATURES, feature1, feature2).build());
-    store.delete(FEATURES, feature1.getKey(), feature1.getVersion() + 1);
-    store.upsert(FEATURES, feature1);
-    assertNull(store.get(FEATURES, feature1.getKey()));
+    store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).build());
+    store.delete(TEST_ITEMS, item1.key, item1.version + 1);
+    store.upsert(TEST_ITEMS, item1);
+    assertNull(store.get(TEST_ITEMS, item1.key));
   }
 }

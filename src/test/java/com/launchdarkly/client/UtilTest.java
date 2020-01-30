@@ -85,7 +85,7 @@ public class UtilTest {
   public void testConnectTimeoutSpecifiedInSeconds() {
     LDConfig config = new LDConfig.Builder().connectTimeout(3).build();
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(config, httpBuilder);
+    configureHttpClientBuilder(config.httpConfig, httpBuilder);
     OkHttpClient httpClient = httpBuilder.build();
     try {
       assertEquals(3000, httpClient.connectTimeoutMillis());
@@ -98,7 +98,7 @@ public class UtilTest {
   public void testConnectTimeoutSpecifiedInMilliseconds() {
     LDConfig config = new LDConfig.Builder().connectTimeoutMillis(3000).build();
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(config, httpBuilder);
+    configureHttpClientBuilder(config.httpConfig, httpBuilder);
     OkHttpClient httpClient = httpBuilder.build();
     try {
       assertEquals(3000, httpClient.connectTimeoutMillis());
@@ -111,7 +111,7 @@ public class UtilTest {
   public void testSocketTimeoutSpecifiedInSeconds() {
     LDConfig config = new LDConfig.Builder().socketTimeout(3).build();
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(config, httpBuilder);
+    configureHttpClientBuilder(config.httpConfig, httpBuilder);
     OkHttpClient httpClient = httpBuilder.build();
     try {
       assertEquals(3000, httpClient.readTimeoutMillis());
@@ -124,7 +124,7 @@ public class UtilTest {
   public void testSocketTimeoutSpecifiedInMilliseconds() {
     LDConfig config = new LDConfig.Builder().socketTimeoutMillis(3000).build();
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(config, httpBuilder);
+    configureHttpClientBuilder(config.httpConfig, httpBuilder);
     OkHttpClient httpClient = httpBuilder.build();
     try {
       assertEquals(3000, httpClient.readTimeoutMillis());

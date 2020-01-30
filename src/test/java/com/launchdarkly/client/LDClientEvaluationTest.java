@@ -34,9 +34,9 @@ public class LDClientEvaluationTest {
   private FeatureStore featureStore = TestUtil.initedFeatureStore();
 
   private LDConfig config = new LDConfig.Builder()
-      .featureStoreFactory(specificFeatureStore(featureStore))
-      .eventProcessorFactory(Components.nullEventProcessor())
-      .updateProcessorFactory(Components.nullUpdateProcessor())
+      .dataStore(specificFeatureStore(featureStore))
+      .events(Components.noEvents())
+      .dataSource(Components.externalUpdatesOnly())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
   
@@ -222,9 +222,9 @@ public class LDClientEvaluationTest {
   public void appropriateErrorIfClientNotInitialized() throws Exception {
     FeatureStore badFeatureStore = new InMemoryFeatureStore();
     LDConfig badConfig = new LDConfig.Builder()
-        .featureStoreFactory(specificFeatureStore(badFeatureStore))
-        .eventProcessorFactory(Components.nullEventProcessor())
-        .updateProcessorFactory(specificUpdateProcessor(failedUpdateProcessor()))
+        .dataStore(specificFeatureStore(badFeatureStore))
+        .events(Components.noEvents())
+        .dataSource(specificUpdateProcessor(failedUpdateProcessor()))
         .startWaitMillis(0)
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
@@ -264,9 +264,9 @@ public class LDClientEvaluationTest {
     RuntimeException exception = new RuntimeException("sorry");
     FeatureStore badFeatureStore = featureStoreThatThrowsException(exception);
     LDConfig badConfig = new LDConfig.Builder()
-        .featureStoreFactory(specificFeatureStore(badFeatureStore))
-        .eventProcessorFactory(Components.nullEventProcessor())
-        .updateProcessorFactory(Components.nullUpdateProcessor())
+        .dataStore(specificFeatureStore(badFeatureStore))
+        .events(Components.noEvents())
+        .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,

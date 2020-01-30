@@ -5,6 +5,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.value.LDValue;
 
 import org.hamcrest.Description;
@@ -18,6 +19,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Future;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -205,6 +207,13 @@ public class TestUtil {
     public Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> build() {
       return data;
     }
+    
+    // Silly casting helper due to difference in generic signatures between FeatureStore and FeatureStoreCore
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public Map<VersionedDataKind<?>, Map<String, VersionedData>> buildUnchecked() {
+      Map uncheckedMap = data;
+      return (Map<VersionedDataKind<?>, Map<String, VersionedData>>)uncheckedMap;
+    }
   }
   
   public static EvaluationDetail<LDValue> simpleEvaluation(int variation, LDValue value) {
@@ -274,5 +283,19 @@ public class TestUtil {
         return true;
       }
     };
+  }
+
+  static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate, boolean inlineUsersInEvents,
+      Set<String> privateAttrNames) {
+    return new EventsConfiguration(
+        allAttributesPrivate,
+        0, null, 0,
+        inlineUsersInEvents,
+        privateAttrNames,
+        0, 0, 0, EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS);
+  }
+
+  static EventsConfiguration defaultEventsConfig() {
+    return makeEventsConfig(false, false, null);
   }
 }

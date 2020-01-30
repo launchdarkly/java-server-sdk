@@ -1,5 +1,8 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
+import com.launchdarkly.client.value.LDValue;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,10 +12,10 @@ import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * A thread-safe, versioned store for {@link FeatureFlag} objects and related data based on a
+ * A thread-safe, versioned store for feature flags and related data based on a
  * {@link HashMap}. This is the default implementation of {@link FeatureStore}.
  */
-public class InMemoryFeatureStore implements FeatureStore {
+public class InMemoryFeatureStore implements FeatureStore, DiagnosticDescription {
   private static final Logger logger = LoggerFactory.getLogger(InMemoryFeatureStore.class);
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -136,5 +139,10 @@ public class InMemoryFeatureStore implements FeatureStore {
   @Override
   public void close() throws IOException {
     return;
+  }
+
+  @Override
+  public LDValue describeConfiguration(LDConfig config) {
+    return LDValue.of("memory");
   }
 }

@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -18,6 +19,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
+import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -36,32 +38,52 @@ final class StreamProcessor implements UpdateProcessor {
   private static final int DEAD_CONNECTION_INTERVAL_MS = 300 * 1000;
 
   private final FeatureStore store;
-  private final LDConfig config;
-  private final String sdkKey;
-  private final FeatureRequestor requestor;
+  private final HttpConfiguration httpConfig;
+  private final Headers headers;
+  @VisibleForTesting final URI streamUri;
+  @VisibleForTesting final long initialReconnectDelayMillis;
+  @VisibleForTesting final FeatureRequestor requestor;
+  private final DiagnosticAccumulator diagnosticAccumulator;
   private final EventSourceCreator eventSourceCreator;
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
+  private volatile long esStarted = 0;
 
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
   public static interface EventSourceCreator {
-    EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
+    EventSource createEventSource(EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
+        ConnectionErrorHandler errorHandler, Headers headers, HttpConfiguration httpConfig);
   }
   
-  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, FeatureStore featureStore,
-      EventSourceCreator eventSourceCreator) {
+  StreamProcessor(
+      String sdkKey,
+      HttpConfiguration httpConfig,
+      FeatureRequestor requestor,
+      FeatureStore featureStore,
+      EventSourceCreator eventSourceCreator,
+      DiagnosticAccumulator diagnosticAccumulator,
+      URI streamUri,
+      long initialReconnectDelayMillis
+      ) {
     this.store = featureStore;
-    this.config = config;
-    this.sdkKey = sdkKey;
+    this.httpConfig = httpConfig;
     this.requestor = requestor;
+    this.diagnosticAccumulator = diagnosticAccumulator;
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
+    this.streamUri = streamUri;
+    this.initialReconnectDelayMillis = initialReconnectDelayMillis;
+
+    this.headers = getHeadersBuilderFor(sdkKey, httpConfig)
+        .add("Accept", "text/event-stream")
+        .build();
   }
 
   private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
     return new ConnectionErrorHandler() {
       @Override
       public Action onConnectionError(Throwable t) {
+        recordStreamInit(true);
         if (t instanceof UnsuccessfulResponseException) {
           int status = ((UnsuccessfulResponseException)t).getCode();
           logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
@@ -69,6 +91,7 @@ final class StreamProcessor implements UpdateProcessor {
             return Action.SHUTDOWN;
           }
         }
+        esStarted = System.currentTimeMillis();
         return Action.PROCEED;
       }
     };
@@ -77,12 +100,6 @@ final class StreamProcessor implements UpdateProcessor {
   @Override
   public Future<Void> start() {
     final SettableFuture<Void> initFuture = SettableFuture.create();
-
-    Headers headers = new Headers.Builder()
-        .add("Authorization", this.sdkKey)
-        .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION)
-        .add("Accept", "text/event-stream")
-        .build();
 
     ConnectionErrorHandler wrappedConnectionErrorHandler = new ConnectionErrorHandler() {
       @Override
@@ -94,7 +111,7 @@ final class StreamProcessor implements UpdateProcessor {
         return result;
       }
     };
-    
+
     EventHandler handler = new EventHandler() {
 
       @Override
@@ -110,6 +127,8 @@ final class StreamProcessor implements UpdateProcessor {
         Gson gson = new Gson();
         switch (name) {
           case PUT: {
+            recordStreamInit(false);
+            esStarted = 0;
             PutData putData = gson.fromJson(event.getData(), PutData.class); 
             store.init(DefaultFeatureRequestor.toVersionedDataMap(putData.data));
             if (!initialized.getAndSet(true)) {
@@ -190,14 +209,23 @@ final class StreamProcessor implements UpdateProcessor {
       }
     };
 
-    es = eventSourceCreator.createEventSource(config, handler,
-        URI.create(config.streamURI.toASCIIString() + "/all"),
+    es = eventSourceCreator.createEventSource(handler,
+        URI.create(streamUri.toASCIIString() + "/all"),
+        initialReconnectDelayMillis,
         wrappedConnectionErrorHandler,
-        headers);
+        headers,
+        httpConfig);
+    esStarted = System.currentTimeMillis();
     es.start();
     return initFuture;
   }
-  
+
+  private void recordStreamInit(boolean failed) {
+    if (diagnosticAccumulator != null && esStarted != 0) {
+      diagnosticAccumulator.recordStreamInit(esStarted, System.currentTimeMillis() - esStarted, failed);
+    }
+  }
+
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly StreamProcessor");
@@ -218,40 +246,38 @@ final class StreamProcessor implements UpdateProcessor {
   private static final class PutData {
     FeatureRequestor.AllData data;
     
-    public PutData() {
-      
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public PutData() { }
   }
   
   private static final class PatchData {
     String path;
     JsonElement data;
 
-    public PatchData() {
-
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public PatchData() { }
   }
 
   private static final class DeleteData {
     String path;
     int version;
 
-    public DeleteData() {
-
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public DeleteData() { }
   }
   
   private class DefaultEventSourceCreator implements EventSourceCreator {
-    public EventSource createEventSource(final LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
+    public EventSource createEventSource(EventHandler handler, URI streamUri, long initialReconnectDelayMillis,
+        ConnectionErrorHandler errorHandler, Headers headers, final HttpConfiguration httpConfig) {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
           .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
             public void configure(OkHttpClient.Builder builder) {
-              configureHttpClientBuilder(config, builder);
+              configureHttpClientBuilder(httpConfig, builder);
             }
           })
           .connectionErrorHandler(errorHandler)
           .headers(headers)
-          .reconnectTimeMs(config.reconnectTimeMs)
+          .reconnectTimeMs(initialReconnectDelayMillis)
           .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS)
           .connectTimeoutMs(EventSource.DEFAULT_CONNECT_TIMEOUT_MS)
           .writeTimeoutMs(EventSource.DEFAULT_WRITE_TIMEOUT_MS);

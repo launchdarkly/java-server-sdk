@@ -27,7 +27,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(UpdateProcessor.NullUpdateProcessor.class, client.updateProcessor.getClass());
+      assertEquals(Components.NullUpdateProcessor.class, client.updateProcessor.getClass());
     }
   }
 
@@ -37,7 +37,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(EventProcessor.NullEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(Components.NullEventProcessor.class, client.eventProcessor.getClass());
     }
   }
   
@@ -66,7 +66,7 @@ public class LDClientOfflineTest {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .offline(true)
-        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .dataStore(specificFeatureStore(testFeatureStore))
         .build();
     testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -80,7 +80,7 @@ public class LDClientOfflineTest {
     FeatureStore testFeatureStore = initedFeatureStore();
     LDConfig config = new LDConfig.Builder()
         .offline(true)
-        .featureStoreFactory(specificFeatureStore(testFeatureStore))
+        .dataStore(specificFeatureStore(testFeatureStore))
         .build();
     testFeatureStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
