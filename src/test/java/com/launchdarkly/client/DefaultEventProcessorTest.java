@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -10,6 +11,7 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 
+import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
@@ -25,6 +27,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -68,6 +71,121 @@ public class DefaultEventProcessorTest {
   private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
     return (DefaultEventProcessor)((EventProcessorFactoryWithDiagnostics)ec).createEventProcessor(SDK_KEY,
         diagLDConfig, diagnosticAccumulator);
+  }
+  
+  @Test
+  public void builderHasDefaultConfiguration() throws Exception {
+    EventProcessorFactory epf = Components.sendEvents();
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(false));
+      assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
+      assertThat(ec.diagnosticRecordingIntervalSeconds, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS));
+      assertThat(ec.eventsUri, equalTo(LDConfig.DEFAULT_EVENTS_URI));
+      assertThat(ec.flushIntervalSeconds, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL_SECONDS));
+      assertThat(ec.inlineUsersInEvents, is(false));
+      assertThat(ec.privateAttrNames, equalTo(ImmutableSet.<String>of()));
+      assertThat(ec.samplingInterval, equalTo(0));
+      assertThat(ec.userKeysCapacity, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_CAPACITY));
+      assertThat(ec.userKeysFlushIntervalSeconds, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL_SECONDS));
+    }
+  }
+  
+  @Test
+  public void builderCanSpecifyConfiguration() throws Exception {
+    URI uri = URI.create("http://fake");
+    EventProcessorFactory epf = Components.sendEvents()
+        .allAttributesPrivate(true)
+        .baseURI(uri)
+        .capacity(3333)
+        .diagnosticRecordingIntervalSeconds(480)
+        .flushIntervalSeconds(99)
+        .privateAttributeNames("cats", "dogs")
+        .userKeysCapacity(555)
+        .userKeysFlushIntervalSeconds(101);
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(true));
+      assertThat(ec.capacity, equalTo(3333));
+      assertThat(ec.diagnosticRecordingIntervalSeconds, equalTo(480));
+      assertThat(ec.eventsUri, equalTo(uri));
+      assertThat(ec.flushIntervalSeconds, equalTo(99));
+      assertThat(ec.inlineUsersInEvents, is(false)); // will test this separately below
+      assertThat(ec.privateAttrNames, equalTo(ImmutableSet.of("cats", "dogs")));
+      assertThat(ec.samplingInterval, equalTo(0)); // can only set this with the deprecated config API
+      assertThat(ec.userKeysCapacity, equalTo(555));
+      assertThat(ec.userKeysFlushIntervalSeconds, equalTo(101));
+    }
+    // Test inlineUsersInEvents separately to make sure it and the other boolean property (allAttributesPrivate)
+    // are really independently settable, since there's no way to distinguish between two true values
+    EventProcessorFactory epf1 = Components.sendEvents().inlineUsersInEvents(true);
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf1.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(false));
+      assertThat(ec.inlineUsersInEvents, is(true));
+    }
+  }
+
+  @Test
+  @SuppressWarnings("deprecation")
+  public void deprecatedConfigurationIsUsedWhenBuilderIsNotUsed() throws Exception {
+    URI uri = URI.create("http://fake");
+    LDConfig config = new LDConfig.Builder()
+        .allAttributesPrivate(true)
+        .capacity(3333)
+        .eventsURI(uri)
+        .flushInterval(99)
+        .privateAttributeNames("cats", "dogs")
+        .samplingInterval(7)
+        .userKeysCapacity(555)
+        .userKeysFlushInterval(101)
+        .build();
+    EventProcessorFactory epf = Components.defaultEventProcessor();
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, config)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(true));
+      assertThat(ec.capacity, equalTo(3333));
+      assertThat(ec.diagnosticRecordingIntervalSeconds, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS));
+      // can't set diagnosticRecordingIntervalSeconds with deprecated API, must use builder
+      assertThat(ec.eventsUri, equalTo(uri));
+      assertThat(ec.flushIntervalSeconds, equalTo(99));
+      assertThat(ec.inlineUsersInEvents, is(false)); // will test this separately below
+      assertThat(ec.privateAttrNames, equalTo(ImmutableSet.of("cats", "dogs")));
+      assertThat(ec.samplingInterval, equalTo(7));
+      assertThat(ec.userKeysCapacity, equalTo(555));
+      assertThat(ec.userKeysFlushIntervalSeconds, equalTo(101));
+    }
+    // Test inlineUsersInEvents separately to make sure it and the other boolean property (allAttributesPrivate)
+    // are really independently settable, since there's no way to distinguish between two true values
+    LDConfig config1 = new LDConfig.Builder().inlineUsersInEvents(true).build();
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, config1)) {
+      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+      assertThat(ec.allAttributesPrivate, is(false));
+      assertThat(ec.inlineUsersInEvents, is(true));
+    }
+  }
+
+  @Test
+  @SuppressWarnings("deprecation")
+  public void deprecatedConfigurationHasSameDefaultsAsBuilder() throws Exception {
+    EventProcessorFactory epf0 = Components.sendEvents();
+    EventProcessorFactory epf1 = Components.defaultEventProcessor();
+    try (DefaultEventProcessor ep0 = (DefaultEventProcessor)epf0.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+      try (DefaultEventProcessor ep1 = (DefaultEventProcessor)epf1.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+        EventsConfiguration ec0 = ep0.dispatcher.eventsConfig;
+        EventsConfiguration ec1 = ep1.dispatcher.eventsConfig;
+        assertThat(ec1.allAttributesPrivate, equalTo(ec0.allAttributesPrivate));
+        assertThat(ec1.capacity, equalTo(ec0.capacity));
+        assertThat(ec1.diagnosticRecordingIntervalSeconds, equalTo(ec1.diagnosticRecordingIntervalSeconds));
+        assertThat(ec1.eventsUri, equalTo(ec0.eventsUri));
+        assertThat(ec1.flushIntervalSeconds, equalTo(ec1.flushIntervalSeconds));
+        assertThat(ec1.inlineUsersInEvents, equalTo(ec1.inlineUsersInEvents));
+        assertThat(ec1.privateAttrNames, equalTo(ec1.privateAttrNames));
+        assertThat(ec1.samplingInterval, equalTo(ec1.samplingInterval));
+        assertThat(ec1.userKeysCapacity, equalTo(ec1.userKeysCapacity));
+        assertThat(ec1.userKeysFlushIntervalSeconds, equalTo(ec1.userKeysFlushIntervalSeconds));
+      }
+    }
   }
   
   @Test

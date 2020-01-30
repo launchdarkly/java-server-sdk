@@ -212,11 +212,13 @@ public final class LDConfig {
     }
 
     /**
-     * Set the base URL of the LaunchDarkly analytics event server for this configuration.
+     * Deprecated method for setting the base URI of the LaunchDarkly analytics event service.
      *
      * @param eventsURI the events URL of the LaunchDarkly server for this configuration
      * @return the builder
+     * @deprecated Use @link {@link Components#sendEvents()} wtih {@link EventProcessorBuilder#baseURI(URI)}.
      */
+    @Deprecated
     public Builder eventsURI(URI eventsURI) {
       this.eventsURI = eventsURI;
       return this;
@@ -264,6 +266,7 @@ public final class LDConfig {
      * @return the builder
      * @deprecated Please use {@link #featureStoreFactory(FeatureStoreFactory)}.
      */
+    @Deprecated
     public Builder featureStore(FeatureStore store) {
       this.featureStore = store;
       return this;

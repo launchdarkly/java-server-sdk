@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -20,9 +21,9 @@ import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 final class PollingProcessor implements UpdateProcessor {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
-  private final FeatureRequestor requestor;
+  @VisibleForTesting final FeatureRequestor requestor;
   private final FeatureStore store;
-  private final long pollIntervalMillis;
+  @VisibleForTesting final long pollIntervalMillis;
   private AtomicBoolean initialized = new AtomicBoolean(false);
   private ScheduledExecutorService scheduler = null;
 
@@ -40,7 +41,9 @@ final class PollingProcessor implements UpdateProcessor {
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly PollingProcessor");
-    scheduler.shutdown();
+    if (scheduler != null) {
+      scheduler.shutdown();
+    }
     requestor.close();
   }
 

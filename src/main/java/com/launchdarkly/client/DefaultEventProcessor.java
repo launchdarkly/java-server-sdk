@@ -47,6 +47,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private static final String EVENT_SCHEMA_VERSION = "3";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
   
+  @VisibleForTesting final EventDispatcher dispatcher;
   private final BlockingQueue<EventProcessorMessage> inbox;
   private final ScheduledExecutorService scheduler;
   private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -63,7 +64,7 @@ final class DefaultEventProcessor implements EventProcessor {
         .build();
     scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
-    new EventDispatcher(sdkKey, config, eventsConfig, httpConfig, inbox, threadFactory, closed, diagnosticAccumulator);
+    dispatcher = new EventDispatcher(sdkKey, config, eventsConfig, httpConfig, inbox, threadFactory, closed, diagnosticAccumulator);
 
     Runnable flusher = new Runnable() {
       public void run() {
@@ -204,7 +205,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private static final int MAX_FLUSH_THREADS = 5;
     private static final int MESSAGE_BATCH_SIZE = 50;
 
-    private final EventsConfiguration eventsConfig;
+    @VisibleForTesting final EventsConfiguration eventsConfig;
     private final OkHttpClient httpClient;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;

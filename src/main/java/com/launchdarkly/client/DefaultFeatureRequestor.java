@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Files;
 
 import org.slf4j.Logger;
@@ -34,7 +35,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final String GET_LATEST_ALL_PATH = "/sdk/latest-all";
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   
-  private final URI baseUri;
+  @VisibleForTesting final URI baseUri;
   private final OkHttpClient httpClient;
   private final Headers headers;
   private final boolean useCache;

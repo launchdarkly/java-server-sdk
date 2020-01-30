@@ -334,20 +334,26 @@ public abstract class Components {
 
     public EventProcessor createEventProcessor(String sdkKey, LDConfig config,
                                                DiagnosticAccumulator diagnosticAccumulator) {
-      if (config.deprecatedSendEvents && !config.offline) {
-        EventProcessorFactory epf = sendEvents()
-            .allAttributesPrivate(config.deprecatedAllAttributesPrivate)
-            .baseURI(config.deprecatedEventsURI)
-            .capacity(config.deprecatedCapacity)
-            .flushIntervalSeconds(config.deprecatedFlushInterval)
-            .inlineUsersInEvents(config.deprecatedInlineUsersInEvents)
-            .privateAttributeNames(config.deprecatedPrivateAttrNames.toArray(new String[config.deprecatedPrivateAttrNames.size()]))
-            .userKeysCapacity(config.deprecatedUserKeysCapacity)
-            .userKeysFlushIntervalSeconds(config.deprecatedUserKeysFlushInterval);
-        return ((EventProcessorFactoryWithDiagnostics)epf).createEventProcessor(sdkKey, config, diagnosticAccumulator);
-      } else {
+      if (config.offline || !config.deprecatedSendEvents) {
         return new NullEventProcessor();
       }
+      return new DefaultEventProcessor(sdkKey,
+          config,
+          new EventsConfiguration(
+              config.deprecatedAllAttributesPrivate,
+              config.deprecatedCapacity,
+              config.deprecatedEventsURI == null ? LDConfig.DEFAULT_EVENTS_URI : config.deprecatedEventsURI,
+              config.deprecatedFlushInterval,
+              config.deprecatedInlineUsersInEvents,
+              config.deprecatedPrivateAttrNames,
+              config.deprecatedSamplingInterval,
+              config.deprecatedUserKeysCapacity,
+              config.deprecatedUserKeysFlushInterval,
+              EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS
+              ),
+          config.httpConfig,
+          diagnosticAccumulator
+          );
     }
     
     @Override
