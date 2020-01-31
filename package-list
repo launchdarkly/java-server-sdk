@@ -1,4 +1,6 @@
 com.launchdarkly.client
 com.launchdarkly.client.files
+com.launchdarkly.client.integrations
+com.launchdarkly.client.interfaces
 com.launchdarkly.client.utils
 com.launchdarkly.client.value
