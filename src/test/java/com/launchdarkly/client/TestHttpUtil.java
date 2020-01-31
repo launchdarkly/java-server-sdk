@@ -1,5 +1,8 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
+import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -30,12 +33,12 @@ class TestHttpUtil {
     return ret;
   }
 
-  static LDConfig.Builder baseConfig(MockWebServer server) {
-    URI uri = server.url("").uri();
-    return new LDConfig.Builder()
-        .baseURI(uri)
-        .streamURI(uri)
-        .eventsURI(uri);
+  static StreamingDataSourceBuilder baseStreamingConfig(MockWebServer server) {
+    return Components.streamingDataSource().baseURI(server.url("").uri());
+  }
+  
+  static PollingDataSourceBuilder basePollingConfig(MockWebServer server) {
+    return Components.pollingDataSource().baseURI(server.url("").uri());
   }
   
   static MockResponse jsonResponse(String body) {
@@ -60,6 +63,7 @@ class TestHttpUtil {
       
       cert = new HeldCertificate.Builder()
         .serialNumber("1")
+        .ca(1)
         .commonName(hostname)
         .subjectAlternativeName(hostname)
         .build();

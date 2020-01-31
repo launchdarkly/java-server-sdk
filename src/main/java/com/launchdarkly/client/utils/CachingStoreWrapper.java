@@ -55,6 +55,7 @@ public class CachingStoreWrapper implements DataStore {
     return new Builder(core);
   }
   
+  @SuppressWarnings("deprecation")
   protected CachingStoreWrapper(final PersistentDataStore core, DataStoreCacheConfig caching, CacheMonitor cacheMonitor) {
     this.core = core;
     this.caching = caching;

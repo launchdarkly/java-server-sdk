@@ -1,5 +1,7 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
@@ -12,6 +14,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
@@ -27,9 +30,9 @@ import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
-import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.easymock.EasyMock.expect;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
@@ -59,7 +62,6 @@ public class StreamProcessorTest extends EasyMockSupport {
       "data: {\"data\":{\"flags\":{},\"segments\":{}}}\n\n";
 
   private InMemoryDataStore dataStore;
-  private LDConfig.Builder configBuilder;
   private FeatureRequestor mockRequestor;
   private EventSource mockEventSource;
   private EventHandler eventHandler;
@@ -70,49 +72,72 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Before
   public void setup() {
     dataStore = new InMemoryDataStore();
-    configBuilder = new LDConfig.Builder().dataStore(specificDataStore(dataStore));
     mockRequestor = createStrictMock(FeatureRequestor.class);
     mockEventSource = createStrictMock(EventSource.class);
+  }
+
+  @Test
+  public void builderHasDefaultConfiguration() throws Exception {
+    DataSourceFactory f = Components.streamingDataSource();
+    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(SDK_KEY, LDConfig.DEFAULT, null)) {
+      assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
+      assertThat(sp.streamUri, equalTo(LDConfig.DEFAULT_STREAM_URI));
+      assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
+    }
+  }
+
+  @Test
+  public void builderCanSpecifyConfiguration() throws Exception {
+    URI streamUri = URI.create("http://fake");
+    URI pollUri = URI.create("http://also-fake");
+    DataSourceFactory f = Components.streamingDataSource()
+        .baseURI(streamUri)
+        .initialReconnectDelay(Duration.ofMillis(5555))
+        .pollingBaseURI(pollUri);
+    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(SDK_KEY, LDConfig.DEFAULT, null)) {
+      assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
+      assertThat(sp.streamUri, equalTo(streamUri));      
+      assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(pollUri));
+    }
   }
   
   @Test
   public void streamUriHasCorrectEndpoint() {
-    LDConfig config = configBuilder.streamURI(STREAM_URI).build();
-    createStreamProcessor(SDK_KEY, config).start();
+    createStreamProcessor(STREAM_URI).start();
     assertEquals(URI.create(STREAM_URI.toString() + "/all"), actualStreamUri);
   }
   
   @Test
   public void headersHaveAuthorization() {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     assertEquals(SDK_KEY, headers.get("Authorization"));
   }
   
   @Test
   public void headersHaveUserAgent() {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     assertEquals("JavaClient/" + LDClient.CLIENT_VERSION, headers.get("User-Agent"));
   }
 
   @Test
   public void headersHaveAccept() {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     assertEquals("text/event-stream", headers.get("Accept"));
   }
 
   @Test
   public void headersHaveWrapperWhenSet() {
-    LDConfig config = configBuilder
+    LDConfig config = new LDConfig.Builder()
             .wrapperName("Scala")
             .wrapperVersion("0.1.0")
             .build();
-    createStreamProcessor(SDK_KEY, config).start();
+    createStreamProcessor(config, STREAM_URI).start();
     assertEquals("Scala/0.1.0", headers.get("X-LaunchDarkly-Wrapper"));
   }
 
   @Test
   public void putCausesFeatureToBeStored() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     MessageEvent event = new MessageEvent("{\"data\":{\"flags\":{\"" +
         FEATURE1_KEY + "\":" + featureJson(FEATURE1_KEY, FEATURE1_VERSION) + "}," +
         "\"segments\":{}}}");
@@ -123,7 +148,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void putCausesSegmentToBeStored() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     MessageEvent event = new MessageEvent("{\"data\":{\"flags\":{},\"segments\":{\"" +
         SEGMENT1_KEY + "\":" + segmentJson(SEGMENT1_KEY, SEGMENT1_VERSION) + "}}}");
     eventHandler.onMessage("put", event);
@@ -133,27 +158,27 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void storeNotInitializedByDefault() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     assertFalse(dataStore.initialized());
   }
   
   @Test
   public void putCausesStoreToBeInitialized() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     assertTrue(dataStore.initialized());
   }
 
   @Test
   public void processorNotInitializedByDefault() throws Exception {
-    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    StreamProcessor sp = createStreamProcessor(STREAM_URI);
     sp.start();
     assertFalse(sp.initialized());
   }
   
   @Test
   public void putCausesProcessorToBeInitialized() throws Exception {
-    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    StreamProcessor sp = createStreamProcessor(STREAM_URI);
     sp.start();
     eventHandler.onMessage("put", emptyPutEvent());
     assertTrue(sp.initialized());
@@ -161,14 +186,14 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void futureIsNotSetByDefault() throws Exception {
-    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> future = sp.start();
     assertFalse(future.isDone());
   }
 
   @Test
   public void putCausesFutureToBeSet() throws Exception {
-    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> future = sp.start();
     eventHandler.onMessage("put", emptyPutEvent());
     assertTrue(future.isDone());
@@ -176,7 +201,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void patchUpdatesFeature() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     
     String path = "/flags/" + FEATURE1_KEY;
@@ -189,7 +214,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void patchUpdatesSegment() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     
     String path = "/segments/" + SEGMENT1_KEY;
@@ -202,7 +227,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void deleteDeletesFeature() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     dataStore.upsert(FEATURES, FEATURE);
     
@@ -216,7 +241,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void deleteDeletesSegment() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     dataStore.upsert(SEGMENTS, SEGMENT);
     
@@ -230,7 +255,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void indirectPutRequestsAndStoresFeature() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
     replayAll();
     
@@ -241,7 +266,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void indirectPutInitializesStore() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
     replayAll();
     
@@ -252,7 +277,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void indirectPutInitializesProcessor() throws Exception {
-    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    StreamProcessor sp = createStreamProcessor(STREAM_URI);
     sp.start();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
     replayAll();
@@ -264,7 +289,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void indirectPutSetsFuture() throws Exception {
-    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> future = sp.start();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
     replayAll();
@@ -276,7 +301,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void indirectPatchRequestsAndUpdatesFeature() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     expect(mockRequestor.getFlag(FEATURE1_KEY)).andReturn(FEATURE);
     replayAll();
     
@@ -288,7 +313,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void indirectPatchRequestsAndUpdatesSegment() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     expect(mockRequestor.getSegment(SEGMENT1_KEY)).andReturn(SEGMENT);
     replayAll();
     
@@ -300,23 +325,22 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void unknownEventTypeDoesNotThrowException() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("what", new MessageEvent(""));
   }
   
   @Test
   public void streamWillReconnectAfterGeneralIOException() throws Exception {
-    createStreamProcessor(SDK_KEY, configBuilder.build()).start();
+    createStreamProcessor(STREAM_URI).start();
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new IOException());
     assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
   }
 
   @Test
   public void streamInitDiagnosticRecordedOnOpen() throws Exception {
-    LDConfig config = configBuilder.build();
     DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
     long startTime = System.currentTimeMillis();
-    createStreamProcessor(SDK_KEY, config, acc).start();
+    createStreamProcessor(LDConfig.DEFAULT, STREAM_URI, acc).start();
     eventHandler.onMessage("put", emptyPutEvent());
     long timeAfterOpen = System.currentTimeMillis();
     DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
@@ -330,10 +354,9 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void streamInitDiagnosticRecordedOnErrorDuringInit() throws Exception {
-    LDConfig config = configBuilder.build();
     DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
     long startTime = System.currentTimeMillis();
-    createStreamProcessor(SDK_KEY, config, acc).start();
+    createStreamProcessor(LDConfig.DEFAULT, STREAM_URI, acc).start();
     errorHandler.onConnectionError(new IOException());
     long timeAfterOpen = System.currentTimeMillis();
     DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
@@ -347,9 +370,8 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void streamInitDiagnosticNotRecordedOnErrorAfterInit() throws Exception {
-    LDConfig config = configBuilder.build();
     DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
-    createStreamProcessor(SDK_KEY, config, acc).start();
+    createStreamProcessor(LDConfig.DEFAULT, STREAM_URI, acc).start();
     eventHandler.onMessage("put", emptyPutEvent());
     // Drop first stream init from stream open
     acc.createEventAndReset(0, 0);
@@ -398,12 +420,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     try (TestHttpUtil.ServerWithCert server = new TestHttpUtil.ServerWithCert()) {
       server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
 
-      LDConfig config = new LDConfig.Builder()
-          .streamURI(server.uri())
-          .build();
-      
-      try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, dataStore, null, null)) {
+      try (StreamProcessor sp = createStreamProcessorWithRealHttp(LDConfig.DEFAULT, server.uri())) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -422,12 +439,10 @@ public class StreamProcessorTest extends EasyMockSupport {
       server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
       
       LDConfig config = new LDConfig.Builder()
-          .streamURI(server.uri())
           .sslSocketFactory(server.sslClient.socketFactory, server.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
       
-      try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, dataStore, null, null)) {
+      try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, server.uri())) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -444,13 +459,11 @@ public class StreamProcessorTest extends EasyMockSupport {
     try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
       HttpUrl serverUrl = server.url("/");
       LDConfig config = new LDConfig.Builder()
-          .streamURI(fakeStreamUri)
           .proxyHost(serverUrl.host())
           .proxyPort(serverUrl.port())
           .build();
       
-      try (StreamProcessor sp = new StreamProcessor("sdk-key", config,
-          mockRequestor, dataStore, null, null)) {
+      try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, fakeStreamUri)) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
@@ -473,7 +486,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   private void testUnrecoverableHttpError(int status) throws Exception {
     UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
     long startTime = System.currentTimeMillis();
-    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> initFuture = sp.start();
     
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
@@ -492,7 +505,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   private void testRecoverableHttpError(int status) throws Exception {
     UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
     long startTime = System.currentTimeMillis();
-    StreamProcessor sp = createStreamProcessor(SDK_KEY, configBuilder.build());
+    StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> initFuture = sp.start();
     
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
@@ -508,12 +521,23 @@ public class StreamProcessorTest extends EasyMockSupport {
     assertFalse(sp.initialized());
   }
   
-  private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config) {
-    return createStreamProcessor(sdkKey, config, null);
+  private StreamProcessor createStreamProcessor(URI streamUri) {
+    return createStreamProcessor(LDConfig.DEFAULT, streamUri, null);
   }
 
-  private StreamProcessor createStreamProcessor(String sdkKey, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    return new StreamProcessor(sdkKey, config, mockRequestor, dataStore, new StubEventSourceCreator(), diagnosticAccumulator);
+  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri) {
+    return createStreamProcessor(config, streamUri, null);
+  }
+
+  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStore,
+        new StubEventSourceCreator(), diagnosticAccumulator,
+        streamUri, StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY);
+  }
+
+  private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStore, null, null,
+        streamUri, StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 
   private String featureJson(String key, int version) {
@@ -543,8 +567,8 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private class StubEventSourceCreator implements StreamProcessor.EventSourceCreator {
-    public EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler,
-        Headers headers) {  
+    public EventSource createEventSource(EventHandler handler, URI streamUri,
+        Duration initialReconnectDelay, ConnectionErrorHandler errorHandler, Headers headers, HttpConfiguration httpConfig) {  
       StreamProcessorTest.this.eventHandler = handler;
       StreamProcessorTest.this.actualStreamUri = streamUri;
       StreamProcessorTest.this.errorHandler = errorHandler;

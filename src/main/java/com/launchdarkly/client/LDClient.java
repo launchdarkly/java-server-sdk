@@ -37,7 +37,9 @@ import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
  * a single {@code LDClient} for the lifetime of their application.
  */
 public final class LDClient implements LDClientInterface {
+  // Package-private so other classes can log under the top-level logger's tag
   static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   static final String CLIENT_VERSION = getClientVersion();
 
@@ -85,7 +87,7 @@ public final class LDClient implements LDClientInterface {
     });
     
     EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
-        Components.defaultEventProcessor() : this.config.eventProcessorFactory;
+        Components.sendEvents() : this.config.eventProcessorFactory;
         
     DiagnosticAccumulator diagnosticAccumulator = null;
     // Do not create accumulator if config has specified is opted out, or if epFactory doesn't support diagnostics
@@ -100,9 +102,8 @@ public final class LDClient implements LDClientInterface {
       this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
     }
 
-    
     DataSourceFactory dataSourceFactory = this.config.dataSourceFactory == null ?
-        Components.defaultDataSource() : this.config.dataSourceFactory;
+        Components.streamingDataSource() : this.config.dataSourceFactory;
 
     if (dataSourceFactory instanceof DataSourceFactoryWithDiagnostics) {
       DataSourceFactoryWithDiagnostics dswdFactory = ((DataSourceFactoryWithDiagnostics) dataSourceFactory);
@@ -113,7 +114,7 @@ public final class LDClient implements LDClientInterface {
 
     Future<Void> startFuture = dataSource.start();
     if (!this.config.startWait.isZero() && !this.config.startWait.isNegative()) {
-      if (!this.config.offline && !this.config.useLdd) {
+      if (!(dataSource instanceof Components.NullDataSource)) {
         logger.info("Waiting up to " + this.config.startWait.toMillis() + " milliseconds for LaunchDarkly client to start...");
       }
       try {

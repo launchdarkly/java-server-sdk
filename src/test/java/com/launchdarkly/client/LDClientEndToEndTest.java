@@ -6,8 +6,10 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
+import static com.launchdarkly.client.Components.noEvents;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
-import static com.launchdarkly.client.TestHttpUtil.baseConfig;
+import static com.launchdarkly.client.TestHttpUtil.basePollingConfig;
+import static com.launchdarkly.client.TestHttpUtil.baseStreamingConfig;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.client.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
@@ -32,9 +34,9 @@ public class LDClientEndToEndTest {
     MockResponse resp = jsonResponse(makeAllDataJson());
     
     try (MockWebServer server = makeStartedServer(resp)) {
-      LDConfig config = baseConfig(server)
-          .stream(false)
-          .sendEvents(false)
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(basePollingConfig(server))
+          .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -49,9 +51,9 @@ public class LDClientEndToEndTest {
     MockResponse resp = new MockResponse().setResponseCode(401);
     
     try (MockWebServer server = makeStartedServer(resp)) {
-      LDConfig config = baseConfig(server)
-          .stream(false)
-          .sendEvents(false)
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(basePollingConfig(server))
+          .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -66,9 +68,9 @@ public class LDClientEndToEndTest {
     MockResponse resp = jsonResponse(makeAllDataJson());
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      LDConfig config = baseConfig(serverWithCert.server)
-          .stream(false)
-          .sendEvents(false)
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(basePollingConfig(serverWithCert.server))
+          .events(noEvents())
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
       
@@ -86,8 +88,9 @@ public class LDClientEndToEndTest {
     MockResponse resp = TestHttpUtil.eventStreamResponse(streamData);
     
     try (MockWebServer server = makeStartedServer(resp)) {
-      LDConfig config = baseConfig(server)
-          .sendEvents(false)
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(baseStreamingConfig(server))
+          .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -102,8 +105,9 @@ public class LDClientEndToEndTest {
     MockResponse resp = new MockResponse().setResponseCode(401);
     
     try (MockWebServer server = makeStartedServer(resp)) {
-      LDConfig config = baseConfig(server)
-          .sendEvents(false)
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(baseStreamingConfig(server))
+          .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -120,8 +124,9 @@ public class LDClientEndToEndTest {
     MockResponse resp = TestHttpUtil.eventStreamResponse(streamData);
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      LDConfig config = baseConfig(serverWithCert.server)
-          .sendEvents(false)
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(baseStreamingConfig(serverWithCert.server))
+          .events(noEvents())
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
       

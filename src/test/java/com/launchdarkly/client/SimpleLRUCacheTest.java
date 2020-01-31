@@ -5,6 +5,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+@SuppressWarnings("javadoc")
 public class SimpleLRUCacheTest {
   @Test
   public void getReturnsNullForNeverSeenValue() {

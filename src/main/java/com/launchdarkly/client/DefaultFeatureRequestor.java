@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Files;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
@@ -9,41 +10,49 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
+import static com.launchdarkly.client.JsonHelpers.gsonInstance;
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.Util.shutdownHttpClient;
 
 import okhttp3.Cache;
+import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-class DefaultFeatureRequestor implements FeatureRequestor {
+/**
+ * Implementation of getting flag data via a polling request. Used by both streaming and polling components.
+ */
+final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultFeatureRequestor.class);
   private static final String GET_LATEST_FLAGS_PATH = "/sdk/latest-flags";
   private static final String GET_LATEST_SEGMENTS_PATH = "/sdk/latest-segments";
   private static final String GET_LATEST_ALL_PATH = "/sdk/latest-all";
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   
-  private final String sdkKey;
-  private final LDConfig config;
+  @VisibleForTesting final URI baseUri;
   private final OkHttpClient httpClient;
+  private final Headers headers;
+  private final boolean useCache;
 
-  DefaultFeatureRequestor(String sdkKey, LDConfig config) {
-    this.sdkKey = sdkKey;
-    this.config = config;
+  DefaultFeatureRequestor(String sdkKey, HttpConfiguration httpConfig, URI baseUri, boolean useCache) {
+    this.baseUri = baseUri;
+    this.useCache = useCache;
     
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(config, httpBuilder);
+    configureHttpClientBuilder(httpConfig, httpBuilder);
+    this.headers = getHeadersBuilderFor(sdkKey, httpConfig).build();
 
     // HTTP caching is used only for FeatureRequestor. However, when streaming is enabled, HTTP GETs
     // made by FeatureRequester will always guarantee a new flag state, so we disable the cache.
-    if (!config.stream) {
+    if (useCache) {
       File cacheDir = Files.createTempDir();
       Cache cache = new Cache(cacheDir, MAX_HTTP_CACHE_SIZE_BYTES);
       httpBuilder.cache(cache);
@@ -58,17 +67,17 @@ class DefaultFeatureRequestor implements FeatureRequestor {
   
   public DataModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_FLAGS_PATH + "/" + featureKey);
-    return config.gson.fromJson(body, DataModel.FeatureFlag.class);
+    return gsonInstance().fromJson(body, DataModel.FeatureFlag.class);
   }
 
   public DataModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_SEGMENTS_PATH + "/" + segmentKey);
-    return config.gson.fromJson(body, DataModel.Segment.class);
+    return gsonInstance().fromJson(body, DataModel.Segment.class);
   }
 
   public AllData getAllData() throws IOException, HttpErrorException {
     String body = get(GET_LATEST_ALL_PATH);
-    return config.gson.fromJson(body, AllData.class);
+    return gsonInstance().fromJson(body, AllData.class);
   }
   
   static Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> toVersionedDataMap(AllData allData) {
@@ -80,8 +89,8 @@ class DefaultFeatureRequestor implements FeatureRequestor {
   
   private String get(String path) throws IOException, HttpErrorException {
     Request request = new Request.Builder()
-        .url(config.baseURI.resolve(path).toURL())
-        .headers(getHeadersBuilderFor(sdkKey, config).build())
+        .url(baseUri.resolve(path).toURL())
+        .headers(headers)
         .get()
         .build();
 
@@ -95,7 +104,7 @@ class DefaultFeatureRequestor implements FeatureRequestor {
       }
       logger.debug("Get flag(s) response: " + response.toString() + " with body: " + body);
       logger.debug("Network response: " + response.networkResponse());
-      if(!config.stream) {
+      if (useCache) {
         logger.debug("Cache hit count: " + httpClient.cache().hitCount() + " Cache network Count: " + httpClient.cache().networkCount());
         logger.debug("Cache response: " + response.cacheResponse());
       }

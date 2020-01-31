@@ -102,36 +102,41 @@ public class LDClientTest extends EasyMockSupport {
   }
   
   @Test
-  public void clientHasDefaultEventProcessorIfSendEventsIsTrue() throws Exception {
+  public void clientHasDefaultEventProcessorWithDefaultConfig() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .stream(false)
-        .baseURI(URI.create("/fake"))
-        .startWait(Duration.ZERO)
-        .sendEvents(true)
+        .dataSource(Components.externalUpdatesOnly())
         .build();
-    try (LDClient client = new LDClient(SDK_KEY, config)) {
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
     }
   }
-  
+
   @Test
-  public void clientHasNullEventProcessorIfSendEventsIsFalse() throws IOException {
+  public void clientHasDefaultEventProcessorWithSendEvents() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .stream(false)
-        .baseURI(URI.create("/fake"))
-        .startWait(Duration.ZERO)
-        .sendEvents(false)
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.sendEvents())
         .build();
-    try (LDClient client = new LDClient(SDK_KEY, config)) {
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
+    }
+  }
+
+  @Test
+  public void clientHasNullEventProcessorWithNoEvents() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.noEvents())
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(Components.NullEventProcessor.class, client.eventProcessor.getClass());
     }
   }
-  
+
   @Test
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .stream(true)
-        .streamURI(URI.create("http://fake"))
+        .dataSource(Components.streamingDataSource().baseURI(URI.create("http://fake")))
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -142,8 +147,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
-        .stream(false)
-        .baseURI(URI.create("http://fake"))
+        .dataSource(Components.pollingDataSource().baseURI(URI.create("http://fake")))
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -157,11 +161,9 @@ public class LDClientTest extends EasyMockSupport {
     DataSourceFactoryWithDiagnostics mockDataSourceFactory = createStrictMock(DataSourceFactoryWithDiagnostics.class);
 
     LDConfig config = new LDConfig.Builder()
-            .stream(false)
-            .baseURI(URI.create("http://fake"))
-            .startWait(Duration.ZERO)
-            .eventProcessor(mockEventProcessorFactory)
+            .events(mockEventProcessorFactory)
             .dataSource(mockDataSourceFactory)
+            .startWait(Duration.ZERO)
             .build();
 
     Capture<DiagnosticAccumulator> capturedEventAccumulator = Capture.newInstance();
@@ -184,12 +186,10 @@ public class LDClientTest extends EasyMockSupport {
     DataSourceFactoryWithDiagnostics mockDataSourceFactory = createStrictMock(DataSourceFactoryWithDiagnostics.class);
 
     LDConfig config = new LDConfig.Builder()
-            .stream(false)
-            .baseURI(URI.create("http://fake"))
-            .startWait(Duration.ZERO)
-            .eventProcessor(mockEventProcessorFactory)
+            .events(mockEventProcessorFactory)
             .dataSource(mockDataSourceFactory)
             .diagnosticOptOut(true)
+            .startWait(Duration.ZERO)
             .build();
 
     expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class), isNull(DiagnosticAccumulator.class))).andReturn(niceMock(EventProcessor.class));
@@ -208,11 +208,9 @@ public class LDClientTest extends EasyMockSupport {
     DataSourceFactoryWithDiagnostics mockDataSourceFactory = createStrictMock(DataSourceFactoryWithDiagnostics.class);
 
     LDConfig config = new LDConfig.Builder()
-            .stream(false)
-            .baseURI(URI.create("http://fake"))
-            .startWait(Duration.ZERO)
-            .eventProcessor(mockEventProcessorFactory)
+            .events(mockEventProcessorFactory)
             .dataSource(mockDataSourceFactory)
+            .startWait(Duration.ZERO)
             .build();
 
     expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class))).andReturn(niceMock(EventProcessor.class));
@@ -388,7 +386,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig.Builder config = new LDConfig.Builder()
         .dataSource(dataSourceWithData(DEPENDENCY_ORDERING_TEST_DATA))
         .dataStore(specificDataStore(store))
-        .sendEvents(false);
+        .events(Components.noEvents());
     client = new LDClient(SDK_KEY, config.build());
     
     Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> dataMap = captureData.getValue();
@@ -429,7 +427,7 @@ public class LDClientTest extends EasyMockSupport {
   
   private LDClientInterface createMockClient(LDConfig.Builder config) {
     config.dataSource(TestUtil.specificDataSource(dataSource));
-    config.eventProcessor(TestUtil.specificEventProcessor(eventProcessor));
+    config.events(TestUtil.specificEventProcessor(eventProcessor));
     return new LDClient(SDK_KEY, config.build());
   }
   

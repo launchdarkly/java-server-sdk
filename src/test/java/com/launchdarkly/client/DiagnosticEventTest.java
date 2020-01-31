@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.launchdarkly.client.integrations.Redis;
+import com.launchdarkly.client.value.LDValue;
+import com.launchdarkly.client.value.ObjectBuilder;
 
 import org.junit.Test;
 
@@ -22,7 +24,6 @@ public class DiagnosticEventTest {
   private static Gson gson = new Gson();
   private static List<DiagnosticEvent.StreamInit> testStreamInits = Collections.singletonList(new DiagnosticEvent.StreamInit(1500, 100, true));
 
-  @SuppressWarnings("ResultOfMethodCallIgnored")
   @Test
   public void testSerialization() {
     DiagnosticId diagnosticId = new DiagnosticId("SDK_KEY");
@@ -34,7 +35,8 @@ public class DiagnosticEventTest {
     JsonObject idObject = jsonObject.getAsJsonObject("id");
     assertEquals("DK_KEY", idObject.getAsJsonPrimitive("sdkKeySuffix").getAsString());
     // Throws InvalidArgumentException on invalid UUID
-    UUID.fromString(idObject.getAsJsonPrimitive("diagnosticId").getAsString());
+    @SuppressWarnings("unused")
+    UUID uuid = UUID.fromString(idObject.getAsJsonPrimitive("diagnosticId").getAsString());
     assertEquals(1000, jsonObject.getAsJsonPrimitive("dataSinceDate").getAsLong());
     assertEquals(1, jsonObject.getAsJsonPrimitive("droppedEvents").getAsLong());
     assertEquals(2, jsonObject.getAsJsonPrimitive("deduplicatedUsers").getAsLong());
@@ -47,91 +49,164 @@ public class DiagnosticEventTest {
     assertTrue(initJson.getAsJsonPrimitive("failed").getAsBoolean());
   }
 
+  private ObjectBuilder expectedDefaultProperties() {
+    return expectedDefaultPropertiesWithoutStreaming()
+        .put("reconnectTimeMillis", 1_000);
+  }
+
+  private ObjectBuilder expectedDefaultPropertiesWithoutStreaming() {
+    return LDValue.buildObject()
+        .put("allAttributesPrivate", false)
+        .put("connectTimeoutMillis", 2_000)
+        .put("customBaseURI", false)
+        .put("customEventsURI", false)
+        .put("customStreamURI", false)
+        .put("dataStoreType", "memory")
+        .put("diagnosticRecordingIntervalMillis", 900_000)
+        .put("eventsCapacity", 10_000)
+        .put("eventsFlushIntervalMillis",5_000)
+        .put("inlineUsersInEvents", false)
+        .put("offline", false)
+        .put("samplingInterval", 0)
+        .put("socketTimeoutMillis", 10_000)
+        .put("startWaitMillis", 5_000)
+        .put("streamingDisabled", false)
+        .put("userKeysCapacity", 1_000)
+        .put("userKeysFlushIntervalMillis", 300_000)
+        .put("usingProxy", false)
+        .put("usingProxyAuthenticator", false)
+        .put("usingRelayDaemon", false);
+  }
+  
   @Test
   public void testDefaultDiagnosticConfiguration() {
     LDConfig ldConfig = new LDConfig.Builder().build();
-    DiagnosticEvent.Init.DiagnosticConfiguration diagnosticConfiguration = new DiagnosticEvent.Init.DiagnosticConfiguration(ldConfig);
-    JsonObject diagnosticJson = new Gson().toJsonTree(diagnosticConfiguration).getAsJsonObject();
-    JsonObject expected = new JsonObject();
-    expected.addProperty("allAttributesPrivate", false);
-    expected.addProperty("connectTimeoutMillis", 2_000);
-    expected.addProperty("customBaseURI", false);
-    expected.addProperty("customEventsURI", false);
-    expected.addProperty("customStreamURI", false);
-    expected.addProperty("diagnosticRecordingIntervalMillis", 900_000);
-    expected.addProperty("eventsCapacity", 10_000);
-    expected.addProperty("eventsFlushIntervalMillis",5_000);
-    expected.addProperty("featureStore", "memory");
-    expected.addProperty("inlineUsersInEvents", false);
-    expected.addProperty("offline", false);
-    expected.addProperty("pollingIntervalMillis", 30_000);
-    expected.addProperty("reconnectTimeMillis", 1_000);
-    expected.addProperty("socketTimeoutMillis", 10_000);
-    expected.addProperty("startWaitMillis", 5_000);
-    expected.addProperty("streamingDisabled", false);
-    expected.addProperty("userKeysCapacity", 1_000);
-    expected.addProperty("userKeysFlushIntervalMillis", 300_000);
-    expected.addProperty("usingProxy", false);
-    expected.addProperty("usingProxyAuthenticator", false);
-    expected.addProperty("usingRelayDaemon", false);
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultProperties().build();
 
     assertEquals(expected, diagnosticJson);
   }
 
   @Test
-  public void testCustomDiagnosticConfiguration() {
+  public void testCustomDiagnosticConfigurationGeneralProperties() {
     LDConfig ldConfig = new LDConfig.Builder()
-            .allAttributesPrivate(true)
             .connectTimeout(Duration.ofSeconds(5))
-            .baseURI(URI.create("https://1.1.1.1"))
-            .eventsURI(URI.create("https://1.1.1.1"))
-            .streamURI(URI.create("https://1.1.1.1"))
-            .diagnosticRecordingInterval(Duration.ofSeconds(1_800))
-            .sendEvents(false)
-            .capacity(20_000)
-            .flushInterval(Duration.ofSeconds(10))
-            .dataStore(Components.persistentDataStore(Redis.dataStore()))
-            .inlineUsersInEvents(true)
-            .offline(true)
-            .pollingInterval(Duration.ofSeconds(60))
-            .reconnectTime(Duration.ofSeconds(2))
             .socketTimeout(Duration.ofSeconds(20))
             .startWait(Duration.ofSeconds(10))
-            .stream(false)
-            .userKeysCapacity(2_000)
-            .userKeysFlushInterval(Duration.ofSeconds(600))
             .proxyPort(1234)
             .proxyUsername("username")
             .proxyPassword("password")
-            .useLdd(true)
             .build();
 
-    DiagnosticEvent.Init.DiagnosticConfiguration diagnosticConfiguration = new DiagnosticEvent.Init.DiagnosticConfiguration(ldConfig);
-    JsonObject diagnosticJson = gson.toJsonTree(diagnosticConfiguration).getAsJsonObject();
-    JsonObject expected = new JsonObject();
-    expected.addProperty("allAttributesPrivate", true);
-    expected.addProperty("connectTimeoutMillis", 5_000);
-    expected.addProperty("customBaseURI", true);
-    expected.addProperty("customEventsURI", true);
-    expected.addProperty("customStreamURI", true);
-    expected.addProperty("diagnosticRecordingIntervalMillis", 1_800_000);
-    expected.addProperty("eventsCapacity", 20_000);
-    expected.addProperty("eventsFlushIntervalMillis",10_000);
-    expected.addProperty("featureStore", "memory"); // TODO
-    expected.addProperty("inlineUsersInEvents", true);
-    expected.addProperty("offline", true);
-    expected.addProperty("pollingIntervalMillis", 60_000);
-    expected.addProperty("reconnectTimeMillis", 2_000);
-    expected.addProperty("socketTimeoutMillis", 20_000);
-    expected.addProperty("startWaitMillis", 10_000);
-    expected.addProperty("streamingDisabled", true);
-    expected.addProperty("userKeysCapacity",  2_000);
-    expected.addProperty("userKeysFlushIntervalMillis", 600_000);
-    expected.addProperty("usingProxy", true);
-    expected.addProperty("usingProxyAuthenticator", true);
-    expected.addProperty("usingRelayDaemon", true);
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultProperties()
+        .put("connectTimeoutMillis", 5_000)
+        .put("socketTimeoutMillis",  20_000)
+        .put("startWaitMillis", 10_000)
+        .put("usingProxy", true)
+        .put("usingProxyAuthenticator", true)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
+  
+  @Test
+  public void testCustomDiagnosticConfigurationForStreaming() {
+    LDConfig ldConfig = new LDConfig.Builder()
+            .dataSource(
+                Components.streamingDataSource()
+                  .baseURI(URI.create("https://1.1.1.1"))
+                  .pollingBaseURI(URI.create("https://1.1.1.1"))
+                  .initialReconnectDelay(Duration.ofSeconds(2))
+                )
+            .build();
+
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
+        .put("customBaseURI", true)
+        .put("customStreamURI", true)
+        .put("reconnectTimeMillis", 2_000)
+        .build();
 
     assertEquals(expected, diagnosticJson);
   }
 
+  @Test
+  public void testCustomDiagnosticConfigurationForPolling() {
+    LDConfig ldConfig = new LDConfig.Builder()
+            .dataSource(
+                Components.pollingDataSource()
+                  .baseURI(URI.create("https://1.1.1.1"))
+                  .pollInterval(Duration.ofSeconds(60))
+                )
+            .build();
+
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
+        .put("customBaseURI", true)
+        .put("pollingIntervalMillis", 60_000)
+        .put("streamingDisabled", true)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
+
+  @Test
+  public void testCustomDiagnosticConfigurationForEvents() {
+    LDConfig ldConfig = new LDConfig.Builder()
+          .events(
+              Components.sendEvents()
+                .allAttributesPrivate(true)
+                .capacity(20_000)
+                .diagnosticRecordingInterval(Duration.ofSeconds(1_800))
+                .flushInterval(Duration.ofSeconds(10))
+                .inlineUsersInEvents(true)
+                .userKeysCapacity(2_000)
+                .userKeysFlushInterval(Duration.ofSeconds(600))
+              )
+          .build();
+
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultProperties()
+        .put("allAttributesPrivate", true)
+        .put("diagnosticRecordingIntervalMillis", 1_800_000)
+        .put("eventsCapacity", 20_000)
+        .put("eventsFlushIntervalMillis", 10_000)
+        .put("inlineUsersInEvents", true)
+        .put("userKeysCapacity", 2_000)
+        .put("userKeysFlushIntervalMillis", 600_000)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
+
+  @Test
+  public void testCustomDiagnosticConfigurationForDaemonMode() {
+    LDConfig ldConfig = new LDConfig.Builder()
+            .dataSource(Components.externalUpdatesOnly())
+            .dataStore(Components.persistentDataStore(Redis.dataStore()))
+            .build();
+
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
+        .put("dataStoreType", "Redis")
+        .put("usingRelayDaemon", true)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
+
+  @Test
+  public void testCustomDiagnosticConfigurationForOffline() {
+    LDConfig ldConfig = new LDConfig.Builder()
+            .offline(true)
+            .build();
+
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
+        .put("offline", true)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
 }

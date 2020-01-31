@@ -94,7 +94,7 @@ public final class DataStoreCacheConfig {
     /**
      * Used internally for backward compatibility.
      * @return the equivalent enum value
-     * @since 4.11.0
+     * @since 4.12.0
      */
     public PersistentDataStoreBuilder.StaleValuesPolicy toNewEnum() {
       switch (this) {
@@ -111,7 +111,7 @@ public final class DataStoreCacheConfig {
      * Used internally for backward compatibility.
      * @param policy the enum value in the new API
      * @return the equivalent enum value
-     * @since 4.11.0
+     * @since 4.12.0
      */
     public static StaleValuesPolicy fromNewEnum(PersistentDataStoreBuilder.StaleValuesPolicy policy) {
       switch (policy) {

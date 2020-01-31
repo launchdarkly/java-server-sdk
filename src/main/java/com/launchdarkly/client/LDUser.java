@@ -2,7 +2,6 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -174,10 +173,9 @@ public class LDUser {
 
   // Used internally when including users in analytics events, to ensure that private attributes are stripped out.
   static class UserAdapterWithPrivateAttributeBehavior extends TypeAdapter<LDUser> {
-    private static final Gson gson = new Gson();
-    private final LDConfig config;
+    private final EventsConfiguration config;
 
-    public UserAdapterWithPrivateAttributeBehavior(LDConfig config) {
+    public UserAdapterWithPrivateAttributeBehavior(EventsConfiguration config) {
       this.config = config;
     }
 
@@ -277,7 +275,7 @@ public class LDUser {
             beganObject = true;
           }
           out.name(entry.getKey());
-          gson.toJson(entry.getValue(), LDValue.class, out);
+          JsonHelpers.gsonInstance().toJson(entry.getValue(), LDValue.class, out);
         }
       }
       if (beganObject) {

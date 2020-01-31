@@ -7,7 +7,7 @@ package com.launchdarkly.client.integrations;
  * typically be used in a test environment, to operate using a predetermined feature flag state
  * without an actual LaunchDarkly connection. See {@link #dataSource()} for details.
  * 
- * @since 4.11.0
+ * @since 4.12.0
  */
 public abstract class FileData {
   /**
@@ -34,7 +34,7 @@ public abstract class FileData {
    * <p>
    * This will cause the client <i>not</i> to connect to LaunchDarkly to get feature flags. The
    * client may still make network connections to send analytics events, unless you have disabled
-   * this with {@link com.launchdarkly.client.LDConfig.Builder#sendEvents(boolean)} or
+   * this with {@link com.launchdarkly.client.Components#noEvents()} or
    * {@link com.launchdarkly.client.LDConfig.Builder#offline(boolean)}.
    * <p>
    * Flag data files can be either JSON or YAML. They contain an object with three possible
@@ -106,7 +106,7 @@ public abstract class FileData {
    * duplicate key-- it will not load flags from any of the files.
    * 
    * @return a data source configuration object
-   * @since 4.11.0
+   * @since 4.12.0
    */
   public static FileDataSourceBuilder dataSource() {
     return new FileDataSourceBuilder();

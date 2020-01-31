@@ -6,8 +6,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertSame;
 
+@SuppressWarnings("javadoc")
 public class DiagnosticAccumulatorTest {
-
   @Test
   public void createsDiagnosticStatisticsEvent() {
     DiagnosticId diagnosticId = new DiagnosticId("SDK_KEY");

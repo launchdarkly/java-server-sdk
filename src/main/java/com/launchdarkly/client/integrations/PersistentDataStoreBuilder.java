@@ -1,11 +1,9 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.DataStoreCacheConfig;
-import com.launchdarkly.client.interfaces.DataStore;
-import com.launchdarkly.client.interfaces.PersistentDataStore;
+import com.launchdarkly.client.Components;
 import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
-import com.launchdarkly.client.utils.CachingStoreWrapper;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -33,19 +31,21 @@ import java.util.concurrent.TimeUnit;
  * 
  * In this example, {@code .url()} is an option specifically for the Redis integration, whereas
  * {@code ttlSeconds()} is an option that can be used for any persistent data store. 
- * 
- * @since 4.11.0
+ * <p>
+ * Note that this class is abstract; the actual implementation is created by calling
+ * {@link Components#persistentDataStore(PersistentDataStoreFactory)}.
+ * @since 4.12.0
  */
-public final class PersistentDataStoreBuilder implements DataStoreFactory {
+public abstract class PersistentDataStoreBuilder implements DataStoreFactory, DiagnosticDescription {
   /**
    * The default value for the cache TTL.
    */
   public static final Duration DEFAULT_CACHE_TTL = Duration.ofSeconds(15);
 
-  private final PersistentDataStoreFactory persistentDataStoreFactory;
-  DataStoreCacheConfig caching = DataStoreCacheConfig.enabled().ttl(DEFAULT_CACHE_TTL);
-  StaleValuesPolicy staleValuesPolicy = StaleValuesPolicy.EVICT;
-  CacheMonitor cacheMonitor = null;
+  protected final PersistentDataStoreFactory persistentDataStoreFactory;
+  protected Duration cacheTime = DEFAULT_CACHE_TTL;
+  protected StaleValuesPolicy staleValuesPolicy = StaleValuesPolicy.EVICT;
+  protected CacheMonitor cacheMonitor = null;
 
   /**
    * Possible values for {@link #staleValuesPolicy(StaleValuesPolicy)}.
@@ -97,19 +97,10 @@ public final class PersistentDataStoreBuilder implements DataStoreFactory {
    * 
    * @param persistentDataStoreFactory the factory implementation for the specific data store type
    */
-  public PersistentDataStoreBuilder(PersistentDataStoreFactory persistentDataStoreFactory) {
+  protected PersistentDataStoreBuilder(PersistentDataStoreFactory persistentDataStoreFactory) {
     this.persistentDataStoreFactory = persistentDataStoreFactory;
   }
 
-  @Override
-  public DataStore createDataStore() {
-    PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore();
-    return CachingStoreWrapper.builder(core)
-        .caching(caching)
-        .cacheMonitor(cacheMonitor)
-        .build();
-  }
-  
   /**
    * Specifies that the SDK should <i>not</i> use an in-memory cache for the persistent data store.
    * This means that every feature flag evaluation will trigger a data store query.
@@ -132,7 +123,7 @@ public final class PersistentDataStoreBuilder implements DataStoreFactory {
    * @return the builder
    */
   public PersistentDataStoreBuilder cacheTime(Duration cacheTime) {
-    caching = caching.ttl(cacheTime == null ? DEFAULT_CACHE_TTL : cacheTime);
+    this.cacheTime = cacheTime == null ? DEFAULT_CACHE_TTL : cacheTime;
     return this;
   }
 
@@ -180,7 +171,7 @@ public final class PersistentDataStoreBuilder implements DataStoreFactory {
    * @return the builder
    */
   public PersistentDataStoreBuilder staleValuesPolicy(StaleValuesPolicy staleValuesPolicy) {
-    caching = caching.staleValuesPolicy(DataStoreCacheConfig.StaleValuesPolicy.fromNewEnum(staleValuesPolicy));
+    this.staleValuesPolicy = staleValuesPolicy == null ? StaleValuesPolicy.EVICT : staleValuesPolicy;
     return this;
   }
   

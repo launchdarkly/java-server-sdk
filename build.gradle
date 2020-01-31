@@ -43,7 +43,7 @@ ext.libraries = [:]
 libraries.internal = [
     "commons-codec:commons-codec:1.10",
     "com.google.guava:guava:28.2-jre",
-    "com.launchdarkly:okhttp-eventsource:1.10.0",
+    "com.launchdarkly:okhttp-eventsource:2.0.0",
     "org.yaml:snakeyaml:1.19",
     "redis.clients:jedis:2.9.0"
 ]

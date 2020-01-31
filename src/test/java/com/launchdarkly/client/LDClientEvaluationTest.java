@@ -38,8 +38,8 @@ public class LDClientEvaluationTest {
 
   private LDConfig config = new LDConfig.Builder()
       .dataStore(specificDataStore(dataStore))
-      .eventProcessor(Components.nullEventProcessor())
-      .dataSource(Components.nullDataSource())
+      .events(Components.noEvents())
+      .dataSource(Components.externalUpdatesOnly())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
   
@@ -222,7 +222,7 @@ public class LDClientEvaluationTest {
     DataStore badDataStore = new InMemoryDataStore();
     LDConfig badConfig = new LDConfig.Builder()
         .dataStore(specificDataStore(badDataStore))
-        .eventProcessor(Components.nullEventProcessor())
+        .events(Components.noEvents())
         .dataSource(specificDataSource(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
@@ -264,8 +264,8 @@ public class LDClientEvaluationTest {
     DataStore badDataStore = dataStoreThatThrowsException(exception);
     LDConfig badConfig = new LDConfig.Builder()
         .dataStore(specificDataStore(badDataStore))
-        .eventProcessor(Components.nullEventProcessor())
-        .dataSource(Components.nullDataSource())
+        .events(Components.noEvents())
+        .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,

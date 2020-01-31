@@ -1,7 +1,11 @@
 package com.launchdarkly.client.integrations;
 
+import com.google.common.base.Joiner;
+import com.launchdarkly.client.LDConfig;
+import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStore;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.client.value.LDValue;
 
 import java.net.URI;
 import java.time.Duration;
@@ -23,22 +27,24 @@ import redis.clients.jedis.Protocol;
  * Builder calls can be chained, for example:
  *
  * <pre><code>
- * LDConfig config = new LDConfig.Builder()
- *      .dataStore(
- *           Redis.dataStore()
- *               .database(1)
- *               .caching(FeatureStoreCacheConfig.enabled().ttlSeconds(60))
- *      )
- *      .build();
+   *     LDConfig config = new LDConfig.Builder()
+   *         .dataStore(
+   *             Components.persistentDataStore(
+   *                 Redis.dataStore()
+   *                     .url("redis://my-redis-host")
+   *                     .database(1)
+   *             ).cacheSeconds(15)
+   *         )
+   *         .build();
  * </code></pre>
  * 
- * @since 4.11.0
+ * @since 4.12.0
  */
-public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
+public final class RedisDataStoreBuilder implements PersistentDataStoreFactory, DiagnosticDescription {
   /**
    * The default value for the Redis URI: {@code redis://localhost:6379}
    */
-  public static final URI DEFAULT_URI = URI.create("redis://localhost:6379");
+  public static final URI DEFAULT_URI = makeDefaultRedisURI();
   
   /**
    * The default value for {@link #prefix(String)}.
@@ -53,6 +59,13 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
   String password = null;
   boolean tls = false;
   JedisPoolConfig poolConfig = null;
+
+  private static URI makeDefaultRedisURI() {
+    // This ungainly logic is a workaround for the overly aggressive behavior of the Shadow plugin, which
+    // wants to transform any string literal starting with "redis" because the root package of Jedis is
+    // "redis".
+    return URI.create(Joiner.on("").join("r", "e", "d", "i", "s") + "://localhost:6379");
+  }
 
   // These constructors are called only from Implementations
   RedisDataStoreBuilder() {
@@ -108,7 +121,7 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
    * @return the builder
    */
   public RedisDataStoreBuilder uri(URI redisUri) {
-    this.uri = checkNotNull(uri);
+    this.uri = checkNotNull(redisUri);
     return this;
   }
     
@@ -165,5 +178,10 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory {
   @Override
   public PersistentDataStore createPersistentDataStore() {
     return new RedisDataStoreImpl(this);
+  }
+
+  @Override
+  public LDValue describeConfiguration(LDConfig config) {
+    return LDValue.of("Redis");
   }
 }

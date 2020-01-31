@@ -1,7 +1,9 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.DataStoreTestTypes.TestItem;
 import com.launchdarkly.client.TestUtil.DataBuilder;
 import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.VersionedData;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -14,8 +16,7 @@ import org.junit.runners.Parameterized.Parameters;
 import java.util.Arrays;
 import java.util.Map;
 
-import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
-import static com.launchdarkly.client.ModelBuilders.flagBuilder;
+import static com.launchdarkly.client.DataStoreTestTypes.TEST_ITEMS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -104,7 +105,7 @@ public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
     
     assertFalse(store.initialized());
     
-    store2.init(new DataBuilder().add(FEATURES, feature1).build());
+    store2.init(new DataBuilder().add(TEST_ITEMS, item1).build());
     
     assertTrue(store.initialized());
   }
@@ -136,14 +137,13 @@ public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
     final int store2VersionEnd = 4;
     int store1VersionEnd = 10;
     
-    final DataModel.FeatureFlag flag1 = flagBuilder("foo").version(startVersion).build();
+    final TestItem startItem = new TestItem("me", "foo", startVersion);
     
     Runnable concurrentModifier = new Runnable() {
       int versionCounter = store2VersionStart;
       public void run() {
         if (versionCounter <= store2VersionEnd) {
-          DataModel.FeatureFlag f = flagBuilder(flag1).version(versionCounter).build();
-          store2.upsert(FEATURES, f);
+          store2.upsert(TEST_ITEMS, startItem.withVersion(versionCounter));
           versionCounter++;
         }
       }
@@ -152,12 +152,12 @@ public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
     try {
       assumeTrue(setUpdateHook(store, concurrentModifier));
       
-      store.init(new DataBuilder().add(FEATURES, flag1).build());
+      store.init(new DataBuilder().add(TEST_ITEMS, startItem).build());
       
-      DataModel.FeatureFlag store1End = flagBuilder(flag1).version(store1VersionEnd).build();
-      store.upsert(FEATURES, store1End);
+      TestItem store1End = startItem.withVersion(store1VersionEnd);
+      store.upsert(TEST_ITEMS, store1End);
       
-      DataModel.FeatureFlag result = store.get(FEATURES, flag1.getKey());
+      VersionedData result = store.get(TEST_ITEMS, startItem.key);
       assertEquals(store1VersionEnd, result.getVersion());
     } finally {
       store2.close();
@@ -172,22 +172,23 @@ public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
     final int store2Version = 3;
     int store1VersionEnd = 2;
     
-    final DataModel.FeatureFlag flag1 = flagBuilder("foo").version(startVersion).build();
+    final TestItem startItem = new TestItem("me", "foo", startVersion);
     
-    Runnable concurrentModifier = () -> {
-      DataModel.FeatureFlag f = flagBuilder(flag1).version(store2Version).build();
-      store2.upsert(FEATURES, f);
+    Runnable concurrentModifier = new Runnable() {
+      public void run() {
+        store2.upsert(TEST_ITEMS, startItem.withVersion(store2Version));
+      }
     };
     
     try {
       assumeTrue(setUpdateHook(store, concurrentModifier));
       
-      store.init(new DataBuilder().add(FEATURES, flag1).build());
+      store.init(new DataBuilder().add(TEST_ITEMS, startItem).build());
       
-      DataModel.FeatureFlag store1End = flagBuilder(flag1).version(store1VersionEnd).build();
-      store.upsert(FEATURES, store1End);
+      TestItem store1End = startItem.withVersion(store1VersionEnd);
+      store.upsert(TEST_ITEMS, store1End);
       
-      DataModel.FeatureFlag result = store.get(FEATURES, flag1.getKey());
+      VersionedData result = store.get(TEST_ITEMS, startItem.key);
       assertEquals(store2Version, result.getVersion());
     } finally {
       store2.close();
@@ -196,8 +197,6 @@ public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
   
   @Test
   public void storesWithDifferentPrefixAreIndependent() throws Exception {
-    assumeFalse(cached);
-    
     DataStore store1 = makeStoreWithPrefix("aaa");
     Assume.assumeNotNull(store1);
     DataStore store2 = makeStoreWithPrefix("bbb");
@@ -207,32 +206,32 @@ public abstract class DataStoreDatabaseTestBase extends DataStoreTestBase {
       assertFalse(store1.initialized());
       assertFalse(store2.initialized());
       
-      DataModel.FeatureFlag flag1a = flagBuilder("flag-a").version(1).build();
-      DataModel.FeatureFlag flag1b = flagBuilder("flag-b").version(1).build();
-      DataModel.FeatureFlag flag2a = flagBuilder("flag-a").version(2).build();
-      DataModel.FeatureFlag flag2c = flagBuilder("flag-c").version(2).build();
+      TestItem item1a = new TestItem("a1", "flag-a", 1);
+      TestItem item1b = new TestItem("b", "flag-b", 1);
+      TestItem item2a = new TestItem("a2", "flag-a", 2);
+      TestItem item2c = new TestItem("c", "flag-c", 2);
       
-      store1.init(new DataBuilder().add(FEATURES, flag1a, flag1b).build());
+      store1.init(new DataBuilder().add(TEST_ITEMS, item1a, item1b).build());
       assertTrue(store1.initialized());
       assertFalse(store2.initialized());
       
-      store2.init(new DataBuilder().add(FEATURES, flag2a, flag2c).build());
+      store2.init(new DataBuilder().add(TEST_ITEMS, item2a, item2c).build());
       assertTrue(store1.initialized());
       assertTrue(store2.initialized());
       
-      Map<String, DataModel.FeatureFlag> items1 = store1.all(FEATURES);
-      Map<String, DataModel.FeatureFlag> items2 = store2.all(FEATURES);
+      Map<String, TestItem> items1 = store1.all(TEST_ITEMS);
+      Map<String, TestItem> items2 = store2.all(TEST_ITEMS);
       assertEquals(2, items1.size());
       assertEquals(2, items2.size());
-      assertEquals(flag1a.getVersion(), items1.get(flag1a.getKey()).getVersion());
-      assertEquals(flag1b.getVersion(), items1.get(flag1b.getKey()).getVersion());
-      assertEquals(flag2a.getVersion(), items2.get(flag2a.getKey()).getVersion());
-      assertEquals(flag2c.getVersion(), items2.get(flag2c.getKey()).getVersion());
+      assertEquals(item1a, items1.get(item1a.key));
+      assertEquals(item1b, items1.get(item1b.key));
+      assertEquals(item2a, items2.get(item2a.key));
+      assertEquals(item2c, items2.get(item2c.key));
       
-      assertEquals(flag1a.getVersion(), store1.get(FEATURES, flag1a.getKey()).getVersion());
-      assertEquals(flag1b.getVersion(), store1.get(FEATURES, flag1b.getKey()).getVersion());
-      assertEquals(flag2a.getVersion(), store2.get(FEATURES, flag2a.getKey()).getVersion());
-      assertEquals(flag2c.getVersion(), store2.get(FEATURES, flag2c.getKey()).getVersion());
+      assertEquals(item1a, store1.get(TEST_ITEMS, item1a.key));
+      assertEquals(item1b, store1.get(TEST_ITEMS, item1b.key));
+      assertEquals(item2a, store2.get(TEST_ITEMS, item2a.key));
+      assertEquals(item2c, store2.get(TEST_ITEMS, item2c.key));
     } finally {
       store1.close();
       store2.close();

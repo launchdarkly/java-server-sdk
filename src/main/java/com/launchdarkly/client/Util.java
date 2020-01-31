@@ -7,7 +7,7 @@ import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
 class Util {
-  static Headers.Builder getHeadersBuilderFor(String sdkKey, LDConfig config) {
+  static Headers.Builder getHeadersBuilderFor(String sdkKey, HttpConfiguration config) {
     Headers.Builder builder = new Headers.Builder()
         .add("Authorization", sdkKey)
         .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
@@ -23,7 +23,7 @@ class Util {
     return builder;
   }
   
-  static void configureHttpClientBuilder(LDConfig config, OkHttpClient.Builder builder) {
+  static void configureHttpClientBuilder(HttpConfiguration config, OkHttpClient.Builder builder) {
     builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
       .connectTimeout(config.connectTimeout.toMillis(), TimeUnit.MILLISECONDS)
       .readTimeout(config.socketTimeout.toMillis(), TimeUnit.MILLISECONDS)

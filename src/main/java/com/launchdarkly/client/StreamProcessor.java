@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -18,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -40,10 +42,12 @@ final class StreamProcessor implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
   private static final int DEAD_CONNECTION_INTERVAL_MS = 300 * 1000;
 
-  private final DataStore store;
-  private final LDConfig config;
-  private final String sdkKey;
-  private final FeatureRequestor requestor;
+private final DataStore store;
+  private final HttpConfiguration httpConfig;
+  private final Headers headers;
+  @VisibleForTesting final URI streamUri;
+  @VisibleForTesting final Duration initialReconnectDelay;
+  @VisibleForTesting final FeatureRequestor requestor;
   private final DiagnosticAccumulator diagnosticAccumulator;
   private final EventSourceCreator eventSourceCreator;
   private volatile EventSource es;
@@ -52,18 +56,32 @@ final class StreamProcessor implements DataSource {
 
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
-  public static interface EventSourceCreator {
-    EventSource createEventSource(LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers);
+  static interface EventSourceCreator {
+    EventSource createEventSource(EventHandler handler, URI streamUri, Duration initialReconnectDelay,
+        ConnectionErrorHandler errorHandler, Headers headers, HttpConfiguration httpConfig);
   }
   
-  StreamProcessor(String sdkKey, LDConfig config, FeatureRequestor requestor, DataStore dataStore,
-      EventSourceCreator eventSourceCreator, DiagnosticAccumulator diagnosticAccumulator) {
+  StreamProcessor(
+      String sdkKey,
+      HttpConfiguration httpConfig,
+      FeatureRequestor requestor,
+      DataStore dataStore,
+      EventSourceCreator eventSourceCreator,
+      DiagnosticAccumulator diagnosticAccumulator,
+      URI streamUri,
+      Duration initialReconnectDelay
+      ) {
     this.store = dataStore;
-    this.config = config;
-    this.sdkKey = sdkKey;
+    this.httpConfig = httpConfig;
     this.requestor = requestor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : new DefaultEventSourceCreator();
+    this.streamUri = streamUri;
+    this.initialReconnectDelay = initialReconnectDelay;
+
+    this.headers = getHeadersBuilderFor(sdkKey, httpConfig)
+        .add("Accept", "text/event-stream")
+        .build();
   }
 
   private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
@@ -85,10 +103,6 @@ final class StreamProcessor implements DataSource {
   @Override
   public Future<Void> start() {
     final SettableFuture<Void> initFuture = SettableFuture.create();
-
-    Headers headers = getHeadersBuilderFor(sdkKey, config)
-        .add("Accept", "text/event-stream")
-        .build();
 
     ConnectionErrorHandler wrappedConnectionErrorHandler = (Throwable t) -> {
       Action result = connectionErrorHandler.onConnectionError(t);
@@ -195,10 +209,12 @@ final class StreamProcessor implements DataSource {
       }
     };
 
-    es = eventSourceCreator.createEventSource(config, handler,
-        URI.create(config.streamURI.toASCIIString() + "/all"),
+    es = eventSourceCreator.createEventSource(handler,
+        URI.create(streamUri.toASCIIString() + "/all"),
+        initialReconnectDelay,
         wrappedConnectionErrorHandler,
-        headers);
+        headers,
+        httpConfig);
     esStarted = System.currentTimeMillis();
     es.start();
     return initFuture;
@@ -234,40 +250,38 @@ final class StreamProcessor implements DataSource {
   private static final class PutData {
     FeatureRequestor.AllData data;
     
-    public PutData() {
-      
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public PutData() { }
   }
   
   private static final class PatchData {
     String path;
     JsonElement data;
 
-    public PatchData() {
-
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public PatchData() { }
   }
 
   private static final class DeleteData {
     String path;
     int version;
 
-    public DeleteData() {
-
-    }
+    @SuppressWarnings("unused") // used by Gson
+    public DeleteData() { }
   }
   
   private class DefaultEventSourceCreator implements EventSourceCreator {
-    public EventSource createEventSource(final LDConfig config, EventHandler handler, URI streamUri, ConnectionErrorHandler errorHandler, Headers headers) {
+    public EventSource createEventSource(EventHandler handler, URI streamUri, Duration initialReconnectDelay,
+        ConnectionErrorHandler errorHandler, Headers headers, final HttpConfiguration httpConfig) {
       EventSource.Builder builder = new EventSource.Builder(handler, streamUri)
           .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
             public void configure(OkHttpClient.Builder builder) {
-              configureHttpClientBuilder(config, builder);
+              configureHttpClientBuilder(httpConfig, builder);
             }
           })
           .connectionErrorHandler(errorHandler)
           .headers(headers)
-          .reconnectTimeMs(config.reconnectTime.toMillis())
+          .reconnectTimeMs(initialReconnectDelay.toMillis())
           .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS)
           .connectTimeoutMs(EventSource.DEFAULT_CONNECT_TIMEOUT_MS)
           .writeTimeoutMs(EventSource.DEFAULT_WRITE_TIMEOUT_MS);

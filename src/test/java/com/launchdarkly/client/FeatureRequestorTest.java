@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLHandshakeException;
 
-import static com.launchdarkly.client.TestHttpUtil.baseConfig;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.client.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
@@ -33,12 +32,23 @@ public class FeatureRequestorTest {
   private static final String segmentsJson = "{\"" + segment1Key + "\":" + segment1Json + "}";
   private static final String allDataJson = "{\"flags\":" + flagsJson + ",\"segments\":" + segmentsJson + "}";
   
+  private DefaultFeatureRequestor makeRequestor(MockWebServer server) {
+    return makeRequestor(server, LDConfig.DEFAULT);
+    // We can always use LDConfig.DEFAULT unless we need to modify HTTP properties, since DefaultFeatureRequestor
+    // no longer uses the deprecated LDConfig.baseUri property. 
+  }
+
+  private DefaultFeatureRequestor makeRequestor(MockWebServer server, LDConfig config) {
+    URI uri = server.url("").uri();
+    return new DefaultFeatureRequestor(sdkKey, config.httpConfig, uri, true);
+  }
+
   @Test
   public void requestAllData() throws Exception {
     MockResponse resp = jsonResponse(allDataJson);
     
     try (MockWebServer server = makeStartedServer(resp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {
+      try (DefaultFeatureRequestor r = makeRequestor(server)) {
         FeatureRequestor.AllData data = r.getAllData();
         
         RecordedRequest req = server.takeRequest();
@@ -61,9 +71,9 @@ public class FeatureRequestorTest {
     MockResponse resp = jsonResponse(flag1Json);
     
     try (MockWebServer server = makeStartedServer(resp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {      
+      try (DefaultFeatureRequestor r = makeRequestor(server)) {      
         DataModel.FeatureFlag flag = r.getFlag(flag1Key);
-        
+ 
         RecordedRequest req = server.takeRequest();
         assertEquals("/sdk/latest-flags/" + flag1Key, req.getPath());
         verifyHeaders(req);
@@ -78,9 +88,9 @@ public class FeatureRequestorTest {
     MockResponse resp = jsonResponse(segment1Json);
     
     try (MockWebServer server = makeStartedServer(resp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {     
+      try (DefaultFeatureRequestor r = makeRequestor(server)) {     
         DataModel.Segment segment = r.getSegment(segment1Key);
-        
+ 
         RecordedRequest req = server.takeRequest();
         assertEquals("/sdk/latest-segments/" + segment1Key, req.getPath());
         verifyHeaders(req);
@@ -95,7 +105,7 @@ public class FeatureRequestorTest {
     MockResponse notFoundResp = new MockResponse().setResponseCode(404);
     
     try (MockWebServer server = makeStartedServer(notFoundResp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {     
+      try (DefaultFeatureRequestor r = makeRequestor(server)) {     
         try {
           r.getFlag(flag1Key);
           Assert.fail("expected exception");
@@ -111,7 +121,7 @@ public class FeatureRequestorTest {
     MockResponse notFoundResp = new MockResponse().setResponseCode(404);
     
     try (MockWebServer server = makeStartedServer(notFoundResp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {      
+      try (DefaultFeatureRequestor r = makeRequestor(server)) {      
         try {
           r.getSegment(segment1Key);
           fail("expected exception");
@@ -129,9 +139,9 @@ public class FeatureRequestorTest {
         .setHeader("Cache-Control", "max-age=1000");
     
     try (MockWebServer server = makeStartedServer(cacheableResp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(server).build())) {
+      try (DefaultFeatureRequestor r = makeRequestor(server)) {
         DataModel.FeatureFlag flag1a = r.getFlag(flag1Key);
-        
+ 
         RecordedRequest req1 = server.takeRequest();
         assertEquals("/sdk/latest-flags/" + flag1Key, req1.getPath());
         verifyHeaders(req1);
@@ -150,7 +160,7 @@ public class FeatureRequestorTest {
     MockResponse resp = jsonResponse(flag1Json);
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, basePollingConfig(serverWithCert.server).build())) {
+      try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server)) {
         try {
           r.getFlag(flag1Key);
           fail("expected exception");
@@ -167,11 +177,11 @@ public class FeatureRequestorTest {
     MockResponse resp = jsonResponse(flag1Json);
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      LDConfig config = basePollingConfig(serverWithCert.server)
+      LDConfig config = new LDConfig.Builder()
           .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
           .build();
 
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config)) {
+      try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server, config)) {
         DataModel.FeatureFlag flag = r.getFlag(flag1Key);
         verifyFlag(flag, flag1Key);
       }
@@ -184,23 +194,17 @@ public class FeatureRequestorTest {
     try (MockWebServer server = makeStartedServer(jsonResponse(flag1Json))) {
       HttpUrl serverUrl = server.url("/");
       LDConfig config = new LDConfig.Builder()
-          .baseURI(fakeBaseUri)
           .proxyHost(serverUrl.host())
           .proxyPort(serverUrl.port())
           .build();
       
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config.httpConfig, fakeBaseUri, true)) {
         DataModel.FeatureFlag flag = r.getFlag(flag1Key);
         verifyFlag(flag, flag1Key);
         
         assertEquals(1, server.getRequestCount());
       }
     }
-  }
-  
-  private LDConfig.Builder basePollingConfig(MockWebServer server) {
-    return baseConfig(server)
-        .stream(false);
   }
   
   private void verifyHeaders(RecordedRequest req) {

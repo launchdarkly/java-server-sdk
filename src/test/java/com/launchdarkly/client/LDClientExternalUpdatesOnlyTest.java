@@ -9,17 +9,16 @@ import java.io.IOException;
 
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
-import static com.launchdarkly.client.TestUtil.initedDataStore;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class LDClientLddModeTest {
+public class LDClientExternalUpdatesOnlyTest {
   @Test
-  public void lddModeClientHasNullDataSource() throws IOException {
+  public void externalUpdatesOnlyClientHasNullDataSource() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .useLdd(true)
+        .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
       assertEquals(Components.NullDataSource.class, client.dataSource.getClass());
@@ -27,9 +26,9 @@ public class LDClientLddModeTest {
   }
 
   @Test
-  public void lddModeClientHasDefaultEventProcessor() throws IOException {
+  public void externalUpdatesOnlyClientHasDefaultEventProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .useLdd(true)
+        .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
       assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
@@ -37,20 +36,20 @@ public class LDClientLddModeTest {
   }
 
   @Test
-  public void lddModeClientIsInitialized() throws IOException {
+  public void externalUpdatesOnlyClientIsInitialized() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .useLdd(true)
+        .dataSource(Components.externalUpdatesOnly())
         .build();
-    try (LDClient client = new LDClient("SDK_KEY", config)) {
+    try (LDClient client = new LDClient("SDK_KEY", config)) {    
       assertTrue(client.initialized());
     }
   }
-  
+
   @Test
-  public void lddModeClientGetsFlagFromDataStore() throws IOException {
-    DataStore testDataStore = initedDataStore();
+  public void externalUpdatesOnlyClientGetsFlagFromDataStore() throws IOException {
+    DataStore testDataStore = TestUtil.initedDataStore();
     LDConfig config = new LDConfig.Builder()
-        .useLdd(true)
+        .dataSource(Components.externalUpdatesOnly())
         .dataStore(specificDataStore(testDataStore))
         .build();
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));

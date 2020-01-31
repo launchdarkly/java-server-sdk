@@ -10,8 +10,8 @@ import java.util.UUID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+@SuppressWarnings("javadoc")
 public class DiagnosticIdTest {
-
   private static final Gson gson = new Gson();
 
   @Test

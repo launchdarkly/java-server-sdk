@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
@@ -24,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Future;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -150,6 +152,13 @@ public class TestUtil {
     public Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> build() {
       return data;
     }
+    
+    // Silly casting helper due to difference in generic signatures between FeatureStore and FeatureStoreCore
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public Map<VersionedDataKind<?>, Map<String, VersionedData>> buildUnchecked() {
+      Map uncheckedMap = data;
+      return (Map<VersionedDataKind<?>, Map<String, VersionedData>>)uncheckedMap;
+    }
   }
   
   public static Evaluator.EvalResult simpleEvaluation(int variation, LDValue value) {
@@ -219,5 +228,20 @@ public class TestUtil {
         return true;
       }
     };
+  }
+
+  static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate, boolean inlineUsersInEvents,
+      Set<String> privateAttrNames) {
+    return new EventsConfiguration(
+        allAttributesPrivate,
+        0, null, EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
+        inlineUsersInEvents,
+        privateAttrNames,
+        0, 0, EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL,
+        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL);
+  }
+
+  static EventsConfiguration defaultEventsConfig() {
+    return makeEventsConfig(false, false, null);
   }
 }

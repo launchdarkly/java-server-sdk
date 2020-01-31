@@ -18,7 +18,7 @@ import java.util.List;
  * <p>
  * For more details, see {@link FileData}.
  * 
- * @since 4.11.0
+ * @since 4.12.0
  */
 public final class FileDataSourceBuilder implements DataSourceFactory {
   private final List<Path> sources = new ArrayList<>();

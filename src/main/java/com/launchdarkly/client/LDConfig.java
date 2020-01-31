@@ -1,7 +1,5 @@
 package com.launchdarkly.client;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStoreFactory;
 import com.launchdarkly.client.interfaces.EventProcessor;
@@ -14,9 +12,6 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
@@ -29,92 +24,35 @@ import okhttp3.Credentials;
  */
 public final class LDConfig {
   private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
-  final Gson gson = new GsonBuilder().registerTypeAdapter(LDUser.class, new LDUser.UserAdapterWithPrivateAttributeBehavior(this)).create();
 
   static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
   static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
-  private static final int DEFAULT_CAPACITY = 10000;
+
   private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(2);
   private static final Duration DEFAULT_SOCKET_TIMEOUT = Duration.ofSeconds(10);
-  private static final Duration DEFAULT_FLUSH_INTERVAL = Duration.ofSeconds(5);
-  private static final Duration MIN_POLLING_INTERVAL = Duration.ofSeconds(30);
   private static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
-  private static final int DEFAULT_USER_KEYS_CAPACITY = 1000;
-  private static final Duration DEFAULT_USER_KEYS_FLUSH_INTERVAL = Duration.ofMinutes(5);
-  private static final Duration DEFAULT_RECONNECT_TIME = Duration.ofSeconds(1);
-  private static final Duration DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL = Duration.ofMinutes(15);
-  private static final Duration MIN_DIAGNOSTIC_RECORDING_INTERVAL = Duration.ofMinutes(1);
-
+  
   protected static final LDConfig DEFAULT = new Builder().build();
 
-  final URI baseURI;
-  final URI eventsURI;
-  final URI streamURI;
-  final int capacity;
-  final Duration flushInterval;
-  final Proxy proxy;
-  final Authenticator proxyAuthenticator;
-  final boolean stream;
-  final DataStoreFactory dataStoreFactory;
-  final EventProcessorFactory eventProcessorFactory;
   final DataSourceFactory dataSourceFactory;
-  final boolean useLdd;
-  final boolean offline;
-  final boolean allAttributesPrivate;
-  final Set<String> privateAttrNames;
-  final boolean sendEvents;
-  final Duration pollingInterval;
-  final Duration startWait;
-  final Duration reconnectTime;
-  final int userKeysCapacity;
-  final Duration userKeysFlushInterval;
-  final boolean inlineUsersInEvents;
-  final Duration diagnosticRecordingInterval;
+  final DataStoreFactory dataStoreFactory;
   final boolean diagnosticOptOut;
-  final String wrapperName;
-  final String wrapperVersion;
-  final SSLSocketFactory sslSocketFactory;
-  final X509TrustManager trustManager;
-  final Duration connectTimeout;
-  final Duration socketTimeout;
-  
+  final EventProcessorFactory eventProcessorFactory;
+  final HttpConfiguration httpConfig;
+  final boolean offline;
+  final Duration startWait;
+
   protected LDConfig(Builder builder) {
-    this.baseURI = builder.baseURI;
-    this.eventsURI = builder.eventsURI;
-    this.capacity = builder.capacity;
-    this.flushInterval = builder.flushInterval;
-    this.proxy = builder.proxy();
-    this.proxyAuthenticator = builder.proxyAuthenticator();
-    this.streamURI = builder.streamURI;
-    this.stream = builder.stream;
     this.dataStoreFactory = builder.dataStoreFactory;
     this.eventProcessorFactory = builder.eventProcessorFactory;
     this.dataSourceFactory = builder.dataSourceFactory;
-    this.useLdd = builder.useLdd;
-    this.offline = builder.offline;
-    this.allAttributesPrivate = builder.allAttributesPrivate;
-    this.privateAttrNames = new HashSet<>(builder.privateAttrNames);
-    this.sendEvents = builder.sendEvents;
-    if (builder.pollingInterval.compareTo(MIN_POLLING_INTERVAL) < 0) {
-      this.pollingInterval = MIN_POLLING_INTERVAL;
-    } else {
-      this.pollingInterval = builder.pollingInterval;
-    }
-    this.startWait = builder.startWait;
-    this.reconnectTime = builder.reconnectTime;
-    this.userKeysCapacity = builder.userKeysCapacity;
-    this.userKeysFlushInterval = builder.userKeysFlushInterval;
-    this.inlineUsersInEvents = builder.inlineUsersInEvents;
-    this.sslSocketFactory = builder.sslSocketFactory;
-    this.trustManager = builder.trustManager;
-    this.connectTimeout = builder.connectTimeout;
-    this.socketTimeout = builder.socketTimeout;
     this.diagnosticOptOut = builder.diagnosticOptOut;
-    this.diagnosticRecordingInterval = builder.diagnosticRecordingInterval;
-    this.wrapperName = builder.wrapperName;
-    this.wrapperVersion = builder.wrapperVersion;
-    
+    this.offline = builder.offline;
+    this.startWait = builder.startWait;
+
+    Proxy proxy = builder.proxy();
+    Authenticator proxyAuthenticator = builder.proxyAuthenticator();
     if (proxy != null) {
       if (proxyAuthenticator != null) {
         logger.info("Using proxy: " + proxy + " with authentication.");
@@ -122,39 +60,20 @@ public final class LDConfig {
         logger.info("Using proxy: " + proxy + " without authentication.");
       }
     }
+    
+    this.httpConfig = new HttpConfiguration(builder.connectTimeout, proxy, proxyAuthenticator,
+        builder.socketTimeout, builder.sslSocketFactory, builder.trustManager,
+        builder.wrapperName, builder.wrapperVersion);
   }
-
+  
   LDConfig(LDConfig config) {
-    this.baseURI = config.baseURI;
-    this.eventsURI = config.eventsURI;
-    this.streamURI = config.streamURI;
-    this.capacity = config.capacity;
-    this.flushInterval = config.flushInterval;
-    this.proxy = config.proxy;
-    this.proxyAuthenticator = config.proxyAuthenticator;
-    this.stream = config.stream;
     this.dataSourceFactory = config.dataSourceFactory;
     this.dataStoreFactory = config.dataStoreFactory;
-    this.eventProcessorFactory = config.eventProcessorFactory;
-    this.useLdd = config.useLdd;
-    this.offline = config.offline;
-    this.allAttributesPrivate = config.allAttributesPrivate;
-    this.privateAttrNames = config.privateAttrNames;
-    this.sendEvents = config.sendEvents;
-    this.pollingInterval = config.pollingInterval;
-    this.startWait = config.startWait;
-    this.reconnectTime = config.reconnectTime;
-    this.userKeysCapacity = config.userKeysCapacity;
-    this.userKeysFlushInterval = config.userKeysFlushInterval;
-    this.inlineUsersInEvents = config.inlineUsersInEvents;
-    this.sslSocketFactory = config.sslSocketFactory;
-    this.trustManager = config.trustManager;
-    this.connectTimeout = config.connectTimeout;
-    this.socketTimeout = config.socketTimeout;
-    this.diagnosticRecordingInterval = config.diagnosticRecordingInterval;
     this.diagnosticOptOut = config.diagnosticOptOut;
-    this.wrapperName = config.wrapperName;
-    this.wrapperVersion = config.wrapperVersion;
+    this.eventProcessorFactory = config.eventProcessorFactory;
+    this.httpConfig = config.httpConfig;
+    this.offline = config.offline;
+    this.startWait = config.startWait;
   }
 
   /**
@@ -169,36 +88,20 @@ public final class LDConfig {
    * </pre>
    */
   public static class Builder {
-    private URI baseURI = DEFAULT_BASE_URI;
-    private URI eventsURI = DEFAULT_EVENTS_URI;
-    private URI streamURI = DEFAULT_STREAM_URI;
     private Duration connectTimeout = DEFAULT_CONNECT_TIMEOUT;
-    private Duration socketTimeout = DEFAULT_SOCKET_TIMEOUT;
-    private int capacity = DEFAULT_CAPACITY;
-    private Duration flushInterval = DEFAULT_FLUSH_INTERVAL;
+    private DataSourceFactory dataSourceFactory = null;
+    private DataStoreFactory dataStoreFactory = null;
+    private boolean diagnosticOptOut = false;
+    private EventProcessorFactory eventProcessorFactory = null;
+    private boolean offline = false;
     private String proxyHost = "localhost";
     private int proxyPort = -1;
     private String proxyUsername = null;
     private String proxyPassword = null;
-    private boolean stream = true;
-    private boolean useLdd = false;
-    private boolean offline = false;
-    private boolean allAttributesPrivate = false;
-    private boolean sendEvents = true;
-    private Duration pollingInterval = MIN_POLLING_INTERVAL;
-    private DataStoreFactory dataStoreFactory = Components.inMemoryDataStore();
-    private EventProcessorFactory eventProcessorFactory = Components.defaultEventProcessor();
-    private DataSourceFactory dataSourceFactory = Components.defaultDataSource();
+    private Duration socketTimeout = DEFAULT_SOCKET_TIMEOUT;
     private Duration startWait = DEFAULT_START_WAIT;
-    private Duration reconnectTime = DEFAULT_RECONNECT_TIME;
-    private Set<String> privateAttrNames = new HashSet<>();
-    private int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
-    private Duration userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL;
-    private boolean inlineUsersInEvents = false;
     private SSLSocketFactory sslSocketFactory = null;
     private X509TrustManager trustManager = null;
-    private boolean diagnosticOptOut = false;
-    private Duration diagnosticRecordingInterval = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL;
     private String wrapperName = null;
     private String wrapperVersion = null;
 
@@ -207,94 +110,7 @@ public final class LDConfig {
      */
     public Builder() {
     }
-
-    /**
-     * Set the base URL of the LaunchDarkly server for this configuration.
-     *
-     * @param baseURI the base URL of the LaunchDarkly server for this configuration.
-     * @return the builder
-     */
-    public Builder baseURI(URI baseURI) {
-      this.baseURI = baseURI;
-      return this;
-    }
-
-    /**
-     * Set the base URL of the LaunchDarkly analytics event server for this configuration.
-     *
-     * @param eventsURI the events URL of the LaunchDarkly server for this configuration
-     * @return the builder
-     */
-    public Builder eventsURI(URI eventsURI) {
-      this.eventsURI = eventsURI;
-      return this;
-    }
-
-    /**
-     * Set the base URL of the LaunchDarkly streaming server for this configuration.
-     *
-     * @param streamURI the base URL of the LaunchDarkly streaming server
-     * @return the builder
-     */
-    public Builder streamURI(URI streamURI) {
-      this.streamURI = streamURI;
-      return this;
-    }
-
-    /**
-     * Sets the implementation of the data store to be used for holding feature flags and
-     * related data received from LaunchDarkly, using a factory object. The default is
-     * {@link Components#inMemoryDataStore()}; for database integrations, use
-     * {@link Components#persistentDataStore(com.launchdarkly.client.interfaces.PersistentDataStoreFactory)}.
-     * 
-     * @param factory the factory object
-     * @return the builder
-     * @since 4.11.0
-     */
-    public Builder dataStore(DataStoreFactory factory) {
-      this.dataStoreFactory = factory;
-      return this;
-    }
     
-    /**
-     * Sets the implementation of {@link EventProcessor} to be used for processing analytics events,
-     * using a factory object. The default is {@link Components#defaultEventProcessor()}, but
-     * you may choose to use a custom implementation (for instance, a test fixture).
-     * @param factory the factory object
-     * @return the builder
-     * @since 4.11.0
-     */
-    public Builder eventProcessor(EventProcessorFactory factory) {
-      this.eventProcessorFactory = factory;
-      return this;
-    }
-    
-    /**
-     * Sets the implementation of the component that receives feature flag data from LaunchDarkly,
-     * using a factory object. The default is {@link Components#defaultDataSource()}, but
-     * you may choose to use a custom implementation (for instance, a test fixture).
-     * 
-     * @param factory the factory object
-     * @return the builder
-     * @since 4.11.0
-     */
-    public Builder dataSource(DataSourceFactory factory) {
-      this.dataSourceFactory = factory;
-      return this;
-    }
-    
-    /**
-     * Set whether streaming mode should be enabled. By default, streaming is enabled. It should only be
-     * disabled on the advice of LaunchDarkly support.
-     *
-     * @param stream whether streaming mode should be enabled
-     * @return the builder
-     */
-    public Builder stream(boolean stream) {
-      this.stream = stream;
-      return this;
-    }
-
     /**
      * Set the connection timeout for the configuration. This is the time allowed for the underlying HTTP client to connect
      * to the LaunchDarkly server. The default is 2 seconds.
@@ -308,38 +124,90 @@ public final class LDConfig {
     }
 
     /**
-     * Set the socket timeout for the configuration. This is the number of seconds between successive packets that the
-     * client will tolerate before flagging an error. The default is 10 seconds.
-     *
-     * @param socketTimeout the socket timeout; null to use the default
+     * Sets the implementation of the component that receives feature flag data from LaunchDarkly,
+     * using a factory object. Depending on the implementation, the factory may be a builder that
+     * allows you to set other configuration options as well.
+     * <p>
+     * The default is {@link Components#streamingDataSource()}. You may instead use
+     * {@link Components#pollingDataSource()}, or a test fixture such as
+     * {@link com.launchdarkly.client.integrations.FileData#dataSource()}. See those methods
+     * for details on how to configure them.
+     * 
+     * @param factory the factory object
      * @return the builder
+     * @since 4.12.0
      */
-    public Builder socketTimeout(Duration socketTimeout) {
-      this.socketTimeout = socketTimeout == null ? DEFAULT_SOCKET_TIMEOUT : socketTimeout;
+    public Builder dataSource(DataSourceFactory factory) {
+      this.dataSourceFactory = factory;
       return this;
     }
 
     /**
-     * Set the interval between flushes of the event buffer. Decreasing the flush interval means
-     * that the event buffer is less likely to reach capacity. The default value is 5 seconds.
-     *
-     * @param flushInterval the flush interval; null to use the default
+     * Sets the implementation of the data store to be used for holding feature flags and
+     * related data received from LaunchDarkly, using a factory object. The default is
+     * {@link Components#inMemoryDataStore()}; for database integrations, use
+     * {@link Components#persistentDataStore(com.launchdarkly.client.interfaces.PersistentDataStoreFactory)}.
+     * 
+     * @param factory the factory object
      * @return the builder
+     * @since 4.12.0
      */
-    public Builder flushInterval(Duration flushInterval) {
-      this.flushInterval = flushInterval == null ? DEFAULT_FLUSH_INTERVAL : flushInterval;
+    public Builder dataStore(DataStoreFactory factory) {
+      this.dataStoreFactory = factory;
       return this;
     }
 
     /**
-     * Set the capacity of the events buffer. The client buffers up to this many events in memory before flushing. If the capacity is exceeded before the buffer is flushed, events will be discarded.
-     * Increasing the capacity means that events are less likely to be discarded, at the cost of consuming more memory. The default value is 10000 elements. The default flush interval (set by flushInterval) is 5 seconds.
+     * Set to true to opt out of sending diagnostics data.
+     * <p>
+     * Unless {@code diagnosticOptOut} is set to true, the client will send some diagnostics data to the
+     * LaunchDarkly servers in order to assist in the development of future SDK improvements. These diagnostics
+     * consist of an initial payload containing some details of SDK in use, the SDK's configuration, and the platform
+     * the SDK is being run on; as well as payloads sent periodically with information on irregular occurrences such
+     * as dropped events.
      *
-     * @param capacity the capacity of the event buffer
+     * @see com.launchdarkly.client.integrations.EventProcessorBuilder#diagnosticRecordingInterval(Duration)
+     *
+     * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data
+     * @return the builder
+     * @since 4.12.0
+     */
+    public Builder diagnosticOptOut(boolean diagnosticOptOut) {
+      this.diagnosticOptOut = diagnosticOptOut;
+      return this;
+    }
+
+    /**
+     * Sets the implementation of {@link EventProcessor} to be used for processing analytics events.
+     * <p>
+     * The default is {@link Components#sendEvents()}, but you may choose to use a custom implementation
+     * (for instance, a test fixture), or disable events with {@link Components#noEvents()}.
+     * 
+     * @param factory a builder/factory object for event configuration
+     * @return the builder
+     * @since 4.12.0
+     */
+    public Builder events(EventProcessorFactory factory) {
+      this.eventProcessorFactory = factory;
+      return this;
+    }
+
+    /**
+     * Set whether this client is offline.
+     * <p>
+     * In offline mode, the SDK will not make network connections to LaunchDarkly for any purpose. Feature
+     * flag data will only be available if it already exists in the data store, and analytics events will
+     * not be sent.
+     * <p>
+     * This is equivalent to calling {@code dataSource(Components.externalUpdatesOnly())} and
+     * {@code events(Components.noEvents())}. It overrides any other values you may have set for
+     * {@link #dataSource(DataSourceFactory)} or {@link #events(EventProcessorFactory)}.
+     * 
+     * @param offline when set to true no calls to LaunchDarkly will be made
      * @return the builder
      */
-    public Builder capacity(int capacity) {
-      this.capacity = capacity;
+    public Builder offline(boolean offline) {
+      this.offline = offline;
       return this;
     }
 
@@ -395,6 +263,18 @@ public final class LDConfig {
     }
 
     /**
+     * Set the socket timeout for the configuration. This is the number of seconds between successive packets that the
+     * client will tolerate before flagging an error. The default is 10 seconds.
+     *
+     * @param socketTimeout the socket timeout; null to use the default
+     * @return the builder
+     */
+    public Builder socketTimeout(Duration socketTimeout) {
+      this.socketTimeout = socketTimeout == null ? DEFAULT_SOCKET_TIMEOUT : socketTimeout;
+      return this;
+    }
+
+    /**
      * Sets the {@link SSLSocketFactory} used to secure HTTPS connections to LaunchDarkly.
      *
      * @param sslSocketFactory the SSL socket factory
@@ -406,66 +286,6 @@ public final class LDConfig {
     public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
       this.sslSocketFactory = sslSocketFactory;
       this.trustManager = trustManager;
-      return this;
-    }
-
-    /**
-     * Set whether this client should use the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">LaunchDarkly
-     * relay</a> in daemon mode, versus subscribing to the streaming or polling API.
-     *
-     * @param useLdd true to use the relay in daemon mode; false to use streaming or polling
-     * @return the builder
-     */
-    public Builder useLdd(boolean useLdd) {
-      this.useLdd = useLdd;
-      return this;
-    }
-
-    /**
-     * Set whether this client is offline.
-     *
-     * @param offline when set to true no calls to LaunchDarkly will be made
-     * @return the builder
-     */
-    public Builder offline(boolean offline) {
-      this.offline = offline;
-      return this;
-    }
-
-    /**
-     * Set whether or not user attributes (other than the key) should be hidden from LaunchDarkly. If this is true, all
-     * user attribute values will be private, not just the attributes specified in {@link #privateAttributeNames(String...)}. By default,
-     * this is false.
-     * @param allPrivate true if all user attributes should be private
-     * @return the builder
-     */
-    public Builder allAttributesPrivate(boolean allPrivate) {
-      this.allAttributesPrivate = allPrivate;
-      return this;
-    }
-
-    /**
-     * Set whether to send events back to LaunchDarkly. By default, the client will send
-     * events. This differs from {@link #offline(boolean)} in that it only affects sending
-     * analytics events, not streaming or polling for events from the server.
-     *
-     * @param sendEvents when set to false, no events will be sent to LaunchDarkly
-     * @return the builder
-     */
-    public Builder sendEvents(boolean sendEvents) {
-      this.sendEvents = sendEvents;
-      return this;
-    }
-
-    /**
-     * Set the polling interval (when streaming is disabled). Values less than the default of
-     * 30 seconds will be set to the default.
-     *
-     * @param pollingInterval the new polling interval; null to use the default
-     * @return the builder
-     */
-    public Builder pollingInterval(Duration pollingInterval) {
-      this.pollingInterval = pollingInterval == null ? MIN_POLLING_INTERVAL : pollingInterval;
       return this;
     }
 
@@ -483,110 +303,13 @@ public final class LDConfig {
     }
 
     /**
-     * The reconnect base time for the streaming connection. The streaming connection
-     * uses an exponential backoff algorithm (with jitter) for reconnects, but will start the backoff
-     * with a value near the value specified here.
-     *
-     * @param reconnectTime the initial reconnect time; null to use the default
-     * @return the builder
-     */
-    public Builder reconnectTime(Duration reconnectTime) {
-      this.reconnectTime = reconnectTime == null ? DEFAULT_RECONNECT_TIME : reconnectTime;
-      return this;
-    }
-
-    /**
-     * Marks a set of attribute names private. Any users sent to LaunchDarkly with this configuration
-     * active will have attributes with these names removed.
-     *
-     * @param names a set of names that will be removed from user data set to LaunchDarkly
-     * @return the builder
-     */
-    public Builder privateAttributeNames(String... names) {
-      this.privateAttrNames = new HashSet<>(Arrays.asList(names));
-      return this;
-    }
-
-    /**
-     * Sets the number of user keys that the event processor can remember at any one time, so that
-     * duplicate user details will not be sent in analytics events.
-     * 
-     * @param capacity the maximum number of user keys to remember
-     * @return the builder
-     */
-    public Builder userKeysCapacity(int capacity) {
-      this.userKeysCapacity = capacity;
-      return this;
-    }
-
-    /**
-     * Sets the interval at which the event processor will reset its set of known user keys. The
-     * default value is five minutes.
-     *
-     * @param userKeysFlushInterval the flush interval; null to use the default
-     * @return the builder
-     */
-    public Builder userKeysFlushInterval(Duration userKeysFlushInterval) {
-      this.userKeysFlushInterval = userKeysFlushInterval == null ? DEFAULT_USER_KEYS_FLUSH_INTERVAL : userKeysFlushInterval;
-      return this;
-    }
-
-    /**
-     * Sets whether to include full user details in every analytics event. The default is false (events will
-     * only include the user key, except for one "index" event that provides the full details for the user).
-     * 
-     * @param inlineUsersInEvents true if you want full user details in each event
-     * @return the builder
-     */
-    public Builder inlineUsersInEvents(boolean inlineUsersInEvents) {
-      this.inlineUsersInEvents = inlineUsersInEvents;
-      return this;
-    }
-
-    /**
-     * Sets the interval at which periodic diagnostic data is sent. The default is every 15 minutes and the
-     * minimum value is every 60 seconds.
-     *
-     * @see #diagnosticOptOut(boolean)
-     *
-     * @param diagnosticRecordingInterval the diagnostics interval; null to use the default
-     * @return the builder
-     */
-    public Builder diagnosticRecordingInterval(Duration diagnosticRecordingInterval) {
-      if (diagnosticRecordingInterval == null) {
-        this.diagnosticRecordingInterval = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL;
-      } else if (diagnosticRecordingInterval.compareTo(MIN_DIAGNOSTIC_RECORDING_INTERVAL) < 0) {
-        this.diagnosticRecordingInterval = MIN_DIAGNOSTIC_RECORDING_INTERVAL;
-      } else {
-        this.diagnosticRecordingInterval = diagnosticRecordingInterval;
-      }
-      return this;
-    }
-
-    /**
-     * Set to true to opt out of sending diagnostics data.
-     *
-     * Unless the diagnosticOptOut field is set to true, the client will send some diagnostics data to the
-     * LaunchDarkly servers in order to assist in the development of future SDK improvements. These diagnostics
-     * consist of an initial payload containing some details of SDK in use, the SDK's configuration, and the platform
-     * the SDK is being run on; as well as payloads sent periodically with information on irregular occurrences such
-     * as dropped events.
-     *
-     * @param diagnosticOptOut true if you want to opt out of sending any diagnostics data
-     * @return the builder
-     */
-    public Builder diagnosticOptOut(boolean diagnosticOptOut) {
-      this.diagnosticOptOut = diagnosticOptOut;
-      return this;
-    }
-
-    /**
      * For use by wrapper libraries to set an identifying name for the wrapper being used. This will be included in a
      * header during requests to the LaunchDarkly servers to allow recording metrics on the usage of
      * these wrapper libraries.
      *
      * @param wrapperName an identifying name for the wrapper library
      * @return the builder
+     * @since 4.12.0
      */
     public Builder wrapperName(String wrapperName) {
       this.wrapperName = wrapperName;
@@ -600,6 +323,7 @@ public final class LDConfig {
      *
      * @param wrapperVersion Version string for the wrapper library
      * @return the builder
+     * @since 4.12.0
      */
     public Builder wrapperVersion(String wrapperVersion) {
       this.wrapperVersion = wrapperVersion;

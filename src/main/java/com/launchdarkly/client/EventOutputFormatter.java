@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.google.gson.Gson;
 import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.client.EventSummarizer.CounterKey;
 import com.launchdarkly.client.EventSummarizer.CounterValue;
@@ -14,11 +15,13 @@ import java.io.Writer;
  * Rather than creating intermediate objects to represent this schema, we use the Gson streaming
  * output API to construct JSON directly.
  */
-class EventOutputFormatter {
-  private final LDConfig config;
+final class EventOutputFormatter {
+  private final EventsConfiguration config;
+  private final Gson gson;
   
-  EventOutputFormatter(LDConfig config) {
+  EventOutputFormatter(EventsConfiguration config) {
     this.config = config;
+    this.gson = JsonHelpers.gsonInstanceForEventsSerialization(config);
   }
   
   int writeOutputEvents(Event[] events, EventSummarizer.EventSummary summary, Writer writer) throws IOException {
@@ -181,7 +184,7 @@ class EventOutputFormatter {
     jw.name("user");
     // config.gson is already set up to use our custom serializer, which knows about private attributes
     // and already uses the streaming approach
-    config.gson.toJson(user, LDUser.class, jw);
+    gson.toJson(user, LDUser.class, jw);
   }
   
   private void writeLDValue(String key, LDValue value, JsonWriter jw) throws IOException {
@@ -189,7 +192,7 @@ class EventOutputFormatter {
       return;
     }
     jw.name(key);
-    config.gson.toJson(value, LDValue.class, jw); // LDValue defines its own custom serializer
+    gson.toJson(value, LDValue.class, jw); // LDValue defines its own custom serializer
   }
   
   // This logic is so that we don't have to define multiple custom serializers for the various reason subclasses.

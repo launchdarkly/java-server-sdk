@@ -1,14 +1,16 @@
 package com.launchdarkly.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataStore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -19,19 +21,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.launchdarkly.client.Util.httpErrorMessage;
 import static com.launchdarkly.client.Util.isHttpErrorRecoverable;
 
-class PollingProcessor implements DataSource {
+final class PollingProcessor implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
-  private final FeatureRequestor requestor;
-  private final LDConfig config;
+  @VisibleForTesting final FeatureRequestor requestor;
   private final DataStore store;
+  @VisibleForTesting final Duration pollInterval;
   private AtomicBoolean initialized = new AtomicBoolean(false);
   private ScheduledExecutorService scheduler = null;
 
-  PollingProcessor(LDConfig config, FeatureRequestor requestor, DataStore dataStore) {
-    this.requestor = requestor;
-    this.config = config;
-    this.store = dataStore;
+  PollingProcessor(FeatureRequestor requestor, DataStore featureStore, Duration pollInterval) {
+    this.requestor = requestor; // note that HTTP configuration is applied to the requestor when it is created
+    this.store = featureStore;
+    this.pollInterval = pollInterval;
   }
 
   @Override
@@ -42,14 +44,16 @@ class PollingProcessor implements DataSource {
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly PollingProcessor");
-    scheduler.shutdown();
+    if (scheduler != null) {
+      scheduler.shutdown();
+    }
     requestor.close();
   }
 
   @Override
   public Future<Void> start() {
     logger.info("Starting LaunchDarkly polling client with interval: "
-        + config.pollingInterval.toMillis() + " milliseconds");
+        + pollInterval.toMillis() + " milliseconds");
     final SettableFuture<Void> initFuture = SettableFuture.create();
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setNameFormat("LaunchDarkly-PollingProcessor-%d")
@@ -74,7 +78,7 @@ class PollingProcessor implements DataSource {
         logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
         logger.debug(e.toString(), e);
       }
-    }, 0L, config.pollingInterval.toMillis(), TimeUnit.MILLISECONDS);
+    }, 0L, pollInterval.toMillis(), TimeUnit.MILLISECONDS);
 
     return initFuture;
   }

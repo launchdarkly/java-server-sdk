@@ -2,6 +2,33 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.12.0] - 2020-01-30
+The primary purpose of this release is to introduce newer APIs for the existing SDK features, corresponding to how they will work in the upcoming 5.0 release. The corresponding older APIs are now deprecated; switching from them to the newer ones now will facilitate migrating to 5.0 in the future. See below for details.
+
+This release also adds diagnostic reporting as described below.
+
+Note: if you are using the LaunchDarkly Relay Proxy to forward events, update the Relay to version 5.10.0 or later before updating to this Java SDK version.
+
+### Added:
+- The SDK now periodically sends diagnostic data to LaunchDarkly, describing the version and configuration of the SDK, the architecture and version of the runtime platform, and performance statistics. No credentials, hostnames, or other identifiable values are included. This behavior can be disabled with `LDConfig.Builder.diagnosticOptOut()` or configured with `EventProcessorBuilder.diagnosticRecordingInterval()`.
+- Previously, most configuration options were set by setter methods in `LDConfig.Builder`. These are being superseded by builders that are specific to one area of functionality: for instance, `Components.streamingDataSource()` and `Components.pollingDataSource()` provide builders/factories that have options specific to streaming or polling, and the SDK's many options related to analytics events are now in a builder returned by `Components.sendEvents()`. Using this newer API makes it clearer which options are for what, and makes it impossible to write contradictory configurations like `.stream(true).pollingIntervalMillis(30000)`.
+- The component "feature store" will be renamed to "data store". The interface for this is still called `FeatureStore` for backward compatibility, but `LDConfig.Builder` now has a `dataStore` method.
+- There is a new API for specifying a _persistent_ data store (usually a database integration). This is now done using the new method `Components.persistentDataStore` and one of the new integration factories in the new package `com.launchdarkly.client.integrations`. The `Redis` class in that package provides the Redis integration; the next releases of the Consul and DynamoDB integrations will use the same semantics.
+- The component "update processor" will be renamed to "data source". Applications normally do not need to use this interface except for the "file data source" testing component; the new entry point for this is `FileData` in `com.launchdarkly.client.integrations`.
+- It is now possible to specify an infinite cache TTL for persistent feature stores by setting the TTL to a negative number, in which case the persistent store will never be read unless the application restarts. Use this mode with caution as described in the comment for `PersistentDataStoreBuilder.cacheForever()`.
+- New `LDConfig.Builder` setters `wrapperName()` and `wrapperVersion()` allow a library that uses the Java SDK to identify itself for usage data if desired.
+
+### Fixed:
+- The Redis integration could fail to connect to Redis if the application did not explicitly specify a Redis URI. This has been fixed so it will default to `redis://localhost:6379` as documented.
+- The `getCacheStats()` method on the deprecated `RedisFeatureStore` class was not working (the statistics were always zero). Note that in the newer persistent store API added in this version, there is now a different way to get cache statistics.
+
+### Deprecated:
+- Many `LDConfig.Builder` methods: see notes under "Added", and the per-method notes in Javadoc.
+- `RedisFeatureStore` and `RedisFeatureStoreBuilder` in `com.launchdarkly.client`: see `Redis` in `com.launchdarkly.client.integrations`.
+- `FileComponents` in `com.launchdarkly.client.files`: see `FileData` in `com.launchdarkly.client.integrations`.
+- `FeatureStoreCacheConfig`: see `PersistentDataStoreBuilder`.
+
+
 ## [4.11.1] - 2020-01-17
 ### Fixed:
 - Flag evaluation would fail (with a NullPointerException that would be logged, but not thrown to the caller) if a flag rule used a semantic version operator and the specified user attribute did not have a string value.

@@ -1,28 +1,58 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
+import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
 
 import org.junit.Test;
 
 import java.io.IOException;
+import java.net.URI;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 @SuppressWarnings("javadoc")
 public class PollingProcessorTest {
+  private static final String SDK_KEY = "sdk-key";
+  private static final Duration LENGTHY_INTERVAL = Duration.ofSeconds(60);
+  
+  @Test
+  public void builderHasDefaultConfiguration() throws Exception {
+    DataSourceFactory f = Components.pollingDataSource();
+    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(SDK_KEY, LDConfig.DEFAULT, null)) {
+      assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
+      assertThat(pp.pollInterval, equalTo(PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL));
+    }
+  }
+
+  @Test
+  public void builderCanSpecifyConfiguration() throws Exception {
+    URI uri = URI.create("http://fake");
+    DataSourceFactory f = Components.pollingDataSource()
+        .baseURI(uri)
+        .pollInterval(LENGTHY_INTERVAL);
+    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(SDK_KEY, LDConfig.DEFAULT, null)) {
+      assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(uri));
+      assertThat(pp.pollInterval, equalTo(LENGTHY_INTERVAL));
+    }
+  }
+  
   @Test
   public void testConnectionOk() throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.allData = new FeatureRequestor.AllData(new HashMap<String, DataModel.FeatureFlag>(), new HashMap<String, DataModel.Segment>());
     DataStore store = new InMemoryDataStore();
     
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {    
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, store, LENGTHY_INTERVAL)) {    
       Future<Void> initFuture = pollingProcessor.start();
       initFuture.get(1000, TimeUnit.MILLISECONDS);
       assertTrue(pollingProcessor.initialized());
@@ -36,7 +66,7 @@ public class PollingProcessorTest {
     requestor.ioException = new IOException("This exception is part of a test and yes you should be seeing it.");
     DataStore store = new InMemoryDataStore();
 
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, store)) {
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, store, LENGTHY_INTERVAL)) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200L, TimeUnit.MILLISECONDS);
@@ -82,7 +112,7 @@ public class PollingProcessorTest {
   private void testUnrecoverableHttpError(int status) throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.httpException = new HttpErrorException(status);
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryDataStore())) {  
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, new InMemoryDataStore(), LENGTHY_INTERVAL)) {  
       long startTime = System.currentTimeMillis();
       Future<Void> initFuture = pollingProcessor.start();
       try {
@@ -99,7 +129,7 @@ public class PollingProcessorTest {
   private void testRecoverableHttpError(int status) throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.httpException = new HttpErrorException(status);
-    try (PollingProcessor pollingProcessor = new PollingProcessor(LDConfig.DEFAULT, requestor, new InMemoryDataStore())) {
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, new InMemoryDataStore(), LENGTHY_INTERVAL)) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200, TimeUnit.MILLISECONDS);

@@ -1,5 +1,6 @@
 package com.launchdarkly.client.integrations;
 
+import com.launchdarkly.client.Components;
 import com.launchdarkly.client.LDClient;
 import com.launchdarkly.client.LDConfig;
 import com.launchdarkly.client.LDUser;
@@ -24,7 +25,7 @@ public class ClientWithFileDataSourceTest {
         .filePaths(resourceFilePath("all-properties.json"));
     LDConfig config = new LDConfig.Builder()
         .dataSource(fdsb)
-        .sendEvents(false)
+        .events(Components.noEvents())
         .build();
     return new LDClient("sdkKey", config);
   }

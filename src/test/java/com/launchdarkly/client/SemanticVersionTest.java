@@ -5,8 +5,8 @@ import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
+@SuppressWarnings("javadoc")
 public class SemanticVersionTest {
-
   @Test
   public void canParseSimpleCompleteVersion() throws Exception {
     SemanticVersion sv = SemanticVersion.parse("2.3.4");
