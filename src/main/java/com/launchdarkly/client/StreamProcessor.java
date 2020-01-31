@@ -40,7 +40,7 @@ final class StreamProcessor implements DataSource {
   private static final String INDIRECT_PUT = "indirect/put";
   private static final String INDIRECT_PATCH = "indirect/patch";
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
-  private static final int DEAD_CONNECTION_INTERVAL_MS = 300 * 1000;
+  private static final Duration DEAD_CONNECTION_INTERVAL = Duration.ofSeconds(300);
 
 private final DataStore store;
   private final HttpConfiguration httpConfig;
@@ -281,10 +281,8 @@ private final DataStore store;
           })
           .connectionErrorHandler(errorHandler)
           .headers(headers)
-          .reconnectTimeMs(initialReconnectDelay.toMillis())
-          .readTimeoutMs(DEAD_CONNECTION_INTERVAL_MS)
-          .connectTimeoutMs(EventSource.DEFAULT_CONNECT_TIMEOUT_MS)
-          .writeTimeoutMs(EventSource.DEFAULT_WRITE_TIMEOUT_MS);
+          .reconnectTime(initialReconnectDelay)
+          .readTimeout(DEAD_CONNECTION_INTERVAL);
       // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
       // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
       // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
