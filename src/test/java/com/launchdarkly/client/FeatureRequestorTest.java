@@ -178,7 +178,7 @@ public class FeatureRequestorTest {
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
       LDConfig config = new LDConfig.Builder()
-          .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
+          .sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager) // allows us to trust the self-signed cert
           .build();
 
       try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server, config)) {
