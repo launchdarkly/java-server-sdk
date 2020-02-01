@@ -2,8 +2,8 @@ package com.launchdarkly.client.integrations;
 
 import com.launchdarkly.client.InMemoryDataStore;
 import com.launchdarkly.client.LDConfig;
-import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataStore;
 
 import org.junit.Test;
 
@@ -15,6 +15,7 @@ import java.util.concurrent.Future;
 
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
+import static com.launchdarkly.client.TestUtil.clientContext;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.ALL_FLAG_KEYS;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.ALL_SEGMENT_KEYS;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.getResourceContents;
@@ -38,10 +39,14 @@ public class FileDataSourceTest {
   private static FileDataSourceBuilder makeFactoryWithFile(Path path) {
     return FileData.dataSource().filePaths(path);
   }
+
+  private DataSource makeDataSource(FileDataSourceBuilder builder) {
+    return builder.createDataSource(clientContext("", config), store);
+  }
   
   @Test
   public void flagsAreNotLoadedUntilStart() throws Exception {
-    try (DataSource fp = factory.createDataSource("", config, store)) {
+    try (DataSource fp = makeDataSource(factory)) {
       assertThat(store.initialized(), equalTo(false));
       assertThat(store.all(FEATURES).size(), equalTo(0));
       assertThat(store.all(SEGMENTS).size(), equalTo(0));
@@ -50,7 +55,7 @@ public class FileDataSourceTest {
   
   @Test
   public void flagsAreLoadedOnStart() throws Exception {
-    try (DataSource fp = factory.createDataSource("", config, store)) {
+    try (DataSource fp = makeDataSource(factory)) {
       fp.start();
       assertThat(store.initialized(), equalTo(true));
       assertThat(store.all(FEATURES).keySet(), equalTo(ALL_FLAG_KEYS));
@@ -60,7 +65,7 @@ public class FileDataSourceTest {
   
   @Test
   public void startFutureIsCompletedAfterSuccessfulLoad() throws Exception {
-    try (DataSource fp = factory.createDataSource("", config, store)) {
+    try (DataSource fp = makeDataSource(factory)) {
       Future<Void> future = fp.start();
       assertThat(future.isDone(), equalTo(true));
     }
@@ -68,7 +73,7 @@ public class FileDataSourceTest {
   
   @Test
   public void initializedIsTrueAfterSuccessfulLoad() throws Exception {
-    try (DataSource fp = factory.createDataSource("", config, store)) {
+    try (DataSource fp = makeDataSource(factory)) {
       fp.start();
       assertThat(fp.initialized(), equalTo(true));
     }
@@ -77,7 +82,7 @@ public class FileDataSourceTest {
   @Test
   public void startFutureIsCompletedAfterUnsuccessfulLoad() throws Exception {
     factory.filePaths(badFilePath);
-    try (DataSource fp = factory.createDataSource("", config, store)) {
+    try (DataSource fp = makeDataSource(factory)) {
       Future<Void> future = fp.start();
       assertThat(future.isDone(), equalTo(true));
     }
@@ -86,7 +91,7 @@ public class FileDataSourceTest {
   @Test
   public void initializedIsFalseAfterUnsuccessfulLoad() throws Exception {
     factory.filePaths(badFilePath);
-    try (DataSource fp = factory.createDataSource("", config, store)) {
+    try (DataSource fp = makeDataSource(factory)) {
       fp.start();
       assertThat(fp.initialized(), equalTo(false));
     }
@@ -98,7 +103,7 @@ public class FileDataSourceTest {
     FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath());
     try {
       setFileContents(file, getResourceContents("flag-only.json"));
-      try (DataSource fp = factory1.createDataSource("", config, store)) {
+      try (DataSource fp = makeDataSource(factory1)) {
         fp.start();
         setFileContents(file, getResourceContents("segment-only.json"));
         Thread.sleep(400);
@@ -120,7 +125,7 @@ public class FileDataSourceTest {
     long maxMsToWait = 10000;
     try {
       setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
-      try (DataSource fp = factory1.createDataSource("", config, store)) {
+      try (DataSource fp = makeDataSource(factory1)) {
         fp.start();
         Thread.sleep(1000);
         setFileContents(file, getResourceContents("all-properties.json"));  // this file has all the flags
@@ -146,7 +151,7 @@ public class FileDataSourceTest {
     FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
     long maxMsToWait = 10000;
     try {
-      try (DataSource fp = factory1.createDataSource("", config, store)) {
+      try (DataSource fp = makeDataSource(factory1)) {
         fp.start();
         Thread.sleep(1000);
         setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag

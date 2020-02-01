@@ -1,7 +1,6 @@
 package com.launchdarkly.client.interfaces;
 
 import com.launchdarkly.client.Components;
-import com.launchdarkly.client.LDConfig;
 
 /**
  * Interface for a factory that creates some implementation of {@link EventProcessor}.
@@ -11,9 +10,9 @@ import com.launchdarkly.client.LDConfig;
 public interface EventProcessorFactory {
   /**
    * Creates an implementation instance.
-   * @param sdkKey the SDK key for your LaunchDarkly environment
-   * @param config the LaunchDarkly configuration
+   * 
+   * @param context allows access to the client configuration
    * @return an {@link EventProcessor}
    */
-  EventProcessor createEventProcessor(String sdkKey, LDConfig config);
+  EventProcessor createEventProcessor(ClientContext context);
 }

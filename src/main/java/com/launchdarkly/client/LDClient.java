@@ -1,5 +1,6 @@
 package com.launchdarkly.client;
 
+import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
@@ -71,9 +72,20 @@ public final class LDClient implements LDClientInterface {
     this.config = new LDConfig(checkNotNull(config, "config must not be null"));
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
     
+    final EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
+        Components.sendEvents() : this.config.eventProcessorFactory;
+
+    // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
+    // standard event processor
+    final boolean useDiagnostics = !this.config.diagnosticOptOut && epFactory instanceof EventProcessorBuilder;
+    final ClientContextImpl context = new ClientContextImpl(sdkKey, config,
+        useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null);
+
+    this.eventProcessor = epFactory.createEventProcessor(context);
+
     DataStoreFactory factory = config.dataStoreFactory == null ?
         Components.inMemoryDataStore() : config.dataStoreFactory;
-    DataStore store = factory.createDataStore();
+    DataStore store = factory.createDataStore(context);
     this.dataStore = new DataStoreClientWrapper(store);
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
@@ -86,31 +98,9 @@ public final class LDClient implements LDClientInterface {
       }
     });
     
-    EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
-        Components.sendEvents() : this.config.eventProcessorFactory;
-        
-    DiagnosticAccumulator diagnosticAccumulator = null;
-    // Do not create accumulator if config has specified is opted out, or if epFactory doesn't support diagnostics
-    if (!this.config.diagnosticOptOut && epFactory instanceof EventProcessorFactoryWithDiagnostics) {
-      diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(sdkKey));
-    }
-
-    if (epFactory instanceof EventProcessorFactoryWithDiagnostics) {
-      EventProcessorFactoryWithDiagnostics epwdFactory = ((EventProcessorFactoryWithDiagnostics) epFactory);
-      this.eventProcessor = epwdFactory.createEventProcessor(sdkKey, this.config, diagnosticAccumulator);
-    } else {
-      this.eventProcessor = epFactory.createEventProcessor(sdkKey, this.config);
-    }
-
     DataSourceFactory dataSourceFactory = this.config.dataSourceFactory == null ?
         Components.streamingDataSource() : this.config.dataSourceFactory;
-
-    if (dataSourceFactory instanceof DataSourceFactoryWithDiagnostics) {
-      DataSourceFactoryWithDiagnostics dswdFactory = ((DataSourceFactoryWithDiagnostics) dataSourceFactory);
-      this.dataSource = dswdFactory.createDataSource(sdkKey, this.config, dataStore, diagnosticAccumulator);
-    } else {
-      this.dataSource = dataSourceFactory.createDataSource(sdkKey, this.config, dataStore);
-    }
+    this.dataSource = dataSourceFactory.createDataSource(context, dataStore);
 
     Future<Void> startFuture = dataSource.start();
     if (!this.config.startWait.isZero() && !this.config.startWait.isNegative()) {

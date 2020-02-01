@@ -16,7 +16,8 @@ public interface PersistentDataStoreFactory {
    * Called internally from {@link PersistentDataStoreBuilder} to create the implementation object
    * for the specific type of data store.
    * 
+   * @param context allows access to the client configuration
    * @return the implementation object
    */
-  PersistentDataStore createPersistentDataStore();
+  PersistentDataStore createPersistentDataStore(ClientContext context);
 }
