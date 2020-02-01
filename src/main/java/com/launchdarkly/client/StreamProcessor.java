@@ -5,7 +5,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.launchdarkly.client.interfaces.DataSource;
-import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreUpdates;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.ConnectionErrorHandler.Action;
@@ -42,7 +42,7 @@ final class StreamProcessor implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
   private static final Duration DEAD_CONNECTION_INTERVAL = Duration.ofSeconds(300);
 
-private final DataStore store;
+  private final DataStoreUpdates dataStoreUpdates;
   private final HttpConfiguration httpConfig;
   private final Headers headers;
   @VisibleForTesting final URI streamUri;
@@ -65,13 +65,13 @@ private final DataStore store;
       String sdkKey,
       HttpConfiguration httpConfig,
       FeatureRequestor requestor,
-      DataStore dataStore,
+      DataStoreUpdates dataStoreUpdates,
       EventSourceCreator eventSourceCreator,
       DiagnosticAccumulator diagnosticAccumulator,
       URI streamUri,
       Duration initialReconnectDelay
       ) {
-    this.store = dataStore;
+    this.dataStoreUpdates = dataStoreUpdates;
     this.httpConfig = httpConfig;
     this.requestor = requestor;
     this.diagnosticAccumulator = diagnosticAccumulator;
@@ -130,7 +130,7 @@ private final DataStore store;
             recordStreamInit(false);
             esStarted = 0;
             PutData putData = gson.fromJson(event.getData(), PutData.class); 
-            store.init(DefaultFeatureRequestor.toVersionedDataMap(putData.data));
+            dataStoreUpdates.init(DefaultFeatureRequestor.toVersionedDataMap(putData.data));
             if (!initialized.getAndSet(true)) {
               initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
@@ -140,9 +140,9 @@ private final DataStore store;
           case PATCH: {
             PatchData data = gson.fromJson(event.getData(), PatchData.class);
             if (getKeyFromStreamApiPath(FEATURES, data.path) != null) {
-              store.upsert(FEATURES, gson.fromJson(data.data, DataModel.FeatureFlag.class));
+              dataStoreUpdates.upsert(FEATURES, gson.fromJson(data.data, DataModel.FeatureFlag.class));
             } else if (getKeyFromStreamApiPath(SEGMENTS, data.path) != null) {
-              store.upsert(SEGMENTS, gson.fromJson(data.data, DataModel.Segment.class));
+              dataStoreUpdates.upsert(SEGMENTS, gson.fromJson(data.data, DataModel.Segment.class));
             }
             break;
           }
@@ -150,11 +150,11 @@ private final DataStore store;
             DeleteData data = gson.fromJson(event.getData(), DeleteData.class);
             String featureKey = getKeyFromStreamApiPath(FEATURES, data.path);
             if (featureKey != null) {
-              store.delete(FEATURES, featureKey, data.version);
+              dataStoreUpdates.upsert(FEATURES, FEATURES.makeDeletedItem(featureKey, data.version));
             } else {
               String segmentKey = getKeyFromStreamApiPath(SEGMENTS, data.path);
               if (segmentKey != null) {
-                store.delete(SEGMENTS, segmentKey, data.version);
+                dataStoreUpdates.upsert(SEGMENTS, SEGMENTS.makeDeletedItem(segmentKey, data.version));
               }
             }
             break;
@@ -162,7 +162,7 @@ private final DataStore store;
           case INDIRECT_PUT:
             try {
               FeatureRequestor.AllData allData = requestor.getAllData();
-              store.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
+              dataStoreUpdates.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
               if (!initialized.getAndSet(true)) {
                 initFuture.set(null);
                 logger.info("Initialized LaunchDarkly client.");
@@ -178,12 +178,12 @@ private final DataStore store;
               String featureKey = getKeyFromStreamApiPath(FEATURES, path);
               if (featureKey != null) {
                 DataModel.FeatureFlag feature = requestor.getFlag(featureKey);
-                store.upsert(FEATURES, feature);
+                dataStoreUpdates.upsert(FEATURES, feature);
               } else {
                 String segmentKey = getKeyFromStreamApiPath(SEGMENTS, path);
                 if (segmentKey != null) {
                   DataModel.Segment segment = requestor.getSegment(segmentKey);
-                  store.upsert(SEGMENTS, segment);
+                  dataStoreUpdates.upsert(SEGMENTS, segment);
                 }
               }
             } catch (IOException e) {
@@ -231,9 +231,6 @@ private final DataStore store;
     logger.info("Closing LaunchDarkly StreamProcessor");
     if (es != null) {
       es.close();
-    }
-    if (store != null) {
-      store.close();
     }
     requestor.close();
   }

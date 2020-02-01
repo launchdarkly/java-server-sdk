@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.client.TestUtil.clientContext;
+import static com.launchdarkly.client.TestUtil.dataStoreUpdates;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertFalse;
@@ -53,7 +54,7 @@ public class PollingProcessorTest {
     requestor.allData = new FeatureRequestor.AllData(new HashMap<String, DataModel.FeatureFlag>(), new HashMap<String, DataModel.Segment>());
     DataStore store = new InMemoryDataStore();
     
-    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, store, LENGTHY_INTERVAL)) {    
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {    
       Future<Void> initFuture = pollingProcessor.start();
       initFuture.get(1000, TimeUnit.MILLISECONDS);
       assertTrue(pollingProcessor.initialized());
@@ -67,7 +68,7 @@ public class PollingProcessorTest {
     requestor.ioException = new IOException("This exception is part of a test and yes you should be seeing it.");
     DataStore store = new InMemoryDataStore();
 
-    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, store, LENGTHY_INTERVAL)) {
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200L, TimeUnit.MILLISECONDS);
@@ -113,7 +114,9 @@ public class PollingProcessorTest {
   private void testUnrecoverableHttpError(int status) throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.httpException = new HttpErrorException(status);
-    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, new InMemoryDataStore(), LENGTHY_INTERVAL)) {  
+    DataStore store = new InMemoryDataStore();
+    
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {  
       long startTime = System.currentTimeMillis();
       Future<Void> initFuture = pollingProcessor.start();
       try {
@@ -130,7 +133,9 @@ public class PollingProcessorTest {
   private void testRecoverableHttpError(int status) throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.httpException = new HttpErrorException(status);
-    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, new InMemoryDataStore(), LENGTHY_INTERVAL)) {
+    DataStore store = new InMemoryDataStore();
+    
+    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200, TimeUnit.MILLISECONDS);

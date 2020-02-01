@@ -31,6 +31,7 @@ import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.clientContext;
+import static com.launchdarkly.client.TestUtil.dataStoreUpdates;
 import static org.easymock.EasyMock.expect;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -531,13 +532,13 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStore,
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore),
         new StubEventSourceCreator(), diagnosticAccumulator,
         streamUri, StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStore, null, null,
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore), null, null,
         streamUri, StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 

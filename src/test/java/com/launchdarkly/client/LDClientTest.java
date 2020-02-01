@@ -8,6 +8,7 @@ import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreUpdates;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
@@ -42,7 +43,6 @@ import static com.launchdarkly.client.TestUtil.initedDataStore;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
-import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.isA;
@@ -169,7 +169,8 @@ public class LDClientTest extends EasyMockSupport {
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
+        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -192,7 +193,8 @@ public class LDClientTest extends EasyMockSupport {
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
+        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -220,7 +222,8 @@ public class LDClientTest extends EasyMockSupport {
     Capture<ClientContext> capturedEventContext = Capture.newInstance();
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
     expect(mockEventProcessorFactory.createEventProcessor(capture(capturedEventContext))).andReturn(mockEventProcessor);
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
+        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 
