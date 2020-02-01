@@ -14,10 +14,6 @@ public class TestApp {
       System.out.println("*** error: RedisDataStoreBuilder.DEFAULT_URI is " + RedisDataStoreBuilder.DEFAULT_URI);
       System.exit(1);
     }
-    if (!RedisFeatureStoreBuilder.DEFAULT_URI.toString().equals("redis://localhost:6379")) {
-      System.out.println("*** error: RedisFeatureStoreBuilder.DEFAULT_URI is " + RedisFeatureStoreBuilder.DEFAULT_URI);
-      System.exit(1);
-    }
 
     LDConfig config = new LDConfig.Builder()
       .offline(true)

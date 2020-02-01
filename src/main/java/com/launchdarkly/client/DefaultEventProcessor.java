@@ -47,6 +47,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "3";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
+  private static final MediaType JSON_CONTENT_TYPE = MediaType.parse("application/json; charset=utf-8");
   
   @VisibleForTesting final EventDispatcher dispatcher;
   private final BlockingQueue<EventProcessorMessage> inbox;
@@ -485,7 +486,7 @@ final class DefaultEventProcessor implements EventProcessor {
 
       Request request = new Request.Builder()
           .url(uriStr)
-          .post(RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json))
+          .post(RequestBody.create(json, JSON_CONTENT_TYPE))
           .headers(headers)
           .build();
 
