@@ -208,7 +208,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private final AtomicInteger busyFlushWorkersCount;
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
-    private final DiagnosticAccumulator diagnosticAccumulator;
+    @VisibleForTesting final DiagnosticAccumulator diagnosticAccumulator;
     private final ExecutorService diagnosticExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
 

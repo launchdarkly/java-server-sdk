@@ -22,6 +22,7 @@ import static com.launchdarkly.client.Components.sendEvents;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
+import static com.launchdarkly.client.TestUtil.clientContext;
 import static com.launchdarkly.client.TestUtil.hasJsonProperty;
 import static com.launchdarkly.client.TestUtil.isJsonArray;
 import static com.launchdarkly.client.TestUtil.simpleEvaluation;
@@ -66,18 +67,18 @@ public class DefaultEventProcessorTest {
   }
   
   private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
-    return (DefaultEventProcessor)ec.createEventProcessor(SDK_KEY, config);
+    return (DefaultEventProcessor)ec.createEventProcessor(clientContext(SDK_KEY, config));
   }
 
   private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
-    return (DefaultEventProcessor)((EventProcessorFactoryWithDiagnostics)ec).createEventProcessor(SDK_KEY,
-        diagLDConfig, diagnosticAccumulator);
+    return (DefaultEventProcessor)ec.createEventProcessor(
+        clientContext(SDK_KEY, diagLDConfig, diagnosticAccumulator));
   }
   
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
     EventProcessorFactory epf = Components.sendEvents();
-    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
       EventsConfiguration ec = ep.dispatcher.eventsConfig;
       assertThat(ec.allAttributesPrivate, is(false));
       assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
@@ -104,7 +105,7 @@ public class DefaultEventProcessorTest {
         .privateAttributeNames("cats", "dogs")
         .userKeysCapacity(555)
         .userKeysFlushInterval(Duration.ofSeconds(101));
-    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
       EventsConfiguration ec = ep.dispatcher.eventsConfig;
       assertThat(ec.allAttributesPrivate, is(true));
       assertThat(ec.capacity, equalTo(3333));
@@ -120,7 +121,7 @@ public class DefaultEventProcessorTest {
     // Test inlineUsersInEvents separately to make sure it and the other boolean property (allAttributesPrivate)
     // are really independently settable, since there's no way to distinguish between two true values
     EventProcessorFactory epf1 = Components.sendEvents().inlineUsersInEvents(true);
-    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf1.createEventProcessor(SDK_KEY, LDConfig.DEFAULT)) {
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf1.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
       EventsConfiguration ec = ep.dispatcher.eventsConfig;
       assertThat(ec.allAttributesPrivate, is(false));
       assertThat(ec.inlineUsersInEvents, is(true));

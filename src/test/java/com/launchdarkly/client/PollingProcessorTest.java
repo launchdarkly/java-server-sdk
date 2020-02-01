@@ -14,6 +14,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.launchdarkly.client.TestUtil.clientContext;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertFalse;
@@ -28,7 +29,7 @@ public class PollingProcessorTest {
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
     DataSourceFactory f = Components.pollingDataSource();
-    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(SDK_KEY, LDConfig.DEFAULT, null)) {
+    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT), null)) {
       assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
       assertThat(pp.pollInterval, equalTo(PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL));
     }
@@ -40,7 +41,7 @@ public class PollingProcessorTest {
     DataSourceFactory f = Components.pollingDataSource()
         .baseURI(uri)
         .pollInterval(LENGTHY_INTERVAL);
-    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(SDK_KEY, LDConfig.DEFAULT, null)) {
+    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT), null)) {
       assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(uri));
       assertThat(pp.pollInterval, equalTo(LENGTHY_INTERVAL));
     }

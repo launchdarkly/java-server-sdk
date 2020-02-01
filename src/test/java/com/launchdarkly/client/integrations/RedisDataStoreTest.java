@@ -37,14 +37,14 @@ public class RedisDataStoreTest extends DataStoreDatabaseTestBase {
     } else {
       builder.noCaching();
     }
-    return builder.createDataStore();
+    return builder.createDataStore(null);
   }
   
   @Override
   protected DataStore makeStoreWithPrefix(String prefix) {
     return Components.persistentDataStore(
         Redis.dataStore().uri(REDIS_URI).prefix(prefix)
-        ).noCaching().createDataStore();
+        ).noCaching().createDataStore(null);
   }
   
   @Override

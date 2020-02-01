@@ -1,6 +1,6 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.LDConfig;
+import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
@@ -77,7 +77,7 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
    * Used internally by the LaunchDarkly client.
    */
   @Override
-  public DataSource createDataSource(String sdkKey, LDConfig config, DataStore featureStore) {
+  public DataSource createDataSource(ClientContext context, DataStore featureStore) {
     return new FileDataSourceImpl(featureStore, sources, autoUpdate);
   }
 }

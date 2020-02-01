@@ -2,6 +2,7 @@ package com.launchdarkly.client.integrations;
 
 import com.google.common.base.Joiner;
 import com.launchdarkly.client.LDConfig;
+import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.PersistentDataStore;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
@@ -21,7 +22,7 @@ import redis.clients.jedis.Protocol;
  * Obtain an instance of this class by calling {@link Redis#dataStore()}. After calling its methods
  * to specify any desired custom settings, you can pass it directly into the SDK configuration with
  * {@link com.launchdarkly.client.LDConfig.Builder#dataStore(com.launchdarkly.client.interfaces.DataStoreFactory)}.
- * You do not need to call {@link #createPersistentDataStore()} yourself to build the actual data store; that
+ * You do not need to call {@link #createPersistentDataStore(ClientContext)} yourself to build the actual data store; that
  * will be done by the SDK.
  * <p>
  * Builder calls can be chained, for example:
@@ -176,7 +177,7 @@ public final class RedisDataStoreBuilder implements PersistentDataStoreFactory, 
    * @return the data store configured by this builder
    */
   @Override
-  public PersistentDataStore createPersistentDataStore() {
+  public PersistentDataStore createPersistentDataStore(ClientContext context) {
     return new RedisDataStoreImpl(this);
   }
 

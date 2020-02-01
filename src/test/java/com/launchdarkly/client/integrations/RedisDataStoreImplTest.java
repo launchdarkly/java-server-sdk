@@ -23,12 +23,12 @@ public class RedisDataStoreImplTest extends PersistentDataStoreTestBase<RedisDat
   
   @Override
   protected RedisDataStoreImpl makeStore() {
-    return (RedisDataStoreImpl)Redis.dataStore().uri(REDIS_URI).createPersistentDataStore();
+    return (RedisDataStoreImpl)Redis.dataStore().uri(REDIS_URI).createPersistentDataStore(null);
   }
   
   @Override
   protected RedisDataStoreImpl makeStoreWithPrefix(String prefix) {
-    return (RedisDataStoreImpl)Redis.dataStore().uri(REDIS_URI).prefix(prefix).createPersistentDataStore();
+    return (RedisDataStoreImpl)Redis.dataStore().uri(REDIS_URI).prefix(prefix).createPersistentDataStore(null);
   }
   
   @Override

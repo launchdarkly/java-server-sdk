@@ -5,6 +5,7 @@ import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
@@ -210,7 +211,7 @@ public abstract class Components {
   private static final class InMemoryDataStoreFactory implements DataStoreFactory, DiagnosticDescription {
     static final DataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
     @Override
-    public DataStore createDataStore() {
+    public DataStore createDataStore(ClientContext context) {
       return new InMemoryDataStore();
     }
 
@@ -220,7 +221,7 @@ public abstract class Components {
     }
   }
   
-  private static final EventProcessorFactory NULL_EVENT_PROCESSOR_FACTORY = (sdkKey, config) -> NullEventProcessor.INSTANCE;
+  private static final EventProcessorFactory NULL_EVENT_PROCESSOR_FACTORY = context -> NullEventProcessor.INSTANCE;
   
   /**
    * Stub implementation of {@link EventProcessor} for when we don't want to send any events.
@@ -247,8 +248,8 @@ public abstract class Components {
     static final NullDataSourceFactory INSTANCE = new NullDataSourceFactory();
     
     @Override
-    public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore) {
-      if (config.offline) {
+    public DataSource createDataSource(ClientContext context, DataStore dataStore) {
+      if (context.getConfiguration().offline) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
         LDClient.logger.info("Starting LaunchDarkly client in offline mode");
@@ -290,19 +291,13 @@ public abstract class Components {
   }
   
   private static final class StreamingDataSourceBuilderImpl extends StreamingDataSourceBuilder
-      implements DataSourceFactoryWithDiagnostics, DiagnosticDescription {
+      implements DiagnosticDescription {
     @Override
-    public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore) {
-      return createDataSource(sdkKey, config, dataStore, null);
-    }
-    
-    @Override
-    public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore,
-        DiagnosticAccumulator diagnosticAccumulator) {
+    public DataSource createDataSource(ClientContext context, DataStore dataStore) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
-      if (config.offline) {
-        return Components.externalUpdatesOnly().createDataSource(sdkKey, config, dataStore);
+      if (context.getConfiguration().offline) {
+        return Components.externalUpdatesOnly().createDataSource(context, dataStore);
       }
       
       LDClient.logger.info("Enabling streaming API");
@@ -318,19 +313,19 @@ public abstract class Components {
       }
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
-          sdkKey,
-          config.httpConfig,
+          context.getSdkKey(),
+          context.getConfiguration().httpConfig,
           pollUri,
           false
           );
       
       return new StreamProcessor(
-          sdkKey,
-          config.httpConfig,
+          context.getSdkKey(),
+          context.getConfiguration().httpConfig,
           requestor,
           dataStore,
           null,
-          diagnosticAccumulator,
+          ClientContextImpl.getDiagnosticAccumulator(context),
           streamUri,
           initialReconnectDelay
           );
@@ -356,19 +351,19 @@ public abstract class Components {
   
   private static final class PollingDataSourceBuilderImpl extends PollingDataSourceBuilder implements DiagnosticDescription {
     @Override
-    public DataSource createDataSource(String sdkKey, LDConfig config, DataStore dataStore) {
+    public DataSource createDataSource(ClientContext context, DataStore dataStore) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
-      if (config.offline) {
-        return Components.externalUpdatesOnly().createDataSource(sdkKey, config, dataStore);
+      if (context.getConfiguration().offline) {
+        return Components.externalUpdatesOnly().createDataSource(context, dataStore);
       }
 
       LDClient.logger.info("Disabling streaming API");
       LDClient.logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
-          sdkKey,
-          config.httpConfig,
+          context.getSdkKey(),
+          context.getConfiguration().httpConfig,
           baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI,
           true
           );
@@ -392,19 +387,15 @@ public abstract class Components {
   }
   
   private static final class EventProcessorBuilderImpl extends EventProcessorBuilder
-      implements EventProcessorFactoryWithDiagnostics, DiagnosticDescription {
+      implements DiagnosticDescription {
     @Override
-    public EventProcessor createEventProcessor(String sdkKey, LDConfig config) {
-      return createEventProcessor(sdkKey, config, null);
-    }
-    
-    @Override
-    public EventProcessor createEventProcessor(String sdkKey, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-      if (config.offline) {
+    public EventProcessor createEventProcessor(ClientContext context) {
+      if (context.getConfiguration().offline) {
         return new NullEventProcessor();
       }
-      return new DefaultEventProcessor(sdkKey,
-          config,
+      return new DefaultEventProcessor(
+          context.getSdkKey(),
+          context.getConfiguration(),
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
@@ -417,8 +408,8 @@ public abstract class Components {
               userKeysFlushInterval,
               diagnosticRecordingInterval
               ),
-          config.httpConfig,
-          diagnosticAccumulator
+          context.getConfiguration().httpConfig,
+          ClientContextImpl.getDiagnosticAccumulator(context)
           );
     }
     
@@ -444,8 +435,8 @@ public abstract class Components {
     }
 
     @Override
-    public DataStore createDataStore() {
-      PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore();
+    public DataStore createDataStore(ClientContext context) {
+      PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
       DataStoreCacheConfig caching = DataStoreCacheConfig.DEFAULT.ttl(cacheTime)
           .staleValuesPolicy(DataStoreCacheConfig.StaleValuesPolicy.fromNewEnum(staleValuesPolicy));
       return CachingStoreWrapper.builder(core)

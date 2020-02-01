@@ -30,6 +30,7 @@ import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
+import static com.launchdarkly.client.TestUtil.clientContext;
 import static org.easymock.EasyMock.expect;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -79,7 +80,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
     DataSourceFactory f = Components.streamingDataSource();
-    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(SDK_KEY, LDConfig.DEFAULT, null)) {
+    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT), null)) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
       assertThat(sp.streamUri, equalTo(LDConfig.DEFAULT_STREAM_URI));
       assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
@@ -94,7 +95,7 @@ public class StreamProcessorTest extends EasyMockSupport {
         .baseURI(streamUri)
         .initialReconnectDelay(Duration.ofMillis(5555))
         .pollingBaseURI(pollUri);
-    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(SDK_KEY, LDConfig.DEFAULT, null)) {
+    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT), null)) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
       assertThat(sp.streamUri, equalTo(streamUri));      
       assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(pollUri));

@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.launchdarkly.client.integrations.EventProcessorBuilder;
+import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
@@ -32,9 +33,16 @@ import static org.hamcrest.Matchers.equalTo;
 
 @SuppressWarnings("javadoc")
 public class TestUtil {
+  public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
+    return new ClientContextImpl(sdkKey, config, null);
+  }
+
+  public static ClientContext clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
+    return new ClientContextImpl(sdkKey, config, diagnosticAccumulator);
+  }
 
   public static DataStoreFactory specificDataStore(final DataStore store) {
-    return () -> store;
+    return context -> store;
   }
   
   public static DataStore initedDataStore() {
@@ -44,15 +52,15 @@ public class TestUtil {
   }
   
   public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {
-    return (String sdkKey, LDConfig config) -> ep;
+    return context -> ep;
   }
   
   public static DataSourceFactory specificDataSource(final DataSource up) {
-    return (String sdkKey, LDConfig config, DataStore dataStore) -> up;
+    return (context, dataStore) -> up;
   }
 
   public static DataSourceFactory dataSourceWithData(final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data) {
-    return (String sdkKey, LDConfig config, final DataStore dataStore) -> {
+    return (ClientContext context, final DataStore dataStore) -> {
       return new DataSource() {
         public Future<Void> start() {
           dataStore.init(data);

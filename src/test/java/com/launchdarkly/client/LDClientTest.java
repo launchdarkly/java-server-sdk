@@ -4,7 +4,9 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
@@ -44,11 +46,12 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.isA;
-import static org.easymock.EasyMock.isNull;
 import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -157,55 +160,56 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void sameDiagnosticAccumulatorPassedToFactoriesWhenSupported() throws IOException {
-    EventProcessorFactoryWithDiagnostics mockEventProcessorFactory = createStrictMock(EventProcessorFactoryWithDiagnostics.class);
-    DataSourceFactoryWithDiagnostics mockDataSourceFactory = createStrictMock(DataSourceFactoryWithDiagnostics.class);
+    DataSourceFactory mockDataSourceFactory = createStrictMock(DataSourceFactory.class);
 
     LDConfig config = new LDConfig.Builder()
-            .events(mockEventProcessorFactory)
             .dataSource(mockDataSourceFactory)
+            .events(Components.sendEvents().baseURI(URI.create("fake-host"))) // event processor will try to send a diagnostic event here
             .startWait(Duration.ZERO)
             .build();
 
-    Capture<DiagnosticAccumulator> capturedEventAccumulator = Capture.newInstance();
-    Capture<DiagnosticAccumulator> capturedUpdateAccumulator = Capture.newInstance();
-    expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class), capture(capturedEventAccumulator))).andReturn(niceMock(EventProcessor.class));
-    expect(mockDataSourceFactory.createDataSource(eq(SDK_KEY), isA(LDConfig.class), isA(DataStore.class), capture(capturedUpdateAccumulator))).andReturn(failedDataSource());
+    Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
 
     replayAll();
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       verifyAll();
-      assertNotNull(capturedEventAccumulator.getValue());
-      assertEquals(capturedEventAccumulator.getValue(), capturedUpdateAccumulator.getValue());
+      DiagnosticAccumulator acc = ((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticAccumulator; 
+      assertNotNull(acc);
+      assertSame(acc, ClientContextImpl.getDiagnosticAccumulator(capturedDataSourceContext.getValue()));
     }
   }
 
   @Test
   public void nullDiagnosticAccumulatorPassedToFactoriesWhenOptedOut() throws IOException {
-    EventProcessorFactoryWithDiagnostics mockEventProcessorFactory = createStrictMock(EventProcessorFactoryWithDiagnostics.class);
-    DataSourceFactoryWithDiagnostics mockDataSourceFactory = createStrictMock(DataSourceFactoryWithDiagnostics.class);
+    DataSourceFactory mockDataSourceFactory = createStrictMock(DataSourceFactory.class);
 
     LDConfig config = new LDConfig.Builder()
-            .events(mockEventProcessorFactory)
             .dataSource(mockDataSourceFactory)
             .diagnosticOptOut(true)
             .startWait(Duration.ZERO)
             .build();
 
-    expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class), isNull(DiagnosticAccumulator.class))).andReturn(niceMock(EventProcessor.class));
-    expect(mockDataSourceFactory.createDataSource(eq(SDK_KEY), isA(LDConfig.class), isA(DataStore.class), isNull(DiagnosticAccumulator.class))).andReturn(failedDataSource());
+    Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
 
     replayAll();
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       verifyAll();
+      assertNull(((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticAccumulator);
+      assertNull(ClientContextImpl.getDiagnosticAccumulator(capturedDataSourceContext.getValue()));
     }
   }
 
   @Test
   public void nullDiagnosticAccumulatorPassedToUpdateFactoryWhenEventProcessorDoesNotSupportDiagnostics() throws IOException {
+    EventProcessor mockEventProcessor = createStrictMock(EventProcessor.class);
+    mockEventProcessor.close();
+    EasyMock.expectLastCall().anyTimes();
     EventProcessorFactory mockEventProcessorFactory = createStrictMock(EventProcessorFactory.class);
-    DataSourceFactoryWithDiagnostics mockDataSourceFactory = createStrictMock(DataSourceFactoryWithDiagnostics.class);
+    DataSourceFactory mockDataSourceFactory = createStrictMock(DataSourceFactory.class);
 
     LDConfig config = new LDConfig.Builder()
             .events(mockEventProcessorFactory)
@@ -213,13 +217,17 @@ public class LDClientTest extends EasyMockSupport {
             .startWait(Duration.ZERO)
             .build();
 
-    expect(mockEventProcessorFactory.createEventProcessor(eq(SDK_KEY), isA(LDConfig.class))).andReturn(niceMock(EventProcessor.class));
-    expect(mockDataSourceFactory.createDataSource(eq(SDK_KEY), isA(LDConfig.class), isA(DataStore.class), isNull(DiagnosticAccumulator.class))).andReturn(failedDataSource());
+    Capture<ClientContext> capturedEventContext = Capture.newInstance();
+    Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
+    expect(mockEventProcessorFactory.createEventProcessor(capture(capturedEventContext))).andReturn(mockEventProcessor);
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
 
     replayAll();
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       verifyAll();
+      assertNull(ClientContextImpl.getDiagnosticAccumulator(capturedEventContext.getValue()));
+      assertNull(ClientContextImpl.getDiagnosticAccumulator(capturedDataSourceContext.getValue()));
     }
   }
 
