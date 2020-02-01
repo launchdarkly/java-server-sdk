@@ -57,7 +57,7 @@ public class PollingProcessorTest {
     try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {    
       Future<Void> initFuture = pollingProcessor.start();
       initFuture.get(1000, TimeUnit.MILLISECONDS);
-      assertTrue(pollingProcessor.initialized());
+      assertTrue(pollingProcessor.isInitialized());
       assertTrue(store.initialized());
     }
   }
@@ -76,7 +76,7 @@ public class PollingProcessorTest {
       } catch (TimeoutException ignored) {
       }
       assertFalse(initFuture.isDone());
-      assertFalse(pollingProcessor.initialized());
+      assertFalse(pollingProcessor.isInitialized());
       assertFalse(store.initialized());
     }
   }
@@ -126,7 +126,7 @@ public class PollingProcessorTest {
       }
       assertTrue((System.currentTimeMillis() - startTime) < 9000);
       assertTrue(initFuture.isDone());
-      assertFalse(pollingProcessor.initialized());
+      assertFalse(pollingProcessor.isInitialized());
     }
   }
   
@@ -143,7 +143,7 @@ public class PollingProcessorTest {
       } catch (TimeoutException ignored) {
       }
       assertFalse(initFuture.isDone());
-      assertFalse(pollingProcessor.initialized());
+      assertFalse(pollingProcessor.isInitialized());
     }
   }
   

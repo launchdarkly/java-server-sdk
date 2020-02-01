@@ -236,7 +236,7 @@ final class StreamProcessor implements DataSource {
   }
 
   @Override
-  public boolean initialized() {
+  public boolean isInitialized() {
     return initialized.get();
   }
 

@@ -283,7 +283,7 @@ public abstract class Components {
     }
 
     @Override
-    public boolean initialized() {
+    public boolean isInitialized() {
       return true;
     }
     

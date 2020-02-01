@@ -76,7 +76,7 @@ public class FileDataSourceTest {
   public void initializedIsTrueAfterSuccessfulLoad() throws Exception {
     try (DataSource fp = makeDataSource(factory)) {
       fp.start();
-      assertThat(fp.initialized(), equalTo(true));
+      assertThat(fp.isInitialized(), equalTo(true));
     }
   }
   
@@ -94,7 +94,7 @@ public class FileDataSourceTest {
     factory.filePaths(badFilePath);
     try (DataSource fp = makeDataSource(factory)) {
       fp.start();
-      assertThat(fp.initialized(), equalTo(false));
+      assertThat(fp.isInitialized(), equalTo(false));
     }
   }
   

@@ -99,7 +99,7 @@ final class FileDataSourceImpl implements DataSource {
   }
   
   @Override
-  public boolean initialized() {
+  public boolean isInitialized() {
     return inited.get();
   }
 

@@ -72,7 +72,7 @@ public class TestUtil {
           return Futures.immediateFuture(null);
         }
 
-        public boolean initialized() {
+        public boolean isInitialized() {
           return true;
         }
 
@@ -107,7 +107,7 @@ public class TestUtil {
       public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) { }
 
       @Override
-      public boolean initialized() {
+      public boolean isInitialized() {
         return true;
       }      
     };
@@ -121,7 +121,7 @@ public class TestUtil {
       }
 
       @Override
-      public boolean initialized() {
+      public boolean isInitialized() {
         return false;
       }
 

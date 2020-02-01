@@ -116,7 +116,7 @@ public final class LDClient implements LDClientInterface {
         logger.error("Exception encountered waiting for LaunchDarkly client initialization: {}", e.toString());
         logger.debug(e.toString(), e);
       }
-      if (!dataSource.initialized()) {
+      if (!dataSource.isInitialized()) {
         logger.warn("LaunchDarkly client was not successfully initialized");
       }
     }
@@ -124,7 +124,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public boolean initialized() {
-    return dataSource.initialized();
+    return dataSource.isInitialized();
   }
 
   @Override

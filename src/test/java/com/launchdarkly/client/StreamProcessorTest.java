@@ -175,7 +175,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void processorNotInitializedByDefault() throws Exception {
     StreamProcessor sp = createStreamProcessor(STREAM_URI);
     sp.start();
-    assertFalse(sp.initialized());
+    assertFalse(sp.isInitialized());
   }
   
   @Test
@@ -183,7 +183,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     StreamProcessor sp = createStreamProcessor(STREAM_URI);
     sp.start();
     eventHandler.onMessage("put", emptyPutEvent());
-    assertTrue(sp.initialized());
+    assertTrue(sp.isInitialized());
   }
 
   @Test
@@ -501,7 +501,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     }
     assertTrue((System.currentTimeMillis() - startTime) < 9000);
     assertTrue(initFuture.isDone());
-    assertFalse(sp.initialized());
+    assertFalse(sp.isInitialized());
   }
   
   private void testRecoverableHttpError(int status) throws Exception {
@@ -520,7 +520,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     }
     assertTrue((System.currentTimeMillis() - startTime) >= 200);
     assertFalse(initFuture.isDone());
-    assertFalse(sp.initialized());
+    assertFalse(sp.isInitialized());
   }
   
   private StreamProcessor createStreamProcessor(URI streamUri) {
