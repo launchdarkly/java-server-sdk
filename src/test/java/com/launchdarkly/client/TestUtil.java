@@ -107,7 +107,7 @@ public class TestUtil {
       public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) { }
 
       @Override
-      public boolean isInitialized() {
+      public boolean initialized() {
         return true;
       }      
     };
