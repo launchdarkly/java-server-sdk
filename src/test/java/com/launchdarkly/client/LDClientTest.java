@@ -8,6 +8,7 @@ import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreUpdates;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
@@ -42,7 +43,6 @@ import static com.launchdarkly.client.TestUtil.initedDataStore;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
-import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.isA;
@@ -169,7 +169,8 @@ public class LDClientTest extends EasyMockSupport {
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
+        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -192,7 +193,8 @@ public class LDClientTest extends EasyMockSupport {
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
+        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -220,7 +222,8 @@ public class LDClientTest extends EasyMockSupport {
     Capture<ClientContext> capturedEventContext = Capture.newInstance();
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
     expect(mockEventProcessorFactory.createEventProcessor(capture(capturedEventContext))).andReturn(mockEventProcessor);
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext), isA(DataStore.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
+        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -237,7 +240,7 @@ public class LDClientTest extends EasyMockSupport {
         .startWait(Duration.ZERO);
 
     expect(dataSource.start()).andReturn(initFuture);
-    expect(dataSource.initialized()).andReturn(false);
+    expect(dataSource.isInitialized()).andReturn(false);
     replayAll();
 
     client = createMockClient(config);
@@ -253,7 +256,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(null);
-    expect(dataSource.initialized()).andReturn(false).anyTimes();
+    expect(dataSource.isInitialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
@@ -269,7 +272,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
-    expect(dataSource.initialized()).andReturn(false).anyTimes();
+    expect(dataSource.isInitialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
@@ -285,7 +288,7 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new RuntimeException());
-    expect(dataSource.initialized()).andReturn(false).anyTimes();
+    expect(dataSource.isInitialized()).andReturn(false).anyTimes();
     replayAll();
 
     client = createMockClient(config);
@@ -301,7 +304,7 @@ public class LDClientTest extends EasyMockSupport {
             .startWait(Duration.ZERO)
             .dataStore(specificDataStore(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
-    expect(dataSource.initialized()).andReturn(true).times(1);
+    expect(dataSource.isInitialized()).andReturn(true).times(1);
     replayAll();
 
     client = createMockClient(config);
@@ -318,7 +321,7 @@ public class LDClientTest extends EasyMockSupport {
             .startWait(Duration.ZERO)
             .dataStore(specificDataStore(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
-    expect(dataSource.initialized()).andReturn(true).times(1);
+    expect(dataSource.isInitialized()).andReturn(true).times(1);
     replayAll();
 
     client = createMockClient(config);
@@ -334,7 +337,7 @@ public class LDClientTest extends EasyMockSupport {
             .startWait(Duration.ZERO)
             .dataStore(specificDataStore(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
-    expect(dataSource.initialized()).andReturn(false).times(1);
+    expect(dataSource.isInitialized()).andReturn(false).times(1);
     replayAll();
 
     client = createMockClient(config);
@@ -351,7 +354,7 @@ public class LDClientTest extends EasyMockSupport {
             .startWait(Duration.ZERO)
             .dataStore(specificDataStore(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
-    expect(dataSource.initialized()).andReturn(false).times(1);
+    expect(dataSource.isInitialized()).andReturn(false).times(1);
     replayAll();
 
     client = createMockClient(config);
@@ -368,7 +371,7 @@ public class LDClientTest extends EasyMockSupport {
         .dataStore(specificDataStore(testDataStore))
         .startWait(Duration.ZERO);
     expect(dataSource.start()).andReturn(initFuture);
-    expect(dataSource.initialized()).andReturn(false);
+    expect(dataSource.isInitialized()).andReturn(false);
     expectEventsSent(1);
     replayAll();
 

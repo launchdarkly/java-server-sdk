@@ -16,6 +16,7 @@ import java.util.concurrent.Future;
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static com.launchdarkly.client.TestUtil.clientContext;
+import static com.launchdarkly.client.TestUtil.dataStoreUpdates;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.ALL_FLAG_KEYS;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.ALL_SEGMENT_KEYS;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.getResourceContents;
@@ -41,7 +42,7 @@ public class FileDataSourceTest {
   }
 
   private DataSource makeDataSource(FileDataSourceBuilder builder) {
-    return builder.createDataSource(clientContext("", config), store);
+    return builder.createDataSource(clientContext("", config), dataStoreUpdates(store));
   }
   
   @Test
@@ -75,7 +76,7 @@ public class FileDataSourceTest {
   public void initializedIsTrueAfterSuccessfulLoad() throws Exception {
     try (DataSource fp = makeDataSource(factory)) {
       fp.start();
-      assertThat(fp.initialized(), equalTo(true));
+      assertThat(fp.isInitialized(), equalTo(true));
     }
   }
   
@@ -93,7 +94,7 @@ public class FileDataSourceTest {
     factory.filePaths(badFilePath);
     try (DataSource fp = makeDataSource(factory)) {
       fp.start();
-      assertThat(fp.initialized(), equalTo(false));
+      assertThat(fp.isInitialized(), equalTo(false));
     }
   }
   

@@ -4,7 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.client.interfaces.DataSource;
-import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreUpdates;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,19 +25,19 @@ final class PollingProcessor implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
   @VisibleForTesting final FeatureRequestor requestor;
-  private final DataStore store;
+  private final DataStoreUpdates dataStoreUpdates;
   @VisibleForTesting final Duration pollInterval;
   private AtomicBoolean initialized = new AtomicBoolean(false);
   private ScheduledExecutorService scheduler = null;
 
-  PollingProcessor(FeatureRequestor requestor, DataStore featureStore, Duration pollInterval) {
+  PollingProcessor(FeatureRequestor requestor, DataStoreUpdates dataStoreUpdates, Duration pollInterval) {
     this.requestor = requestor; // note that HTTP configuration is applied to the requestor when it is created
-    this.store = featureStore;
+    this.dataStoreUpdates = dataStoreUpdates;
     this.pollInterval = pollInterval;
   }
 
   @Override
-  public boolean initialized() {
+  public boolean isInitialized() {
     return initialized.get();
   }
 
@@ -63,7 +63,7 @@ final class PollingProcessor implements DataSource {
     scheduler.scheduleAtFixedRate(() -> {
       try {
         FeatureRequestor.AllData allData = requestor.getAllData();
-        store.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
+        dataStoreUpdates.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
         if (!initialized.getAndSet(true)) {
           logger.info("Initialized LaunchDarkly client.");
           initFuture.set(null);

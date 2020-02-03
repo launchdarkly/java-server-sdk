@@ -31,6 +31,7 @@ import static com.launchdarkly.client.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.clientContext;
+import static com.launchdarkly.client.TestUtil.dataStoreUpdates;
 import static org.easymock.EasyMock.expect;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -174,7 +175,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void processorNotInitializedByDefault() throws Exception {
     StreamProcessor sp = createStreamProcessor(STREAM_URI);
     sp.start();
-    assertFalse(sp.initialized());
+    assertFalse(sp.isInitialized());
   }
   
   @Test
@@ -182,7 +183,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     StreamProcessor sp = createStreamProcessor(STREAM_URI);
     sp.start();
     eventHandler.onMessage("put", emptyPutEvent());
-    assertTrue(sp.initialized());
+    assertTrue(sp.isInitialized());
   }
 
   @Test
@@ -500,7 +501,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     }
     assertTrue((System.currentTimeMillis() - startTime) < 9000);
     assertTrue(initFuture.isDone());
-    assertFalse(sp.initialized());
+    assertFalse(sp.isInitialized());
   }
   
   private void testRecoverableHttpError(int status) throws Exception {
@@ -519,7 +520,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     }
     assertTrue((System.currentTimeMillis() - startTime) >= 200);
     assertFalse(initFuture.isDone());
-    assertFalse(sp.initialized());
+    assertFalse(sp.isInitialized());
   }
   
   private StreamProcessor createStreamProcessor(URI streamUri) {
@@ -531,13 +532,13 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStore,
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore),
         new StubEventSourceCreator(), diagnosticAccumulator,
         streamUri, StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStore, null, null,
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore), null, null,
         streamUri, StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 

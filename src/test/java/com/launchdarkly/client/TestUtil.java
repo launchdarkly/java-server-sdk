@@ -8,6 +8,7 @@ import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.DataStoreUpdates;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
@@ -41,6 +42,10 @@ public class TestUtil {
     return new ClientContextImpl(sdkKey, config, diagnosticAccumulator);
   }
 
+  public static DataStoreUpdates dataStoreUpdates(final DataStore store) {
+    return new DataStoreUpdatesImpl(store);
+  }
+  
   public static DataStoreFactory specificDataStore(final DataStore store) {
     return context -> store;
   }
@@ -56,18 +61,18 @@ public class TestUtil {
   }
   
   public static DataSourceFactory specificDataSource(final DataSource up) {
-    return (context, dataStore) -> up;
+    return (context, dataStoreUpdates) -> up;
   }
 
   public static DataSourceFactory dataSourceWithData(final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data) {
-    return (ClientContext context, final DataStore dataStore) -> {
+    return (ClientContext context, final DataStoreUpdates dataStoreUpdates) -> {
       return new DataSource() {
         public Future<Void> start() {
-          dataStore.init(data);
+          dataStoreUpdates.init(data);
           return Futures.immediateFuture(null);
         }
 
-        public boolean initialized() {
+        public boolean isInitialized() {
           return true;
         }
 
@@ -116,7 +121,7 @@ public class TestUtil {
       }
 
       @Override
-      public boolean initialized() {
+      public boolean isInitialized() {
         return false;
       }
 

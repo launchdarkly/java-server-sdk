@@ -5,6 +5,7 @@ import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.DataStoreUpdates;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
@@ -85,8 +86,7 @@ public final class LDClient implements LDClientInterface {
 
     DataStoreFactory factory = config.dataStoreFactory == null ?
         Components.inMemoryDataStore() : config.dataStoreFactory;
-    DataStore store = factory.createDataStore(context);
-    this.dataStore = new DataStoreClientWrapper(store);
+    this.dataStore = factory.createDataStore(context);
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
@@ -100,7 +100,8 @@ public final class LDClient implements LDClientInterface {
     
     DataSourceFactory dataSourceFactory = this.config.dataSourceFactory == null ?
         Components.streamingDataSource() : this.config.dataSourceFactory;
-    this.dataSource = dataSourceFactory.createDataSource(context, dataStore);
+    DataStoreUpdates dataStoreUpdates = new DataStoreUpdatesImpl(dataStore);
+    this.dataSource = dataSourceFactory.createDataSource(context, dataStoreUpdates);
 
     Future<Void> startFuture = dataSource.start();
     if (!this.config.startWait.isZero() && !this.config.startWait.isNegative()) {
@@ -115,7 +116,7 @@ public final class LDClient implements LDClientInterface {
         logger.error("Exception encountered waiting for LaunchDarkly client initialization: {}", e.toString());
         logger.debug(e.toString(), e);
       }
-      if (!dataSource.initialized()) {
+      if (!dataSource.isInitialized()) {
         logger.warn("LaunchDarkly client was not successfully initialized");
       }
     }
@@ -123,7 +124,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public boolean initialized() {
-    return dataSource.initialized();
+    return dataSource.isInitialized();
   }
 
   @Override
