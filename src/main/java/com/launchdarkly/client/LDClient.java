@@ -62,22 +62,14 @@ public final class LDClient implements LDClientInterface {
     this(sdkKey, LDConfig.DEFAULT);
   }
 
-  private static final DataModel.FeatureFlag getFlagIfNotDeleted(DataStore store, String key) {
+  private static final DataModel.FeatureFlag getFlag(DataStore store, String key) {
     ItemDescriptor item = store.get(DataModel.DataKinds.FEATURES, key);
-    if (item == null) {
-      return null;
-    }
-    DataModel.FeatureFlag flag = (DataModel.FeatureFlag)item.getItem();
-    return flag.isDeleted() ? null : flag;
+    return item == null ? null : (DataModel.FeatureFlag)item.getItem();
   }
   
-  private static final DataModel.Segment getSegmentIfNotDeleted(DataStore store, String key) {
+  private static final DataModel.Segment getSegment(DataStore store, String key) {
     ItemDescriptor item = store.get(DataModel.DataKinds.SEGMENTS, key);
-    if (item == null) {
-      return null;
-    }
-    DataModel.Segment segment = (DataModel.Segment)item.getItem();
-    return segment.isDeleted() ? null : segment;
+    return item == null ? null : (DataModel.Segment)item.getItem();
   }
   
   /**
@@ -108,11 +100,11 @@ public final class LDClient implements LDClientInterface {
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
-        return getFlagIfNotDeleted(LDClient.this.dataStore, key);
+        return LDClient.getFlag(LDClient.this.dataStore, key);
       }
 
       public DataModel.Segment getSegment(String key) {
-        return getSegmentIfNotDeleted(LDClient.this.dataStore, key);
+        return LDClient.getSegment(LDClient.this.dataStore, key);
       }
     });
     
@@ -208,7 +200,7 @@ public final class LDClient implements LDClientInterface {
     KeyedItems<ItemDescriptor> flags = dataStore.getAll(DataModel.DataKinds.FEATURES);
     for (Map.Entry<String, ItemDescriptor> entry : flags.getItems()) {
       DataModel.FeatureFlag flag = (DataModel.FeatureFlag)entry.getValue().getItem();
-      if (flag.isDeleted() || (clientSideOnly && !flag.isClientSide())) {
+      if (clientSideOnly && !flag.isClientSide()) {
         continue;
       }
       try {
@@ -298,7 +290,7 @@ public final class LDClient implements LDClientInterface {
     }
 
     try {
-      if (getFlagIfNotDeleted(dataStore, featureKey) != null) {
+      if (getFlag(dataStore, featureKey) != null) {
         return true;
       }
     } catch (Exception e) {
@@ -332,7 +324,7 @@ public final class LDClient implements LDClientInterface {
 
     DataModel.FeatureFlag featureFlag = null;
     try {
-      featureFlag = getFlagIfNotDeleted(dataStore, featureKey);
+      featureFlag = getFlag(dataStore, featureKey);
       if (featureFlag == null) {
         logger.info("Unknown feature flag \"{}\"; returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
