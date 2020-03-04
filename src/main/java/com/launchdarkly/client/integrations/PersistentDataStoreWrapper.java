@@ -333,19 +333,21 @@ class PersistentDataStoreWrapper implements DataStore {
   }
   
   private SerializedItemDescriptor serialize(DataKind kind, ItemDescriptor itemDesc) {
-    Object item = itemDesc.getItem();
-    return new SerializedItemDescriptor(itemDesc.getVersion(), item == null ? null : kind.serialize(item));
+    boolean isDeleted = itemDesc.getItem() == null;
+    return new SerializedItemDescriptor(itemDesc.getVersion(), isDeleted, kind.serialize(itemDesc));
   }
   
   private ItemDescriptor deserialize(DataKind kind, SerializedItemDescriptor serializedItemDesc) {
-    String serializedItem = serializedItemDesc.getSerializedItem();
-    if (serializedItem == null) {
+    if (serializedItemDesc.isDeleted() || serializedItemDesc.getSerializedItem() == null) {
       return ItemDescriptor.deletedItem(serializedItemDesc.getVersion());
     }
-    ItemDescriptor deserializedItem = kind.deserialize(serializedItem);
-    return (serializedItemDesc.getVersion() == 0 || serializedItemDesc.getVersion() == deserializedItem.getVersion())
-        ? deserializedItem
-        : new ItemDescriptor(serializedItemDesc.getVersion(), deserializedItem.getItem());
+    ItemDescriptor deserializedItem = kind.deserialize(serializedItemDesc.getSerializedItem());
+    if (serializedItemDesc.getVersion() == 0 || serializedItemDesc.getVersion() == deserializedItem.getVersion()
+        || deserializedItem.getItem() == null) {
+      return deserializedItem;
+    }
+    // If the store gave us a version number that isn't what was encoded in the object, trust it
+    return new ItemDescriptor(serializedItemDesc.getVersion(), deserializedItem.getItem());
   }
 
   private KeyedItems<ItemDescriptor> updateSingleItem(KeyedItems<ItemDescriptor> items, String key, ItemDescriptor item) {

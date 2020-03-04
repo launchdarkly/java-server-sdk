@@ -27,28 +27,26 @@ public abstract class DataModel {
      */
     public static DataKind FEATURES = new DataKind("features",
       DataKinds::serializeItem,
-      s -> deserializeItem(s, FeatureFlag.class),
-      DataKinds::serializeDeletedItemPlaceholder);
+      s -> deserializeItem(s, FeatureFlag.class));
         
     /**
      * The {@link DataKind} instance that describes user segment data.
      */
     public static DataKind SEGMENTS = new DataKind("segments",
       DataKinds::serializeItem,
-      s -> deserializeItem(s, Segment.class),
-      DataKinds::serializeDeletedItemPlaceholder);
+      s -> deserializeItem(s, Segment.class));
     
-    private static String serializeItem(Object o) {
-      return JsonHelpers.gsonInstance().toJson(o);
+    private static String serializeItem(ItemDescriptor item) {
+      Object o = item.getItem();
+      if (o != null) {
+        return JsonHelpers.gsonInstance().toJson(o);
+      }
+      return "{\"version\":" + item.getVersion() + ",\"deleted\":true}";
     }
     
     private static ItemDescriptor deserializeItem(String s, Class<? extends VersionedData> itemClass) {
       VersionedData o = JsonHelpers.gsonInstance().fromJson(s, itemClass);
       return o.isDeleted() ? ItemDescriptor.deletedItem(o.getVersion()) : new ItemDescriptor(o.getVersion(), o);
-    }
-    
-    private static String serializeDeletedItemPlaceholder(int version) {
-      return "{\"version\":" + version + ",\"deleted\":true}";
     }
   }
 

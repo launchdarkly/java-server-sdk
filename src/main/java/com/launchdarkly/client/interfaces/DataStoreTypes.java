@@ -21,9 +21,8 @@ public abstract class DataStoreTypes {
    */
   public static final class DataKind {
     private final String name;
-    private final Function<Object, String> serializer;
+    private final Function<ItemDescriptor, String> serializer;
     private final Function<String, ItemDescriptor> deserializer;
-    private final Function<Integer, String> deletedItemSerializer;
     
     /**
      * A case-sensitive alphabetic string that uniquely identifies this data kind.
@@ -42,14 +41,15 @@ public abstract class DataStoreTypes {
      * Returns a serialized representation of an item of this kind.
      * <p>
      * The SDK uses this function to generate the data that is stored by a {@link PersistentDataStore}.
-     * Store implementations should not call it.
+     * Store implementations normally do not need to call it, except in a special case described in the
+     * documentation for {@link PersistentDataStore} regarding deleted item placeholders.
      * 
-     * @param o an object which the serializer can assume is of the appropriate class
+     * @param item an {@link ItemDescriptor} describing the object to be serialized
      * @return the serialized representation
      * @exception ClassCastException if the object is of the wrong class
      */
-    public String serialize(Object o) {
-      return serializer.apply(o);
+    public String serialize(ItemDescriptor item) {
+      return serializer.apply(item);
     }
     
     /**
@@ -60,9 +60,9 @@ public abstract class DataStoreTypes {
      * the documentation for {@link PersistentDataStore}, regarding updates.
      * <p>
      * The returned {@link ItemDescriptor} has two properties: {@link ItemDescriptor#getItem()}, which
-     * is the deserialized object <i>or</i> a {@code null} value if the serialized string was the value
-     * produced by {@link #serializeDeletedItemPlaceholder(int)}, and {@link ItemDescriptor#getVersion()},
-     * which provides the object's version number regardless of whether it is deleted or not.
+     * is the deserialized object <i>or</i> a {@code null} value for a deleted item placeholder, and
+     * {@link ItemDescriptor#getVersion()}, which provides the object's version number regardless of
+     * whether it is deleted or not.
      * 
      * @param s the serialized representation
      * @return an {@link ItemDescriptor} describing the deserialized object
@@ -72,32 +72,16 @@ public abstract class DataStoreTypes {
     }
     
     /**
-     * Returns a special serialized representation for a deleted item placeholder.
-     * <p>
-     * This method should be used only by {@link PersistentDataStore} implementations in the special
-     * case described in the documentation for {@link PersistentDataStore} regarding deleted items.
-     * 
-     * @param version the version number
-     * @return the serialized representation
-     */
-    public String serializeDeletedItemPlaceholder(int version) {
-      return deletedItemSerializer.apply(version);
-    }
-    
-    /**
      * Constructs a DataKind instance.
      * 
      * @param name the value for {@link #getName()}
-     * @param serializer the function to use for {@link #serialize(Object)}
+     * @param serializer the function to use for {@link #serialize(ItemDescriptor)}
      * @param deserializer the function to use for {@link #deserialize(String)}
-     * @param deletedItemSerializer the function to use for {@link #serializeDeletedItemPlaceholder(int)}
      */
-    public DataKind(String name, Function<Object, String> serializer, Function<String, ItemDescriptor> deserializer,
-        Function<Integer, String> deletedItemSerializer) {
+    public DataKind(String name, Function<ItemDescriptor, String> serializer, Function<String, ItemDescriptor> deserializer) {
       this.name = name;
       this.serializer = serializer;
       this.deserializer = deserializer;
-      this.deletedItemSerializer = deletedItemSerializer;
     }
     
     @Override
@@ -127,6 +111,7 @@ public abstract class DataStoreTypes {
     
     /**
      * Returns the version number of this data, provided by the SDK.
+     * 
      * @return the version number
      */
     public int getVersion() {
@@ -135,6 +120,7 @@ public abstract class DataStoreTypes {
     
     /**
      * Returns the data item, or null if this is a placeholder for a deleted item.
+     * 
      * @return an object or null
      */
     public Object getItem() {
@@ -143,6 +129,7 @@ public abstract class DataStoreTypes {
     
     /**
      * Constructs a new instance.
+     * 
      * @param version the version number
      * @param item an object or null
      */
@@ -153,6 +140,7 @@ public abstract class DataStoreTypes {
     
     /**
      * Convenience method for constructing a deleted item placeholder.
+     * 
      * @param version the version number
      * @return an ItemDescriptor
      */
@@ -184,6 +172,7 @@ public abstract class DataStoreTypes {
    */
   public static final class SerializedItemDescriptor {
     private final int version;
+    private final boolean deleted;
     private final String serializedItem;
 
     /**
@@ -195,8 +184,21 @@ public abstract class DataStoreTypes {
     }
 
     /**
-     * Returns the data item's serialized representation, or null if this is a placeholder for a
-     * deleted item.
+     * Returns true if this is a placeholder (tombstone) for a deleted item. If so,
+     * {@link #getSerializedItem()} will still contain a string representing the deleted item, but
+     * the persistent store implementation has the option of not storing it if it can represent the
+     * placeholder in a more efficient way.
+     * 
+     * @return true if this is a deleted item placeholder
+     */
+    public boolean isDeleted() {
+      return deleted;
+    }
+    
+    /**
+     * Returns the data item's serialized representation. This will never be null; for a deleted item
+     * placeholder, it will contain a special value that can be stored if necessary (see {@link #isDeleted()}).
+     * 
      * @return the serialized data or null
      */
     public String getSerializedItem() {
@@ -205,35 +207,30 @@ public abstract class DataStoreTypes {
 
     /**
      * Constructs a new instance.
+     * 
      * @param version the version number
-     * @param serializedItem the serialized data or null
+     * @param deleted true if this is a deleted item placeholder
+     * @param serializedItem the serialized data (will not be null)
      */
-    public SerializedItemDescriptor(int version, String serializedItem) {
+    public SerializedItemDescriptor(int version, boolean deleted, String serializedItem) {
       this.version = version;
+      this.deleted = deleted;
       this.serializedItem = serializedItem;
     }
 
-    /**
-     * Convenience method for constructing a deleted item placeholder.
-     * @param version the version number
-     * @return a SerializedItemDescriptor
-     */
-    public static SerializedItemDescriptor deletedItem(int version) {
-      return new SerializedItemDescriptor(version, null);
-    }
-    
     @Override
     public boolean equals(Object o) {
       if (o instanceof SerializedItemDescriptor) {
         SerializedItemDescriptor other = (SerializedItemDescriptor)o;
-        return version == other.version && Objects.equal(serializedItem, other.serializedItem);
+        return version == other.version && deleted == other.deleted &&
+            Objects.equal(serializedItem, other.serializedItem);
       }
       return false;
     }
     
     @Override
     public String toString() {
-      return "SerializedItemDescriptor(" + version + "," + serializedItem + ")";
+      return "SerializedItemDescriptor(" + version + "," + deleted + "," + serializedItem + ")";
     }
   }
   
@@ -252,6 +249,7 @@ public abstract class DataStoreTypes {
     
     /**
      * Returns the wrapped data set.
+     * 
      * @return an enumeration of key-value pairs; may be empty, but will not be null
      */
     public Iterable<Map.Entry<DataKind, KeyedItems<TDescriptor>>> getData() {
@@ -260,6 +258,7 @@ public abstract class DataStoreTypes {
     
     /**
      * Constructs a new instance.
+     * 
      * @param data the data set
      */
     public FullDataSet(Iterable<Map.Entry<DataKind, KeyedItems<TDescriptor>>> data) {
@@ -278,6 +277,7 @@ public abstract class DataStoreTypes {
     
     /**
      * Returns the wrapped data set.
+     * 
      * @return an enumeration of key-value pairs; may be empty, but will not be null
      */
     public Iterable<Map.Entry<String, TDescriptor>> getItems() {
@@ -286,6 +286,7 @@ public abstract class DataStoreTypes {
     
     /**
      * Constructs a new instance.
+     * 
      * @param items the data set
      */
     public KeyedItems(Iterable<Map.Entry<String, TDescriptor>> items) {

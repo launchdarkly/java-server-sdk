@@ -26,6 +26,7 @@ import java.util.Map;
 import static com.launchdarkly.client.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.client.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.client.DataStoreTestTypes.toItemsMap;
+import static com.launchdarkly.client.DataStoreTestTypes.toSerialized;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -46,12 +47,12 @@ public class PersistentDataStoreWrapperTest {
   static class TestMode {
     final boolean cached;
     final boolean cachedIndefinitely;
-    final boolean schemaCompatibilityMode;
+    final boolean persistOnlyAsString;
     
-    TestMode(boolean cached, boolean cachedIndefinitely, boolean schemaCompatibilityMode) {
+    TestMode(boolean cached, boolean cachedIndefinitely, boolean persistOnlyAsString) {
       this.cached = cached;
       this.cachedIndefinitely = cachedIndefinitely;
-      this.schemaCompatibilityMode = schemaCompatibilityMode;
+      this.persistOnlyAsString = persistOnlyAsString;
     }
     
     boolean isCached() {
@@ -74,7 +75,7 @@ public class PersistentDataStoreWrapperTest {
     public String toString() {
       return "TestMode(" +
           (cached ? (cachedIndefinitely ? "CachedIndefinitely" : "Cached") : "Uncached") +
-          (schemaCompatibilityMode ? ",schemaCompatibility" : "") + ")";
+          (persistOnlyAsString ? ",persistOnlyAsString" : "") + ")";
     }
   }
   
@@ -93,7 +94,7 @@ public class PersistentDataStoreWrapperTest {
   public PersistentDataStoreWrapperTest(TestMode testMode) {
     this.testMode = testMode;
     this.core = new MockCore();
-    this.core.schemaCompatibilityMode = testMode.schemaCompatibilityMode;
+    this.core.persistOnlyAsString = testMode.persistOnlyAsString;
     this.wrapper = new PersistentDataStoreWrapper(core, testMode.getCacheTtl(),
         PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, null);
   }
@@ -118,7 +119,7 @@ public class PersistentDataStoreWrapperTest {
   public void getDeletedItem() {
     String key = "key";
 
-    core.forceSet(TEST_ITEMS, key, SerializedItemDescriptor.deletedItem(1));
+    core.forceSet(TEST_ITEMS, key, toSerialized(TEST_ITEMS, ItemDescriptor.deletedItem(1)));
     assertThat(wrapper.get(TEST_ITEMS, key), equalTo(ItemDescriptor.deletedItem(1)));
 
     TestItem itemv2 = new TestItem(key, 2);
@@ -185,7 +186,7 @@ public class PersistentDataStoreWrapperTest {
     TestItem item1 = new TestItem(key1, 1);
     
     core.forceSet(TEST_ITEMS, item1);
-    core.forceSet(TEST_ITEMS, key2, SerializedItemDescriptor.deletedItem(1));
+    core.forceSet(TEST_ITEMS, key2, toSerialized(TEST_ITEMS, ItemDescriptor.deletedItem(1)));
     Map<String, ItemDescriptor> items = toItemsMap(wrapper.getAll(TEST_ITEMS));
     Map<String, ItemDescriptor> expected = ImmutableMap.<String, ItemDescriptor>of(
         key1, item1.toItemDescriptor(), key2, ItemDescriptor.deletedItem(1));
@@ -392,9 +393,10 @@ public class PersistentDataStoreWrapperTest {
     ItemDescriptor deletedItem = ItemDescriptor.deletedItem(2);
     wrapper.upsert(TEST_ITEMS, itemv1.key, deletedItem);
 
-    // in schema compatibility mode, it will store a special placeholder string, otherwise a null
-    SerializedItemDescriptor serializedDeletedItem = new SerializedItemDescriptor(deletedItem.getVersion(),
-        testMode.schemaCompatibilityMode ? TEST_ITEMS.serializeDeletedItemPlaceholder(deletedItem.getVersion()) : null);
+    // some stores will persist a special placeholder string, others will store the metadata separately
+    SerializedItemDescriptor serializedDeletedItem = testMode.persistOnlyAsString ?
+          toSerialized(TEST_ITEMS, ItemDescriptor.deletedItem(deletedItem.getVersion())) :
+          new SerializedItemDescriptor(deletedItem.getVersion(), true, null);
     assertThat(core.data.get(TEST_ITEMS).get(itemv1.key), equalTo(serializedDeletedItem));
     
     // make a change that bypasses the cache
@@ -508,7 +510,7 @@ public class PersistentDataStoreWrapperTest {
     Map<DataKind, Map<String, SerializedItemDescriptor>> data = new HashMap<>();
     boolean inited;
     int initedQueryCount;
-    boolean schemaCompatibilityMode;
+    boolean persistOnlyAsString;
     RuntimeException fakeError;
     
     @Override
@@ -521,8 +523,9 @@ public class PersistentDataStoreWrapperTest {
       if (data.containsKey(kind)) {
         SerializedItemDescriptor item = data.get(kind).get(key);
         if (item != null) {
-          if (schemaCompatibilityMode) {
-            return new SerializedItemDescriptor(0, item.getSerializedItem());
+          if (persistOnlyAsString) {
+            // This simulates the kind of store implementation that can't track metadata separately  
+            return new SerializedItemDescriptor(0, false, item.getSerializedItem());
           } else {
             return item;
           }
@@ -593,11 +596,10 @@ public class PersistentDataStoreWrapperTest {
     }
     
     private SerializedItemDescriptor storableItem(DataKind kind, SerializedItemDescriptor item) {
-      // Here we simulate the behavior of older persistent store implementations where the store does not have
-      // the ability to track an item's deleted status itself, but must instead store a string that can be
-      // recognized by the DataKind as a placeholder.
-      if (item.getSerializedItem() == null && schemaCompatibilityMode) {
-        return new SerializedItemDescriptor(item.getVersion(), kind.serializeDeletedItemPlaceholder(item.getVersion()));
+      if (item.isDeleted() && !persistOnlyAsString) {
+        // This simulates the kind of store implementation that *can* track metadata separately, so we don't
+        // have to persist the placeholder string for deleted items
+        return new SerializedItemDescriptor(item.getVersion(), true, null);
       }
       return item;
     }

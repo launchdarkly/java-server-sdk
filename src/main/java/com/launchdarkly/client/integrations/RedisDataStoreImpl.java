@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.client.interfaces.DataStoreTypes.SerializedItemDescriptor;
 import com.launchdarkly.client.interfaces.PersistentDataStore;
@@ -71,7 +72,7 @@ final class RedisDataStoreImpl implements PersistentDataStore {
   public SerializedItemDescriptor get(DataKind kind, String key) {
     try (Jedis jedis = pool.getResource()) {
       String item = getRedis(kind, key, jedis);
-      return item == null ? null : new SerializedItemDescriptor(0, item);
+      return item == null ? null : new SerializedItemDescriptor(0, false, item);
     }
   }
 
@@ -80,7 +81,7 @@ final class RedisDataStoreImpl implements PersistentDataStore {
     try (Jedis jedis = pool.getResource()) {
       Map<String, String> allJson = jedis.hgetAll(itemsKey(kind));
       return new KeyedItems<>(
-          Maps.transformValues(allJson, itemJson -> new SerializedItemDescriptor(0, itemJson)).entrySet()
+          Maps.transformValues(allJson, itemJson -> new SerializedItemDescriptor(0, false, itemJson)).entrySet()
           );
     }
   }
@@ -189,7 +190,10 @@ final class RedisDataStoreImpl implements PersistentDataStore {
     if (s != null) {
       return s;
     }
-    return kind.serializeDeletedItemPlaceholder(serializedItem.getVersion());
+    // For backward compatibility with previous implementations of the Redis integration, we must store a
+    // special placeholder string for deleted items. DataKind.serializeItem() will give us this string if
+    // we pass a deleted ItemDescriptor.
+    return kind.serialize(ItemDescriptor.deletedItem(serializedItem.getVersion()));
   }
   
   static interface UpdateListener {

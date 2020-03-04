@@ -17,6 +17,7 @@ import java.util.Map;
 import static com.launchdarkly.client.DataStoreTestTypes.OTHER_TEST_ITEMS;
 import static com.launchdarkly.client.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.client.DataStoreTestTypes.toItemsMap;
+import static com.launchdarkly.client.DataStoreTestTypes.toSerialized;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -170,7 +171,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   @Test
   public void getAllWithDeletedItem() {
     store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).buildSerialized());
-    SerializedItemDescriptor deletedItem = SerializedItemDescriptor.deletedItem(item1.version + 1);
+    SerializedItemDescriptor deletedItem = toSerialized(TEST_ITEMS, ItemDescriptor.deletedItem(item1.version + 1));
     store.upsert(TEST_ITEMS, item1.key, deletedItem);
     Map<String, SerializedItemDescriptor> items = toItemsMap(store.getAll(TEST_ITEMS));
     assertEquals(2, items.size());
@@ -205,7 +206,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   @Test
   public void deleteWithNewerVersion() {
     store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).buildSerialized());
-    SerializedItemDescriptor deletedItem = SerializedItemDescriptor.deletedItem(item1.version + 1);
+    SerializedItemDescriptor deletedItem = toSerialized(TEST_ITEMS, ItemDescriptor.deletedItem(item1.version + 1));
     store.upsert(TEST_ITEMS, item1.key, deletedItem);
     assertEqualsDeletedItem(deletedItem, store.get(TEST_ITEMS, item1.key));
   }
@@ -213,7 +214,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   @Test
   public void deleteWithOlderVersion() {
     store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).buildSerialized());
-    SerializedItemDescriptor deletedItem = SerializedItemDescriptor.deletedItem(item1.version - 1);
+    SerializedItemDescriptor deletedItem = toSerialized(TEST_ITEMS, ItemDescriptor.deletedItem(item1.version - 1));
     store.upsert(TEST_ITEMS, item1.key, deletedItem);
     assertEqualsSerializedItem(item1, store.get(TEST_ITEMS, item1.key));
   }
@@ -221,7 +222,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   @Test
   public void deleteUnknownItem() {
     store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).buildSerialized());
-    SerializedItemDescriptor deletedItem = SerializedItemDescriptor.deletedItem(11);
+    SerializedItemDescriptor deletedItem = toSerialized(TEST_ITEMS, ItemDescriptor.deletedItem(11));
     store.upsert(TEST_ITEMS, "deleted-key", deletedItem);
     assertEqualsDeletedItem(deletedItem, store.get(TEST_ITEMS, "deleted-key"));
   }
@@ -229,7 +230,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   @Test
   public void upsertOlderVersionAfterDelete() {
     store.init(new DataBuilder().add(TEST_ITEMS, item1, item2).buildSerialized());
-    SerializedItemDescriptor deletedItem = SerializedItemDescriptor.deletedItem(item1.version + 1);
+    SerializedItemDescriptor deletedItem = toSerialized(TEST_ITEMS, ItemDescriptor.deletedItem(item1.version + 1));
     store.upsert(TEST_ITEMS, item1.key, deletedItem);
     store.upsert(TEST_ITEMS, item1.key, item1.toSerializedItemDescriptor());
     assertEqualsDeletedItem(deletedItem, store.get(TEST_ITEMS, item1.key));

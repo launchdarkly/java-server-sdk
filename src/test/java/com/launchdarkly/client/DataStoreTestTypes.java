@@ -28,8 +28,8 @@ public class DataStoreTestTypes {
   }
   
   public static SerializedItemDescriptor toSerialized(DataKind kind, ItemDescriptor item) {
-    return item.getItem() == null ? SerializedItemDescriptor.deletedItem(item.getVersion()) :
-      new SerializedItemDescriptor(item.getVersion(), kind.serialize(item.getItem()));
+    boolean isDeleted = item.getItem() == null;
+    return new SerializedItemDescriptor(item.getVersion(), isDeleted, kind.serialize(item));
   }
   
   public static class TestItem implements VersionedData {
@@ -80,7 +80,7 @@ public class DataStoreTestTypes {
     }
     
     public SerializedItemDescriptor toSerializedItemDescriptor() {
-      return new SerializedItemDescriptor(version, TEST_ITEMS.serialize(this));
+      return toSerialized(TEST_ITEMS, toItemDescriptor());
     }
     
     @Override
@@ -107,16 +107,17 @@ public class DataStoreTestTypes {
   
   public static final DataKind TEST_ITEMS = new DataKind("test-items",
       DataStoreTestTypes::serializeTestItem,
-      DataStoreTestTypes::deserializeTestItem,
-      DataStoreTestTypes::serializeDeletedItemPlaceholder);
+      DataStoreTestTypes::deserializeTestItem);
 
   public static final DataKind OTHER_TEST_ITEMS = new DataKind("other-test-items",
       DataStoreTestTypes::serializeTestItem,
-      DataStoreTestTypes::deserializeTestItem,
-      DataStoreTestTypes::serializeDeletedItemPlaceholder);
+      DataStoreTestTypes::deserializeTestItem);
 
-  private static String serializeTestItem(Object o) {
-    return JsonHelpers.gsonInstance().toJson(o);
+  private static String serializeTestItem(ItemDescriptor item) {
+    if (item.getItem() == null) {
+      return "DELETED:" + item.getVersion();
+    }
+    return JsonHelpers.gsonInstance().toJson(item.getItem());
   }
   
   private static ItemDescriptor deserializeTestItem(String s) {
@@ -127,10 +128,6 @@ public class DataStoreTestTypes {
     return new ItemDescriptor(ti.version, ti);
   }
   
-  private static String serializeDeletedItemPlaceholder(int version) {
-    return "DELETED:" + version;
-  }
-
   public static class DataBuilder {
     private Map<DataKind, Map<String, ItemDescriptor>> data = new HashMap<>();
     

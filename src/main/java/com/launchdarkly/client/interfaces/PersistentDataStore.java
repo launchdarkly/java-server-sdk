@@ -20,30 +20,23 @@ import java.io.Closeable;
  * <p>
  * Implementations must be thread-safe.
  * <p>
- * Conceptually, each item in the store is a {@link SerializedItemDescriptor} consisting of a
- * version number plus either a string of serialized data or a null; the null represents a
- * placeholder (tombstone) indicating that the item was deleted.
- * <p>
- * Preferably, the store implementation should store the version number as a separate property
- * from the string, and store a null or empty string for deleted items, so that no
- * deserialization is required to simply determine the version (for updates) or the deleted
- * state.
- * <p>
- * However, due to how persistent stores were implemented in earlier SDK versions, for
- * interoperability it may be necessary for a store to use a somewhat different model in
- * which the version number and deleted state are encoded inside the serialized string. In
- * this case, to avoid unnecessary extra parsing, the store should work as follows:
- * <ul>
- * <li> When querying items, set the {@link SerializedItemDescriptor} to have a version
- * number of zero; the SDK will be able to determine the version number, and to filter out
- * any items that were actually deleted, after it deserializes the item. </li>
- * <li> When inserting or updating items, if the {@link SerializedItemDescriptor} contains
- * a null, pass its version number to {@link DataKind#serializeDeletedItemPlaceholder(int)}
- * and store the string that that method returns. </li>
- * <li> When updating items, if it's necessary to check the version number of an existing
- * item, pass its serialized string to {@link DataKind#deserialize(String)} and look at the
- * version number in the returned {@link ItemDescriptor}. </li>
- * </ul>
+ * Conceptually, each item in the store is a {@link SerializedItemDescriptor} which always has
+ * a version number, and can represent either a serialized object or a placeholder (tombstone)
+ * for a deleted item. There are two approaches a persistent store implementation can use for
+ * persisting this data:
+ * 
+ * 1. Preferably, it should store the version number and the {@link SerializedItemDescriptor#isDeleted()}
+ * state separately so that the object does not need to be fully deserialized to read them. In
+ * this case, deleted item placeholders can ignore the value of {@link SerializedItemDescriptor#getSerializedItem()}
+ * on writes and can set it to null on reads. The store should never call {@link DataKind#deserialize(String)}
+ * or {@link DataKind#serialize(ItemDescriptor)}.
+ * 
+ * 2. If that isn't possible, then the store should simply persist the exact string from
+ * {@link SerializedItemDescriptor#getSerializedItem()} on writes, and return the persisted
+ * string on reads (returning zero for the version and false for {@link SerializedItemDescriptor#isDeleted()}).
+ * The string is guaranteed to provide the SDK with enough information to infer the version and
+ * the deleted state. On updates, the store must call {@link DataKind#deserialize(String)} in
+ * order to inspect the version number of the existing item if any.
  * 
  * @since 5.0.0
  */
@@ -64,13 +57,16 @@ public interface PersistentDataStore extends Closeable {
   /**
    * Retrieves an item from the specified collection, if available.
    * <p>
-   * If the item has been deleted and the store contains a placeholder, it should return a
-   * {@link SerializedItemDescriptor} for that placeholder rather than returning null.
+   * If the key is not known at all, the method should return null. Otherwise, it should return
+   * a {@link SerializedItemDescriptor} as follows:
    * <p>
-   * If it is possible for the data store to know the version number of the data item without
-   * deserializing it, then it should return that number in the version property of the
-   * {@link SerializedItemDescriptor}. If not, then it should just return zero for the version
-   * and it will be parsed out later.
+   * 1. If the version number and deletion state can be determined without fully deserializing
+   * the item, then the store should set those properties in the {@link SerializedItemDescriptor}
+   * (and can set {@link SerializedItemDescriptor#getSerializedItem()} to null for deleted items).
+   * <p>
+   * 2. Otherwise, it should simply set {@link SerializedItemDescriptor#getSerializedItem()} to
+   * the exact string that was persisted, and can leave the other properties as zero/false. See
+   * comments on {@link PersistentDataStore} for more about this.
    * 
    * @param kind specifies which collection to use
    * @param key the unique key of the item within that collection
@@ -82,8 +78,9 @@ public interface PersistentDataStore extends Closeable {
   /**
    * Retrieves all items from the specified collection.
    * <p>
-   * If the store contains placeholders for deleted items, it should include them in
-   * the results, not filter them out.
+   * If the store contains placeholders for deleted items, it should include them in the results,
+   * not filter them out. See {@link #get(DataKind, String)} for how to set the properties of the
+   * {@link SerializedItemDescriptor} for each item. 
    * 
    * @param kind specifies which collection to use
    * @return a collection of key-value pairs; the ordering is not significant
@@ -91,12 +88,20 @@ public interface PersistentDataStore extends Closeable {
   KeyedItems<SerializedItemDescriptor> getAll(DataKind kind);
   
   /**
-   * Updates or inserts an item in the specified collection. For updates, the object will only be
-   * updated if the existing version is less than the new version.
+   * Updates or inserts an item in the specified collection.
    * <p>
-   * The SDK may pass an {@link ItemDescriptor} that contains a null, to represent a placeholder
-   * for a deleted item. In that case, assuming the version is greater than any existing version of
-   * that item, the store should retain that placeholder rather than simply not storing anything.
+   * If the given key already exists in that collection, the store must check the version number
+   * of the existing item (even if it is a deleted item placeholder); if that version is greater
+   * than or equal to the version of the new item, the update fails and the method returns false.
+   * If the store is not able to determine the version number of an existing item without fully
+   * deserializing the existing item, then it is allowed to call {@link DataKind#deserialize(String)}
+   * for that purpose.
+   * <p>
+   * If the item's {@link SerializedItemDescriptor#isDeleted()} method returns true, this is a
+   * deleted item placeholder. The store must persist this, rather than simply removing the key
+   * from the store. The SDK will provide a string in {@link SerializedItemDescriptor#getSerializedItem()}
+   * which the store can persist for this purpose; or, if the store is capable of persisting the
+   * version number and deleted state without storing anything else, it should do so.
    * 
    * @param kind specifies which collection to use
    * @param key the unique key for the item within that collection
