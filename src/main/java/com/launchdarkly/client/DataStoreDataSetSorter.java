@@ -71,7 +71,7 @@ abstract class DataStoreDataSetSorter {
       Map<String, ItemDescriptor> remainingItems,
       ImmutableMap.Builder<String, ItemDescriptor> builder) {
     remainingItems.remove(key);  // we won't need to visit this item again
-    for (String prereqKey: getDependencyKeys(kind, item)) {
+    for (String prereqKey: getDependencyKeys(kind, item.getItem())) {
       ItemDescriptor prereqItem = remainingItems.get(prereqKey);
       if (prereqItem != null) {
         addWithDependenciesFirst(kind, prereqKey, prereqItem, remainingItems, builder);
@@ -85,6 +85,9 @@ abstract class DataStoreDataSetSorter {
   }
   
   private static Iterable<String> getDependencyKeys(DataKind kind, Object item) {
+    if (item == null) {
+      return null;
+    }
     if (kind == DataModel.DataKinds.FEATURES) {
       DataModel.FeatureFlag flag = (DataModel.FeatureFlag)item;
       if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
