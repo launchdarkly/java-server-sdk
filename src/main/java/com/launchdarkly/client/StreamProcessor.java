@@ -245,7 +245,7 @@ final class StreamProcessor implements DataSource {
   }
 
   private static String getKeyFromStreamApiPath(DataKind kind, String path) {
-    String prefix = (kind == SEGMENTS) ? "/segments/" : "/features/";
+    String prefix = (kind == SEGMENTS) ? "/segments/" : "/flags/";
     return path.startsWith(prefix) ? path.substring(prefix.length()) : null;
   }
   

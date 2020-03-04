@@ -202,8 +202,7 @@ abstract class FileDataSourceParsing {
             .build();
       // Note that LaunchDarkly normally prevents you from creating a flag with just one variation,
       // but it's the application that validates that; the SDK doesn't care.
-      Object item = DataModel.DataKinds.FEATURES.deserialize(o.toJsonString());
-      return new ItemDescriptor(1, item);
+      return DataModel.DataKinds.FEATURES.deserialize(o.toJsonString());
     }
     
     static ItemDescriptor segmentFromJson(String jsonString) {
