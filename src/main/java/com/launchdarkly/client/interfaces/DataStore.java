@@ -1,87 +1,81 @@
 package com.launchdarkly.client.interfaces;
 
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
+
 import java.io.Closeable;
-import java.util.Map;
 
 /**
- * A thread-safe, versioned store for feature flags and related objects received from the
- * streaming API.  Implementations should permit concurrent access and updates.
+ * Interface for a data store that holds feature flags and related data received by the SDK.
  * <p>
- * Delete and upsert requests are versioned-- if the version number in the request is less than
- * the currently stored version of the object, the request should be ignored.
- * <p>
- * These semantics support the primary use case for the store, which synchronizes a collection
- * of objects based on update messages that may be received out-of-order.
+ * Ordinarily, the only implementations of this interface are the default in-memory implementation,
+ * which holds references to actual SDK data model objects, and the persistent data store
+ * implementation that delegates to a {@link PersistentDataStore}.
+ * <p> 
+ * All implementations must permit concurrent access and updates.
+ *
  * @since 5.0.0
  */
 public interface DataStore extends Closeable {
   /**
-   * Returns the object to which the specified key is mapped, or
-   * null if the key is not associated or the associated object has
-   * been deleted.
-   *
-   * @param <T> class of the object that will be returned
-   * @param kind the kind of object to get
-   * @param key the key whose associated object is to be returned
-   * @return the object to which the specified key is mapped, or
-   * null if the key is not associated or the associated object has
-   * been deleted.
-   */
-  <T extends VersionedData> T get(VersionedDataKind<T> kind, String key);
-
-  /**
-   * Returns a {@link java.util.Map} of all associated objects of a given kind.
-   *
-   * @param <T> class of the objects that will be returned in the map
-   * @param kind the kind of objects to get
-   * @return a map of all associated object.
-   */
-  <T extends VersionedData> Map<String, T> all(VersionedDataKind<T> kind);
-
-  /**
-   * Initializes (or re-initializes) the store with the specified set of objects. Any existing entries
-   * will be removed. Implementations can assume that this set of objects is up to date-- there is no
-   * need to perform individual version comparisons between the existing objects and the supplied
-   * features.
+   * Overwrites the store's contents with a set of items for each collection.
    * <p>
-   * If possible, the store should update the entire data set atomically. If that is not possible, it
-   * should iterate through the outer map and then the inner map <i>in the order provided</i> (the SDK
-   * will use a Map subclass that has a defined ordering), storing each item, and then delete any
-   * leftover items at the very end.
+   * All previous data should be discarded, regardless of versioning.
    * <p>
-   * The store should not attempt to modify any of the Maps, and if it needs to retain the data in
-   * memory it should copy the Maps.
+   * The update should be done atomically. If it cannot be done atomically, then the store
+   * must first add or update each item in the same order that they are given in the input
+   * data, and then delete any previously stored items that were not in the input data.
    * 
-   * @param allData all objects to be stored
+   * @param allData a list of {@link DataStoreTypes.DataKind} instances and their corresponding data sets
    */
-  void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData);
-
+  void init(FullDataSet<ItemDescriptor> allData);
+  
   /**
-   * Deletes the object associated with the specified key, if it exists and its version
-   * is less than or equal to the specified version.
-   *
-   * @param <T> class of the object to be deleted
-   * @param kind the kind of object to delete
-   * @param key the key of the object to be deleted
-   * @param version the version for the delete operation
+   * Retrieves an item from the specified collection, if available.
+   * <p>
+   * If the item has been deleted and the store contains a placeholder, it should
+   * return that placeholder rather than null.
+   * 
+   * @param kind specifies which collection to use
+   * @param key the unique key of the item within that collection
+   * @return a versioned item that contains the stored data (or placeholder for deleted data);
+   *   null if the key is unknown
    */
-  <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version);
-
+  ItemDescriptor get(DataKind kind, String key);
+  
   /**
-   * Update or insert the object associated with the specified key, if its version
-   * is less than or equal to the version specified in the argument object.
-   *
-   * @param <T> class of the object to be updated
-   * @param kind the kind of object to update
-   * @param item the object to update or insert
+   * Retrieves all items from the specified collection.
+   * <p>
+   * If the store contains placeholders for deleted items, it should include them in
+   * the results, not filter them out.
+   * 
+   * @param kind specifies which collection to use
+   * @return a collection of key-value pairs; the ordering is not significant
    */
-  <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item);
-
+  KeyedItems<ItemDescriptor> getAll(DataKind kind);
+  
   /**
-   * Returns true if this store has been initialized.
-   *
-   * @return true if this store has been initialized
+   * Updates or inserts an item in the specified collection. For updates, the object will only be
+   * updated if the existing version is less than the new version.
+   * <p>
+   * The SDK may pass an {@link ItemDescriptor} that contains a null, to represent a placeholder
+   * for a deleted item. In that case, assuming the version is greater than any existing version of
+   * that item, the store should retain that placeholder rather than simply not storing anything.
+   * 
+   * @param kind specifies which collection to use
+   * @param key the unique key for the item within that collection
+   * @param item the item to insert or update
+   * @return true if the item was updated; false if it was not updated because the store contains
+   *   an equal or greater version
    */
-  boolean initialized();
-
+  boolean upsert(DataKind kind, String key, ItemDescriptor item);
+  
+  /**
+   * Checks whether this store has been initialized with any data yet.
+   *
+   * @return true if the store contains data
+   */
+  boolean isInitialized();
 }

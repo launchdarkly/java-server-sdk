@@ -8,10 +8,10 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
 import static com.launchdarkly.client.TestUtil.initedDataStore;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
+import static com.launchdarkly.client.TestUtil.upsertFlag;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -66,7 +66,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .dataStore(specificDataStore(testDataStore))
         .build();
-    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(true)));
+    upsertFlag(testDataStore, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       FeatureFlagsState state = client.allFlagsState(user);
       assertTrue(state.isValid());

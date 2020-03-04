@@ -5,8 +5,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.interfaces.DataStoreUpdates;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.ConnectionErrorHandler.Action;
 import com.launchdarkly.eventsource.EventHandler;
@@ -130,7 +131,7 @@ final class StreamProcessor implements DataSource {
             recordStreamInit(false);
             esStarted = 0;
             PutData putData = gson.fromJson(event.getData(), PutData.class); 
-            dataStoreUpdates.init(DefaultFeatureRequestor.toVersionedDataMap(putData.data));
+            dataStoreUpdates.init(DefaultFeatureRequestor.toFullDataSet(putData.data));
             if (!initialized.getAndSet(true)) {
               initFuture.set(null);
               logger.info("Initialized LaunchDarkly client.");
@@ -140,21 +141,24 @@ final class StreamProcessor implements DataSource {
           case PATCH: {
             PatchData data = gson.fromJson(event.getData(), PatchData.class);
             if (getKeyFromStreamApiPath(FEATURES, data.path) != null) {
-              dataStoreUpdates.upsert(FEATURES, gson.fromJson(data.data, DataModel.FeatureFlag.class));
+              DataModel.FeatureFlag flag = JsonHelpers.gsonInstance().fromJson(data.data, DataModel.FeatureFlag.class);
+              dataStoreUpdates.upsert(FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
             } else if (getKeyFromStreamApiPath(SEGMENTS, data.path) != null) {
-              dataStoreUpdates.upsert(SEGMENTS, gson.fromJson(data.data, DataModel.Segment.class));
+              DataModel.Segment segment = JsonHelpers.gsonInstance().fromJson(data.data, DataModel.Segment.class);
+              dataStoreUpdates.upsert(SEGMENTS, segment.getKey(), new ItemDescriptor(segment.getVersion(), segment));
             }
             break;
           }
           case DELETE: {
             DeleteData data = gson.fromJson(event.getData(), DeleteData.class);
+            ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
             String featureKey = getKeyFromStreamApiPath(FEATURES, data.path);
             if (featureKey != null) {
-              dataStoreUpdates.upsert(FEATURES, FEATURES.makeDeletedItem(featureKey, data.version));
+              dataStoreUpdates.upsert(FEATURES, featureKey, placeholder);
             } else {
               String segmentKey = getKeyFromStreamApiPath(SEGMENTS, data.path);
               if (segmentKey != null) {
-                dataStoreUpdates.upsert(SEGMENTS, SEGMENTS.makeDeletedItem(segmentKey, data.version));
+                dataStoreUpdates.upsert(SEGMENTS, segmentKey, placeholder);
               }
             }
             break;
@@ -162,7 +166,7 @@ final class StreamProcessor implements DataSource {
           case INDIRECT_PUT:
             try {
               FeatureRequestor.AllData allData = requestor.getAllData();
-              dataStoreUpdates.init(DefaultFeatureRequestor.toVersionedDataMap(allData));
+              dataStoreUpdates.init(DefaultFeatureRequestor.toFullDataSet(allData));
               if (!initialized.getAndSet(true)) {
                 initFuture.set(null);
                 logger.info("Initialized LaunchDarkly client.");
@@ -178,12 +182,12 @@ final class StreamProcessor implements DataSource {
               String featureKey = getKeyFromStreamApiPath(FEATURES, path);
               if (featureKey != null) {
                 DataModel.FeatureFlag feature = requestor.getFlag(featureKey);
-                dataStoreUpdates.upsert(FEATURES, feature);
+                dataStoreUpdates.upsert(FEATURES, featureKey, new ItemDescriptor(feature.getVersion(), feature));
               } else {
                 String segmentKey = getKeyFromStreamApiPath(SEGMENTS, path);
                 if (segmentKey != null) {
                   DataModel.Segment segment = requestor.getSegment(segmentKey);
-                  dataStoreUpdates.upsert(SEGMENTS, segment);
+                  dataStoreUpdates.upsert(SEGMENTS, segmentKey, new ItemDescriptor(segment.getVersion(), segment));
                 }
               }
             } catch (IOException e) {
@@ -240,8 +244,9 @@ final class StreamProcessor implements DataSource {
     return initialized.get();
   }
 
-  private static String getKeyFromStreamApiPath(VersionedDataKind<?> kind, String path) {
-    return path.startsWith(kind.getStreamApiPath()) ? path.substring(kind.getStreamApiPath().length()) : null;
+  private static String getKeyFromStreamApiPath(DataKind kind, String path) {
+    String prefix = (kind == SEGMENTS) ? "/segments/" : "/features/";
+    return path.startsWith(prefix) ? path.substring(prefix.length()) : null;
   }
   
   private static final class PutData {

@@ -1,15 +1,13 @@
 package com.launchdarkly.client;
 
-import com.google.common.collect.ImmutableList;
-import com.google.gson.Gson;
 import com.google.gson.annotations.JsonAdapter;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.interfaces.VersionedData;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
 
 import java.util.List;
-
-import static com.google.common.collect.Iterables.transform;
 
 /**
  * Defines the full data model for feature flags and user segments, in the format provided by the SDK endpoints of
@@ -25,70 +23,32 @@ public abstract class DataModel {
    */
   public static abstract class DataKinds {
     /**
-     * The {@link VersionedDataKind} instance that describes feature flag data.
+     * The {@link DataKind} instance that describes feature flag data.
      */
-    public static VersionedDataKind<DataModel.FeatureFlag> FEATURES = new DataKindImpl<DataModel.FeatureFlag>("features", DataModel.FeatureFlag.class, "/flags/", 1) {
-      public DataModel.FeatureFlag makeDeletedItem(String key, int version) {
-        return new DataModel.FeatureFlag(key, version, false, null, null, null, null, null, null, null, false, false, false, null, true);
-      }
-      
-      public boolean isDependencyOrdered() {
-        return true;
-      }
-      
-      public Iterable<String> getDependencyKeys(VersionedData item) {
-        DataModel.FeatureFlag flag = (DataModel.FeatureFlag)item;
-        if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
-          return ImmutableList.of();
-        }
-        return transform(flag.getPrerequisites(), p -> p.getKey());
-      }
-    };
-    
+    public static DataKind FEATURES = new DataKind("features",
+      DataKinds::serializeItem,
+      s -> deserializeItem(s, FeatureFlag.class),
+      DataKinds::serializeDeletedItemPlaceholder);
+        
     /**
-     * The {@link VersionedDataKind} instance that describes user segment data.
+     * The {@link DataKind} instance that describes user segment data.
      */
-    public static VersionedDataKind<DataModel.Segment> SEGMENTS = new DataKindImpl<DataModel.Segment>("segments", DataModel.Segment.class, "/segments/", 0) {
-      
-      public DataModel.Segment makeDeletedItem(String key, int version) {
-        return new DataModel.Segment(key, null, null, null, null, version, true);
-      }
-    };
+    public static DataKind SEGMENTS = new DataKind("segments",
+      DataKinds::serializeItem,
+      s -> deserializeItem(s, Segment.class),
+      DataKinds::serializeDeletedItemPlaceholder);
     
-    static abstract class DataKindImpl<T extends VersionedData> extends VersionedDataKind<T> {
-      private static final Gson gson = new Gson();
-      
-      private final String namespace;
-      private final Class<T> itemClass;
-      private final String streamApiPath;
-      private final int priority;
-      
-      DataKindImpl(String namespace, Class<T> itemClass, String streamApiPath, int priority) {
-        this.namespace = namespace;
-        this.itemClass = itemClass;
-        this.streamApiPath = streamApiPath;
-        this.priority = priority;
-      }
-      
-      public String getNamespace() {
-        return namespace;
-      }
-      
-      public Class<T> getItemClass() {
-        return itemClass;
-      }
-      
-      public String getStreamApiPath() {
-        return streamApiPath;
-      }
-      
-      public int getPriority() {
-        return priority;
-      }
-
-      public T deserialize(String serializedData) {
-        return gson.fromJson(serializedData, itemClass);
-      }
+    private static String serializeItem(Object o) {
+      return JsonHelpers.gsonInstance().toJson(o);
+    }
+    
+    private static ItemDescriptor deserializeItem(String s, Class<? extends VersionedData> itemClass) {
+      VersionedData o = JsonHelpers.gsonInstance().fromJson(s, itemClass);
+      return o.isDeleted() ? ItemDescriptor.deletedItem(o.getVersion()) : new ItemDescriptor(o.getVersion(), o);
+    }
+    
+    private static String serializeDeletedItemPlaceholder(int version) {
+      return "{\"version\":" + version + ",\"deleted\":true}";
     }
   }
 

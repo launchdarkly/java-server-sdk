@@ -1,5 +1,6 @@
 package com.launchdarkly.client.integrations;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.launchdarkly.client.DataModel;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FileDataException;
@@ -7,9 +8,11 @@ import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFactory;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileParser;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FlagFileRep;
 import com.launchdarkly.client.interfaces.DataSource;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.client.interfaces.DataStoreUpdates;
-import com.launchdarkly.client.interfaces.VersionedData;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
@@ -25,6 +28,7 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.Watchable;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -214,17 +218,17 @@ final class FileDataSourceImpl implements DataSource {
           FlagFileRep fileContents = parser.parse(new ByteArrayInputStream(data));
           if (fileContents.flags != null) {
             for (Map.Entry<String, LDValue> e: fileContents.flags.entrySet()) {
-              builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagFromJson(e.getValue()));
+              builder.add(DataModel.DataKinds.FEATURES, e.getKey(), FlagFactory.flagFromJson(e.getValue()));
             }
           }
           if (fileContents.flagValues != null) {
             for (Map.Entry<String, LDValue> e: fileContents.flagValues.entrySet()) {
-              builder.add(DataModel.DataKinds.FEATURES, FlagFactory.flagWithValue(e.getKey(), e.getValue()));
+              builder.add(DataModel.DataKinds.FEATURES, e.getKey(), FlagFactory.flagWithValue(e.getKey(), e.getValue()));
             }
           }
           if (fileContents.segments != null) {
             for (Map.Entry<String, LDValue> e: fileContents.segments.entrySet()) {
-              builder.add(DataModel.DataKinds.SEGMENTS, FlagFactory.segmentFromJson(e.getValue()));
+              builder.add(DataModel.DataKinds.SEGMENTS, e.getKey(), FlagFactory.segmentFromJson(e.getValue()));
             }
           }
         } catch (FileDataException e) {
@@ -241,23 +245,26 @@ final class FileDataSourceImpl implements DataSource {
    * expects. Will throw an exception if we try to add the same flag or segment key more than once.
    */
   static final class DataBuilder {
-    private final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData = new HashMap<>();
+    private final Map<DataKind, Map<String, ItemDescriptor>> allData = new HashMap<>();
     
-    public Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> build() {
-      return allData;
+    public FullDataSet<ItemDescriptor> build() {
+      ImmutableList.Builder<Map.Entry<DataKind, KeyedItems<ItemDescriptor>>> allBuilder = ImmutableList.builder();
+      for (Map.Entry<DataKind, Map<String, ItemDescriptor>> e0: allData.entrySet()) {
+        allBuilder.add(new AbstractMap.SimpleEntry<>(e0.getKey(), new KeyedItems<>(e0.getValue().entrySet())));
+      }
+      return new FullDataSet<>(allBuilder.build());
     }
     
-    public void add(VersionedDataKind<?> kind, VersionedData item) throws FileDataException {
-      @SuppressWarnings("unchecked")
-      Map<String, VersionedData> items = (Map<String, VersionedData>)allData.get(kind);
+    public void add(DataKind kind, String key, ItemDescriptor item) throws FileDataException {
+      Map<String, ItemDescriptor> items = allData.get(kind);
       if (items == null) {
-        items = new HashMap<String, VersionedData>();
+        items = new HashMap<String, ItemDescriptor>();
         allData.put(kind, items);
       }
-      if (items.containsKey(item.getKey())) {
-        throw new FileDataException("in " + kind.getNamespace() + ", key \"" + item.getKey() + "\" was already defined", null, null);
+      if (items.containsKey(key)) {
+        throw new FileDataException("in " + kind.getName() + ", key \"" + key + "\" was already defined", null, null);
       }
-      items.put(item.getKey(), item);
+      items.put(key, item);
     }
   }
 }

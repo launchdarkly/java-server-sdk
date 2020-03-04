@@ -2,18 +2,22 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.launchdarkly.client.DataModel.FeatureFlag;
+import com.launchdarkly.client.DataModel.Segment;
 import com.launchdarkly.client.integrations.EventProcessorBuilder;
 import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.client.interfaces.DataStoreUpdates;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.VersionedData;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
 import com.launchdarkly.client.value.LDValueType;
 
@@ -23,10 +27,7 @@ import org.hamcrest.TypeSafeDiagnosingMatcher;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
 
@@ -52,8 +53,16 @@ public class TestUtil {
   
   public static DataStore initedDataStore() {
     DataStore store = new InMemoryDataStore();
-    store.init(Collections.<VersionedDataKind<?>, Map<String, ? extends VersionedData>>emptyMap());
+    store.init(new FullDataSet<ItemDescriptor>(null));
     return store;
+  }
+  
+  public static void upsertFlag(DataStore store, FeatureFlag flag) {
+    store.upsert(DataModel.DataKinds.FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
+  }
+  
+  public static void upsertSegment(DataStore store, Segment segment) {
+    store.upsert(DataModel.DataKinds.SEGMENTS, segment.getKey(), new ItemDescriptor(segment.getVersion(), segment));
   }
   
   public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {
@@ -64,7 +73,7 @@ public class TestUtil {
     return (context, dataStoreUpdates) -> up;
   }
 
-  public static DataSourceFactory dataSourceWithData(final Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data) {
+  public static DataSourceFactory dataSourceWithData(final FullDataSet<ItemDescriptor> data) {
     return (ClientContext context, final DataStoreUpdates dataStoreUpdates) -> {
       return new DataSource() {
         public Future<Void> start() {
@@ -88,26 +97,25 @@ public class TestUtil {
       public void close() throws IOException { }
 
       @Override
-      public <T extends VersionedData> T get(VersionedDataKind<T> kind, String key) {
+      public ItemDescriptor get(DataKind kind, String key) {
         throw e;
       }
 
       @Override
-      public <T extends VersionedData> Map<String, T> all(VersionedDataKind<T> kind) {
+      public KeyedItems<ItemDescriptor> getAll(DataKind kind) {
         throw e;
       }
 
       @Override
-      public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) { }
+      public void init(FullDataSet<ItemDescriptor> allData) { }
 
       @Override
-      public <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version) { }
+      public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
+        return true;
+      }
 
       @Override
-      public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) { }
-
-      @Override
-      public boolean initialized() {
+      public boolean isInitialized() {
         return true;
       }      
     };
@@ -144,34 +152,6 @@ public class TestUtil {
 
     @Override
     public void flush() {}
-  }
-  
-  public static class DataBuilder {
-    private Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> data = new HashMap<>();
-    
-    @SuppressWarnings("unchecked")
-    public DataBuilder add(VersionedDataKind<?> kind, VersionedData... items) {
-      Map<String, VersionedData> itemsMap = (Map<String, VersionedData>) data.get(kind);
-      if (itemsMap == null) {
-        itemsMap = new HashMap<>();
-        data.put(kind, itemsMap);
-      }
-      for (VersionedData item: items) {
-        itemsMap.put(item.getKey(), item);
-      }
-      return this;
-    }
-    
-    public Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> build() {
-      return data;
-    }
-    
-    // Silly casting helper due to difference in generic signatures between FeatureStore and FeatureStoreCore
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public Map<VersionedDataKind<?>, Map<String, VersionedData>> buildUnchecked() {
-      Map uncheckedMap = data;
-      return (Map<VersionedDataKind<?>, Map<String, VersionedData>>)uncheckedMap;
-    }
   }
   
   public static Evaluator.EvalResult simpleEvaluation(int variation, LDValue value) {

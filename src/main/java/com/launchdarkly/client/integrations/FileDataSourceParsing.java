@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonSyntaxException;
 import com.launchdarkly.client.DataModel;
-import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.value.LDValue;
 
 import org.yaml.snakeyaml.Yaml;
@@ -181,11 +181,11 @@ abstract class FileDataSourceParsing {
    * build some JSON and then parse that.
    */
   static final class FlagFactory {
-    static VersionedData flagFromJson(String jsonString) {
+    static ItemDescriptor flagFromJson(String jsonString) {
       return DataModel.DataKinds.FEATURES.deserialize(jsonString);
     }
     
-    static VersionedData flagFromJson(LDValue jsonTree) {
+    static ItemDescriptor flagFromJson(LDValue jsonTree) {
       return flagFromJson(jsonTree.toJsonString());
     }
     
@@ -193,7 +193,7 @@ abstract class FileDataSourceParsing {
      * Constructs a flag that always returns the same value. This is done by giving it a single
      * variation and setting the fallthrough variation to that.
      */
-    static VersionedData flagWithValue(String key, LDValue jsonValue) {
+    static ItemDescriptor flagWithValue(String key, LDValue jsonValue) {
       LDValue o = LDValue.buildObject()
             .put("key", key)
             .put("on", true)
@@ -202,14 +202,15 @@ abstract class FileDataSourceParsing {
             .build();
       // Note that LaunchDarkly normally prevents you from creating a flag with just one variation,
       // but it's the application that validates that; the SDK doesn't care.
-      return flagFromJson(o);
+      Object item = DataModel.DataKinds.FEATURES.deserialize(o.toJsonString());
+      return new ItemDescriptor(1, item);
     }
     
-    static VersionedData segmentFromJson(String jsonString) {
+    static ItemDescriptor segmentFromJson(String jsonString) {
       return DataModel.DataKinds.SEGMENTS.deserialize(jsonString);
     }
     
-    static VersionedData segmentFromJson(LDValue jsonTree) {
+    static ItemDescriptor segmentFromJson(LDValue jsonTree) {
       return segmentFromJson(jsonTree.toJsonString());
     }
   }

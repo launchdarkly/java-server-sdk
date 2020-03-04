@@ -1,13 +1,20 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.launchdarkly.client.interfaces.VersionedData;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.google.common.collect.Iterables.isEmpty;
+import static com.google.common.collect.Iterables.transform;
 
 /**
  * Implements a dependency graph ordering for data to be stored in a data store. We must use this
@@ -25,55 +32,83 @@ abstract class DataStoreDataSetSorter {
    * @param allData the unordered data set
    * @return a map with a defined ordering
    */
-  public static Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> sortAllCollections(
-      Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
-    ImmutableSortedMap.Builder<VersionedDataKind<?>, Map<String, ? extends VersionedData>> builder =
+  public static FullDataSet<ItemDescriptor> sortAllCollections(FullDataSet<ItemDescriptor> allData) {
+    ImmutableSortedMap.Builder<DataKind, KeyedItems<ItemDescriptor>> builder =
         ImmutableSortedMap.orderedBy(dataKindPriorityOrder);
-    for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> entry: allData.entrySet()) {
-      VersionedDataKind<?> kind = entry.getKey();
+    for (Map.Entry<DataKind, KeyedItems<ItemDescriptor>> entry: allData.getData()) {
+      DataKind kind = entry.getKey();
       builder.put(kind, sortCollection(kind, entry.getValue()));
     }
-    return builder.build();
+    return new FullDataSet<>(builder.build().entrySet());
   }
   
-  private static Map<String, ? extends VersionedData> sortCollection(VersionedDataKind<?> kind, Map<String, ? extends VersionedData> input) {
-    if (!kind.isDependencyOrdered() || input.isEmpty()) {
+  private static KeyedItems<ItemDescriptor> sortCollection(DataKind kind, KeyedItems<ItemDescriptor> input) {
+    if (!isDependencyOrdered(kind) || isEmpty(input.getItems())) {
       return input;
     }
     
-    Map<String, VersionedData> remainingItems = new HashMap<>(input);
-    ImmutableMap.Builder<String, VersionedData> builder = ImmutableMap.builder();
+    Map<String, ItemDescriptor> remainingItems = new HashMap<>();
+    for (Map.Entry<String, ItemDescriptor> e: input.getItems()) {
+      remainingItems.put(e.getKey(), e.getValue());
+    }
+    ImmutableMap.Builder<String, ItemDescriptor> builder = ImmutableMap.builder();
     // Note, ImmutableMap guarantees that the iteration order will be the same as the builder insertion order
     
     while (!remainingItems.isEmpty()) {
       // pick a random item that hasn't been updated yet
-      for (Map.Entry<String, VersionedData> entry: remainingItems.entrySet()) {
-        addWithDependenciesFirst(kind, entry.getValue(), remainingItems, builder);
+      for (Map.Entry<String, ItemDescriptor> entry: remainingItems.entrySet()) {
+        addWithDependenciesFirst(kind, entry.getKey(), entry.getValue(), remainingItems, builder);
         break;
       }
     }
     
-    return builder.build();
+    return new KeyedItems<>(builder.build().entrySet());
   }
   
-  private static void addWithDependenciesFirst(VersionedDataKind<?> kind,
-      VersionedData item,
-      Map<String, VersionedData> remainingItems,
-      ImmutableMap.Builder<String, VersionedData> builder) {
-    remainingItems.remove(item.getKey());  // we won't need to visit this item again
-    for (String prereqKey: kind.getDependencyKeys(item)) {
-      VersionedData prereqItem = remainingItems.get(prereqKey);
+  private static void addWithDependenciesFirst(DataKind kind,
+      String key,
+      ItemDescriptor item,
+      Map<String, ItemDescriptor> remainingItems,
+      ImmutableMap.Builder<String, ItemDescriptor> builder) {
+    remainingItems.remove(key);  // we won't need to visit this item again
+    for (String prereqKey: getDependencyKeys(kind, item)) {
+      ItemDescriptor prereqItem = remainingItems.get(prereqKey);
       if (prereqItem != null) {
-        addWithDependenciesFirst(kind, prereqItem, remainingItems, builder);
+        addWithDependenciesFirst(kind, prereqKey, prereqItem, remainingItems, builder);
       }
     }
-    builder.put(item.getKey(), item);
+    builder.put(key, item);
+  }
+
+  private static boolean isDependencyOrdered(DataKind kind) {
+    return kind == DataModel.DataKinds.FEATURES;
   }
   
-  private static Comparator<VersionedDataKind<?>> dataKindPriorityOrder = new Comparator<VersionedDataKind<?>>() {
+  private static Iterable<String> getDependencyKeys(DataKind kind, Object item) {
+    if (kind == DataModel.DataKinds.FEATURES) {
+      DataModel.FeatureFlag flag = (DataModel.FeatureFlag)item;
+      if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
+        return ImmutableList.of();
+      }
+      return transform(flag.getPrerequisites(), p -> p.getKey());
+    }
+    return null;
+  }
+  
+  private static int getPriority(DataKind kind) {
+    if (kind == DataModel.DataKinds.FEATURES) {
+      return 1;
+    } else if (kind == DataModel.DataKinds.SEGMENTS) {
+      return 0;
+    } else {
+      return kind.getName().length() + 2; 
+    }
+  }
+  
+  private static Comparator<DataKind> dataKindPriorityOrder = new Comparator<DataKind>() {
     @Override
-    public int compare(VersionedDataKind<?> o1, VersionedDataKind<?> o2) {
-      return o1.getPriority() - o2.getPriority();
+    public int compare(DataKind o1, DataKind o2) {
+      return getPriority(o1) - getPriority(o2);
     }
   };
 }

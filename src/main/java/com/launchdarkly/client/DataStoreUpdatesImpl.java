@@ -1,11 +1,10 @@
 package com.launchdarkly.client;
 
 import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.interfaces.DataStoreUpdates;
-import com.launchdarkly.client.interfaces.VersionedData;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
-
-import java.util.Map;
 
 /**
  * The data source will push updates into this component. We then apply any necessary
@@ -23,12 +22,12 @@ final class DataStoreUpdatesImpl implements DataStoreUpdates {
   }
   
   @Override
-  public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
+  public void init(FullDataSet<ItemDescriptor> allData) {
     store.init(DataStoreDataSetSorter.sortAllCollections(allData));
   }
 
   @Override
-  public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) {
-    store.upsert(kind, item); 
+  public void upsert(DataKind kind, String key, ItemDescriptor item) {
+    store.upsert(kind, key, item); 
   }
 }

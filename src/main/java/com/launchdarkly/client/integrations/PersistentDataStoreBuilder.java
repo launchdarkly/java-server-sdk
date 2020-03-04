@@ -1,8 +1,10 @@
 package com.launchdarkly.client.integrations;
 
 import com.launchdarkly.client.Components;
+import com.launchdarkly.client.interfaces.ClientContext;
+import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataStoreFactory;
-import com.launchdarkly.client.interfaces.DiagnosticDescription;
+import com.launchdarkly.client.interfaces.PersistentDataStore;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
 
 import java.time.Duration;
@@ -36,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  * {@link Components#persistentDataStore(PersistentDataStoreFactory)}.
  * @since 4.12.0
  */
-public abstract class PersistentDataStoreBuilder implements DataStoreFactory, DiagnosticDescription {
+public abstract class PersistentDataStoreBuilder implements DataStoreFactory {
   /**
    * The default value for the cache TTL.
    */
@@ -179,9 +181,8 @@ public abstract class PersistentDataStoreBuilder implements DataStoreFactory, Di
    * Provides a conduit for an application to monitor the effectiveness of the in-memory cache.
    * <p>
    * Create an instance of {@link CacheMonitor}; retain a reference to it, and also pass it to this
-   * method when you are configuring the persistent data store. The store will use
-   * {@link CacheMonitor#setSource(java.util.concurrent.Callable)} to make the caching
-   * statistics available through that {@link CacheMonitor} instance.
+   * method when you are configuring the persistent data store. The store will modify the
+   * {@link CacheMonitor} instance to make the caching statistics available through that instance.
    * <p>
    * Note that turning on cache monitoring may slightly decrease performance, due to the need to
    * record statistics for each cache operation.
@@ -203,5 +204,14 @@ public abstract class PersistentDataStoreBuilder implements DataStoreFactory, Di
   public PersistentDataStoreBuilder cacheMonitor(CacheMonitor cacheMonitor) {
     this.cacheMonitor = cacheMonitor;
     return this;
+  }
+
+  /**
+   * Called by the SDK to create the data store instance.
+   */
+  @Override
+  public DataStore createDataStore(ClientContext context) {
+    PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
+    return new PersistentDataStoreWrapper(core, cacheTime, staleValuesPolicy, cacheMonitor);
   }
 }

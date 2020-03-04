@@ -13,8 +13,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.Future;
 
+import static com.google.common.collect.Iterables.size;
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
+import static com.launchdarkly.client.DataStoreTestTypes.toItemsMap;
 import static com.launchdarkly.client.TestUtil.clientContext;
 import static com.launchdarkly.client.TestUtil.dataStoreUpdates;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.ALL_FLAG_KEYS;
@@ -48,9 +50,9 @@ public class FileDataSourceTest {
   @Test
   public void flagsAreNotLoadedUntilStart() throws Exception {
     try (DataSource fp = makeDataSource(factory)) {
-      assertThat(store.initialized(), equalTo(false));
-      assertThat(store.all(FEATURES).size(), equalTo(0));
-      assertThat(store.all(SEGMENTS).size(), equalTo(0));
+      assertThat(store.isInitialized(), equalTo(false));
+      assertThat(size(store.getAll(FEATURES).getItems()), equalTo(0));
+      assertThat(size(store.getAll(SEGMENTS).getItems()), equalTo(0));
     }
   }
   
@@ -58,9 +60,9 @@ public class FileDataSourceTest {
   public void flagsAreLoadedOnStart() throws Exception {
     try (DataSource fp = makeDataSource(factory)) {
       fp.start();
-      assertThat(store.initialized(), equalTo(true));
-      assertThat(store.all(FEATURES).keySet(), equalTo(ALL_FLAG_KEYS));
-      assertThat(store.all(SEGMENTS).keySet(), equalTo(ALL_SEGMENT_KEYS));
+      assertThat(store.isInitialized(), equalTo(true));
+      assertThat(toItemsMap(store.getAll(FEATURES)).keySet(), equalTo(ALL_FLAG_KEYS));
+      assertThat(toItemsMap(store.getAll(SEGMENTS)).keySet(), equalTo(ALL_SEGMENT_KEYS));
     }
   }
   
@@ -108,8 +110,8 @@ public class FileDataSourceTest {
         fp.start();
         setFileContents(file, getResourceContents("segment-only.json"));
         Thread.sleep(400);
-        assertThat(store.all(FEATURES).size(), equalTo(1));
-        assertThat(store.all(SEGMENTS).size(), equalTo(0));
+        assertThat(toItemsMap(store.getAll(FEATURES)).size(), equalTo(1));
+        assertThat(toItemsMap(store.getAll(SEGMENTS)).size(), equalTo(0));
       }
     } finally {
       file.delete();
@@ -132,7 +134,7 @@ public class FileDataSourceTest {
         setFileContents(file, getResourceContents("all-properties.json"));  // this file has all the flags
         long deadline = System.currentTimeMillis() + maxMsToWait;
         while (System.currentTimeMillis() < deadline) {
-          if (store.all(FEATURES).size() == ALL_FLAG_KEYS.size()) {
+          if (toItemsMap(store.getAll(FEATURES)).size() == ALL_FLAG_KEYS.size()) {
             // success
             return;
           }
@@ -158,7 +160,7 @@ public class FileDataSourceTest {
         setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
         long deadline = System.currentTimeMillis() + maxMsToWait;
         while (System.currentTimeMillis() < deadline) {
-          if (store.all(FEATURES).size() > 0) {
+          if (toItemsMap(store.getAll(FEATURES)).size() > 0) {
             // success
             return;
           }
