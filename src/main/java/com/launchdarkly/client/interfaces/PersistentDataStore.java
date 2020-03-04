@@ -107,7 +107,7 @@ public interface PersistentDataStore extends Closeable {
    * Returns true if this store has been initialized.
    * <p>
    * In a shared data store, the implementation should be able to detect this state even if
-   * {@link #init(FullDataSet)} was called in a different process, i.e. it must query the underlying
+   * {@link #init} was called in a different process, i.e. it must query the underlying
    * data store in some way. The method does not need to worry about caching this value; the SDK
    * will call it rarely.
    *
