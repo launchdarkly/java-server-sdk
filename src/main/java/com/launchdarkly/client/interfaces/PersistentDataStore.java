@@ -40,6 +40,9 @@ import java.io.Closeable;
  * <li> When inserting or updating items, if the {@link SerializedItemDescriptor} contains
  * a null, pass its version number to {@link DataKind#serializeDeletedItemPlaceholder(int)}
  * and store the string that that method returns. </li>
+ * <li> When updating items, if it's necessary to check the version number of an existing
+ * item, pass its serialized string to {@link DataKind#deserialize(String)} and look at the
+ * version number in the returned {@link ItemDescriptor}. </li>
  * </ul>
  * 
  * @since 5.0.0
