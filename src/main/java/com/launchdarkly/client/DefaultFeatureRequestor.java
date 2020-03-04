@@ -1,11 +1,14 @@
 package com.launchdarkly.client;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.client.interfaces.VersionedData;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,22 +83,21 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   }
 
   static FullDataSet<ItemDescriptor> toFullDataSet(AllData allData) {
-    ImmutableMap.Builder<String, ItemDescriptor> flagsBuilder = ImmutableMap.builder();
-    ImmutableMap.Builder<String, ItemDescriptor> segmentsBuilder = ImmutableMap.builder();
-    if (allData.flags != null) {
-      for (Map.Entry<String, DataModel.FeatureFlag> e: allData.flags.entrySet()) {
-        flagsBuilder.put(e.getKey(), new ItemDescriptor(e.getValue().getVersion(), e.getValue()));
-      }
-    }
-    if (allData.segments != null) {
-      for (Map.Entry<String, DataModel.Segment> e: allData.segments.entrySet()) {
-        segmentsBuilder.put(e.getKey(), new ItemDescriptor(e.getValue().getVersion(), e.getValue()));
-      }
-    }
     return new FullDataSet<ItemDescriptor>(ImmutableMap.of(
-        DataModel.DataKinds.FEATURES, new KeyedItems<>(flagsBuilder.build().entrySet()),
-        DataModel.DataKinds.SEGMENTS, new KeyedItems<>(segmentsBuilder.build().entrySet())
+        DataModel.DataKinds.FEATURES, toKeyedItems(allData.flags),
+        DataModel.DataKinds.SEGMENTS, toKeyedItems(allData.segments)
         ).entrySet());
+  }
+  
+  static <T extends VersionedData> KeyedItems<ItemDescriptor> toKeyedItems(Map<String, T> itemsMap) {
+    if (itemsMap == null) {
+      return new KeyedItems<>(null);
+    }
+    return new KeyedItems<>(
+      ImmutableList.copyOf(
+          Maps.transformValues(itemsMap, item -> new ItemDescriptor(item.getVersion(), item)).entrySet()
+          )
+      );
   }
   
   private String get(String path) throws IOException, HttpErrorException {
