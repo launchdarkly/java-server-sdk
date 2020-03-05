@@ -17,8 +17,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * A thread-safe, versioned store for feature flags and related data based on a
  * {@link HashMap}. This is the default implementation of {@link DataStore}.
+ * 
+ * As of version 5.0.0, this is package-private; applications must use the factory method
+ * {@link Components#inMemoryDataStore()}.
  */
-public class InMemoryDataStore implements DataStore, DiagnosticDescription {
+class InMemoryDataStore implements DataStore, DiagnosticDescription {
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private final Map<DataKind, Map<String, ItemDescriptor>> allData = new HashMap<>();
   private volatile boolean initialized = false;
