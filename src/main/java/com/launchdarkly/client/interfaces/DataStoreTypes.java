@@ -75,7 +75,7 @@ public abstract class DataStoreTypes {
      * Constructs a DataKind instance.
      * 
      * @param name the value for {@link #getName()}
-     * @param serializer the function to use for {@link #serialize(ItemDescriptor)}
+     * @param serializer the function to use for {@link #serialize(DataStoreTypes.ItemDescriptor)}
      * @param deserializer the function to use for {@link #deserialize(String)}
      */
     public DataKind(String name, Function<ItemDescriptor, String> serializer, Function<String, ItemDescriptor> deserializer) {

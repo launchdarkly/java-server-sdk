@@ -2,7 +2,6 @@ package com.launchdarkly.client.interfaces;
 
 import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.client.interfaces.DataStoreTypes.SerializedItemDescriptor;
 
@@ -29,7 +28,7 @@ import java.io.Closeable;
  * state separately so that the object does not need to be fully deserialized to read them. In
  * this case, deleted item placeholders can ignore the value of {@link SerializedItemDescriptor#getSerializedItem()}
  * on writes and can set it to null on reads. The store should never call {@link DataKind#deserialize(String)}
- * or {@link DataKind#serialize(ItemDescriptor)}.
+ * or {@link DataKind#serialize(DataStoreTypes.ItemDescriptor)}.
  * 
  * 2. If that isn't possible, then the store should simply persist the exact string from
  * {@link SerializedItemDescriptor#getSerializedItem()} on writes, and return the persisted
@@ -79,7 +78,7 @@ public interface PersistentDataStore extends Closeable {
    * Retrieves all items from the specified collection.
    * <p>
    * If the store contains placeholders for deleted items, it should include them in the results,
-   * not filter them out. See {@link #get(DataKind, String)} for how to set the properties of the
+   * not filter them out. See {@link #get(DataStoreTypes.DataKind, String)} for how to set the properties of the
    * {@link SerializedItemDescriptor} for each item. 
    * 
    * @param kind specifies which collection to use
