@@ -1,7 +1,7 @@
 package com.launchdarkly.client.integrations;
 
-import com.launchdarkly.client.InMemoryDataStore;
 import com.launchdarkly.client.LDConfig;
+import com.launchdarkly.client.TestUtil;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataStore;
 
@@ -31,7 +31,7 @@ import static org.junit.Assert.fail;
 public class FileDataSourceTest {
   private static final Path badFilePath = Paths.get("no-such-file.json");
   
-  private final DataStore store = new InMemoryDataStore();
+  private final DataStore store = TestUtil.inMemoryDataStore();
   private final LDConfig config = new LDConfig.Builder().build();
   private final FileDataSourceBuilder factory;
   

@@ -51,6 +51,10 @@ public class TestUtil {
     return context -> store;
   }
   
+  public static DataStore inMemoryDataStore() {
+    return new InMemoryDataStore(); // this is for tests in other packages which can't see this concrete class
+  }
+  
   public static DataStore initedDataStore() {
     DataStore store = new InMemoryDataStore();
     store.init(new FullDataSet<ItemDescriptor>(null));
