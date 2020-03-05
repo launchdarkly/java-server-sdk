@@ -28,25 +28,15 @@ import static org.junit.Assert.assertTrue;
 public abstract class DataStoreTestBase {
 
   protected DataStore store;
-  protected boolean cached;
-
+  
   protected TestItem item1 = new TestItem("key1", "first", 10);
   
   protected TestItem item2 = new TestItem("key2", "second", 10);
   
   protected TestItem otherItem1 = new TestItem("key1", "other-first", 11);
-  
-  public DataStoreTestBase() {
-    this(false);
-  }
-  
-  public DataStoreTestBase(boolean cached) {
-    this.cached = cached;
-  }
-  
+    
   /**
-   * Test subclasses must override this method to create an instance of the feature store class, with
-   * caching either enabled or disabled depending on the "cached" property.
+   * Test subclasses must override this method to create an instance of the feature store class.
    * @return
    */
   protected abstract DataStore makeStore();
