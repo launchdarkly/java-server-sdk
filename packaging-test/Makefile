@@ -94,11 +94,11 @@ test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call caption,$@)
 	@$(call classes_prepare,$<)
 	@$(call verify_sdk_classes)
-	@$(call classes_should_contain,'^com/google/gson/',Gson (unshaded))
 	@$(call classes_should_contain,'^org/slf4j/',SLF4j (unshaded))
 	@$(call classes_should_contain,'^com/launchdarkly/shaded/',shaded dependency jars)
+	@$(call classes_should_contain,'^com/launchdarkly/shaded/com/google/gson',shaded Gson)
+	@$(call classes_should_not_contain,'^com/google/gson/',Gson (unshaded))
 	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/com/launchdarkly/client',shaded SDK classes)
-	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/com/google/gson',shaded Gson)
 	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/org/slf4j',shaded SLF4j)
 
 test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
@@ -106,8 +106,9 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call classes_prepare,$<)
 	@$(call verify_sdk_classes)
 	@$(call classes_should_contain,'^com/launchdarkly/shaded/',shaded dependency jars)
+	@$(call classes_should_contain,'^com/launchdarkly/shaded/com/google/gson',shaded Gson)
 	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/com/launchdarkly/client',shaded SDK classes)
-	@$(call classes_should_not_contain,'com/google/gson/',Gson (shaded or unshaded))
+	@$(call classes_should_not_contain,'^com/google/gson/',Gson (unshaded))
 	@$(call classes_should_not_contain,'org/slf4j/',SLF4j (shaded or unshaded))
 
 test-thin-jar-classes: $(SDK_THIN_JAR) $(TEMP_DIR)
@@ -137,12 +138,12 @@ $(TEMP_DIR)/dependencies-all: | $(TEMP_DIR)
 
 $(TEMP_DIR)/dependencies-external: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@
-	cp $(TEMP_DIR)/dependencies-all/gson*.jar $(TEMP_DIR)/dependencies-all/slf4j*.jar $@
+	cp $(TEMP_DIR)/dependencies-all/slf4j*.jar $@
 
 $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@
 	cp $(TEMP_DIR)/dependencies-all/*.jar $@
-	rm $@/gson*.jar $@/slf4j*.jar
+	rm $@/slf4j*.jar
 
 $(SLF4J_SIMPLE_JAR): | $(TEMP_DIR)
 	curl -f -L $(SLF4J_SIMPLE_JAR_URL) >$@
