@@ -2,8 +2,6 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.TestUtil;
-import com.launchdarkly.sdk.server.integrations.FileData;
-import com.launchdarkly.sdk.server.integrations.FileDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 
@@ -16,8 +14,8 @@ import java.nio.file.Paths;
 import java.util.concurrent.Future;
 
 import static com.google.common.collect.Iterables.size;
-import static com.launchdarkly.sdk.server.DataModel.DataKinds.FEATURES;
-import static com.launchdarkly.sdk.server.DataModel.DataKinds.SEGMENTS;
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toItemsMap;
 import static com.launchdarkly.sdk.server.TestUtil.clientContext;
 import static com.launchdarkly.sdk.server.TestUtil.dataStoreUpdates;

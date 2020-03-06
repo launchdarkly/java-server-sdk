@@ -5,7 +5,6 @@ import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonWriter;
-import com.launchdarkly.sdk.server.LDClientInterface;
 
 import java.io.IOException;
 import java.util.Map;
@@ -13,13 +12,21 @@ import java.util.Map;
 /**
  * An immutable instance of any data type that is allowed in JSON.
  * <p>
- * This is used with the client's {@link LDClientInterface#jsonValueVariation(String, LDUser, LDValue)}
- * method, and is also used internally to hold feature flag values.
+ * An {@link LDValue} instance can be a null (that is, an instance that represents a JSON null value,
+ * rather than a Java null reference), a boolean, a number (always encoded internally as double-precision
+ * floating-point, but can be treated as an integer), a string, an ordered list of {@link LDValue}
+ * values (a JSON array), or a map of strings to {@link LDValue} values (a JSON object). It is easily
+ * convertible to standard Java types.
  * <p>
- * While the LaunchDarkly SDK uses Gson for JSON parsing, some of the Gson value types (object
- * and array) are mutable. In contexts where it is important for data to remain immutable after
- * it is created, these values are represented with {@link LDValue} instead. It is easily
- * convertible to primitive types and provides array element/object property accessors.
+ * This can be used to represent complex data in a user custom attribute (see {@link LDUser.Builder#custom(String, LDValue)}),
+ * or to get a feature flag value that uses a complex type or that does not always use the same
+ * type (see the client's {@code jsonValueVariation} methods).
+ * <p>
+ * While the LaunchDarkly SDK uses Gson internally for JSON parsing, it uses {@link LDValue} rather
+ * than Gson's {@code JsonElement} type for two reasons. First, this allows Gson types to be excluded
+ * from the API, so the SDK does not expose this dependency and cannot cause version conflicts in
+ * applications that use Gson themselves. Second, Gson's array and object types are mutable, which can
+ * cause concurrency risks.
  * 
  * @since 4.8.0
  */

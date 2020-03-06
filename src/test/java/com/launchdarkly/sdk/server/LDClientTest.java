@@ -5,29 +5,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.ClientContextImpl;
-import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.DefaultEventProcessor;
-import com.launchdarkly.sdk.server.DiagnosticAccumulator;
-import com.launchdarkly.sdk.server.InMemoryDataStore;
-import com.launchdarkly.sdk.server.LDClient;
-import com.launchdarkly.sdk.server.LDClientInterface;
-import com.launchdarkly.sdk.server.LDConfig;
-import com.launchdarkly.sdk.server.PollingProcessor;
-import com.launchdarkly.sdk.server.StreamProcessor;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
 import org.easymock.Capture;
 import org.easymock.EasyMock;
@@ -45,8 +34,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.google.common.collect.Iterables.transform;
-import static com.launchdarkly.sdk.server.DataModel.DataKinds.FEATURES;
-import static com.launchdarkly.sdk.server.DataModel.DataKinds.SEGMENTS;
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
@@ -460,7 +449,7 @@ public class LDClientTest extends EasyMockSupport {
   
   private static FullDataSet<ItemDescriptor> DEPENDENCY_ORDERING_TEST_DATA =
       new DataBuilder()
-        .add(FEATURES,
+        .addAny(FEATURES,
               flagBuilder("a")
                   .prerequisites(prerequisite("b", 0), prerequisite("c", 0)).build(),
               flagBuilder("b")
@@ -469,7 +458,7 @@ public class LDClientTest extends EasyMockSupport {
               flagBuilder("d").build(),
               flagBuilder("e").build(),
               flagBuilder("f").build())
-        .add(SEGMENTS,
+        .addAny(SEGMENTS,
               segmentBuilder("o").build())
         .build();
 }

@@ -1,59 +1,83 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.gson.annotations.JsonAdapter;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.VersionedData;
-import com.launchdarkly.sdk.server.interfaces.VersionedDataKind;
 
 import java.util.List;
 
 /**
- * Defines the full data model for feature flags and user segments, in the format provided by the SDK endpoints of
- * the LaunchDarkly service.
- * 
+ * Contains information about the internal data model for feature flags and user segments.
+ * <p>
  * The details of the data model are not public to application code (although of course developers can easily
  * look at the code or the data) so that changes to LaunchDarkly SDK implementation details will not be breaking
- * changes to the application.
+ * changes to the application. Therefore, most of the members of this class are package-private. The public
+ * members provide a high-level description of model objects so that custom integration code or test code can
+ * store or serialize them.
  */
 public abstract class DataModel {
   /**
-   * Contains standard instances of {@link VersionedDataKind} representing the main data model types.
+   * The {@link DataKind} instance that describes feature flag data.
+   * <p>
+   * Applications should not need to reference this object directly. It is public so that custom integrations
+   * and test code can serialize or deserialize data or inject it into a data store.
    */
-  public static abstract class DataKinds {
-    /**
-     * The {@link DataKind} instance that describes feature flag data.
-     */
-    public static DataKind FEATURES = new DataKind("features",
-      DataKinds::serializeItem,
-      s -> deserializeItem(s, FeatureFlag.class));
-        
-    /**
-     * The {@link DataKind} instance that describes user segment data.
-     */
-    public static DataKind SEGMENTS = new DataKind("segments",
-      DataKinds::serializeItem,
-      s -> deserializeItem(s, Segment.class));
-    
-    private static String serializeItem(ItemDescriptor item) {
-      Object o = item.getItem();
-      if (o != null) {
-        return JsonHelpers.gsonInstance().toJson(o);
-      }
-      return "{\"version\":" + item.getVersion() + ",\"deleted\":true}";
-    }
-    
-    private static ItemDescriptor deserializeItem(String s, Class<? extends VersionedData> itemClass) {
-      VersionedData o = JsonHelpers.gsonInstance().fromJson(s, itemClass);
-      return o.isDeleted() ? ItemDescriptor.deletedItem(o.getVersion()) : new ItemDescriptor(o.getVersion(), o);
-    }
-  }
+  public static DataKind FEATURES = new DataKind("features",
+    DataModel::serializeItem,
+    s -> deserializeItem(s, FeatureFlag.class));
+  
+  /**
+   * The {@link DataKind} instance that describes user segment data.
+   * <p>
+   * Applications should not need to reference this object directly. It is public so that custom integrations
+   * and test code can serialize or deserialize data or inject it into a data store.
+   */
+  public static DataKind SEGMENTS = new DataKind("segments",
+    DataModel::serializeItem,
+    s -> deserializeItem(s, Segment.class));
 
+  /**
+   * An enumeration of all supported {@link DataKind} types.
+   * <p>
+   * Applications should not need to reference this object directly. It is public so that custom data store
+   * implementations can determine ahead of time what kinds of model objects may need to be stored, if
+   * necessary. 
+   */
+  public static Iterable<DataKind> ALL_DATA_KINDS = ImmutableList.of(FEATURES, SEGMENTS);
+  
+  private static ItemDescriptor deserializeItem(String s, Class<? extends VersionedData> itemClass) {
+    VersionedData o = JsonHelpers.gsonInstance().fromJson(s, itemClass);
+    return o.isDeleted() ? ItemDescriptor.deletedItem(o.getVersion()) : new ItemDescriptor(o.getVersion(), o);
+  }
+  
+  private static String serializeItem(ItemDescriptor item) {
+    Object o = item.getItem();
+    if (o != null) {
+      return JsonHelpers.gsonInstance().toJson(o);
+    }
+    return "{\"version\":" + item.getVersion() + ",\"deleted\":true}";
+  }
+  
   // All of these inner data model classes should have package-private scope. They should have only property
   // accessors; the evaluator logic is in Evaluator, EvaluatorBucketing, and EvaluatorOperators.
+
+  /**
+   * Common interface for FeatureFlag and Segment, for convenience in accessing their common properties.
+   * @since 3.0.0
+   */
+  interface VersionedData {
+    String getKey();
+    int getVersion();
+    /**
+     * True if this is a placeholder for a deleted item.
+     * @return true if deleted
+     */
+    boolean isDeleted();
+  }
 
   @JsonAdapter(JsonHelpers.PostProcessingDeserializableTypeAdapterFactory.class)
   static final class FeatureFlag implements VersionedData, JsonHelpers.PostProcessingDeserializable {

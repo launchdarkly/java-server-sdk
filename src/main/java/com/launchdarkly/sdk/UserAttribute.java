@@ -17,6 +17,10 @@ import java.util.function.Function;
  * This abstraction helps to distinguish attribute names from other {@link String} values, and also
  * improves efficiency in feature flag data structures and evaluations because built-in attributes
  * always reuse the same instances. 
+ * <p>
+ * For a fuller description of user attributes and how they can be referenced in feature flag rules, see the reference
+ * guides on <a href="https://docs.launchdarkly.com/home/managing-users/user-attributes">Setting user attributes</a>
+ * and <a href="https://docs.launchdarkly.com/home/managing-flags/targeting-users">Targeting users</a>.
  * 
  * @since 5.0.0
  */

@@ -1,11 +1,11 @@
 package com.launchdarkly.sdk;
 
 import com.google.common.base.Objects;
-import com.launchdarkly.sdk.server.LDClientInterface;
 
 /**
- * An object returned by the "variation detail" methods such as {@link LDClientInterface#boolVariationDetail(String, LDUser, boolean)},
+ * An object returned by the SDK's "variation detail" methods such as {@code boolVariationDetail},
  * combining the result of a flag evaluation with an explanation of how it was calculated.
+ * 
  * @param <T> the type of the wrapped value
  * @since 4.3.0
  */

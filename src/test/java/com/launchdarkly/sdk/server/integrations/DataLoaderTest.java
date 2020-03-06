@@ -15,8 +15,8 @@ import org.junit.Test;
 
 import java.util.Map;
 
-import static com.launchdarkly.sdk.server.DataModel.DataKinds.FEATURES;
-import static com.launchdarkly.sdk.server.DataModel.DataKinds.SEGMENTS;
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.FLAG_VALUE_1_KEY;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.resourceFilePath;

@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonSyntaxException;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DataModel;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
 import org.yaml.snakeyaml.Yaml;
@@ -17,6 +16,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.file.Path;
 import java.util.Map;
+
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 
 abstract class FileDataSourceParsing {
   /**
@@ -182,7 +184,7 @@ abstract class FileDataSourceParsing {
    */
   static final class FlagFactory {
     static ItemDescriptor flagFromJson(String jsonString) {
-      return DataModel.DataKinds.FEATURES.deserialize(jsonString);
+      return FEATURES.deserialize(jsonString);
     }
     
     static ItemDescriptor flagFromJson(LDValue jsonTree) {
@@ -202,11 +204,11 @@ abstract class FileDataSourceParsing {
             .build();
       // Note that LaunchDarkly normally prevents you from creating a flag with just one variation,
       // but it's the application that validates that; the SDK doesn't care.
-      return DataModel.DataKinds.FEATURES.deserialize(o.toJsonString());
+      return FEATURES.deserialize(o.toJsonString());
     }
     
     static ItemDescriptor segmentFromJson(String jsonString) {
-      return DataModel.DataKinds.SEGMENTS.deserialize(jsonString);
+      return SEGMENTS.deserialize(jsonString);
     }
     
     static ItemDescriptor segmentFromJson(LDValue jsonTree) {

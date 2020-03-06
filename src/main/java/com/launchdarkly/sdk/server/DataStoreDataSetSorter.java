@@ -3,7 +3,6 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.launchdarkly.sdk.server.interfaces.VersionedDataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -15,6 +14,8 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.common.collect.Iterables.transform;
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 
 /**
  * Implements a dependency graph ordering for data to be stored in a data store. We must use this
@@ -24,10 +25,8 @@ import static com.google.common.collect.Iterables.transform;
  */
 abstract class DataStoreDataSetSorter {
   /**
-   * Returns a copy of the input map that has the following guarantees: the iteration order of the outer
-   * map will be in ascending order by {@link VersionedDataKind#getPriority()}; and for each data kind
-   * that returns true for {@link VersionedDataKind#isDependencyOrdered()}, the inner map will have an
-   * iteration order where B is before A if A has a dependency on B.
+   * Returns a copy of the input data set that guarantees that if you iterate through it the outer list and
+   * the inner list in the order provided, any object that depends on another object will be updated after it.
    * 
    * @param allData the unordered data set
    * @return a map with a defined ordering
@@ -81,14 +80,14 @@ abstract class DataStoreDataSetSorter {
   }
 
   private static boolean isDependencyOrdered(DataKind kind) {
-    return kind == DataModel.DataKinds.FEATURES;
+    return kind == FEATURES;
   }
   
   private static Iterable<String> getDependencyKeys(DataKind kind, Object item) {
     if (item == null) {
       return null;
     }
-    if (kind == DataModel.DataKinds.FEATURES) {
+    if (kind == FEATURES) {
       DataModel.FeatureFlag flag = (DataModel.FeatureFlag)item;
       if (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) {
         return ImmutableList.of();
@@ -99,9 +98,9 @@ abstract class DataStoreDataSetSorter {
   }
   
   private static int getPriority(DataKind kind) {
-    if (kind == DataModel.DataKinds.FEATURES) {
+    if (kind == FEATURES) {
       return 1;
-    } else if (kind == DataModel.DataKinds.SEGMENTS) {
+    } else if (kind == SEGMENTS) {
       return 0;
     } else {
       return kind.getName().length() + 2; 

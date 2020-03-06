@@ -3,17 +3,16 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DataModel;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FileDataException;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactory;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileParser;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileRep;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +37,8 @@ import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
@@ -218,17 +219,17 @@ final class FileDataSourceImpl implements DataSource {
           FlagFileRep fileContents = parser.parse(new ByteArrayInputStream(data));
           if (fileContents.flags != null) {
             for (Map.Entry<String, LDValue> e: fileContents.flags.entrySet()) {
-              builder.add(DataModel.DataKinds.FEATURES, e.getKey(), FlagFactory.flagFromJson(e.getValue()));
+              builder.add(FEATURES, e.getKey(), FlagFactory.flagFromJson(e.getValue()));
             }
           }
           if (fileContents.flagValues != null) {
             for (Map.Entry<String, LDValue> e: fileContents.flagValues.entrySet()) {
-              builder.add(DataModel.DataKinds.FEATURES, e.getKey(), FlagFactory.flagWithValue(e.getKey(), e.getValue()));
+              builder.add(FEATURES, e.getKey(), FlagFactory.flagWithValue(e.getKey(), e.getValue()));
             }
           }
           if (fileContents.segments != null) {
             for (Map.Entry<String, LDValue> e: fileContents.segments.entrySet()) {
-              builder.add(DataModel.DataKinds.SEGMENTS, e.getKey(), FlagFactory.segmentFromJson(e.getValue()));
+              builder.add(SEGMENTS, e.getKey(), FlagFactory.segmentFromJson(e.getValue()));
             }
           }
         } catch (FileDataException e) {

@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
-import com.launchdarkly.sdk.server.interfaces.VersionedData;
+import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
@@ -84,8 +86,8 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
 
   static FullDataSet<ItemDescriptor> toFullDataSet(AllData allData) {
     return new FullDataSet<ItemDescriptor>(ImmutableMap.of(
-        DataModel.DataKinds.FEATURES, toKeyedItems(allData.flags),
-        DataModel.DataKinds.SEGMENTS, toKeyedItems(allData.segments)
+        FEATURES, toKeyedItems(allData.flags),
+        SEGMENTS, toKeyedItems(allData.segments)
         ).entrySet());
   }
   

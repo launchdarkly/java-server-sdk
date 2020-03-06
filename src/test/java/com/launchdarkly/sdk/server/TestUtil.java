@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Future;
 
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static org.hamcrest.Matchers.equalTo;
 
 @SuppressWarnings("javadoc")
@@ -64,11 +66,11 @@ public class TestUtil {
   }
   
   public static void upsertFlag(DataStore store, FeatureFlag flag) {
-    store.upsert(DataModel.DataKinds.FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
+    store.upsert(FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
   }
   
   public static void upsertSegment(DataStore store, Segment segment) {
-    store.upsert(DataModel.DataKinds.SEGMENTS, segment.getKey(), new ItemDescriptor(segment.getVersion(), segment));
+    store.upsert(SEGMENTS, segment.getKey(), new ItemDescriptor(segment.getVersion(), segment));
   }
   
   public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {

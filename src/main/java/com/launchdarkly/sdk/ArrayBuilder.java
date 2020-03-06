@@ -3,7 +3,9 @@ package com.launchdarkly.sdk;
 import com.google.common.collect.ImmutableList;
 
 /**
- * A builder created by {@link LDValue#buildArray()}. Builder methods are not thread-safe.
+ * A builder created by {@link LDValue#buildArray()}.
+ * <p>
+ * Builder methods are not thread-safe.
  * 
  * @since 4.8.0
  */

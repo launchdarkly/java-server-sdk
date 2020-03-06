@@ -4,7 +4,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * A builder created by {@link LDValue#buildObject()}. Builder methods are not thread-safe.
+ * A builder created by {@link LDValue#buildObject()}.
+ * <p>
+ * Builder methods are not thread-safe.
  * 
  * @since 4.8.0
  */

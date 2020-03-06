@@ -7,9 +7,11 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * Describes the reason that a flag evaluation produced a particular value. This is returned by
- * methods such as {@link LDClientInterface#boolVariationDetail(String, LDUser, boolean)}.
- * 
+ * Describes the reason that a flag evaluation produced a particular value.
+ * <p>
+ * This is returned within {@link EvaluationDetail} by the SDK's "variation detail" methods such as
+ * {@code boolVariationDetail}.
+ * <p>
  * Note that this is an enum-like class hierarchy rather than an enum, because some of the
  * possible reasons have their own properties.
  * 

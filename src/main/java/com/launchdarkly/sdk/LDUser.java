@@ -15,7 +15,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A {@code LDUser} object contains specific attributes of a user browsing your site.
+ * A collection of attributes that can affect flag evaluation, usually corresponding to a user of your application.
  * <p>
  * The only mandatory property is the {@code key}, which must uniquely identify each user; this could be a username
  * or email address for authenticated users, or a session ID for anonymous users. All other built-in properties are

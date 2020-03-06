@@ -4,8 +4,7 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.launchdarkly.sdk.server.JsonHelpers;
-import com.launchdarkly.sdk.server.interfaces.VersionedData;
+import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -132,7 +131,12 @@ public class DataStoreTestTypes {
   public static class DataBuilder {
     private Map<DataKind, Map<String, ItemDescriptor>> data = new HashMap<>();
     
-    public DataBuilder add(DataKind kind, VersionedData... items) {
+    public DataBuilder add(DataKind kind, TestItem... items) {
+      return addAny(kind, items);
+    }
+
+    // This is defined separately because test code that's outside of this package can't see DataModel.VersionedData
+    public DataBuilder addAny(DataKind kind, VersionedData... items) {
       Map<String, ItemDescriptor> itemsMap = data.get(kind);
       if (itemsMap == null) {
         itemsMap = new HashMap<>();

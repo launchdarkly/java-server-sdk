@@ -9,12 +9,12 @@ import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -36,6 +36,8 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
@@ -66,12 +68,12 @@ public final class LDClient implements LDClientInterface {
   }
 
   private static final DataModel.FeatureFlag getFlag(DataStore store, String key) {
-    ItemDescriptor item = store.get(DataModel.DataKinds.FEATURES, key);
+    ItemDescriptor item = store.get(FEATURES, key);
     return item == null ? null : (DataModel.FeatureFlag)item.getItem();
   }
   
   private static final DataModel.Segment getSegment(DataStore store, String key) {
-    ItemDescriptor item = store.get(DataModel.DataKinds.SEGMENTS, key);
+    ItemDescriptor item = store.get(SEGMENTS, key);
     return item == null ? null : (DataModel.Segment)item.getItem();
   }
   
@@ -200,7 +202,7 @@ public final class LDClient implements LDClientInterface {
     }
 
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
-    KeyedItems<ItemDescriptor> flags = dataStore.getAll(DataModel.DataKinds.FEATURES);
+    KeyedItems<ItemDescriptor> flags = dataStore.getAll(FEATURES);
     for (Map.Entry<String, ItemDescriptor> entry : flags.getItems()) {
       DataModel.FeatureFlag flag = (DataModel.FeatureFlag)entry.getValue().getItem();
       if (clientSideOnly && !flag.isClientSide()) {
