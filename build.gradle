@@ -46,6 +46,12 @@ ext {
     sdkBasePackage = "com.launchdarkly.sdk"
     sdkBaseName = "launchdarkly-java-server-sdk"
 
+	commonsCodecVersion = "1.10"
+	gsonVersion = "2.7"
+	guavaVersion = "28.2-jre"
+	okHttpEventSourceVersion = "2.0.1"
+	snakeYamlVersion = "1.19"
+	
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
     // be discovered by looking in our explicit dependencies.
     systemPackageImports = [ "javax.net", "javax.net.ssl" ]
@@ -57,12 +63,11 @@ ext.libraries = [:]
 // will be completely omitted from the "thin" jar, and will be embedded with shaded names
 // in the other two SDK jars.
 libraries.internal = [
-    "commons-codec:commons-codec:1.10",
-    "com.google.code.gson:gson:2.7",
-    "com.google.guava:guava:28.2-jre",
-    "com.launchdarkly:okhttp-eventsource:2.0.1",
-    "org.yaml:snakeyaml:1.19",
-    "redis.clients:jedis:2.9.0"
+    "commons-codec:commons-codec:$commonsCodecVersion",
+    "com.google.code.gson:gson:$gsonVersion",
+    "com.google.guava:guava:$guavaVersion",
+    "com.launchdarkly:okhttp-eventsource:$okHttpEventSourceVersion",
+    "org.yaml:snakeyaml:$snakeYamlVersion"
 ]
 
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have

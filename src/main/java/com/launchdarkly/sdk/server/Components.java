@@ -71,11 +71,13 @@ public abstract class Components {
    * </code></pre>
    * 
    * See {@link PersistentDataStoreBuilder} for more on how this method is used.
+   * <p>
+   * For more information on the available persistent data store implementations, see the reference
+   * guide on <a href="https://docs.launchdarkly.com/sdk/concepts/feature-store">Using a persistent feature store</a>.
    *  
    * @param storeFactory the factory/builder for the specific kind of persistent data store
    * @return a {@link PersistentDataStoreBuilder}
    * @see LDConfig.Builder#dataStore(DataStoreFactory)
-   * @see com.launchdarkly.sdk.server.integrations.Redis
    * @since 4.12.0
    */
   public static PersistentDataStoreBuilder persistentDataStore(PersistentDataStoreFactory storeFactory) {
