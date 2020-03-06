@@ -20,8 +20,8 @@ Distributions
 
 Three variants of the SDK jar are published to Maven:
 
-* The default uberjar - this is accessible as `com.launchdarkly:launchdarkly-java-server-sdk:jar` and is the dependency used in the "[Getting started](https://docs.launchdarkly.com/docs/java-sdk-reference#section-getting-started)" section of the SDK reference guide as well as in the [`hello-java`](https://github.com/launchdarkly/hello-java) sample app. This variant contains the SDK classes, and all of the SDK's dependencies except for Gson and SLF4J, which must be provided by the host application. The bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
-* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that Gson and SLF4J are also bundled, without shading (and are exported in OSGi).
+* The default uberjar - this is accessible as `com.launchdarkly:launchdarkly-java-server-sdk:jar` and is the dependency used in the "[Getting started](https://docs.launchdarkly.com/docs/java-sdk-reference#section-getting-started)" section of the SDK reference guide as well as in the [`hello-java`](https://github.com/launchdarkly/hello-java) sample app. This variant contains the SDK classes, and all of the SDK's dependencies except for SLF4J, which must be provided by the host application. The bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
+* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that SLF4J is also bundled, without shading (and is exported in OSGi).
 * The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains _only_ the SDK classes.
 
 Getting started
