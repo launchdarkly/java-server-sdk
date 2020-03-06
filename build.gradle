@@ -58,6 +58,7 @@ ext.libraries = [:]
 // in the other two SDK jars.
 libraries.internal = [
     "commons-codec:commons-codec:1.10",
+    "com.google.code.gson:gson:2.7",
     "com.google.guava:guava:28.2-jre",
     "com.launchdarkly:okhttp-eventsource:2.0.1",
     "org.yaml:snakeyaml:1.19",
@@ -67,7 +68,6 @@ libraries.internal = [
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have
 // global state that must be shared between the SDK and the caller.
 libraries.external = [
-    "com.google.code.gson:gson:2.7",
     "org.slf4j:slf4j-api:1.7.21"
 ]
 
@@ -124,7 +124,6 @@ shadowJar {
 
     dependencies {
         exclude(dependency('org.slf4j:.*:.*'))
-        exclude(dependency('com.google.code.gson:.*:.*'))
     }
 
     // doFirst causes the following steps to be run during Gradle's execution phase rather than the
