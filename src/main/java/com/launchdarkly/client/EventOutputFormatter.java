@@ -64,7 +64,7 @@ final class EventOutputFormatter {
       writeEvaluationReason("reason", fe.getReason(), jw);
       jw.endObject();
     } else if (event instanceof Event.Identify) {
-      startEvent(event, "identify", event.getUser() == null ? null : event.getUser().getKeyAsString(), jw);
+      startEvent(event, "identify", event.getUser() == null ? null : event.getUser().getKey(), jw);
       writeUser(event.getUser(), jw);
       jw.endObject();
     } else if (event instanceof Event.Custom) {
@@ -175,7 +175,7 @@ final class EventOutputFormatter {
         writeUser(user, jw);
       } else {
         jw.name("userKey");
-        jw.value(user.getKeyAsString());
+        jw.value(user.getKey());
       }
     }
   }

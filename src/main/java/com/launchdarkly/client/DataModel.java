@@ -268,7 +268,7 @@ public abstract class DataModel {
   }
   
   static class Clause {
-    private String attribute;
+    private UserAttribute attribute;
     private Operator op;
     private List<LDValue> values; //interpreted as an OR of values
     private boolean negate;
@@ -276,14 +276,14 @@ public abstract class DataModel {
     Clause() {
     }
     
-    Clause(String attribute, Operator op, List<LDValue> values, boolean negate) {
+    Clause(UserAttribute attribute, Operator op, List<LDValue> values, boolean negate) {
       this.attribute = attribute;
       this.op = op;
       this.values = values;
       this.negate = negate;
     }
   
-    String getAttribute() {
+    UserAttribute getAttribute() {
       return attribute;
     }
     
@@ -302,11 +302,11 @@ public abstract class DataModel {
 
   static final class Rollout {
     private List<WeightedVariation> variations;
-    private String bucketBy;
+    private UserAttribute bucketBy;
   
     Rollout() {}
   
-    Rollout(List<WeightedVariation> variations, String bucketBy) {
+    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy) {
       this.variations = variations;
       this.bucketBy = bucketBy;
     }
@@ -315,7 +315,7 @@ public abstract class DataModel {
       return variations;
     }
     
-    String getBucketBy() {
+    UserAttribute getBucketBy() {
       return bucketBy;
     }
   }
@@ -417,9 +417,9 @@ public abstract class DataModel {
   static final class SegmentRule {
     private final List<Clause> clauses;
     private final Integer weight;
-    private final String bucketBy;
+    private final UserAttribute bucketBy;
     
-    SegmentRule(List<Clause> clauses, Integer weight, String bucketBy) {
+    SegmentRule(List<Clause> clauses, Integer weight, UserAttribute bucketBy) {
       this.clauses = clauses;
       this.weight = weight;
       this.bucketBy = bucketBy;
@@ -433,7 +433,7 @@ public abstract class DataModel {
       return weight;
     }
     
-    String getBucketBy() {
+    UserAttribute getBucketBy() {
       return bucketBy;
     }
   }

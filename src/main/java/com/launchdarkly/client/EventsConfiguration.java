@@ -13,14 +13,14 @@ final class EventsConfiguration {
   final URI eventsUri;
   final Duration flushInterval;
   final boolean inlineUsersInEvents;
-  final ImmutableSet<String> privateAttrNames;
+  final ImmutableSet<UserAttribute> privateAttributes;
   final int samplingInterval;
   final int userKeysCapacity;
   final Duration userKeysFlushInterval;
   final Duration diagnosticRecordingInterval;
   
   EventsConfiguration(boolean allAttributesPrivate, int capacity, URI eventsUri, Duration flushInterval,
-      boolean inlineUsersInEvents, Set<String> privateAttrNames, int samplingInterval,
+      boolean inlineUsersInEvents, Set<UserAttribute> privateAttributes, int samplingInterval,
       int userKeysCapacity, Duration userKeysFlushInterval, Duration diagnosticRecordingInterval) {
     super();
     this.allAttributesPrivate = allAttributesPrivate;
@@ -28,7 +28,7 @@ final class EventsConfiguration {
     this.eventsUri = eventsUri == null ? LDConfig.DEFAULT_EVENTS_URI : eventsUri;
     this.flushInterval = flushInterval;
     this.inlineUsersInEvents = inlineUsersInEvents;
-    this.privateAttrNames = privateAttrNames == null ? ImmutableSet.<String>of() : ImmutableSet.copyOf(privateAttrNames);
+    this.privateAttributes = privateAttributes == null ? ImmutableSet.of() : ImmutableSet.copyOf(privateAttributes);
     this.samplingInterval = samplingInterval;
     this.userKeysCapacity = userKeysCapacity;
     this.userKeysFlushInterval = userKeysFlushInterval;

@@ -140,7 +140,7 @@ class Evaluator {
     if (targets != null) {
       for (DataModel.Target target: targets) {
         for (String v : target.getValues()) {
-          if (v.equals(user.getKey().stringValue())) {
+          if (v.equals(user.getKey())) {
             return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
           }
         }
@@ -257,7 +257,7 @@ class Evaluator {
   }
   
   private boolean clauseMatchesUserNoSegments(DataModel.Clause clause, LDUser user) {
-    LDValue userValue = user.getValueForEvaluation(clause.getAttribute());
+    LDValue userValue = user.getAttribute(clause.getAttribute());
     if (userValue.isNull()) {
       return false;
     }
@@ -298,7 +298,7 @@ class Evaluator {
   }
   
   private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
-    String userKey = user.getKeyAsString();
+    String userKey = user.getKey();
     if (userKey == null) {
       return false;
     }

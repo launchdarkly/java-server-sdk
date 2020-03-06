@@ -336,8 +336,8 @@ public class EvaluatorTest {
   
   @Test
   public void flagMatchesUserFromRules() {
-    DataModel.Clause clause0 = clause("key", DataModel.Operator.in, LDValue.of("wrongkey"));
-    DataModel.Clause clause1 = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause0 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("wrongkey"));
+    DataModel.Clause clause1 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
     DataModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2).build();
     DataModel.FeatureFlag f = featureFlagWithRules("feature", rule0, rule1);

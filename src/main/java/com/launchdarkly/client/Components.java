@@ -401,7 +401,7 @@ public abstract class Components {
               baseURI == null ? LDConfig.DEFAULT_EVENTS_URI : baseURI,
               flushInterval,
               inlineUsersInEvents,
-              privateAttrNames,
+              privateAttributes,
               0, // deprecated samplingInterval isn't supported in new builder
               userKeysCapacity,
               userKeysFlushInterval,

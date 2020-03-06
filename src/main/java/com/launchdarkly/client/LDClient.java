@@ -144,7 +144,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public void trackData(String eventName, LDUser user, LDValue data) {
-    if (user == null || user.getKeyAsString() == null) {
+    if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     } else {
       eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, null));
@@ -153,7 +153,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
-    if (user == null || user.getKeyAsString() == null) {
+    if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     } else {
       eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, metricValue));
@@ -162,7 +162,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public void identify(LDUser user) {
-    if (user == null || user.getKeyAsString() == null) {
+    if (user == null || user.getKey() == null) {
       logger.warn("Identify called with null user or null user key!");
     } else {
       eventProcessor.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
@@ -191,7 +191,7 @@ public final class LDClient implements LDClientInterface {
       }
     }
 
-    if (user == null || user.getKeyAsString() == null) {
+    if (user == null || user.getKey() == null) {
       logger.warn("allFlagsState() was called with null user or null user key! returning no data");
       return builder.valid(false).build();
     }
@@ -331,13 +331,13 @@ public final class LDClient implements LDClientInterface {
             EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
         return errorResult(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, defaultValue);
       }
-      if (user == null || user.getKeyAsString() == null) {
+      if (user == null || user.getKey() == null) {
         logger.warn("Null user or null user key when evaluating flag \"{}\"; returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
             EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
         return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
-      if (user.getKeyAsString().isEmpty()) {
+      if (user.getKey().isEmpty()) {
         logger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
       }
       Evaluator.EvalResult evalResult = evaluator.evaluate(featureFlag, user, eventFactory);
@@ -391,13 +391,13 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public String secureModeHash(LDUser user) {
-    if (user == null || user.getKeyAsString() == null) {
+    if (user == null || user.getKey() == null) {
       return null;
     }
     try {
       Mac mac = Mac.getInstance(HMAC_ALGORITHM);
       mac.init(new SecretKeySpec(sdkKey.getBytes(), HMAC_ALGORITHM));
-      return Hex.encodeHexString(mac.doFinal(user.getKeyAsString().getBytes("UTF8")));
+      return Hex.encodeHexString(mac.doFinal(user.getKey().getBytes("UTF8")));
     } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
       logger.error("Could not generate secure mode hash: {}", e.toString());
       logger.debug(e.toString(), e);

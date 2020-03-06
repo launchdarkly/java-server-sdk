@@ -1,55 +1,49 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.client.value.LDValue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeSet;
 
 /**
- * A {@code LDUser} object contains specific attributes of a user browsing your site. The only mandatory property property is the {@code key},
- * which must uniquely identify each user. For authenticated users, this may be a username or e-mail address. For anonymous users,
- * this could be an IP address or session ID.
+ * A {@code LDUser} object contains specific attributes of a user browsing your site.
  * <p>
- * Besides the mandatory {@code key}, {@code LDUser} supports two kinds of optional attributes: interpreted attributes (e.g. {@code ip} and {@code country})
- * and custom attributes.  LaunchDarkly can parse interpreted attributes and attach meaning to them. For example, from an {@code ip} address, LaunchDarkly can
- * do a geo IP lookup and determine the user's country.
+ * The only mandatory property is the {@code key}, which must uniquely identify each user; this could be a username
+ * or email address for authenticated users, or a session ID for anonymous users. All other built-in properties are
+ * optional. You may also define custom properties with arbitrary names and values.
  * <p>
- * Custom attributes are not parsed by LaunchDarkly. They can be used in custom rules-- for example, a custom attribute such as "customer_ranking" can be used to
- * launch a feature to the top 10% of users on a site.
- * <p>
- * If you want to pass an LDUser object to the front end to be used with the JavaScript SDK, simply call {@code Gson.toJson()} or
- * {@code Gson.toJsonTree()} on it.
+ * For a fuller description of user attributes and how they can be referenced in feature flag rules, see the reference
+ * guides on <a href="https://docs.launchdarkly.com/home/managing-users/user-attributes">Setting user attributes</a>
+ * and <a href="https://docs.launchdarkly.com/home/managing-flags/targeting-users">Targeting users</a>.
+ * <p> 
+ * If you want to pass an LDUser object to the front end to be used with the JavaScript SDK, cal
  */
 public class LDUser {
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
 
   // Note that these fields are all stored internally as LDValue rather than String so that
   // we don't waste time repeatedly converting them to LDValue in the rule evaluation logic.
-  private final LDValue key;
-  private LDValue secondary;
-  private LDValue ip;
-  private LDValue email;
-  private LDValue name;
-  private LDValue avatar;
-  private LDValue firstName;
-  private LDValue lastName;
-  private LDValue anonymous;
-  private LDValue country;
-  private Map<String, LDValue> custom;
-  Set<String> privateAttributeNames;
+  final LDValue key;
+  final LDValue secondary;
+  final LDValue ip;
+  final LDValue email;
+  final LDValue name;
+  final LDValue avatar;
+  final LDValue firstName;
+  final LDValue lastName;
+  final LDValue anonymous;
+  final LDValue country;
+  final Map<UserAttribute, LDValue> custom;
+  Set<UserAttribute> privateAttributeNames;
 
   protected LDUser(Builder builder) {
     if (builder.key == null || builder.key.equals("")) {
@@ -66,7 +60,7 @@ public class LDUser {
     this.avatar = LDValue.of(builder.avatar);
     this.anonymous = builder.anonymous == null ? LDValue.ofNull() : LDValue.of(builder.anonymous);
     this.custom = builder.custom == null ? null : ImmutableMap.copyOf(builder.custom);
-    this.privateAttributeNames = builder.privateAttrNames == null ? null : ImmutableSet.copyOf(builder.privateAttrNames);
+    this.privateAttributeNames = builder.privateAttributes == null ? null : ImmutableSet.copyOf(builder.privateAttributes);
   }
 
   /**
@@ -82,67 +76,158 @@ public class LDUser {
     this.privateAttributeNames = null;
   }
 
-  protected LDValue getValueForEvaluation(String attribute) {
-    // Don't use Enum.valueOf because we don't want to trigger unnecessary exceptions
-    for (UserAttribute builtIn: UserAttribute.values()) {
-      if (builtIn.name().equals(attribute)) {
-        return builtIn.get(this);
-      }
-    }
-    return getCustom(attribute);
-  }
-
-  LDValue getKey() {
-    return key;
-  }
-
-  String getKeyAsString() {
+  /**
+   * Returns the user's unique key.
+   * 
+   * @return the user key as a string
+   */
+  public String getKey() {
     return key.stringValue();
   }
-
-  // All of the LDValue getters are guaranteed not to return null (although the LDValue may *be* a JSON null).
   
-  LDValue getIp() {
-    return ip;
+  /**
+   * Returns the value of the secondary key property for the user, if set.
+   * 
+   * @return a string or null
+   */
+  public String getSecondary() {
+    return secondary.stringValue();
   }
 
-  LDValue getCountry() {
-    return country;
+  /**
+   * Returns the value of the IP property for the user, if set.
+   * 
+   * @return a string or null
+   */
+  public String getIp() {
+    return ip.stringValue();
   }
 
-  LDValue getSecondary() {
-    return secondary;
+  /**
+   * Returns the value of the country property for the user, if set.
+   * 
+   * @return a string or null
+   */
+  public String getCountry() {
+    return country.stringValue();
   }
 
-  LDValue getName() {
-    return name;
+  /**
+   * Returns the value of the full name property for the user, if set.
+   * 
+   * @return a string or null
+   */
+  public String getName() {
+    return name.stringValue();
   }
 
-  LDValue getFirstName() {
-    return firstName;
+  /**
+   * Returns the value of the first name property for the user, if set.
+   * 
+   * @return a string or null
+   */
+  public String getFirstName() {
+    return firstName.stringValue();
   }
 
-  LDValue getLastName() {
-    return lastName;
+  /**
+   * Returns the value of the last name property for the user, if set.
+   * 
+   * @return a string or null
+   */
+  public String getLastName() {
+    return lastName.stringValue();
   }
 
-  LDValue getEmail() {
-    return email;
+  /**
+   * Returns the value of the email property for the user, if set.
+   * 
+   * @return a string or null
+   */
+  public String getEmail() {
+    return email.stringValue();
   }
 
-  LDValue getAvatar() {
-    return avatar;
+  /**
+   * Returns the value of the avatar property for the user, if set.
+   * 
+   * @return a string or null
+   */
+  public String getAvatar() {
+    return avatar.stringValue();
   }
 
-  LDValue getAnonymous() {
-    return anonymous;
+  /**
+   * Returns true if this user was marked anonymous.
+   * 
+   * @return true for an anonymous user
+   */
+  public boolean isAnonymous() {
+    return anonymous.booleanValue();
   }
-
-  LDValue getCustom(String key) {
-    if (custom != null) {
-      return LDValue.normalize(custom.get(key));
+  
+  /**
+   * Gets the value of a user attribute, if present.
+   * <p>
+   * This can be either a built-in attribute or a custom one. It returns the value using the {@link LDValue}
+   * type, which can have any type that is supported in JSON. If the attribute does not exist, it returns
+   * {@link LDValue#ofNull()}.
+   * 
+   * @param attribute the attribute to get
+   * @return the attribute value or {@link LDValue#ofNull()}; will never be an actual null reference
+   */
+  public LDValue getAttribute(UserAttribute attribute) {
+    if (attribute.isBuiltIn()) {
+      return attribute.builtInGetter.apply(this);
+    } else {
+      return custom == null ? LDValue.ofNull() : LDValue.normalize(custom.get(attribute));
     }
-    return LDValue.ofNull();
+  }
+
+  /**
+   * Returns an enumeration of all custom attribute names that were set for this user.
+   * 
+   * @return the custom attribute names
+   */
+  public Iterable<UserAttribute> getCustomAttributes() {
+    return custom == null ? ImmutableList.of() : custom.keySet();
+  }
+  
+  /**
+   * Returns an enumeration of all attributes that were marked private for this user.
+   * <p>
+   * This does not include any attributes that were globally marked private in {@link LDConfig.Builder}.
+   * 
+   * @return the names of private attributes for this user
+   */
+  public Iterable<UserAttribute> getPrivateAttributes() {
+    return privateAttributeNames == null ? ImmutableList.of() : privateAttributeNames;
+  }
+  
+  /**
+   * Tests whether an attribute has been marked private for this user.
+   * 
+   * @param attribute a built-in or custom attribute
+   * @return true if the attribute was marked private on a per-user level
+   */
+  public boolean isAttributePrivate(UserAttribute attribute) {
+    return privateAttributeNames != null && privateAttributeNames.contains(attribute);
+  }
+
+  /**
+   * Converts the user data to its standard JSON representation.
+   * <p>
+   * This is the same format that the LaunchDarkly JavaScript browser SDK uses to represent users, so
+   * it is the simplest way to pass user data to front-end code.
+   * <p>
+   * Do not pass the {@link LDUser} object to a reflection-based JSON encoder such as Gson. Although the
+   * SDK uses Gson internally, it uses shading so that the Gson types are not exposed, so an external
+   * instance of Gson will not recognize the type adapters that provide the correct format.
+   * 
+   * @return a JSON representation of the user
+   */
+  public String toJsonString() {
+    return JsonHelpers.gsonInstance().toJson(this);
   }
   
   @Override
@@ -171,125 +256,6 @@ public class LDUser {
     return Objects.hash(key, secondary, ip, email, name, avatar, firstName, lastName, anonymous, country, custom, privateAttributeNames);
   }
 
-  // Used internally when including users in analytics events, to ensure that private attributes are stripped out.
-  static class UserAdapterWithPrivateAttributeBehavior extends TypeAdapter<LDUser> {
-    private final EventsConfiguration config;
-
-    public UserAdapterWithPrivateAttributeBehavior(EventsConfiguration config) {
-      this.config = config;
-    }
-
-    @Override
-    public void write(JsonWriter out, LDUser user) throws IOException {
-      if (user == null) {
-        out.value((String)null);
-        return;
-      }
-      
-      // Collect the private attribute names (use TreeSet to make ordering predictable for tests)
-      Set<String> privateAttributeNames = new TreeSet<String>(config.privateAttrNames);
-
-      out.beginObject();
-      // The key can never be private
-      out.name("key").value(user.getKeyAsString());
-
-      if (!user.getSecondary().isNull()) {
-        if (!checkAndAddPrivate("secondary", user, privateAttributeNames)) {
-          out.name("secondary").value(user.getSecondary().stringValue());
-        }
-      }
-      if (!user.getIp().isNull()) {
-        if (!checkAndAddPrivate("ip", user, privateAttributeNames)) {
-          out.name("ip").value(user.getIp().stringValue());
-        }
-      }
-      if (!user.getEmail().isNull()) {
-        if (!checkAndAddPrivate("email", user, privateAttributeNames)) {
-          out.name("email").value(user.getEmail().stringValue());
-        }
-      }
-      if (!user.getName().isNull()) {
-        if (!checkAndAddPrivate("name", user, privateAttributeNames)) {
-          out.name("name").value(user.getName().stringValue());
-        }
-      }
-      if (!user.getAvatar().isNull()) {
-        if (!checkAndAddPrivate("avatar", user, privateAttributeNames)) {
-          out.name("avatar").value(user.getAvatar().stringValue());
-        }
-      }
-      if (!user.getFirstName().isNull()) {
-        if (!checkAndAddPrivate("firstName", user, privateAttributeNames)) {
-          out.name("firstName").value(user.getFirstName().stringValue());
-        }
-      }
-      if (!user.getLastName().isNull()) {
-        if (!checkAndAddPrivate("lastName", user, privateAttributeNames)) {
-          out.name("lastName").value(user.getLastName().stringValue());
-        }
-      }
-      if (!user.getAnonymous().isNull()) {
-        out.name("anonymous").value(user.getAnonymous().booleanValue());
-      }
-      if (!user.getCountry().isNull()) {
-        if (!checkAndAddPrivate("country", user, privateAttributeNames)) {
-          out.name("country").value(user.getCountry().stringValue());
-        }
-      }
-      writeCustomAttrs(out, user, privateAttributeNames);
-      writePrivateAttrNames(out, privateAttributeNames);
-
-      out.endObject();
-    }
-
-    private void writePrivateAttrNames(JsonWriter out, Set<String> names) throws IOException {
-      if (names.isEmpty()) {
-        return;
-      }
-      out.name("privateAttrs");
-      out.beginArray();
-      for (String name : names) {
-        out.value(name);
-      }
-      out.endArray();
-    }
-
-    private boolean checkAndAddPrivate(String key, LDUser user, Set<String> privateAttrs) {
-      boolean result = config.allAttributesPrivate || config.privateAttrNames.contains(key) || (user.privateAttributeNames != null && user.privateAttributeNames.contains(key));
-      if (result) {
-        privateAttrs.add(key);
-      }
-      return result;
-    }
-
-    private void writeCustomAttrs(JsonWriter out, LDUser user, Set<String> privateAttributeNames) throws IOException {
-      boolean beganObject = false;
-      if (user.custom == null) {
-        return;
-      }
-      for (Map.Entry<String, LDValue> entry : user.custom.entrySet()) {
-        if (!checkAndAddPrivate(entry.getKey(), user, privateAttributeNames)) {
-          if (!beganObject) {
-            out.name("custom");
-            out.beginObject();
-            beganObject = true;
-          }
-          out.name(entry.getKey());
-          JsonHelpers.gsonInstance().toJson(entry.getValue(), LDValue.class, out);
-        }
-      }
-      if (beganObject) {
-        out.endObject();
-      }
-    }
-
-    @Override
-    public LDUser read(JsonReader in) throws IOException {
-      // We never need to unmarshal user objects, so there's no need to implement this
-      return null;
-    }
-  }
-
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct {@link LDUser} objects. Builder
    * calls can be chained, enabling the following pattern:
@@ -311,8 +277,8 @@ public class LDUser {
     private String avatar;
     private Boolean anonymous;
     private String country;
-    private Map<String, LDValue> custom;
-    private Set<String> privateAttrNames;
+    private Map<UserAttribute, LDValue> custom;
+    private Set<UserAttribute> privateAttributes;
 
     /**
      * Creates a builder with the specified key.
@@ -329,18 +295,18 @@ public class LDUser {
     * @param user an existing {@code LDUser}
     */
     public Builder(LDUser user) {
-      this.key = user.getKey().stringValue();
-      this.secondary = user.getSecondary().stringValue();
-      this.ip = user.getIp().stringValue();
-      this.firstName = user.getFirstName().stringValue();
-      this.lastName = user.getLastName().stringValue();
-      this.email = user.getEmail().stringValue();
-      this.name = user.getName().stringValue();
-      this.avatar = user.getAvatar().stringValue();
-      this.anonymous = user.getAnonymous().isNull() ? null : user.getAnonymous().booleanValue();
-      this.country = user.getCountry().stringValue();
+      this.key = user.key.stringValue();
+      this.secondary = user.secondary.stringValue();
+      this.ip = user.ip.stringValue();
+      this.firstName = user.firstName.stringValue();
+      this.lastName = user.lastName.stringValue();
+      this.email = user.email.stringValue();
+      this.name = user.name.stringValue();
+      this.avatar = user.avatar.stringValue();
+      this.anonymous = user.anonymous.isNull() ? null : user.anonymous.booleanValue();
+      this.country = user.country.stringValue();
       this.custom = user.custom == null ? null : new HashMap<>(user.custom);
-      this.privateAttrNames = user.privateAttributeNames == null ? null : new HashSet<>(user.privateAttributeNames);
+      this.privateAttributes = user.privateAttributeNames == null ? null : new HashSet<>(user.privateAttributeNames);
     }
     
     /**
@@ -361,7 +327,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateIp(String s) {
-      addPrivate("ip");
+      addPrivate(UserAttribute.IP);
       return ip(s);
     }
 
@@ -385,7 +351,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateSecondary(String s) {
-      addPrivate("secondary");
+      addPrivate(UserAttribute.SECONDARY_KEY);
       return secondary(s);
     }
 
@@ -412,7 +378,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCountry(String s) {
-      addPrivate("country");
+      addPrivate(UserAttribute.COUNTRY);
       return country(s);
     }
 
@@ -435,7 +401,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateFirstName(String firstName) {
-      addPrivate("firstName");
+      addPrivate(UserAttribute.FIRST_NAME);
       return firstName(firstName);
     }
 
@@ -469,7 +435,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateLastName(String lastName) {
-      addPrivate("lastName");
+      addPrivate(UserAttribute.LAST_NAME);
       return lastName(lastName);
     }
 
@@ -492,7 +458,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateName(String name) {
-      addPrivate("name");
+      addPrivate(UserAttribute.NAME);
       return name(name);
     }
 
@@ -514,7 +480,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateAvatar(String avatar) {
-      addPrivate("avatar");
+      addPrivate(UserAttribute.AVATAR);
       return avatar(avatar);
     }
 
@@ -537,7 +503,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateEmail(String email) {
-      addPrivate("email");
+      addPrivate(UserAttribute.EMAIL);
       return email(email);
     }
 
@@ -604,13 +570,20 @@ public class LDUser {
      * @since 4.8.0
      */
     public Builder custom(String k, LDValue v) {
-      checkCustomAttribute(k);
-      if (k != null && v != null) {
-        if (custom == null) {
-          custom = new HashMap<>();
-        }
-        custom.put(k, v);
+      if (k != null) {
+        return customInternal(UserAttribute.forName(k), v);
       }
+      return this;
+    }
+    
+    private Builder customInternal(UserAttribute a, LDValue v) {
+      if (a.isBuiltIn()) {
+        logger.warn("Built-in attribute key: " + a.getName() + " added as custom attribute! This custom attribute will be ignored during feature flag evaluation");
+      }
+      if (custom == null) {
+        custom = new HashMap<>();
+      }
+      custom.put(a, LDValue.normalize(v));
       return this;
     }
     
@@ -625,8 +598,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustom(String k, String v) {
-      addPrivate(k);
-      return custom(k, v);
+      return privateCustom(k, LDValue.of(v));
     }
 
     /**
@@ -640,8 +612,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustom(String k, int n) {
-      addPrivate(k);
-      return custom(k, n);
+      return privateCustom(k, LDValue.of(n));
     }
 
     /**
@@ -655,8 +626,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustom(String k, double n) {
-      addPrivate(k);
-      return custom(k, n);
+      return privateCustom(k, LDValue.of(n));
     }
 
     /**
@@ -670,8 +640,7 @@ public class LDUser {
      * @return the builder
      */
     public Builder privateCustom(String k, boolean b) {
-      addPrivate(k);
-      return custom(k, b);
+      return privateCustom(k, LDValue.of(b));
     }
 
     /**
@@ -686,30 +655,25 @@ public class LDUser {
      * @since 4.8.0
      */
     public Builder privateCustom(String k, LDValue v) {
-      addPrivate(k);
-      return custom(k, v);
-    }
-    
-    private void checkCustomAttribute(String key) {
-      for (UserAttribute a : UserAttribute.values()) {
-        if (a.name().equals(key)) {
-          logger.warn("Built-in attribute key: " + key + " added as custom attribute! This custom attribute will be ignored during Feature Flag evaluation");
-          return;
-        }
+      if (k != null) {
+        UserAttribute a = UserAttribute.forName(k);
+        addPrivate(a);
+        return customInternal(a, v);
       }
+      return this;
     }
 
-    private void addPrivate(String key) {
-      if (privateAttrNames == null) {
-        privateAttrNames = new HashSet<>();
+    private void addPrivate(UserAttribute attribute) {
+      if (privateAttributes == null) {
+        privateAttributes = new HashSet<>();
       }
-      privateAttrNames.add(key);
+      privateAttributes.add(attribute);
     }
     
     /**
-     * Builds the configured {@link com.launchdarkly.client.LDUser} object.
+     * Builds the configured {@link LDUser} object.
      *
-     * @return the {@link com.launchdarkly.client.LDUser} configured by this builder
+     * @return the {@link LDUser} configured by this builder
      */
     public LDUser build() {
       return new LDUser(this);

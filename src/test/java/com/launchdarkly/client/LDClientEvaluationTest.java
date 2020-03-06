@@ -177,11 +177,11 @@ public class LDClientEvaluationTest {
     // This is similar to one of the tests in FeatureFlagTest, but more end-to-end
     DataModel.Segment segment = segmentBuilder("segment1")
         .version(1)
-        .included(user.getKeyAsString())
+        .included(user.getKey())
         .build();
     upsertSegment(dataStore, segment);
     
-    DataModel.Clause clause = clause("", DataModel.Operator.segmentMatch, LDValue.of("segment1"));
+    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of("segment1"));
     DataModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     upsertFlag(dataStore, feature);
     

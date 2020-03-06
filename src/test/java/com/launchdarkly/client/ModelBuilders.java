@@ -45,20 +45,20 @@ public abstract class ModelBuilders {
     return new RuleBuilder();
   }
 
-  public static DataModel.Clause clause(String attribute, DataModel.Operator op, boolean negate, LDValue... values) {
+  public static DataModel.Clause clause(UserAttribute attribute, DataModel.Operator op, boolean negate, LDValue... values) {
     return new DataModel.Clause(attribute, op, Arrays.asList(values), negate);
   }
 
-  public static DataModel.Clause clause(String attribute, DataModel.Operator op, LDValue... values) {
+  public static DataModel.Clause clause(UserAttribute attribute, DataModel.Operator op, LDValue... values) {
     return clause(attribute, op, false, values);
   }
   
   public static DataModel.Clause clauseMatchingUser(LDUser user) {
-    return clause("key", DataModel.Operator.in, user.getKey());
+    return clause(UserAttribute.KEY, DataModel.Operator.in, user.getAttribute(UserAttribute.KEY));
   }
 
   public static DataModel.Clause clauseNotMatchingUser(LDUser user) {
-    return clause("key", DataModel.Operator.in, LDValue.of("not-" + user.getKeyAsString()));
+    return clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("not-" + user.getKey()));
   }
 
   public static DataModel.Target target(int variation, String... userKeys) {
@@ -301,7 +301,7 @@ public abstract class ModelBuilders {
   public static class SegmentRuleBuilder {
     private List<DataModel.Clause> clauses = new ArrayList<>();
     private Integer weight;
-    private String bucketBy;
+    private UserAttribute bucketBy;
 
     private SegmentRuleBuilder() {
     }
@@ -320,7 +320,7 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    public SegmentRuleBuilder bucketBy(String bucketBy) {
+    public SegmentRuleBuilder bucketBy(UserAttribute bucketBy) {
       this.bucketBy = bucketBy;
       return this;
     }

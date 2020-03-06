@@ -86,7 +86,7 @@ public class DefaultEventProcessorTest {
       assertThat(ec.eventsUri, equalTo(LDConfig.DEFAULT_EVENTS_URI));
       assertThat(ec.flushInterval, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL));
       assertThat(ec.inlineUsersInEvents, is(false));
-      assertThat(ec.privateAttrNames, equalTo(ImmutableSet.<String>of()));
+      assertThat(ec.privateAttributes, equalTo(ImmutableSet.<UserAttribute>of()));
       assertThat(ec.samplingInterval, equalTo(0));
       assertThat(ec.userKeysCapacity, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_CAPACITY));
       assertThat(ec.userKeysFlushInterval, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL));
@@ -102,7 +102,7 @@ public class DefaultEventProcessorTest {
         .capacity(3333)
         .diagnosticRecordingInterval(Duration.ofSeconds(480))
         .flushInterval(Duration.ofSeconds(99))
-        .privateAttributeNames("cats", "dogs")
+        .privateAttributeNames("name", "dogs")
         .userKeysCapacity(555)
         .userKeysFlushInterval(Duration.ofSeconds(101));
     try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
@@ -113,7 +113,7 @@ public class DefaultEventProcessorTest {
       assertThat(ec.eventsUri, equalTo(uri));
       assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
       assertThat(ec.inlineUsersInEvents, is(false)); // will test this separately below
-      assertThat(ec.privateAttrNames, equalTo(ImmutableSet.of("cats", "dogs")));
+      assertThat(ec.privateAttributes, equalTo(ImmutableSet.of(UserAttribute.NAME, UserAttribute.forName("dogs"))));
       assertThat(ec.samplingInterval, equalTo(0)); // can only set this with the deprecated config API
       assertThat(ec.userKeysCapacity, equalTo(555));
       assertThat(ec.userKeysFlushInterval, equalTo(Duration.ofSeconds(101)));
@@ -941,7 +941,7 @@ public class DefaultEventProcessorTest {
         hasJsonProperty("version", (double)flag.getVersion()),
         hasJsonProperty("variation", sourceEvent.getVariation()),
         hasJsonProperty("value", sourceEvent.getValue()),
-        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKeyAsString()) : LDValue.ofNull()),
+        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKey()) : LDValue.ofNull()),
         hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
         hasJsonProperty("reason", reason == null ? LDValue.ofNull() : LDValue.parse(gson.toJson(reason)))
     );
@@ -953,7 +953,7 @@ public class DefaultEventProcessorTest {
         hasJsonProperty("kind", "custom"),
         hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         hasJsonProperty("key", "eventkey"),
-        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKeyAsString()) : LDValue.ofNull()),
+        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKey()) : LDValue.ofNull()),
         hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
         hasJsonProperty("data", sourceEvent.getData()),
         hasJsonProperty("metricValue", sourceEvent.getMetricValue() == null ? LDValue.ofNull() : LDValue.of(sourceEvent.getMetricValue()))              
