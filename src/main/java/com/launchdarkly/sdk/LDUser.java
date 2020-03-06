@@ -25,7 +25,10 @@ import java.util.Set;
  * guides on <a href="https://docs.launchdarkly.com/home/managing-users/user-attributes">Setting user attributes</a>
  * and <a href="https://docs.launchdarkly.com/home/managing-flags/targeting-users">Targeting users</a>.
  * <p> 
- * If you want to pass an LDUser object to the front end to be used with the JavaScript SDK, cal
+ * If you want to pass an LDUser object to the front end to be used with the JavaScript SDK, call {@link #toJsonString()}
+ * to get its JSON encoding. Do not try to pass an LDUser instance to a reflection-based encoder such as Gson; its
+ * internal structure does not correspond directly to the JSON encoding, and an external instance of Gson will not
+ * recognize the Gson annotations used inside the SDK.
  */
 public class LDUser {
   private static final Logger logger = LoggerFactory.getLogger(LDUser.class);
