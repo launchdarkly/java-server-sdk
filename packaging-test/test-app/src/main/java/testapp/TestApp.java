@@ -2,7 +2,7 @@ package testapp;
 
 import com.launchdarkly.sdk.*;
 import com.launchdarkly.sdk.server.*;
-import com.launchdarkly.sdk.integrations.*;
+import com.launchdarkly.sdk.server.integrations.*;
 import com.google.gson.*;
 import org.slf4j.*;
 
