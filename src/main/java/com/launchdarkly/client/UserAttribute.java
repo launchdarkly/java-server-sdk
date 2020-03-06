@@ -131,7 +131,7 @@ public final class UserAttribute {
     return name;
   }
   
-  private static final class UserAttributeTypeAdapter extends TypeAdapter<UserAttribute>{    
+  static final class UserAttributeTypeAdapter extends TypeAdapter<UserAttribute>{    
     @Override
     public UserAttribute read(JsonReader reader) throws IOException {
       return UserAttribute.forName(reader.nextString());
