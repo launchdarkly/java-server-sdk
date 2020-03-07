@@ -236,6 +236,10 @@ public interface LDClientInterface extends Closeable {
    * some part of the flag configuration was changed so that it <i>may</i> return a different value than it
    * previously returned for some user.
    * <p>
+   * Change events only work if the SDK is actually connecting to LaunchDarkly (or using the file data source).
+   * If the SDK is only reading flags from a database ({@link Components#externalUpdatesOnly()}) then it cannot
+   * know when there is a change, because flags are read on an as-needed basis.
+   * <p>
    * The listener will be called from a worker thread.
    * <p>
    * Calling this method for an already-registered listener has no effect.
