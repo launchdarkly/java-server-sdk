@@ -19,7 +19,7 @@ import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
-import com.launchdarkly.sdk.server.interfaces.FlagChangeListenerRegistration;
+import com.launchdarkly.sdk.server.interfaces.ListenerRegistration;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
@@ -472,7 +472,7 @@ public abstract class Components {
     }
   }
   
-  private static final class FlagValueMonitorImpl implements FlagChangeListener, FlagChangeListenerRegistration {
+  private static final class FlagValueMonitorImpl implements FlagChangeListener, ListenerRegistration {
     private volatile LDClientInterface client;
     private AtomicReference<LDValue> currentValue = new AtomicReference<>(LDValue.ofNull());
     private final String flagKey;
