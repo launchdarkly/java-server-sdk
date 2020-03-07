@@ -13,7 +13,7 @@ package com.launchdarkly.sdk.server.interfaces;
  * <pre><code>
  *     String flagKey = "my-important-flag";
  *     LDUser userForFlagEvaluation = new LDUser("user-key-for-global-flag-state");
- *     FlagValueChangeListener listenForNewValue = event -> {
+ *     FlagValueChangeListener listenForNewValue = event -&gt; {
  *         if (event.getKey().equals(flagKey)) {
  *             doSomethingWithNewValue(event.getNewValue().booleanValue());
  *         }
