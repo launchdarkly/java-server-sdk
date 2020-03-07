@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.launchdarkly.sdk.EvaluationReason;
@@ -22,6 +23,10 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
+import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -29,13 +34,21 @@ import org.hamcrest.TypeSafeDiagnosingMatcher;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 @SuppressWarnings("javadoc")
 public class TestUtil {
@@ -48,7 +61,7 @@ public class TestUtil {
   }
 
   public static DataStoreUpdates dataStoreUpdates(final DataStore store) {
-    return new DataStoreUpdatesImpl(store);
+    return new DataStoreUpdatesImpl(store, null);
   }
   
   public static DataStoreFactory specificDataStore(final DataStore store) {
@@ -146,7 +159,26 @@ public class TestUtil {
       }          
     };
   }
+  
+  public static class DataSourceFactoryThatExposesUpdater implements DataSourceFactory {
+    private final FullDataSet<ItemDescriptor> initialData;
+    private DataStoreUpdates dataStoreUpdates;
+
+    public DataSourceFactoryThatExposesUpdater(FullDataSet<ItemDescriptor> initialData) {
+      this.initialData = initialData;
+    }
     
+    @Override
+    public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+      this.dataStoreUpdates = dataStoreUpdates;
+      return dataSourceWithData(initialData).createDataSource(context, dataStoreUpdates);
+    }
+    
+    public void updateFlag(FeatureFlag flag) {
+      dataStoreUpdates.upsert(FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
+    }
+  }
+  
   public static class TestEventProcessor implements EventProcessor {
     List<Event> events = new ArrayList<>();
 
@@ -160,6 +192,59 @@ public class TestUtil {
 
     @Override
     public void flush() {}
+  }
+  
+  public static class FlagChangeEventSink extends FlagChangeEventSinkBase<FlagChangeEvent> implements FlagChangeListener {
+    @Override
+    public void onFlagChange(FlagChangeEvent event) {
+      events.add(event);
+    }
+  }
+
+  public static class FlagValueChangeEventSink extends FlagChangeEventSinkBase<FlagValueChangeEvent> implements FlagValueChangeListener {
+    @Override
+    public void onFlagValueChange(FlagValueChangeEvent event) {
+      events.add(event);
+    }
+  }
+
+  private static class FlagChangeEventSinkBase<T extends FlagChangeEvent> {
+    protected final BlockingQueue<T> events = new ArrayBlockingQueue<>(100);
+
+    public T awaitEvent() {
+      try {
+        T event = events.poll(1, TimeUnit.SECONDS);
+        assertNotNull("expected flag change event", event);
+        return event;
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    
+    public void expectEvents(String... flagKeys) {
+      Set<String> expectedChangedFlagKeys = ImmutableSet.copyOf(flagKeys);
+      Set<String> actualChangedFlagKeys = new HashSet<>();
+      for (int i = 0; i < expectedChangedFlagKeys.size(); i++) {
+        try {
+          T e = events.poll(1, TimeUnit.SECONDS);
+          if (e == null) {
+            fail("expected change events for " + expectedChangedFlagKeys + " but got " + actualChangedFlagKeys);
+          }
+          actualChangedFlagKeys.add(e.getKey());
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      }
+      assertThat(actualChangedFlagKeys, equalTo(expectedChangedFlagKeys));
+      expectNoEvents();
+    }
+    
+    public void expectNoEvents() {
+      try {
+        T event = events.poll(100, TimeUnit.MILLISECONDS);
+        assertNull("expected no more flag change events", event);
+      } catch (InterruptedException e) {}
+    }
   }
   
   public static Evaluator.EvalResult simpleEvaluation(int variation, LDValue value) {

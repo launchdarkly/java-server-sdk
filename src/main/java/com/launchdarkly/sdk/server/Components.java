@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DiagnosticEvent.ConfigProperty;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
@@ -16,11 +17,17 @@ import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListenerRegistration;
+import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
@@ -207,6 +214,29 @@ public abstract class Components {
     return NullDataSourceFactory.INSTANCE;
   }
 
+  /**
+   * Convenience method for creating a {@link FlagChangeListener} that tracks a flag's value for a specific user.
+   * <p>
+   * This listener instance should only be used with a single {@link LDClient} instance. When you first
+   * register it by calling {@link LDClientInterface#registerFlagChangeListener(FlagChangeListener)}, it
+   * immediately evaluates the flag. It then re-evaluates the flag whenever there is an update, and calls
+   * your {@link FlagValueChangeListener} if and only if the resulting value has changed.
+   * <p>
+   * See {@link FlagValueChangeListener} for more information and examples.
+   * 
+   * @param flagKey the flag key to be evaluated
+   * @param user the user properties for evaluation
+   * @param valueChangeListener an object that you provide which will be notified of changes
+   * @return a {@link FlagChangeListener} to be passed to {@link LDClientInterface#registerFlagChangeListener(FlagChangeListener)}
+   * 
+   * @since 5.0.0
+   * @see FlagValueChangeListener
+   * @see FlagChangeListener
+   */
+  public static FlagChangeListener flagValueMonitoringListener(String flagKey, LDUser user, FlagValueChangeListener valueChangeListener) {
+    return new FlagValueMonitorImpl(flagKey, user, valueChangeListener);
+  }
+  
   private static final class InMemoryDataStoreFactory implements DataStoreFactory, DiagnosticDescription {
     static final DataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
     @Override
@@ -439,6 +469,43 @@ public abstract class Components {
         return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
       }
       return LDValue.of("custom");
+    }
+  }
+  
+  private static final class FlagValueMonitorImpl implements FlagChangeListener, FlagChangeListenerRegistration {
+    private volatile LDClientInterface client;
+    private AtomicReference<LDValue> currentValue = new AtomicReference<>(LDValue.ofNull());
+    private final String flagKey;
+    private final LDUser user;
+    private final FlagValueChangeListener valueChangeListener;
+    
+    public FlagValueMonitorImpl(String flagKey, LDUser user, FlagValueChangeListener valueChangeListener) {
+      this.flagKey = flagKey;
+      this.user = user;
+      this.valueChangeListener = valueChangeListener;
+    }
+    
+    @Override
+    public void onRegister(LDClientInterface client) {
+      this.client = client;
+      currentValue.set(client.jsonValueVariation(flagKey, user, LDValue.ofNull()));
+    }
+
+    @Override
+    public void onUnregister(LDClientInterface client) {}
+
+    @Override
+    public void onFlagChange(FlagChangeEvent event) {
+      if (event.getKey().equals(flagKey)) {
+        LDClientInterface c = client;
+        if (c != null) { // shouldn't be possible to be null since we wouldn't get an event if we were never registered
+          LDValue newValue = c.jsonValueVariation(flagKey, user, LDValue.ofNull());
+          LDValue previousValue = currentValue.getAndSet(newValue);
+          if (!newValue.equals(previousValue)) {
+            valueChangeListener.onFlagValueChange(new FlagValueChangeEvent(flagKey, previousValue, newValue)); 
+          }
+        }
+      }
     }
   }
 }

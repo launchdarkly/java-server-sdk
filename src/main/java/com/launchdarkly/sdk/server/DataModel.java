@@ -10,6 +10,8 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
 import java.util.List;
 
+import static java.util.Collections.emptyList;
+
 /**
  * Contains information about the internal data model for feature flags and user segments.
  * <p>
@@ -149,28 +151,32 @@ public abstract class DataModel {
       return on;
     }
 
+    // Guaranteed non-null
     List<Prerequisite> getPrerequisites() {
-      return prerequisites;
+      return prerequisites == null ? emptyList() : prerequisites;
     }
 
     String getSalt() {
       return salt;
     }
 
+    // Guaranteed non-null
     List<Target> getTargets() {
-      return targets;
+      return targets == null ? emptyList() : targets;
     }
 
+    // Guaranteed non-null
     List<Rule> getRules() {
-      return rules;
+      return rules == null ? emptyList() : rules;
     }
 
     VariationOrRollout getFallthrough() {
       return fallthrough;
     }
 
+    // Guaranteed non-null
     List<LDValue> getVariations() {
-      return variations;
+      return variations == null ? emptyList() : variations;
     }
 
     Integer getOffVariation() {
@@ -239,8 +245,9 @@ public abstract class DataModel {
       this.variation = variation;
     }
   
+    // Guaranteed non-null
     List<String> getValues() {
-      return values;
+      return values == null ? emptyList() : values;
     }
   
     int getVariation() {
@@ -275,8 +282,9 @@ public abstract class DataModel {
       return id;
     }
     
+    // Guaranteed non-null
     Iterable<Clause> getClauses() {
-      return clauses;
+      return clauses == null ? emptyList() : clauses;
     }
     
     boolean isTrackEvents() {
@@ -415,12 +423,14 @@ public abstract class DataModel {
       return key;
     }
     
+    // Guaranteed non-null
     Iterable<String> getIncluded() {
-      return included;
+      return included == null ? emptyList() : included;
     }
     
+    // Guaranteed non-null
     Iterable<String> getExcluded() {
-      return excluded;
+      return excluded == null ? emptyList() : excluded;
     }
     
     String getSalt() {
@@ -451,8 +461,9 @@ public abstract class DataModel {
       this.bucketBy = bucketBy;
     }
     
+    // Guaranteed non-null
     List<Clause> getClauses() {
-      return clauses;
+      return clauses == null ? emptyList() : clauses;
     }
     
     Integer getWeight() {

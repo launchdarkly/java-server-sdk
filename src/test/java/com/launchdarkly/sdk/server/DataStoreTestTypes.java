@@ -148,6 +148,13 @@ public class DataStoreTestTypes {
       return this;
     }
     
+    public DataBuilder remove(DataKind kind, String key) {
+      if (data.get(kind) != null) {
+        data.get(kind).remove(key);
+      }
+      return this;
+    }
+    
     public FullDataSet<ItemDescriptor> build() {
       return new FullDataSet<>(
           ImmutableMap.copyOf(
