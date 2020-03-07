@@ -16,11 +16,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 final class FlagChangeEventPublisher implements Closeable {
   private final List<FlagChangeListener> listeners = new ArrayList<>();
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-  private ExecutorService executor;
-  
-  public FlagChangeEventPublisher() {
-    
-  }
+  private volatile ExecutorService executor = null;
   
   public void register(FlagChangeListener listener) {
     lock.writeLock().lock();
