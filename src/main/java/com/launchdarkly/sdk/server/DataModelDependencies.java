@@ -181,36 +181,6 @@ abstract class DataModelDependencies {
     }
   };
   
-  // General data structure that provides two levels of Map
-  static final class TwoLevelMap<A, B, C> {
-    private final Map<A, Map<B, C>> data = new HashMap<>();
-    
-    public C get(A a, B b) {
-      Map<B, C> innerMap = data.get(a);
-      return innerMap == null ? null : innerMap.get(b);
-    }
-    
-    public void put(A a, B b, C c) {
-      Map<B, C> innerMap = data.get(a);
-      if (innerMap == null) {
-        innerMap = new HashMap<>();
-        data.put(a, innerMap);
-      }
-      innerMap.put(b, c);
-    }
-    
-    public void remove(A a, B b) {
-      Map<B, C> innerMap = data.get(a);
-      if (innerMap != null) {
-        innerMap.remove(b);
-      }
-    }
-    
-    public void clear() {
-      data.clear();
-    }
-  }
-  
   /**
    * Maintains a bidirectional dependency graph that can be updated whenever an item has changed.
    */
