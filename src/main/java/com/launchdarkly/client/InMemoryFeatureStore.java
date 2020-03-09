@@ -90,7 +90,7 @@ public class InMemoryFeatureStore implements FeatureStore, DiagnosticDescription
       VersionedData oldItem = null;
       if (existingItems != null) {
         oldItem = existingItems.get(key);
-        if (oldItem.getVersion() >= item.getVersion()) {
+        if (oldItem != null && oldItem.getVersion() >= item.getVersion()) {
           return;
         }
       }
