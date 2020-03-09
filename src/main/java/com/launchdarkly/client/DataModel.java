@@ -403,7 +403,7 @@ public abstract class DataModel {
       return salt;
     }
     
-    Iterable<SegmentRule> getRules() {
+    List<SegmentRule> getRules() {
       return rules;
     }
     

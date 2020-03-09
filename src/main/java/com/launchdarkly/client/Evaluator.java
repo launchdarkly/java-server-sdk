@@ -299,15 +299,17 @@ class Evaluator {
     if (userKey == null) {
       return false;
     }
-    if (segment.getIncluded().contains(userKey)) {
+    if (segment.getIncluded() != null && segment.getIncluded().contains(userKey)) {
       return true;
     }
-    if (segment.getExcluded().contains(userKey)) {
+    if (segment.getExcluded() != null && segment.getExcluded().contains(userKey)) {
       return false;
     }
-    for (DataModel.SegmentRule rule: segment.getRules()) {
-      if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
-        return true;
+    if (segment.getRules() != null) {
+      for (DataModel.SegmentRule rule: segment.getRules()) {
+        if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
+          return true;
+        }
       }
     }
     return false;
