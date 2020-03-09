@@ -25,6 +25,14 @@ class VariationOrRollout {
     this.rollout = rollout;
   }
 
+  Integer getVariation() {
+    return variation;
+  }
+  
+  Rollout getRollout() {
+    return rollout;
+  }
+  
   // Attempt to determine the variation index for a given user. Returns null if no index can be computed
   // due to internal inconsistency of the data (i.e. a malformed flag). 
   Integer variationIndexForUser(LDUser user, String key, String salt) {
@@ -75,7 +83,7 @@ class VariationOrRollout {
     }
   }
   
-  static class Rollout {
+  static final class Rollout {
     private List<WeightedVariation> variations;
     private String bucketBy;
 
@@ -86,9 +94,17 @@ class VariationOrRollout {
       this.variations = variations;
       this.bucketBy = bucketBy;
     }
+    
+    List<WeightedVariation> getVariations() {
+      return variations;
+    }
+    
+    String getBucketBy() {
+      return bucketBy;
+    }
   }
 
-  static class WeightedVariation {
+  static final class WeightedVariation {
     private int variation;
     private int weight;
 
@@ -98,6 +114,14 @@ class VariationOrRollout {
     WeightedVariation(int variation, int weight) {
       this.variation = variation;
       this.weight = weight;
+    }
+    
+    int getVariation() {
+      return variation;
+    }
+    
+    int getWeight() {
+      return weight;
     }
   }
 }

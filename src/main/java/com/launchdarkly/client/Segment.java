@@ -1,17 +1,16 @@
 package com.launchdarkly.client;
 
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
-import com.google.gson.reflect.TypeToken;
-
+@SuppressWarnings("deprecation")
 class Segment implements VersionedData {
   private String key;
-  private List<String> included;
-  private List<String> excluded;
+  private Set<String> included;
+  private Set<String> excluded;
   private String salt;
   private List<SegmentRule> rules;
   private int version;
@@ -79,8 +78,8 @@ class Segment implements VersionedData {
   
   public static class Builder {
     private String key;
-    private List<String> included = new ArrayList<>();
-    private List<String> excluded = new ArrayList<>();
+    private Set<String> included = new HashSet<>();
+    private Set<String> excluded = new HashSet<>();
     private String salt = "";
     private List<SegmentRule> rules = new ArrayList<>();
     private int version = 0;
@@ -92,8 +91,8 @@ class Segment implements VersionedData {
     
     public Builder(Segment from) {
       this.key = from.key;
-      this.included = new ArrayList<>(from.included);
-      this.excluded = new ArrayList<>(from.excluded);
+      this.included = new HashSet<>(from.included);
+      this.excluded = new HashSet<>(from.excluded);
       this.salt = from.salt;
       this.rules = new ArrayList<>(from.rules);
       this.version = from.version;
@@ -105,12 +104,12 @@ class Segment implements VersionedData {
     }
     
     public Builder included(Collection<String> included) {
-      this.included = new ArrayList<>(included);
+      this.included = new HashSet<>(included);
       return this;
     }
     
     public Builder excluded(Collection<String> excluded) {
-      this.excluded = new ArrayList<>(excluded);
+      this.excluded = new HashSet<>(excluded);
       return this;
     }
     
