@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 import com.launchdarkly.client.value.LDValueType;
@@ -139,10 +138,8 @@ class Evaluator {
     List<DataModel.Target> targets = flag.getTargets();
     if (targets != null) {
       for (DataModel.Target target: targets) {
-        for (String v : target.getValues()) {
-          if (v.equals(user.getKey())) {
-            return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
-          }
+        if (target.getValues().contains(user.getKey())) {
+          return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
         }
       }
     }
@@ -302,15 +299,17 @@ class Evaluator {
     if (userKey == null) {
       return false;
     }
-    if (Iterables.contains(segment.getIncluded(), userKey)) {
+    if (segment.getIncluded() != null && segment.getIncluded().contains(userKey)) {
       return true;
     }
-    if (Iterables.contains(segment.getExcluded(), userKey)) {
+    if (segment.getExcluded() != null && segment.getExcluded().contains(userKey)) {
       return false;
     }
-    for (DataModel.SegmentRule rule: segment.getRules()) {
-      if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
-        return true;
+    if (segment.getRules() != null) {
+      for (DataModel.SegmentRule rule: segment.getRules()) {
+        if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
+          return true;
+        }
       }
     }
     return false;

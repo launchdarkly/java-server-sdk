@@ -1,12 +1,15 @@
 package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.client.DataModel.FeatureFlag;
 import com.launchdarkly.client.value.LDValue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @SuppressWarnings("javadoc")
 public abstract class ModelBuilders {
@@ -62,7 +65,7 @@ public abstract class ModelBuilders {
   }
 
   public static DataModel.Target target(int variation, String... userKeys) {
-    return new DataModel.Target(Arrays.asList(userKeys), variation);
+    return new DataModel.Target(ImmutableSet.copyOf(userKeys), variation);
   }
   
   public static DataModel.Prerequisite prerequisite(String key, int variation) {
@@ -242,8 +245,8 @@ public abstract class ModelBuilders {
   
   public static class SegmentBuilder {
     private String key;
-    private List<String> included = new ArrayList<>();
-    private List<String> excluded = new ArrayList<>();
+    private Set<String> included = new HashSet<>();
+    private Set<String> excluded = new HashSet<>();
     private String salt = "";
     private List<DataModel.SegmentRule> rules = new ArrayList<>();
     private int version = 0;
@@ -255,8 +258,8 @@ public abstract class ModelBuilders {
     
     private SegmentBuilder(DataModel.Segment from) {
       this.key = from.getKey();
-      this.included = ImmutableList.copyOf(from.getIncluded());
-      this.excluded = ImmutableList.copyOf(from.getExcluded());
+      this.included = ImmutableSet.copyOf(from.getIncluded());
+      this.excluded = ImmutableSet.copyOf(from.getExcluded());
       this.salt = from.getSalt();
       this.rules = ImmutableList.copyOf(from.getRules());
       this.version = from.getVersion();
@@ -268,12 +271,12 @@ public abstract class ModelBuilders {
     }
     
     public SegmentBuilder included(String... included) {
-      this.included = Arrays.asList(included);
+      this.included = ImmutableSet.copyOf(included);
       return this;
     }
     
     public SegmentBuilder excluded(String... excluded) {
-      this.excluded = Arrays.asList(excluded);
+      this.excluded = ImmutableSet.copyOf(excluded);
       return this;
     }
     
