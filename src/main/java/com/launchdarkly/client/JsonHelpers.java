@@ -26,7 +26,7 @@ abstract class JsonHelpers {
    */
   static Gson gsonInstanceForEventsSerialization(EventsConfiguration config) {
     return new GsonBuilder()
-        .registerTypeAdapter(LDUser.class, new LDUser.UserAdapterWithPrivateAttributeBehavior(config))
+        .registerTypeAdapter(LDUser.class, new EventUserSerialization.UserAdapterWithPrivateAttributeBehavior(config))
         .create();    
   }
   

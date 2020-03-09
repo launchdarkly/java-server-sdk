@@ -38,12 +38,12 @@ abstract class EvaluatorBucketing {
     return null;
   }
 
-  static float bucketUser(LDUser user, String key, String attr, String salt) {
-    LDValue userValue = user.getValueForEvaluation(attr == null ? "key" : attr);
+  static float bucketUser(LDUser user, String key, UserAttribute attr, String salt) {
+    LDValue userValue = user.getAttribute(attr == null ? UserAttribute.KEY : attr);
     String idHash = getBucketableStringValue(userValue);
     if (idHash != null) {
-      if (!user.getSecondary().isNull()) {
-        idHash = idHash + "." + user.getSecondary().stringValue();
+      if (user.getSecondary() != null) {
+        idHash = idHash + "." + user.getSecondary();
       }
       String hash = DigestUtils.sha1Hex(key + "." + salt + "." + idHash).substring(0, 15);
       long longVal = Long.parseLong(hash, 16);

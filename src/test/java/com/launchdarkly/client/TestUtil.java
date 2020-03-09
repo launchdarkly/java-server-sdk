@@ -228,12 +228,12 @@ public class TestUtil {
   }
 
   static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate, boolean inlineUsersInEvents,
-      Set<String> privateAttrNames) {
+      Set<UserAttribute> privateAttributes) {
     return new EventsConfiguration(
         allAttributesPrivate,
         0, null, EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
         inlineUsersInEvents,
-        privateAttrNames,
+        privateAttributes,
         0, 0, EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL,
         EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL);
   }

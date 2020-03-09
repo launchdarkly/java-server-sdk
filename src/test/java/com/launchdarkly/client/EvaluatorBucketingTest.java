@@ -24,7 +24,7 @@ public class EvaluatorBucketingTest {
     
     // First verify that with our test inputs, the bucket value will be greater than zero and less than 100000,
     // so we can construct a rollout whose second bucket just barely contains that value
-    int bucketValue = (int)(EvaluatorBucketing.bucketUser(user, flagKey, "key", salt) * 100000);
+    int bucketValue = (int)(EvaluatorBucketing.bucketUser(user, flagKey, UserAttribute.KEY, salt) * 100000);
     assertThat(bucketValue, greaterThanOrEqualTo(1));
     assertThat(bucketValue, Matchers.lessThan(100000));
     
@@ -46,7 +46,7 @@ public class EvaluatorBucketingTest {
     String salt = "salt";
 
     // We'll construct a list of variations that stops right at the target bucket value
-    int bucketValue = (int)(EvaluatorBucketing.bucketUser(user, flagKey, "key", salt) * 100000);
+    int bucketValue = (int)(EvaluatorBucketing.bucketUser(user, flagKey, UserAttribute.KEY, salt) * 100000);
     
     List<WeightedVariation> variations = Arrays.asList(new WeightedVariation(0, bucketValue));
     VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null));
@@ -61,8 +61,8 @@ public class EvaluatorBucketingTest {
         .custom("stringattr", "33333")
         .custom("intattr", 33333)
         .build();
-    float resultForString = EvaluatorBucketing.bucketUser(user, "key", "stringattr", "salt");
-    float resultForInt = EvaluatorBucketing.bucketUser(user, "key", "intattr", "salt");
+    float resultForString = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("stringattr"), "salt");
+    float resultForInt = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("intattr"), "salt");
     assertEquals(resultForString, resultForInt, Float.MIN_VALUE);
   }
 
@@ -71,7 +71,7 @@ public class EvaluatorBucketingTest {
     LDUser user = new LDUser.Builder("key")
         .custom("floatattr", 33.5f)
         .build();
-    float result = EvaluatorBucketing.bucketUser(user, "key", "floatattr", "salt");
+    float result = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("floatattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 
@@ -80,7 +80,7 @@ public class EvaluatorBucketingTest {
     LDUser user = new LDUser.Builder("key")
         .custom("boolattr", true)
         .build();
-    float result = EvaluatorBucketing.bucketUser(user, "key", "boolattr", "salt");
+    float result = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("boolattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 }

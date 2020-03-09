@@ -151,7 +151,7 @@ public class DataModelSerializationTest {
   
     assertNotNull(r0.getClauses());
     Clause c0 = r0.getClauses().get(0);
-    assertEquals("name", c0.getAttribute());
+    assertEquals(UserAttribute.NAME, c0.getAttribute());
     assertEquals(Operator.in, c0.getOp());
     assertEquals(ImmutableList.of(LDValue.of("Lucy")), c0.getValues());
     assertTrue(c0.isNegate());
@@ -165,7 +165,7 @@ public class DataModelSerializationTest {
     assertEquals(1, r1.getRollout().getVariations().size());
     assertEquals(2, r1.getRollout().getVariations().get(0).getVariation());
     assertEquals(100000, r1.getRollout().getVariations().get(0).getWeight());
-    assertEquals("email", r1.getRollout().getBucketBy());
+    assertEquals(UserAttribute.EMAIL, r1.getRollout().getBucketBy());
     
     assertNotNull(flag.getFallthrough());
     assertEquals(new Integer(1), flag.getFallthrough().getVariation());
@@ -218,7 +218,7 @@ public class DataModelSerializationTest {
     assertNotNull(r0.getClauses());
     assertEquals(1, r0.getClauses().size());
     Clause c0 = r0.getClauses().get(0);
-    assertEquals("name", c0.getAttribute());
+    assertEquals(UserAttribute.NAME, c0.getAttribute());
     assertEquals(Operator.in, c0.getOp());
     assertEquals(ImmutableList.of(LDValue.of("Lucy")), c0.getValues());
     assertTrue(c0.isNegate());

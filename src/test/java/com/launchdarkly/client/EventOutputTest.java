@@ -79,7 +79,7 @@ public class EventOutputTest {
         LDValue.ofNull());
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("user"));
-    assertEquals(user.getKey(), outputEvent.get("userKey"));
+    assertEquals(LDValue.of(user.getKey()), outputEvent.get("userKey"));
 
     Event.Identify identifyEvent = EventFactory.DEFAULT.newIdentifyEvent(user);
     outputEvent = getSingleOutputEvent(f, identifyEvent);
@@ -89,7 +89,7 @@ public class EventOutputTest {
     Event.Custom customEvent = EventFactory.DEFAULT.newCustomEvent("custom", user, LDValue.ofNull(), null);
     outputEvent = getSingleOutputEvent(f, customEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("user"));
-    assertEquals(user.getKey(), outputEvent.get("userKey"));
+    assertEquals(LDValue.of(user.getKey()), outputEvent.get("userKey"));
     
     Event.Index indexEvent = new Event.Index(0, user);
     outputEvent = getSingleOutputEvent(f, indexEvent);
@@ -108,7 +108,7 @@ public class EventOutputTest {
   public void globalPrivateAttributeNamesMakeAttributesPrivate() throws Exception {
     LDUser user = userBuilderWithAllAttributes.build();
     for (String attrName: attributesThatCanBePrivate) {
-      EventsConfiguration config = TestUtil.makeEventsConfig(false, false, ImmutableSet.of(attrName));
+      EventsConfiguration config = TestUtil.makeEventsConfig(false, false, ImmutableSet.of(UserAttribute.forName(attrName)));
       testPrivateAttributes(config, user, attrName);
     }
   }
@@ -384,7 +384,7 @@ public class EventOutputTest {
   }
   
   private void testInlineUserSerialization(LDUser user, LDValue expectedJsonValue, EventsConfiguration baseConfig) throws IOException {
-    EventsConfiguration config = TestUtil.makeEventsConfig(baseConfig.allAttributesPrivate, true, baseConfig.privateAttrNames);
+    EventsConfiguration config = TestUtil.makeEventsConfig(baseConfig.allAttributesPrivate, true, baseConfig.privateAttributes);
     EventOutputFormatter f = new EventOutputFormatter(config);
 
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(

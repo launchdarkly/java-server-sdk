@@ -415,7 +415,7 @@ final class DefaultEventProcessor implements EventProcessor {
       if (user == null || user.getKey() == null) {
         return false;
       }
-      String key = user.getKeyAsString();
+      String key = user.getKey();
       return userKeys.put(key, key) != null;
     }
 
