@@ -10,7 +10,6 @@ import org.junit.Test;
 
 import java.lang.reflect.Type;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -141,7 +140,7 @@ public class EventUserSerializationTest {
   }
   
   private Set<String> getPrivateAttrs(JsonObject o) {
-    Type type = new TypeToken<List<String>>(){}.getType();
-    return new HashSet<String>(gsonInstance().<List<String>>fromJson(o.get("privateAttrs"), type));
+    Type type = new TypeToken<HashSet<String>>(){}.getType();
+    return gsonInstance().<HashSet<String>>fromJson(o.get("privateAttrs"), type);
   }
 }
