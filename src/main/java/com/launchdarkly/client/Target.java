@@ -1,20 +1,20 @@
 package com.launchdarkly.client;
 
-import java.util.List;
+import java.util.Set;
 
 class Target {
-  private List<String> values;
+  private Set<String> values;
   private int variation;
 
   // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
   Target() {}
 
-  Target(List<String> values, int variation) {
+  Target(Set<String> values, int variation) {
     this.values = values;
     this.variation = variation;
   }
 
-  List<String> getValues() {
+  Set<String> getValues() {
     return values;
   }
 

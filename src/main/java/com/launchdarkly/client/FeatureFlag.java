@@ -83,10 +83,8 @@ class FeatureFlag implements VersionedData, JsonHelpers.PostProcessingDeserializ
     // Check to see if targets match
     if (targets != null) {
       for (Target target: targets) {
-        for (String v : target.getValues()) {
-          if (v.equals(user.getKey().stringValue())) {
-            return getVariation(target.getVariation(), EvaluationReason.targetMatch());
-          }
+        if (target.getValues().contains(user.getKey().stringValue())) {
+          return getVariation(target.getVariation(), EvaluationReason.targetMatch());
         }
       }
     }
