@@ -1,7 +1,8 @@
 package testapp;
 
-import com.launchdarkly.client.*;
-import com.launchdarkly.client.integrations.*;
+import com.launchdarkly.sdk.*;
+import com.launchdarkly.sdk.server.*;
+import com.launchdarkly.sdk.server.integrations.*;
 import org.slf4j.*;
 
 public class TestApp {

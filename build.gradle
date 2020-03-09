@@ -43,7 +43,7 @@ allprojects {
 }
 
 ext {
-    sdkBasePackage = "com.launchdarkly.client"
+    sdkBasePackage = "com.launchdarkly.sdk"
     sdkBaseName = "launchdarkly-java-server-sdk"
 
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
@@ -241,7 +241,7 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
     jarTask.manifest {
         attributes(
             "Implementation-Version": version,
-            "Bundle-SymbolicName": "com.launchdarkly.client",
+            "Bundle-SymbolicName": "com.launchdarkly.sdk",
             "Bundle-Version": version,
             "Bundle-Name": "LaunchDarkly SDK",
             "Bundle-ManifestVersion": "2",

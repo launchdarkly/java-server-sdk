@@ -57,11 +57,11 @@ classes_should_contain=echo "    should contain $(2)" && grep $(1) $(TEMP_OUTPUT
 classes_should_not_contain=echo "    should not contain $(2)" && ! grep $(1) $(TEMP_OUTPUT) >/dev/null
 
 verify_sdk_classes= \
-	$(call classes_should_contain,'^com/launchdarkly/client/[^/]*$$',com.launchdarkly.client) && \
+	$(call classes_should_contain,'^com/launchdarkly/sdk/[^/]*$$',com.launchdarkly.sdk) && \
 	$(foreach subpkg,$(sdk_subpackage_names), \
-		$(call classes_should_contain,'^com/launchdarkly/client/$(subpkg)/',com.launchdarkly.client.$(subpkg)) && ) true
+		$(call classes_should_contain,'^com/launchdarkly/sdk/$(subpkg)/',com.launchdarkly.sdk.$(subpkg)) && ) true
 sdk_subpackage_names= \
-	$(shell ls -d $(PROJECT_DIR)/src/main/java/com/launchdarkly/client/*/ | sed -e 's@^.*/\([^/]*\)/@\1@')
+	$(shell ls -d $(PROJECT_DIR)/src/main/java/com/launchdarkly/sdk/*/ | sed -e 's@^.*/\([^/]*\)/@\1@')
 
 caption=echo "" && echo "$(1)"
 
@@ -96,9 +96,9 @@ test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call verify_sdk_classes)
 	@$(call classes_should_contain,'^org/slf4j/',SLF4j (unshaded))
 	@$(call classes_should_contain,'^com/launchdarkly/shaded/',shaded dependency jars)
+	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/com/launchdarkly/sdk',shaded SDK classes)
 	@$(call classes_should_contain,'^com/launchdarkly/shaded/com/google/gson',shaded Gson)
 	@$(call classes_should_not_contain,'^com/google/gson/',Gson (unshaded))
-	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/com/launchdarkly/client',shaded SDK classes)
 	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/org/slf4j',shaded SLF4j)
 
 test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
@@ -106,8 +106,8 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call classes_prepare,$<)
 	@$(call verify_sdk_classes)
 	@$(call classes_should_contain,'^com/launchdarkly/shaded/',shaded dependency jars)
+	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/com/launchdarkly/sdk',shaded SDK classes)
 	@$(call classes_should_contain,'^com/launchdarkly/shaded/com/google/gson',shaded Gson)
-	@$(call classes_should_not_contain,'^com/launchdarkly/shaded/com/launchdarkly/client',shaded SDK classes)
 	@$(call classes_should_not_contain,'^com/google/gson/',Gson (unshaded))
 	@$(call classes_should_not_contain,'org/slf4j/',SLF4j (shaded or unshaded))
 
@@ -115,7 +115,7 @@ test-thin-jar-classes: $(SDK_THIN_JAR) $(TEMP_DIR)
 	@$(call caption,$@)
 	@$(call classes_prepare,$<)
 	@$(call verify_sdk_classes)
-	@$(call classes_should_not_contain,-v '^com/launchdarkly/client/',anything other than SDK classes)
+	@$(call classes_should_not_contain,-v '^com/launchdarkly/sdk/',anything other than SDK classes)
 
 $(SDK_DEFAULT_JAR):
 	cd .. && ./gradlew shadowJar

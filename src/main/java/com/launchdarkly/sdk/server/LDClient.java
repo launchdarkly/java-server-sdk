@@ -1,0 +1,443 @@
+package com.launchdarkly.sdk.server;
+
+import com.launchdarkly.sdk.EvaluationDetail;
+import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.interfaces.EventProcessor;
+import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+
+import org.apache.commons.codec.binary.Hex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Map;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+
+/**
+ * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
+ * a single {@code LDClient} for the lifetime of their application.
+ */
+public final class LDClient implements LDClientInterface {
+  // Package-private so other classes can log under the top-level logger's tag
+  static final Logger logger = LoggerFactory.getLogger(LDClient.class);
+  
+  private static final String HMAC_ALGORITHM = "HmacSHA256";
+  static final String CLIENT_VERSION = getClientVersion();
+
+  private final LDConfig config;
+  private final String sdkKey;
+  private final Evaluator evaluator;
+  final EventProcessor eventProcessor;
+  final DataSource dataSource;
+  final DataStore dataStore;
+  
+  /**
+   * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
+   * cases, you should use this constructor.
+   *
+   * @param sdkKey the SDK key for your LaunchDarkly environment
+   */
+  public LDClient(String sdkKey) {
+    this(sdkKey, LDConfig.DEFAULT);
+  }
+
+  private static final DataModel.FeatureFlag getFlag(DataStore store, String key) {
+    ItemDescriptor item = store.get(FEATURES, key);
+    return item == null ? null : (DataModel.FeatureFlag)item.getItem();
+  }
+  
+  private static final DataModel.Segment getSegment(DataStore store, String key) {
+    ItemDescriptor item = store.get(SEGMENTS, key);
+    return item == null ? null : (DataModel.Segment)item.getItem();
+  }
+  
+  /**
+   * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
+   * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
+   *
+   * @param sdkKey the SDK key for your LaunchDarkly environment
+   * @param config a client configuration object
+   */
+  public LDClient(String sdkKey, LDConfig config) {
+    this.config = new LDConfig(checkNotNull(config, "config must not be null"));
+    this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
+    
+    final EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
+        Components.sendEvents() : this.config.eventProcessorFactory;
+
+    // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
+    // standard event processor
+    final boolean useDiagnostics = !this.config.diagnosticOptOut && epFactory instanceof EventProcessorBuilder;
+    final ClientContextImpl context = new ClientContextImpl(sdkKey, config,
+        useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null);
+
+    this.eventProcessor = epFactory.createEventProcessor(context);
+
+    DataStoreFactory factory = config.dataStoreFactory == null ?
+        Components.inMemoryDataStore() : config.dataStoreFactory;
+    this.dataStore = factory.createDataStore(context);
+    
+    this.evaluator = new Evaluator(new Evaluator.Getters() {
+      public DataModel.FeatureFlag getFlag(String key) {
+        return LDClient.getFlag(LDClient.this.dataStore, key);
+      }
+
+      public DataModel.Segment getSegment(String key) {
+        return LDClient.getSegment(LDClient.this.dataStore, key);
+      }
+    });
+    
+    DataSourceFactory dataSourceFactory = this.config.dataSourceFactory == null ?
+        Components.streamingDataSource() : this.config.dataSourceFactory;
+    DataStoreUpdates dataStoreUpdates = new DataStoreUpdatesImpl(dataStore);
+    this.dataSource = dataSourceFactory.createDataSource(context, dataStoreUpdates);
+
+    Future<Void> startFuture = dataSource.start();
+    if (!this.config.startWait.isZero() && !this.config.startWait.isNegative()) {
+      if (!(dataSource instanceof Components.NullDataSource)) {
+        logger.info("Waiting up to " + this.config.startWait.toMillis() + " milliseconds for LaunchDarkly client to start...");
+      }
+      try {
+        startFuture.get(this.config.startWait.toMillis(), TimeUnit.MILLISECONDS);
+      } catch (TimeoutException e) {
+        logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
+      } catch (Exception e) {
+        logger.error("Exception encountered waiting for LaunchDarkly client initialization: {}", e.toString());
+        logger.debug(e.toString(), e);
+      }
+      if (!dataSource.isInitialized()) {
+        logger.warn("LaunchDarkly client was not successfully initialized");
+      }
+    }
+  }
+
+  @Override
+  public boolean initialized() {
+    return dataSource.isInitialized();
+  }
+
+  @Override
+  public void track(String eventName, LDUser user) {
+    trackData(eventName, user, LDValue.ofNull());
+  }
+
+  @Override
+  public void trackData(String eventName, LDUser user, LDValue data) {
+    if (user == null || user.getKey() == null) {
+      logger.warn("Track called with null user or null user key!");
+    } else {
+      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, null));
+    }
+  }
+
+  @Override
+  public void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
+    if (user == null || user.getKey() == null) {
+      logger.warn("Track called with null user or null user key!");
+    } else {
+      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, metricValue));
+    }
+  }
+
+  @Override
+  public void identify(LDUser user) {
+    if (user == null || user.getKey() == null) {
+      logger.warn("Identify called with null user or null user key!");
+    } else {
+      eventProcessor.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+    }
+  }
+
+  private void sendFlagRequestEvent(Event.FeatureRequest event) {
+    eventProcessor.sendEvent(event);
+    NewRelicReflector.annotateTransaction(event.getKey(), String.valueOf(event.getValue()));
+  }
+
+  @Override
+  public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
+    FeatureFlagsState.Builder builder = new FeatureFlagsState.Builder(options);
+    
+    if (isOffline()) {
+      logger.debug("allFlagsState() was called when client is in offline mode.");
+    }
+    
+    if (!initialized()) {
+      if (dataStore.isInitialized()) {
+        logger.warn("allFlagsState() was called before client initialized; using last known values from data store");
+      } else {
+        logger.warn("allFlagsState() was called before client initialized; data store unavailable, returning no data");
+        return builder.valid(false).build();
+      }
+    }
+
+    if (user == null || user.getKey() == null) {
+      logger.warn("allFlagsState() was called with null user or null user key! returning no data");
+      return builder.valid(false).build();
+    }
+
+    boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
+    KeyedItems<ItemDescriptor> flags = dataStore.getAll(FEATURES);
+    for (Map.Entry<String, ItemDescriptor> entry : flags.getItems()) {
+      DataModel.FeatureFlag flag = (DataModel.FeatureFlag)entry.getValue().getItem();
+      if (clientSideOnly && !flag.isClientSide()) {
+        continue;
+      }
+      try {
+        Evaluator.EvalResult result = evaluator.evaluate(flag, user, EventFactory.DEFAULT);
+        builder.addFlag(flag, result);
+      } catch (Exception e) {
+        logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
+        logger.debug(e.toString(), e);
+        builder.addFlag(flag, new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.exception(e)));
+      }
+    }
+    return builder.build();
+  }
+  
+  @Override
+  public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
+    return evaluate(featureKey, user, LDValue.of(defaultValue), true).booleanValue();
+  }
+
+  @Override
+  public Integer intVariation(String featureKey, LDUser user, int defaultValue) {
+    return evaluate(featureKey, user, LDValue.of(defaultValue), true).intValue();
+  }
+
+  @Override
+  public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
+    return evaluate(featureKey, user, LDValue.of(defaultValue), true).doubleValue();
+  }
+
+  @Override
+  public String stringVariation(String featureKey, LDUser user, String defaultValue) {
+    return evaluate(featureKey, user, LDValue.of(defaultValue), true).stringValue();
+  }
+
+  @Override
+  public LDValue jsonValueVariation(String featureKey, LDUser user, LDValue defaultValue) {
+    return evaluate(featureKey, user, LDValue.normalize(defaultValue), false);
+  }
+
+  @Override
+  public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue) {
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
+         EventFactory.DEFAULT_WITH_REASONS);
+     return EvaluationDetail.fromValue(result.getValue().booleanValue(),
+         result.getVariationIndex(), result.getReason());
+  }
+
+  @Override
+  public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue) {
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
+         EventFactory.DEFAULT_WITH_REASONS);
+    return EvaluationDetail.fromValue(result.getValue().intValue(),
+        result.getVariationIndex(), result.getReason());
+  }
+
+  @Override
+  public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue) {
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
+         EventFactory.DEFAULT_WITH_REASONS);
+    return EvaluationDetail.fromValue(result.getValue().doubleValue(),
+        result.getVariationIndex(), result.getReason());
+  }
+
+  @Override
+  public EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue) {
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
+         EventFactory.DEFAULT_WITH_REASONS);
+    return EvaluationDetail.fromValue(result.getValue().stringValue(),
+        result.getVariationIndex(), result.getReason());
+  }
+
+  @Override
+  public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue), false, EventFactory.DEFAULT_WITH_REASONS);
+    return EvaluationDetail.fromValue(result.getValue(), result.getVariationIndex(), result.getReason());
+  }
+  
+  @Override
+  public boolean isFlagKnown(String featureKey) {
+    if (!initialized()) {
+      if (dataStore.isInitialized()) {
+        logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
+      } else {
+        logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; data store unavailable, returning false", featureKey);
+        return false;
+      }
+    }
+
+    try {
+      if (getFlag(dataStore, featureKey) != null) {
+        return true;
+      }
+    } catch (Exception e) {
+      logger.error("Encountered exception while calling isFlagKnown for feature flag \"{}\": {}", e.toString());
+      logger.debug(e.toString(), e);
+    }
+
+    return false;
+  }
+
+  private LDValue evaluate(String featureKey, LDUser user, LDValue defaultValue, boolean checkType) {
+    return evaluateInternal(featureKey, user, defaultValue, checkType, EventFactory.DEFAULT).getValue();
+  }
+  
+  private Evaluator.EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {
+    return new Evaluator.EvalResult(defaultValue, null, EvaluationReason.error(errorKind));
+  }
+  
+  private Evaluator.EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue, boolean checkType,
+      EventFactory eventFactory) {
+    if (!initialized()) {
+      if (dataStore.isInitialized()) {
+        logger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
+      } else {
+        logger.warn("Evaluation called before client initialized for feature flag \"{}\"; data store unavailable, returning default value", featureKey);
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+            EvaluationReason.ErrorKind.CLIENT_NOT_READY));
+        return errorResult(EvaluationReason.ErrorKind.CLIENT_NOT_READY, defaultValue);
+      }
+    }
+
+    DataModel.FeatureFlag featureFlag = null;
+    try {
+      featureFlag = getFlag(dataStore, featureKey);
+      if (featureFlag == null) {
+        logger.info("Unknown feature flag \"{}\"; returning default value", featureKey);
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+            EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
+        return errorResult(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, defaultValue);
+      }
+      if (user == null || user.getKey() == null) {
+        logger.warn("Null user or null user key when evaluating flag \"{}\"; returning default value", featureKey);
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
+            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
+        return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
+      }
+      if (user.getKey().isEmpty()) {
+        logger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
+      }
+      Evaluator.EvalResult evalResult = evaluator.evaluate(featureFlag, user, eventFactory);
+      for (Event.FeatureRequest event : evalResult.getPrerequisiteEvents()) {
+        eventProcessor.sendEvent(event);
+      }
+      if (evalResult.isDefault()) {
+        evalResult.setValue(defaultValue);
+      } else {
+        LDValue value = evalResult.getValue(); // guaranteed not to be an actual Java null, but can be LDValue.ofNull()
+        if (checkType && !value.isNull() && !defaultValue.isNull() && defaultValue.getType() != value.getType()) {
+          logger.error("Feature flag evaluation expected result as {}, but got {}", defaultValue.getType(), value.getType());
+          sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+              EvaluationReason.ErrorKind.WRONG_TYPE));
+          return errorResult(EvaluationReason.ErrorKind.WRONG_TYPE, defaultValue);
+        }
+      }
+      sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult, defaultValue));
+      return evalResult;
+    } catch (Exception e) {
+      logger.error("Encountered exception while evaluating feature flag \"{}\": {}", featureKey, e.toString());
+      logger.debug(e.toString(), e);
+      if (featureFlag == null) {
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION));
+      } else {
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION));
+      }
+      return new Evaluator.EvalResult(defaultValue, null, EvaluationReason.exception(e));
+    }
+  }
+
+  @Override
+  public void close() throws IOException {
+    logger.info("Closing LaunchDarkly Client");
+    this.dataStore.close();
+    this.eventProcessor.close();
+    this.dataSource.close();
+  }
+
+  @Override
+  public void flush() {
+    this.eventProcessor.flush();
+  }
+
+  @Override
+  public boolean isOffline() {
+    return config.offline;
+  }
+
+  @Override
+  public String secureModeHash(LDUser user) {
+    if (user == null || user.getKey() == null) {
+      return null;
+    }
+    try {
+      Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+      mac.init(new SecretKeySpec(sdkKey.getBytes(), HMAC_ALGORITHM));
+      return Hex.encodeHexString(mac.doFinal(user.getKey().getBytes("UTF8")));
+    } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
+      logger.error("Could not generate secure mode hash: {}", e.toString());
+      logger.debug(e.toString(), e);
+    }
+    return null;
+  }
+
+  /**
+   * Returns the current version string of the client library.
+   * @return a version string conforming to Semantic Versioning (http://semver.org)
+   */
+  @Override
+  public String version() {
+    return CLIENT_VERSION;
+  }
+  
+  private static String getClientVersion() {
+    Class<?> clazz = LDConfig.class;
+    String className = clazz.getSimpleName() + ".class";
+    String classPath = clazz.getResource(className).toString();
+    if (!classPath.startsWith("jar")) {
+      // Class not from JAR
+      return "Unknown";
+    }
+    String manifestPath = classPath.substring(0, classPath.lastIndexOf("!") + 1) +
+        "/META-INF/MANIFEST.MF";
+    Manifest manifest = null;
+    try {
+      manifest = new Manifest(new URL(manifestPath).openStream());
+      Attributes attr = manifest.getMainAttributes();
+      String value = attr.getValue("Implementation-Version");
+      return value;
+    } catch (IOException e) {
+      logger.warn("Unable to determine LaunchDarkly client library version", e);
+      return "Unknown";
+    }
+  }
+}
