@@ -8,7 +8,9 @@ import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import static java.util.Collections.emptyList;
 
@@ -235,18 +237,18 @@ public abstract class DataModel {
   }
 
   static final class Target {
-    private List<String> values;
+    private Set<String> values;
     private int variation;
   
     Target() {}
   
-    Target(List<String> values, int variation) {
+    Target(Set<String> values, int variation) {
       this.values = values;
       this.variation = variation;
     }
   
     // Guaranteed non-null
-    List<String> getValues() {
+    Collection<String> getValues() {
       return values == null ? emptyList() : values;
     }
   
@@ -283,7 +285,7 @@ public abstract class DataModel {
     }
     
     // Guaranteed non-null
-    Iterable<Clause> getClauses() {
+    List<Clause> getClauses() {
       return clauses == null ? emptyList() : clauses;
     }
     
@@ -325,7 +327,7 @@ public abstract class DataModel {
       return op;
     }
     
-    List<LDValue> getValues() {
+    Iterable<LDValue> getValues() {
       return values;
     }
     
@@ -400,8 +402,8 @@ public abstract class DataModel {
   
   static final class Segment implements VersionedData {
     private String key;
-    private List<String> included;
-    private List<String> excluded;
+    private Set<String> included;
+    private Set<String> excluded;
     private String salt;
     private List<SegmentRule> rules;
     private int version;
@@ -409,7 +411,7 @@ public abstract class DataModel {
 
     Segment() {}
 
-    Segment(String key, List<String> included, List<String> excluded, String salt, List<SegmentRule> rules, int version, boolean deleted) {
+    Segment(String key, Set<String> included, Set<String> excluded, String salt, List<SegmentRule> rules, int version, boolean deleted) {
       this.key = key;
       this.included = included;
       this.excluded = excluded;
@@ -424,12 +426,12 @@ public abstract class DataModel {
     }
     
     // Guaranteed non-null
-    Iterable<String> getIncluded() {
+    Collection<String> getIncluded() {
       return included == null ? emptyList() : included;
     }
     
     // Guaranteed non-null
-    Iterable<String> getExcluded() {
+    Collection<String> getExcluded() {
       return excluded == null ? emptyList() : excluded;
     }
     
@@ -437,8 +439,9 @@ public abstract class DataModel {
       return salt;
     }
     
-    Iterable<SegmentRule> getRules() {
-      return rules;
+    // Guaranteed non-null
+    List<SegmentRule> getRules() {
+      return rules == null ? emptyList() : rules;
     }
     
     public int getVersion() {

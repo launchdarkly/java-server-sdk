@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
@@ -140,10 +139,8 @@ class Evaluator {
     
     // Check to see if targets match
     for (DataModel.Target target: flag.getTargets()) { // getTargets() and getValues() are guaranteed non-null
-      for (String v : target.getValues()) {
-        if (v.equals(user.getKey())) {
-          return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
-        }
+      if (target.getValues().contains(user.getKey())) {
+        return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
       }
     }
     // Now walk through the rules and see if any match
@@ -293,10 +290,10 @@ class Evaluator {
     if (userKey == null) {
       return false;
     }
-    if (Iterables.contains(segment.getIncluded(), userKey)) { // getIncluded(), getExcluded(), and getRules() are guaranteed non-null
+    if (segment.getIncluded().contains(userKey)) { // getIncluded(), getExcluded(), and getRules() are guaranteed non-null
       return true;
     }
-    if (Iterables.contains(segment.getExcluded(), userKey)) {
+    if (segment.getExcluded().contains(userKey)) {
       return false;
     }
     for (DataModel.SegmentRule rule: segment.getRules()) {
