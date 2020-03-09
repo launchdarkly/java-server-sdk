@@ -1,7 +1,6 @@
 package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.value.LDValue;
 import com.launchdarkly.client.value.LDValueType;
@@ -139,10 +138,8 @@ class Evaluator {
     List<DataModel.Target> targets = flag.getTargets();
     if (targets != null) {
       for (DataModel.Target target: targets) {
-        for (String v : target.getValues()) {
-          if (v.equals(user.getKey().stringValue())) {
-            return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
-          }
+        if (target.getValues().contains(user.getKey().stringValue())) {
+          return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
         }
       }
     }
@@ -302,10 +299,10 @@ class Evaluator {
     if (userKey == null) {
       return false;
     }
-    if (Iterables.contains(segment.getIncluded(), userKey)) {
+    if (segment.getIncluded().contains(userKey)) {
       return true;
     }
-    if (Iterables.contains(segment.getExcluded(), userKey)) {
+    if (segment.getExcluded().contains(userKey)) {
       return false;
     }
     for (DataModel.SegmentRule rule: segment.getRules()) {
