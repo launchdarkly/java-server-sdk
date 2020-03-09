@@ -1,13 +1,13 @@
 package com.launchdarkly.client;
 
+import com.google.common.collect.ImmutableList;
 import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.client.interfaces.DiagnosticDescription;
-import com.launchdarkly.client.interfaces.VersionedData;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -17,74 +17,27 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * A thread-safe, versioned store for feature flags and related data based on a
  * {@link HashMap}. This is the default implementation of {@link DataStore}.
+ * 
+ * As of version 5.0.0, this is package-private; applications must use the factory method
+ * {@link Components#inMemoryDataStore()}.
  */
-public class InMemoryDataStore implements DataStore, DiagnosticDescription {
-  private static final Logger logger = LoggerFactory.getLogger(InMemoryDataStore.class);
-
+class InMemoryDataStore implements DataStore, DiagnosticDescription {
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-  private final Map<VersionedDataKind<?>, Map<String, VersionedData>> allData = new HashMap<>();
+  private final Map<DataKind, Map<String, ItemDescriptor>> allData = new HashMap<>();
   private volatile boolean initialized = false;
 
   @Override
-  public <T extends VersionedData> T get(VersionedDataKind<T> kind, String key) {
-    try {
-      lock.readLock().lock();
-      Map<String, VersionedData> items = allData.get(kind);
-      if (items == null) {
-        logger.debug("[get] no objects exist for \"{}\". Returning null", kind.getNamespace());
-        return null;
-      }
-      Object o = items.get(key);
-      if (o == null) {
-        logger.debug("[get] Key: {} not found in \"{}\". Returning null", key, kind.getNamespace());
-        return null;
-      }
-      if (!kind.getItemClass().isInstance(o)) {
-        logger.warn("[get] Unexpected object class {} found for key: {} in \"{}\". Returning null",
-            o.getClass().getName(), key, kind.getNamespace());
-        return null;
-      }
-      T item = kind.getItemClass().cast(o);
-      if (item.isDeleted()) {
-        logger.debug("[get] Key: {} has been deleted. Returning null", key);
-        return null;
-      }
-      logger.debug("[get] Key: {} with version: {} found in \"{}\".", key, item.getVersion(), kind.getNamespace());
-      return item;
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  @Override
-  public <T extends VersionedData> Map<String, T> all(VersionedDataKind<T> kind) {
-    try {
-      lock.readLock().lock();
-      Map<String, T> fs = new HashMap<>();
-      Map<String, VersionedData> items = allData.get(kind);
-      if (items != null) {
-        for (Map.Entry<String, ? extends VersionedData> entry : items.entrySet()) {
-          if (!entry.getValue().isDeleted()) {
-            fs.put(entry.getKey(), kind.getItemClass().cast(entry.getValue()));
-          }
-        }
-      }
-      return fs;
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  @Override
-  public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
+  public void init(FullDataSet<ItemDescriptor> allData) {
     try {
       lock.writeLock().lock();
       this.allData.clear();
-      for (Map.Entry<VersionedDataKind<?>, Map<String, ? extends VersionedData>> entry: allData.entrySet()) {
-        // Note, the DataStore contract specifies that we should clone all of the maps. This doesn't
-        // really make a difference in regular use of the SDK, but not doing it could cause unexpected
-        // behavior in tests.
-        this.allData.put(entry.getKey(), new HashMap<String, VersionedData>(entry.getValue()));
+      for (Map.Entry<DataKind, KeyedItems<ItemDescriptor>> e0: allData.getData()) {
+        DataKind kind = e0.getKey();
+        Map<String, ItemDescriptor> itemsMap = new HashMap<>();
+        for (Map.Entry<String, ItemDescriptor> e1: e0.getValue().getItems()) {
+          itemsMap.put(e1.getKey(), e1.getValue());
+        }
+        this.allData.put(kind, itemsMap);
       }
       initialized = true;
     } finally {
@@ -93,44 +46,55 @@ public class InMemoryDataStore implements DataStore, DiagnosticDescription {
   }
 
   @Override
-  public <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version) {
+  public ItemDescriptor get(DataKind kind, String key) {
     try {
-      lock.writeLock().lock();
-      Map<String, VersionedData> items = allData.get(kind);
+      lock.readLock().lock();
+      Map<String, ItemDescriptor> items = allData.get(kind);
       if (items == null) {
-        items = new HashMap<>();
-        allData.put(kind, items);
+        return null;
       }
-      VersionedData item = items.get(key);
-      if (item == null || item.getVersion() < version) {
-        items.put(key, kind.makeDeletedItem(key, version));
-      }
+      return items.get(key);
     } finally {
-      lock.writeLock().unlock();
+      lock.readLock().unlock();
     }
   }
 
   @Override
-  public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) {
+  public KeyedItems<ItemDescriptor> getAll(DataKind kind) {
+    try {
+      lock.readLock().lock();
+      Map<String, ItemDescriptor> items = allData.get(kind);
+      if (items == null) {
+        return new KeyedItems<>(null);
+      }
+      return new KeyedItems<>(ImmutableList.copyOf(items.entrySet()));
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
     try {
       lock.writeLock().lock();
-      Map<String, VersionedData> items = (Map<String, VersionedData>) allData.get(kind);
+      Map<String, ItemDescriptor> items = allData.get(kind);
       if (items == null) {
         items = new HashMap<>();
         allData.put(kind, items);
       }
-      VersionedData old = items.get(item.getKey());
-
+      ItemDescriptor old = items.get(key);
       if (old == null || old.getVersion() < item.getVersion()) {
-        items.put(item.getKey(), item);
+        items.put(key, item);
+        return true;
       }
+      return false;
     } finally {
       lock.writeLock().unlock();
     }
   }
 
   @Override
-  public boolean initialized() {
+  public boolean isInitialized() {
     return initialized;
   }
 

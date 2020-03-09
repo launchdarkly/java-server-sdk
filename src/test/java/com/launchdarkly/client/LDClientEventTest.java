@@ -7,7 +7,6 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
-import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.ModelBuilders.clauseMatchingUser;
 import static com.launchdarkly.client.ModelBuilders.clauseNotMatchingUser;
 import static com.launchdarkly.client.ModelBuilders.fallthroughVariation;
@@ -17,6 +16,7 @@ import static com.launchdarkly.client.ModelBuilders.prerequisite;
 import static com.launchdarkly.client.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
 import static com.launchdarkly.client.TestUtil.specificEventProcessor;
+import static com.launchdarkly.client.TestUtil.upsertFlag;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -117,7 +117,7 @@ public class LDClientEventTest {
   @Test
   public void boolVariationSendsEvent() throws Exception {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.boolVariation("key", user, false);
     assertEquals(1, eventSink.events.size());
@@ -134,7 +134,7 @@ public class LDClientEventTest {
   @Test
   public void boolVariationDetailSendsEvent() throws Exception {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.boolVariationDetail("key", user, false);
     assertEquals(1, eventSink.events.size());
@@ -152,7 +152,7 @@ public class LDClientEventTest {
   @Test
   public void intVariationSendsEvent() throws Exception {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2));
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.intVariation("key", user, 1);
     assertEquals(1, eventSink.events.size());
@@ -169,7 +169,7 @@ public class LDClientEventTest {
   @Test
   public void intVariationDetailSendsEvent() throws Exception {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2));
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.intVariationDetail("key", user, 1);
     assertEquals(1, eventSink.events.size());
@@ -187,7 +187,7 @@ public class LDClientEventTest {
   @Test
   public void doubleVariationSendsEvent() throws Exception {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2.5d));
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.doubleVariation("key", user, 1.0d);
     assertEquals(1, eventSink.events.size());
@@ -204,7 +204,7 @@ public class LDClientEventTest {
   @Test
   public void doubleVariationDetailSendsEvent() throws Exception {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(2.5d));
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.doubleVariationDetail("key", user, 1.0d);
     assertEquals(1, eventSink.events.size());
@@ -222,7 +222,7 @@ public class LDClientEventTest {
   @Test
   public void stringVariationSendsEvent() throws Exception {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of("b"));
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.stringVariation("key", user, "a");
     assertEquals(1, eventSink.events.size());
@@ -239,7 +239,7 @@ public class LDClientEventTest {
   @Test
   public void stringVariationDetailSendsEvent() throws Exception {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of("b"));
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.stringVariationDetail("key", user, "a");
     assertEquals(1, eventSink.events.size());
@@ -258,7 +258,7 @@ public class LDClientEventTest {
   public void jsonValueVariationDetailSendsEvent() throws Exception {
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     DataModel.FeatureFlag flag = flagWithValue("key", data);
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
     LDValue defaultVal = LDValue.of(42);
     
     client.jsonValueVariationDetail("key", user, defaultVal);
@@ -286,7 +286,7 @@ public class LDClientEventTest {
         .offVariation(0)
         .variations(LDValue.of("off"), LDValue.of("on"))
         .build();
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.stringVariation("flag", user, "default");
     
@@ -311,7 +311,7 @@ public class LDClientEventTest {
         .offVariation(0)
         .variations(LDValue.of("off"), LDValue.of("on"))
         .build();
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.stringVariation("flag", user, "default");
     
@@ -331,7 +331,7 @@ public class LDClientEventTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .trackEventsFallthrough(true)
         .build();
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.stringVariation("flag", user, "default");
     
@@ -352,7 +352,7 @@ public class LDClientEventTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .trackEventsFallthrough(false)
         .build();
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.stringVariation("flag", user, "default");
     
@@ -371,7 +371,7 @@ public class LDClientEventTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .trackEventsFallthrough(true)
         .build();
-    dataStore.upsert(FEATURES, flag);
+    upsertFlag(dataStore, flag);
 
     client.stringVariation("flag", user, "default");
     
@@ -397,8 +397,8 @@ public class LDClientEventTest {
         .variations(LDValue.of("nogo"), LDValue.of("go"))
         .version(2)
         .build();
-    dataStore.upsert(FEATURES, f0);
-    dataStore.upsert(FEATURES, f1);
+    upsertFlag(dataStore, f0);
+    upsertFlag(dataStore, f1);
     
     client.stringVariation("feature0", user, "default");
     
@@ -423,8 +423,8 @@ public class LDClientEventTest {
         .variations(LDValue.of("nogo"), LDValue.of("go"))
         .version(2)
         .build();
-    dataStore.upsert(FEATURES, f0);
-    dataStore.upsert(FEATURES, f1);
+    upsertFlag(dataStore, f0);
+    upsertFlag(dataStore, f1);
     
     client.stringVariationDetail("feature0", user, "default");
     
@@ -443,7 +443,7 @@ public class LDClientEventTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .version(1)
         .build();
-    dataStore.upsert(FEATURES, f0);
+    upsertFlag(dataStore, f0);
     
     client.stringVariation("feature0", user, "default");
     
@@ -461,7 +461,7 @@ public class LDClientEventTest {
         .variations(LDValue.of("fall"), LDValue.of("off"), LDValue.of("on"))
         .version(1)
         .build();
-    dataStore.upsert(FEATURES, f0);
+    upsertFlag(dataStore, f0);
     
     client.stringVariationDetail("feature0", user, "default");
     

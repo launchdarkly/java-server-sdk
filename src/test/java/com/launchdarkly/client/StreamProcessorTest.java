@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
@@ -32,6 +33,8 @@ import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.client.TestUtil.clientContext;
 import static com.launchdarkly.client.TestUtil.dataStoreUpdates;
+import static com.launchdarkly.client.TestUtil.upsertFlag;
+import static com.launchdarkly.client.TestUtil.upsertSegment;
 import static org.easymock.EasyMock.expect;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -161,14 +164,14 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void storeNotInitializedByDefault() throws Exception {
     createStreamProcessor(STREAM_URI).start();
-    assertFalse(dataStore.initialized());
+    assertFalse(dataStore.isInitialized());
   }
   
   @Test
   public void putCausesStoreToBeInitialized() throws Exception {
     createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
-    assertTrue(dataStore.initialized());
+    assertTrue(dataStore.isInitialized());
   }
 
   @Test
@@ -231,28 +234,28 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void deleteDeletesFeature() throws Exception {
     createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
-    dataStore.upsert(FEATURES, FEATURE);
+    upsertFlag(dataStore, FEATURE);
     
     String path = "/flags/" + FEATURE1_KEY;
     MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"version\":" +
         (FEATURE1_VERSION + 1) + "}");
     eventHandler.onMessage("delete", event);
     
-    assertNull(dataStore.get(FEATURES, FEATURE1_KEY));
+    assertEquals(ItemDescriptor.deletedItem(FEATURE1_VERSION + 1), dataStore.get(FEATURES, FEATURE1_KEY));
   }
   
   @Test
   public void deleteDeletesSegment() throws Exception {
     createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
-    dataStore.upsert(SEGMENTS, SEGMENT);
+    upsertSegment(dataStore, SEGMENT);
     
     String path = "/segments/" + SEGMENT1_KEY;
     MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"version\":" +
         (SEGMENT1_VERSION + 1) + "}");
     eventHandler.onMessage("delete", event);
     
-    assertNull(dataStore.get(SEGMENTS, SEGMENT1_KEY));
+    assertEquals(ItemDescriptor.deletedItem(SEGMENT1_VERSION + 1), dataStore.get(SEGMENTS, SEGMENT1_KEY));
   }
   
   @Test
@@ -274,7 +277,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     
     eventHandler.onMessage("indirect/put", new MessageEvent(""));
     
-    assertTrue(dataStore.initialized());
+    assertTrue(dataStore.isInitialized());
   }
 
   @Test
@@ -286,7 +289,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     
     eventHandler.onMessage("indirect/put", new MessageEvent(""));
     
-    assertTrue(dataStore.initialized());
+    assertTrue(dataStore.isInitialized());
   }
 
   @Test

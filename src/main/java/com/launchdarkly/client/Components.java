@@ -15,9 +15,7 @@ import com.launchdarkly.client.interfaces.DiagnosticDescription;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.PersistentDataStore;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
-import com.launchdarkly.client.utils.CachingStoreWrapper;
 import com.launchdarkly.client.value.LDValue;
 
 import java.io.IOException;
@@ -436,22 +434,11 @@ public abstract class Components {
     }
 
     @Override
-    public DataStore createDataStore(ClientContext context) {
-      PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
-      DataStoreCacheConfig caching = DataStoreCacheConfig.DEFAULT.ttl(cacheTime)
-          .staleValuesPolicy(DataStoreCacheConfig.StaleValuesPolicy.fromNewEnum(staleValuesPolicy));
-      return CachingStoreWrapper.builder(core)
-          .caching(caching)
-          .cacheMonitor(cacheMonitor)
-          .build();
-    }
-
-    @Override
     public LDValue describeConfiguration(LDConfig config) {
       if (persistentDataStoreFactory instanceof DiagnosticDescription) {
         return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
       }
-      return LDValue.of("?");
+      return LDValue.of("custom");
     }
   }
 }

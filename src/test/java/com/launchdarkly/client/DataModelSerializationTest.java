@@ -6,12 +6,16 @@ import com.launchdarkly.client.DataModel.Clause;
 import com.launchdarkly.client.DataModel.FeatureFlag;
 import com.launchdarkly.client.DataModel.Operator;
 import com.launchdarkly.client.DataModel.Rule;
+import com.launchdarkly.client.DataModel.Segment;
+import com.launchdarkly.client.DataModel.SegmentRule;
 import com.launchdarkly.client.DataModel.Target;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
-import static com.launchdarkly.client.JsonHelpers.gsonInstance;
+import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
+import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -22,18 +26,19 @@ import static org.junit.Assert.assertTrue;
 public class DataModelSerializationTest {
   @Test
   public void flagIsDeserializedWithAllProperties() {
-    String json = flagWithAllPropertiesJson().toJsonString();
-    FeatureFlag flag0 = gsonInstance().fromJson(json, FeatureFlag.class);
+    String json0 = flagWithAllPropertiesJson().toJsonString();
+    FeatureFlag flag0 = (FeatureFlag)FEATURES.deserialize(json0).getItem();
     assertFlagHasAllProperties(flag0);
     
-    FeatureFlag flag1 = gsonInstance().fromJson(gsonInstance().toJson(flag0), FeatureFlag.class);
+    String json1 = FEATURES.serialize(new ItemDescriptor(flag0.getVersion(), flag0));
+    FeatureFlag flag1 = (FeatureFlag)FEATURES.deserialize(json1).getItem();
     assertFlagHasAllProperties(flag1);
   }
   
   @Test
   public void flagIsDeserializedWithMinimalProperties() {
     String json = LDValue.buildObject().put("key", "flag-key").put("version", 99).build().toJsonString();
-    FeatureFlag flag = gsonInstance().fromJson(json, FeatureFlag.class);
+    FeatureFlag flag = (FeatureFlag)FEATURES.deserialize(json).getItem();
     assertEquals("flag-key", flag.getKey());
     assertEquals(99, flag.getVersion());
     assertFalse(flag.isOn());
@@ -49,6 +54,27 @@ public class DataModelSerializationTest {
     assertNull(flag.getDebugEventsUntilDate());
   }
   
+  @Test
+  public void segmentIsDeserializedWithAllProperties() {
+    String json0 = segmentWithAllPropertiesJson().toJsonString();
+    Segment segment0 = (Segment)SEGMENTS.deserialize(json0).getItem();
+    assertSegmentHasAllProperties(segment0);
+    
+    String json1 = SEGMENTS.serialize(new ItemDescriptor(segment0.getVersion(), segment0));
+    Segment segment1 = (Segment)SEGMENTS.deserialize(json1).getItem();
+    assertSegmentHasAllProperties(segment1);
+  }
+  
+  @Test
+  public void segmentIsDeserializedWithMinimalProperties() {
+    String json = LDValue.buildObject().put("key", "segment-key").put("version", 99).build().toJsonString();
+    Segment segment = (Segment)SEGMENTS.deserialize(json).getItem();
+    assertEquals("segment-key", segment.getKey());
+    assertEquals(99, segment.getVersion());
+    assertNull(segment.getIncluded());
+    assertNull(segment.getExcluded());
+    assertNull(segment.getRules());
+  }
   
   private LDValue flagWithAllPropertiesJson() {
     return LDValue.buildObject()
@@ -100,7 +126,7 @@ public class DataModelSerializationTest {
         .put("trackEvents", true)
         .put("trackEventsFallthrough", true)
         .put("debugEventsUntilDate", 1000)
-        .build();    
+        .build();
   }
 
   private void assertFlagHasAllProperties(FeatureFlag flag) {
@@ -150,5 +176,54 @@ public class DataModelSerializationTest {
     assertTrue(flag.isTrackEvents());
     assertTrue(flag.isTrackEventsFallthrough());
     assertEquals(new Long(1000), flag.getDebugEventsUntilDate());  
+  }
+  
+  private LDValue segmentWithAllPropertiesJson() {
+    return LDValue.buildObject()
+        .put("key", "segment-key")
+        .put("version", 99)
+        .put("included", LDValue.buildArray().add("key1").add("key2").build())
+        .put("excluded", LDValue.buildArray().add("key3").add("key4").build())
+        .put("salt", "123")
+               .put("rules", LDValue.buildArray()
+            .add(LDValue.buildObject()
+                .put("weight", 50000)
+                .put("bucketBy", "email")
+                .put("clauses", LDValue.buildArray()
+                    .add(LDValue.buildObject()
+                        .put("attribute", "name")
+                        .put("op", "in")
+                        .put("values", LDValue.buildArray().add("Lucy").build())
+                        .put("negate", true)
+                        .build())
+                    .build())
+                .build())
+            .add(LDValue.buildObject()
+                .build())
+            .build())
+        .build();
+  }
+  
+  private void assertSegmentHasAllProperties(Segment segment) {
+    assertEquals("segment-key", segment.getKey());
+    assertEquals(99, segment.getVersion());
+    assertEquals("123", segment.getSalt());
+    assertEquals(ImmutableSet.of("key1", "key2"), segment.getIncluded());
+    assertEquals(ImmutableSet.of("key3", "key4"), segment.getExcluded());
+    
+    assertNotNull(segment.getRules());
+    assertEquals(2, segment.getRules().size());
+    SegmentRule r0 = segment.getRules().get(0);
+    assertEquals(new Integer(50000), r0.getWeight());
+    assertNotNull(r0.getClauses());
+    assertEquals(1, r0.getClauses().size());
+    Clause c0 = r0.getClauses().get(0);
+    assertEquals("name", c0.getAttribute());
+    assertEquals(Operator.in, c0.getOp());
+    assertEquals(ImmutableList.of(LDValue.of("Lucy")), c0.getValues());
+    assertTrue(c0.isNegate());
+    SegmentRule r1 = segment.getRules().get(1);
+    assertNull(r1.getWeight());
+    assertNull(r1.getBucketBy());
   }
 }

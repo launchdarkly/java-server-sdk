@@ -1,20 +1,20 @@
 package com.launchdarkly.client.integrations;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Maps;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.client.interfaces.DataStoreTypes.SerializedItemDescriptor;
 import com.launchdarkly.client.interfaces.PersistentDataStore;
-import com.launchdarkly.client.interfaces.VersionedData;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static com.launchdarkly.client.utils.DataStoreHelpers.marshalJson;
-import static com.launchdarkly.client.utils.DataStoreHelpers.unmarshalJson;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -69,40 +69,34 @@ final class RedisDataStoreImpl implements PersistentDataStore {
   }
   
   @Override
-  public VersionedData getInternal(VersionedDataKind<?> kind, String key) {
+  public SerializedItemDescriptor get(DataKind kind, String key) {
     try (Jedis jedis = pool.getResource()) {
-      VersionedData item = getRedis(kind, key, jedis);
-      if (item != null) {
-        logger.debug("[get] Key: {} with version: {} found in \"{}\".", key, item.getVersion(), kind.getNamespace());
-      }
-      return item;
+      String item = getRedis(kind, key, jedis);
+      return item == null ? null : new SerializedItemDescriptor(0, false, item);
     }
   }
 
   @Override
-  public Map<String, VersionedData> getAllInternal(VersionedDataKind<?> kind) {
+  public KeyedItems<SerializedItemDescriptor> getAll(DataKind kind) {
     try (Jedis jedis = pool.getResource()) {
       Map<String, String> allJson = jedis.hgetAll(itemsKey(kind));
-      Map<String, VersionedData> result = new HashMap<>();
-
-      for (Map.Entry<String, String> entry : allJson.entrySet()) {
-        VersionedData item = unmarshalJson(kind, entry.getValue());
-        result.put(entry.getKey(), item);
-      }
-      return result;
+      return new KeyedItems<>(
+          Maps.transformValues(allJson, itemJson -> new SerializedItemDescriptor(0, false, itemJson)).entrySet()
+          );
     }
   }
   
   @Override
-  public void initInternal(Map<VersionedDataKind<?>, Map<String, VersionedData>> allData) {
+  public void init(FullDataSet<SerializedItemDescriptor> allData) {
     try (Jedis jedis = pool.getResource()) {
       Transaction t = jedis.multi();
 
-      for (Map.Entry<VersionedDataKind<?>, Map<String, VersionedData>> entry: allData.entrySet()) {
-        String baseKey = itemsKey(entry.getKey()); 
+      for (Map.Entry<DataKind, KeyedItems<SerializedItemDescriptor>> e0: allData.getData()) {
+        DataKind kind = e0.getKey();
+        String baseKey = itemsKey(kind); 
         t.del(baseKey);
-        for (VersionedData item: entry.getValue().values()) {
-          t.hset(baseKey, item.getKey(), marshalJson(item));
+        for (Map.Entry<String, SerializedItemDescriptor> e1: e0.getValue().getItems()) {
+          t.hset(baseKey, e1.getKey(), jsonOrPlaceholder(kind, e1.getValue()));
         }
       }
 
@@ -112,7 +106,7 @@ final class RedisDataStoreImpl implements PersistentDataStore {
   }
   
   @Override
-  public VersionedData upsertInternal(VersionedDataKind<?> kind, VersionedData newItem) {
+  public boolean upsert(DataKind kind, String key, SerializedItemDescriptor newItem) {
     while (true) {
       Jedis jedis = null;
       try {
@@ -121,21 +115,23 @@ final class RedisDataStoreImpl implements PersistentDataStore {
         jedis.watch(baseKey);
   
         if (updateListener != null) {
-          updateListener.aboutToUpdate(baseKey, newItem.getKey());
+          updateListener.aboutToUpdate(baseKey, key);
         }
         
-        VersionedData oldItem = getRedis(kind, newItem.getKey(), jedis);
+        String oldItemJson = getRedis(kind, key, jedis);
+        // In this implementation, we have to parse the existing item in order to determine its version.
+        int oldVersion = oldItemJson == null ? -1 : kind.deserialize(oldItemJson).getVersion();
   
-        if (oldItem != null && oldItem.getVersion() >= newItem.getVersion()) {
+        if (oldVersion >= newItem.getVersion()) {
           logger.debug("Attempted to {} key: {} version: {}" +
               " with a version that is the same or older: {} in \"{}\"",
-              newItem.isDeleted() ? "delete" : "update",
-              newItem.getKey(), oldItem.getVersion(), newItem.getVersion(), kind.getNamespace());
-          return oldItem;
+              newItem.getSerializedItem() == null ? "delete" : "update",
+              key, oldVersion, newItem.getVersion(), kind.getName());
+          return false;
         }
   
         Transaction tx = jedis.multi();
-        tx.hset(baseKey, newItem.getKey(), marshalJson(newItem));
+        tx.hset(baseKey, key, jsonOrPlaceholder(kind, newItem));
         List<Object> result = tx.exec();
         if (result.isEmpty()) {
           // if exec failed, it means the watch was triggered and we should retry
@@ -143,7 +139,7 @@ final class RedisDataStoreImpl implements PersistentDataStore {
           continue;
         }
   
-        return newItem;
+        return true;
       } finally {
         if (jedis != null) {
           jedis.unwatch();
@@ -154,7 +150,7 @@ final class RedisDataStoreImpl implements PersistentDataStore {
   }
   
   @Override
-  public boolean initializedInternal() {
+  public boolean isInitialized() {
     try (Jedis jedis = pool.getResource()) {
       return jedis.exists(initedKey());
     }
@@ -171,23 +167,33 @@ final class RedisDataStoreImpl implements PersistentDataStore {
     this.updateListener = updateListener;
   }
   
-  private String itemsKey(VersionedDataKind<?> kind) {
-    return prefix + ":" + kind.getNamespace();
+  private String itemsKey(DataKind kind) {
+    return prefix + ":" + kind.getName();
   }
   
   private String initedKey() {
     return prefix + ":$inited";
   }
   
-  private <T extends VersionedData> T getRedis(VersionedDataKind<T> kind, String key, Jedis jedis) {
+  private String getRedis(DataKind kind, String key, Jedis jedis) {
     String json = jedis.hget(itemsKey(kind), key);
 
     if (json == null) {
-      logger.debug("[get] Key: {} not found in \"{}\". Returning null", key, kind.getNamespace());
-      return null;
+      logger.debug("[get] Key: {} not found in \"{}\". Returning null", key, kind.getName());
     }
-
-    return unmarshalJson(kind, json);
+    
+    return json;
+  }
+  
+  private static String jsonOrPlaceholder(DataKind kind, SerializedItemDescriptor serializedItem) {
+    String s = serializedItem.getSerializedItem();
+    if (s != null) {
+      return s;
+    }
+    // For backward compatibility with previous implementations of the Redis integration, we must store a
+    // special placeholder string for deleted items. DataKind.serializeItem() will give us this string if
+    // we pass a deleted ItemDescriptor.
+    return kind.serialize(ItemDescriptor.deletedItem(serializedItem.getVersion()));
   }
   
   static interface UpdateListener {

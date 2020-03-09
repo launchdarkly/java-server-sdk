@@ -5,6 +5,8 @@ import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
 import com.launchdarkly.client.interfaces.DataStoreFactory;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.client.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.client.interfaces.DataStoreUpdates;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
@@ -31,8 +33,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
-import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
 
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
@@ -62,6 +62,16 @@ public final class LDClient implements LDClientInterface {
     this(sdkKey, LDConfig.DEFAULT);
   }
 
+  private static final DataModel.FeatureFlag getFlag(DataStore store, String key) {
+    ItemDescriptor item = store.get(DataModel.DataKinds.FEATURES, key);
+    return item == null ? null : (DataModel.FeatureFlag)item.getItem();
+  }
+  
+  private static final DataModel.Segment getSegment(DataStore store, String key) {
+    ItemDescriptor item = store.get(DataModel.DataKinds.SEGMENTS, key);
+    return item == null ? null : (DataModel.Segment)item.getItem();
+  }
+  
   /**
    * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
    * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
@@ -90,11 +100,11 @@ public final class LDClient implements LDClientInterface {
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
-        return LDClient.this.dataStore.get(FEATURES, key);
+        return LDClient.getFlag(LDClient.this.dataStore, key);
       }
 
       public DataModel.Segment getSegment(String key) {
-        return LDClient.this.dataStore.get(SEGMENTS, key);
+        return LDClient.getSegment(LDClient.this.dataStore, key);
       }
     });
     
@@ -173,7 +183,7 @@ public final class LDClient implements LDClientInterface {
     }
     
     if (!initialized()) {
-      if (dataStore.initialized()) {
+      if (dataStore.isInitialized()) {
         logger.warn("allFlagsState() was called before client initialized; using last known values from data store");
       } else {
         logger.warn("allFlagsState() was called before client initialized; data store unavailable, returning no data");
@@ -187,9 +197,9 @@ public final class LDClient implements LDClientInterface {
     }
 
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
-    Map<String, DataModel.FeatureFlag> flags = dataStore.all(FEATURES);
-    for (Map.Entry<String, DataModel.FeatureFlag> entry : flags.entrySet()) {
-      DataModel.FeatureFlag flag = entry.getValue();
+    KeyedItems<ItemDescriptor> flags = dataStore.getAll(DataModel.DataKinds.FEATURES);
+    for (Map.Entry<String, ItemDescriptor> entry : flags.getItems()) {
+      DataModel.FeatureFlag flag = (DataModel.FeatureFlag)entry.getValue().getItem();
       if (clientSideOnly && !flag.isClientSide()) {
         continue;
       }
@@ -199,7 +209,7 @@ public final class LDClient implements LDClientInterface {
       } catch (Exception e) {
         logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
         logger.debug(e.toString(), e);
-        builder.addFlag(entry.getValue(), new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.exception(e)));
+        builder.addFlag(flag, new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.exception(e)));
       }
     }
     return builder.build();
@@ -271,7 +281,7 @@ public final class LDClient implements LDClientInterface {
   @Override
   public boolean isFlagKnown(String featureKey) {
     if (!initialized()) {
-      if (dataStore.initialized()) {
+      if (dataStore.isInitialized()) {
         logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {
         logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; data store unavailable, returning false", featureKey);
@@ -280,7 +290,7 @@ public final class LDClient implements LDClientInterface {
     }
 
     try {
-      if (dataStore.get(FEATURES, featureKey) != null) {
+      if (getFlag(dataStore, featureKey) != null) {
         return true;
       }
     } catch (Exception e) {
@@ -302,7 +312,7 @@ public final class LDClient implements LDClientInterface {
   private Evaluator.EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue, boolean checkType,
       EventFactory eventFactory) {
     if (!initialized()) {
-      if (dataStore.initialized()) {
+      if (dataStore.isInitialized()) {
         logger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {
         logger.warn("Evaluation called before client initialized for feature flag \"{}\"; data store unavailable, returning default value", featureKey);
@@ -314,7 +324,7 @@ public final class LDClient implements LDClientInterface {
 
     DataModel.FeatureFlag featureFlag = null;
     try {
-      featureFlag = dataStore.get(FEATURES, featureKey);
+      featureFlag = getFlag(dataStore, featureKey);
       if (featureFlag == null) {
         logger.info("Unknown feature flag \"{}\"; returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,

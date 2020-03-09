@@ -20,11 +20,8 @@ public final class CacheMonitor {
   /**
    * Called internally by the SDK to establish a source for the statistics.
    * @param source provided by an internal SDK component
-   * @deprecated Referencing this method directly is deprecated. In a future version, it will
-   * only be visible to SDK implementation code.
    */
-  @Deprecated
-  public void setSource(Callable<CacheStats> source) {
+  void setSource(Callable<CacheStats> source) {
     this.source = source;
   }
   

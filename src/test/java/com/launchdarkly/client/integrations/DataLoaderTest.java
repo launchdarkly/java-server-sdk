@@ -7,8 +7,8 @@ import com.google.gson.JsonObject;
 import com.launchdarkly.client.integrations.FileDataSourceImpl.DataBuilder;
 import com.launchdarkly.client.integrations.FileDataSourceImpl.DataLoader;
 import com.launchdarkly.client.integrations.FileDataSourceParsing.FileDataException;
-import com.launchdarkly.client.interfaces.VersionedData;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -17,6 +17,7 @@ import java.util.Map;
 
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
+import static com.launchdarkly.client.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.FLAG_VALUE_1_KEY;
 import static com.launchdarkly.client.integrations.FileDataSourceTestData.resourceFilePath;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -59,8 +60,8 @@ public class DataLoaderTest {
         "\"trackEvents\":false,\"deleted\":false,\"version\":0}",
         JsonObject.class);
     ds.load(builder);
-    VersionedData flag = builder.build().get(FEATURES).get(FLAG_VALUE_1_KEY);
-    JsonObject actual = gson.toJsonTree(flag).getAsJsonObject();
+    ItemDescriptor flag = toDataMap(builder.build()).get(FEATURES).get(FLAG_VALUE_1_KEY);
+    JsonObject actual = gson.toJsonTree(flag.getItem()).getAsJsonObject();
     // Note, we're comparing one property at a time here because the version of the Java SDK we're
     // building against may have more properties than it did when the test was written.
     for (Map.Entry<String, JsonElement> e: expected.entrySet()) {
@@ -101,10 +102,10 @@ public class DataLoaderTest {
     }
   }
 
-  private void assertDataHasItemsOfKind(VersionedDataKind<?> kind) {
-    Map<String, ? extends VersionedData> items = builder.build().get(kind);
+  private void assertDataHasItemsOfKind(DataKind kind) {
+    Map<String, ItemDescriptor> items = toDataMap(builder.build()).get(kind);
     if (items == null || items.size() == 0) {
-      Assert.fail("expected at least one item in \"" + kind.getNamespace() + "\", received: " + builder.build());
+      Assert.fail("expected at least one item in \"" + kind.getName() + "\", received: " + builder.build());
     }
   }
 }

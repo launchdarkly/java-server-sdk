@@ -58,7 +58,7 @@ public class PollingProcessorTest {
       Future<Void> initFuture = pollingProcessor.start();
       initFuture.get(1000, TimeUnit.MILLISECONDS);
       assertTrue(pollingProcessor.isInitialized());
-      assertTrue(store.initialized());
+      assertTrue(store.isInitialized());
     }
   }
 
@@ -77,7 +77,7 @@ public class PollingProcessorTest {
       }
       assertFalse(initFuture.isDone());
       assertFalse(pollingProcessor.isInitialized());
-      assertFalse(store.initialized());
+      assertFalse(store.isInitialized());
     }
   }
 

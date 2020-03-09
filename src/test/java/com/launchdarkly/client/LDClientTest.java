@@ -2,18 +2,19 @@ package com.launchdarkly.client;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.launchdarkly.client.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.client.interfaces.ClientContext;
 import com.launchdarkly.client.interfaces.DataSource;
 import com.launchdarkly.client.interfaces.DataSourceFactory;
 import com.launchdarkly.client.interfaces.DataStore;
+import com.launchdarkly.client.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.client.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.client.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.client.interfaces.DataStoreUpdates;
 import com.launchdarkly.client.interfaces.Event;
 import com.launchdarkly.client.interfaces.EventProcessor;
 import com.launchdarkly.client.interfaces.EventProcessorFactory;
-import com.launchdarkly.client.interfaces.VersionedData;
-import com.launchdarkly.client.interfaces.VersionedDataKind;
 import com.launchdarkly.client.value.LDValue;
 
 import org.easymock.Capture;
@@ -31,8 +32,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.google.common.collect.Iterables.transform;
 import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.DataModel.DataKinds.SEGMENTS;
+import static com.launchdarkly.client.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.client.ModelBuilders.flagBuilder;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
 import static com.launchdarkly.client.ModelBuilders.prerequisite;
@@ -41,6 +44,7 @@ import static com.launchdarkly.client.TestUtil.dataSourceWithData;
 import static com.launchdarkly.client.TestUtil.failedDataSource;
 import static com.launchdarkly.client.TestUtil.initedDataStore;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
+import static com.launchdarkly.client.TestUtil.upsertFlag;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
@@ -309,7 +313,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
+    upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
     assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
@@ -342,7 +346,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
+    upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
     assertFalse(client.isFlagKnown("key"));
     verifyAll();
   }
@@ -359,7 +363,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
 
-    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
+    upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
     assertTrue(client.isFlagKnown("key"));
     verifyAll();
   }
@@ -377,7 +381,7 @@ public class LDClientTest extends EasyMockSupport {
 
     client = createMockClient(config);
     
-    testDataStore.upsert(FEATURES, flagWithValue("key", LDValue.of(1)));
+    upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
     assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
     
     verifyAll();
@@ -389,7 +393,7 @@ public class LDClientTest extends EasyMockSupport {
     // correct ordering for flag prerequisites, etc. This should work regardless of what kind of
     // DataSource we're using.
     
-    Capture<Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>>> captureData = Capture.newInstance();
+    Capture<FullDataSet<ItemDescriptor>> captureData = Capture.newInstance();
     DataStore store = createStrictMock(DataStore.class);
     store.init(EasyMock.capture(captureData));
     replay(store);
@@ -399,29 +403,29 @@ public class LDClientTest extends EasyMockSupport {
         .dataStore(specificDataStore(store))
         .events(Components.noEvents());
     client = new LDClient(SDK_KEY, config.build());
-    
-    Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> dataMap = captureData.getValue();
+       
+    Map<DataKind, Map<String, ItemDescriptor>> dataMap = toDataMap(captureData.getValue());
     assertEquals(2, dataMap.size());
+    Map<DataKind, Map<String, ItemDescriptor>> inputDataMap = toDataMap(DEPENDENCY_ORDERING_TEST_DATA);
     
     // Segments should always come first
     assertEquals(SEGMENTS, Iterables.get(dataMap.keySet(), 0));
-    assertEquals(DEPENDENCY_ORDERING_TEST_DATA.get(SEGMENTS).size(), Iterables.get(dataMap.values(), 0).size());
+    assertEquals(inputDataMap.get(SEGMENTS).size(), Iterables.get(dataMap.values(), 0).size());
     
     // Features should be ordered so that a flag always appears after its prerequisites, if any
     assertEquals(FEATURES, Iterables.get(dataMap.keySet(), 1));
-    Map<String, ? extends VersionedData> map1 = Iterables.get(dataMap.values(), 1);
-    List<VersionedData> list1 = ImmutableList.copyOf(map1.values());
-    assertEquals(DEPENDENCY_ORDERING_TEST_DATA.get(FEATURES).size(), map1.size());
+    Map<String, ItemDescriptor> map1 = Iterables.get(dataMap.values(), 1);
+    List<DataModel.FeatureFlag> list1 = ImmutableList.copyOf(transform(map1.values(), d -> (DataModel.FeatureFlag)d.getItem()));
+    assertEquals(inputDataMap.get(FEATURES).size(), map1.size());
     for (int itemIndex = 0; itemIndex < list1.size(); itemIndex++) {
-      DataModel.FeatureFlag item = (DataModel.FeatureFlag)list1.get(itemIndex);
+      DataModel.FeatureFlag item = list1.get(itemIndex);
       for (DataModel.Prerequisite prereq: item.getPrerequisites()) {
-        DataModel.FeatureFlag depFlag = (DataModel.FeatureFlag)map1.get(prereq.getKey());
+        DataModel.FeatureFlag depFlag = (DataModel.FeatureFlag)map1.get(prereq.getKey()).getItem();
         int depIndex = list1.indexOf(depFlag);
         if (depIndex > itemIndex) {
-          Iterable<String> allKeys = Iterables.transform(list1, d -> d.getKey());
           fail(String.format("%s depends on %s, but %s was listed first; keys in order are [%s]",
               item.getKey(), prereq.getKey(), item.getKey(),
-              Joiner.on(", ").join(allKeys)));
+              Joiner.on(", ").join(map1.keySet())));
         }
       }
     }
@@ -442,22 +446,18 @@ public class LDClientTest extends EasyMockSupport {
     return new LDClient(SDK_KEY, config.build());
   }
   
-  private static Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> DEPENDENCY_ORDERING_TEST_DATA =
-      ImmutableMap.<VersionedDataKind<?>, Map<String, ? extends VersionedData>>of(
-          FEATURES,
-          ImmutableMap.<String, VersionedData>builder()
-              .put("a", flagBuilder("a")
-                  .prerequisites(prerequisite("b", 0), prerequisite("c", 0)).build())
-              .put("b", flagBuilder("b")
-                  .prerequisites(prerequisite("c", 0), prerequisite("e", 0)).build())
-              .put("c", flagBuilder("c").build())
-              .put("d", flagBuilder("d").build())
-              .put("e", flagBuilder("e").build())
-              .put("f", flagBuilder("f").build())
-              .build(),
-          SEGMENTS,
-          ImmutableMap.<String, VersionedData>of(
-              "o", segmentBuilder("o").build()
-          )
-      );
+  private static FullDataSet<ItemDescriptor> DEPENDENCY_ORDERING_TEST_DATA =
+      new DataBuilder()
+        .add(FEATURES,
+              flagBuilder("a")
+                  .prerequisites(prerequisite("b", 0), prerequisite("c", 0)).build(),
+              flagBuilder("b")
+                  .prerequisites(prerequisite("c", 0), prerequisite("e", 0)).build(),
+              flagBuilder("c").build(),
+              flagBuilder("d").build(),
+              flagBuilder("e").build(),
+              flagBuilder("f").build())
+        .add(SEGMENTS,
+              segmentBuilder("o").build())
+        .build();
 }

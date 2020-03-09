@@ -7,9 +7,9 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.launchdarkly.client.DataModel.DataKinds.FEATURES;
 import static com.launchdarkly.client.ModelBuilders.flagWithValue;
 import static com.launchdarkly.client.TestUtil.specificDataStore;
+import static com.launchdarkly.client.TestUtil.upsertFlag;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -53,7 +53,7 @@ public class LDClientExternalUpdatesOnlyTest {
         .dataStore(specificDataStore(testDataStore))
         .build();
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
-    testDataStore.upsert(FEATURES, flag);
+    upsertFlag(testDataStore, flag);
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertTrue(client.boolVariation("key", new LDUser("user"), false));
     }
