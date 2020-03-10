@@ -31,7 +31,10 @@ repositories {
 }
 
 configurations {
-    doc {
+    commonClasses {
+        transitive false
+    }
+    commonDoc {
         transitive false
     }
 }
@@ -103,7 +106,8 @@ dependencies {
     runtime libraries.internal, libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
 
-    doc "com.launchdarkly:launchdarkly-java-sdk-common:$sdkCommonVersion:sources"
+    commonClasses "com.launchdarkly:launchdarkly-java-sdk-common:$sdkCommonVersion"
+    commonDoc "com.launchdarkly:launchdarkly-java-sdk-common:$sdkCommonVersion:sources"
 
     // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
     // should *not* be shaded by the Shadow plugin when we build our shaded jars.
@@ -123,6 +127,8 @@ jar {
     // thin classifier means that the non-shaded non-fat jar is still available
     // but is opt-in since users will have to specify it.
     classifier = 'thin'
+
+    from configurations.commonClasses.collect { zipTree(it) }
 
     // doFirst causes the following step to be run during Gradle's execution phase rather than the
     // configuration phase; this is necessary because it accesses the build products
@@ -193,7 +199,7 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 }
 
 javadoc {
-    source configurations.doc.collect { zipTree(it) }
+    source configurations.commonDoc.collect { zipTree(it) }
     include '**/*.java'
 }
 
