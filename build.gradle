@@ -193,10 +193,7 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 }
 
 javadoc {
-    source configurations.doc.collect {
-        System.out.println(it)
-        zipTree(it)
-    }
+    source configurations.doc.collect { zipTree(it) }
     include '**/*.java'
 }
 
