@@ -30,6 +30,12 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    doc {
+        transitive false
+    }
+}
+
 configurations.all {
     // check for updates every build for dependencies with: 'changing: true'
     resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
@@ -46,6 +52,15 @@ ext {
     sdkBasePackage = "com.launchdarkly.sdk"
     sdkBaseName = "launchdarkly-java-server-sdk"
 
+    sdkCommonVersion = "1.0.0-SNAPSHOT"
+	commonsCodecVersion = "1.10"
+	gsonVersion = "2.7"
+	guavaVersion = "28.2-jre"
+	jedisVersion = "2.9.0"
+	okhttpEventsourceVersion = "2.0.1"
+	slf4jVersion = "1.7.21"
+	snakeyamlVersion = "1.19"
+	
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
     // be discovered by looking in our explicit dependencies.
     systemPackageImports = [ "javax.net", "javax.net.ssl" ]
@@ -57,18 +72,19 @@ ext.libraries = [:]
 // will be completely omitted from the "thin" jar, and will be embedded with shaded names
 // in the other two SDK jars.
 libraries.internal = [
-    "commons-codec:commons-codec:1.10",
-    "com.google.code.gson:gson:2.7",
-    "com.google.guava:guava:28.2-jre",
-    "com.launchdarkly:okhttp-eventsource:2.0.1",
-    "org.yaml:snakeyaml:1.19",
-    "redis.clients:jedis:2.9.0"
+    "com.launchdarkly:launchdarkly-java-sdk-common:$sdkCommonVersion",
+    "commons-codec:commons-codec:$commonsCodecVersion",
+    "com.google.code.gson:gson:$gsonVersion",
+    "com.google.guava:guava:$guavaVersion",
+    "com.launchdarkly:okhttp-eventsource:$okhttpEventsourceVersion",
+    "org.yaml:snakeyaml:$snakeyamlVersion",
+    "redis.clients:jedis:$jedisVersion"
 ]
 
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have
 // global state that must be shared between the SDK and the caller.
 libraries.external = [
-    "org.slf4j:slf4j-api:1.7.21"
+    "org.slf4j:slf4j-api:$slf4jVersion"
 ]
 
 // Add dependencies to "libraries.test" that are used only in unit tests.
@@ -86,6 +102,8 @@ dependencies {
     compileClasspath libraries.external
     runtime libraries.internal, libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
+
+    doc "com.launchdarkly:launchdarkly-java-sdk-common:$sdkCommonVersion:sources"
 
     // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
     // should *not* be shaded by the Shadow plugin when we build our shaded jars.
@@ -174,6 +192,13 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
     from javadoc.destinationDir
 }
 
+javadoc {
+    source configurations.doc.collect {
+        System.out.println(it)
+        zipTree(it)
+    }
+    include '**/*.java'
+}
 
 // Force the Javadoc build to fail if there are any Javadoc warnings. See: https://discuss.gradle.org/t/javadoc-fail-on-warning/18141/3
 if (JavaVersion.current().isJava8Compatible()) {
