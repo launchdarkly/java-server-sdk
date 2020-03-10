@@ -213,7 +213,7 @@ if (JavaVersion.current().isJava8Compatible()) {
 // Returns the names of all Java packages defined in this library - not including
 // enclosing packages like "com" that don't have any classes in them.
 def getAllSdkPackages() {
-    def names = []
+    def names = [ "com.launchdarkly.sdk" ] // base package classes come from launchdarkly-java-sdk-common
     project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output.each { baseDir ->
         if (baseDir.getPath().contains("classes" + File.separator + "java" + File.separator + "main")) {
             baseDir.eachFileRecurse { f ->
