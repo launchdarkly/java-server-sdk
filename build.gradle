@@ -56,14 +56,14 @@ ext {
     sdkBaseName = "launchdarkly-java-server-sdk"
 
     sdkCommonVersion = "1.0.0-SNAPSHOT"
-	commonsCodecVersion = "1.10"
-	gsonVersion = "2.7"
-	guavaVersion = "28.2-jre"
-	jedisVersion = "2.9.0"
-	okhttpEventsourceVersion = "2.0.1"
-	slf4jVersion = "1.7.21"
-	snakeyamlVersion = "1.19"
-	
+    commonsCodecVersion = "1.10"
+    gsonVersion = "2.7"
+    guavaVersion = "28.2-jre"
+    jedisVersion = "2.9.0"
+    okhttpEventsourceVersion = "2.0.1"
+    slf4jVersion = "1.7.21"
+    snakeyamlVersion = "1.19"
+    
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
     // be discovered by looking in our explicit dependencies.
     systemPackageImports = [ "javax.net", "javax.net.ssl" ]
@@ -119,7 +119,7 @@ task wrapper(type: Wrapper) {
 }
 
 checkstyle {
-	configFile file("${project.rootDir}/checkstyle.xml")
+    configFile file("${project.rootDir}/checkstyle.xml")
 }
 
 jar {
@@ -205,15 +205,15 @@ javadoc {
 
 // Force the Javadoc build to fail if there are any Javadoc warnings. See: https://discuss.gradle.org/t/javadoc-fail-on-warning/18141/3
 if (JavaVersion.current().isJava8Compatible()) {
-	tasks.withType(Javadoc) {
-		// The '-quiet' as second argument is actually a hack,
-		// since the one paramater addStringOption doesn't seem to
-		// work, we extra add '-quiet', which is added anyway by
-		// gradle. See https://github.com/gradle/gradle/issues/2354
+    tasks.withType(Javadoc) {
+        // The '-quiet' as second argument is actually a hack,
+        // since the one paramater addStringOption doesn't seem to
+        // work, we extra add '-quiet', which is added anyway by
+        // gradle. See https://github.com/gradle/gradle/issues/2354
         // See JDK-8200363 (https://bugs.openjdk.java.net/browse/JDK-8200363)
         // for information about the -Xwerror option.
-		options.addStringOption('Xwerror', '-quiet')
-	}
+        options.addStringOption('Xwerror', '-quiet')
+    }
 }
 
 // Returns the names of all Java packages defined in this library - not including
