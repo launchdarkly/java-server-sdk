@@ -9,6 +9,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
@@ -59,6 +60,7 @@ public final class LDClient implements LDClientInterface {
   final EventProcessor eventProcessor;
   final DataSource dataSource;
   final DataStore dataStore;
+  private final DataStoreStatusProvider dataStoreStatusProvider;
   
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -105,6 +107,7 @@ public final class LDClient implements LDClientInterface {
     DataStoreFactory factory = config.dataStoreFactory == null ?
         Components.inMemoryDataStore() : config.dataStoreFactory;
     this.dataStore = factory.createDataStore(context);
+    this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore);
     
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
@@ -395,6 +398,11 @@ public final class LDClient implements LDClientInterface {
     if (listener instanceof ListenerRegistration) {
       ((ListenerRegistration)listener).onUnregister(this);
     }
+  }
+  
+  @Override
+  public DataStoreStatusProvider getDataStoreStatusProvider() {
+    return dataStoreStatusProvider;
   }
   
   @Override

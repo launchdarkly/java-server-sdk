@@ -4,6 +4,7 @@ import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
@@ -44,10 +45,10 @@ public abstract class PersistentDataStoreBuilder implements DataStoreFactory {
    */
   public static final Duration DEFAULT_CACHE_TTL = Duration.ofSeconds(15);
 
-  protected final PersistentDataStoreFactory persistentDataStoreFactory;
-  protected Duration cacheTime = DEFAULT_CACHE_TTL;
-  protected StaleValuesPolicy staleValuesPolicy = StaleValuesPolicy.EVICT;
-  protected CacheMonitor cacheMonitor = null;
+  protected final PersistentDataStoreFactory persistentDataStoreFactory; // see Components for why this is not private
+  private Duration cacheTime = DEFAULT_CACHE_TTL;
+  private StaleValuesPolicy staleValuesPolicy = StaleValuesPolicy.EVICT;
+  private boolean recordCacheStats = false;
 
   /**
    * Possible values for {@link #staleValuesPolicy(StaleValuesPolicy)}.
@@ -178,40 +179,30 @@ public abstract class PersistentDataStoreBuilder implements DataStoreFactory {
   }
   
   /**
-   * Provides a conduit for an application to monitor the effectiveness of the in-memory cache.
+   * Enables monitoring of the in-memory cache.
    * <p>
-   * Create an instance of {@link CacheMonitor}; retain a reference to it, and also pass it to this
-   * method when you are configuring the persistent data store. The store will modify the
-   * {@link CacheMonitor} instance to make the caching statistics available through that instance.
-   * <p>
-   * Note that turning on cache monitoring may slightly decrease performance, due to the need to
-   * record statistics for each cache operation.
-   * <p>
-   * Example usage:
+   * If set to true, this makes caching statistics available through the {@link DataStoreStatusProvider}
+   * that you can obtain from the client instance. This may slightly decrease performance, due to the
+   * need to record statistics for each cache operation.
+   * </p>
+   * By default, it is false: statistics will not be recorded and the {@link DataStoreStatusProvider#getCacheStats()}
+   * method will return null.
    * 
-   * <pre><code>
-   *     CacheMonitor cacheMonitor = new CacheMonitor();
-   *     LDConfig config = new LDConfig.Builder()
-   *         .dataStore(Components.persistentDataStore(Redis.dataStore()).cacheMonitor(cacheMonitor))
-   *         .build();
-   *     // later...
-   *     CacheMonitor.CacheStats stats = cacheMonitor.getCacheStats();
-   * </code></pre>
-   * 
-   * @param cacheMonitor an instance of {@link CacheMonitor}
+   * @param recordCacheStats true to record caching statiistics
    * @return the builder
+   * @since 5.0.0
    */
-  public PersistentDataStoreBuilder cacheMonitor(CacheMonitor cacheMonitor) {
-    this.cacheMonitor = cacheMonitor;
+  public PersistentDataStoreBuilder recordCacheStats(boolean recordCacheStats) {
+    this.recordCacheStats = recordCacheStats;
     return this;
   }
-
+  
   /**
    * Called by the SDK to create the data store instance.
    */
   @Override
   public DataStore createDataStore(ClientContext context) {
     PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
-    return new PersistentDataStoreWrapper(core, cacheTime, staleValuesPolicy, cacheMonitor);
+    return new PersistentDataStoreWrapper(core, cacheTime, staleValuesPolicy, recordCacheStats);
   }
 }

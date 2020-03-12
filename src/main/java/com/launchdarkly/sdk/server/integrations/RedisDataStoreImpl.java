@@ -157,6 +157,16 @@ final class RedisDataStoreImpl implements PersistentDataStore {
   }
   
   @Override
+  public boolean isStoreAvailable() {
+    try {
+      isInitialized(); // don't care about the return value, just that it doesn't throw an exception
+      return true;
+    } catch (Exception e) { // don't care about exception class, since any exception means the Redis request couldn't be made
+      return false;
+    }
+  }
+  
+  @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly RedisFeatureStore");
     pool.destroy();

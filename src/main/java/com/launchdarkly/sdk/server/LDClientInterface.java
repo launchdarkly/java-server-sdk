@@ -3,6 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
 import java.io.Closeable;
@@ -262,6 +263,19 @@ public interface LDClientInterface extends Closeable {
    * @since 5.0.0
    */
   void unregisterFlagChangeListener(FlagChangeListener listener);
+  
+  /**
+   * Returns an interface for tracking the status of a persistent data store.
+   * <p>
+   * The {@link DataStoreStatusProvider} has methods for checking whether the data store is (as far as the
+   * SDK knows) currently operational, tracking changes in this status, and getting cache statistics. These
+   * are only relevant for a persistent data store; if you are using an in-memory data store, then this
+   * method will return a stub object that provides no information.
+   * 
+   * @return a {@link DataStoreStatusProvider}
+   * @since 5.0.0
+   */
+  DataStoreStatusProvider getDataStoreStatusProvider();
   
   /**
    * For more info: <a href="https://github.com/launchdarkly/js-client#secure-mode">https://github.com/launchdarkly/js-client#secure-mode</a>
