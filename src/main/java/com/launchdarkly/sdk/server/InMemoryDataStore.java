@@ -1,18 +1,18 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * A thread-safe, versioned store for feature flags and related data based on a
@@ -22,74 +22,76 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * {@link Components#inMemoryDataStore()}.
  */
 class InMemoryDataStore implements DataStore, DiagnosticDescription {
-  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-  private final Map<DataKind, Map<String, ItemDescriptor>> allData = new HashMap<>();
+  private volatile ImmutableMap<DataKind, Map<String, ItemDescriptor>> allData = ImmutableMap.of();
   private volatile boolean initialized = false;
+  private Object writeLock = new Object();
 
   @Override
   public void init(FullDataSet<ItemDescriptor> allData) {
-    try {
-      lock.writeLock().lock();
-      this.allData.clear();
-      for (Map.Entry<DataKind, KeyedItems<ItemDescriptor>> e0: allData.getData()) {
-        DataKind kind = e0.getKey();
-        Map<String, ItemDescriptor> itemsMap = new HashMap<>();
-        for (Map.Entry<String, ItemDescriptor> e1: e0.getValue().getItems()) {
-          itemsMap.put(e1.getKey(), e1.getValue());
-        }
-        this.allData.put(kind, itemsMap);
+    synchronized (writeLock) {
+      ImmutableMap.Builder<DataKind, Map<String, ItemDescriptor>> newData = ImmutableMap.builder();
+      for (Map.Entry<DataKind, KeyedItems<ItemDescriptor>> entry: allData.getData()) {
+        newData.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue().getItems()));
       }
-      initialized = true;
-    } finally {
-      lock.writeLock().unlock();
+      this.allData = newData.build(); // replaces the entire map atomically
+      this.initialized = true;
     }
   }
 
   @Override
   public ItemDescriptor get(DataKind kind, String key) {
-    try {
-      lock.readLock().lock();
-      Map<String, ItemDescriptor> items = allData.get(kind);
-      if (items == null) {
-        return null;
-      }
-      return items.get(key);
-    } finally {
-      lock.readLock().unlock();
+    Map<String, ItemDescriptor> items = allData.get(kind);
+    if (items == null) {
+      return null;
     }
+    return items.get(key);
   }
 
   @Override
   public KeyedItems<ItemDescriptor> getAll(DataKind kind) {
-    try {
-      lock.readLock().lock();
-      Map<String, ItemDescriptor> items = allData.get(kind);
-      if (items == null) {
-        return new KeyedItems<>(null);
-      }
-      return new KeyedItems<>(ImmutableList.copyOf(items.entrySet()));
-    } finally {
-      lock.readLock().unlock();
+    Map<String, ItemDescriptor> items = allData.get(kind);
+    if (items == null) {
+      return new KeyedItems<>(null);
     }
+    return new KeyedItems<>(ImmutableList.copyOf(items.entrySet()));
   }
 
   @Override
   public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
-    try {
-      lock.writeLock().lock();
-      Map<String, ItemDescriptor> items = allData.get(kind);
-      if (items == null) {
-        items = new HashMap<>();
-        allData.put(kind, items);
+    synchronized (writeLock) {
+      Map<String, ItemDescriptor> existingItems = this.allData.get(kind);
+      ItemDescriptor oldItem = null;
+      if (existingItems != null) {
+        oldItem = existingItems.get(key);
+        if (oldItem != null && oldItem.getVersion() >= item.getVersion()) {
+          return false;
+        }
       }
-      ItemDescriptor old = items.get(key);
-      if (old == null || old.getVersion() < item.getVersion()) {
-        items.put(key, item);
-        return true;
+      // The following logic is necessary because ImmutableMap.Builder doesn't support overwriting an existing key
+      ImmutableMap.Builder<DataKind, Map<String, ItemDescriptor>> newData = ImmutableMap.builder();
+      for (Map.Entry<DataKind, Map<String, ItemDescriptor>> e: this.allData.entrySet()) {
+        if (!e.getKey().equals(kind)) {
+          newData.put(e.getKey(), e.getValue());
+        }
       }
-      return false;
-    } finally {
-      lock.writeLock().unlock();
+      if (existingItems == null) {
+        newData.put(kind, ImmutableMap.of(key, item));
+      } else {
+        ImmutableMap.Builder<String, ItemDescriptor> itemsBuilder = ImmutableMap.builder();
+        if (oldItem == null) {
+          itemsBuilder.putAll(existingItems);
+        } else {
+          for (Map.Entry<String, ItemDescriptor> e: existingItems.entrySet()) {
+            if (!e.getKey().equals(key)) {
+              itemsBuilder.put(e.getKey(), e.getValue());
+            }
+          }
+        }
+        itemsBuilder.put(key, item);
+        newData.put(kind, itemsBuilder.build());
+      }
+      this.allData = newData.build(); // replaces the entire map atomically
+      return true;
     }
   }
 
