@@ -6,6 +6,7 @@ import com.launchdarkly.client.value.LDValueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
 import java.util.List;
 
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
@@ -28,6 +29,22 @@ class Clause {
     this.negate = negate;
   }
 
+  String getAttribute() {
+    return attribute;
+  }
+  
+  Operator getOp() {
+    return op;
+  }
+  
+  Collection<LDValue> getValues() {
+    return values;
+  }
+  
+  boolean isNegate() {
+    return negate;
+  }
+  
   boolean matchesUserNoSegments(LDUser user) {
     LDValue userValue = user.getValueForEvaluation(attribute);
     if (userValue.isNull()) {

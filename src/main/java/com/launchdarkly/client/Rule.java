@@ -34,7 +34,7 @@ class Rule extends VariationOrRollout {
     return id;
   }
   
-  Iterable<Clause> getClauses() {
+  List<Clause> getClauses() {
     return clauses;
   }
   

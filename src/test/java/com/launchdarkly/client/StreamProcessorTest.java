@@ -1,6 +1,5 @@
 package com.launchdarkly.client;
 
-import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
@@ -469,7 +468,7 @@ public class StreamProcessorTest extends EasyMockSupport {
       server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
       
       LDConfig config = new LDConfig.Builder()
-          .sslSocketFactory(server.sslClient.socketFactory, server.sslClient.trustManager) // allows us to trust the self-signed cert
+          .sslSocketFactory(server.socketFactory, server.trustManager) // allows us to trust the self-signed cert
           .build();
       
       try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, server.uri())) {

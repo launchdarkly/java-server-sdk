@@ -907,7 +907,7 @@ public class DefaultEventProcessorTest {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
       EventProcessorBuilder ec = sendEvents().baseURI(serverWithCert.uri());
       LDConfig config = new LDConfig.Builder()
-          .sslSocketFactory(serverWithCert.sslClient.socketFactory, serverWithCert.sslClient.trustManager) // allows us to trust the self-signed cert
+          .sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager) // allows us to trust the self-signed cert
           .build();
       
       try (DefaultEventProcessor ep = makeEventProcessor(ec, config)) {

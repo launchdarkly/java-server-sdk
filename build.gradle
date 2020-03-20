@@ -1,15 +1,26 @@
-apply plugin: 'java'
-apply plugin: 'checkstyle'
-apply plugin: 'maven-publish'
-apply plugin: 'org.ajoberstar.github-pages'
-apply plugin: 'signing'
-apply plugin: 'idea'
-apply plugin: 'com.github.johnrengelman.shadow'
-apply plugin: 'io.codearte.nexus-staging'
 
-configurations.all {
-    // check for updates every build for dependencies with: 'changing: true'
-    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+buildscript {
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+    dependencies {
+        classpath "org.eclipse.virgo.util:org.eclipse.virgo.util.osgi.manifest:3.5.0.RELEASE"
+        classpath "org.osgi:osgi_R4_core:1.0"
+    }
+}
+
+plugins {
+    id "java"
+    id "java-library"
+    id "checkstyle"
+    id "signing"
+    id "com.github.johnrengelman.shadow" version "4.0.4"
+    id "maven-publish"
+    id "de.marcphilipp.nexus-publish" version "0.3.0"
+    id "io.codearte.nexus-staging" version "0.21.2"
+    id "org.ajoberstar.git-publish" version "2.1.3"
+    id "idea"
 }
 
 repositories {
@@ -17,6 +28,11 @@ repositories {
     // Before LaunchDarkly release artifacts get synced to Maven Central they are here along with snapshots:
     maven { url "https://oss.sonatype.org/content/groups/public/" }
     mavenCentral()
+}
+
+configurations.all {
+    // check for updates every build for dependencies with: 'changing: true'
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
 }
 
 allprojects {
@@ -44,7 +60,7 @@ libraries.internal = [
     "commons-codec:commons-codec:1.10",
     "com.google.guava:guava:19.0",
     "joda-time:joda-time:2.9.3",
-    "com.launchdarkly:okhttp-eventsource:1.10.0",
+    "com.launchdarkly:okhttp-eventsource:1.10.2",
     "org.yaml:snakeyaml:1.19",
     "redis.clients:jedis:2.9.0"
 ]
@@ -58,7 +74,8 @@ libraries.external = [
 
 // Add dependencies to "libraries.test" that are used only in unit tests.
 libraries.test = [
-    "com.squareup.okhttp3:mockwebserver:3.10.0",
+    "com.squareup.okhttp3:mockwebserver:3.12.10",
+    "com.squareup.okhttp3:okhttp-tls:3.12.10",
     "org.hamcrest:hamcrest-all:1.3",
     "org.easymock:easymock:3.4",
     "junit:junit:4.12",
@@ -78,21 +95,6 @@ dependencies {
 
 task wrapper(type: Wrapper) {
     gradleVersion = '4.10.2'
-}
-
-buildscript {
-    repositories {
-        jcenter()
-        mavenCentral()
-        mavenLocal()
-    }
-    dependencies {
-        classpath 'org.ajoberstar:gradle-git:1.5.0-rc.1'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.4'
-        classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.8.0"
-        classpath "org.eclipse.virgo.util:org.eclipse.virgo.util.osgi.manifest:3.5.0.RELEASE"
-        classpath "org.osgi:osgi_R4_core:1.0"
-    }
 }
 
 checkstyle {
@@ -186,17 +188,6 @@ if (JavaVersion.current().isJava8Compatible()) {
         // for information about the -Xwerror option.
 		options.addStringOption('Xwerror', '-quiet')
 	}
-}
-
-githubPages {
-    repoUri = 'https://github.com/launchdarkly/java-server-sdk.git'
-    pages {
-        from javadoc
-    }
-    credentials {
-        username = githubUser
-        password = githubPassword
-    }
 }
 
 // Returns the names of all Java packages defined in this library - not including
@@ -341,6 +332,7 @@ idea {
 
 nexusStaging {
     packageGroup = "com.launchdarkly"
+    numberOfRetries = 40 // we've seen extremely long delays in closing repositories
 }
 
 def pomConfig = {
@@ -405,14 +397,15 @@ publishing {
     }
     repositories {
         mavenLocal()
-        maven {
-            def releasesRepoUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
-            def snapshotsRepoUrl = "https://oss.sonatype.org/content/repositories/snapshots/"
-            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
-            credentials {
-                username ossrhUsername
-                password ossrhPassword
-            }
+    }
+}
+
+nexusPublishing {
+    clientTimeout = java.time.Duration.ofMinutes(2) // we've seen extremely long delays in creating repositories
+    repositories {
+        sonatype {
+            username = ossrhUsername
+            password = ossrhPassword            
         }
     }
 }
@@ -430,4 +423,13 @@ tasks.withType(Sign) {
 task exportDependencies(type: Copy, dependsOn: compileJava) {
     into "packaging-test/temp/dependencies-all"
     from configurations.runtime.resolvedConfiguration.resolvedArtifacts.collect { it.file }
+}
+
+gitPublish {
+    repoUri = 'git@github.com:launchdarkly/java-server-sdk.git'
+    branch = 'gh-pages'
+    contents {
+        from javadoc
+    }
+    commitMessage = 'publishing javadocs'
 }
