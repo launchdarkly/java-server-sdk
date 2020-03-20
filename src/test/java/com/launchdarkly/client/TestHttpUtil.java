@@ -5,14 +5,19 @@ import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
+
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.internal.tls.HeldCertificate;
-import okhttp3.mockwebserver.internal.tls.SslClient;
+import okhttp3.tls.HandshakeCertificates;
+import okhttp3.tls.HeldCertificate;
+import okhttp3.tls.internal.TlsUtil;
 
 class TestHttpUtil {
   static MockWebServer makeStartedServer(MockResponse... responses) throws IOException {
@@ -56,25 +61,25 @@ class TestHttpUtil {
   static class ServerWithCert implements Closeable {
     final MockWebServer server;
     final HeldCertificate cert;
-    final SslClient sslClient;
+    final SSLSocketFactory socketFactory;
+    final X509TrustManager trustManager;
     
     public ServerWithCert() throws IOException, GeneralSecurityException {
       String hostname = InetAddress.getByName("localhost").getCanonicalHostName();
       
       cert = new HeldCertificate.Builder()
-        .serialNumber("1")
-        .ca(1)
+        .serialNumber(BigInteger.ONE)
+        .certificateAuthority(1)
         .commonName(hostname)
-        .subjectAlternativeName(hostname)
+        .addSubjectAlternativeName(hostname)
         .build();
-    
-      sslClient = new SslClient.Builder()
-          .certificateChain(cert.keyPair, cert.certificate)
-          .addTrustedCertificate(cert.certificate)
-          .build();
+
+      HandshakeCertificates hc = TlsUtil.localhost();
+      socketFactory = hc.sslSocketFactory();
+      trustManager = hc.trustManager();
       
       server = new MockWebServer();
-      server.useHttps(sslClient.socketFactory, false);
+      server.useHttps(socketFactory, false);
     }
     
     public URI uri() {
