@@ -47,12 +47,6 @@ ext {
     sdkBasePackage = "com.launchdarkly.sdk"
     sdkBaseName = "launchdarkly-java-server-sdk"
 
-	commonsCodecVersion = "1.10"
-	gsonVersion = "2.7"
-	guavaVersion = "28.2-jre"
-	okHttpEventSourceVersion = "2.0.1"
-	snakeYamlVersion = "1.19"
-	
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
     // be discovered by looking in our explicit dependencies.
     systemPackageImports = [ "javax.net", "javax.net.ssl" ]
