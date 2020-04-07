@@ -8,9 +8,10 @@ public class TestAppOsgiEntryPoint implements BundleActivator {
     System.out.println("@@@ starting test bundle @@@");
 
     TestApp.main(new String[0]);
+
+    System.exit(0);
   }
 
   public void stop(BundleContext context) throws Exception {
-    System.out.println("@@@ stopping test bundle @@@");
   }
 }

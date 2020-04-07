@@ -54,7 +54,6 @@ jobs:
         type: string
     docker:
       - image: <<parameters.docker-image>>
-      - image: redis
     steps:
       - checkout
       - run: cp gradle.properties.example gradle.properties
@@ -85,18 +84,6 @@ jobs:
             $ProgressPreference = "SilentlyContinue"  # prevents console errors from CircleCI host
             iwr -outf openjdk.msi https://developers.redhat.com/download-manager/file/java-11-openjdk-11.0.5.10-2.windows.redhat.x86_64.msi
             Start-Process msiexec.exe -Wait -ArgumentList '/I openjdk.msi /quiet'
-      - run:
-          name: start Redis
-          command: |
-            $ProgressPreference = "SilentlyContinue"
-            iwr -outf redis.zip https://github.com/MicrosoftArchive/redis/releases/download/win-3.0.504/Redis-x64-3.0.504.zip
-            mkdir redis
-            Expand-Archive -Path redis.zip -DestinationPath redis
-            cd redis
-            .\redis-server --service-install
-            .\redis-server --service-start
-            Start-Sleep -s 5
-            .\redis-cli ping
       - run:
           name: build and test
           command: |

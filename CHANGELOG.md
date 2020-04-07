@@ -2,6 +2,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.12.1] - 2020-03-20
+### Changed:
+- Improved the performance of the in-memory flag data store by using an immutable map that is atomically replaced on updates, so reads do not need a lock.
+- Improved the performance of flag evaluations when there is a very long user target list in a feature flag or user segment, by representing the user key collection as a Set rather than a List.
+- Updated OkHttp version to 3.12.10 (the latest version that still supports Java 7).
+
+
 ## [4.12.0] - 2020-01-30
 The primary purpose of this release is to introduce newer APIs for the existing SDK features, corresponding to how they will work in the upcoming 5.0 release. The corresponding older APIs are now deprecated; switching from them to the newer ones now will facilitate migrating to 5.0 in the future. See below for details.
 
