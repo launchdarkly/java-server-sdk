@@ -41,6 +41,5 @@ jar {
 }
 
 runOsgi {
-    // bundles = [ project ]
-    bundles = FELIX_GOGO_BUNDLES
+    bundles = [ ]  // we don't need a CLI or anything like that - just the SLF4j dependency shown above
 }
