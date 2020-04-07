@@ -55,15 +55,6 @@ allprojects {
 ext {
     sdkBasePackage = "com.launchdarkly.sdk"
     sdkBaseName = "launchdarkly-java-server-sdk"
-
-    sdkCommonVersion = "1.0.0-SNAPSHOT"
-    commonsCodecVersion = "1.10"
-    gsonVersion = "2.7"
-    guavaVersion = "28.2-jre"
-    jedisVersion = "2.9.0"
-    okhttpEventsourceVersion = "2.0.1"
-    slf4jVersion = "1.7.21"
-    snakeyamlVersion = "1.19"
     
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
     // be discovered by looking in our explicit dependencies.
@@ -76,7 +67,7 @@ ext.versions = [
     "commonsCodec": "1.10",
     "gson": "2.7",
     "guava": "28.2-jre",
-    "launchdarklyJavaSdkCommon": "1.0.0-SNAPHOT",
+    "launchdarklyJavaSdkCommon": "1.0.0-SNAPSHOT",
     "okhttpEventsource": "2.0.1",
     "slf4j": "1.7.21",
     "snakeyaml": "1.19",
@@ -116,8 +107,8 @@ dependencies {
     api libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
 
-    commonClasses "com.launchdarkly:launchdarkly-java-sdk-common:$sdkCommonVersion"
-    commonDoc "com.launchdarkly:launchdarkly-java-sdk-common:$sdkCommonVersion:sources"
+    commonClasses "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}"
+    commonDoc "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}:sources"
 
     // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
     // should *not* be shaded by the Shadow plugin when we build our shaded jars.
