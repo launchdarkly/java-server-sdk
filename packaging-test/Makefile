@@ -65,7 +65,7 @@ clean:
 # SECONDEXPANSION is needed so we can use "$@" inside a variable in the prerequisite list of the test targets
 .SECONDEXPANSION:
 
-test-all-jar test-default-jar test-thin-jar: $$(RUN_JARS_$$@) $(TEST_APP_JAR) $(FELIX_DIR) get-sdk-dependencies $$@-classes
+test-all-jar test-default-jar test-thin-jar: $$@-classes get-sdk-dependencies $$(RUN_JARS_$$@) $(TEST_APP_JAR) $(FELIX_DIR)
 	@$(call caption,$@)
 	./run-non-osgi-test.sh $(RUN_JARS_$@)
 # Can't currently run the OSGi test for the thin jar, because some of our dependencies aren't available as OSGi bundles.
