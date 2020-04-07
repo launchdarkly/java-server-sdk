@@ -134,8 +134,11 @@ $(FELIX_DIR):
 	mkdir -p $(FELIX_DIR)/lib
 	mkdir -p $(FELIX_BASE_BUNDLE_DIR)
 	cd test-app && ../../gradlew createOsgi
+	@# createOsgi is a target provided by the osgi-run Gradle plugin; it downloads the Felix container and
+	@# puts it in build/osgi along with related bundles and a config file.
 	cp -r test-app/build/osgi/conf $(FELIX_DIR)
-	echo "felix.shutdown.hook=false" >>$(FELIX_DIR)/conf/config.properties # allows our test app to use System.exit()
+	echo "felix.shutdown.hook=false" >>$(FELIX_DIR)/conf/config.properties
+	@# setting felix.shutdown.hook to false allows our test app to use System.exit()
 	cp test-app/build/osgi/system-libs/org.apache.felix.main-*.jar $(FELIX_JAR)
 	cp test-app/build/osgi/bundle/* $(FELIX_BASE_BUNDLE_DIR)
 	cd $(FELIX_BASE_BUNDLE_DIR) && rm -f launchdarkly-*.jar gson-*.jar
