@@ -5,11 +5,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.DiagnosticEvent;
-import com.launchdarkly.sdk.server.DiagnosticId;
-import com.launchdarkly.sdk.server.LDConfig;
-import com.launchdarkly.sdk.server.integrations.Redis;
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
+import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 
 import org.junit.Test;
 
@@ -188,12 +187,12 @@ public class DiagnosticEventTest {
   public void testCustomDiagnosticConfigurationForDaemonMode() {
     LDConfig ldConfig = new LDConfig.Builder()
             .dataSource(Components.externalUpdatesOnly())
-            .dataStore(Components.persistentDataStore(Redis.dataStore()))
+            .dataStore(new DataStoreFactoryWithComponentName())
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
     LDValue expected = expectedDefaultPropertiesWithoutStreaming()
-        .put("dataStoreType", "Redis")
+        .put("dataStoreType", "my-test-store")
         .put("usingRelayDaemon", true)
         .build();
 
@@ -212,5 +211,17 @@ public class DiagnosticEventTest {
         .build();
 
     assertEquals(expected, diagnosticJson);
+  }
+  
+  private static class DataStoreFactoryWithComponentName implements DataStoreFactory, DiagnosticDescription {
+    @Override
+    public LDValue describeConfiguration(LDConfig config) {
+      return LDValue.of("my-test-store");
+    }
+
+    @Override
+    public DataStore createDataStore(ClientContext context) {
+      return null;
+    }
   }
 }

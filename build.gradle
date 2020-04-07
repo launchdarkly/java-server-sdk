@@ -73,7 +73,6 @@ libraries.internal = [
     "com.google.guava:guava:${versions.guava}",
     "com.launchdarkly:okhttp-eventsource:${versions.okhttpEventsource}",
     "org.yaml:snakeyaml:${versions.snakeyaml}",
-    "redis.clients:jedis:${versions.jedis}"
 ]
 
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have
