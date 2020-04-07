@@ -74,7 +74,7 @@ class TestHttpUtil {
         .commonName(hostname)
         .addSubjectAlternativeName(hostname)
         .build();
-    
+
       HandshakeCertificates hc = TlsUtil.localhost();
       socketFactory = hc.sslSocketFactory();
       trustManager = hc.trustManager();

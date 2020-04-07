@@ -18,39 +18,31 @@ SDK_DEFAULT_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION).jar
 SDK_ALL_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-all.jar
 SDK_THIN_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-thin.jar
 
-TEMP_DIR=$(BASE_DIR)/temp
-TEMP_OUTPUT=$(TEMP_DIR)/test.out
+export TEMP_DIR=$(BASE_DIR)/temp
+export TEMP_OUTPUT=$(TEMP_DIR)/test.out
 
 # Build product of the project in ./test-app; can be run as either a regular app or an OSGi bundle
 TEST_APP_JAR=$(TEMP_DIR)/test-app.jar
 
-# SLF4j implementation - we need to download this separately because it's not in the SDK dependencies
-SLF4J_SIMPLE_JAR=$(TEMP_DIR)/test-slf4j-simple.jar
-SLF4J_SIMPLE_JAR_URL=https://oss.sonatype.org/content/groups/public/org/slf4j/slf4j-simple/1.7.21/slf4j-simple-1.7.21.jar
-
 # Felix OSGi container
-FELIX_ARCHIVE=org.apache.felix.main.distribution-6.0.3.tar.gz
-FELIX_ARCHIVE_URL=http://mirrors.ibiblio.org/apache//felix/$(FELIX_ARCHIVE)
-FELIX_DIR=$(TEMP_DIR)/felix
-FELIX_JAR=$(FELIX_DIR)/bin/felix.jar
-TEMP_BUNDLE_DIR=$(TEMP_DIR)/bundles
+export FELIX_DIR=$(TEMP_DIR)/felix
+export FELIX_JAR=$(FELIX_DIR)/lib/felix.jar
+export FELIX_BASE_BUNDLE_DIR=$(FELIX_DIR)/base-bundles
+export TEMP_BUNDLE_DIR=$(FELIX_DIR)/app-bundles
 
 # Lists of jars to use as a classpath (for the non-OSGi runtime test) or to install as bundles (for
 # the OSGi test). Note that we're assuming that all of the SDK's dependencies have built-in support
 # for OSGi, which is currently true; if that weren't true, we would have to do something different
 # to put them on the system classpath in the OSGi test.
-RUN_JARS_test-all-jar=$(TEST_APP_JAR) $(SDK_ALL_JAR) \
-	$(SLF4J_SIMPLE_JAR)
+RUN_JARS_test-all-jar=$(TEST_APP_JAR) $(SDK_ALL_JAR)
 RUN_JARS_test-default-jar=$(TEST_APP_JAR) $(SDK_DEFAULT_JAR) \
-	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar) \
-	$(SLF4J_SIMPLE_JAR)
+	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar)
 RUN_JARS_test-thin-jar=$(TEST_APP_JAR) $(SDK_THIN_JAR) \
 	$(shell ls $(TEMP_DIR)/dependencies-internal/*.jar) \
-	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar) \
-	$(SLF4J_SIMPLE_JAR)
+	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar)
 
 # The test-app displays this message on success
-SUCCESS_MESSAGE="@@@ successfully created LD client @@@"
+export SUCCESS_MESSAGE=@@@ successfully created LD client @@@
 
 classes_prepare=echo "  checking $(1)..." && jar tf $(1) | grep '\.class$$' >$(TEMP_OUTPUT)
 classes_should_contain=echo "    should contain $(2)" && grep $(1) $(TEMP_OUTPUT) >/dev/null
@@ -73,21 +65,12 @@ clean:
 # SECONDEXPANSION is needed so we can use "$@" inside a variable in the prerequisite list of the test targets
 .SECONDEXPANSION:
 
-test-all-jar test-default-jar test-thin-jar: $$(RUN_JARS_$$@) $(TEST_APP_JAR) $(FELIX_JAR) get-sdk-dependencies $$@-classes
+test-all-jar test-default-jar test-thin-jar: $$@-classes get-sdk-dependencies $$(RUN_JARS_$$@) $(TEST_APP_JAR) $(FELIX_DIR)
 	@$(call caption,$@)
-	@echo "  non-OSGi runtime test"
-	@java -classpath $(shell echo "$(RUN_JARS_$@)" | sed -e 's/ /:/g') testapp.TestApp | tee $(TEMP_OUTPUT)
-	@grep $(SUCCESS_MESSAGE) $(TEMP_OUTPUT) >/dev/null
+	./run-non-osgi-test.sh $(RUN_JARS_$@)
 # Can't currently run the OSGi test for the thin jar, because some of our dependencies aren't available as OSGi bundles.
 	@if [ "$@" != "test-thin-jar" ]; then \
-	  echo ""; \
-	  echo "  OSGi runtime test"; \
-	  rm -rf $(TEMP_BUNDLE_DIR); \
-	  mkdir -p $(TEMP_BUNDLE_DIR); \
-	  cp $(RUN_JARS_$@) $(FELIX_DIR)/bundle/*.jar $(TEMP_BUNDLE_DIR); \
-	  rm -rf $(FELIX_DIR)/felix-cache; \
-	  cd $(FELIX_DIR) && echo "sleep 3;exit 0" | java -jar $(FELIX_JAR) -b $(TEMP_BUNDLE_DIR) | tee $(TEMP_OUTPUT); \
-	  grep $(SUCCESS_MESSAGE) $(TEMP_OUTPUT) >/dev/null; \
+	  ./run-osgi-test.sh $(RUN_JARS_$@); \
 	fi
 
 test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
@@ -145,13 +128,21 @@ $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	cp $(TEMP_DIR)/dependencies-all/*.jar $@
 	rm $@/slf4j*.jar
 
-$(SLF4J_SIMPLE_JAR): | $(TEMP_DIR)
-	curl -f -L $(SLF4J_SIMPLE_JAR_URL) >$@
+$(FELIX_JAR): $(FELIX_DIR)
 
-$(FELIX_JAR): | $(TEMP_DIR)
-	curl -f -L $(FELIX_ARCHIVE_URL) >$(TEMP_DIR)/$(FELIX_ARCHIVE)
-	cd $(TEMP_DIR) && tar xfz $(FELIX_ARCHIVE) && rm $(FELIX_ARCHIVE)
-	cd $(TEMP_DIR) && mv `ls -d felix*` felix
+$(FELIX_DIR):
+	mkdir -p $(FELIX_DIR)
+	mkdir -p $(FELIX_DIR)/lib
+	mkdir -p $(FELIX_BASE_BUNDLE_DIR)
+	cd test-app && ../../gradlew createOsgi
+	@# createOsgi is a target provided by the osgi-run Gradle plugin; it downloads the Felix container and
+	@# puts it in build/osgi along with related bundles and a config file.
+	cp -r test-app/build/osgi/conf $(FELIX_DIR)
+	echo "felix.shutdown.hook=false" >>$(FELIX_DIR)/conf/config.properties
+	@# setting felix.shutdown.hook to false allows our test app to use System.exit()
+	cp test-app/build/osgi/system-libs/org.apache.felix.main-*.jar $(FELIX_JAR)
+	cp test-app/build/osgi/bundle/* $(FELIX_BASE_BUNDLE_DIR)
+	cd $(FELIX_BASE_BUNDLE_DIR) && rm -f launchdarkly-*.jar gson-*.jar
 
 $(TEMP_DIR):
 	[ -d $@ ] || mkdir -p $@

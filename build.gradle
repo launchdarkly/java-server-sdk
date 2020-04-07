@@ -15,7 +15,7 @@ plugins {
     id "java-library"
     id "checkstyle"
     id "signing"
-    id "com.github.johnrengelman.shadow" version "4.0.4"
+    id "com.github.johnrengelman.shadow" version "5.2.0"
     id "maven-publish"
     id "de.marcphilipp.nexus-publish" version "0.3.0"
     id "io.codearte.nexus-staging" version "0.21.2"
@@ -38,6 +38,7 @@ configurations.all {
 allprojects {
     group = 'com.launchdarkly'
     version = "${version}"
+    archivesBaseName = 'launchdarkly-java-server-sdk'
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
 }
@@ -53,22 +54,32 @@ ext {
 
 ext.libraries = [:]
 
+ext.versions = [
+    "commonsCodec": "1.10",
+    "gson": "2.7",
+    "guava": "28.2-jre",
+    "okhttpEventsource": "2.0.1",
+    "slf4j": "1.7.21",
+    "snakeyaml": "1.19",
+    "jedis": "2.9.0"
+]
+
 // Add dependencies to "libraries.internal" that are not exposed in our public API. These
 // will be completely omitted from the "thin" jar, and will be embedded with shaded names
 // in the other two SDK jars.
 libraries.internal = [
-    "commons-codec:commons-codec:1.10",
-    "com.google.code.gson:gson:2.7",
-    "com.google.guava:guava:28.2-jre",
-    "com.launchdarkly:okhttp-eventsource:2.0.1",
-    "org.yaml:snakeyaml:1.19",
-    "redis.clients:jedis:2.9.0"
+    "commons-codec:commons-codec:${versions.commonsCodec}",
+    "com.google.code.gson:gson:${versions.gson}",
+    "com.google.guava:guava:${versions.guava}",
+    "com.launchdarkly:okhttp-eventsource:${versions.okhttpEventsource}",
+    "org.yaml:snakeyaml:${versions.snakeyaml}",
+    "redis.clients:jedis:${versions.jedis}"
 ]
 
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have
 // global state that must be shared between the SDK and the caller.
 libraries.external = [
-    "org.slf4j:slf4j-api:1.7.21"
+    "org.slf4j:slf4j-api:${versions.slf4j}"
 ]
 
 // Add dependencies to "libraries.test" that are used only in unit tests.
@@ -83,8 +94,7 @@ libraries.test = [
 
 dependencies {
     implementation libraries.internal
-    compileClasspath libraries.external
-    runtime libraries.internal, libraries.external
+    api libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
 
     // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
@@ -92,8 +102,11 @@ dependencies {
     shadow libraries.external
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.10.2'
+configurations {
+    // We need to define "internal" as a custom configuration that contains the same things as
+    // "implementation", because "implementation" has special behavior in Gradle that prevents us
+    // from referencing it the way we do in shadeDependencies().
+    internal.extendsFrom implementation
 }
 
 checkstyle {
@@ -101,7 +114,6 @@ checkstyle {
 }
 
 jar {
-    baseName = sdkBaseName
     // thin classifier means that the non-shaded non-fat jar is still available
     // but is opt-in since users will have to specify it.
     classifier = 'thin'
@@ -117,8 +129,6 @@ jar {
 // This builds the default uberjar that contains all of our dependencies except Gson and
 // SLF4j, in shaded form. The user is expected to provide Gson and SLF4j.
 shadowJar {
-    baseName = sdkBaseName
-    
     // No classifier means that the shaded jar becomes the default artifact
     classifier = ''
 
@@ -139,12 +149,11 @@ shadowJar {
 // This builds the "-all"/"fat" jar, which is the same as the default uberjar except that
 // Gson and SLF4j are bundled and exposed (unshaded).
 task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    baseName = sdkBaseName
     classifier = 'all'
     group = "shadow"
     description = "Builds a Shaded fat jar including SLF4J"
     from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
-    configurations = [project.configurations.runtime]
+    configurations = [project.configurations.runtimeClasspath]
     exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
 
     // doFirst causes the following steps to be run during Gradle's execution phase rather than the
@@ -226,7 +235,7 @@ def shadeDependencies(jarTask) {
     def excludePackages = getAllSdkPackages() +
         configurations.shadow.collectMany { getPackagesInDependencyJar(it)}
     def topLevelPackages =
-        configurations.runtime.collectMany {
+        configurations.internal.collectMany {
             getPackagesInDependencyJar(it).collect { it.contains(".") ? it.substring(0, it.indexOf(".")) : it }
         }.
             unique()
@@ -323,7 +332,6 @@ test {
 idea {
     module {
         downloadJavadoc = true
-
         downloadSources = true
     }
 }
@@ -365,7 +373,6 @@ publishing {
         shadow(MavenPublication) { publication ->
             project.shadow.component(publication)
 
-            artifactId = sdkBaseName
             artifact jar
             artifact sourcesJar
             artifact javadocJar
@@ -420,7 +427,7 @@ tasks.withType(Sign) {
 // dependencies of the SDK, so they can be put on the classpath as needed during tests.
 task exportDependencies(type: Copy, dependsOn: compileJava) {
     into "packaging-test/temp/dependencies-all"
-    from configurations.runtime.resolvedConfiguration.resolvedArtifacts.collect { it.file }
+    from configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts.collect { it.file }
 }
 
 gitPublish {
