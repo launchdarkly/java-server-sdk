@@ -1,5 +1,17 @@
-apply plugin: "java"
-apply plugin: "osgi"
+
+buildscript {
+    repositories {
+        jcenter()
+        mavenCentral()
+    }
+}
+
+plugins {
+    id "java"
+    id "java-library"
+    id "biz.aQute.bnd.builder" version "5.0.1"
+    id "com.athaydes.osgi-run" version "1.6.0"
+}
 
 repositories {
     mavenCentral()
@@ -8,32 +20,27 @@ repositories {
 allprojects {
     group = "com.launchdarkly"
     version = "1.0.0"
+    archivesBaseName = 'test-app-bundle'
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
 }
 
 dependencies {
     // Note, the SDK build must have already been run before this, since we're using its product as a dependency
-    compileClasspath fileTree(dir: "../../build/libs", include: "launchdarkly-java-server-sdk-*-thin.jar")
-    compileClasspath "com.google.code.gson:gson:2.7"
-    compileClasspath "org.slf4j:slf4j-api:1.7.21"
-    compileClasspath "org.osgi:osgi_R4_core:1.0"
+    implementation fileTree(dir: "../../build/libs", include: "launchdarkly-java-server-sdk-*-thin.jar")
+    implementation "com.google.code.gson:gson:2.7"
+    implementation "org.slf4j:slf4j-api:1.7.22"
+    implementation "org.osgi:osgi_R4_core:1.0"
+    osgiRuntime "org.slf4j:slf4j-simple:1.7.22"
 }
 
 jar {
-    baseName = 'test-app-bundle'
-    manifest {
-        instruction 'Bundle-Activator', 'testapp.TestAppOsgiEntryPoint'
-    }
+    bnd(
+        'Bundle-Activator': 'testapp.TestAppOsgiEntryPoint'
+    )
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.10.2'
-}
-
-buildscript {
-    repositories {
-        jcenter()
-        mavenCentral()
-    }
+runOsgi {
+    // bundles = [ project ]
+    bundles = FELIX_GOGO_BUNDLES
 }

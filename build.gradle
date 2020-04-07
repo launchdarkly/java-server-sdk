@@ -236,15 +236,12 @@ def getPackagesInDependencyJar(jarFile) {
 def shadeDependencies(jarTask) {
     def excludePackages = getAllSdkPackages() +
         configurations.shadow.collectMany { getPackagesInDependencyJar(it)}
-    System.err.println("*** exclude: " + excludePackages)
     def topLevelPackages =
         configurations.internal.collectMany {
             getPackagesInDependencyJar(it).collect { it.contains(".") ? it.substring(0, it.indexOf(".")) : it }
         }.
             unique()
-    System.err.println("*** topLevel: " + topLevelPackages)
     topLevelPackages.forEach { top ->
-        System.err.println("*** will relocate: " + top)
         jarTask.relocate(top, "com.launchdarkly.shaded." + top) {
             excludePackages.forEach { exclude(it + ".*") }
         }
