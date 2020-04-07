@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.gson.Gson;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
@@ -39,6 +40,16 @@ import static org.hamcrest.Matchers.equalTo;
 
 @SuppressWarnings("javadoc")
 public class TestUtil {
+  /**
+   * We should use this instead of JsonHelpers.gsonInstance() in any test code that might be run from
+   * outside of this project (for instance, from java-server-sdk-redis or other integrations), because
+   * in that context the SDK classes might be coming from the default jar distribution where Gson is
+   * shaded. Therefore, if a test method tries to call an SDK implementation method like gsonInstance()
+   * that returns a Gson type, or one that takes an argument of a Gson type, that might fail at runtime
+   * because the Gson type has been changed to a shaded version.
+   */
+  public static final Gson TEST_GSON_INSTANCE = new Gson();
+  
   public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
     return new ClientContextImpl(sdkKey, config, null);
   }
