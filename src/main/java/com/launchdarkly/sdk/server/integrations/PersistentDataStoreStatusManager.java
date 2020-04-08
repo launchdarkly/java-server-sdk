@@ -63,7 +63,7 @@ final class PersistentDataStoreStatusManager {
       copyOfListeners = listeners.toArray(new StatusListener[listeners.size()]);
     }
     
-    StatusImpl status = new StatusImpl(available, available && refreshOnRecovery);
+    Status status = new Status(available, available && refreshOnRecovery);
 
     if (available) {
       logger.warn("Persistent store is available again");
@@ -106,26 +106,6 @@ final class PersistentDataStoreStatusManager {
   
   void close() {
     scheduler.shutdown();
-  }
-  
-  static final class StatusImpl implements Status {
-    private final boolean available;
-    private final boolean needsRefresh;
-    
-    StatusImpl(boolean available, boolean needsRefresh) {
-      this.available = available;
-      this.needsRefresh = needsRefresh;
-    }
-
-    @Override
-    public boolean isAvailable() {
-      return available;
-    }
-
-    @Override
-    public boolean isRefreshNeeded() {
-      return needsRefresh;
-    }
   }
   
   private static final class StatusNotificationTask implements Runnable {

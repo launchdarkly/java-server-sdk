@@ -4,7 +4,7 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
-import com.launchdarkly.sdk.server.TestUtil.DataSourceFactoryThatExposesUpdater;
+import com.launchdarkly.sdk.server.TestComponents.DataSourceFactoryThatExposesUpdater;
 import com.launchdarkly.sdk.server.TestUtil.FlagChangeEventSink;
 import com.launchdarkly.sdk.server.TestUtil.FlagValueChangeEventSink;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
@@ -33,9 +33,11 @@ import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
-import static com.launchdarkly.sdk.server.TestUtil.failedDataSource;
-import static com.launchdarkly.sdk.server.TestUtil.initedDataStore;
-import static com.launchdarkly.sdk.server.TestUtil.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.failedDataSource;
+import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificDataSource;
+import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificEventProcessor;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
@@ -475,8 +477,8 @@ public class LDClientTest extends EasyMockSupport {
   }
   
   private LDClientInterface createMockClient(LDConfig.Builder config) {
-    config.dataSource(TestUtil.specificDataSource(dataSource));
-    config.events(TestUtil.specificEventProcessor(eventProcessor));
+    config.dataSource(specificDataSource(dataSource));
+    config.events(specificEventProcessor(eventProcessor));
     return new LDClient(SDK_KEY, config.build());
   }
 }

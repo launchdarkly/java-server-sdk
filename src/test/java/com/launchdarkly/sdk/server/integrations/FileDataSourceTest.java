@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.LDConfig;
-import com.launchdarkly.sdk.server.TestUtil;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 
@@ -17,8 +16,9 @@ import static com.google.common.collect.Iterables.size;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toItemsMap;
-import static com.launchdarkly.sdk.server.TestUtil.clientContext;
-import static com.launchdarkly.sdk.server.TestUtil.dataStoreUpdates;
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestComponents.dataStoreUpdates;
+import static com.launchdarkly.sdk.server.TestComponents.inMemoryDataStore;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.ALL_FLAG_KEYS;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.ALL_SEGMENT_KEYS;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.getResourceContents;
@@ -31,7 +31,7 @@ import static org.junit.Assert.fail;
 public class FileDataSourceTest {
   private static final Path badFilePath = Paths.get("no-such-file.json");
   
-  private final DataStore store = TestUtil.inMemoryDataStore();
+  private final DataStore store = inMemoryDataStore();
   private final LDConfig config = new LDConfig.Builder().build();
   private final FileDataSourceBuilder factory;
   

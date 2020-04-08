@@ -2,11 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.DefaultEventProcessor;
-import com.launchdarkly.sdk.server.LDClient;
-import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 
 import org.junit.Test;
@@ -14,7 +9,8 @@ import org.junit.Test;
 import java.io.IOException;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
-import static com.launchdarkly.sdk.server.TestUtil.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -53,7 +49,7 @@ public class LDClientExternalUpdatesOnlyTest {
 
   @Test
   public void externalUpdatesOnlyClientGetsFlagFromDataStore() throws IOException {
-    DataStore testDataStore = TestUtil.initedDataStore();
+    DataStore testDataStore = initedDataStore();
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
         .dataStore(specificDataStore(testDataStore))

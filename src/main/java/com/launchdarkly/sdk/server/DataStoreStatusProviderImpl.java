@@ -18,10 +18,8 @@ final class DataStoreStatusProviderImpl implements DataStoreStatusProvider {
   }
 
   @Override
-  public void addStatusListener(StatusListener listener) {
-    if (delegateTo != null) {
-      delegateTo.addStatusListener(listener);
-    }
+  public boolean addStatusListener(StatusListener listener) {
+    return delegateTo != null && delegateTo.addStatusListener(listener);
   }
 
   @Override

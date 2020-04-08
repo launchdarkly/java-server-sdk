@@ -23,9 +23,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.Components.sendEvents;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
-import static com.launchdarkly.sdk.server.TestUtil.clientContext;
 import static com.launchdarkly.sdk.server.TestUtil.hasJsonProperty;
 import static com.launchdarkly.sdk.server.TestUtil.isJsonArray;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
