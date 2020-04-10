@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.launchdarkly.client.interfaces.SerializationException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,6 +77,8 @@ final class PollingProcessor implements UpdateProcessor {
         } catch (IOException e) {
           logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
           logger.debug(e.toString(), e);
+        } catch (SerializationException e) {
+          logger.error("Polling request received malformed data: {}", e.toString());
         }
       }
     }, 0L, pollIntervalMillis, TimeUnit.MILLISECONDS);

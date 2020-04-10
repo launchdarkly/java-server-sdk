@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
@@ -26,7 +27,16 @@ import static org.hamcrest.Matchers.equalTo;
 
 @SuppressWarnings("javadoc")
 public class TestUtil {
-
+  /**
+   * We should use this instead of JsonHelpers.gsonInstance() in any test code that might be run from
+   * outside of this project (for instance, from java-server-sdk-redis or other integrations), because
+   * in that context the SDK classes might be coming from the default jar distribution where Gson is
+   * shaded. Therefore, if a test method tries to call an SDK implementation method like gsonInstance()
+   * that returns a Gson type, or one that takes an argument of a Gson type, that might fail at runtime
+   * because the Gson type has been changed to a shaded version.
+   */
+  public static final Gson TEST_GSON_INSTANCE = new Gson();
+  
   public static FeatureStoreFactory specificFeatureStore(final FeatureStore store) {
     return new FeatureStoreFactory() {
       public FeatureStore createFeatureStore() {
@@ -93,13 +103,19 @@ public class TestUtil {
       }
 
       @Override
-      public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) { }
+      public void init(Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> allData) {
+        throw e;
+      }
 
       @Override
-      public <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version) { }
+      public <T extends VersionedData> void delete(VersionedDataKind<T> kind, String key, int version) { 
+        throw e;
+      }
 
       @Override
-      public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) { }
+      public <T extends VersionedData> void upsert(VersionedDataKind<T> kind, T item) {
+        throw e;
+      }
 
       @Override
       public boolean initialized() {

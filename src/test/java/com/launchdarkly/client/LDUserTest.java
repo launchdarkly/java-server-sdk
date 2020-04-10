@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.launchdarkly.client.JsonHelpers.gsonInstance;
 import static com.launchdarkly.client.JsonHelpers.gsonInstanceForEventsSerialization;
+import static com.launchdarkly.client.TestUtil.TEST_GSON_INSTANCE;
 import static com.launchdarkly.client.TestUtil.defaultEventsConfig;
 import static com.launchdarkly.client.TestUtil.jbool;
 import static com.launchdarkly.client.TestUtil.jdouble;
@@ -172,6 +172,7 @@ public class LDUserTest {
     assertEquals(true, user.getAnonymous().booleanValue());
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void canSetCountry() {
     LDUser user = new LDUser.Builder("key").country(LDCountryCode.US).build();
@@ -216,6 +217,7 @@ public class LDUserTest {
     assertEquals(LDValue.ofNull(), user.getCountry());
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void canSetPrivateCountry() {
     LDUser user = new LDUser.Builder("key").privateCountry(LDCountryCode.US).build();
@@ -297,8 +299,8 @@ public class LDUserTest {
   @Test
   public void testAllPropertiesInDefaultEncoding() {
     for (Map.Entry<LDUser, String> e: getUserPropertiesJsonMap().entrySet()) {
-      JsonElement expected = gsonInstance().fromJson(e.getValue(), JsonElement.class);
-      JsonElement actual = gsonInstance().toJsonTree(e.getKey());
+      JsonElement expected = TEST_GSON_INSTANCE.fromJson(e.getValue(), JsonElement.class);
+      JsonElement actual = TEST_GSON_INSTANCE.toJsonTree(e.getKey());
       assertEquals(expected, actual);
     }
   }
@@ -306,12 +308,13 @@ public class LDUserTest {
   @Test
   public void testAllPropertiesInPrivateAttributeEncoding() {
     for (Map.Entry<LDUser, String> e: getUserPropertiesJsonMap().entrySet()) {
-      JsonElement expected = gsonInstance().fromJson(e.getValue(), JsonElement.class);
-      JsonElement actual = gsonInstance().toJsonTree(e.getKey());
+      JsonElement expected = TEST_GSON_INSTANCE.fromJson(e.getValue(), JsonElement.class);
+      JsonElement actual = TEST_GSON_INSTANCE.toJsonTree(e.getKey());
       assertEquals(expected, actual);
     }
   }
 
+  @SuppressWarnings("deprecation")
   private Map<LDUser, String> getUserPropertiesJsonMap() {
     ImmutableMap.Builder<LDUser, String> builder = ImmutableMap.builder();
     builder.put(new LDUser.Builder("userkey").build(), "{\"key\":\"userkey\"}");
@@ -467,7 +470,7 @@ public class LDUserTest {
         .customString("foo", ImmutableList.of("a", "b"))
         .build();
     JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", js("a"), js("b"));
-    JsonObject jo = gsonInstance().toJsonTree(user).getAsJsonObject();
+    JsonObject jo = TEST_GSON_INSTANCE.toJsonTree(user).getAsJsonObject();
     assertEquals(expectedAttr, jo.get("custom"));
   }
   
@@ -477,7 +480,7 @@ public class LDUserTest {
         .customNumber("foo", ImmutableList.<Number>of(new Integer(1), new Double(2)))
         .build();
     JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", jint(1), jdouble(2));
-    JsonObject jo = gsonInstance().toJsonTree(user).getAsJsonObject();
+    JsonObject jo = TEST_GSON_INSTANCE.toJsonTree(user).getAsJsonObject();
     assertEquals(expectedAttr, jo.get("custom"));
   }
 
@@ -487,7 +490,7 @@ public class LDUserTest {
         .customValues("foo", ImmutableList.<JsonElement>of(js("a"), jint(1), jbool(true)))
         .build();
     JsonElement expectedAttr = makeCustomAttrWithListOfValues("foo", js("a"), jint(1), jbool(true));
-    JsonObject jo = gsonInstance().toJsonTree(user).getAsJsonObject();
+    JsonObject jo = TEST_GSON_INSTANCE.toJsonTree(user).getAsJsonObject();
     assertEquals(expectedAttr, jo.get("custom"));
   }
   

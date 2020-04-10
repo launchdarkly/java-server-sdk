@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Files;
+import com.launchdarkly.client.interfaces.SerializationException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +13,6 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.launchdarkly.client.JsonHelpers.gsonInstance;
 import static com.launchdarkly.client.Util.configureHttpClientBuilder;
 import static com.launchdarkly.client.Util.getHeadersBuilderFor;
 import static com.launchdarkly.client.Util.shutdownHttpClient;
@@ -63,19 +63,19 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
     shutdownHttpClient(httpClient);
   }
   
-  public FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
+  public FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException, SerializationException {
     String body = get(GET_LATEST_FLAGS_PATH + "/" + featureKey);
-    return gsonInstance().fromJson(body, FeatureFlag.class);
+    return JsonHelpers.deserialize(body, FeatureFlag.class);
   }
 
   public Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
     String body = get(GET_LATEST_SEGMENTS_PATH + "/" + segmentKey);
-    return gsonInstance().fromJson(body, Segment.class);
+    return JsonHelpers.deserialize(body, Segment.class);
   }
 
   public AllData getAllData() throws IOException, HttpErrorException {
     String body = get(GET_LATEST_ALL_PATH);
-    return gsonInstance().fromJson(body, AllData.class);
+    return JsonHelpers.deserialize(body, AllData.class);
   }
   
   static Map<VersionedDataKind<?>, Map<String, ? extends VersionedData>> toVersionedDataMap(AllData allData) {

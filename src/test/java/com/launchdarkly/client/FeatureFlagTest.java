@@ -12,7 +12,7 @@ import org.junit.Test;
 import java.util.Arrays;
 
 import static com.launchdarkly.client.EvaluationDetail.fromValue;
-import static com.launchdarkly.client.JsonHelpers.gsonInstance;
+import static com.launchdarkly.client.TestUtil.TEST_GSON_INSTANCE;
 import static com.launchdarkly.client.TestUtil.booleanFlagWithClauses;
 import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
@@ -534,17 +534,17 @@ public class FeatureFlagTest {
   @Test
   public void flagIsDeserializedWithAllProperties() {
     String json = flagWithAllPropertiesJson().toJsonString();
-    FeatureFlag flag0 = gsonInstance().fromJson(json, FeatureFlag.class);
+    FeatureFlag flag0 = TEST_GSON_INSTANCE.fromJson(json, FeatureFlag.class);
     assertFlagHasAllProperties(flag0);
     
-    FeatureFlag flag1 = gsonInstance().fromJson(gsonInstance().toJson(flag0), FeatureFlag.class);
+    FeatureFlag flag1 = TEST_GSON_INSTANCE.fromJson(TEST_GSON_INSTANCE.toJson(flag0), FeatureFlag.class);
     assertFlagHasAllProperties(flag1);
   }
   
   @Test
   public void flagIsDeserializedWithMinimalProperties() {
     String json = LDValue.buildObject().put("key", "flag-key").put("version", 99).build().toJsonString();
-    FeatureFlag flag = gsonInstance().fromJson(json, FeatureFlag.class);
+    FeatureFlag flag = TEST_GSON_INSTANCE.fromJson(json, FeatureFlag.class);
     assertEquals("flag-key", flag.getKey());
     assertEquals(99, flag.getVersion());
     assertFalse(flag.isOn());
