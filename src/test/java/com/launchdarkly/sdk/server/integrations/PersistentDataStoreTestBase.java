@@ -33,11 +33,11 @@ import static org.junit.Assume.assumeTrue;
 public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore> {
   protected T store;
   
-  protected TestItem item1 = new TestItem("first", "key1", 10);
+  protected TestItem item1 = new TestItem("key1", "first", 10);
   
-  protected TestItem item2 = new TestItem("second", "key2", 10);
+  protected TestItem item2 = new TestItem("key2", "second", 10);
   
-  protected TestItem otherItem1 = new TestItem("other-first", "key1", 11);
+  protected TestItem otherItem1 = new TestItem("key1", "other-first", 11);
   
   /**
    * Test subclasses must override this method to create an instance of the feature store class
@@ -77,7 +77,8 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
     // As above, the PersistentDataStore may not have separate access to the version and deleted state;
     // PersistentDataStoreWrapper compensates for this when it deserializes the item.
     if (serializedItemDesc.getSerializedItem() == null) {
-      assertEquals(expected, serializedItemDesc);
+      assertTrue(serializedItemDesc.isDeleted());
+      assertEquals(expected.getVersion(), serializedItemDesc.getVersion());
     } else {
       ItemDescriptor itemDesc = TEST_ITEMS.deserialize(serializedItemDesc.getSerializedItem());
       assertEquals(ItemDescriptor.deletedItem(expected.getVersion()), itemDesc);
