@@ -5,6 +5,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,6 +78,8 @@ final class PollingProcessor implements DataSource {
       } catch (IOException e) {
         logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
         logger.debug(e.toString(), e);
+      } catch (SerializationException e) {
+        logger.error("Polling request received malformed data: {}", e.toString());
       }
     }, 0L, pollInterval.toMillis(), TimeUnit.MILLISECONDS);
 

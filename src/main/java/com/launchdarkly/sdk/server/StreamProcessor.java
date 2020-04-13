@@ -16,6 +16,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +29,7 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.ALL_DATA_KINDS;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
@@ -55,7 +56,7 @@ import okhttp3.OkHttpClient;
  * restart the stream.
  * 3. If we receive an unrecoverable error like HTTP 401, we close the stream and don't retry. Any other HTTP
  * error or network error causes a retry with backoff.
- * 4. We close the closeWhenReady channel to tell the client initialization logic that initialization has either
+ * 4. We set the Future returned by start() to tell the client initialization logic that initialization has either
  * succeeded (we got an initial payload and successfully stored it) or permanently failed (we got a 401, etc.).
  * Otherwise, the client initialization method may time out but we will still be retrying in the background, and
  * if we succeed then the client can detect that we're initialized now by calling our Initialized method.
@@ -261,6 +262,10 @@ final class StreamProcessor implements DataSource {
             break;
         }
         lastStoreUpdateFailed = false;
+      } catch (StreamInputException e) {
+        logger.error("LaunchDarkly service request failed or received invalid data: {}", e.toString());
+        logger.debug(e.toString(), e);
+        es.restart();
       } catch (StreamStoreException e) {
         // See item 2 in error handling comments at top of class
         if (!lastStoreUpdateFailed) {
@@ -281,7 +286,7 @@ final class StreamProcessor implements DataSource {
       }
     }
 
-    private void handlePut(String eventData) throws StreamStoreException {
+    private void handlePut(String eventData) throws StreamInputException, StreamStoreException {
       recordStreamInit(false);
       esStarted = 0;
       PutData putData = parseStreamJson(PutData.class, eventData);
@@ -297,22 +302,28 @@ final class StreamProcessor implements DataSource {
       }
     }
 
-    private void handlePatch(String eventData) throws StreamStoreException {
+    private void handlePatch(String eventData) throws StreamInputException, StreamStoreException {
       PatchData data = parseStreamJson(PatchData.class, eventData);
       Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(data.path);
+      if (kindAndKey == null) {
+        return;
+      }
       DataKind kind = kindAndKey.getKey();
       String key = kindAndKey.getValue();
-      ItemDescriptor item = deserializeFromParsedJson(kind, data.data);
+      VersionedData item = deserializeFromParsedJson(kind, data.data);
       try {
-        dataStoreUpdates.upsert(kind, key, item);
+        dataStoreUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
       } catch (Exception e) {
         throw new StreamStoreException(e);
       }
     }
 
-    private void handleDelete(String eventData) throws StreamStoreException {
+    private void handleDelete(String eventData) throws StreamInputException, StreamStoreException {
       DeleteData data = parseStreamJson(DeleteData.class, eventData);
       Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(data.path);
+      if (kindAndKey == null) {
+        return;
+      }
       DataKind kind = kindAndKey.getKey();
       String key = kindAndKey.getValue();
       ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
@@ -337,11 +348,19 @@ final class StreamProcessor implements DataSource {
       }
     }
 
-    private void handleIndirectPatch(String path) throws StreamStoreException, HttpErrorException, IOException {
+    private void handleIndirectPatch(String path) throws StreamInputException, StreamStoreException {
       Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(path);
       DataKind kind = kindAndKey.getKey();
       String key = kindAndKey.getValue();
-      VersionedData item = kind == SEGMENTS ? requestor.getSegment(key) : requestor.getFlag(key);
+      VersionedData item;
+      try {
+        item = kind == SEGMENTS ? requestor.getSegment(key) : requestor.getFlag(key);
+      } catch (Exception e) {
+        throw new StreamInputException(e);
+        // In this case, StreamInputException doesn't necessarily represent malformed data from the service - it
+        // could be that the request to the polling endpoint failed in some other way. But either way, we must
+        // assume that we did not get valid data from LD so we have missed an update.
+      }
       try {
         dataStoreUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
       } catch (Exception e) {
@@ -379,35 +398,50 @@ final class StreamProcessor implements DataSource {
 
     return builder.build();
   }
-  
-  private static Map.Entry<DataKind, String> getKindAndKeyFromStreamApiPath(String path) {
-    for (DataKind kind: DataModel.ALL_DATA_KINDS) {
+
+  private static Map.Entry<DataKind, String> getKindAndKeyFromStreamApiPath(String path) throws StreamInputException {
+    if (path == null) {
+      throw new StreamInputException("missing item path");
+    }
+    for (DataKind kind: ALL_DATA_KINDS) {
       String prefix = (kind == SEGMENTS) ? "/segments/" : "/flags/";
       if (path.startsWith(prefix)) {
-        return new AbstractMap.SimpleEntry<>(kind, path.substring(prefix.length()));
+        return new AbstractMap.SimpleEntry<DataKind, String>(kind, path.substring(prefix.length()));
       }
     }
-    throw new RuntimeException(new IllegalArgumentException("unrecognized item path: " + path));
+    return null; // we don't recognize the path - the caller should ignore this event, just as we ignore unknown event types
   }
 
-  // This helper method is currently trivial but will be used for better error handling in the future, and helps to
-  // minimize usage of Gson-specific APIs throughout the code.
-  private static <T> T parseStreamJson(Class<T> c, String json) {
-    return JsonHelpers.gsonInstance().fromJson(json, c);
+  private static <T> T parseStreamJson(Class<T> c, String json) throws StreamInputException {
+    try {
+      return JsonHelpers.deserialize(json, c);
+    } catch (SerializationException e) {
+      throw new StreamInputException(e);
+    }
+  }
+
+  private static VersionedData deserializeFromParsedJson(DataKind kind, JsonElement parsedJson)
+      throws StreamInputException {
+    try {
+      return JsonHelpers.deserializeFromParsedJson(kind, parsedJson);
+    } catch (SerializationException e) {
+      throw new StreamInputException(e);
+    }
+  }
+
+  // StreamInputException is either a JSON parsing error *or* a failure to query another endpoint
+  // (for indirect/put or indirect/patch); either way, it implies that we were unable to get valid data from LD services.
+  @SuppressWarnings("serial")
+  private static final class StreamInputException extends Exception {
+    public StreamInputException(String message) {
+      super(message);
+    }
+    
+    public StreamInputException(Throwable cause) {
+      super(cause);
+    }
   }
   
-  private static ItemDescriptor deserializeFromParsedJson(DataKind kind, JsonElement parsedJson) {
-    VersionedData item;
-    if (kind == FEATURES) {
-      item = JsonHelpers.gsonInstance().fromJson(parsedJson, DataModel.FeatureFlag.class);
-    } else if (kind == SEGMENTS) {
-      item = JsonHelpers.gsonInstance().fromJson(parsedJson, DataModel.Segment.class);
-    } else { // this case should never happen
-      return kind.deserialize(JsonHelpers.gsonInstance().toJson(parsedJson));
-    }
-    return new ItemDescriptor(item.getVersion(), item);
-  }
-
   // This exception class indicates that the data store failed to persist an update.
   @SuppressWarnings("serial")
   private static final class StreamStoreException extends Exception {
@@ -415,7 +449,7 @@ final class StreamProcessor implements DataSource {
       super(cause);
     }
   }
-  
+
   private static final class PutData {
     FeatureRequestor.AllData data;
     
