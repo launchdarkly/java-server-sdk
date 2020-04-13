@@ -42,7 +42,9 @@ final class PersistentDataStoreStatusManager {
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setNameFormat("LaunchDarkly-DataStoreStatusManager-%d")
         .build();
-    scheduler = Executors.newScheduledThreadPool(2, threadFactory);
+    scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
+    // Using newSingleThreadScheduledExecutor avoids ambiguity about execution order if we might have
+    // have a StatusNotificationTask happening soon after another one. 
   }
   
   synchronized void addStatusListener(StatusListener listener) {
