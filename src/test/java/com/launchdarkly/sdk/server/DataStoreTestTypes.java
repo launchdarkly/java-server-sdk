@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.transform;
+import static com.launchdarkly.sdk.server.TestUtil.TEST_GSON_INSTANCE;
 
 @SuppressWarnings("javadoc")
 public class DataStoreTestTypes {
@@ -117,14 +118,14 @@ public class DataStoreTestTypes {
     if (item.getItem() == null) {
       return "DELETED:" + item.getVersion();
     }
-    return JsonHelpers.gsonInstance().toJson(item.getItem());
+    return TEST_GSON_INSTANCE.toJson(item.getItem());
   }
   
   private static ItemDescriptor deserializeTestItem(String s) {
     if (s.startsWith("DELETED:")) {
       return ItemDescriptor.deletedItem(Integer.parseInt(s.substring(8)));
     }
-    TestItem ti = JsonHelpers.gsonInstance().fromJson(s, TestItem.class);
+    TestItem ti = TEST_GSON_INSTANCE.fromJson(s, TestItem.class);
     return new ItemDescriptor(ti.version, ti);
   }
   

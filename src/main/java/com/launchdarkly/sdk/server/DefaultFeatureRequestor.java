@@ -9,6 +9,7 @@ import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,6 @@ import java.util.Map;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
-import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
 import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
@@ -69,19 +69,19 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
     shutdownHttpClient(httpClient);
   }
   
-  public DataModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
+  public DataModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException, SerializationException {
     String body = get(GET_LATEST_FLAGS_PATH + "/" + featureKey);
-    return gsonInstance().fromJson(body, DataModel.FeatureFlag.class);
+    return JsonHelpers.deserialize(body, DataModel.FeatureFlag.class);
   }
 
-  public DataModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
+  public DataModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException, SerializationException {
     String body = get(GET_LATEST_SEGMENTS_PATH + "/" + segmentKey);
-    return gsonInstance().fromJson(body, DataModel.Segment.class);
+    return JsonHelpers.deserialize(body, DataModel.Segment.class);
   }
 
-  public AllData getAllData() throws IOException, HttpErrorException {
+  public AllData getAllData() throws IOException, HttpErrorException, SerializationException {
     String body = get(GET_LATEST_ALL_PATH);
-    return gsonInstance().fromJson(body, AllData.class);
+    return JsonHelpers.deserialize(body, AllData.class);
   }
 
   static FullDataSet<ItemDescriptor> toFullDataSet(AllData allData) {

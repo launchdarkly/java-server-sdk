@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.ConnectionErrorHandler.Action;
@@ -10,10 +9,12 @@ import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +22,12 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.AbstractMap;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.ALL_DATA_KINDS;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
@@ -34,6 +37,23 @@ import static com.launchdarkly.sdk.server.Util.isHttpErrorRecoverable;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
+/**
+ * Implementation of the streaming data source, not including the lower-level SSE implementation which is in
+ * okhttp-eventsource.
+ * 
+ * Error handling works as follows:
+ * 1. If any event is malformed, we must assume the stream is broken and we may have missed updates. Restart it.
+ * 2. If we try to put updates into the data store and we get an error, we must assume something's wrong with the
+ * data store. We must assume that updates have been lost, so we'll restart the stream. (Starting in version 5.0,
+ * we will be able to do this in a smarter way and not restart the stream until the store is actually working
+ * again, but in 4.x we don't have the monitoring mechanism for this.)
+ * 3. If we receive an unrecoverable error like HTTP 401, we close the stream and don't retry. Any other HTTP
+ * error or network error causes a retry with backoff.
+ * 4. We set the Future returned by start() to tell the client initialization logic that initialization has either
+ * succeeded (we got an initial payload and successfully stored it) or permanently failed (we got a 401, etc.).
+ * Otherwise, the client initialization method may time out but we will still be retrying in the background, and
+ * if we succeed then the client can detect that we're initialized now by calling our Initialized method.
+ */
 final class StreamProcessor implements DataSource {
   private static final String PUT = "put";
   private static final String PATCH = "patch";
@@ -54,6 +74,7 @@ final class StreamProcessor implements DataSource {
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
   private volatile long esStarted = 0;
+  private volatile boolean lastStoreUpdateFailed = false;
 
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
@@ -124,80 +145,114 @@ final class StreamProcessor implements DataSource {
       }
 
       @Override
-      public void onMessage(String name, MessageEvent event) throws Exception {
-        Gson gson = new Gson();
-        switch (name) {
-          case PUT: {
-            recordStreamInit(false);
-            esStarted = 0;
-            PutData putData = gson.fromJson(event.getData(), PutData.class); 
-            dataStoreUpdates.init(DefaultFeatureRequestor.toFullDataSet(putData.data));
-            if (!initialized.getAndSet(true)) {
-              initFuture.set(null);
-              logger.info("Initialized LaunchDarkly client.");
-            }
-            break;
-          }
-          case PATCH: {
-            PatchData data = gson.fromJson(event.getData(), PatchData.class);
-            if (getKeyFromStreamApiPath(FEATURES, data.path) != null) {
-              DataModel.FeatureFlag flag = JsonHelpers.gsonInstance().fromJson(data.data, DataModel.FeatureFlag.class);
-              dataStoreUpdates.upsert(FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
-            } else if (getKeyFromStreamApiPath(SEGMENTS, data.path) != null) {
-              DataModel.Segment segment = JsonHelpers.gsonInstance().fromJson(data.data, DataModel.Segment.class);
-              dataStoreUpdates.upsert(SEGMENTS, segment.getKey(), new ItemDescriptor(segment.getVersion(), segment));
-            }
-            break;
-          }
-          case DELETE: {
-            DeleteData data = gson.fromJson(event.getData(), DeleteData.class);
-            ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
-            String featureKey = getKeyFromStreamApiPath(FEATURES, data.path);
-            if (featureKey != null) {
-              dataStoreUpdates.upsert(FEATURES, featureKey, placeholder);
-            } else {
-              String segmentKey = getKeyFromStreamApiPath(SEGMENTS, data.path);
-              if (segmentKey != null) {
-                dataStoreUpdates.upsert(SEGMENTS, segmentKey, placeholder);
+      public void onMessage(String name, MessageEvent event) {
+        try {
+          switch (name) {
+            case PUT: {
+              recordStreamInit(false);
+              esStarted = 0;
+              PutData putData = parseStreamJson(PutData.class, event.getData());
+              try {
+                dataStoreUpdates.init(DefaultFeatureRequestor.toFullDataSet(putData.data));
+              } catch (Exception e) {
+                throw new StreamStoreException(e);
               }
-            }
-            break;
-          }
-          case INDIRECT_PUT:
-            try {
-              FeatureRequestor.AllData allData = requestor.getAllData();
-              dataStoreUpdates.init(DefaultFeatureRequestor.toFullDataSet(allData));
               if (!initialized.getAndSet(true)) {
                 initFuture.set(null);
                 logger.info("Initialized LaunchDarkly client.");
               }
-            } catch (IOException e) {
-              logger.error("Encountered exception in LaunchDarkly client: {}", e.toString());
-              logger.debug(e.toString(), e);
+              break;
             }
-            break;
-          case INDIRECT_PATCH:
-            String path = event.getData();
-            try {
-              String featureKey = getKeyFromStreamApiPath(FEATURES, path);
-              if (featureKey != null) {
-                DataModel.FeatureFlag feature = requestor.getFlag(featureKey);
-                dataStoreUpdates.upsert(FEATURES, featureKey, new ItemDescriptor(feature.getVersion(), feature));
-              } else {
-                String segmentKey = getKeyFromStreamApiPath(SEGMENTS, path);
-                if (segmentKey != null) {
-                  DataModel.Segment segment = requestor.getSegment(segmentKey);
-                  dataStoreUpdates.upsert(SEGMENTS, segmentKey, new ItemDescriptor(segment.getVersion(), segment));
-                }
+            case PATCH: {
+              PatchData data = parseStreamJson(PatchData.class, event.getData());
+              Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(data.path);
+              if (kindAndKey == null) {
+                break;
               }
-            } catch (IOException e) {
-              logger.error("Encountered exception in LaunchDarkly client: {}", e.toString());
-              logger.debug(e.toString(), e);
+              DataKind kind = kindAndKey.getKey();
+              String key = kindAndKey.getValue();
+              VersionedData item = deserializeFromParsedJson(kind, data.data);
+              try {
+                dataStoreUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
+              } catch (Exception e) {
+                throw new StreamStoreException(e);
+              }
+              break;
             }
-            break;
-          default:
-            logger.warn("Unexpected event found in stream: " + event.getData());
-            break;
+            case DELETE: {
+              DeleteData data = parseStreamJson(DeleteData.class, event.getData());
+              ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
+              Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(data.path);
+              if (kindAndKey == null) {
+                break;
+              }
+              DataKind kind = kindAndKey.getKey();
+              String key = kindAndKey.getValue();
+              try {
+                dataStoreUpdates.upsert(kind, key, placeholder);
+              } catch (Exception e) {
+                throw new StreamStoreException(e);
+              }
+              break;
+            }
+            case INDIRECT_PUT:
+              FeatureRequestor.AllData allData;
+              try {
+                allData = requestor.getAllData();
+              } catch (HttpErrorException e) {
+                throw new StreamInputException(e);
+              } catch (IOException e) {
+                throw new StreamInputException(e);
+              }
+              try {
+                dataStoreUpdates.init(DefaultFeatureRequestor.toFullDataSet(allData));
+              } catch (Exception e) {
+                throw new StreamStoreException(e);
+              }
+              if (!initialized.getAndSet(true)) {
+                initFuture.set(null);
+                logger.info("Initialized LaunchDarkly client.");
+              }
+              break;
+            case INDIRECT_PATCH:
+              String path = event.getData();
+              Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(path);
+              if (kindAndKey == null) {
+                break;
+              }
+              DataKind kind = kindAndKey.getKey();
+              String key = kindAndKey.getValue();
+              VersionedData item;
+              try {
+                item = (Object)kind == SEGMENTS ? requestor.getSegment(key) : requestor.getFlag(key);
+              } catch (Exception e) {
+                throw new StreamInputException(e);
+              }
+              try {
+                dataStoreUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
+              } catch (Exception e) {
+                throw new StreamStoreException(e);
+              }
+              break;
+            default:
+              logger.warn("Unexpected event found in stream: " + event.getData());
+              break;
+          }
+        } catch (StreamInputException e) {
+          logger.error("LaunchDarkly service request failed or received invalid data: {}", e.toString());
+          logger.debug(e.toString(), e);
+          es.restart();
+        } catch (StreamStoreException e) {
+          if (!lastStoreUpdateFailed) {
+            logger.error("Unexpected data store failure when storing updates from stream: {}",
+                e.getCause().toString());
+            logger.debug(e.getCause().toString(), e.getCause());
+            lastStoreUpdateFailed = true;
+          }
+          es.restart();
+        } catch (Exception e) {
+          logger.error("Unexpected exception in stream processor: {}", e.toString());
+          logger.debug(e.toString(), e);
         }
       }
 
@@ -244,11 +299,58 @@ final class StreamProcessor implements DataSource {
     return initialized.get();
   }
 
-  private static String getKeyFromStreamApiPath(DataKind kind, String path) {
-    String prefix = (kind == SEGMENTS) ? "/segments/" : "/flags/";
-    return path.startsWith(prefix) ? path.substring(prefix.length()) : null;
+  private static Map.Entry<DataKind, String> getKindAndKeyFromStreamApiPath(String path)
+      throws StreamInputException {
+    if (path == null) {
+      throw new StreamInputException("missing item path");
+    }
+    for (DataKind kind: ALL_DATA_KINDS) {
+      String prefix = (kind == SEGMENTS) ? "/segments/" : "/flags/";
+      if (path.startsWith(prefix)) {
+        return new AbstractMap.SimpleEntry<DataKind, String>(kind, path.substring(prefix.length()));
+      }
+    }
+    return null; // we don't recognize the path - the caller should ignore this event, just as we ignore unknown event types
+  }
+
+  private static <T> T parseStreamJson(Class<T> c, String json) throws StreamInputException {
+    try {
+      return JsonHelpers.deserialize(json, c);
+    } catch (SerializationException e) {
+      throw new StreamInputException(e);
+    }
+  }
+
+  private static VersionedData deserializeFromParsedJson(DataKind kind, JsonElement parsedJson)
+      throws StreamInputException {
+    try {
+      return JsonHelpers.deserializeFromParsedJson(kind, parsedJson);
+    } catch (SerializationException e) {
+      throw new StreamInputException(e);
+    }
+  }
+
+  // StreamInputException is either a JSON parsing error *or* a failure to query another endpoint
+  // (for indirect/put or indirect/patch); either way, it implies that we were unable to get valid data from LD services.
+  @SuppressWarnings("serial")
+  private static final class StreamInputException extends Exception {
+    public StreamInputException(String message) {
+      super(message);
+    }
+    
+    public StreamInputException(Throwable cause) {
+      super(cause);
+    }
   }
   
+  // This exception class indicates that the data store failed to persist an update.
+  @SuppressWarnings("serial")
+  private static final class StreamStoreException extends Exception {
+    public StreamStoreException(Throwable cause) {
+      super(cause);
+    }
+  }
+
   private static final class PutData {
     FeatureRequestor.AllData data;
     
