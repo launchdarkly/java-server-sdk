@@ -83,8 +83,9 @@ libraries.external = [
 
 // Add dependencies to "libraries.test" that are used only in unit tests.
 libraries.test = [
-    "com.squareup.okhttp3:mockwebserver:4.3.1",
-    "com.squareup.okhttp3:okhttp-tls:4.3.1",
+	// Note that the okhttp3 test deps must be kept in sync with the okhttp version used in okhttp-eventsource
+    "com.squareup.okhttp3:mockwebserver:4.5.0",
+    "com.squareup.okhttp3:okhttp-tls:4.5.0",
     "org.hamcrest:hamcrest-all:1.3",
     "org.easymock:easymock:3.4",
     "junit:junit:4.12",
