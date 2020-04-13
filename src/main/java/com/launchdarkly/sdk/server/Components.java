@@ -17,17 +17,13 @@ import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
-import com.launchdarkly.sdk.server.interfaces.ListenerRegistration;
-import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
@@ -226,6 +222,7 @@ public abstract class Components {
    * <p>
    * See {@link FlagValueChangeListener} for more information and examples.
    * 
+   * @param client the same client instance that you will be registering this listener with
    * @param flagKey the flag key to be evaluated
    * @param user the user properties for evaluation
    * @param valueChangeListener an object that you provide which will be notified of changes
@@ -235,8 +232,9 @@ public abstract class Components {
    * @see FlagValueChangeListener
    * @see FlagChangeListener
    */
-  public static FlagChangeListener flagValueMonitoringListener(String flagKey, LDUser user, FlagValueChangeListener valueChangeListener) {
-    return new FlagValueMonitorImpl(flagKey, user, valueChangeListener);
+  public static FlagChangeListener flagValueMonitoringListener(LDClientInterface client, String flagKey, LDUser user,
+      FlagValueChangeListener valueChangeListener) {
+    return new FlagValueMonitoringListener(client, flagKey, user, valueChangeListener);
   }
   
   private static final class InMemoryDataStoreFactory implements DataStoreFactory, DiagnosticDescription {
@@ -471,43 +469,6 @@ public abstract class Components {
         return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
       }
       return LDValue.of("custom");
-    }
-  }
-  
-  private static final class FlagValueMonitorImpl implements FlagChangeListener, ListenerRegistration {
-    private volatile LDClientInterface client;
-    private AtomicReference<LDValue> currentValue = new AtomicReference<>(LDValue.ofNull());
-    private final String flagKey;
-    private final LDUser user;
-    private final FlagValueChangeListener valueChangeListener;
-    
-    public FlagValueMonitorImpl(String flagKey, LDUser user, FlagValueChangeListener valueChangeListener) {
-      this.flagKey = flagKey;
-      this.user = user;
-      this.valueChangeListener = valueChangeListener;
-    }
-    
-    @Override
-    public void onRegister(LDClientInterface client) {
-      this.client = client;
-      currentValue.set(client.jsonValueVariation(flagKey, user, LDValue.ofNull()));
-    }
-
-    @Override
-    public void onUnregister(LDClientInterface client) {}
-
-    @Override
-    public void onFlagChange(FlagChangeEvent event) {
-      if (event.getKey().equals(flagKey)) {
-        LDClientInterface c = client;
-        if (c != null) { // shouldn't be possible to be null since we wouldn't get an event if we were never registered
-          LDValue newValue = c.jsonValueVariation(flagKey, user, LDValue.ofNull());
-          LDValue previousValue = currentValue.getAndSet(newValue);
-          if (!newValue.equals(previousValue)) {
-            valueChangeListener.onFlagValueChange(new FlagValueChangeEvent(flagKey, previousValue, newValue)); 
-          }
-        }
-      }
     }
   }
 }
