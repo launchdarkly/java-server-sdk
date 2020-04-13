@@ -209,7 +209,7 @@ abstract class DataModelDependencies {
         }
       }
       if (updatedDependencies == null) {
-        dependenciesFrom.remove(fromKind, fromKey);
+        dependenciesFrom.remove(fromWhat);
       } else {
         dependenciesFrom.put(fromWhat, updatedDependencies);
         for (KindAndKey newDep: updatedDependencies) {
