@@ -157,6 +157,11 @@ public abstract class ModelBuilders {
       return this;
     }
   
+    FlagBuilder fallthroughVariation(int fallthroughVariation) {
+      this.fallthrough = new DataModel.VariationOrRollout(fallthroughVariation, null);
+      return this;
+    }
+    
     FlagBuilder fallthrough(DataModel.VariationOrRollout fallthrough) {
       this.fallthrough = fallthrough;
       return this;
@@ -172,6 +177,15 @@ public abstract class ModelBuilders {
       return this;
     }
   
+    FlagBuilder variations(boolean... variations) {
+      List<LDValue> values = new ArrayList<>();
+      for (boolean v: variations) {
+        values.add(LDValue.of(v));
+      }
+      this.variations = values;
+      return this;
+    }
+    
     FlagBuilder clientSide(boolean clientSide) {
       this.clientSide = clientSide;
       return this;

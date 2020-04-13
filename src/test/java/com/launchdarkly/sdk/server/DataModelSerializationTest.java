@@ -44,11 +44,14 @@ public class DataModelSerializationTest {
     assertEquals(99, flag.getVersion());
     assertFalse(flag.isOn());
     assertNull(flag.getSalt());    
-    assertNull(flag.getTargets());
-    assertNull(flag.getRules());    
+    assertNotNull(flag.getTargets());
+    assertEquals(0, flag.getTargets().size());
+    assertNotNull(flag.getRules());
+    assertEquals(0, flag.getRules().size());
     assertNull(flag.getFallthrough());
     assertNull(flag.getOffVariation());
-    assertNull(flag.getVariations());
+    assertNotNull(flag.getVariations());
+    assertEquals(0, flag.getVariations().size());
     assertFalse(flag.isClientSide());
     assertFalse(flag.isTrackEvents());
     assertFalse(flag.isTrackEventsFallthrough());
@@ -72,9 +75,12 @@ public class DataModelSerializationTest {
     Segment segment = (Segment)SEGMENTS.deserialize(json).getItem();
     assertEquals("segment-key", segment.getKey());
     assertEquals(99, segment.getVersion());
-    assertNull(segment.getIncluded());
-    assertNull(segment.getExcluded());
-    assertNull(segment.getRules());
+    assertNotNull(segment.getIncluded());
+    assertEquals(0, segment.getIncluded().size());
+    assertNotNull(segment.getExcluded());
+    assertEquals(0, segment.getExcluded().size());
+    assertNotNull(segment.getRules());
+    assertEquals(0, segment.getRules().size());
   }
   
   private LDValue flagWithAllPropertiesJson() {

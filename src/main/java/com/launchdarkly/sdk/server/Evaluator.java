@@ -117,8 +117,8 @@ class Evaluator {
 
     // If the flag doesn't have any prerequisites (which most flags don't) then it cannot generate any feature
     // request events for prerequisites and we can skip allocating a List.
-    List<Event.FeatureRequest> prerequisiteEvents = (flag.getPrerequisites() == null || flag.getPrerequisites().isEmpty()) ?
-         null : new ArrayList<Event.FeatureRequest>();
+    List<Event.FeatureRequest> prerequisiteEvents = flag.getPrerequisites().isEmpty() ?
+         null : new ArrayList<Event.FeatureRequest>(); // note, getPrerequisites() is guaranteed non-null
     EvalResult result = evaluateInternal(flag, user, eventFactory, prerequisiteEvents);
     if (prerequisiteEvents != null) {
       result.setPrerequisiteEvents(prerequisiteEvents);
@@ -138,24 +138,19 @@ class Evaluator {
     }
     
     // Check to see if targets match
-    List<DataModel.Target> targets = flag.getTargets();
-    if (targets != null) {
-      for (DataModel.Target target: targets) {
-        if (target.getValues().contains(user.getKey())) {
-          return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
-        }
+    for (DataModel.Target target: flag.getTargets()) { // getTargets() and getValues() are guaranteed non-null
+      if (target.getValues().contains(user.getKey())) {
+        return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
       }
     }
     // Now walk through the rules and see if any match
-    List<DataModel.Rule> rules = flag.getRules();
-    if (rules != null) {
-      for (int i = 0; i < rules.size(); i++) {
-        DataModel.Rule rule = rules.get(i);
-        if (ruleMatchesUser(flag, rule, user)) {
-          EvaluationReason.RuleMatch precomputedReason = rule.getRuleMatchReason();
-          EvaluationReason.RuleMatch reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
-          return getValueForVariationOrRollout(flag, rule, user, reason);
-        }
+    List<DataModel.Rule> rules = flag.getRules(); // guaranteed non-null
+    for (int i = 0; i < rules.size(); i++) {
+      DataModel.Rule rule = rules.get(i);
+      if (ruleMatchesUser(flag, rule, user)) {
+        EvaluationReason.RuleMatch precomputedReason = rule.getRuleMatchReason();
+        EvaluationReason.RuleMatch reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
+        return getValueForVariationOrRollout(flag, rule, user, reason);
       }
     }
     // Walk through the fallthrough and see if it matches
@@ -166,11 +161,7 @@ class Evaluator {
   // short-circuit due to a prerequisite failure.
   private EvaluationReason checkPrerequisites(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
       List<Event.FeatureRequest> eventsOut) {
-    List<DataModel.Prerequisite> prerequisites = flag.getPrerequisites();
-    if (prerequisites == null) {
-      return null;
-    }
-    for (DataModel.Prerequisite prereq: prerequisites) {
+    for (DataModel.Prerequisite prereq: flag.getPrerequisites()) { // getPrerequisites() is guaranteed non-null
       boolean prereqOk = true;
       DataModel.FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
       if (prereqFeatureFlag == null) {
@@ -225,12 +216,9 @@ class Evaluator {
   }
 
   private boolean ruleMatchesUser(DataModel.FeatureFlag flag, DataModel.Rule rule, LDUser user) {
-    Iterable<DataModel.Clause> clauses = rule.getClauses();
-    if (clauses != null) {
-      for (DataModel.Clause clause: clauses) {
-        if (!clauseMatchesUser(clause, user)) {
-          return false;
-        }
+    for (DataModel.Clause clause: rule.getClauses()) { // getClauses() is guaranteed non-null
+      if (!clauseMatchesUser(clause, user)) {
+        return false;
       }
     }
     return true;
@@ -302,17 +290,15 @@ class Evaluator {
     if (userKey == null) {
       return false;
     }
-    if (segment.getIncluded() != null && segment.getIncluded().contains(userKey)) {
+    if (segment.getIncluded().contains(userKey)) { // getIncluded(), getExcluded(), and getRules() are guaranteed non-null
       return true;
     }
-    if (segment.getExcluded() != null && segment.getExcluded().contains(userKey)) {
+    if (segment.getExcluded().contains(userKey)) {
       return false;
     }
-    if (segment.getRules() != null) {
-      for (DataModel.SegmentRule rule: segment.getRules()) {
-        if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
-          return true;
-        }
+    for (DataModel.SegmentRule rule: segment.getRules()) {
+      if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
+        return true;
       }
     }
     return false;
