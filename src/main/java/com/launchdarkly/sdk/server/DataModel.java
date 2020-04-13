@@ -54,14 +54,14 @@ public abstract class DataModel {
   public static Iterable<DataKind> ALL_DATA_KINDS = ImmutableList.of(FEATURES, SEGMENTS);
   
   private static ItemDescriptor deserializeItem(String s, Class<? extends VersionedData> itemClass) {
-    VersionedData o = JsonHelpers.gsonInstance().fromJson(s, itemClass);
+    VersionedData o = JsonHelpers.deserialize(s, itemClass);
     return o.isDeleted() ? ItemDescriptor.deletedItem(o.getVersion()) : new ItemDescriptor(o.getVersion(), o);
   }
   
   private static String serializeItem(ItemDescriptor item) {
     Object o = item.getItem();
     if (o != null) {
-      return JsonHelpers.gsonInstance().toJson(o);
+      return JsonHelpers.serialize(o);
     }
     return "{\"version\":" + item.getVersion() + ",\"deleted\":true}";
   }

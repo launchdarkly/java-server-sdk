@@ -15,8 +15,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
 import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstanceForEventsSerialization;
+import static com.launchdarkly.sdk.server.TestUtil.TEST_GSON_INSTANCE;
 import static com.launchdarkly.sdk.server.TestUtil.defaultEventsConfig;
 import static com.launchdarkly.sdk.server.TestUtil.makeEventsConfig;
 import static org.junit.Assert.assertEquals;
@@ -28,8 +28,8 @@ public class EventUserSerializationTest {
   @Test
   public void testAllPropertiesInPrivateAttributeEncoding() {
     for (Map.Entry<LDUser, String> e: getUserPropertiesJsonMap().entrySet()) {
-      JsonElement expected = gsonInstance().fromJson(e.getValue(), JsonElement.class);
-      JsonElement actual = gsonInstance().toJsonTree(e.getKey());
+      JsonElement expected = TEST_GSON_INSTANCE.fromJson(e.getValue(), JsonElement.class);
+      JsonElement actual = TEST_GSON_INSTANCE.toJsonTree(e.getKey());
       assertEquals(expected, actual);
     }
   }
@@ -64,7 +64,7 @@ public class EventUserSerializationTest {
   public void defaultJsonEncodingHasPrivateAttributeNames() {
     LDUser user = new LDUser.Builder("userkey").privateName("x").build();
     String expected = "{\"key\":\"userkey\",\"name\":\"x\",\"privateAttributeNames\":[\"name\"]}";
-    assertEquals(gsonInstance().fromJson(expected, JsonElement.class), gsonInstance().toJsonTree(user));
+    assertEquals(TEST_GSON_INSTANCE.fromJson(expected, JsonElement.class), TEST_GSON_INSTANCE.toJsonTree(user));
   }
   
   @Test
@@ -143,6 +143,6 @@ public class EventUserSerializationTest {
   
   private Set<String> getPrivateAttrs(JsonObject o) {
     Type type = new TypeToken<HashSet<String>>(){}.getType();
-    return gsonInstance().<HashSet<String>>fromJson(o.get("privateAttrs"), type);
+    return TEST_GSON_INSTANCE.<HashSet<String>>fromJson(o.get("privateAttrs"), type);
   }
 }

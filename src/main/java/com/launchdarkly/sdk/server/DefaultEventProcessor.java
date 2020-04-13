@@ -673,7 +673,7 @@ final class DefaultEventProcessor implements EventProcessor {
       return new Runnable() {
         @Override
         public void run() {
-          String json = JsonHelpers.gsonInstance().toJson(diagnosticEvent);
+          String json = JsonHelpers.serialize(diagnosticEvent);
           postJson(httpClient, headers, json, uriStr, "diagnostic event", null, null);
         }
       };
