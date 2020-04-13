@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DiagnosticEvent.ConfigProperty;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
@@ -16,6 +17,8 @@ import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
+import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import java.io.IOException;
@@ -209,6 +212,31 @@ public abstract class Components {
     return NullDataSourceFactory.INSTANCE;
   }
 
+  /**
+   * Convenience method for creating a {@link FlagChangeListener} that tracks a flag's value for a specific user.
+   * <p>
+   * This listener instance should only be used with a single {@link LDClient} instance. When you first
+   * register it by calling {@link LDClientInterface#registerFlagChangeListener(FlagChangeListener)}, it
+   * immediately evaluates the flag. It then re-evaluates the flag whenever there is an update, and calls
+   * your {@link FlagValueChangeListener} if and only if the resulting value has changed.
+   * <p>
+   * See {@link FlagValueChangeListener} for more information and examples.
+   * 
+   * @param client the same client instance that you will be registering this listener with
+   * @param flagKey the flag key to be evaluated
+   * @param user the user properties for evaluation
+   * @param valueChangeListener an object that you provide which will be notified of changes
+   * @return a {@link FlagChangeListener} to be passed to {@link LDClientInterface#registerFlagChangeListener(FlagChangeListener)}
+   * 
+   * @since 5.0.0
+   * @see FlagValueChangeListener
+   * @see FlagChangeListener
+   */
+  public static FlagChangeListener flagValueMonitoringListener(LDClientInterface client, String flagKey, LDUser user,
+      FlagValueChangeListener valueChangeListener) {
+    return new FlagValueMonitoringListener(client, flagKey, user, valueChangeListener);
+  }
+  
   private static final class InMemoryDataStoreFactory implements DataStoreFactory, DiagnosticDescription {
     static final DataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
     @Override

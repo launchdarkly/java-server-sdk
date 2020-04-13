@@ -12,6 +12,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
+import static java.util.Collections.emptyList;
+
 /**
  * Contains information about the internal data model for feature flags and user segments.
  * <p>
@@ -52,14 +54,14 @@ public abstract class DataModel {
   public static Iterable<DataKind> ALL_DATA_KINDS = ImmutableList.of(FEATURES, SEGMENTS);
   
   private static ItemDescriptor deserializeItem(String s, Class<? extends VersionedData> itemClass) {
-    VersionedData o = JsonHelpers.gsonInstance().fromJson(s, itemClass);
+    VersionedData o = JsonHelpers.deserialize(s, itemClass);
     return o.isDeleted() ? ItemDescriptor.deletedItem(o.getVersion()) : new ItemDescriptor(o.getVersion(), o);
   }
   
   private static String serializeItem(ItemDescriptor item) {
     Object o = item.getItem();
     if (o != null) {
-      return JsonHelpers.gsonInstance().toJson(o);
+      return JsonHelpers.serialize(o);
     }
     return "{\"version\":" + item.getVersion() + ",\"deleted\":true}";
   }
@@ -151,28 +153,32 @@ public abstract class DataModel {
       return on;
     }
 
+    // Guaranteed non-null
     List<Prerequisite> getPrerequisites() {
-      return prerequisites;
+      return prerequisites == null ? emptyList() : prerequisites;
     }
 
     String getSalt() {
       return salt;
     }
 
+    // Guaranteed non-null
     List<Target> getTargets() {
-      return targets;
+      return targets == null ? emptyList() : targets;
     }
 
+    // Guaranteed non-null
     List<Rule> getRules() {
-      return rules;
+      return rules == null ? emptyList() : rules;
     }
 
     VariationOrRollout getFallthrough() {
       return fallthrough;
     }
 
+    // Guaranteed non-null
     List<LDValue> getVariations() {
-      return variations;
+      return variations == null ? emptyList() : variations;
     }
 
     Integer getOffVariation() {
@@ -241,8 +247,9 @@ public abstract class DataModel {
       this.variation = variation;
     }
   
+    // Guaranteed non-null
     Collection<String> getValues() {
-      return values;
+      return values == null ? emptyList() : values;
     }
   
     int getVariation() {
@@ -277,8 +284,9 @@ public abstract class DataModel {
       return id;
     }
     
+    // Guaranteed non-null
     List<Clause> getClauses() {
-      return clauses;
+      return clauses == null ? emptyList() : clauses;
     }
     
     boolean isTrackEvents() {
@@ -417,20 +425,23 @@ public abstract class DataModel {
       return key;
     }
     
+    // Guaranteed non-null
     Collection<String> getIncluded() {
-      return included;
+      return included == null ? emptyList() : included;
     }
     
+    // Guaranteed non-null
     Collection<String> getExcluded() {
-      return excluded;
+      return excluded == null ? emptyList() : excluded;
     }
     
     String getSalt() {
       return salt;
     }
     
+    // Guaranteed non-null
     List<SegmentRule> getRules() {
-      return rules;
+      return rules == null ? emptyList() : rules;
     }
     
     public int getVersion() {
@@ -453,8 +464,9 @@ public abstract class DataModel {
       this.bucketBy = bucketBy;
     }
     
+    // Guaranteed non-null
     List<Clause> getClauses() {
-      return clauses;
+      return clauses == null ? emptyList() : clauses;
     }
     
     Integer getWeight() {

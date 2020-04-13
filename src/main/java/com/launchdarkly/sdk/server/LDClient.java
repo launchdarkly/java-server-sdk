@@ -15,6 +15,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -53,6 +54,7 @@ public final class LDClient implements LDClientInterface {
   private final LDConfig config;
   private final String sdkKey;
   private final Evaluator evaluator;
+  private final FlagChangeEventPublisher flagChangeEventPublisher;
   final EventProcessor eventProcessor;
   final DataSource dataSource;
   final DataStore dataStore;
@@ -113,9 +115,11 @@ public final class LDClient implements LDClientInterface {
       }
     });
     
+    this.flagChangeEventPublisher = new FlagChangeEventPublisher();
+    
     DataSourceFactory dataSourceFactory = this.config.dataSourceFactory == null ?
         Components.streamingDataSource() : this.config.dataSourceFactory;
-    DataStoreUpdates dataStoreUpdates = new DataStoreUpdatesImpl(dataStore);
+    DataStoreUpdates dataStoreUpdates = new DataStoreUpdatesImpl(dataStore, flagChangeEventPublisher);
     this.dataSource = dataSourceFactory.createDataSource(context, dataStoreUpdates);
 
     Future<Void> startFuture = dataSource.start();
@@ -377,11 +381,22 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
+  public void registerFlagChangeListener(FlagChangeListener listener) {
+    flagChangeEventPublisher.register(listener);
+  }
+  
+  @Override
+  public void unregisterFlagChangeListener(FlagChangeListener listener) {
+    flagChangeEventPublisher.unregister(listener);
+  }
+  
+  @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly Client");
     this.dataStore.close();
     this.eventProcessor.close();
     this.dataSource.close();
+    this.flagChangeEventPublisher.close();
   }
 
   @Override
