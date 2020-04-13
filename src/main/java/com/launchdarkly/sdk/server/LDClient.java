@@ -17,7 +17,6 @@ import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
-import com.launchdarkly.sdk.server.interfaces.ListenerRegistration;
 
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -386,18 +385,12 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public void registerFlagChangeListener(FlagChangeListener listener) {
-    if (listener instanceof ListenerRegistration) {
-      ((ListenerRegistration)listener).onRegister(this);
-    }
     flagChangeEventPublisher.register(listener);
   }
   
   @Override
   public void unregisterFlagChangeListener(FlagChangeListener listener) {
     flagChangeEventPublisher.unregister(listener);
-    if (listener instanceof ListenerRegistration) {
-      ((ListenerRegistration)listener).onUnregister(this);
-    }
   }
   
   @Override

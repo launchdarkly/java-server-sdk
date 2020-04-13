@@ -5,12 +5,9 @@ import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -21,8 +18,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -41,11 +36,10 @@ import static org.junit.Assume.assumeThat;
 @SuppressWarnings("javadoc")
 @RunWith(Parameterized.class)
 public class PersistentDataStoreWrapperTest {
-
-  private final RuntimeException FAKE_ERROR = new RuntimeException("fake error");
+  private static final RuntimeException FAKE_ERROR = new RuntimeException("fake error");
   
   private final TestMode testMode;
-  private final MockCore core;
+  private final MockPersistentDataStore core;
   private final PersistentDataStoreWrapper wrapper;
   
   static class TestMode {
@@ -97,7 +91,7 @@ public class PersistentDataStoreWrapperTest {
   
   public PersistentDataStoreWrapperTest(TestMode testMode) {
     this.testMode = testMode;
-    this.core = new MockCore();
+    this.core = new MockPersistentDataStore();
     this.core.persistOnlyAsString = testMode.persistOnlyAsString;
     this.wrapper = new PersistentDataStoreWrapper(core, testMode.getCacheTtl(),
         PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, false);
@@ -423,11 +417,11 @@ public class PersistentDataStoreWrapperTest {
     assertThat(wrapper.isInitialized(), is(false));
     assertThat(core.initedQueryCount, equalTo(1));
     
-    core.inited = true;
+    core.inited.set(true);
     assertThat(wrapper.isInitialized(), is(true));
     assertThat(core.initedQueryCount, equalTo(2));
     
-    core.inited = false;
+    core.inited.set(false);
     assertThat(wrapper.isInitialized(), is(true));
     assertThat(core.initedQueryCount, equalTo(2));
   }
@@ -455,7 +449,7 @@ public class PersistentDataStoreWrapperTest {
       assertThat(wrapper1.isInitialized(), is(false));
       assertThat(core.initedQueryCount, equalTo(1));
       
-      core.inited = true;
+      core.inited.set(true);
       assertThat(core.initedQueryCount, equalTo(1));
       
       Thread.sleep(600);
@@ -605,7 +599,7 @@ public class PersistentDataStoreWrapperTest {
     assertThat(core.data.get(TEST_ITEMS).get(item2.key), equalTo(item2.toSerializedItemDescriptor()));
   }
   
-  private void causeStoreError(MockCore core, PersistentDataStoreWrapper w) {
+  private void causeStoreError(MockPersistentDataStore core, PersistentDataStoreWrapper w) {
     core.unavailable = true;
     core.fakeError = new RuntimeException(FAKE_ERROR.getMessage());
     try {
@@ -616,123 +610,8 @@ public class PersistentDataStoreWrapperTest {
     }
   }
   
-  private void makeStoreAvailable(MockCore core) {
+  private void makeStoreAvailable(MockPersistentDataStore core) {
     core.fakeError = null;
     core.unavailable = false;
-  }
-  
-
-  static class MockCore implements PersistentDataStore {
-    Map<DataKind, Map<String, SerializedItemDescriptor>> data = new HashMap<>();
-    boolean inited;
-    int initedQueryCount;
-    boolean persistOnlyAsString;
-    boolean unavailable;
-    RuntimeException fakeError;
-    
-    @Override
-    public void close() throws IOException {
-    }
-
-    @Override
-    public SerializedItemDescriptor get(DataKind kind, String key) {
-      maybeThrow();
-      if (data.containsKey(kind)) {
-        SerializedItemDescriptor item = data.get(kind).get(key);
-        if (item != null) {
-          if (persistOnlyAsString) {
-            // This simulates the kind of store implementation that can't track metadata separately  
-            return new SerializedItemDescriptor(0, false, item.getSerializedItem());
-          } else {
-            return item;
-          }
-        }
-      }
-      return null;
-    }
-
-    @Override
-    public KeyedItems<SerializedItemDescriptor> getAll(DataKind kind) {
-      maybeThrow();
-      return data.containsKey(kind) ? new KeyedItems<>(ImmutableList.copyOf(data.get(kind).entrySet())) : new KeyedItems<>(null);
-    }
-
-    @Override
-    public void init(FullDataSet<SerializedItemDescriptor> allData) {
-      maybeThrow();
-      data.clear();
-      for (Map.Entry<DataKind, KeyedItems<SerializedItemDescriptor>> entry: allData.getData()) {
-        DataKind kind = entry.getKey();
-        HashMap<String, SerializedItemDescriptor> items = new LinkedHashMap<>();
-        for (Map.Entry<String, SerializedItemDescriptor> e: entry.getValue().getItems()) {
-          items.put(e.getKey(), storableItem(kind, e.getValue()));
-        }
-        data.put(kind, items);
-      }
-      inited = true;
-    }
-
-    @Override
-    public boolean upsert(DataKind kind, String key, SerializedItemDescriptor item) {
-      maybeThrow();
-      if (!data.containsKey(kind)) {
-        data.put(kind, new HashMap<>());
-      }
-      Map<String, SerializedItemDescriptor> items = data.get(kind);
-      SerializedItemDescriptor oldItem = items.get(key);
-      if (oldItem != null && oldItem.getVersion() >= item.getVersion()) {
-        return false;
-      }
-      items.put(key, storableItem(kind, item));
-      return true;
-    }
-
-    @Override
-    public boolean isInitialized() {
-      maybeThrow();
-      initedQueryCount++;
-      return inited;
-    }
-    
-    @Override
-    public boolean isStoreAvailable() {
-      return !unavailable;
-    }
-    
-    public void forceSet(DataKind kind, TestItem item) {
-      forceSet(kind, item.key, item.toSerializedItemDescriptor());
-    }
-
-    public void forceSet(DataKind kind, String key, SerializedItemDescriptor item) {
-      if (!data.containsKey(kind)) {
-        data.put(kind, new HashMap<>());
-      }
-      Map<String, SerializedItemDescriptor> items = data.get(kind);
-      items.put(key, storableItem(kind, item));
-    }
-
-    public void forceRemove(DataKind kind, String key) {
-      if (data.containsKey(kind)) {
-        data.get(kind).remove(key);
-      }
-    }
-    
-    private SerializedItemDescriptor storableItem(DataKind kind, SerializedItemDescriptor item) {
-      if (item.isDeleted() && !persistOnlyAsString) {
-        // This simulates the kind of store implementation that *can* track metadata separately, so we don't
-        // have to persist the placeholder string for deleted items
-        return new SerializedItemDescriptor(item.getVersion(), true, null);
-      }
-      return item;
-    }
-    
-    private void maybeThrow() {
-      if (fakeError != null) {
-        throw fakeError;
-      }
-      if (unavailable) {
-        throw new RuntimeException("unavailable");
-      }
-    }
   }
 }
