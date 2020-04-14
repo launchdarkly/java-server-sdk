@@ -334,8 +334,13 @@ final class StreamProcessor implements DataSource {
       }
     }
 
-    private void handleIndirectPut() throws StreamStoreException, HttpErrorException, IOException {
-      FeatureRequestor.AllData putData = requestor.getAllData();
+    private void handleIndirectPut() throws StreamInputException, StreamStoreException {
+      FeatureRequestor.AllData putData;
+      try {
+        putData = requestor.getAllData();
+      } catch (Exception e) {
+        throw new StreamInputException(e);
+      }
       FullDataSet<ItemDescriptor> allData = putData.toFullDataSet();
       try {
         dataStoreUpdates.init(allData);

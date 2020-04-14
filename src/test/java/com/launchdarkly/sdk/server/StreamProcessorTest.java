@@ -475,22 +475,22 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void putEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestart("put", "{sorry");
+    verifyEventCausesStreamRestartWithInMemoryStore("put", "{sorry");
   }
 
   @Test
   public void putEventWithWellFormedJsonButInvalidDataCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestart("put", "{\"data\":{\"flags\":3}}");
+    verifyEventCausesStreamRestartWithInMemoryStore("put", "{\"data\":{\"flags\":3}}");
   }
 
   @Test
   public void patchEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestart("patch", "{sorry");
+    verifyEventCausesStreamRestartWithInMemoryStore("patch", "{sorry");
   }
 
   @Test
   public void patchEventWithWellFormedJsonButInvalidDataCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestart("patch", "{\"path\":\"/flags/flagkey\", \"data\":{\"rules\":3}}");
+    verifyEventCausesStreamRestartWithInMemoryStore("patch", "{\"path\":\"/flags/flagkey\", \"data\":{\"rules\":3}}");
   }
 
   @Test
@@ -500,7 +500,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void deleteEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestart("delete", "{sorry");
+    verifyEventCausesStreamRestartWithInMemoryStore("delete", "{sorry");
   }
 
   @Test
@@ -516,13 +516,13 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void indirectPutWithFailedPollCausesStreamRestart() throws Exception {
     expect(mockRequestor.getAllData()).andThrow(new IOException("sorry"));
-    verifyEventCausesStreamRestart("indirect/put", "");
+    verifyEventCausesStreamRestartWithInMemoryStore("indirect/put", "");
   }
 
   @Test
   public void indirectPatchWithFailedPollCausesStreamRestart() throws Exception {
     expect(mockRequestor.getFlag("flagkey")).andThrow(new IOException("sorry"));
-    verifyEventCausesStreamRestart("indirect/patch", "/flags/flagkey");
+    verifyEventCausesStreamRestartWithInMemoryStore("indirect/patch", "/flags/flagkey");
   }
   
   @Test
@@ -530,17 +530,21 @@ public class StreamProcessorTest extends EasyMockSupport {
     TestComponents.DataStoreWithStatusUpdates storeWithStatus = new TestComponents.DataStoreWithStatusUpdates(dataStore);
     
     SettableFuture<Void> restarted = SettableFuture.create();
+    mockEventSource.start();
+    expectLastCall();
     mockEventSource.restart();
     expectLastCall().andAnswer(() -> {
       restarted.set(null);
       return null;
     });
+    mockEventSource.close();
+    expectLastCall();
+    mockRequestor.close();
+    expectLastCall();
     
     replayAll();
     
-    try (StreamProcessor sp = new StreamProcessor(SDK_KEY, LDConfig.DEFAULT.httpConfig, mockRequestor,
-        dataStoreUpdates(storeWithStatus), mockEventSourceCreator, null,
-        STREAM_URI, StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY)) {
+    try (StreamProcessor sp = createStreamProcessorWithStore(storeWithStatus)) {
       sp.start();
       
       storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(false, false));
@@ -630,7 +634,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     verifyEventBehavior(eventName, eventData);
   }
   
-  private void verifyEventCausesStreamRestart(String eventName, String eventData) throws Exception {
+  private void verifyEventCausesStreamRestartWithInMemoryStore(String eventName, String eventData) throws Exception {
     expectStreamRestart();
     verifyEventBehavior(eventName, eventData);
   }
@@ -788,7 +792,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
     return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore),
-        new MockEventSourceCreator(mockEventSource), diagnosticAccumulator,
+        mockEventSourceCreator, diagnosticAccumulator,
         streamUri, DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 
@@ -799,7 +803,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   private StreamProcessor createStreamProcessorWithStore(DataStore store) {
     return new StreamProcessor(SDK_KEY, LDConfig.DEFAULT.httpConfig, mockRequestor, dataStoreUpdates(store),
-        new MockEventSourceCreator(mockEventSource), null, STREAM_URI, DEFAULT_INITIAL_RECONNECT_DELAY);
+        mockEventSourceCreator, null, STREAM_URI, DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 
   private String featureJson(String key, int version) {

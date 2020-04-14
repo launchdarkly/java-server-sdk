@@ -180,10 +180,12 @@ public class TestComponents {
       throw e;
     }
 
-    public void init(FullDataSet<ItemDescriptor> allData) { }
+    public void init(FullDataSet<ItemDescriptor> allData) {
+      throw e;
+    }
 
     public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
-      return true;
+      throw e;
     }
 
     public boolean isInitialized() {
