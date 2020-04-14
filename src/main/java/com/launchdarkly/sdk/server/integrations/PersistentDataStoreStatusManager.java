@@ -79,9 +79,11 @@ final class PersistentDataStoreStatusManager {
     // If the store has just become unavailable, start a poller to detect when it comes back. If it has
     // become available, stop any polling we are currently doing.
     if (available) {
-      if (pollerFuture != null) { // don't need to synchronize access here because the state transition was already synchronized above
-        pollerFuture.cancel(false);
-        pollerFuture = null;
+      synchronized (this) {
+        if (pollerFuture != null) {
+          pollerFuture.cancel(false);
+          pollerFuture = null;
+        }
       }
     } else {
       logger.warn("Detected persistent store unavailability; updates will be cached until it recovers");
@@ -98,7 +100,11 @@ final class PersistentDataStoreStatusManager {
           }
         }
       };
-      pollerFuture = scheduler.scheduleAtFixedRate(pollerTask, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);
+      synchronized (this) {
+        if (pollerFuture == null) {
+          pollerFuture = scheduler.scheduleAtFixedRate(pollerTask, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);          
+        }
+      }
     }
   }
   
