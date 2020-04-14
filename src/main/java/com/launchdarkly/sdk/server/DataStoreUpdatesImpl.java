@@ -142,6 +142,10 @@ final class DataStoreUpdatesImpl implements DataStoreUpdates {
         if (oldItem == null || newItem == null || oldItem.getVersion() < newItem.getVersion()) {
           dependencyTracker.addAffectedItems(affectedItems, new KindAndKey(kind, key));
         }
+        // Note that comparing the version numbers is sufficient; we don't have to compare every detail of the
+        // flag or segment configuration, because it's a basic underlying assumption of the entire LD data model
+        // that if an entity's version number hasn't changed, then the entity hasn't changed (and that if two
+        // version numbers are different, the higher one is the more recent version).
       }
     }
     return affectedItems;  

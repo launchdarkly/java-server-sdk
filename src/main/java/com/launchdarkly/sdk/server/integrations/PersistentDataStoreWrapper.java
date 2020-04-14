@@ -439,10 +439,10 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
       if (e == null) {
         logger.warn("Successfully updated persistent store from cached data");
       } else {
-        // We failed to write the cached data to the underlying store. In this case,
-        // initCore() has already put us back into the failed state. The only further
-        // thing we can do is to log a note about what just happened.
+        // We failed to write the cached data to the underlying store. In this case, we should not
+        // return to a recovered state, but just try this all again next time the poll task runs.
         logger.error("Tried to write cached data to persistent store after a store outage, but failed: {}", e);
+        return false;
       }
     }
     

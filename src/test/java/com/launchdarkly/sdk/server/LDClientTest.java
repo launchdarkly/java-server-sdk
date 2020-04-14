@@ -447,8 +447,8 @@ public class LDClientTest extends EasyMockSupport {
     client = new LDClient(SDK_KEY, config);
     FlagValueChangeEventSink eventSink1 = new FlagValueChangeEventSink();
     FlagValueChangeEventSink eventSink2 = new FlagValueChangeEventSink();
-    client.registerFlagChangeListener(Components.flagValueMonitoringListener(flagKey, user, eventSink1));
-    client.registerFlagChangeListener(Components.flagValueMonitoringListener(flagKey, otherUser, eventSink2));
+    client.registerFlagChangeListener(Components.flagValueMonitoringListener(client, flagKey, user, eventSink1));
+    client.registerFlagChangeListener(Components.flagValueMonitoringListener(client, flagKey, otherUser, eventSink2));
     
     eventSink1.expectNoEvents();
     eventSink2.expectNoEvents();
