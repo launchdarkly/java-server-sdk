@@ -1,14 +1,9 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
-import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.LDClient;
-import com.launchdarkly.sdk.server.LDClientInterface;
-import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
@@ -21,8 +16,9 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
-import static com.launchdarkly.sdk.server.TestUtil.specificDataStore;
-import static com.launchdarkly.sdk.server.TestUtil.specificEventProcessor;
+import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificEventProcessor;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -34,8 +30,8 @@ public class LDClientEventTest {
   private static final LDUser user = new LDUser("userkey");
   private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
   
-  private DataStore dataStore = TestUtil.initedDataStore();
-  private TestUtil.TestEventProcessor eventSink = new TestUtil.TestEventProcessor();
+  private DataStore dataStore = initedDataStore();
+  private TestComponents.TestEventProcessor eventSink = new TestComponents.TestEventProcessor();
   private LDConfig config = new LDConfig.Builder()
       .dataStore(specificDataStore(dataStore))
       .events(specificEventProcessor(eventSink))

@@ -22,8 +22,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static com.launchdarkly.sdk.server.TestUtil.clientContext;
-import static com.launchdarkly.sdk.server.TestUtil.dataStoreUpdates;
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestComponents.dataStoreUpdates;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertFalse;
@@ -59,7 +59,7 @@ public class PollingProcessorTest {
   @Test
   public void testConnectionOk() throws Exception {
     MockFeatureRequestor requestor = new MockFeatureRequestor();
-    requestor.allData = new FeatureRequestor.AllData(new HashMap<String, DataModel.FeatureFlag>(), new HashMap<String, DataModel.Segment>());
+    requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
     DataStore store = new InMemoryDataStore();
     
     try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {    

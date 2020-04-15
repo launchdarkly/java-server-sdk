@@ -15,8 +15,8 @@ import org.junit.Test;
 import java.io.IOException;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
-import static com.launchdarkly.sdk.server.TestUtil.initedDataStore;
-import static com.launchdarkly.sdk.server.TestUtil.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;

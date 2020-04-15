@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.server.DataModelDependencies.KindAndKey;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -32,10 +33,12 @@ final class DataStoreUpdatesImpl implements DataStoreUpdates {
   private final DataStore store;
   private final FlagChangeEventPublisher flagChangeEventPublisher;
   private final DataModelDependencies.DependencyTracker dependencyTracker = new DataModelDependencies.DependencyTracker();
-
+  private final DataStoreStatusProvider dataStoreStatusProvider;
+  
   DataStoreUpdatesImpl(DataStore store, FlagChangeEventPublisher flagChangeEventPublisher) {
     this.store = store;
     this.flagChangeEventPublisher = flagChangeEventPublisher;
+    this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(store);
   }
   
   @Override
@@ -76,6 +79,11 @@ final class DataStoreUpdatesImpl implements DataStoreUpdates {
         sendChangeEvents(affectedItems);
       }
     }
+  }
+
+  @Override
+  public DataStoreStatusProvider getStatusProvider() {
+    return dataStoreStatusProvider;
   }
 
   private boolean hasFlagChangeEventListeners() {

@@ -312,12 +312,13 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
 
   @Override
   public Status getStoreStatus() {
-    return new PersistentDataStoreStatusManager.StatusImpl(statusManager.isAvailable(), false);
+    return new Status(statusManager.isAvailable(), false);
   }
 
   @Override
-  public void addStatusListener(StatusListener listener) {
+  public boolean addStatusListener(StatusListener listener) {
     statusManager.addStatusListener(listener);
+    return true;
   }
 
   @Override
@@ -440,7 +441,7 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
       } else {
         // We failed to write the cached data to the underlying store. In this case, we should not
         // return to a recovered state, but just try this all again next time the poll task runs.
-        logger.error("Tried to write cached data to persistent store after a store outage, but failed: {0}", e);
+        logger.error("Tried to write cached data to persistent store after a store outage, but failed: {}", e);
         return false;
       }
     }

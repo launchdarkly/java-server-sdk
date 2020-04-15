@@ -64,7 +64,7 @@ final class PollingProcessor implements DataSource {
     scheduler.scheduleAtFixedRate(() -> {
       try {
         FeatureRequestor.AllData allData = requestor.getAllData();
-        dataStoreUpdates.init(DefaultFeatureRequestor.toFullDataSet(allData));
+        dataStoreUpdates.init(allData.toFullDataSet());
         if (!initialized.getAndSet(true)) {
           logger.info("Initialized LaunchDarkly client.");
           initFuture.set(null);

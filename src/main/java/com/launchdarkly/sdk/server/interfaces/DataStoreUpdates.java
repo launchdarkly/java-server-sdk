@@ -39,5 +39,17 @@ public interface DataStoreUpdates {
    * @param key the unique key for the item within that collection
    * @param item the item to insert or update
    */
-  void upsert(DataKind kind, String key, ItemDescriptor item);  
+  void upsert(DataKind kind, String key, ItemDescriptor item); 
+  
+  /**
+   * Returns an object that provides status tracking for the data store, if applicable.
+   * <p>
+   * For data stores that do not support status tracking (the in-memory store, or a custom implementation
+   * that is not based on the SDK's usual persistent data store mechanism), it returns a stub
+   * implementation that returns null from {@link DataStoreStatusProvider#getStoreStatus()} and
+   * false from {@link DataStoreStatusProvider#addStatusListener(com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.StatusListener)}. 
+   * 
+   * @return a {@link DataStoreStatusProvider}
+   */
+  DataStoreStatusProvider getStatusProvider();
 }

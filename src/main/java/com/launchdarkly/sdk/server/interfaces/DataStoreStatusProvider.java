@@ -17,7 +17,8 @@ import java.util.Objects;
 public interface DataStoreStatusProvider {
   /**
    * Returns the current status of the store.
-   * @return the latest status
+   * 
+   * @return the latest status, or null if not available
    */
   public Status getStoreStatus();
   
@@ -37,8 +38,10 @@ public interface DataStoreStatusProvider {
    * are using the default in-memory store rather than a persistent store.
    * 
    * @param listener the listener to add
+   * @return true if the listener was added, or was already registered; false if the data store does not support
+   *   status tracking
    */
-  public void addStatusListener(StatusListener listener);
+  public boolean addStatusListener(StatusListener listener);
 
   /**
    * Unsubscribes from notifications of status changes.
@@ -64,7 +67,20 @@ public interface DataStoreStatusProvider {
   /**
    * Information about a status change.
    */
-  public static interface Status {
+  public static final class Status {
+    private final boolean available;
+    private final boolean refreshNeeded;
+    
+    /**
+     * Creates an instance.
+     * @param available see {@link #isAvailable()}
+     * @param refreshNeeded see {@link #isRefreshNeeded()}
+     */
+    public Status(boolean available, boolean refreshNeeded) {
+      this.available = available;
+      this.refreshNeeded = refreshNeeded;
+    }
+    
     /**
      * Returns true if the SDK believes the data store is now available.
      * <p>
@@ -74,7 +90,9 @@ public interface DataStoreStatusProvider {
      *  
      * @return true if store is available
      */
-    public boolean isAvailable();
+    public boolean isAvailable() {
+      return available;
+    }
     
     /**
      * Returns true if the store may be out of date due to a previous outage, so the SDK should attempt to refresh
@@ -84,7 +102,9 @@ public interface DataStoreStatusProvider {
      * 
      * @return true if data should be rewritten
      */
-    public boolean isRefreshNeeded();
+    public boolean isRefreshNeeded() {
+      return refreshNeeded;
+    }
   }
   
   /**

@@ -7,14 +7,6 @@ import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.FeatureFlagsState;
-import com.launchdarkly.sdk.server.FlagsStateOption;
-import com.launchdarkly.sdk.server.InMemoryDataStore;
-import com.launchdarkly.sdk.server.LDClient;
-import com.launchdarkly.sdk.server.LDClientInterface;
-import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 
 import org.junit.Test;
@@ -28,10 +20,11 @@ import static com.launchdarkly.sdk.server.ModelBuilders.fallthroughVariation;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
-import static com.launchdarkly.sdk.server.TestUtil.dataStoreThatThrowsException;
-import static com.launchdarkly.sdk.server.TestUtil.failedDataSource;
-import static com.launchdarkly.sdk.server.TestUtil.specificDataSource;
-import static com.launchdarkly.sdk.server.TestUtil.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
+import static com.launchdarkly.sdk.server.TestComponents.failedDataSource;
+import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificDataSource;
+import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestUtil.upsertSegment;
 import static org.junit.Assert.assertEquals;
@@ -45,7 +38,7 @@ public class LDClientEvaluationTest {
   private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
   private static final Gson gson = new Gson();
   
-  private DataStore dataStore = TestUtil.initedDataStore();
+  private DataStore dataStore = initedDataStore();
 
   private LDConfig config = new LDConfig.Builder()
       .dataStore(specificDataStore(dataStore))

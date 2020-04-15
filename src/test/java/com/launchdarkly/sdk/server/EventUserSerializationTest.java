@@ -16,9 +16,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstanceForEventsSerialization;
+import static com.launchdarkly.sdk.server.TestComponents.defaultEventsConfig;
+import static com.launchdarkly.sdk.server.TestComponents.makeEventsConfig;
 import static com.launchdarkly.sdk.server.TestUtil.TEST_GSON_INSTANCE;
-import static com.launchdarkly.sdk.server.TestUtil.defaultEventsConfig;
-import static com.launchdarkly.sdk.server.TestUtil.makeEventsConfig;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
