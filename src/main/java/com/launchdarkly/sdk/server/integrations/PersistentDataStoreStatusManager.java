@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
  */
 final class PersistentDataStoreStatusManager {
   private static final Logger logger = LoggerFactory.getLogger(PersistentDataStoreStatusManager.class);
-  private static final int POLL_INTERVAL_MS = 500;
+  static final int POLL_INTERVAL_MS = 500; // visible for testing
   
   private final List<DataStoreStatusProvider.StatusListener> listeners = new ArrayList<>();
   private final ScheduledExecutorService scheduler;

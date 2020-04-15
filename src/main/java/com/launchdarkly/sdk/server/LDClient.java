@@ -183,7 +183,6 @@ public final class LDClient implements LDClientInterface {
 
   private void sendFlagRequestEvent(Event.FeatureRequest event) {
     eventProcessor.sendEvent(event);
-    NewRelicReflector.annotateTransaction(event.getKey(), String.valueOf(event.getValue()));
   }
 
   @Override
