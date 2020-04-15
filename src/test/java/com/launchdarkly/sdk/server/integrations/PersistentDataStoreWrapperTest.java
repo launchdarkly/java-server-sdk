@@ -4,18 +4,23 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
@@ -23,6 +28,7 @@ import static com.launchdarkly.sdk.server.DataStoreTestTypes.toItemsMap;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toSerialized;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.fail;
@@ -31,8 +37,7 @@ import static org.junit.Assume.assumeThat;
 @SuppressWarnings("javadoc")
 @RunWith(Parameterized.class)
 public class PersistentDataStoreWrapperTest {
-
-  private final RuntimeException FAKE_ERROR = new RuntimeException("fake error");
+  private static final RuntimeException FAKE_ERROR = new RuntimeException("fake error");
   
   private final TestMode testMode;
   private final MockPersistentDataStore core;
@@ -90,7 +95,12 @@ public class PersistentDataStoreWrapperTest {
     this.core = new MockPersistentDataStore();
     this.core.persistOnlyAsString = testMode.persistOnlyAsString;
     this.wrapper = new PersistentDataStoreWrapper(core, testMode.getCacheTtl(),
-        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, null);
+        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, false);
+  }
+  
+  @After
+  public void tearDown() throws IOException {
+    this.wrapper.close();
   }
   
   @Test
@@ -436,7 +446,7 @@ public class PersistentDataStoreWrapperTest {
     
     // We need to create a different object for this test so we can set a short cache TTL
     try (PersistentDataStoreWrapper wrapper1 = new PersistentDataStoreWrapper(core,
-        Duration.ofMillis(500), PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, null)) {
+        Duration.ofMillis(500), PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, false)) {
       assertThat(wrapper1.isInitialized(), is(false));
       assertThat(core.initedQueryCount, equalTo(1));
       
@@ -458,17 +468,15 @@ public class PersistentDataStoreWrapperTest {
   public void canGetCacheStats() throws Exception {
     assumeThat(testMode.isCachedWithFiniteTtl(), is(true));
     
-    CacheMonitor cacheMonitor = new CacheMonitor();
-    
     try (PersistentDataStoreWrapper w = new PersistentDataStoreWrapper(core,
-        Duration.ofSeconds(30), PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, cacheMonitor)) {
-      CacheMonitor.CacheStats stats = cacheMonitor.getCacheStats();
+        Duration.ofSeconds(30), PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, true)) {
+      DataStoreStatusProvider.CacheStats stats = w.getCacheStats();
       
-      assertThat(stats, equalTo(new CacheMonitor.CacheStats(0, 0, 0, 0, 0, 0)));
+      assertThat(stats, equalTo(new DataStoreStatusProvider.CacheStats(0, 0, 0, 0, 0, 0)));
       
       // Cause a cache miss
       w.get(TEST_ITEMS, "key1");
-      stats = cacheMonitor.getCacheStats();
+      stats = w.getCacheStats();
       assertThat(stats.getHitCount(), equalTo(0L));
       assertThat(stats.getMissCount(), equalTo(1L));
       assertThat(stats.getLoadSuccessCount(), equalTo(1L)); // even though it's a miss, it's a "success" because there was no exception
@@ -478,7 +486,7 @@ public class PersistentDataStoreWrapperTest {
       core.forceSet(TEST_ITEMS, new TestItem("key2", 1));
       w.get(TEST_ITEMS, "key2"); // this one is a cache miss, but causes the item to be loaded and cached
       w.get(TEST_ITEMS, "key2"); // now it's a cache hit
-      stats = cacheMonitor.getCacheStats();
+      stats = w.getCacheStats();
       assertThat(stats.getHitCount(), equalTo(1L));
       assertThat(stats.getMissCount(), equalTo(2L));
       assertThat(stats.getLoadSuccessCount(), equalTo(2L));
@@ -490,13 +498,188 @@ public class PersistentDataStoreWrapperTest {
         w.get(TEST_ITEMS, "key3"); // cache miss -> tries to load the item -> gets an exception
         fail("expected exception");
       } catch (RuntimeException e) {
-        assertThat(e.getCause(), is((Throwable)core.fakeError));
+        assertThat(e, is((Throwable)core.fakeError));
       }
-      stats = cacheMonitor.getCacheStats();
+      stats = w.getCacheStats();
       assertThat(stats.getHitCount(), equalTo(1L));
       assertThat(stats.getMissCount(), equalTo(3L));
       assertThat(stats.getLoadSuccessCount(), equalTo(2L));
       assertThat(stats.getLoadExceptionCount(), equalTo(1L));
     }
+  }
+  
+  @Test
+  public void statusIsOkInitially() throws Exception {
+    DataStoreStatusProvider.Status status = wrapper.getStoreStatus();
+    assertThat(status.isAvailable(), is(true));
+    assertThat(status.isRefreshNeeded(), is(false));
+  }
+  
+  @Test
+  public void statusIsUnavailableAfterError() throws Exception {
+    causeStoreError(core, wrapper);
+    
+    DataStoreStatusProvider.Status status = wrapper.getStoreStatus();
+    assertThat(status.isAvailable(), is(false));
+    assertThat(status.isRefreshNeeded(), is(false));
+  }
+  
+  @Test
+  public void statusListenerIsNotifiedOnFailureAndRecovery() throws Exception {
+    final BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    wrapper.addStatusListener(statuses::add);
+      
+    causeStoreError(core, wrapper);
+    
+    DataStoreStatusProvider.Status status1 = statuses.take();
+    assertThat(status1.isAvailable(), is(false));
+    assertThat(status1.isRefreshNeeded(), is(false));
+    
+    // Trigger another error, just to show that it will *not* publish a redundant status update since it
+    // is already in a failed state
+    causeStoreError(core, wrapper);
+    
+    // Now simulate the data store becoming OK again; the poller detects this and publishes a new status
+    makeStoreAvailable(core);
+    DataStoreStatusProvider.Status status2 = statuses.take();
+    assertThat(status2.isAvailable(), is(true));
+    assertThat(status2.isRefreshNeeded(), is(!testMode.isCachedIndefinitely()));
+  }
+  
+  @Test
+  public void cacheIsWrittenToStoreAfterRecoveryIfTtlIsInfinite() throws Exception {
+    assumeThat(testMode.isCachedIndefinitely(), is(true));
+
+    final BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    wrapper.addStatusListener(statuses::add);
+
+    TestItem item1v1 = new TestItem("key1", 1);
+    TestItem item1v2 = item1v1.withVersion(2);
+    TestItem item2 = new TestItem("key2", 1);
+
+    wrapper.init(new DataBuilder().add(TEST_ITEMS, item1v1).build());
+    
+    // In infinite cache mode, we do *not* expect exceptions thrown by the store to be propagated; it will
+    // swallow the error, but also go into polling/recovery mode. Note that even though the store rejects
+    // this update, it'll still be cached.
+    causeStoreError(core, wrapper);
+    try {
+      wrapper.upsert(TEST_ITEMS, item1v1.key, item1v2.toItemDescriptor());
+      fail("expected exception");
+    } catch (RuntimeException e) {
+      assertThat(e.getMessage(), equalTo(FAKE_ERROR.getMessage()));
+    }
+    assertThat(wrapper.get(TEST_ITEMS, item1v1.key), equalTo(item1v2.toItemDescriptor()));
+    
+    DataStoreStatusProvider.Status status1 = statuses.take();
+    assertThat(status1.isAvailable(), is(false));
+    assertThat(status1.isRefreshNeeded(), is(false));
+    
+    // While the store is still down, try to update it again - the update goes into the cache
+    try {
+      wrapper.upsert(TEST_ITEMS, item2.key, item2.toItemDescriptor());
+      fail("expected exception");
+    } catch (RuntimeException e) {
+      assertThat(e.getMessage(), equalTo(FAKE_ERROR.getMessage()));
+    }
+    assertThat(wrapper.get(TEST_ITEMS, item2.key), equalTo(item2.toItemDescriptor()));
+    
+    // Verify that this update did not go into the underlying data yet
+    assertThat(core.data.get(TEST_ITEMS).get(item2.key), nullValue());
+    
+    // Now simulate the store coming back up
+    makeStoreAvailable(core);
+
+    // Wait for the poller to notice this and publish a new status
+    DataStoreStatusProvider.Status status2 = statuses.take();
+    assertThat(status2.isAvailable(), is(true));
+    assertThat(status2.isRefreshNeeded(), is(false));
+
+    // Once that has happened, the cache should have been written to the store
+    assertThat(core.data.get(TEST_ITEMS).get(item1v1.key), equalTo(item1v2.toSerializedItemDescriptor()));
+    assertThat(core.data.get(TEST_ITEMS).get(item2.key), equalTo(item2.toSerializedItemDescriptor()));
+  }
+  
+  @Test
+  public void statusRemainsUnavailableIfStoreSaysItIsAvailableButInitFails() throws Exception {
+    assumeThat(testMode.isCachedIndefinitely(), is(true));
+
+    // Most of this test is identical to cacheIsWrittenToStoreAfterRecoveryIfTtlIsInfinite() except as noted below.
+    
+    final BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    wrapper.addStatusListener(statuses::add);
+
+    TestItem item1v1 = new TestItem("key1", 1);
+    TestItem item1v2 = item1v1.withVersion(2);
+    TestItem item2 = new TestItem("key2", 1);
+
+    wrapper.init(new DataBuilder().add(TEST_ITEMS, item1v1).build());
+    
+    causeStoreError(core, wrapper);
+    try {
+      wrapper.upsert(TEST_ITEMS, item1v1.key, item1v2.toItemDescriptor());
+      fail("expected exception");
+    } catch (RuntimeException e) {
+      assertThat(e.getMessage(), equalTo(FAKE_ERROR.getMessage()));
+    }
+    assertThat(wrapper.get(TEST_ITEMS, item1v1.key), equalTo(item1v2.toItemDescriptor()));
+    
+    DataStoreStatusProvider.Status status1 = statuses.take();
+    assertThat(status1.isAvailable(), is(false));
+    assertThat(status1.isRefreshNeeded(), is(false));
+    
+    // While the store is still down, try to update it again - the update goes into the cache
+    try {
+      wrapper.upsert(TEST_ITEMS, item2.key, item2.toItemDescriptor());
+      fail("expected exception");
+    } catch (RuntimeException e) {
+      assertThat(e.getMessage(), equalTo(FAKE_ERROR.getMessage()));
+    }
+    assertThat(wrapper.get(TEST_ITEMS, item2.key), equalTo(item2.toItemDescriptor()));
+    
+    // Verify that this update did not go into the underlying data yet
+    assertThat(core.data.get(TEST_ITEMS).get(item2.key), nullValue());
+
+    // Here's what is unique to this test: we are telling the store to report its status as "available",
+    // but *not* clearing the fake exception, so when the poller tries to write the cached data with
+    // init() it should fail.
+    core.unavailable = false;
+    
+    // We can't prove that an unwanted status transition will never happen, but we can verify that it
+    // does not happen within two status poll intervals.
+    Thread.sleep(PersistentDataStoreStatusManager.POLL_INTERVAL_MS * 2);
+    
+    assertThat(statuses.isEmpty(), is(true));
+    int initedCount = core.initedCount.get();
+    assertThat(initedCount, greaterThan(1)); // that is, it *tried* to do at least one init
+    
+    // Now simulate the store coming back up and actually working
+    core.fakeError = null;
+
+    // Wait for the poller to notice this and publish a new status
+    DataStoreStatusProvider.Status status2 = statuses.take();
+    assertThat(status2.isAvailable(), is(true));
+    assertThat(status2.isRefreshNeeded(), is(false));
+
+    // Once that has happened, the cache should have been written to the store
+    assertThat(core.data.get(TEST_ITEMS).get(item1v1.key), equalTo(item1v2.toSerializedItemDescriptor()));
+    assertThat(core.data.get(TEST_ITEMS).get(item2.key), equalTo(item2.toSerializedItemDescriptor()));
+    assertThat(core.initedCount.get(), greaterThan(initedCount));
+  }
+  
+  private void causeStoreError(MockPersistentDataStore core, PersistentDataStoreWrapper w) {
+    core.unavailable = true;
+    core.fakeError = new RuntimeException(FAKE_ERROR.getMessage());
+    try {
+      wrapper.upsert(TEST_ITEMS, "irrelevant-key", ItemDescriptor.deletedItem(1));
+      fail("expected exception");
+    } catch (RuntimeException e) {
+      assertThat(e.getMessage(), equalTo(FAKE_ERROR.getMessage()));
+    }
+  }
+  
+  private void makeStoreAvailable(MockPersistentDataStore core) {
+    core.fakeError = null;
+    core.unavailable = false;
   }
 }

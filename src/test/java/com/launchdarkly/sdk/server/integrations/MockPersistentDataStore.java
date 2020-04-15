@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @SuppressWarnings("javadoc")
 public final class MockPersistentDataStore implements PersistentDataStore {
@@ -21,12 +22,14 @@ public final class MockPersistentDataStore implements PersistentDataStore {
     Map<String, AtomicBoolean> initedByPrefix = new HashMap<>();
   }
   
-  Map<DataKind, Map<String, SerializedItemDescriptor>> data;
-  AtomicBoolean inited;
-  int initedQueryCount;
-  boolean persistOnlyAsString;
-  RuntimeException fakeError;
-  Runnable updateHook;
+  final Map<DataKind, Map<String, SerializedItemDescriptor>> data;
+  final AtomicBoolean inited;
+  final AtomicInteger initedCount = new AtomicInteger(0);
+  volatile int initedQueryCount;
+  volatile boolean persistOnlyAsString;
+  volatile boolean unavailable;
+  volatile RuntimeException fakeError;
+  volatile Runnable updateHook;
   
   public MockPersistentDataStore() {
     this.data = new HashMap<>();
@@ -76,6 +79,7 @@ public final class MockPersistentDataStore implements PersistentDataStore {
 
   @Override
   public void init(FullDataSet<SerializedItemDescriptor> allData) {
+    initedCount.incrementAndGet();
     maybeThrow();
     data.clear();
     for (Map.Entry<DataKind, KeyedItems<SerializedItemDescriptor>> entry: allData.getData()) {
@@ -119,6 +123,11 @@ public final class MockPersistentDataStore implements PersistentDataStore {
     maybeThrow();
     initedQueryCount++;
     return inited.get();
+  }
+  
+  @Override
+  public boolean isStoreAvailable() {
+    return !unavailable;
   }
   
   public void forceSet(DataKind kind, TestItem item) {

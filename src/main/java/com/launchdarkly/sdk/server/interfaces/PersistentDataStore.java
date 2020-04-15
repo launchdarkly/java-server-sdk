@@ -121,4 +121,18 @@ public interface PersistentDataStore extends Closeable {
    * @return true if the store has been initialized
    */
   boolean isInitialized();
+  
+  /**
+   * Tests whether the data store seems to be functioning normally.
+   * <p>
+   * This should not be a detailed test of different kinds of operations, but just the smallest possible
+   * operation to determine whether (for instance) we can reach the database.
+   * <p>
+   * Whenever one of the store's other methods throws an exception, the SDK will assume that it may have
+   * become unavailable (e.g. the database connection was lost). The SDK will then call
+   * {@link #isStoreAvailable()} at intervals until it returns true.
+   * 
+   * @return true if the underlying data store is reachable
+   */
+  public boolean isStoreAvailable();
 }

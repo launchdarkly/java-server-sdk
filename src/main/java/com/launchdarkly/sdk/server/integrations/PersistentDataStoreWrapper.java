@@ -3,25 +3,30 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.AbstractMap;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.Callable;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,14 +45,17 @@ import static com.google.common.collect.Iterables.isEmpty;
  * <p>
  * This class is only constructed by {@link PersistentDataStoreBuilder}.
  */
-class PersistentDataStoreWrapper implements DataStore {
+final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProvider {
+  private static final Logger logger = LoggerFactory.getLogger(PersistentDataStoreWrapper.class);
   private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "CachingStoreWrapper-refresher-pool-%d";
 
   private final PersistentDataStore core;
   private final LoadingCache<CacheKey, Optional<ItemDescriptor>> itemCache;
   private final LoadingCache<DataKind, KeyedItems<ItemDescriptor>> allCache;
   private final LoadingCache<String, Boolean> initCache;
+  private final PersistentDataStoreStatusManager statusManager;
   private final boolean cacheIndefinitely;
+  private final Set<DataKind> cachedDataKinds = new HashSet<>(); // this map is used in pollForAvailability()
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final ListeningExecutorService executorService;
   
@@ -55,7 +63,7 @@ class PersistentDataStoreWrapper implements DataStore {
       final PersistentDataStore core,
       Duration cacheTtl,
       PersistentDataStoreBuilder.StaleValuesPolicy staleValuesPolicy,
-      CacheMonitor cacheMonitor
+      boolean recordCacheStats
     ) {
     this.core = core;
     
@@ -98,20 +106,17 @@ class PersistentDataStoreWrapper implements DataStore {
         executorService = null;
       }
       
-      itemCache = newCacheBuilder(cacheTtl, staleValuesPolicy, cacheMonitor).build(itemLoader);
-      allCache = newCacheBuilder(cacheTtl, staleValuesPolicy, cacheMonitor).build(allLoader);
-      initCache = newCacheBuilder(cacheTtl, staleValuesPolicy, cacheMonitor).build(initLoader);
-      
-      if (cacheMonitor != null) {
-        cacheMonitor.setSource(new CacheStatsSource());
-      }
+      itemCache = newCacheBuilder(cacheTtl, staleValuesPolicy, recordCacheStats).build(itemLoader);
+      allCache = newCacheBuilder(cacheTtl, staleValuesPolicy, recordCacheStats).build(allLoader);
+      initCache = newCacheBuilder(cacheTtl, staleValuesPolicy, recordCacheStats).build(initLoader);
     }
+    statusManager = new PersistentDataStoreStatusManager(!cacheIndefinitely, true, this::pollAvailabilityAfterOutage);
   }
   
   private static CacheBuilder<Object, Object> newCacheBuilder(
       Duration cacheTtl,
       PersistentDataStoreBuilder.StaleValuesPolicy staleValuesPolicy,
-      CacheMonitor cacheMonitor
+      boolean recordCacheStats
     ) {
     CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder();
     boolean isInfiniteTtl = cacheTtl.isNegative();
@@ -126,7 +131,7 @@ class PersistentDataStoreWrapper implements DataStore {
         builder = builder.refreshAfterWrite(cacheTtl);
       }
     }
-    if (cacheMonitor != null) {
+    if (recordCacheStats) {
       builder = builder.recordStats();
     }
     return builder;
@@ -137,6 +142,7 @@ class PersistentDataStoreWrapper implements DataStore {
     if (executorService != null) {
       executorService.shutdownNow();
     }
+    statusManager.close();
     core.close();
   }
 
@@ -163,21 +169,19 @@ class PersistentDataStoreWrapper implements DataStore {
   
   @Override
   public void init(FullDataSet<ItemDescriptor> allData) {
+    synchronized (cachedDataKinds) {
+      cachedDataKinds.clear();
+      for (Map.Entry<DataKind, KeyedItems<ItemDescriptor>> e: allData.getData()) {
+        cachedDataKinds.add(e.getKey());
+      }
+    }
     ImmutableList.Builder<Map.Entry<DataKind, KeyedItems<SerializedItemDescriptor>>> allBuilder = ImmutableList.builder();
     for (Map.Entry<DataKind, KeyedItems<ItemDescriptor>> e0: allData.getData()) {
       DataKind kind = e0.getKey();
-      ImmutableList.Builder<Map.Entry<String, SerializedItemDescriptor>> itemsBuilder = ImmutableList.builder();
-      for (Map.Entry<String, ItemDescriptor> e1: e0.getValue().getItems()) {
-        itemsBuilder.add(new AbstractMap.SimpleEntry<>(e1.getKey(), serialize(kind, e1.getValue())));
-      }
-      allBuilder.add(new AbstractMap.SimpleEntry<>(kind, new KeyedItems<>(itemsBuilder.build())));
+      KeyedItems<SerializedItemDescriptor> items = serializeAll(kind, e0.getValue());
+      allBuilder.add(new AbstractMap.SimpleEntry<>(kind, items));
     }
-    RuntimeException failure = null;
-    try {
-      core.init(new FullDataSet<>(allBuilder.build()));
-    } catch (RuntimeException e) {
-      failure = e;
-    }
+    RuntimeException failure = initCore(new FullDataSet<>(allBuilder.build()));
     if (itemCache != null && allCache != null) {
       itemCache.invalidateAll();
       allCache.invalidateAll();
@@ -205,42 +209,67 @@ class PersistentDataStoreWrapper implements DataStore {
     }
   }
   
+  private RuntimeException initCore(FullDataSet<SerializedItemDescriptor> allData) {
+    try {
+      core.init(allData);
+      processError(null);
+      return null;
+    } catch (RuntimeException e) {
+      processError(e);
+      return e;
+    }
+  }
+  
   @Override
   public ItemDescriptor get(DataKind kind, String key) {
-    if (itemCache != null) {
-      try {
-        return itemCache.get(CacheKey.forItem(kind, key)).orNull();
-      } catch (ExecutionException e) {
-        throw new RuntimeException(e);
-      }
+    try {
+      ItemDescriptor ret = itemCache != null ? itemCache.get(CacheKey.forItem(kind, key)).orNull() :
+        getAndDeserializeItem(kind, key);
+      processError(null);
+      return ret;
+    } catch (Exception e) {
+      processError(e);
+      throw getAsRuntimeException(e);
     }
-    return getAndDeserializeItem(kind, key);
   }
 
   @Override
   public KeyedItems<ItemDescriptor> getAll(DataKind kind) {
-    if (allCache != null) {
-      try {
-        return allCache.get(kind);
-      } catch (ExecutionException e) {
-        throw new RuntimeException(e);
-      }
+    try {
+      KeyedItems<ItemDescriptor> ret;
+      ret = allCache != null ? allCache.get(kind) : getAllAndDeserialize(kind);
+      processError(null);
+      return ret;
+    } catch (Exception e) {
+      processError(e);
+      throw getAsRuntimeException(e);
     }
-    return getAllAndDeserialize(kind);
   }
 
+  private static RuntimeException getAsRuntimeException(Exception e) {
+    Throwable t = (e instanceof ExecutionException || e instanceof UncheckedExecutionException)
+        ? e.getCause() // this is a wrapped exception thrown by a cache
+        : e;
+    return t instanceof RuntimeException ? (RuntimeException)t : new RuntimeException(t);
+  }
+  
   @Override
   public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
+    synchronized (cachedDataKinds) {
+      cachedDataKinds.add(kind);
+    }
     SerializedItemDescriptor serializedItem = serialize(kind, item);
     boolean updated = false;
     RuntimeException failure = null;
     try {
       updated = core.upsert(kind, key, serializedItem);
+      processError(null);
     } catch (RuntimeException e) {
       // Normally, if the underlying store failed to do the update, we do not want to update the cache -
       // the idea being that it's better to stay in a consistent state of having old data than to act
       // like we have new data but then suddenly fall back to old data when the cache expires. However,
       // if the cache TTL is infinite, then it makes sense to update the cache always.
+      processError(e);
       if (!cacheIndefinitely)
       {
           throw e;
@@ -257,14 +286,8 @@ class PersistentDataStoreWrapper implements DataStore {
           itemCache.refresh(cacheKey);
         }
       } else {
-        try {
-          Optional<ItemDescriptor> oldItem = itemCache.get(cacheKey);
-          if (oldItem.isPresent() && oldItem.get().getVersion() < item.getVersion()) {
-            itemCache.put(cacheKey, Optional.of(item));
-          }
-        } catch (ExecutionException e) {
-          // An exception here means that the underlying database is down *and* there was no
-          // cached item; in that case we just go ahead and update the cache.
+        Optional<ItemDescriptor> oldItem = itemCache.getIfPresent(cacheKey);
+        if (oldItem == null || !oldItem.isPresent() || oldItem.get().getVersion() < item.getVersion()) {
           itemCache.put(cacheKey, Optional.of(item));
         }
       }
@@ -275,15 +298,8 @@ class PersistentDataStoreWrapper implements DataStore {
       // update the item within the existing "all items" entry (since we want things to still work
       // even if the underlying store is unavailable).
       if (cacheIndefinitely) {
-        try {
-          KeyedItems<ItemDescriptor> cachedAll = allCache.get(kind);
-          allCache.put(kind, updateSingleItem(cachedAll, key, item));
-        } catch (ExecutionException e) {
-          // An exception here means that we did not have a cached value for All, so it tried to query
-          // the underlying store, which failed (not surprisingly since it just failed a moment ago
-          // when we tried to do an update). This should not happen in infinite-cache mode, but if it
-          // does happen, there isn't really anything we can do.
-        }
+        KeyedItems<ItemDescriptor> cachedAll = allCache.getIfPresent(kind);
+        allCache.put(kind, updateSingleItem(cachedAll, key, item));
       } else {
         allCache.invalidate(kind);
       }
@@ -293,17 +309,36 @@ class PersistentDataStoreWrapper implements DataStore {
     }
     return updated;
   }
-  
-  /**
-   * Return the underlying Guava cache stats object.
-   *
-   * @return the cache statistics object
-   */
+
+  @Override
+  public Status getStoreStatus() {
+    return new PersistentDataStoreStatusManager.StatusImpl(statusManager.isAvailable(), false);
+  }
+
+  @Override
+  public void addStatusListener(StatusListener listener) {
+    statusManager.addStatusListener(listener);
+  }
+
+  @Override
+  public void removeStatusListener(StatusListener listener) {
+    statusManager.removeStatusListener(listener);
+  }
+
+  @Override
   public CacheStats getCacheStats() {
-    if (itemCache != null) {
-      return itemCache.stats();
+    if (itemCache == null || allCache == null) {
+      return null;
     }
-    return null;
+    com.google.common.cache.CacheStats itemStats = itemCache.stats();
+    com.google.common.cache.CacheStats allStats = allCache.stats();
+    return new CacheStats(
+        itemStats.hitCount() + allStats.hitCount(),
+        itemStats.missCount() + allStats.missCount(),
+        itemStats.loadSuccessCount() + allStats.loadSuccessCount(),
+        itemStats.loadExceptionCount() + allStats.loadExceptionCount(),
+        itemStats.totalLoadTime() + allStats.totalLoadTime(),
+        itemStats.evictionCount() + allStats.evictionCount());
   }
 
   /**
@@ -337,6 +372,14 @@ class PersistentDataStoreWrapper implements DataStore {
     return new SerializedItemDescriptor(itemDesc.getVersion(), isDeleted, kind.serialize(itemDesc));
   }
   
+  private KeyedItems<SerializedItemDescriptor> serializeAll(DataKind kind, KeyedItems<ItemDescriptor> items) {
+    ImmutableList.Builder<Map.Entry<String, SerializedItemDescriptor>> itemsBuilder = ImmutableList.builder();
+    for (Map.Entry<String, ItemDescriptor> e: items.getItems()) {
+      itemsBuilder.add(new AbstractMap.SimpleEntry<>(e.getKey(), serialize(kind, e.getValue())));
+    }
+    return new KeyedItems<>(itemsBuilder.build());
+  }
+  
   private ItemDescriptor deserialize(DataKind kind, SerializedItemDescriptor serializedItemDesc) {
     if (serializedItemDesc.isDeleted() || serializedItemDesc.getSerializedItem() == null) {
       return ItemDescriptor.deletedItem(serializedItemDesc.getVersion());
@@ -354,30 +397,58 @@ class PersistentDataStoreWrapper implements DataStore {
     // This is somewhat inefficient but it's preferable to use immutable data structures in the cache.
     return new KeyedItems<>(
         ImmutableList.copyOf(concat(
-            filter(items.getItems(), e -> !e.getKey().equals(key)),
+            items == null ? ImmutableList.of() : filter(items.getItems(), e -> !e.getKey().equals(key)),
             ImmutableList.<Map.Entry<String, ItemDescriptor>>of(new AbstractMap.SimpleEntry<>(key, item))
             )
         ));
   }
   
-  private final class CacheStatsSource implements Callable<CacheMonitor.CacheStats> {
-    public CacheMonitor.CacheStats call() {
-      if (itemCache == null || allCache == null) {
-        return null;
-      }
-      CacheStats itemStats = itemCache.stats();
-      CacheStats allStats = allCache.stats();
-      return new CacheMonitor.CacheStats(
-          itemStats.hitCount() + allStats.hitCount(),
-          itemStats.missCount() + allStats.missCount(),
-          itemStats.loadSuccessCount() + allStats.loadSuccessCount(),
-          itemStats.loadExceptionCount() + allStats.loadExceptionCount(),
-          itemStats.totalLoadTime() + allStats.totalLoadTime(),
-          itemStats.evictionCount() + allStats.evictionCount());
+  private void processError(Throwable error) {
+    if (error == null) {
+      // If we're waiting to recover after a failure, we'll let the polling routine take care
+      // of signaling success. Even if we could signal success a little earlier based on the
+      // success of whatever operation we just did, we'd rather avoid the overhead of acquiring
+      // w.statusLock every time we do anything. So we'll just do nothing here.
+      return;
     }
+    statusManager.updateAvailability(false);
   }
-
-  private static class CacheKey {
+  
+  private boolean pollAvailabilityAfterOutage() {
+    if (!core.isStoreAvailable()) {
+      return false;
+    }
+    
+    if (cacheIndefinitely && allCache != null) {
+      // If we're in infinite cache mode, then we can assume the cache has a full set of current
+      // flag data (since presumably the data source has still been running) and we can just
+      // write the contents of the cache to the underlying data store.
+      DataKind[] allKinds;
+      synchronized (cachedDataKinds) {
+        allKinds = cachedDataKinds.toArray(new DataKind[cachedDataKinds.size()]);        
+      }
+      ImmutableList.Builder<Map.Entry<DataKind, KeyedItems<SerializedItemDescriptor>>> builder = ImmutableList.builder();
+      for (DataKind kind: allKinds) {
+        KeyedItems<ItemDescriptor> items = allCache.getIfPresent(kind);
+        if (items != null) {
+          builder.add(new AbstractMap.SimpleEntry<>(kind, serializeAll(kind, items)));
+        }
+      }
+      RuntimeException e = initCore(new FullDataSet<>(builder.build()));
+      if (e == null) {
+        logger.warn("Successfully updated persistent store from cached data");
+      } else {
+        // We failed to write the cached data to the underlying store. In this case, we should not
+        // return to a recovered state, but just try this all again next time the poll task runs.
+        logger.error("Tried to write cached data to persistent store after a store outage, but failed: {0}", e);
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  private static final class CacheKey {
     final DataKind kind;
     final String key;
     
