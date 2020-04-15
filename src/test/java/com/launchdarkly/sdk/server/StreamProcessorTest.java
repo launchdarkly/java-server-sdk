@@ -555,6 +555,36 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   @Test
+  public void doesNotRestartStreamIfStoreHadOutageButDoesNotNeedRefresh() throws Exception {
+    TestComponents.DataStoreWithStatusUpdates storeWithStatus = new TestComponents.DataStoreWithStatusUpdates(dataStore);
+    
+    SettableFuture<Void> restarted = SettableFuture.create();
+    mockEventSource.start();
+    expectLastCall();
+    mockEventSource.restart();
+    expectLastCall().andAnswer(() -> {
+      restarted.set(null);
+      return null;
+    });
+    mockEventSource.close();
+    expectLastCall();
+    mockRequestor.close();
+    expectLastCall();
+    
+    replayAll();
+    
+    try (StreamProcessor sp = createStreamProcessorWithStore(storeWithStatus)) {
+      sp.start();
+      
+      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(false, false));
+      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(true, false));
+
+      Thread.sleep(500);
+      assertFalse(restarted.isDone());
+    }
+  }
+
+  @Test
   public void storeFailureOnPutCausesStreamRestart() throws Exception {
     DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
     expectStreamRestart();
