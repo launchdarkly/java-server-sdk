@@ -30,6 +30,15 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    commonClasses {
+        transitive false
+    }
+    commonDoc {
+        transitive false
+    }
+}
+
 configurations.all {
     // check for updates every build for dependencies with: 'changing: true'
     resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
@@ -46,7 +55,7 @@ allprojects {
 ext {
     sdkBasePackage = "com.launchdarkly.sdk"
     sdkBaseName = "launchdarkly-java-server-sdk"
-
+    
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
     // be discovered by looking in our explicit dependencies.
     systemPackageImports = [ "javax.net", "javax.net.ssl" ]
@@ -58,6 +67,7 @@ ext.versions = [
     "commonsCodec": "1.10",
     "gson": "2.7",
     "guava": "28.2-jre",
+    "launchdarklyJavaSdkCommon": "1.0.0-SNAPSHOT",
     "okhttpEventsource": "2.1.0-SNAPSHOT",
     "slf4j": "1.7.21",
     "snakeyaml": "1.19",
@@ -68,6 +78,7 @@ ext.versions = [
 // will be completely omitted from the "thin" jar, and will be embedded with shaded names
 // in the other two SDK jars.
 libraries.internal = [
+    "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}",
     "commons-codec:commons-codec:${versions.commonsCodec}",
     "com.google.code.gson:gson:${versions.gson}",
     "com.google.guava:guava:${versions.guava}",
@@ -97,6 +108,9 @@ dependencies {
     api libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
 
+    commonClasses "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}"
+    commonDoc "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}:sources"
+
     // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
     // should *not* be shaded by the Shadow plugin when we build our shaded jars.
     shadow libraries.external
@@ -110,13 +124,15 @@ configurations {
 }
 
 checkstyle {
-	configFile file("${project.rootDir}/checkstyle.xml")
+    configFile file("${project.rootDir}/checkstyle.xml")
 }
 
 jar {
     // thin classifier means that the non-shaded non-fat jar is still available
     // but is opt-in since users will have to specify it.
     classifier = 'thin'
+
+    from configurations.commonClasses.collect { zipTree(it) }
 
     // doFirst causes the following step to be run during Gradle's execution phase rather than the
     // configuration phase; this is necessary because it accesses the build products
@@ -183,24 +199,28 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
     from javadoc.destinationDir
 }
 
+javadoc {
+    source configurations.commonDoc.collect { zipTree(it) }
+    include '**/*.java'
+}
 
 // Force the Javadoc build to fail if there are any Javadoc warnings. See: https://discuss.gradle.org/t/javadoc-fail-on-warning/18141/3
 if (JavaVersion.current().isJava8Compatible()) {
-	tasks.withType(Javadoc) {
-		// The '-quiet' as second argument is actually a hack,
-		// since the one paramater addStringOption doesn't seem to
-		// work, we extra add '-quiet', which is added anyway by
-		// gradle. See https://github.com/gradle/gradle/issues/2354
+    tasks.withType(Javadoc) {
+        // The '-quiet' as second argument is actually a hack,
+        // since the one paramater addStringOption doesn't seem to
+        // work, we extra add '-quiet', which is added anyway by
+        // gradle. See https://github.com/gradle/gradle/issues/2354
         // See JDK-8200363 (https://bugs.openjdk.java.net/browse/JDK-8200363)
         // for information about the -Xwerror option.
-		options.addStringOption('Xwerror', '-quiet')
-	}
+        options.addStringOption('Xwerror', '-quiet')
+    }
 }
 
 // Returns the names of all Java packages defined in this library - not including
 // enclosing packages like "com" that don't have any classes in them.
 def getAllSdkPackages() {
-    def names = []
+    def names = [ "com.launchdarkly.sdk" ] // base package classes come from launchdarkly-java-sdk-common
     project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output.each { baseDir ->
         if (baseDir.getPath().contains("classes" + File.separator + "java" + File.separator + "main")) {
             baseDir.eachFileRecurse { f ->
