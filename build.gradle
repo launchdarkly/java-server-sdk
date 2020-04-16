@@ -263,8 +263,8 @@ def shadeDependencies(jarTask) {
         // This special-casing for javax.annotation is hacky, but the issue is that Guava pulls in a jsr305
         // implementation jar that provides javax.annotation, and we *do* want to embed and shade those classes
         // so that Guava won't fail to find them and they won't conflict with anyone else's version - but we do
-        	// *not* want references to any classes from javax.net, javax.security, etc. to be munged. 
-        	def packageToRelocate = (top == "javax") ? "javax.annotation" : top
+        // *not* want references to any classes from javax.net, javax.security, etc. to be munged. 
+        def packageToRelocate = (top == "javax") ? "javax.annotation" : top
         jarTask.relocate(packageToRelocate, "com.launchdarkly.shaded." + packageToRelocate) {
             excludePackages.forEach { exclude(it + ".*") }
         }
