@@ -253,14 +253,19 @@ def getPackagesInDependencyJar(jarFile) {
 // phase; instead we have to run it after configuration, with the "afterEvaluate" block below.
 def shadeDependencies(jarTask) {
     def excludePackages = getAllSdkPackages() +
-        configurations.shadow.collectMany { getPackagesInDependencyJar(it)}
+        configurations.shadow.collectMany { getPackagesInDependencyJar(it) }
     def topLevelPackages =
         configurations.internal.collectMany {
             getPackagesInDependencyJar(it).collect { it.contains(".") ? it.substring(0, it.indexOf(".")) : it }
         }.
             unique()
     topLevelPackages.forEach { top ->
-        jarTask.relocate(top, "com.launchdarkly.shaded." + top) {
+        // This special-casing for javax.annotation is hacky, but the issue is that Guava pulls in a jsr305
+        // implementation jar that provides javax.annotation, and we *do* want to embed and shade those classes
+        // so that Guava won't fail to find them and they won't conflict with anyone else's version - but we do
+        	// *not* want references to any classes from javax.net, javax.security, etc. to be munged. 
+        	def packageToRelocate = (top == "javax") ? "javax.annotation" : top
+        jarTask.relocate(packageToRelocate, "com.launchdarkly.shaded." + packageToRelocate) {
             excludePackages.forEach { exclude(it + ".*") }
         }
     }
