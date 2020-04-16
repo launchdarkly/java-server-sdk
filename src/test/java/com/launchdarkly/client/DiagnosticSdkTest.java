@@ -8,8 +8,8 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+@SuppressWarnings("javadoc")
 public class DiagnosticSdkTest {
-
   private static final Gson gson = new Gson();
 
   @Test
@@ -24,8 +24,7 @@ public class DiagnosticSdkTest {
   @Test
   public void getsWrapperValuesFromConfig() {
     LDConfig config = new LDConfig.Builder()
-        .wrapperName("Scala")
-        .wrapperVersion("0.1.0")
+        .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
         .build();
     DiagnosticSdk diagnosticSdk = new DiagnosticSdk(config);
     assertEquals("java-server-sdk", diagnosticSdk.name);
@@ -46,8 +45,7 @@ public class DiagnosticSdkTest {
   @Test
   public void gsonSerializationWithWrapper() {
     LDConfig config = new LDConfig.Builder()
-        .wrapperName("Scala")
-        .wrapperVersion("0.1.0")
+        .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
         .build();
     DiagnosticSdk diagnosticSdk = new DiagnosticSdk(config);
     JsonObject jsonObject = gson.toJsonTree(diagnosticSdk).getAsJsonObject();

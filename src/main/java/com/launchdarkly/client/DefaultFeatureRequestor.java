@@ -2,6 +2,7 @@ package com.launchdarkly.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Files;
+import com.launchdarkly.client.interfaces.HttpConfiguration;
 import com.launchdarkly.client.interfaces.SerializationException;
 
 import org.slf4j.Logger;

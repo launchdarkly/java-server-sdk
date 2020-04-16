@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonElement;
+import com.launchdarkly.client.interfaces.HttpConfiguration;
 import com.launchdarkly.client.interfaces.SerializationException;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
