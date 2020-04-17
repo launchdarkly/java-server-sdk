@@ -57,8 +57,8 @@ final class DefaultEventProcessor implements EventProcessor {
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private volatile boolean inputCapacityExceeded = false;
 
-  DefaultEventProcessor(String sdkKey, LDConfig config, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
-      DiagnosticAccumulator diagnosticAccumulator) {
+  DefaultEventProcessor(String sdkKey, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
+      DiagnosticAccumulator diagnosticAccumulator, DiagnosticEvent.Init diagnosticInitEvent) {
     inbox = new ArrayBlockingQueue<>(eventsConfig.capacity);
     
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
@@ -68,7 +68,7 @@ final class DefaultEventProcessor implements EventProcessor {
         .build();
     scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
 
-    dispatcher = new EventDispatcher(sdkKey, config, eventsConfig, httpConfig, inbox, threadFactory, closed, diagnosticAccumulator);
+    dispatcher = new EventDispatcher(sdkKey, eventsConfig, httpConfig, inbox, threadFactory, closed, diagnosticAccumulator, diagnosticInitEvent);
 
     Runnable flusher = () -> {
       postMessageAsync(MessageType.FLUSH, null);
@@ -80,7 +80,7 @@ final class DefaultEventProcessor implements EventProcessor {
     };
     this.scheduler.scheduleAtFixedRate(userKeysFlusher, eventsConfig.userKeysFlushInterval.toMillis(),
         eventsConfig.userKeysFlushInterval.toMillis(), TimeUnit.MILLISECONDS);
-    if (!config.diagnosticOptOut && diagnosticAccumulator != null) {
+    if (diagnosticAccumulator != null) {
       Runnable diagnosticsTrigger = () -> {
         postMessageAsync(MessageType.DIAGNOSTIC, null);
       };
@@ -216,11 +216,12 @@ final class DefaultEventProcessor implements EventProcessor {
 
     private long deduplicatedUsers = 0;
 
-    private EventDispatcher(String sdkKey, LDConfig config, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
+    private EventDispatcher(String sdkKey, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
                             final BlockingQueue<EventProcessorMessage> inbox,
                             ThreadFactory threadFactory,
                             final AtomicBoolean closed,
-                            DiagnosticAccumulator diagnosticAccumulator) {
+                            DiagnosticAccumulator diagnosticAccumulator,
+                            DiagnosticEvent.Init diagnosticInitEvent) {
       this.eventsConfig = eventsConfig;
       this.diagnosticAccumulator = diagnosticAccumulator;
       this.busyFlushWorkersCount = new AtomicInteger(0);
@@ -274,7 +275,6 @@ final class DefaultEventProcessor implements EventProcessor {
         // Set up diagnostics
         this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(sdkKey, eventsConfig, httpClient, httpConfig);
         diagnosticExecutor = Executors.newSingleThreadExecutor(threadFactory);
-        DiagnosticEvent.Init diagnosticInitEvent = new DiagnosticEvent.Init(diagnosticAccumulator.dataSinceDate, diagnosticAccumulator.diagnosticId, config);
         diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
       } else {
         diagnosticExecutor = null;

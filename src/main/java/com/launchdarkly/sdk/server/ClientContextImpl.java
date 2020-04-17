@@ -1,16 +1,26 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 final class ClientContextImpl implements ClientContext {
   private final String sdkKey;
-  private final LDConfig configuration;
+  private final HttpConfiguration httpConfiguration;
+  private final boolean offline;
   private final DiagnosticAccumulator diagnosticAccumulator;
+  private final DiagnosticEvent.Init diagnosticInitEvent;
   
   ClientContextImpl(String sdkKey, LDConfig configuration, DiagnosticAccumulator diagnosticAccumulator) {
     this.sdkKey = sdkKey;
-    this.configuration = configuration;
-    this.diagnosticAccumulator = diagnosticAccumulator;
+    this.httpConfiguration = configuration.httpConfig;
+    this.offline = configuration.offline;
+    if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {
+      this.diagnosticAccumulator = diagnosticAccumulator;
+      this.diagnosticInitEvent = new DiagnosticEvent.Init(diagnosticAccumulator.dataSinceDate, diagnosticAccumulator.diagnosticId, configuration);
+    } else {
+      this.diagnosticAccumulator = null;
+      this.diagnosticInitEvent = null;
+    }
   }
 
   @Override
@@ -19,19 +29,35 @@ final class ClientContextImpl implements ClientContext {
   }
 
   @Override
-  public LDConfig getConfiguration() {
-    return configuration;
+  public boolean isOffline() {
+    return offline;
   }
   
-  // Note that this property is package-private - it is only used by SDK internal components, not any
-  // custom components implemented by an application.
+  @Override
+  public HttpConfiguration getHttpConfiguration() {
+    return httpConfiguration;
+  }
+  
+  // Note that the following two properties are package-private - they are only used by SDK internal components,
+  // not any custom components implemented by an application.
   DiagnosticAccumulator getDiagnosticAccumulator() {
     return diagnosticAccumulator;
+  }
+  
+  DiagnosticEvent.Init getDiagnosticInitEvent() {
+    return diagnosticInitEvent;
   }
   
   static DiagnosticAccumulator getDiagnosticAccumulator(ClientContext context) {
     if (context instanceof ClientContextImpl) {
       return ((ClientContextImpl)context).getDiagnosticAccumulator();
+    }
+    return null;
+  }
+
+  static DiagnosticEvent.Init getDiagnosticInitEvent(ClientContext context) {
+    if (context instanceof ClientContextImpl) {
+      return ((ClientContextImpl)context).getDiagnosticInitEvent();
     }
     return null;
   }
