@@ -25,9 +25,6 @@ import javax.net.ssl.X509TrustManager;
  *         .build();
  * </code></pre>
  * <p>
- * These properties will override any equivalent deprecated properties that were set with {@code LDConfig.Builder},
- * such as {@link com.launchdarkly.sdk.server.LDConfig.Builder#connectTimeout(java.time.Duration)}.
- * <p>
  * Note that this class is abstract; the actual implementation is created by calling {@link Components#httpConfiguration()}.
  * 
  * @since 4.13.0
