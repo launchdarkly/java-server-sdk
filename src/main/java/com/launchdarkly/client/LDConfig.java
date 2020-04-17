@@ -292,6 +292,7 @@ public final class LDConfig {
      * @since 4.0.0
      * @deprecated Use {@link #events(EventProcessorFactory)}.
      */
+    @Deprecated
     public Builder eventProcessorFactory(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
       return this;
@@ -372,6 +373,7 @@ public final class LDConfig {
      * @return the builder
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#connectTimeoutMillis(int)}.
      */
+    @Deprecated
     public Builder connectTimeout(int connectTimeout) {
       return connectTimeoutMillis(connectTimeout * 1000);
     }
@@ -383,6 +385,7 @@ public final class LDConfig {
      * @return the builder
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#socketTimeoutMillis(int)}.
      */
+    @Deprecated
     public Builder socketTimeout(int socketTimeout) {
       return socketTimeoutMillis(socketTimeout * 1000);
     }
@@ -394,6 +397,7 @@ public final class LDConfig {
      * @return the builder
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#connectTimeoutMillis(int)}.
      */
+    @Deprecated
     public Builder connectTimeoutMillis(int connectTimeoutMillis) {
       this.connectTimeoutMillis = connectTimeoutMillis;
       return this;
@@ -406,6 +410,7 @@ public final class LDConfig {
      * @return the builder
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#socketTimeoutMillis(int)}.
      */
+    @Deprecated
     public Builder socketTimeoutMillis(int socketTimeoutMillis) {
       this.socketTimeoutMillis = socketTimeoutMillis;
       return this;
@@ -450,6 +455,7 @@ public final class LDConfig {
      * @return the builder
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyHostAndPort(String, int)}. 
      */
+    @Deprecated
     public Builder proxyHost(String host) {
       this.proxyHost = host;
       return this;
@@ -462,6 +468,7 @@ public final class LDConfig {
      * @return the builder
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyHostAndPort(String, int)}. 
      */
+    @Deprecated
     public Builder proxyPort(int port) {
       this.proxyPort = port;
       return this;
@@ -475,6 +482,7 @@ public final class LDConfig {
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyAuth(com.launchdarkly.client.interfaces.HttpAuthentication)}
      *   and {@link Components#httpBasicAuthentication(String, String)}. 
      */
+    @Deprecated
     public Builder proxyUsername(String username) {
       this.proxyUsername = username;
       return this;
@@ -488,6 +496,7 @@ public final class LDConfig {
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyAuth(com.launchdarkly.client.interfaces.HttpAuthentication)}
      *   and {@link Components#httpBasicAuthentication(String, String)}. 
      */
+    @Deprecated
     public Builder proxyPassword(String password) {
       this.proxyPassword = password;
       return this;
@@ -503,6 +512,7 @@ public final class LDConfig {
      * @since 4.7.0
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#sslSocketFactory(SSLSocketFactory, X509TrustManager)}.
      */
+    @Deprecated
     public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
       this.sslSocketFactory = sslSocketFactory;
       this.trustManager = trustManager;
@@ -715,6 +725,7 @@ public final class LDConfig {
      * @since 4.12.0
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#wrapper(String, String)}.
      */
+    @Deprecated
     public Builder wrapperName(String wrapperName) {
       this.wrapperName = wrapperName;
       return this;
@@ -728,6 +739,7 @@ public final class LDConfig {
      * @since 4.12.0
      * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#wrapper(String, String)}.
      */
+    @Deprecated
     public Builder wrapperVersion(String wrapperVersion) {
       this.wrapperVersion = wrapperVersion;
       return this;
