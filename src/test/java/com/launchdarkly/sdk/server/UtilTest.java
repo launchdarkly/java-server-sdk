@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.LDConfig;
-
 import org.junit.Test;
 
 import java.time.Duration;
@@ -16,7 +14,7 @@ import okhttp3.OkHttpClient;
 public class UtilTest {
   @Test
   public void testConnectTimeout() {
-    LDConfig config = new LDConfig.Builder().connectTimeout(Duration.ofSeconds(3)).build();
+    LDConfig config = new LDConfig.Builder().http(Components.httpConfiguration().connectTimeout(Duration.ofSeconds(3))).build();
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(config.httpConfig, httpBuilder);
     OkHttpClient httpClient = httpBuilder.build();
@@ -29,7 +27,7 @@ public class UtilTest {
   
   @Test
   public void testSocketTimeout() {
-    LDConfig config = new LDConfig.Builder().socketTimeout(Duration.ofSeconds(3)).build();
+    LDConfig config = new LDConfig.Builder().http(Components.httpConfiguration().socketTimeout(Duration.ofSeconds(3))).build();
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(config.httpConfig, httpBuilder);
     OkHttpClient httpClient = httpBuilder.build();

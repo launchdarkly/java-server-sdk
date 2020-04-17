@@ -93,21 +93,12 @@ public class DiagnosticEventTest {
   @Test
   public void testCustomDiagnosticConfigurationGeneralProperties() {
     LDConfig ldConfig = new LDConfig.Builder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .socketTimeout(Duration.ofSeconds(20))
             .startWait(Duration.ofSeconds(10))
-            .proxyPort(1234)
-            .proxyUsername("username")
-            .proxyPassword("password")
             .build();
 
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
     LDValue expected = expectedDefaultProperties()
-        .put("connectTimeoutMillis", 5_000)
-        .put("socketTimeoutMillis",  20_000)
         .put("startWaitMillis", 10_000)
-        .put("usingProxy", true)
-        .put("usingProxyAuthenticator", true)
         .build();
 
     assertEquals(expected, diagnosticJson);
@@ -213,6 +204,51 @@ public class DiagnosticEventTest {
     assertEquals(expected, diagnosticJson);
   }
   
+  @Test
+  public void testCustomDiagnosticConfigurationHttpProperties() {
+    LDConfig ldConfig = new LDConfig.Builder()
+        .http(
+            Components.httpConfiguration()
+              .connectTimeout(Duration.ofSeconds(5))
+              .socketTimeout(Duration.ofSeconds(20))
+              .proxyHostAndPort("localhost", 1234)
+              .proxyAuth(Components.httpBasicAuthentication("username", "password"))
+        )
+        .build();
+
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultProperties()
+        .put("connectTimeoutMillis", 5_000)
+        .put("socketTimeoutMillis",  20_000)
+        .put("usingProxy", true)
+        .put("usingProxyAuthenticator", true)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
+  
+  @SuppressWarnings("deprecation")
+  @Test
+  public void testCustomDiagnosticConfigurationDeprecatedHttpProperties() {
+    LDConfig ldConfig = new LDConfig.Builder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .socketTimeout(Duration.ofSeconds(20))
+            .proxyPort(1234)
+            .proxyUsername("username")
+            .proxyPassword("password")
+            .build();
+
+    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue expected = expectedDefaultProperties()
+        .put("connectTimeoutMillis", 5_000)
+        .put("socketTimeoutMillis",  20_000)
+        .put("usingProxy", true)
+        .put("usingProxyAuthenticator", true)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
+
   private static class DataStoreFactoryWithComponentName implements DataStoreFactory, DiagnosticDescription {
     @Override
     public LDValue describeConfiguration(LDConfig config) {

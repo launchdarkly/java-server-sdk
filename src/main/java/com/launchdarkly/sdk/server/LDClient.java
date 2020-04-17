@@ -95,6 +95,14 @@ public final class LDClient implements LDClientInterface {
     final EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
         Components.sendEvents() : this.config.eventProcessorFactory;
 
+    if (config.httpConfig.getProxy() != null) {
+      if (config.httpConfig.getProxyAuthentication() != null) {
+        logger.info("Using proxy: {} with authentication.", config.httpConfig.getProxy());
+      } else {
+        logger.info("Using proxy: {} without authentication.", config.httpConfig.getProxy());
+      }
+    }
+
     // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
     // standard event processor
     final boolean useDiagnostics = !this.config.diagnosticOptOut && epFactory instanceof EventProcessorBuilder;

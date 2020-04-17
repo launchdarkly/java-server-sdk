@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

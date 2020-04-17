@@ -90,10 +90,10 @@ class DiagnosticEvent {
       ObjectBuilder builder = LDValue.buildObject();
       
       // Add the top-level properties that are not specific to a particular component type.
-      builder.put("connectTimeoutMillis", config.httpConfig.connectTimeout.toMillis());
-      builder.put("socketTimeoutMillis", config.httpConfig.socketTimeout.toMillis());
-      builder.put("usingProxy", config.httpConfig.proxy != null);
-      builder.put("usingProxyAuthenticator", config.httpConfig.proxyAuthenticator != null);
+      builder.put("connectTimeoutMillis", config.httpConfig.getConnectTimeout().toMillis());
+      builder.put("socketTimeoutMillis", config.httpConfig.getSocketTimeout().toMillis());
+      builder.put("usingProxy", config.httpConfig.getProxy() != null);
+      builder.put("usingProxyAuthenticator", config.httpConfig.getProxyAuthentication() != null);
       builder.put("offline", config.offline);
       builder.put("startWaitMillis", config.startWait.toMillis());
       
@@ -153,8 +153,19 @@ class DiagnosticEvent {
       final String wrapperVersion;
 
       DiagnosticSdk(LDConfig config) {
-        this.wrapperName = config.httpConfig.wrapperName;
-        this.wrapperVersion = config.httpConfig.wrapperVersion;
+        String id = config.httpConfig.getWrapperIdentifier();
+        if (id == null) {
+          this.wrapperName = null;
+          this.wrapperVersion = null;
+        } else {
+          if (id.indexOf("/") >= 0) {
+            this.wrapperName = id.substring(0, id.indexOf("/"));
+            this.wrapperVersion = id.substring(id.indexOf("/") + 1);
+          } else {
+            this.wrapperName = id;
+            this.wrapperVersion = null;
+          }
+        }
       }
     }
 

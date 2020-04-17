@@ -144,9 +144,8 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void headersHaveWrapperWhenSet() {
     LDConfig config = new LDConfig.Builder()
-            .wrapperName("Scala")
-            .wrapperVersion("0.1.0")
-            .build();
+        .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
+        .build();
     createStreamProcessor(config, STREAM_URI).start();
     assertEquals("Scala/0.1.0",
         mockEventSourceCreator.getNextReceivedParams().headers.get("X-LaunchDarkly-Wrapper"));
@@ -728,7 +727,8 @@ public class StreamProcessorTest extends EasyMockSupport {
       server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
       
       LDConfig config = new LDConfig.Builder()
-          .sslSocketFactory(server.socketFactory, server.trustManager) // allows us to trust the self-signed cert
+          .http(Components.httpConfiguration().sslSocketFactory(server.socketFactory, server.trustManager))
+          // allows us to trust the self-signed cert
           .build();
       
       try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, server.uri())) {
@@ -748,8 +748,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
       HttpUrl serverUrl = server.url("/");
       LDConfig config = new LDConfig.Builder()
-          .proxyHost(serverUrl.host())
-          .proxyPort(serverUrl.port())
+          .http(Components.httpConfiguration().proxyHostAndPort(serverUrl.host(), serverUrl.port()))
           .build();
       
       try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, fakeStreamUri)) {

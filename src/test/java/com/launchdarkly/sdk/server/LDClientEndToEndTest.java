@@ -75,7 +75,8 @@ public class LDClientEndToEndTest {
       LDConfig config = new LDConfig.Builder()
           .dataSource(basePollingConfig(serverWithCert.server))
           .events(noEvents())
-          .sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager) // allows us to trust the self-signed cert
+          .http(Components.httpConfiguration().sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager))
+          // allows us to trust the self-signed cert
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
@@ -131,7 +132,8 @@ public class LDClientEndToEndTest {
       LDConfig config = new LDConfig.Builder()
           .dataSource(baseStreamingConfig(serverWithCert.server))
           .events(noEvents())
-          .sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager) // allows us to trust the self-signed cert
+          .http(Components.httpConfiguration().sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager))
+          // allows us to trust the self-signed cert
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {

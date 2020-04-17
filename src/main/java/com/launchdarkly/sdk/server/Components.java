@@ -4,6 +4,7 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DiagnosticEvent.ConfigProperty;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
@@ -19,13 +20,19 @@ import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
+import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.net.URI;
 import java.util.concurrent.Future;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+
+import okhttp3.Credentials;
 
 /**
  * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.
@@ -212,6 +219,55 @@ public abstract class Components {
     return NullDataSourceFactory.INSTANCE;
   }
 
+  /**
+   * Returns a configurable factory for the SDK's networking configuration.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#http(com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory)}
+   * applies this configuration to all HTTP/HTTPS requests made by the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .http(
+   *              Components.httpConfiguration()
+   *                  .connectTimeoutMillis(3000)
+   *                  .proxyHostAndPort("my-proxy", 8080)
+   *         )
+   *         .build();
+   * </code></pre>
+   * <p>
+   * These properties will override any equivalent deprecated properties that were set with {@code LDConfig.Builder},
+   * such as {@link LDConfig.Builder#connectTimeout(java.time.Duration)}. However, setting {@link LDConfig.Builder#offline(boolean)}
+   * to {@code true} will supersede these settings and completely disable network requests.
+   * 
+   * @return a factory object
+   * @since 4.13.0
+   * @see LDConfig.Builder#http(com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory)
+   */
+  public static HttpConfigurationBuilder httpConfiguration() {
+    return new HttpConfigurationBuilderImpl();
+  }
+  
+  /**
+   * Configures HTTP basic authentication, for use with a proxy server.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .http(
+   *              Components.httpConfiguration()
+   *                  .proxyHostAndPort("my-proxy", 8080)
+   *                  .proxyAuthentication(Components.httpBasicAuthentication("username", "password"))
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * @param username the username
+   * @param password the password
+   * @return the basic authentication strategy
+   * @since 4.13.0
+   * @see HttpConfigurationBuilder#proxyAuth(HttpAuthentication)
+   */
+  public static HttpAuthentication httpBasicAuthentication(String username, String password) {
+    return new HttpBasicAuthentication(username, password);
+  }
+  
   /**
    * Convenience method for creating a {@link FlagChangeListener} that tracks a flag's value for a specific user.
    * <p>
@@ -455,6 +511,36 @@ public abstract class Components {
           .put(ConfigProperty.USER_KEYS_CAPACITY.name, userKeysCapacity)
           .put(ConfigProperty.USER_KEYS_FLUSH_INTERVAL_MILLIS.name, userKeysFlushInterval.toMillis())
           .build();
+    }
+  }
+
+  private static final class HttpConfigurationBuilderImpl extends HttpConfigurationBuilder {
+    @Override
+    public HttpConfiguration createHttpConfiguration() {
+      return new HttpConfigurationImpl(
+          connectTimeout,
+          proxyHost == null ? null : new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort)),
+          proxyAuth,
+          socketTimeout,
+          sslSocketFactory,
+          trustManager,
+          wrapperName == null ? null : (wrapperVersion == null ? wrapperName : (wrapperName + "/" + wrapperVersion))
+      );
+    }
+  }
+  
+  private static final class HttpBasicAuthentication implements HttpAuthentication {
+    private final String username;
+    private final String password;
+    
+    HttpBasicAuthentication(String username, String password) {
+      this.username = username;
+      this.password = password;
+    }
+
+    @Override
+    public String provideAuthorization(Iterable<Challenge> challenges) {
+      return Credentials.basic(username, password);
     }
   }
   
