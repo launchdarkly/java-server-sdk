@@ -6,11 +6,123 @@ import com.google.gson.JsonElement;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
 @SuppressWarnings("javadoc")
 public class EvaluationReasonTest {
   private static final Gson gson = new Gson();
+  
+  @Test
+  public void offProperties() {
+    EvaluationReason reason = EvaluationReason.off();
+    assertEquals(EvaluationReason.Kind.OFF, reason.getKind());
+    assertEquals(-1, reason.getRuleIndex());
+    assertNull(reason.getRuleId());
+    assertNull(reason.getPrerequisiteKey());
+    assertNull(reason.getErrorKind());
+    assertNull(reason.getException());
+  }
+  
+  @Test
+  public void fallthroughProperties() {
+    EvaluationReason reason = EvaluationReason.fallthrough();
+    assertEquals(EvaluationReason.Kind.FALLTHROUGH, reason.getKind());
+    assertEquals(-1, reason.getRuleIndex());
+    assertNull(reason.getRuleId());
+    assertNull(reason.getPrerequisiteKey());
+    assertNull(reason.getErrorKind());
+    assertNull(reason.getException());
+  }
+  
+  @Test
+  public void targetMatchProperties() {
+    EvaluationReason reason = EvaluationReason.targetMatch();
+    assertEquals(EvaluationReason.Kind.TARGET_MATCH, reason.getKind());
+    assertEquals(-1, reason.getRuleIndex());
+    assertNull(reason.getRuleId());
+    assertNull(reason.getPrerequisiteKey());
+    assertNull(reason.getErrorKind());
+    assertNull(reason.getException());
+  }
+  
+  @Test
+  public void ruleMatchProperties() {
+    EvaluationReason reason = EvaluationReason.ruleMatch(2, "id");
+    assertEquals(EvaluationReason.Kind.RULE_MATCH, reason.getKind());
+    assertEquals(2, reason.getRuleIndex());
+    assertEquals("id", reason.getRuleId());
+    assertNull(reason.getPrerequisiteKey());
+    assertNull(reason.getErrorKind());
+    assertNull(reason.getException());
+  }
+  
+  @Test
+  public void prerequisiteFailedProperties() {
+    EvaluationReason reason = EvaluationReason.prerequisiteFailed("prereq-key");
+    assertEquals(EvaluationReason.Kind.PREREQUISITE_FAILED, reason.getKind());
+    assertEquals(-1, reason.getRuleIndex());
+    assertNull(reason.getRuleId());
+    assertEquals("prereq-key", reason.getPrerequisiteKey());
+    assertNull(reason.getErrorKind());
+    assertNull(reason.getException());
+  }
+  
+  @Test
+  public void errorProperties() {
+    EvaluationReason reason = EvaluationReason.error(EvaluationReason.ErrorKind.CLIENT_NOT_READY);
+    assertEquals(EvaluationReason.Kind.ERROR, reason.getKind());
+    assertEquals(-1, reason.getRuleIndex());
+    assertNull(reason.getRuleId());
+    assertNull(reason.getPrerequisiteKey());
+    assertEquals(EvaluationReason.ErrorKind.CLIENT_NOT_READY, reason.getErrorKind());
+    assertNull(reason.getException());
+  }
+  
+  @Test
+  public void exceptionErrorProperties() {
+    Exception ex = new Exception("sorry");
+    EvaluationReason reason = EvaluationReason.exception(ex);
+    assertEquals(EvaluationReason.Kind.ERROR, reason.getKind());
+    assertEquals(-1, reason.getRuleIndex());
+    assertNull(reason.getRuleId());
+    assertNull(reason.getPrerequisiteKey());
+    assertEquals(EvaluationReason.ErrorKind.EXCEPTION, reason.getErrorKind());
+    assertEquals(ex, reason.getException());
+  }
+  
+  @SuppressWarnings("deprecation")
+  @Test
+  public void deprecatedSubclassProperties() {
+    EvaluationReason ro = EvaluationReason.off();
+    assertEquals(EvaluationReason.Off.class, ro.getClass());
+
+    EvaluationReason rf = EvaluationReason.fallthrough();
+    assertEquals(EvaluationReason.Fallthrough.class, rf.getClass());
+
+    EvaluationReason rtm = EvaluationReason.targetMatch();
+    assertEquals(EvaluationReason.TargetMatch.class, rtm.getClass());
+
+    EvaluationReason rrm = EvaluationReason.ruleMatch(2, "id");
+    assertEquals(EvaluationReason.RuleMatch.class, rrm.getClass());
+    assertEquals(2, ((EvaluationReason.RuleMatch)rrm).getRuleIndex());
+    assertEquals("id", ((EvaluationReason.RuleMatch)rrm).getRuleId());
+
+    EvaluationReason rpf = EvaluationReason.prerequisiteFailed("prereq-key");
+    assertEquals(EvaluationReason.PrerequisiteFailed.class, rpf.getClass());
+    assertEquals("prereq-key", ((EvaluationReason.PrerequisiteFailed)rpf).getPrerequisiteKey());
+    
+    EvaluationReason re = EvaluationReason.error(EvaluationReason.ErrorKind.CLIENT_NOT_READY);
+    assertEquals(EvaluationReason.Error.class, re.getClass());
+    assertEquals(EvaluationReason.ErrorKind.CLIENT_NOT_READY, ((EvaluationReason.Error)re).getErrorKind());
+    assertNull(((EvaluationReason.Error)re).getException());
+    
+    Exception ex = new Exception("sorry");
+    EvaluationReason ree = EvaluationReason.exception(ex);
+    assertEquals(EvaluationReason.Error.class, ree.getClass());
+    assertEquals(EvaluationReason.ErrorKind.EXCEPTION, ((EvaluationReason.Error)ree).getErrorKind());
+    assertEquals(ex, ((EvaluationReason.Error)ree).getException());
+  }
   
   @Test
   public void testOffReasonSerialization() {
@@ -73,9 +185,9 @@ public class EvaluationReasonTest {
   @Test
   public void errorInstancesAreReused() {
     for (EvaluationReason.ErrorKind errorKind: EvaluationReason.ErrorKind.values()) {
-      EvaluationReason.Error r0 = EvaluationReason.error(errorKind);
+      EvaluationReason r0 = EvaluationReason.error(errorKind);
       assertEquals(errorKind, r0.getErrorKind());
-      EvaluationReason.Error r1 = EvaluationReason.error(errorKind);
+      EvaluationReason r1 = EvaluationReason.error(errorKind);
       assertSame(r0, r1);
     }
   }
