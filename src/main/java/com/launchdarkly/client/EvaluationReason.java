@@ -7,9 +7,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Describes the reason that a flag evaluation produced a particular value. This is returned by
  * methods such as {@link LDClientInterface#boolVariationDetail(String, LDUser, boolean)}.
- * 
+ * <p>
  * Note that this is an enum-like class hierarchy rather than an enum, because some of the
- * possible reasons have their own properties.
+ * possible reasons have their own properties. However, directly referencing the subclasses is
+ * deprecated; in a future version only the {@link EvaluationReason} base class will be visible,
+ * and it has getter methods for all of the possible properties.
  * 
  * @since 4.3.0
  */
@@ -101,6 +103,60 @@ public abstract class EvaluationReason {
   {
     return kind;
   }
+
+  /**
+   * The index of the rule that was matched (0 for the first rule in the feature flag),
+   * if the {@code kind} is {@link Kind#RULE_MATCH}. Otherwise this returns -1.
+   * 
+   * @return the rule index or -1
+   */
+  public int getRuleIndex() {
+    return -1;
+  }
+  
+  /**
+   * The unique identifier of the rule that was matched, if the {@code kind} is
+   * {@link Kind#RULE_MATCH}. Otherwise {@code null}.
+   * <p>
+   * Unlike the rule index, this identifier will not change if other rules are added or deleted.
+   * 
+   * @return the rule identifier or null
+   */
+  public String getRuleId() {
+    return null;
+  }
+  
+  /**
+   * The key of the prerequisite flag that did not return the desired variation, if the
+   * {@code kind} is {@link Kind#PREREQUISITE_FAILED}. Otherwise {@code null}.
+   * 
+   * @return the prerequisite flag key or null 
+   */
+  public String getPrerequisiteKey() {
+    return null;
+  }
+
+  /**
+   * An enumeration value indicating the general category of error, if the
+   * {@code kind} is {@link Kind#PREREQUISITE_FAILED}. Otherwise {@code null}.
+   * 
+   * @return the error kind or null
+   */
+  public ErrorKind getErrorKind() {
+    return null;
+  }
+
+  /**
+   * The exception that caused the error condition, if the {@code kind} is
+   * {@link EvaluationReason.Kind#ERROR} and the {@code errorKind} is {@link ErrorKind#EXCEPTION}.
+   * Otherwise {@code null}.
+   * 
+   * @return the exception instance
+   * @since 4.11.0
+   */
+  public Exception getException() {
+    return null;
+  }
   
   @Override
   public String toString() {
@@ -113,7 +169,7 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Returns an instance of {@link Off}.
+   * Returns an instance whose {@code kind} is {@link Kind#OFF}.
    * @return a reason object
    */
   public static Off off() {
@@ -121,7 +177,7 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Returns an instance of {@link TargetMatch}.
+   * Returns an instance whose {@code kind} is {@link Kind#TARGET_MATCH}.
    * @return a reason object
    */
   public static TargetMatch targetMatch() {
@@ -129,7 +185,7 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Returns an instance of {@link RuleMatch}.
+   * Returns an instance whose {@code kind} is {@link Kind#RULE_MATCH}.
    * @param ruleIndex the rule index
    * @param ruleId the rule identifier
    * @return a reason object
@@ -139,7 +195,7 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Returns an instance of {@link PrerequisiteFailed}.
+   * Returns an instance whose {@code kind} is {@link Kind#PREREQUISITE_FAILED}.
    * @param prerequisiteKey the flag key of the prerequisite that failed 
    * @return a reason object
    */
@@ -148,7 +204,7 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Returns an instance of {@link Fallthrough}.
+   * Returns an instance whose {@code kind} is {@link Kind#FALLTHROUGH}.
    * @return a reason object
    */
   public static Fallthrough fallthrough() {
@@ -156,7 +212,7 @@ public abstract class EvaluationReason {
   }
   
   /**
-   * Returns an instance of {@link Error}.
+   * Returns an instance whose {@code kind} is {@link Kind#ERROR}.
    * @param errorKind describes the type of error
    * @return a reason object
    */
@@ -186,7 +242,10 @@ public abstract class EvaluationReason {
    * Subclass of {@link EvaluationReason} that indicates that the flag was off and therefore returned
    * its configured off value.
    * @since 4.3.0
+   * @deprecated This type will be removed in a future version. Use {@link #getKind()} instead and check
+   *   for the {@link Kind#OFF} value.
    */
+  @Deprecated
   public static class Off extends EvaluationReason {
     private Off() {
       super(Kind.OFF);
@@ -199,7 +258,10 @@ public abstract class EvaluationReason {
    * Subclass of {@link EvaluationReason} that indicates that the user key was specifically targeted
    * for this flag.
    * @since 4.3.0
+   * @deprecated This type will be removed in a future version. Use {@link #getKind()} instead and check
+   *   for the {@link Kind#TARGET_MATCH} value.
    */
+  @Deprecated
   public static class TargetMatch extends EvaluationReason {
     private TargetMatch()
     {
@@ -212,7 +274,10 @@ public abstract class EvaluationReason {
   /**
    * Subclass of {@link EvaluationReason} that indicates that the user matched one of the flag's rules.
    * @since 4.3.0
+   * @deprecated This type will be removed in a future version. Use {@link #getKind()} instead and check
+   *   for the {@link Kind#RULE_MATCH} value.
    */
+  @Deprecated
   public static class RuleMatch extends EvaluationReason {
     private final int ruleIndex;
     private final String ruleId;
@@ -227,6 +292,7 @@ public abstract class EvaluationReason {
      * The index of the rule that was matched (0 for the first rule in the feature flag).
      * @return the rule index
      */
+    @Override
     public int getRuleIndex() {
       return ruleIndex;
     }
@@ -235,6 +301,7 @@ public abstract class EvaluationReason {
      * A unique string identifier for the matched rule, which will not change if other rules are added or deleted.
      * @return the rule identifier
      */
+    @Override
     public String getRuleId() {
       return ruleId;
     }
@@ -263,7 +330,10 @@ public abstract class EvaluationReason {
    * Subclass of {@link EvaluationReason} that indicates that the flag was considered off because it
    * had at least one prerequisite flag that either was off or did not return the desired variation.
    * @since 4.3.0
+   * @deprecated This type will be removed in a future version. Use {@link #getKind()} instead and check
+   *   for the {@link Kind#PREREQUISITE_FAILED} value.
    */
+  @Deprecated
   public static class PrerequisiteFailed extends EvaluationReason {
     private final String prerequisiteKey;
     
@@ -276,6 +346,7 @@ public abstract class EvaluationReason {
      * The key of the prerequisite flag that did not return the desired variation.
      * @return the prerequisite flag key 
      */
+    @Override
     public String getPrerequisiteKey() {
       return prerequisiteKey;
     }
@@ -301,7 +372,10 @@ public abstract class EvaluationReason {
    * Subclass of {@link EvaluationReason} that indicates that the flag was on but the user did not
    * match any targets or rules.
    * @since 4.3.0
+   * @deprecated This type will be removed in a future version. Use {@link #getKind()} instead and check
+   *   for the {@link Kind#FALLTHROUGH} value.
    */
+  @Deprecated
   public static class Fallthrough extends EvaluationReason {
     private Fallthrough()
     {
@@ -314,7 +388,10 @@ public abstract class EvaluationReason {
   /**
    * Subclass of {@link EvaluationReason} that indicates that the flag could not be evaluated.
    * @since 4.3.0
+   * @deprecated This type will be removed in a future version. Use {@link #getKind()} instead and check
+   *   for the {@link Kind#ERROR} value.
    */
+  @Deprecated
   public static class Error extends EvaluationReason {
     private final ErrorKind errorKind;
     private transient final Exception exception;
@@ -333,6 +410,7 @@ public abstract class EvaluationReason {
      * An enumeration value indicating the general category of error.
      * @return the error kind
      */
+    @Override
     public ErrorKind getErrorKind() {
       return errorKind;
     }
