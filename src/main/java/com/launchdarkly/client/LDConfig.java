@@ -2,39 +2,25 @@ package com.launchdarkly.client;
 
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.client.integrations.EventProcessorBuilder;
+import com.launchdarkly.client.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.client.interfaces.HttpConfiguration;
+import com.launchdarkly.client.interfaces.HttpConfigurationFactory;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
 import java.net.URI;
-import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
-
-import okhttp3.Authenticator;
-import okhttp3.Credentials;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.Route;
 
 /**
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.client.LDConfig.Builder}.
  */
 public final class LDConfig {
-  private static final Logger logger = LoggerFactory.getLogger(LDConfig.class);
-
   static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
   static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
   static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
   private static final int DEFAULT_CAPACITY = 10000;
-  private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2000;
-  private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;
   private static final int DEFAULT_FLUSH_INTERVAL_SECONDS = 5;
   private static final long MIN_POLLING_INTERVAL_MILLIS = PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL_MILLIS;
   private static final long DEFAULT_START_WAIT_MILLIS = 5000L;
@@ -78,20 +64,20 @@ public final class LDConfig {
     this.offline = builder.offline;
     this.startWaitMillis = builder.startWaitMillis;
 
-    Proxy proxy = builder.proxy();
-    Authenticator proxyAuthenticator = builder.proxyAuthenticator();
-    if (proxy != null) {
-      if (proxyAuthenticator != null) {
-        logger.info("Using proxy: " + proxy + " with authentication.");
-      } else {
-        logger.info("Using proxy: " + proxy + " without authentication.");
-      }
+    if (builder.httpConfigFactory != null) {
+      this.httpConfig = builder.httpConfigFactory.createHttpConfiguration();
+    } else {
+      this.httpConfig = Components.httpConfiguration()
+          .connectTimeoutMillis(builder.connectTimeoutMillis)
+          .proxyHostAndPort(builder.proxyPort == -1 ? null : builder.proxyHost, builder.proxyPort)
+          .proxyAuth(builder.proxyUsername == null || builder.proxyPassword == null ? null :
+            Components.httpBasicAuthentication(builder.proxyUsername, builder.proxyPassword))
+          .socketTimeoutMillis(builder.socketTimeoutMillis)
+          .sslSocketFactory(builder.sslSocketFactory, builder.trustManager)
+          .wrapper(builder.wrapperName, builder.wrapperVersion)
+          .createHttpConfiguration();
     }
     
-    this.httpConfig = new HttpConfiguration(builder.connectTimeout, builder.connectTimeoutUnit,
-        proxy, proxyAuthenticator, builder.socketTimeout, builder.socketTimeoutUnit,
-        builder.sslSocketFactory, builder.trustManager, builder.wrapperName, builder.wrapperVersion);
-
     this.deprecatedAllAttributesPrivate = builder.allAttributesPrivate;
     this.deprecatedBaseURI = builder.baseURI;
     this.deprecatedCapacity = builder.capacity;
@@ -156,10 +142,9 @@ public final class LDConfig {
     private URI baseURI = DEFAULT_BASE_URI;
     private URI eventsURI = DEFAULT_EVENTS_URI;
     private URI streamURI = DEFAULT_STREAM_URI;
-    private int connectTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
-    private TimeUnit connectTimeoutUnit = TimeUnit.MILLISECONDS;
-    private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
-    private TimeUnit socketTimeoutUnit = TimeUnit.MILLISECONDS;
+    private HttpConfigurationFactory httpConfigFactory = null;
+    private int connectTimeoutMillis = HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT_MILLIS;
+    private int socketTimeoutMillis = HttpConfigurationBuilder.DEFAULT_SOCKET_TIMEOUT_MILLIS;
     private boolean diagnosticOptOut = false;
     private int capacity = DEFAULT_CAPACITY;
     private int flushIntervalSeconds = DEFAULT_FLUSH_INTERVAL_SECONDS;
@@ -307,6 +292,7 @@ public final class LDConfig {
      * @since 4.0.0
      * @deprecated Use {@link #events(EventProcessorFactory)}.
      */
+    @Deprecated
     public Builder eventProcessorFactory(EventProcessorFactory factory) {
       this.eventProcessorFactory = factory;
       return this;
@@ -366,63 +352,72 @@ public final class LDConfig {
     }
 
     /**
-     * Set the connection timeout in seconds for the configuration. This is the time allowed for the underlying HTTP client to connect
-     * to the LaunchDarkly server. The default is 2 seconds.
-     * <p>Both this method and {@link #connectTimeoutMillis(int) connectTimeoutMillis} affect the same property internally.</p>
+     * Sets the SDK's networking configuration, using a factory object. This object is normally a
+     * configuration builder obtained from {@link Components#httpConfiguration()}, which has methods
+     * for setting individual HTTP-related properties.
+     * 
+     * @param factory the factory object
+     * @return the builder
+     * @since 4.13.0
+     * @see Components#httpConfiguration()
+     */
+    public Builder http(HttpConfigurationFactory factory) {
+      this.httpConfigFactory = factory;
+      return this;
+    }
+    
+    /**
+     * Deprecated method for setting the connection timeout.
      *
      * @param connectTimeout the connection timeout in seconds
      * @return the builder
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#connectTimeoutMillis(int)}.
      */
+    @Deprecated
     public Builder connectTimeout(int connectTimeout) {
-      this.connectTimeout = connectTimeout;
-      this.connectTimeoutUnit = TimeUnit.SECONDS;
-      return this;
+      return connectTimeoutMillis(connectTimeout * 1000);
     }
 
     /**
-     * Set the socket timeout in seconds for the configuration. This is the number of seconds between successive packets that the
-     * client will tolerate before flagging an error. The default is 10 seconds.
-     * <p>Both this method and {@link #socketTimeoutMillis(int) socketTimeoutMillis} affect the same property internally.</p>
+     * Deprecated method for setting the socket read timeout.
      *
      * @param socketTimeout the socket timeout in seconds
      * @return the builder
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#socketTimeoutMillis(int)}.
      */
+    @Deprecated
     public Builder socketTimeout(int socketTimeout) {
-      this.socketTimeout = socketTimeout;
-      this.socketTimeoutUnit = TimeUnit.SECONDS;
-      return this;
+      return socketTimeoutMillis(socketTimeout * 1000);
     }
 
     /**
-     * Set the connection timeout in milliseconds for the configuration. This is the time allowed for the underlying HTTP client to connect
-     * to the LaunchDarkly server. The default is 2000 ms.
-     * <p>Both this method and {@link #connectTimeout(int) connectTimeoutMillis} affect the same property internally.</p>
+     * Deprecated method for setting the connection timeout.
      *
      * @param connectTimeoutMillis the connection timeout in milliseconds
      * @return the builder
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#connectTimeoutMillis(int)}.
      */
+    @Deprecated
     public Builder connectTimeoutMillis(int connectTimeoutMillis) {
-      this.connectTimeout = connectTimeoutMillis;
-      this.connectTimeoutUnit = TimeUnit.MILLISECONDS;
+      this.connectTimeoutMillis = connectTimeoutMillis;
       return this;
     }
 
     /**
-     * Set the socket timeout in milliseconds for the configuration. This is the number of milliseconds between successive packets that the
-     * client will tolerate before flagging an error. The default is 10,000 milliseconds.
-     * <p>Both this method and {@link #socketTimeout(int) socketTimeoutMillis} affect the same property internally.</p>
+     * Deprecated method for setting the socket read timeout.
      *
      * @param socketTimeoutMillis the socket timeout in milliseconds
      * @return the builder
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#socketTimeoutMillis(int)}.
      */
+    @Deprecated
     public Builder socketTimeoutMillis(int socketTimeoutMillis) {
-      this.socketTimeout = socketTimeoutMillis;
-      this.socketTimeoutUnit = TimeUnit.MILLISECONDS;
+      this.socketTimeoutMillis = socketTimeoutMillis;
       return this;
     }
 
     /**
-     * Deprecated method for setting the event buffer flush interval
+     * Deprecated method for setting the event buffer flush interval.
      *
      * @param flushInterval the flush interval in seconds
      * @return the builder
@@ -448,8 +443,9 @@ public final class LDConfig {
     }
 
     /**
-     * Set the host to use as an HTTP proxy for making connections to LaunchDarkly. If this is not set, but
-     * {@link #proxyPort(int)} is specified, this will default to <code>localhost</code>.
+     * Deprecated method for specifying an HTTP proxy.
+     * 
+     * If this is not set, but {@link #proxyPort(int)} is specified, this will default to <code>localhost</code>.
      * <p>
      * If neither {@link #proxyHost(String)} nor {@link #proxyPort(int)}  are specified,
      * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
@@ -457,56 +453,66 @@ public final class LDConfig {
      *
      * @param host the proxy hostname
      * @return the builder
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyHostAndPort(String, int)}. 
      */
+    @Deprecated
     public Builder proxyHost(String host) {
       this.proxyHost = host;
       return this;
     }
 
     /**
-     * Set the port to use for an HTTP proxy for making connections to LaunchDarkly. This is required for proxied HTTP connections.
+     * Deprecated method for specifying the port of an HTTP proxy.
      *
      * @param port the proxy port
      * @return the builder
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyHostAndPort(String, int)}. 
      */
+    @Deprecated
     public Builder proxyPort(int port) {
       this.proxyPort = port;
       return this;
     }
 
     /**
-     * Sets the username for the optional HTTP proxy. Only used when {@link LDConfig.Builder#proxyPassword(String)}
-     * is also called.
+     * Deprecated method for specifying HTTP proxy authorization credentials.
      *
      * @param username the proxy username
      * @return the builder
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyAuth(com.launchdarkly.client.interfaces.HttpAuthentication)}
+     *   and {@link Components#httpBasicAuthentication(String, String)}. 
      */
+    @Deprecated
     public Builder proxyUsername(String username) {
       this.proxyUsername = username;
       return this;
     }
 
     /**
-     * Sets the password for the optional HTTP proxy. Only used when {@link LDConfig.Builder#proxyUsername(String)}
-     * is also called.
+     * Deprecated method for specifying HTTP proxy authorization credentials.
      *
      * @param password the proxy password
      * @return the builder
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyAuth(com.launchdarkly.client.interfaces.HttpAuthentication)}
+     *   and {@link Components#httpBasicAuthentication(String, String)}. 
      */
+    @Deprecated
     public Builder proxyPassword(String password) {
       this.proxyPassword = password;
       return this;
     }
 
     /**
-     * Sets the {@link SSLSocketFactory} used to secure HTTPS connections to LaunchDarkly.
+     * Deprecated method for specifying a custom SSL socket factory and certificate trust manager.
      *
      * @param sslSocketFactory the SSL socket factory
      * @param trustManager the trust manager
      * @return the builder
      * 
      * @since 4.7.0
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#sslSocketFactory(SSLSocketFactory, X509TrustManager)}.
      */
+    @Deprecated
     public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
       this.sslSocketFactory = sslSocketFactory;
       this.trustManager = trustManager;
@@ -712,58 +718,31 @@ public final class LDConfig {
     }
 
     /**
-     * For use by wrapper libraries to set an identifying name for the wrapper being used. This will be included in a
-     * header during requests to the LaunchDarkly servers to allow recording metrics on the usage of
-     * these wrapper libraries.
+     * Deprecated method of specifing a wrapper library identifier.
      *
      * @param wrapperName an identifying name for the wrapper library
      * @return the builder
      * @since 4.12.0
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#wrapper(String, String)}.
      */
+    @Deprecated
     public Builder wrapperName(String wrapperName) {
       this.wrapperName = wrapperName;
       return this;
     }
 
     /**
-     * For use by wrapper libraries to report the version of the library in use. If {@link #wrapperName(String)} is not
-     * set, this field will be ignored. Otherwise the version string will be included in a header along
-     * with the wrapperName during requests to the LaunchDarkly servers.
+     * Deprecated method of specifing a wrapper library identifier.
      *
-     * @param wrapperVersion Version string for the wrapper library
+     * @param wrapperVersion version string for the wrapper library
      * @return the builder
      * @since 4.12.0
+     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#wrapper(String, String)}.
      */
+    @Deprecated
     public Builder wrapperVersion(String wrapperVersion) {
       this.wrapperVersion = wrapperVersion;
       return this;
-    }
-
-    // returns null if none of the proxy bits were configured. Minimum required part: port.
-    Proxy proxy() {
-      if (this.proxyPort == -1) {
-        return null;
-      } else {
-        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
-      }
-    }
-
-    Authenticator proxyAuthenticator() {
-      if (this.proxyUsername != null && this.proxyPassword != null) {
-        final String credential = Credentials.basic(proxyUsername, proxyPassword);
-        return new Authenticator() {
-          public Request authenticate(Route route, Response response) throws IOException {
-            if (response.request().header("Proxy-Authorization") != null) {
-              return null; // Give up, we've already failed to authenticate with the proxy.
-            } else {
-              return response.request().newBuilder()
-                  .header("Proxy-Authorization", credential)
-                  .build();
-            }
-          }
-        };
-      }
-      return null;
     }
 
     /**

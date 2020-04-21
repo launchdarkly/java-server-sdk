@@ -819,8 +819,7 @@ public class DefaultEventProcessorTest {
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       LDConfig config = new LDConfig.Builder()
               .diagnosticOptOut(true)
-              .wrapperName("Scala")
-              .wrapperVersion("0.1.0")
+              .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
               .build();
       try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), config)) {
         Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
@@ -829,24 +828,6 @@ public class DefaultEventProcessorTest {
 
       RecordedRequest req = server.takeRequest();
       assertThat(req.getHeader("X-LaunchDarkly-Wrapper"), equalTo("Scala/0.1.0"));
-    }
-  }
-
-  @Test
-  public void wrapperHeaderSentWithoutVersion() throws Exception {
-    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      LDConfig config = new LDConfig.Builder()
-          .diagnosticOptOut(true)
-          .wrapperName("Scala")
-          .build();
-
-      try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(server), config)) {
-        Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-        ep.sendEvent(e);
-      }
-
-      RecordedRequest req = server.takeRequest();
-      assertThat(req.getHeader("X-LaunchDarkly-Wrapper"), equalTo("Scala"));
     }
   }
 
@@ -907,7 +888,8 @@ public class DefaultEventProcessorTest {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
       EventProcessorBuilder ec = sendEvents().baseURI(serverWithCert.uri());
       LDConfig config = new LDConfig.Builder()
-          .sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager) // allows us to trust the self-signed cert
+          .http(Components.httpConfiguration().sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager))
+          // allows us to trust the self-signed cert
           .build();
       
       try (DefaultEventProcessor ep = makeEventProcessor(ec, config)) {

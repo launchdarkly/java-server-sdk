@@ -65,6 +65,14 @@ public final class LDClient implements LDClientInterface {
     this.config = new LDConfig(checkNotNull(config, "config must not be null"));
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
 
+    if (config.httpConfig.getProxy() != null) {
+      if (config.httpConfig.getProxyAuthentication() != null) {
+        logger.info("Using proxy: {} with authentication.", config.httpConfig.getProxy());
+      } else {
+        logger.info("Using proxy: {} without authentication.", config.httpConfig.getProxy());
+      }
+    }
+
     FeatureStore store;
     if (this.config.deprecatedFeatureStore != null) {
       store = this.config.deprecatedFeatureStore;

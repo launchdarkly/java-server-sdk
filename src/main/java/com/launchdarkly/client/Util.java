@@ -1,16 +1,26 @@
 package com.launchdarkly.client;
 
+import com.google.common.base.Function;
 import com.google.gson.JsonPrimitive;
+import com.launchdarkly.client.interfaces.HttpAuthentication;
+import com.launchdarkly.client.interfaces.HttpConfiguration;
 import com.launchdarkly.client.value.LDValue;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.Iterables.transform;
+
+import okhttp3.Authenticator;
 import okhttp3.ConnectionPool;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.Route;
 
 class Util {
   /**
@@ -37,12 +47,8 @@ class Util {
         .add("Authorization", sdkKey)
         .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
 
-    if (config.wrapperName != null) {
-      String wrapperVersion = "";
-      if (config.wrapperVersion != null) {
-        wrapperVersion = "/" + config.wrapperVersion;
-      }
-      builder.add("X-LaunchDarkly-Wrapper", config.wrapperName + wrapperVersion);
+    if (config.getWrapperIdentifier() != null) {
+      builder.add("X-LaunchDarkly-Wrapper", config.getWrapperIdentifier());
     }
 
     return builder;
@@ -50,21 +56,46 @@ class Util {
   
   static void configureHttpClientBuilder(HttpConfiguration config, OkHttpClient.Builder builder) {
     builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-      .connectTimeout(config.connectTimeout, config.connectTimeoutUnit)
-      .readTimeout(config.socketTimeout, config.socketTimeoutUnit)
-      .writeTimeout(config.socketTimeout, config.socketTimeoutUnit)
+      .connectTimeout(config.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS)
+      .readTimeout(config.getSocketTimeoutMillis(), TimeUnit.MILLISECONDS)
+      .writeTimeout(config.getSocketTimeoutMillis(), TimeUnit.MILLISECONDS)
       .retryOnConnectionFailure(false); // we will implement our own retry logic
 
-    if (config.sslSocketFactory != null) {
-      builder.sslSocketFactory(config.sslSocketFactory, config.trustManager);
+    if (config.getSslSocketFactory() != null) {
+      builder.sslSocketFactory(config.getSslSocketFactory(), config.getTrustManager());
     }
 
-    if (config.proxy != null) {
-      builder.proxy(config.proxy);
-      if (config.proxyAuthenticator != null) {
-        builder.proxyAuthenticator(config.proxyAuthenticator);
+    if (config.getProxy() != null) {
+      builder.proxy(config.getProxy());
+      if (config.getProxyAuthentication() != null) {
+        builder.proxyAuthenticator(okhttpAuthenticatorFromHttpAuthStrategy(
+            config.getProxyAuthentication(),
+            "Proxy-Authentication",
+            "Proxy-Authorization"
+        ));
       }
     }
+  }
+  
+  static final Authenticator okhttpAuthenticatorFromHttpAuthStrategy(final HttpAuthentication strategy,
+      final String challengeHeaderName, final String responseHeaderName) {
+    return new Authenticator() {
+      public Request authenticate(Route route, Response response) throws IOException {
+        if (response.request().header(responseHeaderName) != null) {
+          return null; // Give up, we've already failed to authenticate
+        }
+        Iterable<HttpAuthentication.Challenge> challenges = transform(response.challenges(),
+            new Function<okhttp3.Challenge, HttpAuthentication.Challenge>() {
+              public HttpAuthentication.Challenge apply(okhttp3.Challenge c) {
+                return new HttpAuthentication.Challenge(c.scheme(), c.realm()); 
+              }
+            });
+        String credential = strategy.provideAuthorization(challenges); 
+        return response.request().newBuilder()
+            .header(responseHeaderName, credential)
+            .build();
+      }
+    };  
   }
   
   static void shutdownHttpClient(OkHttpClient client) {
