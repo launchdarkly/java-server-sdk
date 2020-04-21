@@ -530,7 +530,8 @@ final class DefaultEventProcessor implements EventProcessor {
         }
         break;
       } catch (IOException e) {
-        logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
+        logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: {} ({})", request.url(), e.toString());
+        logger.debug(e.toString(), e);
         continue;
       }
     }
