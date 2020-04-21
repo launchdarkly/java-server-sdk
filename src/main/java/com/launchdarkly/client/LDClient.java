@@ -473,7 +473,8 @@ public final class LDClient implements LDClientInterface {
       String value = attr.getValue("Implementation-Version");
       return value;
     } catch (IOException e) {
-      logger.warn("Unable to determine LaunchDarkly client library version", e);
+      logger.warn("Unable to determine LaunchDarkly client library version: {}", e.toString());
+      logger.debug(e.toString(), e);
       return "Unknown";
     }
   }
