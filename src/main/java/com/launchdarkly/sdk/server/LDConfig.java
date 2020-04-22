@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
@@ -11,9 +10,6 @@ import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
 import java.net.URI;
 import java.time.Duration;
 
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.X509TrustManager;
-
 /**
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.sdk.server.LDConfig.Builder}.
  */
@@ -22,8 +18,6 @@ public final class LDConfig {
   static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
   static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
 
-  private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(2);
-  private static final Duration DEFAULT_SOCKET_TIMEOUT = Duration.ofSeconds(10);
   private static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
   
   protected static final LDConfig DEFAULT = new Builder().build();
@@ -41,22 +35,11 @@ public final class LDConfig {
     this.eventProcessorFactory = builder.eventProcessorFactory;
     this.dataSourceFactory = builder.dataSourceFactory;
     this.diagnosticOptOut = builder.diagnosticOptOut;
+    this.httpConfig = builder.httpConfigFactory == null ?
+        Components.httpConfiguration().createHttpConfiguration() :
+        builder.httpConfigFactory.createHttpConfiguration();
     this.offline = builder.offline;
     this.startWait = builder.startWait;
-
-    if (builder.httpConfigFactory != null) {
-      this.httpConfig = builder.httpConfigFactory.createHttpConfiguration();
-    } else {
-      this.httpConfig = Components.httpConfiguration()
-          .connectTimeout(builder.connectTimeout)
-          .proxyHostAndPort(builder.proxyPort == -1 ? null : builder.proxyHost, builder.proxyPort)
-          .proxyAuth(builder.proxyUsername == null || builder.proxyPassword == null ? null :
-            Components.httpBasicAuthentication(builder.proxyUsername, builder.proxyPassword))
-          .socketTimeout(builder.socketTimeout)
-          .sslSocketFactory(builder.sslSocketFactory, builder.trustManager)
-          .wrapper(builder.wrapperName, builder.wrapperVersion)
-          .createHttpConfiguration();
-    }
   }
   
   LDConfig(LDConfig config) {
@@ -81,23 +64,13 @@ public final class LDConfig {
    * </pre>
    */
   public static class Builder {
-    private Duration connectTimeout = DEFAULT_CONNECT_TIMEOUT;
     private DataSourceFactory dataSourceFactory = null;
     private DataStoreFactory dataStoreFactory = null;
     private boolean diagnosticOptOut = false;
     private EventProcessorFactory eventProcessorFactory = null;
     private HttpConfigurationFactory httpConfigFactory = null;
     private boolean offline = false;
-    private String proxyHost = "localhost";
-    private int proxyPort = -1;
-    private String proxyUsername = null;
-    private String proxyPassword = null;
-    private Duration socketTimeout = DEFAULT_SOCKET_TIMEOUT;
     private Duration startWait = DEFAULT_START_WAIT;
-    private SSLSocketFactory sslSocketFactory = null;
-    private X509TrustManager trustManager = null;
-    private String wrapperName = null;
-    private String wrapperVersion = null;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -105,19 +78,6 @@ public final class LDConfig {
     public Builder() {
     }
     
-    /**
-     * Deprecated method for setting the connection timeout.
-     *
-     * @param connectTimeout the connection timeout; null to use the default
-     * @return the builder
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#connectTimeout(Duration)}.
-     */
-    @Deprecated
-    public Builder connectTimeout(Duration connectTimeout) {
-      this.connectTimeout = connectTimeout == null ? DEFAULT_CONNECT_TIMEOUT : connectTimeout;
-      return this;
-    }
-
     /**
      * Sets the implementation of the component that receives feature flag data from LaunchDarkly,
      * using a factory object. Depending on the implementation, the factory may be a builder that
@@ -222,96 +182,6 @@ public final class LDConfig {
     }
 
     /**
-     * Deprecated method for specifying an HTTP proxy.
-     * 
-     * If this is not set, but {@link #proxyPort(int)} is specified, this will default to <code>localhost</code>.
-     * <p>
-     * If neither {@link #proxyHost(String)} nor {@link #proxyPort(int)}  are specified,
-     * a proxy will not be used, and {@link LDClient} will connect to LaunchDarkly directly.
-     * </p>
-     *
-     * @param host the proxy hostname
-     * @return the builder
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyHostAndPort(String, int)}. 
-     */
-    @Deprecated
-    public Builder proxyHost(String host) {
-      this.proxyHost = host;
-      return this;
-    }
-
-    /**
-     * Deprecated method for specifying the port of an HTTP proxy.
-     *
-     * @param port the proxy port
-     * @return the builder
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyHostAndPort(String, int)}. 
-     */
-    @Deprecated
-    public Builder proxyPort(int port) {
-      this.proxyPort = port;
-      return this;
-    }
-
-    /**
-     * Deprecated method for specifying HTTP proxy authorization credentials.
-     *
-     * @param username the proxy username
-     * @return the builder
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyAuth(com.launchdarkly.sdk.server.interfaces.HttpAuthentication)}
-     *   and {@link Components#httpBasicAuthentication(String, String)}. 
-     */
-    @Deprecated
-    public Builder proxyUsername(String username) {
-      this.proxyUsername = username;
-      return this;
-    }
-
-    /**
-     * Deprecated method for specifying HTTP proxy authorization credentials.
-     *
-     * @param password the proxy password
-     * @return the builder
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#proxyAuth(com.launchdarkly.sdk.server.interfaces.HttpAuthentication)}
-     *   and {@link Components#httpBasicAuthentication(String, String)}. 
-     */
-    @Deprecated
-    public Builder proxyPassword(String password) {
-      this.proxyPassword = password;
-      return this;
-    }
-
-    /**
-     * Deprecated method for setting the socket timeout.
-     *
-     * @param socketTimeout the socket timeout; null to use the default
-     * @return the builder
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#connectTimeout(Duration)}.
-     */
-    @Deprecated
-    public Builder socketTimeout(Duration socketTimeout) {
-      this.socketTimeout = socketTimeout == null ? DEFAULT_SOCKET_TIMEOUT : socketTimeout;
-      return this;
-    }
-
-    /**
-     * Deprecated method for specifying a custom SSL socket factory and certificate trust manager.
-     *
-     * @param sslSocketFactory the SSL socket factory
-     * @param trustManager the trust manager
-     * @return the builder
-     * 
-     * @since 4.7.0
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#sslSocketFactory(SSLSocketFactory, X509TrustManager)}.
-     */
-    @Deprecated
-    public Builder sslSocketFactory(SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
-      this.sslSocketFactory = sslSocketFactory;
-      this.trustManager = trustManager;
-      return this;
-    }
-
-    /**
      * Set how long the constructor will block awaiting a successful connection to LaunchDarkly.
      * Setting this to a zero or negative duration will not block and cause the constructor to return immediately.
      * Default value: 5000
@@ -321,34 +191,6 @@ public final class LDConfig {
      */
     public Builder startWait(Duration startWait) {
       this.startWait = startWait == null ? DEFAULT_START_WAIT : startWait;
-      return this;
-    }
-
-    /**
-     * Deprecated method of specifing a wrapper library identifier.
-     *
-     * @param wrapperName an identifying name for the wrapper library
-     * @return the builder
-     * @since 4.12.0
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#wrapper(String, String)}.
-     */
-    @Deprecated
-    public Builder wrapperName(String wrapperName) {
-      this.wrapperName = wrapperName;
-      return this;
-    }
-
-    /**
-     * Deprecated method of specifing a wrapper library identifier.
-     *
-     * @param wrapperVersion version string for the wrapper library
-     * @return the builder
-     * @since 4.12.0
-     * @deprecated Use {@link Components#httpConfiguration()} with {@link HttpConfigurationBuilder#wrapper(String, String)}.
-     */
-    @Deprecated
-    public Builder wrapperVersion(String wrapperVersion) {
-      this.wrapperVersion = wrapperVersion;
       return this;
     }
 

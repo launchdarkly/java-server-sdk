@@ -227,28 +227,6 @@ public class DiagnosticEventTest {
     assertEquals(expected, diagnosticJson);
   }
   
-  @SuppressWarnings("deprecation")
-  @Test
-  public void testCustomDiagnosticConfigurationDeprecatedHttpProperties() {
-    LDConfig ldConfig = new LDConfig.Builder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .socketTimeout(Duration.ofSeconds(20))
-            .proxyPort(1234)
-            .proxyUsername("username")
-            .proxyPassword("password")
-            .build();
-
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
-        .put("connectTimeoutMillis", 5_000)
-        .put("socketTimeoutMillis",  20_000)
-        .put("usingProxy", true)
-        .put("usingProxyAuthenticator", true)
-        .build();
-
-    assertEquals(expected, diagnosticJson);
-  }
-
   private static class DataStoreFactoryWithComponentName implements DataStoreFactory, DiagnosticDescription {
     @Override
     public LDValue describeConfiguration(LDConfig config) {

@@ -233,10 +233,6 @@ public abstract class Components {
    *         )
    *         .build();
    * </code></pre>
-   * <p>
-   * These properties will override any equivalent deprecated properties that were set with {@code LDConfig.Builder},
-   * such as {@link LDConfig.Builder#connectTimeout(java.time.Duration)}. However, setting {@link LDConfig.Builder#offline(boolean)}
-   * to {@code true} will supersede these settings and completely disable network requests.
    * 
    * @return a factory object
    * @since 4.13.0
