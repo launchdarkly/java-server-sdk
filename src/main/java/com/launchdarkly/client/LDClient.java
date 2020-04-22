@@ -53,7 +53,7 @@ public final class LDClient implements LDClientInterface {
    * Applications should instantiate a single instance for the lifetime of the application. In
    * unusual cases where an application needs to evaluate feature flags from different LaunchDarkly
    * projects or environments, you may create multiple clients, but they should still be retained
-   * for the lifetime of the application rather than created on the fly.
+   * for the lifetime of the application rather than created per request or per thread.
    * <p>
    * The client will begin attempting to connect to LaunchDarkly as soon as you call the constructor.
    * The constructor will return when it successfully connects, or when the default timeout of 5 seconds
@@ -77,7 +77,7 @@ public final class LDClient implements LDClientInterface {
    * Applications should instantiate a single instance for the lifetime of the application. In
    * unusual cases where an application needs to evaluate feature flags from different LaunchDarkly
    * projects or environments, you may create multiple clients, but they should still be retained
-   * for the lifetime of the application rather than created on the fly.
+   * for the lifetime of the application rather than created per request or per thread.
    * <p>
    * Unless it is configured to be offline with {@link LDConfig.Builder#offline(boolean)} or
    * {@link LDConfig.Builder#useLdd(boolean)}, the client will begin attempting to connect to
