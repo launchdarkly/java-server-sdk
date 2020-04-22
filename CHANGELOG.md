@@ -2,6 +2,24 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.13.0] - 2020-04-21
+### Added:
+- The new methods `Components.httpConfiguration()` and `LDConfig.Builder.http()`, and the new class `HttpConfigurationBuilder`, provide a subcomponent configuration model that groups together HTTP-related options such as `connectTimeoutMillis` and `proxyHost` - similar to how `Components.streamingDataSource()` works for streaming-related options or `Components.sendEvents()` for event-related options. The individual `LDConfig.Builder` methods for those options will still work, but are deprecated and will be removed in version 5.0.
+- `EvaluationReason` now has getter methods like `getRuleIndex()` that were previously only on specific reason subclasses. The subclasses will be removed in version 5.0.
+
+### Changed:
+- In streaming mode, the SDK will now drop and restart the stream connection if either 1. it receives malformed data (indicating that some data may have been lost before reaching the application) or 2. you are using a database integration (a persistent feature store) and a database error happens while trying to store the received data. In both cases, the intention is to make sure updates from LaunchDarkly are not lost; restarting the connection causes LaunchDarkly to re-send the entire flag data set. This makes the Java SDK&#39;s behavior consistent with other LaunchDarkly server-side SDKs.
+
+(Note that this means if there is a sustained database outage, you may see repeated reconnections as the SDK receives the data from LaunchDarkly again, tries to store it again, and gets another database error. Starting in version 5.0, there will be a more efficient mechanism in which the stream will only be restarted once the database becomes available again; that is not possible in this version because of limitations in the feature store interface.)
+
+### Fixed:
+- Network errors during analytics event delivery could cause an unwanted large exception stacktrace to appear as part of the log message. This has been fixed to be consistent with the SDK&#39;s error handling in general: a brief message is logged at `ERROR` or `WARN` level, and the stacktrace only appears if you have enabled `DEBUG` level.
+
+### Deprecated:
+- `LDConfig.Builder` methods `connectTimeout`, `connectTimeoutMillis`, `proxyHost`, `proxyPort`, `proxyUsername`, `proxyPassword`, `sslSocketFactory`, `wrapperName`, and `wrapperVersion`. Use `LDConfig.Builder.http()` and `Components.httpConfiguration()` instead.
+- `EvaluationReason` subclasses. Use the property getter methods on `EvaluationReason` instead.
+- The built-in New Relic integration will be removed in the 5.0 release. Application code is not affected by this change since the integration was entirely reflection-based and was not exposed in the public API.
+
 ## [4.12.1] - 2020-03-20
 ### Changed:
 - Improved the performance of the in-memory flag data store by using an immutable map that is atomically replaced on updates, so reads do not need a lock.

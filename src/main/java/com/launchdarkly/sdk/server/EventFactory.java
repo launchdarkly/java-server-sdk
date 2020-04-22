@@ -79,12 +79,7 @@ abstract class EventFactory {
     case FALLTHROUGH:
       return flag.isTrackEventsFallthrough();
     case RULE_MATCH:
-      if (!(reason instanceof EvaluationReason.RuleMatch)) {
-        // shouldn't be possible
-        return false;
-      }
-      EvaluationReason.RuleMatch rm = (EvaluationReason.RuleMatch)reason;
-      int ruleIndex = rm.getRuleIndex();
+      int ruleIndex = reason.getRuleIndex();
       // Note, it is OK to rely on the rule index rather than the unique ID in this context, because the
       // FeatureFlag that is passed to us here *is* necessarily the same version of the flag that was just
       // evaluated, so we cannot be out of sync with its rule list.
