@@ -5,6 +5,7 @@ import com.google.gson.JsonParseException;
 import com.launchdarkly.client.FeatureStore;
 import com.launchdarkly.client.VersionedData;
 import com.launchdarkly.client.VersionedDataKind;
+import com.launchdarkly.client.interfaces.SerializationException;
 
 /**
  * Helper methods that may be useful for implementing a {@link FeatureStore} or {@link FeatureStoreCore}.
@@ -48,7 +49,7 @@ public abstract class FeatureStoreHelpers {
    * Thrown by {@link FeatureStoreHelpers#unmarshalJson(VersionedDataKind, String)} for a deserialization error.
    */
   @SuppressWarnings("serial")
-  public static class UnmarshalException extends RuntimeException {
+  public static class UnmarshalException extends SerializationException {
     /**
      * Constructs an instance.
      * @param cause the underlying exception

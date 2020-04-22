@@ -3,6 +3,7 @@ package com.launchdarkly.client;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.client.EventSummarizer.EventSummary;
+import com.launchdarkly.client.interfaces.HttpConfiguration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -529,7 +530,8 @@ final class DefaultEventProcessor implements EventProcessor {
         }
         break;
       } catch (IOException e) {
-        logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: " + request.url(), e);
+        logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: {} ({})", request.url(), e.toString());
+        logger.debug(e.toString(), e);
         continue;
       }
     }
@@ -685,7 +687,7 @@ final class DefaultEventProcessor implements EventProcessor {
       return new Runnable() {
         @Override
         public void run() {
-          String json = JsonHelpers.gsonInstance().toJson(diagnosticEvent);
+          String json = JsonHelpers.serialize(diagnosticEvent);
           postJson(httpClient, headers, json, uriStr, "diagnostic event", null, null);
         }
       };

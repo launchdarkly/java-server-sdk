@@ -1,6 +1,7 @@
 package com.launchdarkly.client;
 
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.client.interfaces.HttpConfiguration;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
@@ -24,9 +25,11 @@ import javax.net.ssl.SSLHandshakeException;
 
 import static com.launchdarkly.client.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
+import static com.launchdarkly.client.TestUtil.featureStoreThatThrowsException;
 import static com.launchdarkly.client.VersionedDataKind.FEATURES;
 import static com.launchdarkly.client.VersionedDataKind.SEGMENTS;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -157,15 +160,16 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void headersHaveWrapperWhenSet() {
     LDConfig config = new LDConfig.Builder()
-            .wrapperName("Scala")
-            .wrapperVersion("0.1.0")
-            .build();
+        .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
+        .build();
     createStreamProcessor(config, STREAM_URI).start();
     assertEquals("Scala/0.1.0", headers.get("X-LaunchDarkly-Wrapper"));
   }
 
   @Test
   public void putCausesFeatureToBeStored() throws Exception {
+    expectNoStreamRestart();
+    
     createStreamProcessor(STREAM_URI).start();
     MessageEvent event = new MessageEvent("{\"data\":{\"flags\":{\"" +
         FEATURE1_KEY + "\":" + featureJson(FEATURE1_KEY, FEATURE1_VERSION) + "}," +
@@ -177,6 +181,8 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void putCausesSegmentToBeStored() throws Exception {
+    expectNoStreamRestart();
+    
     createStreamProcessor(STREAM_URI).start();
     MessageEvent event = new MessageEvent("{\"data\":{\"flags\":{},\"segments\":{\"" +
         SEGMENT1_KEY + "\":" + segmentJson(SEGMENT1_KEY, SEGMENT1_VERSION) + "}}}");
@@ -230,6 +236,8 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void patchUpdatesFeature() throws Exception {
+    expectNoStreamRestart();
+    
     createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     
@@ -243,6 +251,8 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void patchUpdatesSegment() throws Exception {
+    expectNoStreamRestart();
+    
     createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     
@@ -256,6 +266,8 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void deleteDeletesFeature() throws Exception {
+    expectNoStreamRestart();
+    
     createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     featureStore.upsert(FEATURES, FEATURE);
@@ -270,6 +282,8 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void deleteDeletesSegment() throws Exception {
+    expectNoStreamRestart();
+    
     createStreamProcessor(STREAM_URI).start();
     eventHandler.onMessage("put", emptyPutEvent());
     featureStore.upsert(SEGMENTS, SEGMENT);
@@ -284,13 +298,17 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void indirectPutRequestsAndStoresFeature() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
+    expectNoStreamRestart();    
     replayAll();
     
-    eventHandler.onMessage("indirect/put", new MessageEvent(""));
+    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
+      sp.start();
+
+      eventHandler.onMessage("indirect/put", new MessageEvent(""));
     
-    assertFeatureInStore(FEATURE);
+      assertFeatureInStore(FEATURE);
+    }
   }
 
   @Test
@@ -329,27 +347,35 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   @Test
-  public void indirectPatchRequestsAndUpdatesFeature() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
+  public void indirectPatchRequestsAndUpdatesFeature() throws Exception {    
     expect(mockRequestor.getFlag(FEATURE1_KEY)).andReturn(FEATURE);
+    expectNoStreamRestart();
     replayAll();
-    
-    eventHandler.onMessage("put", emptyPutEvent());
-    eventHandler.onMessage("indirect/patch", new MessageEvent("/flags/" + FEATURE1_KEY));
-    
-    assertFeatureInStore(FEATURE);
+
+    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
+      sp.start();
+
+      eventHandler.onMessage("put", emptyPutEvent());
+      eventHandler.onMessage("indirect/patch", new MessageEvent("/flags/" + FEATURE1_KEY));
+      
+      assertFeatureInStore(FEATURE);
+    }
   }
 
   @Test
   public void indirectPatchRequestsAndUpdatesSegment() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
     expect(mockRequestor.getSegment(SEGMENT1_KEY)).andReturn(SEGMENT);
+    expectNoStreamRestart();
     replayAll();
     
-    eventHandler.onMessage("put", emptyPutEvent());
-    eventHandler.onMessage("indirect/patch", new MessageEvent("/segments/" + SEGMENT1_KEY));
-    
-    assertSegmentInStore(SEGMENT);
+    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
+      sp.start();
+
+      eventHandler.onMessage("put", emptyPutEvent());
+      eventHandler.onMessage("indirect/patch", new MessageEvent("/segments/" + SEGMENT1_KEY));
+      
+      assertSegmentInStore(SEGMENT);
+    }
   }
   
   @Test
@@ -438,7 +464,168 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void http500ErrorIsRecoverable() throws Exception {
     testRecoverableHttpError(500);
   }
+  
+  @Test
+  public void putEventWithInvalidJsonCausesStreamRestart() throws Exception {
+    verifyEventCausesStreamRestart("put", "{sorry");
+  }
 
+  @Test
+  public void putEventWithWellFormedJsonButInvalidDataCausesStreamRestart() throws Exception {
+    verifyEventCausesStreamRestart("put", "{\"data\":{\"flags\":3}}");
+  }
+
+  @Test
+  public void patchEventWithInvalidJsonCausesStreamRestart() throws Exception {
+    verifyEventCausesStreamRestart("patch", "{sorry");
+  }
+
+  @Test
+  public void patchEventWithWellFormedJsonButInvalidDataCausesStreamRestart() throws Exception {
+    verifyEventCausesStreamRestart("patch", "{\"path\":\"/flags/flagkey\", \"data\":{\"rules\":3}}");
+  }
+
+  @Test
+  public void patchEventWithInvalidPathCausesNoStreamRestart() throws Exception {
+    verifyEventCausesNoStreamRestart("patch", "{\"path\":\"/wrong\", \"data\":{\"key\":\"flagkey\"}}");
+  }
+
+  @Test
+  public void deleteEventWithInvalidJsonCausesStreamRestart() throws Exception {
+    verifyEventCausesStreamRestart("delete", "{sorry");
+  }
+
+  @Test
+  public void deleteEventWithInvalidPathCausesNoStreamRestart() throws Exception {
+    verifyEventCausesNoStreamRestart("delete", "{\"path\":\"/wrong\", \"version\":1}");
+  }
+
+  @Test
+  public void indirectPatchEventWithInvalidPathDoesNotCauseStreamRestart() throws Exception {
+    verifyEventCausesNoStreamRestart("indirect/patch", "/wrong");
+  }
+
+  @Test
+  public void indirectPutWithFailedPollCausesStreamRestart() throws Exception {
+    expect(mockRequestor.getAllData()).andThrow(new IOException("sorry"));
+    verifyEventCausesStreamRestart("indirect/put", "");
+  }
+
+  @Test
+  public void indirectPatchWithFailedPollCausesStreamRestart() throws Exception {
+    expect(mockRequestor.getFlag("flagkey")).andThrow(new IOException("sorry"));
+    verifyEventCausesStreamRestart("indirect/patch", "/flags/flagkey");
+  }
+  
+  @Test
+  public void storeFailureOnPutCausesStreamRestart() throws Exception {
+    FeatureStore badStore = featureStoreThatThrowsException(new RuntimeException("sorry"));
+    expectStreamRestart();
+    replayAll();
+
+    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+      sp.start();
+      eventHandler.onMessage("put", emptyPutEvent());
+    }    
+    verifyAll();
+  }
+
+  @Test
+  public void storeFailureOnPatchCausesStreamRestart() throws Exception {
+    FeatureStore badStore = featureStoreThatThrowsException(new RuntimeException("sorry"));
+    expectStreamRestart();
+    replayAll();
+    
+    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+      sp.start();
+      eventHandler.onMessage("patch",
+          new MessageEvent("{\"path\":\"/flags/flagkey\",\"data\":{\"key\":\"flagkey\",\"version\":1}}"));
+    }    
+    verifyAll();
+  }
+
+  @Test
+  public void storeFailureOnDeleteCausesStreamRestart() throws Exception {
+    FeatureStore badStore = featureStoreThatThrowsException(new RuntimeException("sorry"));    
+    expectStreamRestart();
+    replayAll();
+    
+    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+      sp.start();
+      eventHandler.onMessage("delete",
+          new MessageEvent("{\"path\":\"/flags/flagkey\",\"version\":1}"));
+    }    
+    verifyAll();
+  }
+
+  @Test
+  public void storeFailureOnIndirectPutCausesStreamRestart() throws Exception {
+    FeatureStore badStore = featureStoreThatThrowsException(new RuntimeException("sorry"));
+    setupRequestorToReturnAllDataWithFlag(FEATURE);
+    expectStreamRestart();
+    replayAll();
+    
+    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+      sp.start();
+      eventHandler.onMessage("indirect/put", new MessageEvent(""));
+    }    
+    verifyAll();
+  }
+
+  @Test
+  public void storeFailureOnIndirectPatchCausesStreamRestart() throws Exception {
+    FeatureStore badStore = featureStoreThatThrowsException(new RuntimeException("sorry"));
+    setupRequestorToReturnAllDataWithFlag(FEATURE);
+    
+    expectStreamRestart();
+    replayAll();
+    
+    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+      sp.start();
+      eventHandler.onMessage("indirect/put", new MessageEvent(""));
+    }    
+    verifyAll();
+  }
+
+  private void verifyEventCausesNoStreamRestart(String eventName, String eventData) throws Exception {
+    expectNoStreamRestart();
+    verifyEventBehavior(eventName, eventData);
+  }
+  
+  private void verifyEventCausesStreamRestart(String eventName, String eventData) throws Exception {
+    expectStreamRestart();
+    verifyEventBehavior(eventName, eventData);
+  }
+  
+  private void verifyEventBehavior(String eventName, String eventData) throws Exception {
+    replayAll();
+    try (StreamProcessor sp = createStreamProcessor(LDConfig.DEFAULT, STREAM_URI, null)) {
+      sp.start();
+      eventHandler.onMessage(eventName, new MessageEvent(eventData));
+    }    
+    verifyAll();
+  }
+  
+  private void expectNoStreamRestart() throws Exception {
+    mockEventSource.start();
+    expectLastCall().times(1);
+    mockEventSource.close();
+    expectLastCall().times(1);
+    mockRequestor.close();
+    expectLastCall().times(1);
+  }
+  
+  private void expectStreamRestart() throws Exception {
+    mockEventSource.start();
+    expectLastCall().times(1);
+    mockEventSource.restart();
+    expectLastCall().times(1);
+    mockEventSource.close();
+    expectLastCall().times(1);
+    mockRequestor.close();
+    expectLastCall().times(1);
+  }
+  
   // There are already end-to-end tests against an HTTP server in okhttp-eventsource, so we won't retest the
   // basic stream mechanism in detail. However, we do want to make sure that the LDConfig options are correctly
   // applied to the EventSource for things like TLS configuration.
@@ -468,7 +655,8 @@ public class StreamProcessorTest extends EasyMockSupport {
       server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
       
       LDConfig config = new LDConfig.Builder()
-          .sslSocketFactory(server.socketFactory, server.trustManager) // allows us to trust the self-signed cert
+          .http(Components.httpConfiguration().sslSocketFactory(server.socketFactory, server.trustManager))
+          // allows us to trust the self-signed cert
           .build();
       
       try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, server.uri())) {
@@ -488,8 +676,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
       HttpUrl serverUrl = server.url("/");
       LDConfig config = new LDConfig.Builder()
-          .proxyHost(serverUrl.host())
-          .proxyPort(serverUrl.port())
+          .http(Components.httpConfiguration().proxyHostAndPort(serverUrl.host(), serverUrl.port()))
           .build();
       
       try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, fakeStreamUri)) {
@@ -567,6 +754,11 @@ public class StreamProcessorTest extends EasyMockSupport {
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
     return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, featureStore, null, null,
         streamUri, config.deprecatedReconnectTimeMs);
+  }
+
+  private StreamProcessor createStreamProcessorWithStore(FeatureStore store) {
+    return new StreamProcessor(SDK_KEY, LDConfig.DEFAULT.httpConfig, mockRequestor, store,
+        new StubEventSourceCreator(), null, STREAM_URI, 0);
   }
 
   private String featureJson(String key, int version) {

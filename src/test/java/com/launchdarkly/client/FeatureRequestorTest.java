@@ -178,7 +178,8 @@ public class FeatureRequestorTest {
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
       LDConfig config = new LDConfig.Builder()
-          .sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager) // allows us to trust the self-signed cert
+          .http(Components.httpConfiguration().sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager))
+          // allows us to trust the self-signed cert
           .build();
 
       try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server, config)) {
@@ -194,8 +195,7 @@ public class FeatureRequestorTest {
     try (MockWebServer server = makeStartedServer(jsonResponse(flag1Json))) {
       HttpUrl serverUrl = server.url("/");
       LDConfig config = new LDConfig.Builder()
-          .proxyHost(serverUrl.host())
-          .proxyPort(serverUrl.port())
+          .http(Components.httpConfiguration().proxyHostAndPort(serverUrl.host(), serverUrl.port()))
           .build();
       
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config.httpConfig, fakeBaseUri, true)) {
