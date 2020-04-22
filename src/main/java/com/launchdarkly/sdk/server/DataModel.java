@@ -209,7 +209,7 @@ public abstract class DataModel {
     private String key;
     private int variation;
 
-    private transient EvaluationReason.PrerequisiteFailed prerequisiteFailedReason;
+    private transient EvaluationReason prerequisiteFailedReason;
 
     Prerequisite() {}
   
@@ -227,11 +227,11 @@ public abstract class DataModel {
     }
 
     // This value is precomputed when we deserialize a FeatureFlag from JSON
-    EvaluationReason.PrerequisiteFailed getPrerequisiteFailedReason() {
+    EvaluationReason getPrerequisiteFailedReason() {
       return prerequisiteFailedReason;
     }
 
-    void setPrerequisiteFailedReason(EvaluationReason.PrerequisiteFailed prerequisiteFailedReason) {
+    void setPrerequisiteFailedReason(EvaluationReason prerequisiteFailedReason) {
       this.prerequisiteFailedReason = prerequisiteFailedReason;
     }
   }
@@ -267,7 +267,7 @@ public abstract class DataModel {
     private List<Clause> clauses;
     private boolean trackEvents;
     
-    private transient EvaluationReason.RuleMatch ruleMatchReason;
+    private transient EvaluationReason ruleMatchReason;
   
     Rule() {
       super();
@@ -294,11 +294,11 @@ public abstract class DataModel {
     }
     
     // This value is precomputed when we deserialize a FeatureFlag from JSON
-    EvaluationReason.RuleMatch getRuleMatchReason() {
+    EvaluationReason getRuleMatchReason() {
       return ruleMatchReason;
     }
 
-    void setRuleMatchReason(EvaluationReason.RuleMatch ruleMatchReason) {
+    void setRuleMatchReason(EvaluationReason ruleMatchReason) {
       this.ruleMatchReason = ruleMatchReason;
     }
   }

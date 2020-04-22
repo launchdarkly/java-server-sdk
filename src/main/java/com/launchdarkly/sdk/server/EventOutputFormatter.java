@@ -209,22 +209,25 @@ final class EventOutputFormatter {
     jw.name("kind");
     jw.value(er.getKind().name());
     
-    if (er instanceof EvaluationReason.Error) {
-      EvaluationReason.Error ere = (EvaluationReason.Error)er;
+    switch (er.getKind()) {
+    case ERROR:
       jw.name("errorKind");
-      jw.value(ere.getErrorKind().name());
-    } else if (er instanceof EvaluationReason.PrerequisiteFailed) {
-      EvaluationReason.PrerequisiteFailed erpf = (EvaluationReason.PrerequisiteFailed)er;
+      jw.value(er.getErrorKind().name());
+      break;
+    case PREREQUISITE_FAILED:
       jw.name("prerequisiteKey");
-      jw.value(erpf.getPrerequisiteKey());
-    } else if (er instanceof EvaluationReason.RuleMatch) {
-      EvaluationReason.RuleMatch errm = (EvaluationReason.RuleMatch)er;
+      jw.value(er.getPrerequisiteKey());
+      break;
+    case RULE_MATCH:
       jw.name("ruleIndex");
-      jw.value(errm.getRuleIndex());
-      if (errm.getRuleId() != null) {
+      jw.value(er.getRuleIndex());
+      if (er.getRuleId() != null) {
         jw.name("ruleId");
-        jw.value(errm.getRuleId());
+        jw.value(er.getRuleId());
       }
+      break;
+    default:
+      break;
     }   
     
     jw.endObject();

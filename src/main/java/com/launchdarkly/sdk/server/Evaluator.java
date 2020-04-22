@@ -148,8 +148,8 @@ class Evaluator {
     for (int i = 0; i < rules.size(); i++) {
       DataModel.Rule rule = rules.get(i);
       if (ruleMatchesUser(flag, rule, user)) {
-        EvaluationReason.RuleMatch precomputedReason = rule.getRuleMatchReason();
-        EvaluationReason.RuleMatch reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
+        EvaluationReason precomputedReason = rule.getRuleMatchReason();
+        EvaluationReason reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
         return getValueForVariationOrRollout(flag, rule, user, reason);
       }
     }
@@ -179,7 +179,7 @@ class Evaluator {
         }
       }
       if (!prereqOk) {
-        EvaluationReason.PrerequisiteFailed precomputedReason = prereq.getPrerequisiteFailedReason();
+        EvaluationReason precomputedReason = prereq.getPrerequisiteFailedReason();
         return precomputedReason != null ? precomputedReason : EvaluationReason.prerequisiteFailed(prereq.getKey());
       }
     }
