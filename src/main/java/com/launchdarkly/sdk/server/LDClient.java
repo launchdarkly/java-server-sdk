@@ -52,7 +52,6 @@ public final class LDClient implements LDClientInterface {
   private static final String HMAC_ALGORITHM = "HmacSHA256";
   static final String CLIENT_VERSION = getClientVersion();
 
-  private final LDConfig config;
   private final String sdkKey;
   private final Evaluator evaluator;
   private final FlagChangeEventPublisher flagChangeEventPublisher;
@@ -60,6 +59,7 @@ public final class LDClient implements LDClientInterface {
   final DataSource dataSource;
   final DataStore dataStore;
   private final DataStoreStatusProvider dataStoreStatusProvider;
+  private final boolean offline;
   
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
@@ -89,11 +89,12 @@ public final class LDClient implements LDClientInterface {
    * @param config a client configuration object
    */
   public LDClient(String sdkKey, LDConfig config) {
-    this.config = new LDConfig(checkNotNull(config, "config must not be null"));
+    checkNotNull(config, "config must not be null");
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
+    this.offline = config.offline;
     
-    final EventProcessorFactory epFactory = this.config.eventProcessorFactory == null ?
-        Components.sendEvents() : this.config.eventProcessorFactory;
+    final EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
+        Components.sendEvents() : config.eventProcessorFactory;
 
     if (config.httpConfig.getProxy() != null) {
       if (config.httpConfig.getProxyAuthentication() != null) {
@@ -105,7 +106,7 @@ public final class LDClient implements LDClientInterface {
 
     // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
     // standard event processor
-    final boolean useDiagnostics = !this.config.diagnosticOptOut && epFactory instanceof EventProcessorBuilder;
+    final boolean useDiagnostics = !config.diagnosticOptOut && epFactory instanceof EventProcessorBuilder;
     final ClientContextImpl context = new ClientContextImpl(sdkKey, config,
         useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null);
 
@@ -128,18 +129,18 @@ public final class LDClient implements LDClientInterface {
     
     this.flagChangeEventPublisher = new FlagChangeEventPublisher();
     
-    DataSourceFactory dataSourceFactory = this.config.dataSourceFactory == null ?
-        Components.streamingDataSource() : this.config.dataSourceFactory;
+    DataSourceFactory dataSourceFactory = config.dataSourceFactory == null ?
+        Components.streamingDataSource() : config.dataSourceFactory;
     DataStoreUpdates dataStoreUpdates = new DataStoreUpdatesImpl(dataStore, flagChangeEventPublisher);
     this.dataSource = dataSourceFactory.createDataSource(context, dataStoreUpdates);
 
     Future<Void> startFuture = dataSource.start();
-    if (!this.config.startWait.isZero() && !this.config.startWait.isNegative()) {
+    if (!config.startWait.isZero() && !config.startWait.isNegative()) {
       if (!(dataSource instanceof Components.NullDataSource)) {
-        logger.info("Waiting up to " + this.config.startWait.toMillis() + " milliseconds for LaunchDarkly client to start...");
+        logger.info("Waiting up to " + config.startWait.toMillis() + " milliseconds for LaunchDarkly client to start...");
       }
       try {
-        startFuture.get(this.config.startWait.toMillis(), TimeUnit.MILLISECONDS);
+        startFuture.get(config.startWait.toMillis(), TimeUnit.MILLISECONDS);
       } catch (TimeoutException e) {
         logger.error("Timeout encountered waiting for LaunchDarkly client initialization");
       } catch (Exception e) {
@@ -424,7 +425,7 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public boolean isOffline() {
-    return config.offline;
+    return offline;
   }
 
   @Override

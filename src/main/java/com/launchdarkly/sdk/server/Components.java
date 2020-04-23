@@ -330,7 +330,7 @@ public abstract class Components {
     
     @Override
     public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
-      if (context.getConfiguration().offline) {
+      if (context.isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
         LDClient.logger.info("Starting LaunchDarkly client in offline mode");
@@ -377,7 +377,7 @@ public abstract class Components {
     public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
-      if (context.getConfiguration().offline) {
+      if (context.isOffline()) {
         return Components.externalUpdatesOnly().createDataSource(context, dataStoreUpdates);
       }
       
@@ -395,14 +395,14 @@ public abstract class Components {
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           context.getSdkKey(),
-          context.getConfiguration().httpConfig,
+          context.getHttpConfiguration(),
           pollUri,
           false
           );
       
       return new StreamProcessor(
           context.getSdkKey(),
-          context.getConfiguration().httpConfig,
+          context.getHttpConfiguration(),
           requestor,
           dataStoreUpdates,
           null,
@@ -435,7 +435,7 @@ public abstract class Components {
     public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
-      if (context.getConfiguration().offline) {
+      if (context.isOffline()) {
         return Components.externalUpdatesOnly().createDataSource(context, dataStoreUpdates);
       }
 
@@ -444,7 +444,7 @@ public abstract class Components {
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           context.getSdkKey(),
-          context.getConfiguration().httpConfig,
+          context.getHttpConfiguration(),
           baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI,
           true
           );
@@ -471,12 +471,11 @@ public abstract class Components {
       implements DiagnosticDescription {
     @Override
     public EventProcessor createEventProcessor(ClientContext context) {
-      if (context.getConfiguration().offline) {
+      if (context.isOffline()) {
         return new NullEventProcessor();
       }
       return new DefaultEventProcessor(
           context.getSdkKey(),
-          context.getConfiguration(),
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
@@ -489,8 +488,9 @@ public abstract class Components {
               userKeysFlushInterval,
               diagnosticRecordingInterval
               ),
-          context.getConfiguration().httpConfig,
-          ClientContextImpl.getDiagnosticAccumulator(context)
+          context.getHttpConfiguration(),
+          ClientContextImpl.getDiagnosticAccumulator(context),
+          ClientContextImpl.getDiagnosticInitEvent(context)
           );
     }
     

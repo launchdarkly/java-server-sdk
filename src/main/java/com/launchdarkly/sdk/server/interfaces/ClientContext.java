@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server.interfaces;
 
-import com.launchdarkly.sdk.server.LDConfig;
-
 /**
  * Context information provided by the {@link com.launchdarkly.sdk.server.LDClient} when creating components.
  * <p>
@@ -20,8 +18,14 @@ public interface ClientContext {
   public String getSdkKey();
   
   /**
-   * The client configuration.
-   * @return the configuration
+   * True if {@link com.launchdarkly.sdk.server.LDConfig.Builder#offline(boolean)} was set to true.
+   * @return the offline status
    */
-  public LDConfig getConfiguration();
+  public boolean isOffline();
+  
+  /**
+   * The configured networking properties that apply to all components.
+   * @return the HTTP configuration
+   */
+  public HttpConfiguration getHttpConfiguration();
 }
