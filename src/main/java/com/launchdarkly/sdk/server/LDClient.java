@@ -218,6 +218,9 @@ public final class LDClient implements LDClientInterface {
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
     KeyedItems<ItemDescriptor> flags = dataStore.getAll(FEATURES);
     for (Map.Entry<String, ItemDescriptor> entry : flags.getItems()) {
+      if (entry.getValue().getItem() == null) {
+        continue; // deleted flag placeholder
+      }
       DataModel.FeatureFlag flag = (DataModel.FeatureFlag)entry.getValue().getItem();
       if (clientSideOnly && !flag.isClientSide()) {
         continue;

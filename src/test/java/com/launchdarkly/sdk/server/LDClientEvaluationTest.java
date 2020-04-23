@@ -8,12 +8,15 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
 import org.junit.Test;
 
 import java.time.Duration;
 import java.util.Map;
 
+import static com.google.common.collect.Iterables.getFirst;
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.fallthroughVariation;
@@ -418,6 +421,22 @@ public class LDClientEvaluationTest {
       "}";
     JsonElement expected = gson.fromJson(json, JsonElement.class);
     assertEquals(expected, gson.toJsonTree(state));    
+  }
+  
+  @Test
+  public void allFlagsStateFiltersOutDeletedFlags() throws Exception {
+    DataModel.FeatureFlag flag1 = flagBuilder("key1").version(1).build();
+    DataModel.FeatureFlag flag2 = flagBuilder("key2").version(1).build();
+    upsertFlag(dataStore, flag1);
+    upsertFlag(dataStore, flag2);
+    dataStore.upsert(FEATURES, flag2.getKey(), ItemDescriptor.deletedItem(flag2.getVersion() + 1));
+
+    FeatureFlagsState state = client.allFlagsState(user);
+    assertTrue(state.isValid());
+    
+    Map<String, LDValue> valuesMap = state.toValuesMap();
+    assertEquals(1, valuesMap.size());
+    assertEquals(flag1.getKey(), getFirst(valuesMap.keySet(), null));
   }
   
   @Test
