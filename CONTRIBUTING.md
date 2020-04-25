@@ -15,8 +15,10 @@ We encourage pull requests and other contributions from the community. Before su
  
 ### Prerequisites
  
-The SDK builds with [Gradle](https://gradle.org/) and should be built against Java 7.
- 
+The SDK builds with [Gradle](https://gradle.org/) and should be built against Java 8.
+
+Many basic classes are implemented in the module `launchdarkly-java-sdk-common`, whose source code is in the [`launchdarkly/java-sdk-common`](https://github.com/launchdarkly/java-sdk-common) repository; this is so the common code can be shared with the LaunchDarkly Android SDK. By design, the LaunchDarkly Java SDK distribution does not expose a dependency on that module; instead, its classes and Javadoc content are embedded in the SDK jars.
+
 ### Building
 
 To build the SDK without running any tests:
