@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getFirst;
+import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
@@ -218,7 +219,7 @@ public class LDClientEvaluationTest {
     upsertFlag(dataStore, flag);
     
     EvaluationDetail<String> expected = EvaluationDetail.fromValue("default",
-        null, EvaluationReason.off());
+        NO_VARIATION, EvaluationReason.off());
     EvaluationDetail<String> actual = client.stringVariationDetail("key", user, "default");
     assertEquals(expected, actual);
     assertTrue(actual.isDefaultValue());
@@ -234,7 +235,7 @@ public class LDClientEvaluationTest {
         .startWait(Duration.ZERO)
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
-      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,
+      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, NO_VARIATION,
           EvaluationReason.error(EvaluationReason.ErrorKind.CLIENT_NOT_READY));
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }
@@ -242,7 +243,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void appropriateErrorIfFlagDoesNotExist() throws Exception {
-    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", null,
+    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", NO_VARIATION,
         EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
     assertEquals(expectedResult, client.stringVariationDetail("key", user, "default"));
   }
@@ -251,7 +252,7 @@ public class LDClientEvaluationTest {
   public void appropriateErrorIfUserNotSpecified() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
 
-    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", null,
+    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", NO_VARIATION,
         EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
     assertEquals(expectedResult, client.stringVariationDetail("key", null, "default"));
   }
@@ -260,7 +261,7 @@ public class LDClientEvaluationTest {
   public void appropriateErrorIfValueWrongType() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
 
-    EvaluationDetail<Integer> expectedResult = EvaluationDetail.fromValue(3, null,
+    EvaluationDetail<Integer> expectedResult = EvaluationDetail.fromValue(3, NO_VARIATION,
         EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE));
     assertEquals(expectedResult, client.intVariationDetail("key", user, 3));
   }
@@ -275,7 +276,7 @@ public class LDClientEvaluationTest {
         .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
-      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, null,
+      EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, NO_VARIATION,
           EvaluationReason.exception(exception));
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }

@@ -102,7 +102,7 @@ public class EventSummarizerTest {
         new EventSummarizer.CounterValue(1, LDValue.of("value2"), LDValue.of("default1")));
     expected.put(new EventSummarizer.CounterKey(flag2.getKey(), 1, flag2.getVersion()),
         new EventSummarizer.CounterValue(1, LDValue.of("value99"), LDValue.of("default2")));
-    expected.put(new EventSummarizer.CounterKey(unknownFlagKey, null, null),
+    expected.put(new EventSummarizer.CounterKey(unknownFlagKey, -1, -1),
         new EventSummarizer.CounterValue(1, LDValue.of("default3"), LDValue.of("default3")));
     assertThat(data.counters, equalTo(expected));
   }

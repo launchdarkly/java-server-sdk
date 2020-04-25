@@ -38,6 +38,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 
@@ -232,7 +233,7 @@ public final class LDClient implements LDClientInterface {
       } catch (Exception e) {
         logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
         logger.debug(e.toString(), e);
-        builder.addFlag(flag, new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.exception(e)));
+        builder.addFlag(flag, new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.exception(e)));
       }
     }
     return builder.build();
@@ -329,7 +330,7 @@ public final class LDClient implements LDClientInterface {
   }
   
   private Evaluator.EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {
-    return new Evaluator.EvalResult(defaultValue, null, EvaluationReason.error(errorKind));
+    return new Evaluator.EvalResult(defaultValue, NO_VARIATION, EvaluationReason.error(errorKind));
   }
   
   private Evaluator.EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue, boolean checkType,
@@ -390,7 +391,7 @@ public final class LDClient implements LDClientInterface {
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
             EvaluationReason.ErrorKind.EXCEPTION));
       }
-      return new Evaluator.EvalResult(defaultValue, null, EvaluationReason.exception(e));
+      return new Evaluator.EvalResult(defaultValue, NO_VARIATION, EvaluationReason.exception(e));
     }
   }
 

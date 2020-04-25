@@ -124,13 +124,13 @@ public class Event {
    */
   public static final class FeatureRequest extends Event {
     private final String key;
-    private final Integer variation;
+    private final int variation;
     private final LDValue value;
     private final LDValue defaultVal;
-    private final Integer version;
+    private final int version;
     private final String prereqOf;
     private final boolean trackEvents;
-    private final Long debugEventsUntilDate;
+    private final long debugEventsUntilDate;
     private final EvaluationReason reason;
     private final boolean debug;
 
@@ -139,8 +139,8 @@ public class Event {
      * @param timestamp the timestamp in milliseconds
      * @param key the flag key
      * @param user the user associated with the event
-     * @param version the flag version, or null if the flag was not found
-     * @param variation the result variation, or null if there was an error
+     * @param version the flag version, or -1 if the flag was not found
+     * @param variation the result variation, or -1 if there was an error
      * @param value the result value
      * @param defaultVal the default value passed by the application
      * @param reason the evaluation reason, if it is to be included in the event
@@ -150,8 +150,8 @@ public class Event {
      * @param debug true if this is a debugging event
      * @since 4.8.0
      */
-    public FeatureRequest(long timestamp, String key, LDUser user, Integer version, Integer variation, LDValue value,
-        LDValue defaultVal, EvaluationReason reason, String prereqOf, boolean trackEvents, Long debugEventsUntilDate, boolean debug) {
+    public FeatureRequest(long timestamp, String key, LDUser user, int version, int variation, LDValue value,
+        LDValue defaultVal, EvaluationReason reason, String prereqOf, boolean trackEvents, long debugEventsUntilDate, boolean debug) {
       super(timestamp, user);
       this.key = key;
       this.version = version;
@@ -174,10 +174,10 @@ public class Event {
     }
 
     /**
-     * The index of the selected flag variation, or null if the application default value was used.
-     * @return zero-based index of the variation, or null
+     * The index of the selected flag variation, or -1 if the application default value was used.
+     * @return zero-based index of the variation, or -1
      */
-    public Integer getVariation() {
+    public int getVariation() {
       return variation;
     }
 
@@ -198,10 +198,10 @@ public class Event {
     }
 
     /**
-     * The version of the feature flag that was evaluated, or null if the flag was not found.
+     * The version of the feature flag that was evaluated, or -1 if the flag was not found.
      * @return the flag version or null
      */
-    public Integer getVersion() {
+    public int getVersion() {
       return version;
     }
 
@@ -223,9 +223,9 @@ public class Event {
 
     /**
      * If debugging is enabled for this flag, the Unix millisecond time at which to stop debugging.
-     * @return a timestamp or null
+     * @return a timestamp or zero
      */
-    public Long getDebugEventsUntilDate() {
+    public long getDebugEventsUntilDate() {
       return debugEventsUntilDate;
     }
 

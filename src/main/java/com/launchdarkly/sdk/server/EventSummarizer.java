@@ -65,7 +65,7 @@ final class EventSummarizer {
       return counters.isEmpty();
     }
     
-    void incrementCounter(String flagKey, Integer variation, Integer version, LDValue flagValue, LDValue defaultVal) {
+    void incrementCounter(String flagKey, int variation, int version, LDValue flagValue, LDValue defaultVal) {
       CounterKey key = new CounterKey(flagKey, variation, version);
 
       CounterValue value = counters.get(key);
@@ -102,10 +102,10 @@ final class EventSummarizer {
 
   static final class CounterKey {
     final String key;
-    final Integer variation;
-    final Integer version;
+    final int variation;
+    final int version;
     
-    CounterKey(String key, Integer variation, Integer version) {
+    CounterKey(String key, int variation, int version) {
       this.key = key;
       this.variation = variation;
       this.version = version;
@@ -115,15 +115,15 @@ final class EventSummarizer {
     public boolean equals(Object other) {
       if (other instanceof CounterKey) {
         CounterKey o = (CounterKey)other;
-        return o.key.equals(this.key) && Objects.equals(o.variation, this.variation) &&
-            Objects.equals(o.version, this.version);
+        return o.key.equals(this.key) && o.variation == this.variation &&
+            o.version == this.version;
       }
       return false;
     }
     
     @Override
     public int hashCode() {
-      return key.hashCode() + 31 * (Objects.hashCode(variation) + 31 * Objects.hashCode(version));
+      return key.hashCode() + 31 * (variation + 31 * version);
     }
     
     @Override

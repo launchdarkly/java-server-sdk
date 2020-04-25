@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.Set;
 
+import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.defaultEventsConfig;
 import static com.launchdarkly.sdk.server.TestComponents.makeEventsConfig;
@@ -80,7 +81,7 @@ public class EventOutputTest {
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
         flagBuilder("flag").build(),
         user,
-        new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.off()),
+        new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("user"));
@@ -189,7 +190,7 @@ public class EventOutputTest {
     assertEquals(feJson1, getSingleOutputEvent(f, feWithVariation));
 
     FeatureRequest feWithoutVariationOrDefault = factory.newFeatureRequestEvent(flag, user,
-        new Evaluator.EvalResult(LDValue.of("flagvalue"), null, EvaluationReason.off()),
+        new Evaluator.EvalResult(LDValue.of("flagvalue"), NO_VARIATION, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue feJson2 = parseValue("{" +
         "\"kind\":\"feature\"," +
@@ -323,9 +324,9 @@ public class EventOutputTest {
     summary.incrementCounter(new String("first"), 1, 12, LDValue.of("value1a"), LDValue.of("default1"));
 
     summary.incrementCounter(new String("second"), 2, 21, LDValue.of("value2b"), LDValue.of("default2"));
-    summary.incrementCounter(new String("second"), null, 21, LDValue.of("default2"), LDValue.of("default2")); // flag exists (has version), but eval failed (no variation)
+    summary.incrementCounter(new String("second"), -1, 21, LDValue.of("default2"), LDValue.of("default2")); // flag exists (has version), but eval failed (no variation)
 
-    summary.incrementCounter(new String("third"), null, null, LDValue.of("default3"), LDValue.of("default3")); // flag doesn't exist (no version)
+    summary.incrementCounter(new String("third"), -1, -1, LDValue.of("default3"), LDValue.of("default3")); // flag doesn't exist (no version)
 
     summary.noteTimestamp(1000);
     summary.noteTimestamp(1002);
@@ -395,7 +396,7 @@ public class EventOutputTest {
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
         flagBuilder("flag").build(),
         user,
-        new Evaluator.EvalResult(LDValue.ofNull(), null, EvaluationReason.off()),
+        new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));
