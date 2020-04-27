@@ -1,14 +1,10 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.Evaluator;
-import com.launchdarkly.sdk.server.FeatureFlagsState;
-import com.launchdarkly.sdk.server.FlagsStateOption;
+import com.launchdarkly.sdk.json.JsonSerialization;
+import com.launchdarkly.sdk.json.SerializationException;
 
 import org.junit.Test;
 
@@ -18,8 +14,6 @@ import static org.junit.Assert.assertNull;
 
 @SuppressWarnings("javadoc")
 public class FeatureFlagsStateTest {
-  private static final Gson gson = new Gson();
-  
   @Test
   public void canGetFlagValue() {
     Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value"), 1, EvaluationReason.off());
@@ -93,7 +87,7 @@ public class FeatureFlagsStateTest {
     FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
     
-    String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
+    String expectedJsonString = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
         "\"$flagsState\":{" +
           "\"key1\":{" +
             "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"}" +  // note, "trackEvents: false" is omitted
@@ -103,12 +97,12 @@ public class FeatureFlagsStateTest {
         "}," +
         "\"$valid\":true" +
       "}";
-    JsonElement expected = gson.fromJson(json, JsonElement.class);
-    assertEquals(expected, gson.toJsonTree(state));
+    String actualJsonString = JsonSerialization.serialize(state);
+    assertEquals(LDValue.parse(expectedJsonString), LDValue.parse(actualJsonString));
   }
   
   @Test
-  public void canConvertFromJson() {
+  public void canConvertFromJson() throws SerializationException {
     Evaluator.EvalResult eval1 = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
     DataModel.FeatureFlag flag1 = flagBuilder("key1").version(100).trackEvents(false).build();
     Evaluator.EvalResult eval2 = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.off());
@@ -116,8 +110,8 @@ public class FeatureFlagsStateTest {
     FeatureFlagsState state = new FeatureFlagsState.Builder()
         .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
     
-    String json = gson.toJson(state);
-    FeatureFlagsState state1 = gson.fromJson(json, FeatureFlagsState.class);
+    String json = JsonSerialization.serialize(state);
+    FeatureFlagsState state1 = JsonSerialization.deserialize(json, FeatureFlagsState.class);
     assertEquals(state, state1);
   }
 }
