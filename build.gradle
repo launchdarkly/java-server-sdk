@@ -1,3 +1,6 @@
+import java.nio.file.Files
+import java.nio.file.FileSystems
+import java.nio.file.StandardCopyOption
 
 buildscript {
     repositories {
@@ -160,6 +163,10 @@ shadowJar {
         // objects with detailed information about the resolved dependencies.
         addOsgiManifest(project.tasks.shadowJar, [ project.configurations.shadow ], [])
     }
+
+    doLast {
+        replaceUnshadedClasses(project.tasks.shadowJar)
+    }
 }
 
 // This builds the "-all"/"fat" jar, which is the same as the default uberjar except that
@@ -180,6 +187,10 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
         // default jar, it *also* imports them ("self-wiring"), which allows the bundle to use a
         // higher version if one is provided by another bundle.
         addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.shadow ], [ project.configurations.shadow ])
+    }
+
+    doLast {
+        replaceUnshadedClasses(project.tasks.shadowJarAll)
     }
 }
 
@@ -220,7 +231,8 @@ if (JavaVersion.current().isJava8Compatible()) {
 // Returns the names of all Java packages defined in this library - not including
 // enclosing packages like "com" that don't have any classes in them.
 def getAllSdkPackages() {
-    def names = [ "com.launchdarkly.sdk" ] // base package classes come from launchdarkly-java-sdk-common
+    // base package classes come from launchdarkly-java-sdk-common
+    def names = [ "com.launchdarkly.sdk", "com.launchdarkly.sdk.json" ]
     project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output.each { baseDir ->
         if (baseDir.getPath().contains("classes" + File.separator + "java" + File.separator + "main")) {
             baseDir.eachFileRecurse { f ->
@@ -271,6 +283,40 @@ def shadeDependencies(jarTask) {
     }
 }
 
+def replaceUnshadedClasses(jarTask) {
+    // The LDGson class is a special case where we do *not* want any of the Gson class names it uses to be
+    // modified by shading (because its purpose is to interoperate with a non-shaded instance of Gson).
+    // Shadow doesn't seem to provide a way to say "make this class file immune from the changes that result
+    // from shading *other* classes", so the workaround is to simply recopy the original class file. Note that
+    // we use a wildcard to make sure we also get any inner classes.
+    def protectedClassFilePattern = 'com/launchdarkly/sdk/json/LDGson*.class'
+    jarTask.exclude protectedClassFilePattern
+    def protectedClassFiles = configurations.commonClasses.collectMany {
+        zipTree(it).matching {
+            include protectedClassFilePattern
+        } getFiles()
+    }
+    def jarPath = jarTask.archiveFile.asFile.get().toPath()
+    FileSystems.newFileSystem(jarPath, null).withCloseable { fs ->
+        protectedClassFiles.forEach { classFile ->
+            def classSubpath = classFile.path.substring(classFile.path.indexOf("com/launchdarkly"))
+            Files.copy(classFile.toPath(), fs.getPath(classSubpath), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+}
+
+def getFileFromClasspath(config, filePath) {
+    def files = config.collectMany {
+        zipTree(it) matching {
+            include filePath
+        } getFiles()
+    }
+    if (files.size != 1) {
+        throw new RuntimeException("could not find " + filePath);
+    }
+    return files[0]
+}
+
 def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configuration> exportConfigs) {
     jarTask.manifest {
         attributes(
@@ -285,10 +331,14 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
         // Since we're not currently able to use bnd or the Gradle OSGi plugin, we're not discovering
         // imports by looking at the actual code; instead, we're just importing whatever packages each
         // dependency is exporting (if it has an OSGi manifest) or every package in the dependency (if
-        // it doesn't).
+        // it doesn't). We also always add *optional* imports for Gson, so that GsonTypeAdapters will
+        // work *if* Gson is present externally.
         def imports = forEachArtifactAndVisiblePackage(importConfigs, { a, p ->
             bundleImport(p, a.moduleVersion.id.version, nextMajorVersion(a.moduleVersion.id.version))
         }) + systemPackageImports
+        imports += "com.google.gson;resolution:=optional"	
+        	imports += "com.google.gson.reflect;resolution:=optional"
+        	imports += "com.google.gson.stream;resolution:=optional"
         attributes("Import-Package": imports.join(","))
 
         // Similarly, we're adding package exports for every package in whatever libraries we're

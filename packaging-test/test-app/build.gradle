@@ -36,7 +36,11 @@ dependencies {
 
 jar {
     bnd(
-        'Bundle-Activator': 'testapp.TestAppOsgiEntryPoint'
+        'Bundle-Activator': 'testapp.TestAppOsgiEntryPoint',
+        'Import-Package': 'com.launchdarkly.sdk,com.launchdarkly.sdk.json' +
+            ',com.launchdarkly.sdk.server,org.slf4j' +
+            ',org.osgi.framework' +
+            ',com.google.gson;resolution:=optional'
     )
 }
 
