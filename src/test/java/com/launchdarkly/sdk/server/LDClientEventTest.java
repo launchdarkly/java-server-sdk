@@ -479,13 +479,13 @@ public class LDClientEventTest {
     Event.FeatureRequest fe = (Event.FeatureRequest)e;
     assertEquals(flag.getKey(), fe.getKey());
     assertEquals(user.getKey(), fe.getUser().getKey());
-    assertEquals(new Integer(flag.getVersion()), fe.getVersion());
+    assertEquals(flag.getVersion(), fe.getVersion());
     assertEquals(value, fe.getValue());
     assertEquals(defaultVal, fe.getDefaultVal());
     assertEquals(prereqOf, fe.getPrereqOf());
     assertEquals(reason, fe.getReason());
     assertEquals(flag.isTrackEvents(), fe.isTrackEvents());
-    assertEquals(flag.getDebugEventsUntilDate(), fe.getDebugEventsUntilDate());
+    assertEquals(flag.getDebugEventsUntilDate() == null ? 0L : flag.getDebugEventsUntilDate().longValue(), fe.getDebugEventsUntilDate());
   }
 
   private void checkUnknownFeatureEvent(Event e, String key, LDValue defaultVal, String prereqOf,
@@ -494,12 +494,13 @@ public class LDClientEventTest {
     Event.FeatureRequest fe = (Event.FeatureRequest)e;
     assertEquals(key, fe.getKey());
     assertEquals(user.getKey(), fe.getUser().getKey());
-    assertNull(fe.getVersion());
+    assertEquals(-1, fe.getVersion());
+    assertEquals(-1, fe.getVariation());
     assertEquals(defaultVal, fe.getValue());
     assertEquals(defaultVal, fe.getDefaultVal());
     assertEquals(prereqOf, fe.getPrereqOf());
     assertEquals(reason, fe.getReason());
     assertFalse(fe.isTrackEvents());
-    assertNull(fe.getDebugEventsUntilDate());
+    assertEquals(0L, fe.getDebugEventsUntilDate());
   }
 }

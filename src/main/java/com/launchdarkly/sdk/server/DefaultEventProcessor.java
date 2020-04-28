@@ -422,8 +422,8 @@ final class DefaultEventProcessor implements EventProcessor {
     }
 
     private boolean shouldDebugEvent(Event.FeatureRequest fe) {
-      Long debugEventsUntilDate = fe.getDebugEventsUntilDate();
-      if (debugEventsUntilDate != null) {
+      long debugEventsUntilDate = fe.getDebugEventsUntilDate();
+      if (debugEventsUntilDate > 0) {
         // The "last known past time" comes from the last HTTP response we got from the server.
         // In case the client's time is set wrong, at least we know that any expiration date
         // earlier than that point is definitely in the past.  If there's any discrepancy, we

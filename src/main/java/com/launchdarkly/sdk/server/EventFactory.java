@@ -13,7 +13,7 @@ abstract class EventFactory {
   protected abstract boolean isIncludeReasons();
   
   public Event.FeatureRequest newFeatureRequestEvent(DataModel.FeatureFlag flag, LDUser user, LDValue value,
-      Integer variationIndex, EvaluationReason reason, LDValue defaultValue, String prereqOf) {
+      int variationIndex, EvaluationReason reason, LDValue defaultValue, String prereqOf) {
     boolean requireExperimentData = isExperiment(flag, reason);
     return new Event.FeatureRequest(
         getTimestamp(),
@@ -26,39 +26,69 @@ abstract class EventFactory {
         (requireExperimentData || isIncludeReasons()) ? reason : null,
         prereqOf,
         requireExperimentData || flag.isTrackEvents(),
-        flag.getDebugEventsUntilDate(),
+        flag.getDebugEventsUntilDate() == null ? 0 : flag.getDebugEventsUntilDate().longValue(),
         false
     );
   }
   
   public Event.FeatureRequest newFeatureRequestEvent(DataModel.FeatureFlag flag, LDUser user, Evaluator.EvalResult result, LDValue defaultVal) {
     return newFeatureRequestEvent(flag, user, result == null ? null : result.getValue(),
-        result == null ? null : result.getVariationIndex(), result == null ? null : result.getReason(),
+        result == null ? -1 : result.getVariationIndex(), result == null ? null : result.getReason(),
         defaultVal, null);
   }
   
   public Event.FeatureRequest newDefaultFeatureRequestEvent(DataModel.FeatureFlag flag, LDUser user, LDValue defaultValue,
       EvaluationReason.ErrorKind errorKind) {
-    return new Event.FeatureRequest(getTimestamp(), flag.getKey(), user, flag.getVersion(),
-        null, defaultValue, defaultValue, isIncludeReasons() ? EvaluationReason.error(errorKind) : null,
-        null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(), false);
+    return new Event.FeatureRequest(
+        getTimestamp(),
+        flag.getKey(),
+        user,
+        flag.getVersion(),
+        -1,
+        defaultValue,
+        defaultValue,
+        isIncludeReasons() ? EvaluationReason.error(errorKind) : null,
+        null,
+        flag.isTrackEvents(),
+        flag.getDebugEventsUntilDate() == null ? 0 : flag.getDebugEventsUntilDate().longValue(),
+        false
+    );
   }
   
   public Event.FeatureRequest newUnknownFeatureRequestEvent(String key, LDUser user, LDValue defaultValue,
       EvaluationReason.ErrorKind errorKind) {
-    return new Event.FeatureRequest(getTimestamp(), key, user, null, null, defaultValue, defaultValue,
-        isIncludeReasons() ? EvaluationReason.error(errorKind) : null, null, false, null, false);
+    return new Event.FeatureRequest(
+        getTimestamp(),
+        key,
+        user,
+        -1,
+        -1,
+        defaultValue,
+        defaultValue,
+        isIncludeReasons() ? EvaluationReason.error(errorKind) : null,
+        null,
+        false,
+        0,
+        false
+    );
   }
   
   public Event.FeatureRequest newPrerequisiteFeatureRequestEvent(DataModel.FeatureFlag prereqFlag, LDUser user,
       Evaluator.EvalResult details, DataModel.FeatureFlag prereqOf) {
-    return newFeatureRequestEvent(prereqFlag, user, details == null ? null : details.getValue(),
-        details == null ? null : details.getVariationIndex(), details == null ? null : details.getReason(),
-        LDValue.ofNull(), prereqOf.getKey());
+    return newFeatureRequestEvent(
+        prereqFlag,
+        user,
+        details == null ? null : details.getValue(),
+        details == null ? -1 : details.getVariationIndex(),
+        details == null ? null : details.getReason(),
+        LDValue.ofNull(),
+        prereqOf.getKey()
+    );
   }
 
   public Event.FeatureRequest newDebugEvent(Event.FeatureRequest from) {
-    return new Event.FeatureRequest(from.getCreationDate(), from.getKey(), from.getUser(), from.getVersion(), from.getVariation(), from.getValue(),
+    return new Event.FeatureRequest(
+        from.getCreationDate(), from.getKey(), from.getUser(), from.getVersion(), from.getVariation(), from.getValue(),
         from.getDefaultVal(), from.getReason(), from.getPrereqOf(), from.isTrackEvents(), from.getDebugEventsUntilDate(), true);
   }
   

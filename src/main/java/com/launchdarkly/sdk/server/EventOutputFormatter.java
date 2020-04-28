@@ -49,11 +49,11 @@ final class EventOutputFormatter {
       Event.FeatureRequest fe = (Event.FeatureRequest)event;
       startEvent(fe, fe.isDebug() ? "debug" : "feature", fe.getKey(), jw);
       writeUserOrKey(fe, fe.isDebug(), jw);
-      if (fe.getVersion() != null) {
+      if (fe.getVersion() >= 0) {
         jw.name("version");
         jw.value(fe.getVersion());
       }
-      if (fe.getVariation() != null) {
+      if (fe.getVariation() >= 0) {
         jw.name("variation");
         jw.value(fe.getVariation());
       }
@@ -130,11 +130,11 @@ final class EventOutputFormatter {
            
         jw.beginObject();
         
-        if (keyForThisFlag.variation != null) {
+        if (keyForThisFlag.variation >= 0) {
           jw.name("variation");
           jw.value(keyForThisFlag.variation);
         }
-        if (keyForThisFlag.version != null) {
+        if (keyForThisFlag.version >= 0) {
           jw.name("version");
           jw.value(keyForThisFlag.version);
         } else {

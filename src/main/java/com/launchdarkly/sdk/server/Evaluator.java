@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
+
 /**
  * Encapsulates the feature flag evaluation logic. The Evaluator has no knowledge of the rest of the SDK environment;
  * if it needs to retrieve flags or segments that are referenced by a flag, it does so through a read-only interface
@@ -49,18 +51,18 @@ class Evaluator {
    */
   static class EvalResult {
     private LDValue value = LDValue.ofNull();
-    private Integer variationIndex = null;
+    private int variationIndex = NO_VARIATION;
     private EvaluationReason reason = null;
     private List<Event.FeatureRequest> prerequisiteEvents;
     
-    public EvalResult(LDValue value, Integer variationIndex, EvaluationReason reason) {
+    public EvalResult(LDValue value, int variationIndex, EvaluationReason reason) {
       this.value = value;
       this.variationIndex = variationIndex;
       this.reason = reason;
     }
     
     public static EvalResult error(EvaluationReason.ErrorKind errorKind) {
-      return new EvalResult(LDValue.ofNull(), null, EvaluationReason.error(errorKind));
+      return new EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.error(errorKind));
     }
     
     LDValue getValue() {
@@ -71,12 +73,12 @@ class Evaluator {
       this.value = value;
     }
     
-    Integer getVariationIndex() {
+    int getVariationIndex() {
       return variationIndex;
     }
     
     boolean isDefault() {
-      return variationIndex == null;
+      return variationIndex < 0;
     }
     
     EvaluationReason getReason() {
@@ -112,7 +114,7 @@ class Evaluator {
     if (user == null || user.getKey() == null) {
       // this should have been prevented by LDClient.evaluateInternal
       logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", flag.getKey());
-      return new EvalResult(null, null, EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
+      return new EvalResult(null, NO_VARIATION, EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
     }
 
     // If the flag doesn't have any prerequisites (which most flags don't) then it cannot generate any feature
@@ -199,7 +201,7 @@ class Evaluator {
   private EvalResult getOffValue(DataModel.FeatureFlag flag, EvaluationReason reason) {
     Integer offVariation = flag.getOffVariation();
     if (offVariation == null) { // off variation unspecified - return default value
-      return new EvalResult(null, null, reason);
+      return new EvalResult(null, NO_VARIATION, reason);
     } else {
       return getVariation(flag, offVariation, reason);
     }
