@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+  "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+  "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<suppressions>
+    <!--
+        We need to turn off the check for package-info.java in the json subpackage, because
+        that file is actually provided by java-sdk-common.
+    -->
+    <suppress checks="JavadocPackage" files="com/launchdarkly/sdk/json/.*\.java" />
+</suppressions>
+

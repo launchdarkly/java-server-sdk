@@ -70,6 +70,7 @@ ext.versions = [
     "commonsCodec": "1.10",
     "gson": "2.7",
     "guava": "28.2-jre",
+    "jackson": "2.10.0", 
     "launchdarklyJavaSdkCommon": "1.0.0-SNAPSHOT",
     "okhttpEventsource": "2.1.0-SNAPSHOT",
     "slf4j": "1.7.21",
@@ -103,7 +104,9 @@ libraries.test = [
     "org.hamcrest:hamcrest-all:1.3",
     "org.easymock:easymock:3.4",
     "junit:junit:4.12",
-    "ch.qos.logback:logback-classic:1.1.7"
+    "ch.qos.logback:logback-classic:1.1.7",
+    "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
+    "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
 ]
 
 dependencies {
@@ -127,7 +130,8 @@ configurations {
 }
 
 checkstyle {
-    configFile file("${project.rootDir}/checkstyle.xml")
+    configFile file("${project.rootDir}/config/checkstyle/checkstyle.xml")
+    configDir file("${project.rootDir}/config/checkstyle")
 }
 
 jar {
@@ -213,6 +217,10 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 javadoc {
     source configurations.commonDoc.collect { zipTree(it) }
     include '**/*.java'
+
+    // Use test classpath so Javadoc won't complain about java-sdk-common classes that internally
+    // reference stuff we don't use directly, like Jackson
+    classpath = sourceSets.test.compileClasspath
 }
 
 // Force the Javadoc build to fail if there are any Javadoc warnings. See: https://discuss.gradle.org/t/javadoc-fail-on-warning/18141/3
@@ -252,8 +260,8 @@ def getAllSdkPackages() {
 def getPackagesInDependencyJar(jarFile) {
     new java.util.zip.ZipFile(jarFile).withCloseable { zf ->
         zf.entries().findAll { !it.directory && it.name.endsWith(".class") }.collect {
-            it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".")
-        }.unique()
+            it.name.contains("/") ? it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".") : ""
+        }.findAll { !it.equals("") }.unique()
     }
 }
 
