@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.base.Objects;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
@@ -13,6 +12,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
 
@@ -59,17 +59,17 @@ public class FeatureFlagsState implements JsonSerializable {
     public boolean equals(Object other) {
       if (other instanceof FlagMetadata) {
         FlagMetadata o = (FlagMetadata)other;
-        return Objects.equal(variation, o.variation) &&
-            Objects.equal(version, o.version) &&
-            Objects.equal(trackEvents, o.trackEvents) &&
-            Objects.equal(debugEventsUntilDate, o.debugEventsUntilDate);
+        return Objects.equals(variation, o.variation) &&
+            Objects.equals(version, o.version) &&
+            Objects.equals(trackEvents, o.trackEvents) &&
+            Objects.equals(debugEventsUntilDate, o.debugEventsUntilDate);
       }
       return false;
     }
     
     @Override
     public int hashCode() {
-      return Objects.hashCode(variation, version, trackEvents, debugEventsUntilDate);
+      return Objects.hash(variation, version, trackEvents, debugEventsUntilDate);
     }
   }
   
@@ -133,7 +133,7 @@ public class FeatureFlagsState implements JsonSerializable {
   
   @Override
   public int hashCode() {
-    return Objects.hashCode(flagValues, flagMetadata, valid);
+    return Objects.hash(flagValues, flagMetadata, valid);
   }
   
   static class Builder {

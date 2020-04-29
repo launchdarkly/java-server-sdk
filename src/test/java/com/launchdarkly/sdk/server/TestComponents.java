@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.SettableFuture;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
@@ -26,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -130,7 +129,7 @@ public class TestComponents {
   
   private static class DataSourceThatNeverInitializes implements DataSource {
     public Future<Void> start() {
-      return SettableFuture.create();
+      return new CompletableFuture<>();
     }
 
     public boolean isInitialized() {
@@ -152,7 +151,7 @@ public class TestComponents {
     
     public Future<Void> start() {
       dataStoreUpdates.init(data);
-      return Futures.immediateFuture(null);
+      return CompletableFuture.completedFuture(null);
     }
 
     public boolean isInitialized() {

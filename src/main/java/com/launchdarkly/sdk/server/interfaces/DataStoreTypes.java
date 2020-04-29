@@ -1,9 +1,9 @@
 package com.launchdarkly.sdk.server.interfaces;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -152,7 +152,7 @@ public abstract class DataStoreTypes {
     public boolean equals(Object o) {
       if (o instanceof ItemDescriptor) {
         ItemDescriptor other = (ItemDescriptor)o;
-        return version == other.version && Objects.equal(item, other.item);
+        return version == other.version && Objects.equals(item, other.item);
       }
       return false;
     }
@@ -223,7 +223,7 @@ public abstract class DataStoreTypes {
       if (o instanceof SerializedItemDescriptor) {
         SerializedItemDescriptor other = (SerializedItemDescriptor)o;
         return version == other.version && deleted == other.deleted &&
-            Objects.equal(serializedItem, other.serializedItem);
+            Objects.equals(serializedItem, other.serializedItem);
       }
       return false;
     }

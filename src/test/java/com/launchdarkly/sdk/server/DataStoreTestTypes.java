@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -14,6 +13,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescr
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.launchdarkly.sdk.server.TestUtil.TEST_GSON_INSTANCE;
@@ -88,8 +88,8 @@ public class DataStoreTestTypes {
     public boolean equals(Object other) {
       if (other instanceof TestItem) {
         TestItem o = (TestItem)other;
-        return Objects.equal(name, o.name) &&
-            Objects.equal(key, o.key) &&
+        return Objects.equals(name, o.name) &&
+            Objects.equals(key, o.key) &&
             version == o.version;
       }
       return false;
@@ -97,7 +97,7 @@ public class DataStoreTestTypes {
     
     @Override
     public int hashCode() {
-      return Objects.hashCode(name, key, version);
+      return Objects.hash(name, key, version);
     }
     
     @Override
