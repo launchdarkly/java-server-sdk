@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FileDataException;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactory;
@@ -34,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -73,7 +73,7 @@ final class FileDataSourceImpl implements DataSource {
   
   @Override
   public Future<Void> start() {
-    final Future<Void> initFuture = Futures.immediateFuture(null);
+    final Future<Void> initFuture = CompletableFuture.completedFuture(null);
     
     reload();
     

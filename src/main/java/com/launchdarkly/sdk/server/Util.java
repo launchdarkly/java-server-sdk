@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.base.Function;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
@@ -61,11 +60,7 @@ class Util {
           return null; // Give up, we've already failed to authenticate
         }
         Iterable<HttpAuthentication.Challenge> challenges = transform(response.challenges(),
-            new Function<okhttp3.Challenge, HttpAuthentication.Challenge>() {
-              public HttpAuthentication.Challenge apply(okhttp3.Challenge c) {
-                return new HttpAuthentication.Challenge(c.scheme(), c.realm()); 
-              }
-            });
+            c -> new HttpAuthentication.Challenge(c.scheme(), c.realm()));
         String credential = strategy.provideAuthorization(challenges); 
         return response.request().newBuilder()
             .header(responseHeaderName, credential)

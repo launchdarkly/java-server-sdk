@@ -28,9 +28,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import okhttp3.Credentials;
 
@@ -359,7 +358,7 @@ public abstract class Components {
     static final DataSource INSTANCE = new NullDataSource();
     @Override
     public Future<Void> start() {
-      return immediateFuture(null);
+      return CompletableFuture.completedFuture(null);
     }
 
     @Override

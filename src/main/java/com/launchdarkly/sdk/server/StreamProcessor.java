@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonElement;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.ConnectionErrorHandler.Action;
@@ -27,6 +26,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -173,12 +173,12 @@ final class StreamProcessor implements DataSource {
   
   @Override
   public Future<Void> start() {
-    final SettableFuture<Void> initFuture = SettableFuture.create();
+    final CompletableFuture<Void> initFuture = new CompletableFuture<>();
 
     ConnectionErrorHandler wrappedConnectionErrorHandler = (Throwable t) -> {
       Action result = connectionErrorHandler.onConnectionError(t);
       if (result == Action.SHUTDOWN) {
-        initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
+        initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
       }
       return result;
     };
@@ -220,9 +220,9 @@ final class StreamProcessor implements DataSource {
   }
 
   private class StreamEventHandler implements EventHandler {
-    private final SettableFuture<Void> initFuture;
+    private final CompletableFuture<Void> initFuture;
     
-    StreamEventHandler(SettableFuture<Void> initFuture) {
+    StreamEventHandler(CompletableFuture<Void> initFuture) {
       this.initFuture = initFuture;
     }
     
@@ -298,7 +298,7 @@ final class StreamProcessor implements DataSource {
         throw new StreamStoreException(e);
       }
       if (!initialized.getAndSet(true)) {
-        initFuture.set(null);
+        initFuture.complete(null);
         logger.info("Initialized LaunchDarkly client.");
       }
     }
@@ -349,7 +349,7 @@ final class StreamProcessor implements DataSource {
         throw new StreamStoreException(e);
       }
       if (!initialized.getAndSet(true)) {
-        initFuture.set(null);
+        initFuture.complete(null);
         logger.info("Initialized LaunchDarkly client.");
       }
     }

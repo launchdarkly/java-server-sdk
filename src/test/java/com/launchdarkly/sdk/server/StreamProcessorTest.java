@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.util.concurrent.SettableFuture;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
@@ -22,6 +21,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -528,12 +528,12 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void restartsStreamIfStoreNeedsRefresh() throws Exception {
     TestComponents.DataStoreWithStatusUpdates storeWithStatus = new TestComponents.DataStoreWithStatusUpdates(dataStore);
     
-    SettableFuture<Void> restarted = SettableFuture.create();
+    CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
     expectLastCall();
     mockEventSource.restart();
     expectLastCall().andAnswer(() -> {
-      restarted.set(null);
+      restarted.complete(null);
       return null;
     });
     mockEventSource.close();
@@ -557,12 +557,12 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void doesNotRestartStreamIfStoreHadOutageButDoesNotNeedRefresh() throws Exception {
     TestComponents.DataStoreWithStatusUpdates storeWithStatus = new TestComponents.DataStoreWithStatusUpdates(dataStore);
     
-    SettableFuture<Void> restarted = SettableFuture.create();
+    CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
     expectLastCall();
     mockEventSource.restart();
     expectLastCall().andAnswer(() -> {
-      restarted.set(null);
+      restarted.complete(null);
       return null;
     });
     mockEventSource.close();

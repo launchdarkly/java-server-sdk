@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
@@ -12,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -55,7 +55,7 @@ final class PollingProcessor implements DataSource {
   public Future<Void> start() {
     logger.info("Starting LaunchDarkly polling client with interval: "
         + pollInterval.toMillis() + " milliseconds");
-    final SettableFuture<Void> initFuture = SettableFuture.create();
+    final CompletableFuture<Void> initFuture = new CompletableFuture<>();
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setNameFormat("LaunchDarkly-PollingProcessor-%d")
         .build();
@@ -67,13 +67,13 @@ final class PollingProcessor implements DataSource {
         dataStoreUpdates.init(allData.toFullDataSet());
         if (!initialized.getAndSet(true)) {
           logger.info("Initialized LaunchDarkly client.");
-          initFuture.set(null);
+          initFuture.complete(null);
         }
       } catch (HttpErrorException e) {
         logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
         if (!isHttpErrorRecoverable(e.getStatus())) {
           scheduler.shutdown();
-          initFuture.set(null); // if client is initializing, make it stop waiting; has no effect if already inited
+          initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
         }
       } catch (IOException e) {
         logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
