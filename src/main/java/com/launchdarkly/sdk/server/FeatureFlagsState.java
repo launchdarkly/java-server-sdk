@@ -158,7 +158,8 @@ public class FeatureFlagsState implements JsonSerializable {
       final boolean flagIsTracked = flag.isTrackEvents() ||
           (flag.getDebugEventsUntilDate() != null && flag.getDebugEventsUntilDate() > System.currentTimeMillis());
       final boolean wantDetails = !detailsOnlyForTrackedFlags || flagIsTracked;
-      FlagMetadata data = new FlagMetadata(eval.getVariationIndex(),
+      FlagMetadata data = new FlagMetadata(
+          eval.isDefault() ? null : eval.getVariationIndex(),
           (saveReasons && wantDetails) ? eval.getReason() : null,
           wantDetails ? flag.getVersion() : null,
           flag.isTrackEvents(),

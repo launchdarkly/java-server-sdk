@@ -10,6 +10,8 @@ import com.launchdarkly.sdk.json.SerializationException;
 
 import org.junit.Test;
 
+import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
+import static com.launchdarkly.sdk.EvaluationReason.ErrorKind.MALFORMED_FLAG;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -97,17 +99,21 @@ public class FeatureFlagsStateTest {
     DataModel.FeatureFlag flag1 = flagBuilder("key1").version(100).trackEvents(false).build();
     Evaluator.EvalResult eval2 = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
     DataModel.FeatureFlag flag2 = flagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
+    Evaluator.EvalResult eval3 = new Evaluator.EvalResult(LDValue.of("default"), NO_VARIATION, EvaluationReason.error(MALFORMED_FLAG));
+    DataModel.FeatureFlag flag3 = flagBuilder("key3").version(300).build();
     return new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
-        .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
+        .addFlag(flag1, eval1).addFlag(flag2, eval2).addFlag(flag3, eval3).build();
   }
   
   private static String makeExpectedJsonSerialization() {
-    return "{\"key1\":\"value1\",\"key2\":\"value2\"," +
+    return "{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"default\"," +
         "\"$flagsState\":{" +
         "\"key1\":{" +
           "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"}" +  // note, "trackEvents: false" is omitted
         "},\"key2\":{" +
           "\"variation\":1,\"version\":200,\"reason\":{\"kind\":\"FALLTHROUGH\"},\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
+        "},\"key3\":{" +
+          "\"version\":300,\"reason\":{\"kind\":\"ERROR\",\"errorKind\":\"MALFORMED_FLAG\"}" +
         "}" +
       "}," +
       "\"$valid\":true" +
