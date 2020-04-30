@@ -1,37 +1,74 @@
 package testapp;
 
-import com.launchdarkly.client.*;
-import com.launchdarkly.client.integrations.*;
-import com.google.gson.*;
+import com.launchdarkly.sdk.*;
+import com.launchdarkly.sdk.json.*;
+import com.launchdarkly.sdk.server.*;
+import java.util.*;
 import org.slf4j.*;
 
 public class TestApp {
-  private static final Logger logger = LoggerFactory.getLogger(TestApp.class);
+  private static final Logger logger = LoggerFactory.getLogger(TestApp.class); // proves SLF4J API is on classpath
+
+  private static List<String> errors = new ArrayList<>();
 
   public static void main(String[] args) throws Exception {
-    // Verify that our Redis URI constant is what it should be (test for ch63221)
-    if (!RedisDataStoreBuilder.DEFAULT_URI.toString().equals("redis://localhost:6379")) {
-      System.out.println("*** error: RedisDataStoreBuilder.DEFAULT_URI is " + RedisDataStoreBuilder.DEFAULT_URI);
+    try {
+      LDConfig config = new LDConfig.Builder()
+        .offline(true)
+        .build();
+      LDClient client = new LDClient("fake-sdk-key", config);
+      log("client creation OK");
+    } catch (RuntimeException e) {
+      addError("client creation failed", e);
+    }
+
+    try {
+      boolean jsonOk = true;
+      for (JsonSerializationTestData.TestItem item: JsonSerializationTestData.TEST_ITEMS) {
+        if (!(item instanceof JsonSerializable)) {
+          continue; // things without our marker interface, like a Map, can't be passed to JsonSerialization.serialize
+        }
+        String actualJson = JsonSerialization.serialize((JsonSerializable)item.objectToSerialize);
+        if (!JsonSerializationTestData.assertJsonEquals(item.expectedJson, actualJson, item.objectToSerialize)) {
+          jsonOk = false;
+        }
+      }
+      if (jsonOk) {
+        log("JsonSerialization tests OK");      
+      }
+    } catch (RuntimeException e) {
+      addError("unexpected error in JsonSerialization tests", e);
+    }
+
+    try {
+      Class.forName("testapp.TestAppGsonTests"); // see TestAppGsonTests for why we're loading it in this way
+    } catch (NoClassDefFoundError e) {
+      log("skipping LDGson tests because Gson is not in the classpath");
+    } catch (RuntimeException e) {
+      addError("unexpected error in LDGson tests", e);
+    }
+
+    if (errors.isEmpty()) {
+      log("PASS");
+    } else {
+      for (String err: errors) {
+        log("ERROR: " + err);
+      }
+      log("FAIL");
       System.exit(1);
     }
-    if (!RedisFeatureStoreBuilder.DEFAULT_URI.toString().equals("redis://localhost:6379")) {
-      System.out.println("*** error: RedisFeatureStoreBuilder.DEFAULT_URI is " + RedisFeatureStoreBuilder.DEFAULT_URI);
-      System.exit(1);
+  }
+
+  public static void addError(String message, Throwable e) {
+    if (e != null) {
+      errors.add(message + ": " + e);
+      e.printStackTrace();
+    } else {
+      errors.add(message);
     }
+  }
 
-    LDConfig config = new LDConfig.Builder()
-      .offline(true)
-      .build();
-    LDClient client = new LDClient("fake-sdk-key", config);
-
-    // The following line is just for the sake of referencing Gson, so we can be sure
-    // that it's on the classpath as it should be (i.e. if we're using the "all" jar
-    // that provides its own copy of Gson).
-    JsonPrimitive x = new JsonPrimitive("x");
-
-    // Also do a flag evaluation, to ensure that it calls NewRelicReflector.annotateTransaction()
-    client.boolVariation("flag-key", new LDUser("user-key"), false);
-
-    System.out.println("@@@ successfully created LD client @@@");
+  public static void log(String message) {
+    System.out.println("TestApp: " + message);
   }
 }

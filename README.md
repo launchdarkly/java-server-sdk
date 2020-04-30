@@ -1,36 +1,31 @@
-LaunchDarkly Server-side SDK for Java
-=========================
+# LaunchDarkly Server-side SDK for Java
 
 [![Circle CI](https://circleci.com/gh/launchdarkly/java-server-sdk.svg?style=shield)](https://circleci.com/gh/launchdarkly/java-server-sdk)
 [![Javadocs](http://javadoc.io/badge/com.launchdarkly/launchdarkly-java-server-sdk.svg)](http://javadoc.io/doc/com.launchdarkly/launchdarkly-java-server-sdk)
 
-LaunchDarkly overview
--------------------------
+## LaunchDarkly overview
+
 [LaunchDarkly](https://www.launchdarkly.com) is a feature management platform that serves over 100 billion feature flags daily to help teams build better software, faster. [Get started](https://docs.launchdarkly.com/docs/getting-started) using LaunchDarkly today!
  
 [![Twitter Follow](https://img.shields.io/twitter/follow/launchdarkly.svg?style=social&label=Follow&maxAge=2592000)](https://twitter.com/intent/follow?screen_name=launchdarkly)
 
-Supported Java versions
------------------------
+## Supported Java versions
 
-This version of the LaunchDarkly SDK works with Java 7 and above.
+This version of the LaunchDarkly SDK works with Java 8 and above.
 
-Distributions
--------------
+## Distributions
 
 Three variants of the SDK jar are published to Maven:
 
-* The default uberjar - this is accessible as `com.launchdarkly:launchdarkly-java-server-sdk:jar` and is the dependency used in the "[Getting started](https://docs.launchdarkly.com/docs/java-sdk-reference#section-getting-started)" section of the SDK reference guide as well as in the [`hello-java`](https://github.com/launchdarkly/hello-java) sample app. This variant contains the SDK classes, and all of the SDK's dependencies except for Gson and SLF4J, which must be provided by the host application. The bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
-* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that Gson and SLF4J are also bundled, without shading (and are exported in OSGi).
+* The default uberjar - this is accessible as `com.launchdarkly:launchdarkly-java-server-sdk:jar` and is the dependency used in the "[Getting started](https://docs.launchdarkly.com/docs/java-sdk-reference#section-getting-started)" section of the SDK reference guide as well as in the [`hello-java`](https://github.com/launchdarkly/hello-java) sample app. This variant contains the SDK classes, and all of the SDK's dependencies except for SLF4J, which must be provided by the host application. The bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
+* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that SLF4J is also bundled, without shading (and is exported in OSGi).
 * The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains _only_ the SDK classes.
 
-Getting started
------------
+## Getting started
 
 Refer to the [SDK reference guide](https://docs.launchdarkly.com/docs/java-sdk-reference#section-getting-started) for instructions on getting started with using the SDK.
 
-Logging
--------
+## Logging
 
 The LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). All loggers are namespaced under `com.launchdarkly`. For an example configuration check out the [hello-java](https://github.com/launchdarkly/hello-java) project.
 
@@ -38,35 +33,29 @@ Be aware of two considerations when enabling the DEBUG log level:
 1. Debug-level logs can be very verbose. It is not recommended that you turn on debug logging in high-volume environments.
 1. Potentially sensitive information is logged including LaunchDarkly users created by you in your usage of this SDK.
 
-Using flag data from a file
----------------------------
+## Using flag data from a file
 
 For testing purposes, the SDK can be made to read feature flag state from a file or files instead of connecting to LaunchDarkly. See <a href="http://javadoc.io/page/com.launchdarkly/launchdarkly-java-server-sdk/latest/com/launchdarkly/client/files/FileComponents.html">FileComponents</a> for more details.
 
-DNS caching issues
-------------------
+## DNS caching issues
 
 LaunchDarkly servers operate in a load-balancing framework which may cause their IP addresses to change. This could result in the SDK failing to connect to LaunchDarkly if an old IP address is still in your system's DNS cache.
 
 Unlike some other languages, in Java the DNS caching behavior is controlled by the Java virtual machine rather than the operating system. The default behavior varies depending on whether there is a [security manager](https://docs.oracle.com/javase/tutorial/essential/environment/security.html): if there is, IP addresses will _never_ expire. In that case, we recommend that you set the security property `networkaddress.cache.ttl`, as described [here](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/java-dg-jvm-ttl.html), to a number of seconds such as 30 or 60 (a lower value will reduce the chance of intermittent failures, but will slightly reduce networking performance).
 
-Learn more
-----------
+## Learn more
 
 Check out our [documentation](https://docs.launchdarkly.com) for in-depth instructions on configuring and using LaunchDarkly. You can also head straight to the [complete reference guide for this SDK](https://docs.launchdarkly.com/docs/java-sdk-reference) or our [code-generated API documentation](https://launchdarkly.github.io/java-server-sdk/).
 
-Testing
--------
+## Testing
 
 We run integration tests for all our SDKs using a centralized test harness. This approach gives us the ability to test for consistency across SDKs, as well as test networking behavior in a long-running application. These tests cover each method in the SDK, and verify that event sending, flag evaluation, stream reconnection, and other aspects of the SDK all behave correctly.
 
-Contributing
-------------
+## Contributing
 
 We encourage pull requests and other contributions from the community. Check out our [contributing guidelines](CONTRIBUTING.md) for instructions on how to contribute to this SDK.
 
-About LaunchDarkly
------------
+## About LaunchDarkly
 
 * LaunchDarkly is a continuous delivery platform that provides feature flags as a service and allows developers to iterate quickly and safely. We allow you to easily flag your features and manage them from the LaunchDarkly dashboard.  With LaunchDarkly, you can:
     * Roll out a new feature to a subset of your users (like a group of users who opt-in to a beta tester group), gathering feedback and bug reports from real-world use cases.
