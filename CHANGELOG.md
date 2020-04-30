@@ -2,6 +2,38 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.0.0-rc1] - 2020-04-29
+This beta release is being made available for testing and user feedback, due to the large number of changes from Java SDK 4.x. Features are still subject to change in the final 5.0.0 release. Until the final release, the beta source code will be on the [5.x branch](https://github.com/launchdarkly/java-server-sdk/tree/5.x). Javadocs can be found on [javadoc.io](https://javadoc.io/doc/com.launchdarkly/launchdarkly-server-sdk/5.0.0-rc1/index.html).
+
+This is a major rewrite that introduces a cleaner API design, adds new features, and makes the SDK code easier to maintain and extend. See the [Java 4.x to 5.0 migration guide](https://docs.launchdarkly.com/sdk/server-side/java/migration-4-to-5) for an in-depth look at the changes in this version; the following is a summary.
+
+### Added:
+- You can tell the SDK to notify you whenever a feature flag's configuration has changed in any way, using `FlagChangeListener` and `LDClient.registerFlagChangeListener()`.
+- Or, you can tell the SDK to notify you only if the _value_ of a flag for some particular `LDUser` has changed, using `FlagValueChangeListener` and `Components.flagValueMonitoringListener()`.
+- You can monitor the status of a persistent data store (for instance, to get caching statistics, or to be notified if the store's availability changes due to a database outage) with `LDClient.getDataStoreStatusProvider()`.
+- The `UserAttribute` class provides a less error-prone way to refer to user attribute names in configuration, and can also be used to get an arbitrary attribute from a user.
+- The `LDGson` and `LDJackson` classes allow SDK classes like LDUser to be easily converted to or from JSON using the popular Gson and Jackson frameworks.
+
+### Changed:
+- The minimum supported Java version is now 8.
+- Package names have changed: the main SDK classes are now in `com.launchdarkly.sdk` and `com.launchdarkly.sdk.server`.
+- Many rarely-used classes and interfaces have been moved out of the main SDK package into `com.launchdarkly.sdk.server.integrations` and `com.launchdarkly.sdk.server.interfaces`.
+- The type `java.time.Duration` is now used for configuration properties that represent an amount of time, instead of using a number of milliseconds or seconds.
+- When using a persistent data store such as Redis, if there is a database outage, the SDK will wait until the end of the outage and then restart the stream connection to ensure that it has the latest data. Previously, it would try to restart the connection immediately and continue restarting if the database was still not available, causing unnecessary overhead.
+- `EvaluationDetail.getVariationIndex()` now returns `int` instead of `Integer`.
+- `EvaluationReason` is now a single concrete class rather than an abstract base class.
+- The SDK no longer exposes a Gson dependency or any Gson types.
+- Third-party libraries like Gson, Guava, and OkHttp that are used internally by the SDK have been updated to newer versions since Java 7 compatibility is no longer required.
+- The component interfaces `FeatureStore` and UpdateProcessor have been renamed to `DataStore` and `DataSource`. The factory interfaces for these components now receive SDK configuration options in a different way that does not expose other components' configurations to each other.
+- The `PersistentDataStore` interface for creating your own database integrations has been simplified by moving all of the serialization and caching logic into the main SDK code.
+
+### Removed:
+- All types and methods that were deprecated as of Java SDK 4.13.0 have been removed. This includes many `LDConfig.Builder()` methods, which have been replaced by the modular configuration syntax that was already added in the 4.12.0 and 4.13.0 releases. See the [migration guide](https://docs.launchdarkly.com/sdk/server-side/java/migration-4-to-5) for details on how to update your configuration code if you were using the older syntax.
+- The Redis integration is no longer built into the main SDK library (see below).
+- The deprecated New Relic integration has been removed.
+
+If you want to test this release and you are using Consul, DynamoDB, or Redis as a persistent data store, you will also need to update to version 2.0.0-rc1 of the [Consul integration](https://github.com/launchdarkly/java-server-sdk-consul/tree/2.x), 3.0.0-rc1 of the [DynamoDB integration](https://github.com/launchdarkly/java-server-sdk-dynamodb/tree/3.x), or 1.0.0-rc1 of the [Redis integration](http://github.com/launchdarkly/java-server-sdk-redis) (previously the Redis integration was built in; now it is a separate module).
+
 ## [4.13.0] - 2020-04-21
 ### Added:
 - The new methods `Components.httpConfiguration()` and `LDConfig.Builder.http()`, and the new class `HttpConfigurationBuilder`, provide a subcomponent configuration model that groups together HTTP-related options such as `connectTimeoutMillis` and `proxyHost` - similar to how `Components.streamingDataSource()` works for streaming-related options or `Components.sendEvents()` for event-related options. The individual `LDConfig.Builder` methods for those options will still work, but are deprecated and will be removed in version 5.0.
