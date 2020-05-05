@@ -11,6 +11,8 @@ import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
 import org.easymock.Capture;
 import org.easymock.EasyMock;
@@ -19,6 +21,8 @@ import org.junit.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
@@ -38,6 +42,14 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
   // Note that these tests must use the actual data model types for flags and segments, rather than the
   // TestItem type from DataStoreTestTypes, because the dependency behavior is based on the real data model.
   
+  private ExecutorService executorService = Executors.newSingleThreadExecutor();
+  private EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeBroadcaster =
+      new EventBroadcasterImpl<>(FlagChangeListener::onFlagChange, executorService);
+
+  public void tearDown() {
+    executorService.shutdown();
+  }
+  
   @Test
   public void doesNotTryToSendEventsIfThereIsNoEventPublisher() {
     DataStore store = inMemoryDataStore();
@@ -55,22 +67,20 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
         
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
+    storeUpdates.init(builder.build());
 
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      builder.addAny(FEATURES, flagBuilder("flag2").version(1).build())
-          .addAny(SEGMENTS, segmentBuilder("segment2").version(1).build());
-      // the new segment triggers no events since nothing is using it
-      
-      storeUpdates.init(builder.build());
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
     
-      eventSink.expectEvents("flag2");
-    }
+    builder.addAny(FEATURES, flagBuilder("flag2").version(1).build())
+        .addAny(SEGMENTS, segmentBuilder("segment2").version(1).build());
+    // the new segment triggers no events since nothing is using it
+    
+    storeUpdates.init(builder.build());
+  
+    eventSink.expectEvents("flag2");
   }
 
   @Test
@@ -82,18 +92,16 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
     
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
-      
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      storeUpdates.upsert(FEATURES, "flag2", new ItemDescriptor(1, flagBuilder("flag2").version(1).build()));
+    storeUpdates.init(builder.build());
     
-      eventSink.expectEvents("flag2");
-    }
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
+    
+    storeUpdates.upsert(FEATURES, "flag2", new ItemDescriptor(1, flagBuilder("flag2").version(1).build()));
+  
+    eventSink.expectEvents("flag2");
   }
   
   @Test
@@ -107,20 +115,18 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             segmentBuilder("segment1").version(1).build(),
             segmentBuilder("segment2").version(1).build());
     
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
+    storeUpdates.init(builder.build());
 
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      builder.addAny(FEATURES, flagBuilder("flag2").version(2).build()) // modified flag
-          .addAny(SEGMENTS, segmentBuilder("segment2").version(2).build()); // modified segment, but it's irrelevant
-      storeUpdates.init(builder.build());
-      
-      eventSink.expectEvents("flag2");
-    }
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
+    
+    builder.addAny(FEATURES, flagBuilder("flag2").version(2).build()) // modified flag
+        .addAny(SEGMENTS, segmentBuilder("segment2").version(2).build()); // modified segment, but it's irrelevant
+    storeUpdates.init(builder.build());
+    
+    eventSink.expectEvents("flag2");
   }
 
   @Test
@@ -133,18 +139,16 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
     
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
+    storeUpdates.init(builder.build());
 
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      storeUpdates.upsert(FEATURES, "flag2", new ItemDescriptor(2, flagBuilder("flag2").version(2).build()));
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
     
-      eventSink.expectEvents("flag2");
-    }
+    storeUpdates.upsert(FEATURES, "flag2", new ItemDescriptor(2, flagBuilder("flag2").version(2).build()));
+  
+    eventSink.expectEvents("flag2");
   }
   
   @Test
@@ -157,22 +161,20 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
     
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
+    storeUpdates.init(builder.build());
 
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      builder.remove(FEATURES, "flag2");
-      builder.remove(SEGMENTS, "segment1"); // deleted segment isn't being used so it's irrelevant
-      // note that the full data set for init() will never include deleted item placeholders
-      
-      storeUpdates.init(builder.build());
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
     
-      eventSink.expectEvents("flag2");
-    }
+    builder.remove(FEATURES, "flag2");
+    builder.remove(SEGMENTS, "segment1"); // deleted segment isn't being used so it's irrelevant
+    // note that the full data set for init() will never include deleted item placeholders
+    
+    storeUpdates.init(builder.build());
+  
+    eventSink.expectEvents("flag2");
   }
 
   @Test
@@ -185,18 +187,16 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
     
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
-      
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      storeUpdates.upsert(FEATURES, "flag2", ItemDescriptor.deletedItem(2));
+    storeUpdates.init(builder.build());
     
-      eventSink.expectEvents("flag2");
-    }
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
+    
+    storeUpdates.upsert(FEATURES, "flag2", ItemDescriptor.deletedItem(2));
+  
+    eventSink.expectEvents("flag2");
   }
 
   @Test
@@ -211,19 +211,17 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             flagBuilder("flag5").version(1).prerequisites(prerequisite("flag4", 0)).build(),
             flagBuilder("flag6").version(1).build());
     
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
-      
-      storeUpdates.init(builder.build());
-      
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
     
-      builder.addAny(FEATURES, flagBuilder("flag1").version(2).build());
-      storeUpdates.init(builder.build());
+    storeUpdates.init(builder.build());
     
-      eventSink.expectEvents("flag1", "flag2", "flag4", "flag5");
-    }
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
+  
+    builder.addAny(FEATURES, flagBuilder("flag1").version(2).build());
+    storeUpdates.init(builder.build());
+  
+    eventSink.expectEvents("flag1", "flag2", "flag4", "flag5");
   }
 
   @Test
@@ -238,18 +236,16 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             flagBuilder("flag5").version(1).prerequisites(prerequisite("flag4", 0)).build(),
             flagBuilder("flag6").version(1).build());
     
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
-      
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      storeUpdates.upsert(FEATURES, "flag1", new ItemDescriptor(2, flagBuilder("flag1").version(2).build()));
+    storeUpdates.init(builder.build());
     
-      eventSink.expectEvents("flag1", "flag2", "flag4", "flag5");
-    }
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
+    
+    storeUpdates.upsert(FEATURES, "flag1", new ItemDescriptor(2, flagBuilder("flag1").version(2).build()));
+  
+    eventSink.expectEvents("flag1", "flag2", "flag4", "flag5");
   }
 
   @Test
@@ -269,18 +265,16 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             segmentBuilder("segment1").version(1).build(),
             segmentBuilder("segment2").version(1).build());
     
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
-      
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      storeUpdates.upsert(SEGMENTS, "segment1", new ItemDescriptor(2, segmentBuilder("segment1").version(2).build()));
+    storeUpdates.init(builder.build());
     
-      eventSink.expectEvents("flag2", "flag4");
-    }
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
+    
+    storeUpdates.upsert(SEGMENTS, "segment1", new ItemDescriptor(2, segmentBuilder("segment1").version(2).build()));
+  
+    eventSink.expectEvents("flag2", "flag4");
   }
   
   @Test
@@ -300,19 +294,17 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             segmentBuilder("segment1").version(1).build(),
             segmentBuilder("segment2").version(1).build());
 
-    try (FlagChangeEventPublisher publisher = new FlagChangeEventPublisher()) {
-      DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, publisher);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
 
-      storeUpdates.init(builder.build());
-      
-      FlagChangeEventSink eventSink = new FlagChangeEventSink();
-      publisher.register(eventSink);
-      
-      builder.addAny(SEGMENTS, segmentBuilder("segment1").version(2).build());
-      storeUpdates.init(builder.build());
-      
-      eventSink.expectEvents("flag2", "flag4");
-    }
+    storeUpdates.init(builder.build());
+    
+    FlagChangeEventSink eventSink = new FlagChangeEventSink();
+    flagChangeBroadcaster.register(eventSink);
+    
+    builder.addAny(SEGMENTS, segmentBuilder("segment1").version(2).build());
+    storeUpdates.init(builder.build());
+    
+    eventSink.expectEvents("flag2", "flag4");
   }
 
   @Test

@@ -22,14 +22,14 @@ public final class MockPersistentDataStore implements PersistentDataStore {
     Map<String, AtomicBoolean> initedByPrefix = new HashMap<>();
   }
   
-  final Map<DataKind, Map<String, SerializedItemDescriptor>> data;
-  final AtomicBoolean inited;
-  final AtomicInteger initedCount = new AtomicInteger(0);
-  volatile int initedQueryCount;
-  volatile boolean persistOnlyAsString;
-  volatile boolean unavailable;
-  volatile RuntimeException fakeError;
-  volatile Runnable updateHook;
+  public final Map<DataKind, Map<String, SerializedItemDescriptor>> data;
+  public final AtomicBoolean inited;
+  public final AtomicInteger initedCount = new AtomicInteger(0);
+  public volatile int initedQueryCount;
+  public volatile boolean persistOnlyAsString;
+  public volatile boolean unavailable;
+  public volatile RuntimeException fakeError;
+  public volatile Runnable updateHook;
   
   public MockPersistentDataStore() {
     this.data = new HashMap<>();

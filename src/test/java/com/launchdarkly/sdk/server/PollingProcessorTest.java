@@ -1,13 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.DefaultFeatureRequestor;
-import com.launchdarkly.sdk.server.FeatureRequestor;
-import com.launchdarkly.sdk.server.HttpErrorException;
-import com.launchdarkly.sdk.server.InMemoryDataStore;
-import com.launchdarkly.sdk.server.LDConfig;
-import com.launchdarkly.sdk.server.PollingProcessor;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
@@ -24,6 +16,7 @@ import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreUpdates;
+import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertFalse;
@@ -34,6 +27,10 @@ import static org.junit.Assert.fail;
 public class PollingProcessorTest {
   private static final String SDK_KEY = "sdk-key";
   private static final Duration LENGTHY_INTERVAL = Duration.ofSeconds(60);
+  
+  private PollingProcessor makeProcessor(FeatureRequestor requestor, DataStore store) {
+    return new PollingProcessor(requestor, dataStoreUpdates(store), sharedExecutor, LENGTHY_INTERVAL);
+  }
   
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
@@ -62,7 +59,7 @@ public class PollingProcessorTest {
     requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
     DataStore store = new InMemoryDataStore();
     
-    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {    
+    try (PollingProcessor pollingProcessor = makeProcessor(requestor, store)) {    
       Future<Void> initFuture = pollingProcessor.start();
       initFuture.get(1000, TimeUnit.MILLISECONDS);
       assertTrue(pollingProcessor.isInitialized());
@@ -76,7 +73,7 @@ public class PollingProcessorTest {
     requestor.ioException = new IOException("This exception is part of a test and yes you should be seeing it.");
     DataStore store = new InMemoryDataStore();
 
-    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {
+    try (PollingProcessor pollingProcessor = makeProcessor(requestor, store)) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200L, TimeUnit.MILLISECONDS);
@@ -124,7 +121,7 @@ public class PollingProcessorTest {
     requestor.httpException = new HttpErrorException(status);
     DataStore store = new InMemoryDataStore();
     
-    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {  
+    try (PollingProcessor pollingProcessor = makeProcessor(requestor, store)) {  
       long startTime = System.currentTimeMillis();
       Future<Void> initFuture = pollingProcessor.start();
       try {
@@ -143,7 +140,7 @@ public class PollingProcessorTest {
     requestor.httpException = new HttpErrorException(status);
     DataStore store = new InMemoryDataStore();
     
-    try (PollingProcessor pollingProcessor = new PollingProcessor(requestor, dataStoreUpdates(store), LENGTHY_INTERVAL)) {
+    try (PollingProcessor pollingProcessor = makeProcessor(requestor, store)) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200, TimeUnit.MILLISECONDS);

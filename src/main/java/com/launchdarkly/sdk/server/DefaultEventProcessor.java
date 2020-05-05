@@ -22,7 +22,6 @@ import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
@@ -57,18 +56,28 @@ final class DefaultEventProcessor implements EventProcessor {
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private volatile boolean inputCapacityExceeded = false;
 
-  DefaultEventProcessor(String sdkKey, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
-      DiagnosticAccumulator diagnosticAccumulator, DiagnosticEvent.Init diagnosticInitEvent) {
+  DefaultEventProcessor(
+      String sdkKey,
+      EventsConfiguration eventsConfig,
+      HttpConfiguration httpConfig,
+      ScheduledExecutorService sharedExecutor,
+      DiagnosticAccumulator diagnosticAccumulator,
+      DiagnosticEvent.Init diagnosticInitEvent
+      ) {
     inbox = new ArrayBlockingQueue<>(eventsConfig.capacity);
     
-    ThreadFactory threadFactory = new ThreadFactoryBuilder()
-        .setDaemon(true)
-        .setNameFormat("LaunchDarkly-EventProcessor-%d")
-        .setPriority(Thread.MIN_PRIORITY)
-        .build();
-    scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
+    scheduler = sharedExecutor;
 
-    dispatcher = new EventDispatcher(sdkKey, eventsConfig, httpConfig, inbox, threadFactory, closed, diagnosticAccumulator, diagnosticInitEvent);
+    dispatcher = new EventDispatcher(
+        sdkKey,
+        eventsConfig,
+        httpConfig,
+        sharedExecutor,
+        inbox,
+        closed,
+        diagnosticAccumulator,
+        diagnosticInitEvent
+        );
 
     Runnable flusher = () -> {
       postMessageAsync(MessageType.FLUSH, null);
@@ -106,7 +115,6 @@ final class DefaultEventProcessor implements EventProcessor {
   @Override
   public void close() throws IOException {
     if (closed.compareAndSet(false, true)) {
-      scheduler.shutdown();
       postMessageAsync(MessageType.FLUSH, null);
       postMessageAndWait(MessageType.SHUTDOWN, null);
     }
@@ -211,20 +219,31 @@ final class DefaultEventProcessor implements EventProcessor {
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
     @VisibleForTesting final DiagnosticAccumulator diagnosticAccumulator;
-    private final ExecutorService diagnosticExecutor;
+    private final ExecutorService sharedExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
 
     private long deduplicatedUsers = 0;
 
-    private EventDispatcher(String sdkKey, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
-                            final BlockingQueue<EventProcessorMessage> inbox,
-                            ThreadFactory threadFactory,
-                            final AtomicBoolean closed,
-                            DiagnosticAccumulator diagnosticAccumulator,
-                            DiagnosticEvent.Init diagnosticInitEvent) {
+    private EventDispatcher(
+        String sdkKey,
+        EventsConfiguration eventsConfig,
+        HttpConfiguration httpConfig,
+        ExecutorService sharedExecutor,
+        final BlockingQueue<EventProcessorMessage> inbox,
+        final AtomicBoolean closed,
+        DiagnosticAccumulator diagnosticAccumulator,
+        DiagnosticEvent.Init diagnosticInitEvent
+        ) {
       this.eventsConfig = eventsConfig;
+      this.sharedExecutor = sharedExecutor;
       this.diagnosticAccumulator = diagnosticAccumulator;
       this.busyFlushWorkersCount = new AtomicInteger(0);
+
+      ThreadFactory threadFactory = new ThreadFactoryBuilder()
+          .setDaemon(true)
+          .setNameFormat("LaunchDarkly-event-delivery-%d")
+          .setPriority(Thread.MIN_PRIORITY)
+          .build();
 
       OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
       configureHttpClientBuilder(httpConfig, httpBuilder);
@@ -274,10 +293,8 @@ final class DefaultEventProcessor implements EventProcessor {
       if (diagnosticAccumulator != null) {
         // Set up diagnostics
         this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(sdkKey, eventsConfig, httpClient, httpConfig);
-        diagnosticExecutor = Executors.newSingleThreadExecutor(threadFactory);
-        diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
+        sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
       } else {
-        diagnosticExecutor = null;
         sendDiagnosticTaskFactory = null;
       }
     }
@@ -333,7 +350,7 @@ final class DefaultEventProcessor implements EventProcessor {
       // We pass droppedEvents and deduplicatedUsers as parameters here because they are updated frequently in the main loop so we want to avoid synchronization on them.
       DiagnosticEvent diagnosticEvent = diagnosticAccumulator.createEventAndReset(droppedEvents, deduplicatedUsers);
       deduplicatedUsers = 0;
-      diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticEvent));
+      sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticEvent));
     }
 
     private void doShutdown() {
@@ -341,9 +358,6 @@ final class DefaultEventProcessor implements EventProcessor {
       disabled.set(true); // In case there are any more messages, we want to ignore them
       for (SendEventsTask task: flushWorkers) {
         task.stop();
-      }
-      if (diagnosticExecutor != null) {
-        diagnosticExecutor.shutdown();
       }
       shutdownHttpClient(httpClient);
     }

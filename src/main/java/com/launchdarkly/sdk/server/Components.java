@@ -22,6 +22,7 @@ import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import java.io.IOException;
@@ -405,7 +406,7 @@ public abstract class Components {
           requestor,
           dataStoreUpdates,
           null,
-          ClientContextImpl.getDiagnosticAccumulator(context),
+          ClientContextImpl.get(context).diagnosticAccumulator,
           streamUri,
           initialReconnectDelay
           );
@@ -447,7 +448,12 @@ public abstract class Components {
           baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI,
           true
           );
-      return new PollingProcessor(requestor, dataStoreUpdates, pollInterval);
+      return new PollingProcessor(
+          requestor,
+          dataStoreUpdates,
+          ClientContextImpl.get(context).sharedExecutor,
+          pollInterval
+          );
     }
 
     @Override
@@ -488,8 +494,9 @@ public abstract class Components {
               diagnosticRecordingInterval
               ),
           context.getHttpConfiguration(),
-          ClientContextImpl.getDiagnosticAccumulator(context),
-          ClientContextImpl.getDiagnosticInitEvent(context)
+          ClientContextImpl.get(context).sharedExecutor,
+          ClientContextImpl.get(context).diagnosticAccumulator,
+          ClientContextImpl.get(context).diagnosticInitEvent
           );
     }
     
@@ -550,6 +557,21 @@ public abstract class Components {
         return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
       }
       return LDValue.of("custom");
+    }
+    
+    /**
+     * Called by the SDK to create the data store instance.
+     */
+    @Override
+    public DataStore createDataStore(ClientContext context) {
+      PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
+      return new PersistentDataStoreWrapper(
+          core,
+          cacheTime,
+          staleValuesPolicy,
+          recordCacheStats,
+          ClientContextImpl.get(context).sharedExecutor
+          );
     }
   }
 }

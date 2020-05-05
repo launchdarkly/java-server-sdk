@@ -25,19 +25,23 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 
 @SuppressWarnings("javadoc")
 public class TestComponents {
+  static ScheduledExecutorService sharedExecutor = Executors.newSingleThreadScheduledExecutor();
+  
   public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
-    return new ClientContextImpl(sdkKey, config, null);
+    return new ClientContextImpl(sdkKey, config, sharedExecutor, null);
   }
 
   public static ClientContext clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    return new ClientContextImpl(sdkKey, config, diagnosticAccumulator);
+    return new ClientContextImpl(sdkKey, config, sharedExecutor, diagnosticAccumulator);
   }
 
   public static DataSourceFactory dataSourceWithData(FullDataSet<ItemDescriptor> data) {
