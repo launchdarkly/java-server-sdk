@@ -53,7 +53,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
   @Test
   public void doesNotTryToSendEventsIfThereIsNoEventPublisher() {
     DataStore store = inMemoryDataStore();
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, null);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, null, null);
     storeUpdates.upsert(DataModel.FEATURES, "key", new ItemDescriptor(1, flagBuilder("key").build()));
     // the test is just that this doesn't cause an exception
   }
@@ -67,7 +67,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
         
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
 
@@ -92,7 +92,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
     
@@ -115,7 +115,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             segmentBuilder("segment1").version(1).build(),
             segmentBuilder("segment2").version(1).build());
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
 
@@ -139,7 +139,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
 
@@ -161,7 +161,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
 
@@ -187,7 +187,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
         .addAny(SEGMENTS,
             segmentBuilder("segment1").version(1).build());
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
     
@@ -211,7 +211,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             flagBuilder("flag5").version(1).prerequisites(prerequisite("flag4", 0)).build(),
             flagBuilder("flag6").version(1).build());
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
     
     storeUpdates.init(builder.build());
     
@@ -236,7 +236,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             flagBuilder("flag5").version(1).prerequisites(prerequisite("flag4", 0)).build(),
             flagBuilder("flag6").version(1).build());
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
     
@@ -265,7 +265,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             segmentBuilder("segment1").version(1).build(),
             segmentBuilder("segment2").version(1).build());
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
     
@@ -294,7 +294,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
             segmentBuilder("segment1").version(1).build(),
             segmentBuilder("segment2").version(1).build());
 
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, flagChangeBroadcaster, null);
 
     storeUpdates.init(builder.build());
     
@@ -318,7 +318,7 @@ public class DataStoreUpdatesImplTest extends EasyMockSupport {
     store.init(EasyMock.capture(captureData));
     replay(store);
     
-    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, null);
+    DataStoreUpdatesImpl storeUpdates = new DataStoreUpdatesImpl(store, null, null);
     storeUpdates.init(DEPENDENCY_ORDERING_TEST_DATA);
        
     Map<DataKind, Map<String, ItemDescriptor>> dataMap = toDataMap(captureData.getValue());

@@ -134,8 +134,10 @@ final class StreamProcessor implements DataSource {
         .build();
     
     DataStoreStatusProvider.StatusListener statusListener = this::onStoreStatusChanged;
-    if (dataStoreUpdates.getStatusProvider().addStatusListener(statusListener)) {
-      this.statusListener = statusListener;
+    if (dataStoreUpdates.getStatusProvider() != null &&
+        dataStoreUpdates.getStatusProvider().isStatusMonitoringEnabled()) {
+      this.statusListener = this::onStoreStatusChanged;
+      dataStoreUpdates.getStatusProvider().addStatusListener(statusListener);
     } else {
       this.statusListener = null;
     }

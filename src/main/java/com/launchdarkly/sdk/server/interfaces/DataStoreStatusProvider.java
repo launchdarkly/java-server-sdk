@@ -11,16 +11,34 @@ import java.util.Objects;
  * If the data store is a persistent data store, then these methods are implemented by the SDK; if it is a custom
  * class that implements this interface, then these methods delegate to the corresponding methods of the class;
  * if it is the default in-memory data store, then these methods do nothing and return null values.
+ * <p>
+ * Application code should not implement this interface.
  * 
  * @since 5.0.0
  */
 public interface DataStoreStatusProvider {
   /**
    * Returns the current status of the store.
+   * <p>
+   * This is only meaningful for persistent stores, or any other {@link DataStore} implementation that makes use of
+   * the reporting mechanism provided by {@link DataStoreFactory#createDataStore(ClientContext, java.util.function.Consumer)}.
+   * For the default in-memory store, the status will always be reported as "available".
    * 
-   * @return the latest status, or null if not available
+   * @return the latest status; will never be null
    */
   public Status getStoreStatus();
+  
+  /**
+   * Indicates whether the current data store implementation supports status monitoring.
+   * <p>
+   * This is normally true for all persistent data stores, and false for the default in-memory store. A true value
+   * means that any listeners added with {@link #addStatusListener(StatusListener)} can expect to be notified if
+   * there is any error in storing data, and then notified again when the error condition is resolved. A false
+   * value means that the status is not meaningful and listeners should not expect to be notified.
+   * 
+   * @return true if status monitoring is enabled
+   */
+  public boolean isStatusMonitoringEnabled();
   
   /**
    * Subscribes for notifications of status changes.
@@ -38,10 +56,8 @@ public interface DataStoreStatusProvider {
    * are using the default in-memory store rather than a persistent store.
    * 
    * @param listener the listener to add
-   * @return true if the listener was added, or was already registered; false if the data store does not support
-   *   status tracking
    */
-  public boolean addStatusListener(StatusListener listener);
+  public void addStatusListener(StatusListener listener);
 
   /**
    * Unsubscribes from notifications of status changes.
@@ -60,9 +76,9 @@ public interface DataStoreStatusProvider {
    * not a persistent store, or because you did not enable cache monitoring with
    * {@link PersistentDataStoreBuilder#recordCacheStats(boolean)}. 
    * 
-   * @return a {@link CacheStats} instance; null if not applicable
+   * @return a {@link DataStoreTypes.CacheStats} instance; null if not applicable
    */
-  public CacheStats getCacheStats();
+  public DataStoreTypes.CacheStats getCacheStats();
   
   /**
    * Information about a status change.
@@ -105,6 +121,25 @@ public interface DataStoreStatusProvider {
     public boolean isRefreshNeeded() {
       return refreshNeeded;
     }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof Status) {
+        Status o = (Status)other;
+        return available == o.available && refreshNeeded == o.refreshNeeded;
+      }
+      return false;
+    }
+    
+    @Override
+    public int hashCode() {
+      return Objects.hash(available, refreshNeeded);
+    }
+    
+    @Override
+    public String toString() {
+      return "Status(" + available + "," + refreshNeeded + ")";
+    }
   }
   
   /**
@@ -116,115 +151,5 @@ public interface DataStoreStatusProvider {
      * @param newStatus the new status
      */
     public void dataStoreStatusChanged(Status newStatus);
-  }
-  
-  /**
-   * A snapshot of cache statistics. The statistics are cumulative across the lifetime of the data store.
-   * <p>
-   * This is based on the data provided by Guava's caching framework. The SDK currently uses Guava
-   * internally, but is not guaranteed to always do so, and to avoid embedding Guava API details in
-   * the SDK API this is provided as a separate class.
-   * 
-   * @see DataStoreStatusProvider#getCacheStats()
-   * @see PersistentDataStoreBuilder#recordCacheStats(boolean)
-   * @since 4.12.0
-   */
-  public static final class CacheStats {
-    private final long hitCount;
-    private final long missCount;
-    private final long loadSuccessCount;
-    private final long loadExceptionCount;
-    private final long totalLoadTime;
-    private final long evictionCount;
-    
-    /**
-     * Constructs a new instance.
-     * 
-     * @param hitCount number of queries that produced a cache hit
-     * @param missCount number of queries that produced a cache miss
-     * @param loadSuccessCount number of cache misses that loaded a value without an exception
-     * @param loadExceptionCount number of cache misses that tried to load a value but got an exception
-     * @param totalLoadTime number of nanoseconds spent loading new values
-     * @param evictionCount number of cache entries that have been evicted
-     */
-    public CacheStats(long hitCount, long missCount, long loadSuccessCount, long loadExceptionCount,
-        long totalLoadTime, long evictionCount) {
-      this.hitCount = hitCount;
-      this.missCount = missCount;
-      this.loadSuccessCount = loadSuccessCount;
-      this.loadExceptionCount = loadExceptionCount;
-      this.totalLoadTime = totalLoadTime;
-      this.evictionCount = evictionCount;
-    }
-    
-    /**
-     * The number of data queries that received cached data instead of going to the underlying data store.
-     * @return the number of cache hits
-     */
-    public long getHitCount() {
-      return hitCount;
-    }
-
-    /**
-     * The number of data queries that did not find cached data and went to the underlying data store. 
-     * @return the number of cache misses
-     */
-    public long getMissCount() {
-      return missCount;
-    }
-
-    /**
-     * The number of times a cache miss resulted in successfully loading a data store item (or finding
-     * that it did not exist in the store).
-     * @return the number of successful loads
-     */
-    public long getLoadSuccessCount() {
-      return loadSuccessCount;
-    }
-
-    /**
-     * The number of times that an error occurred while querying the underlying data store.
-     * @return the number of failed loads
-     */
-    public long getLoadExceptionCount() {
-      return loadExceptionCount;
-    }
-
-    /**
-     * The total number of nanoseconds that the cache has spent loading new values.
-     * @return total time spent for all cache loads
-     */
-    public long getTotalLoadTime() {
-      return totalLoadTime;
-    }
-
-    /**
-     * The number of times cache entries have been evicted.
-     * @return the number of evictions
-     */
-    public long getEvictionCount() {
-      return evictionCount;
-    }
-    
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof CacheStats)) {
-        return false;
-      }
-      CacheStats o = (CacheStats)other;
-      return hitCount == o.hitCount && missCount == o.missCount && loadSuccessCount == o.loadSuccessCount &&
-          loadExceptionCount == o.loadExceptionCount && totalLoadTime == o.totalLoadTime && evictionCount == o.evictionCount;
-    }
-    
-    @Override
-    public int hashCode() {
-      return Objects.hash(hitCount, missCount, loadSuccessCount, loadExceptionCount, totalLoadTime, evictionCount);
-    }
-    
-    @Override
-    public String toString() {
-      return "{hit=" + hitCount + ", miss=" + missCount + ", loadSuccess=" + loadSuccessCount +
-          ", loadException=" + loadExceptionCount + ", totalLoadTime=" + totalLoadTime + ", evictionCount=" + evictionCount + "}";
-    }
   }
 }

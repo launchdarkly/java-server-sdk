@@ -13,6 +13,7 @@ import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.CacheStats;
 
 /**
  * A thread-safe, versioned store for feature flags and related data based on a
@@ -99,7 +100,17 @@ class InMemoryDataStore implements DataStore, DiagnosticDescription {
   public boolean isInitialized() {
     return initialized;
   }
-
+  
+  @Override
+  public boolean isStatusMonitoringEnabled() {
+    return false;
+  }
+  
+  @Override
+  public CacheStats getCacheStats() {
+    return null;
+  }
+  
   /**
    * Does nothing; this class does not have any resources to release
    *
