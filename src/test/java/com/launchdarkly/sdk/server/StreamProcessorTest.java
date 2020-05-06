@@ -12,7 +12,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
@@ -38,7 +38,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
-import static com.launchdarkly.sdk.server.TestComponents.dataStoreUpdates;
+import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
@@ -92,7 +92,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void builderHasDefaultConfiguration() throws Exception {
     DataSourceFactory f = Components.streamingDataSource();
     try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
-        dataStoreUpdates(dataStore))) {
+        dataSourceUpdates(dataStore))) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
       assertThat(sp.streamUri, equalTo(LDConfig.DEFAULT_STREAM_URI));
       assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
@@ -108,7 +108,7 @@ public class StreamProcessorTest extends EasyMockSupport {
         .initialReconnectDelay(Duration.ofMillis(5555))
         .pollingBaseURI(pollUri);
     try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
-        dataStoreUpdates(dataStore))) {
+        dataSourceUpdates(dataStore))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
       assertThat(sp.streamUri, equalTo(streamUri));      
       assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(pollUri));
@@ -529,7 +529,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void restartsStreamIfStoreNeedsRefresh() throws Exception {
     MockDataStoreStatusProvider dataStoreStatusProvider = new MockDataStoreStatusProvider();
-    DataStoreUpdates storeUpdates = new DataStoreUpdatesImpl(dataStore, null, dataStoreStatusProvider);
+    DataSourceUpdates storeUpdates = new DataSourceUpdatesImpl(dataStore, null, dataStoreStatusProvider);
     
     CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
@@ -559,7 +559,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void doesNotRestartStreamIfStoreHadOutageButDoesNotNeedRefresh() throws Exception {
     MockDataStoreStatusProvider dataStoreStatusProvider = new MockDataStoreStatusProvider();
-    DataStoreUpdates storeUpdates = new DataStoreUpdatesImpl(dataStore, null, dataStoreStatusProvider);
+    DataSourceUpdates storeUpdates = new DataSourceUpdatesImpl(dataStore, null, dataStoreStatusProvider);
     
     CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
@@ -824,21 +824,21 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore),
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataSourceUpdates(dataStore),
         mockEventSourceCreator, diagnosticAccumulator,
         streamUri, DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore), null, null,
+    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataSourceUpdates(dataStore), null, null,
         streamUri, DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 
   private StreamProcessor createStreamProcessorWithStore(DataStore store) {
-    return createStreamProcessorWithStoreUpdates(dataStoreUpdates(store));
+    return createStreamProcessorWithStoreUpdates(dataSourceUpdates(store));
   }
 
-  private StreamProcessor createStreamProcessorWithStoreUpdates(DataStoreUpdates storeUpdates) {
+  private StreamProcessor createStreamProcessorWithStoreUpdates(DataSourceUpdates storeUpdates) {
     return new StreamProcessor(SDK_KEY, LDConfig.DEFAULT.httpConfig, mockRequestor, storeUpdates,
         mockEventSourceCreator, null, STREAM_URI, DEFAULT_INITIAL_RECONNECT_DELAY);
   }

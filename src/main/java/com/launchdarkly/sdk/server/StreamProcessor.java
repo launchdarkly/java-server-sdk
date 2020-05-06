@@ -14,7 +14,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
@@ -71,7 +71,7 @@ final class StreamProcessor implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
   private static final Duration DEAD_CONNECTION_INTERVAL = Duration.ofSeconds(300);
 
-  private final DataStoreUpdates dataStoreUpdates;
+  private final DataSourceUpdates dataSourceUpdates;
   private final HttpConfiguration httpConfig;
   private final Headers headers;
   @VisibleForTesting final URI streamUri;
@@ -115,13 +115,13 @@ final class StreamProcessor implements DataSource {
       String sdkKey,
       HttpConfiguration httpConfig,
       FeatureRequestor requestor,
-      DataStoreUpdates dataStoreUpdates,
+      DataSourceUpdates dataSourceUpdates,
       EventSourceCreator eventSourceCreator,
       DiagnosticAccumulator diagnosticAccumulator,
       URI streamUri,
       Duration initialReconnectDelay
       ) {
-    this.dataStoreUpdates = dataStoreUpdates;
+    this.dataSourceUpdates = dataSourceUpdates;
     this.httpConfig = httpConfig;
     this.requestor = requestor;
     this.diagnosticAccumulator = diagnosticAccumulator;
@@ -134,10 +134,10 @@ final class StreamProcessor implements DataSource {
         .build();
     
     DataStoreStatusProvider.StatusListener statusListener = this::onStoreStatusChanged;
-    if (dataStoreUpdates.getStatusProvider() != null &&
-        dataStoreUpdates.getStatusProvider().isStatusMonitoringEnabled()) {
+    if (dataSourceUpdates.getDataStoreStatusProvider() != null &&
+        dataSourceUpdates.getDataStoreStatusProvider().isStatusMonitoringEnabled()) {
       this.statusListener = this::onStoreStatusChanged;
-      dataStoreUpdates.getStatusProvider().addStatusListener(statusListener);
+      dataSourceUpdates.getDataStoreStatusProvider().addStatusListener(statusListener);
     } else {
       this.statusListener = null;
     }
@@ -208,7 +208,7 @@ final class StreamProcessor implements DataSource {
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly StreamProcessor");
     if (statusListener != null) {
-      dataStoreUpdates.getStatusProvider().removeStatusListener(statusListener);
+      dataSourceUpdates.getDataStoreStatusProvider().removeStatusListener(statusListener);
     }
     if (es != null) {
       es.close();
@@ -295,7 +295,7 @@ final class StreamProcessor implements DataSource {
       PutData putData = parseStreamJson(PutData.class, eventData);
       FullDataSet<ItemDescriptor> allData = putData.data.toFullDataSet();
       try {
-        dataStoreUpdates.init(allData);
+        dataSourceUpdates.init(allData);
       } catch (Exception e) {
         throw new StreamStoreException(e);
       }
@@ -315,7 +315,7 @@ final class StreamProcessor implements DataSource {
       String key = kindAndKey.getValue();
       VersionedData item = deserializeFromParsedJson(kind, data.data);
       try {
-        dataStoreUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
+        dataSourceUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
       } catch (Exception e) {
         throw new StreamStoreException(e);
       }
@@ -331,7 +331,7 @@ final class StreamProcessor implements DataSource {
       String key = kindAndKey.getValue();
       ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
       try {
-        dataStoreUpdates.upsert(kind, key, placeholder);
+        dataSourceUpdates.upsert(kind, key, placeholder);
       } catch (Exception e) {
         throw new StreamStoreException(e);
       }
@@ -346,7 +346,7 @@ final class StreamProcessor implements DataSource {
       }
       FullDataSet<ItemDescriptor> allData = putData.toFullDataSet();
       try {
-        dataStoreUpdates.init(allData);
+        dataSourceUpdates.init(allData);
       } catch (Exception e) {
         throw new StreamStoreException(e);
       }
@@ -370,7 +370,7 @@ final class StreamProcessor implements DataSource {
         // assume that we did not get valid data from LD so we have missed an update.
       }
       try {
-        dataStoreUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
+        dataSourceUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
       } catch (Exception e) {
         throw new StreamStoreException(e);
       }

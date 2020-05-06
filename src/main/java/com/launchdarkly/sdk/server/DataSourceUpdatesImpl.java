@@ -9,7 +9,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
@@ -30,13 +30,13 @@ import static java.util.Collections.emptyMap;
  * 
  * @since 4.11.0
  */
-final class DataStoreUpdatesImpl implements DataStoreUpdates {
+final class DataSourceUpdatesImpl implements DataSourceUpdates {
   private final DataStore store;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
   private final DataModelDependencies.DependencyTracker dependencyTracker = new DataModelDependencies.DependencyTracker();
   private final DataStoreStatusProvider dataStoreStatusProvider;
   
-  DataStoreUpdatesImpl(
+  DataSourceUpdatesImpl(
       DataStore store,
       EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier,
       DataStoreStatusProvider dataStoreStatusProvider
@@ -87,7 +87,7 @@ final class DataStoreUpdatesImpl implements DataStoreUpdates {
   }
 
   @Override
-  public DataStoreStatusProvider getStatusProvider() {
+  public DataStoreStatusProvider getDataStoreStatusProvider() {
     return dataStoreStatusProvider;
   }
 

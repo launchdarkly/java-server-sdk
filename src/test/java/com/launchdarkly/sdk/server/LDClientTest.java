@@ -6,7 +6,7 @@ import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
@@ -159,7 +159,7 @@ public class LDClientTest extends EasyMockSupport {
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
     expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
-        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
+        isA(DataSourceUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -183,7 +183,7 @@ public class LDClientTest extends EasyMockSupport {
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
     expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
-        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
+        isA(DataSourceUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -212,7 +212,7 @@ public class LDClientTest extends EasyMockSupport {
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
     expect(mockEventProcessorFactory.createEventProcessor(capture(capturedEventContext))).andReturn(mockEventProcessor);
     expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
-        isA(DataStoreUpdates.class))).andReturn(failedDataSource());
+        isA(DataSourceUpdates.class))).andReturn(failedDataSource());
 
     replayAll();
 

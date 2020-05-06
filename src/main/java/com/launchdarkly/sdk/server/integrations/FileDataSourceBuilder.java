@@ -3,7 +3,7 @@ package com.launchdarkly.sdk.server.integrations;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -77,7 +77,7 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
    * Used internally by the LaunchDarkly client.
    */
   @Override
-  public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
-    return new FileDataSourceImpl(dataStoreUpdates, sources, autoUpdate);
+  public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+    return new FileDataSourceImpl(dataSourceUpdates, sources, autoUpdate);
   }
 }

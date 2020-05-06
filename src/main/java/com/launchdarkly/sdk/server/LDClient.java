@@ -13,7 +13,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
@@ -147,12 +147,12 @@ public final class LDClient implements LDClientInterface {
 
     DataSourceFactory dataSourceFactory = config.dataSourceFactory == null ?
         Components.streamingDataSource() : config.dataSourceFactory;
-    DataStoreUpdates dataStoreUpdates = new DataStoreUpdatesImpl(
+    DataSourceUpdates dataSourceUpdates = new DataSourceUpdatesImpl(
         dataStore,
         flagChangeEventNotifier,
         dataStoreStatusProvider
         );
-    this.dataSource = dataSourceFactory.createDataSource(context, dataStoreUpdates);
+    this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);
 
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {

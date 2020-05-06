@@ -14,7 +14,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
@@ -331,7 +331,7 @@ public abstract class Components {
     static final NullDataSourceFactory INSTANCE = new NullDataSourceFactory();
     
     @Override
-    public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       if (context.isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
@@ -376,11 +376,11 @@ public abstract class Components {
   private static final class StreamingDataSourceBuilderImpl extends StreamingDataSourceBuilder
       implements DiagnosticDescription {
     @Override
-    public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
       if (context.isOffline()) {
-        return Components.externalUpdatesOnly().createDataSource(context, dataStoreUpdates);
+        return Components.externalUpdatesOnly().createDataSource(context, dataSourceUpdates);
       }
       
       LDClient.logger.info("Enabling streaming API");
@@ -406,7 +406,7 @@ public abstract class Components {
           context.getSdkKey(),
           context.getHttpConfiguration(),
           requestor,
-          dataStoreUpdates,
+          dataSourceUpdates,
           null,
           ClientContextImpl.get(context).diagnosticAccumulator,
           streamUri,
@@ -434,11 +434,11 @@ public abstract class Components {
   
   private static final class PollingDataSourceBuilderImpl extends PollingDataSourceBuilder implements DiagnosticDescription {
     @Override
-    public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
       if (context.isOffline()) {
-        return Components.externalUpdatesOnly().createDataSource(context, dataStoreUpdates);
+        return Components.externalUpdatesOnly().createDataSource(context, dataSourceUpdates);
       }
 
       LDClient.logger.info("Disabling streaming API");
@@ -452,7 +452,7 @@ public abstract class Components {
           );
       return new PollingProcessor(
           requestor,
-          dataStoreUpdates,
+          dataSourceUpdates,
           ClientContextImpl.get(context).sharedExecutor,
           pollInterval
           );

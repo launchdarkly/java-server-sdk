@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestComponents.dataStoreUpdates;
+import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -29,7 +29,7 @@ public class PollingProcessorTest {
   private static final Duration LENGTHY_INTERVAL = Duration.ofSeconds(60);
   
   private PollingProcessor makeProcessor(FeatureRequestor requestor, DataStore store) {
-    return new PollingProcessor(requestor, dataStoreUpdates(store), sharedExecutor, LENGTHY_INTERVAL);
+    return new PollingProcessor(requestor, dataSourceUpdates(store), sharedExecutor, LENGTHY_INTERVAL);
   }
   
   @Test
