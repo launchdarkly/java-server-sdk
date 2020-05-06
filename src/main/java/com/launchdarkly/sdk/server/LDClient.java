@@ -63,10 +63,25 @@ public final class LDClient implements LDClientInterface {
   private final boolean offline;
   
   /**
-   * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
-   * cases, you should use this constructor.
+   * Creates a new client instance that connects to LaunchDarkly with the default configuration.
+   * <p>
+   * If you need to specify any custom SDK options, use {@link LDClient#LDClient(String, LDConfig)}
+   * instead.
+   * <p>
+   * Applications should instantiate a single instance for the lifetime of the application. In
+   * unusual cases where an application needs to evaluate feature flags from different LaunchDarkly
+   * projects or environments, you may create multiple clients, but they should still be retained
+   * for the lifetime of the application rather than created per request or per thread.
+   * <p>
+   * The client will begin attempting to connect to LaunchDarkly as soon as you call the constructor.
+   * The constructor will return when it successfully connects, or when the default timeout of 5 seconds
+   * expires, whichever comes first. If it has not succeeded in connecting when the timeout elapses,
+   * you will receive the client in an uninitialized state where feature flags will return default
+   * values; it will still continue trying to connect in the background. You can detect whether
+   * initialization has succeeded by calling {@link #initialized()}.
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
+   * @see LDClient#LDClient(String, LDConfig)
    */
   public LDClient(String sdkKey) {
     this(sdkKey, LDConfig.DEFAULT);
@@ -83,11 +98,27 @@ public final class LDClient implements LDClientInterface {
   }
   
   /**
-   * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
-   * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
+   * Creates a new client to connect to LaunchDarkly with a custom configuration.
+   * <p>
+   * This constructor can be used to configure advanced SDK features; see {@link LDConfig.Builder}.
+   * <p>
+   * Applications should instantiate a single instance for the lifetime of the application. In
+   * unusual cases where an application needs to evaluate feature flags from different LaunchDarkly
+   * projects or environments, you may create multiple clients, but they should still be retained
+   * for the lifetime of the application rather than created per request or per thread.
+   * <p>
+   * Unless it is configured to be offline with {@link LDConfig.Builder#offline(boolean)} or
+   * {@link LDConfig.Builder#useLdd(boolean)}, the client will begin attempting to connect to
+   * LaunchDarkly as soon as you call the constructor. The constructor will return when it successfully
+   * connects, or when the timeout set by {@link LDConfig.Builder#startWaitMillis(long)} (default: 5
+   * seconds) expires, whichever comes first. If it has not succeeded in connecting when the timeout
+   * elapses, you will receive the client in an uninitialized state where feature flags will return
+   * default values; it will still continue trying to connect in the background. You can detect
+   * whether initialization has succeeded by calling {@link #initialized()}.  
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
    * @param config a client configuration object
+   * @see LDClient#LDClient(String, LDConfig)
    */
   public LDClient(String sdkKey, LDConfig config) {
     checkNotNull(config, "config must not be null");
