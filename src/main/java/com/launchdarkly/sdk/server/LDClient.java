@@ -108,10 +108,10 @@ public final class LDClient implements LDClientInterface {
    * for the lifetime of the application rather than created per request or per thread.
    * <p>
    * Unless it is configured to be offline with {@link LDConfig.Builder#offline(boolean)} or
-   * {@link LDConfig.Builder#useLdd(boolean)}, the client will begin attempting to connect to
+   * {@link Components#externalUpdatesOnly()}, the client will begin attempting to connect to
    * LaunchDarkly as soon as you call the constructor. The constructor will return when it successfully
-   * connects, or when the timeout set by {@link LDConfig.Builder#startWaitMillis(long)} (default: 5
-   * seconds) expires, whichever comes first. If it has not succeeded in connecting when the timeout
+   * connects, or when the timeout set by {@link LDConfig.Builder#startWait(java.time.Duration)} (default:
+   * 5 seconds) expires, whichever comes first. If it has not succeeded in connecting when the timeout
    * elapses, you will receive the client in an uninitialized state where feature flags will return
    * default values; it will still continue trying to connect in the background. You can detect
    * whether initialization has succeeded by calling {@link #initialized()}.  
