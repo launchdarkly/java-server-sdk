@@ -17,7 +17,6 @@ public interface DataSourceUpdates {
    * Completely overwrites the current contents of the data store with a set of items for each collection.
    * 
    * @param allData a list of {@link DataStoreTypes.DataKind} instances and their corresponding data sets
-   * @see DataStore#init(FullDataSet)
    */
   void init(FullDataSet<ItemDescriptor> allData);
 
@@ -32,7 +31,6 @@ public interface DataSourceUpdates {
    * @param kind specifies which collection to use
    * @param key the unique key for the item within that collection
    * @param item the item to insert or update
-   * @see DataStore#upsert(DataKind, String, ItemDescriptor)
    */
   void upsert(DataKind kind, String key, ItemDescriptor item); 
   

@@ -242,6 +242,7 @@ public interface DataSourceStatusProvider {
      * error state, after previously having been {@link State#VALID}.
      * <li> For {@link State#OFF}, it is the time that the data source encountered an unrecoverable error
      * or that the SDK was explicitly shut down.
+     * </ul>
      *  
      * @return the timestamp of the last state change
      */
