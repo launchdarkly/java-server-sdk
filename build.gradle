@@ -249,11 +249,14 @@ def shadeDependencies(jarTask) {
 }
 
 def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configuration> exportConfigs) {
+    // For a prerelease build with "-beta", "-rc", etc., the prerelease qualifier has to be
+    // removed from the bundle version because OSGi doesn't understand it.
+    def implementationVersion = version.replaceFirst('-.*$', '')
     jarTask.manifest {
         attributes(
-            "Implementation-Version": version,
+            "Implementation-Version": implementationVersion,
             "Bundle-SymbolicName": "com.launchdarkly.client",
-            "Bundle-Version": version,
+            "Bundle-Version": implementationVersion,
             "Bundle-Name": "LaunchDarkly SDK",
             "Bundle-ManifestVersion": "2",
             "Bundle-Vendor": "LaunchDarkly"
@@ -270,7 +273,7 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
 
         // Similarly, we're adding package exports for every package in whatever libraries we're
         // making publicly available.
-        def sdkExports = getAllSdkPackages().collect { bundleExport(it, version) }
+        def sdkExports = getAllSdkPackages().collect { bundleExport(it, implementationVersion) }
         def exportedDependencies = forEachArtifactAndVisiblePackage(exportConfigs, { a, p ->
             bundleExport(p, a.moduleVersion.id.version)
         })
