@@ -86,7 +86,7 @@ public interface DataStore extends Closeable {
    * This is normally only true for persistent data stores created with
    * {@link com.launchdarkly.sdk.server.Components#persistentDataStore(PersistentDataStoreFactory)},
    * but it could also be true for any custom {@link DataStore} implementation that makes use of the
-   * {@code statusUpdater} parameter provided to {@link DataStoreFactory#createDataStore(ClientContext, java.util.function.Consumer)}.
+   * {@code statusUpdater} parameter provided to {@link DataStoreFactory#createDataStore(ClientContext, DataStoreUpdates)}.
    * Returning true means that the store guarantees that if it ever enters an invalid state (that is, an
    * operation has failed or it knows that operations cannot succeed at the moment), it will publish a
    * status update, and will then publish another status update once it has returned to a valid state.

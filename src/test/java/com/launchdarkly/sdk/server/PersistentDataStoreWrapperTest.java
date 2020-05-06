@@ -47,7 +47,8 @@ public class PersistentDataStoreWrapperTest {
   private final MockPersistentDataStore core;
   private final PersistentDataStoreWrapper wrapper;
   private final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
-  private final DataStoreStatusProviderImpl dataStoreStatusProvider;
+  private final DataStoreUpdatesImpl dataStoreUpdates;
+  private final DataStoreStatusProvider dataStoreStatusProvider;
   
   static class TestMode {
     final boolean cached;
@@ -110,11 +111,12 @@ public class PersistentDataStoreWrapperTest {
         );
     this.statusBroadcaster = new EventBroadcasterImpl<>(
         DataStoreStatusProvider.StatusListener::dataStoreStatusChanged, sharedExecutor);
-    this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(wrapper, statusBroadcaster);
+    this.dataStoreUpdates = new DataStoreUpdatesImpl(statusBroadcaster);
+    this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(wrapper, dataStoreUpdates);
   }
 
   private void updateStatus(DataStoreStatusProvider.Status status) {
-    dataStoreStatusProvider.updateStatus(status);
+    dataStoreUpdates.updateStatus(status);
   }
   
   @After

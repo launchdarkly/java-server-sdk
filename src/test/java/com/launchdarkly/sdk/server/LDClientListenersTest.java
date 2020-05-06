@@ -162,7 +162,7 @@ public class LDClientListenersTest extends EasyMockSupport {
       DataStoreStatusProvider.Status originalStatus = new DataStoreStatusProvider.Status(true, false);
       DataStoreStatusProvider.Status newStatus = new DataStoreStatusProvider.Status(false, false);
       assertThat(client.getDataStoreStatusProvider().getStoreStatus(), equalTo(originalStatus));
-      factoryWithUpdater.statusUpdater.accept(newStatus);
+      factoryWithUpdater.dataStoreUpdates.updateStatus(newStatus);
       assertThat(client.getDataStoreStatusProvider().getStoreStatus(), equalTo(newStatus));
     }
   }
@@ -182,7 +182,7 @@ public class LDClientListenersTest extends EasyMockSupport {
       client.getDataStoreStatusProvider().addStatusListener(statuses::add);
 
       DataStoreStatusProvider.Status newStatus = new DataStoreStatusProvider.Status(false, false);
-      factoryWithUpdater.statusUpdater.accept(newStatus);
+      factoryWithUpdater.dataStoreUpdates.updateStatus(newStatus);
       
       assertThat(statuses.take(), equalTo(newStatus));
     }

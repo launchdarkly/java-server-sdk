@@ -21,7 +21,7 @@ public interface DataStoreStatusProvider {
    * Returns the current status of the store.
    * <p>
    * This is only meaningful for persistent stores, or any other {@link DataStore} implementation that makes use of
-   * the reporting mechanism provided by {@link DataStoreFactory#createDataStore(ClientContext, java.util.function.Consumer)}.
+   * the reporting mechanism provided by {@link DataStoreFactory#createDataStore(ClientContext, DataStoreUpdates)}.
    * For the default in-memory store, the status will always be reported as "available".
    * 
    * @return the latest status; will never be null
