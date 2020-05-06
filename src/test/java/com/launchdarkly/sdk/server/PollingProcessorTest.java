@@ -1,25 +1,36 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
+import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
+import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
+import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatusEventually;
+import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
+import static com.launchdarkly.sdk.server.TestUtil.shouldTimeOut;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -27,11 +38,26 @@ import static org.junit.Assert.fail;
 public class PollingProcessorTest {
   private static final String SDK_KEY = "sdk-key";
   private static final Duration LENGTHY_INTERVAL = Duration.ofSeconds(60);
-  
-  private PollingProcessor makeProcessor(FeatureRequestor requestor, DataStore store) {
-    return new PollingProcessor(requestor, dataSourceUpdates(store), sharedExecutor, LENGTHY_INTERVAL);
+
+  private InMemoryDataStore store;
+  private MockDataSourceUpdates dataSourceUpdates;
+  private MockFeatureRequestor requestor;
+
+  @Before
+  public void setup() {
+    store = new InMemoryDataStore();
+    dataSourceUpdates = TestComponents.dataSourceUpdates(store, new MockDataStoreStatusProvider());
+    requestor = new MockFeatureRequestor();
   }
-  
+
+  private PollingProcessor makeProcessor() {
+    return makeProcessor(LENGTHY_INTERVAL);
+  }
+
+  private PollingProcessor makeProcessor(Duration pollInterval) {
+    return new PollingProcessor(requestor, dataSourceUpdates, sharedExecutor, pollInterval);
+  }
+
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
     DataSourceFactory f = Components.pollingDataSource();
@@ -55,25 +81,29 @@ public class PollingProcessorTest {
   
   @Test
   public void testConnectionOk() throws Exception {
-    MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
-    DataStore store = new InMemoryDataStore();
     
-    try (PollingProcessor pollingProcessor = makeProcessor(requestor, store)) {    
+    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
+    try (PollingProcessor pollingProcessor = makeProcessor()) {    
       Future<Void> initFuture = pollingProcessor.start();
       initFuture.get(1000, TimeUnit.MILLISECONDS);
       assertTrue(pollingProcessor.isInitialized());
       assertTrue(store.isInitialized());
+      
+      requireDataSourceStatus(statuses, DataSourceStatusProvider.State.VALID);
     }
   }
 
   @Test
   public void testConnectionProblem() throws Exception {
-    MockFeatureRequestor requestor = new MockFeatureRequestor();
     requestor.ioException = new IOException("This exception is part of a test and yes you should be seeing it.");
-    DataStore store = new InMemoryDataStore();
 
-    try (PollingProcessor pollingProcessor = makeProcessor(requestor, store)) {
+    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
+    try (PollingProcessor pollingProcessor = makeProcessor()) {
       Future<Void> initFuture = pollingProcessor.start();
       try {
         initFuture.get(200L, TimeUnit.MILLISECONDS);
@@ -83,6 +113,10 @@ public class PollingProcessorTest {
       assertFalse(initFuture.isDone());
       assertFalse(pollingProcessor.isInitialized());
       assertFalse(store.isInitialized());
+      
+      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.STARTING);
+      assertNotNull(status.getLastError());
+      assertEquals(DataSourceStatusProvider.ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
     }
   }
 
@@ -116,46 +150,80 @@ public class PollingProcessorTest {
     testRecoverableHttpError(500);
   }
   
-  private void testUnrecoverableHttpError(int status) throws Exception {
-    MockFeatureRequestor requestor = new MockFeatureRequestor();
-    requestor.httpException = new HttpErrorException(status);
-    DataStore store = new InMemoryDataStore();
+  private void testUnrecoverableHttpError(int statusCode) throws Exception {
+    requestor.httpException = new HttpErrorException(statusCode);
     
-    try (PollingProcessor pollingProcessor = makeProcessor(requestor, store)) {  
+    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
+    try (PollingProcessor pollingProcessor = makeProcessor()) {  
       long startTime = System.currentTimeMillis();
       Future<Void> initFuture = pollingProcessor.start();
-      try {
-        initFuture.get(10, TimeUnit.SECONDS);
-      } catch (TimeoutException ignored) {
-        fail("Should not have timed out");
-      }
+      
+      shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
       assertTrue((System.currentTimeMillis() - startTime) < 9000);
       assertTrue(initFuture.isDone());
       assertFalse(pollingProcessor.isInitialized());
+      
+      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.OFF);
+      assertNotNull(status.getLastError());
+      assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status.getLastError().getKind());
+      assertEquals(statusCode, status.getLastError().getStatusCode());
     }
   }
   
-  private void testRecoverableHttpError(int status) throws Exception {
-    MockFeatureRequestor requestor = new MockFeatureRequestor();
-    requestor.httpException = new HttpErrorException(status);
-    DataStore store = new InMemoryDataStore();
+  private void testRecoverableHttpError(int statusCode) throws Exception {
+    HttpErrorException httpError = new HttpErrorException(statusCode);
+    Duration shortInterval = Duration.ofMillis(20);
+    requestor.httpException = httpError;
     
-    try (PollingProcessor pollingProcessor = makeProcessor(requestor, store)) {
+    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
+    try (PollingProcessor pollingProcessor = makeProcessor(shortInterval)) {
       Future<Void> initFuture = pollingProcessor.start();
-      try {
-        initFuture.get(200, TimeUnit.MILLISECONDS);
-        fail("expected timeout");
-      } catch (TimeoutException ignored) {
-      }
+      
+      // first poll gets an error
+      shouldTimeOut(initFuture, Duration.ofMillis(200));
       assertFalse(initFuture.isDone());
       assertFalse(pollingProcessor.isInitialized());
+      
+      DataSourceStatusProvider.Status status1 = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.STARTING);
+      assertNotNull(status1.getLastError());
+      assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status1.getLastError().getKind());
+      assertEquals(statusCode, status1.getLastError().getStatusCode());
+
+      // now make it so the requestor will succeed
+      requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
+      requestor.httpException = null;
+      
+      shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+      assertTrue(initFuture.isDone());
+      assertTrue(pollingProcessor.isInitialized());
+
+      // status should now be VALID (although there might have been more failed polls before that)
+      DataSourceStatusProvider.Status status2 = requireDataSourceStatusEventually(statuses,
+          DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.STARTING);
+      assertNotNull(status2.getLastError());
+      assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status2.getLastError().getKind());
+      assertEquals(statusCode, status2.getLastError().getStatusCode());
+      
+      // simulate another error of the same kind - the difference is now the state will be INTERRUPTED
+      requestor.httpException = httpError;
+      
+      DataSourceStatusProvider.Status status3 = requireDataSourceStatusEventually(statuses,
+          DataSourceStatusProvider.State.INTERRUPTED, DataSourceStatusProvider.State.VALID);
+      assertNotNull(status3.getLastError());
+      assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status3.getLastError().getKind());
+      assertEquals(statusCode, status3.getLastError().getStatusCode());
+      assertNotSame(status1.getLastError(), status3.getLastError()); // it's a new error object of the same kind
     }
   }
   
   private static class MockFeatureRequestor implements FeatureRequestor {
-    AllData allData;
-    HttpErrorException httpException;
-    IOException ioException;
+    volatile AllData allData;
+    volatile HttpErrorException httpException;
+    volatile IOException ioException;
     
     public void close() throws IOException {}
 

@@ -3,6 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
@@ -263,6 +264,19 @@ public interface LDClientInterface extends Closeable {
    * @since 5.0.0
    */
   void unregisterFlagChangeListener(FlagChangeListener listener);
+
+  /**
+   * Returns an interface for tracking the status of the data source.
+   * <p>
+   * The data source is the mechanism that the SDK uses to get feature flag configurations, such as a
+   * streaming connection (the default) or poll requests. The {@link DataSourceStatusProvider} has methods
+   * for checking whether the data source is (as far as the SDK knows) currently operational and tracking
+   * changes in this status.
+   * 
+   * @return a {@link DataSourceStatusProvider}
+   * @since 5.0.0
+   */
+  DataSourceStatusProvider getDataSourceStatusProvider();
   
   /**
    * Returns an interface for tracking the status of a persistent data store.

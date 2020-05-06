@@ -7,11 +7,12 @@ import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactor
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileParser;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileRep;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.Watchable;
+import java.time.Instant;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,9 +84,7 @@ final class FileDataSourceImpl implements DataSource {
     // if we are told to reload by the file watcher.
 
     if (fileWatcher != null) {
-      fileWatcher.start(() -> {
-        FileDataSourceImpl.this.reload();
-      });
+      fileWatcher.start(this::reload);
     }
     
     return initFuture;
@@ -96,9 +96,17 @@ final class FileDataSourceImpl implements DataSource {
       dataLoader.load(builder); 
     } catch (FileDataException e) {
       logger.error(e.getDescription());
+      dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED,
+          new DataSourceStatusProvider.ErrorInfo(
+              DataSourceStatusProvider.ErrorKind.INVALID_DATA,
+              0,
+              e.getDescription(),
+              Instant.now()
+              ));
       return false;
     }
     dataSourceUpdates.init(builder.build());
+    dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
     inited.set(true);
     return true;
   }

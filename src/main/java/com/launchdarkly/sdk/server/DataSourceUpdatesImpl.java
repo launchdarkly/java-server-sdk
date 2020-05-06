@@ -3,16 +3,19 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.server.DataModelDependencies.KindAndKey;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -33,17 +36,28 @@ import static java.util.Collections.emptyMap;
 final class DataSourceUpdatesImpl implements DataSourceUpdates {
   private final DataStore store;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
+  private final EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> dataSourceStatusNotifier;
   private final DataModelDependencies.DependencyTracker dependencyTracker = new DataModelDependencies.DependencyTracker();
   private final DataStoreStatusProvider dataStoreStatusProvider;
   
+  private volatile DataSourceStatusProvider.Status currentStatus;
+  
   DataSourceUpdatesImpl(
       DataStore store,
+      DataStoreStatusProvider dataStoreStatusProvider,
       EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier,
-      DataStoreStatusProvider dataStoreStatusProvider
+      EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> dataSourceStatusNotifier
       ) {
     this.store = store;
     this.flagChangeEventNotifier = flagChangeEventNotifier;
+    this.dataSourceStatusNotifier = dataSourceStatusNotifier;
     this.dataStoreStatusProvider = dataStoreStatusProvider;
+    
+    currentStatus = new DataSourceStatusProvider.Status(
+        DataSourceStatusProvider.State.STARTING,
+        Instant.now(),
+        null
+        );
   }
   
   @Override
@@ -91,14 +105,40 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
     return dataStoreStatusProvider;
   }
 
+  @Override
+  public void updateStatus(DataSourceStatusProvider.State newState, DataSourceStatusProvider.ErrorInfo newError) {
+    if (newState == null) {
+      return;
+    }
+    DataSourceStatusProvider.Status newStatus;
+    synchronized (this) {
+      if (newState == DataSourceStatusProvider.State.INTERRUPTED && currentStatus.getState() == DataSourceStatusProvider.State.STARTING) {
+        newState = DataSourceStatusProvider.State.STARTING; // see comment on updateStatus in the DataSourceUpdates interface
+      }
+      if (newState == currentStatus.getState() && newError == null) {
+        return;
+      }
+      currentStatus = new DataSourceStatusProvider.Status(
+          newState,
+          newState == currentStatus.getState() ? currentStatus.getStateSince() : Instant.now(),
+          newError == null ? currentStatus.getLastError() : newError
+          );
+      newStatus = currentStatus;
+    }
+    dataSourceStatusNotifier.broadcast(newStatus);
+  }
+
+  Status getLastStatus() {
+    synchronized (this) {
+      return currentStatus;
+    }
+  }
+  
   private boolean hasFlagChangeEventListeners() {
-    return flagChangeEventNotifier != null && flagChangeEventNotifier.hasListeners();
+    return flagChangeEventNotifier.hasListeners();
   }
   
   private void sendChangeEvents(Iterable<KindAndKey> affectedItems) {
-    if (flagChangeEventNotifier == null) {
-      return;
-    }
     for (KindAndKey item: affectedItems) {
       if (item.kind == FEATURES) {
         flagChangeEventNotifier.broadcast(new FlagChangeEvent(item.key));

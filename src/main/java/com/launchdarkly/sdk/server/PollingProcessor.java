@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -63,18 +65,52 @@ final class PollingProcessor implements DataSource {
         dataSourceUpdates.init(allData.toFullDataSet());
         if (!initialized.getAndSet(true)) {
           logger.info("Initialized LaunchDarkly client.");
+          dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
           initFuture.complete(null);
         }
       } catch (HttpErrorException e) {
+        DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
+            DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE,
+            e.getStatus(),
+            null,
+            Instant.now()
+            );
         logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
-        if (!isHttpErrorRecoverable(e.getStatus())) {
+        if (isHttpErrorRecoverable(e.getStatus())) {
+          dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
+        } else {
+          dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, errorInfo);
           initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
         }
       } catch (IOException e) {
         logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
         logger.debug(e.toString(), e);
+        DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
+            DataSourceStatusProvider.ErrorKind.NETWORK_ERROR,
+            0,
+            e.toString(),
+            Instant.now()
+            );
+        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
       } catch (SerializationException e) {
         logger.error("Polling request received malformed data: {}", e.toString());
+        DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
+            DataSourceStatusProvider.ErrorKind.INVALID_DATA,
+            0,
+            e.toString(),
+            Instant.now()
+            );
+        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
+      } catch (Exception e) {
+        logger.error("Unexpected error from polling processor: {}", e.toString());
+        logger.debug(e.toString(), e);
+        DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
+            DataSourceStatusProvider.ErrorKind.UNKNOWN,
+            0,
+            e.toString(),
+            Instant.now()
+            ); 
+        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
       }
     }, 0L, pollInterval.toMillis(), TimeUnit.MILLISECONDS);
 

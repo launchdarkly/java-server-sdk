@@ -14,15 +14,10 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
  */
 public interface DataSourceUpdates {
   /**
-   * Overwrites the store's contents with a set of items for each collection.
-   * <p>
-   * All previous data should be discarded, regardless of versioning.
-   * <p>
-   * The update should be done atomically. If it cannot be done atomically, then the store
-   * must first add or update each item in the same order that they are given in the input
-   * data, and then delete any previously stored items that were not in the input data.
+   * Completely overwrites the current contents of the data store with a set of items for each collection.
    * 
    * @param allData a list of {@link DataStoreTypes.DataKind} instances and their corresponding data sets
+   * @see DataStore#init(FullDataSet)
    */
   void init(FullDataSet<ItemDescriptor> allData);
 
@@ -30,13 +25,14 @@ public interface DataSourceUpdates {
    * Updates or inserts an item in the specified collection. For updates, the object will only be
    * updated if the existing version is less than the new version.
    * <p>
-   * The SDK may pass an {@link ItemDescriptor} that contains a null, to represent a placeholder
-   * for a deleted item. In that case, assuming the version is greater than any existing version of
-   * that item, the store should retain that placeholder rather than simply not storing anything.
+   * To mark an item as deleted, pass an {@link ItemDescriptor} that contains a null, with a version
+   * number (you may use {@link ItemDescriptor#deletedItem(int)}). Deletions must be versioned so that
+   * they do not overwrite a later update in case updates are received out of order.
    * 
    * @param kind specifies which collection to use
    * @param key the unique key for the item within that collection
    * @param item the item to insert or update
+   * @see DataStore#upsert(DataKind, String, ItemDescriptor)
    */
   void upsert(DataKind kind, String key, ItemDescriptor item); 
   
@@ -50,4 +46,26 @@ public interface DataSourceUpdates {
    * @return a {@link DataStoreStatusProvider}
    */
   DataStoreStatusProvider getDataStoreStatusProvider();
+  
+  /**
+   * Informs the SDK of a change in the data source's status.
+   * <p>
+   * Data source implementations should use this method if they have any concept of being in a valid
+   * state, a temporarily disconnected state, or a permanently stopped state.
+   * <p>
+   * If {@code newState} is different from the previous state, and/or {@code newError} is non-null, the
+   * SDK will start returning the new status (adding a timestamp for the change) from
+   * {@link DataSourceStatusProvider#getStatus()}, and will trigger status change events to any
+   * registered listeners.
+   * <p>
+   * A special case is that if {@code newState} is {@link DataSourceStatusProvider.State#INTERRUPTED},
+   * but the previous state was {@link DataSourceStatusProvider.State#STARTING}, the state will remain
+   * at {@link DataSourceStatusProvider.State#STARTING} because {@link DataSourceStatusProvider.State#INTERRUPTED}
+   * is only meaningful after a successful startup.
+   *  
+   * @param newState the data source state
+   * @param newError information about a new error, if any
+   * @see DataSourceStatusProvider
+   */
+  void updateStatus(DataSourceStatusProvider.State newState, DataSourceStatusProvider.ErrorInfo newError);
 }

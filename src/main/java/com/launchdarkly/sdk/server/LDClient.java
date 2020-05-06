@@ -8,7 +8,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
@@ -65,6 +65,7 @@ public final class LDClient implements LDClientInterface {
   final DataSource dataSource;
   final DataStore dataStore;
   private final DataStoreStatusProviderImpl dataStoreStatusProvider;
+  private final DataSourceStatusProviderImpl dataSourceStatusProvider;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
   private final ScheduledExecutorService sharedExecutor;
   
@@ -159,7 +160,7 @@ public final class LDClient implements LDClientInterface {
     DataStoreFactory factory = config.dataStoreFactory == null ?
         Components.inMemoryDataStore() : config.dataStoreFactory;
     EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> dataStoreStatusNotifier =
-        new EventBroadcasterImpl<>(DataStoreStatusProvider.StatusListener::dataStoreStatusChanged, sharedExecutor);
+        EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
     DataStoreUpdatesImpl dataStoreUpdates = new DataStoreUpdatesImpl(dataStoreStatusNotifier);
     this.dataStore = factory.createDataStore(context, dataStoreUpdates);
 
@@ -173,19 +174,23 @@ public final class LDClient implements LDClientInterface {
       }
     });
 
-    this.flagChangeEventNotifier = new EventBroadcasterImpl<>(FlagChangeListener::onFlagChange, sharedExecutor);
+    this.flagChangeEventNotifier = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor);
 
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore, dataStoreUpdates);
 
     DataSourceFactory dataSourceFactory = config.dataSourceFactory == null ?
         Components.streamingDataSource() : config.dataSourceFactory;
-    DataSourceUpdates dataSourceUpdates = new DataSourceUpdatesImpl(
+    EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> dataSourceStatusNotifier =
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+    DataSourceUpdatesImpl dataSourceUpdates = new DataSourceUpdatesImpl(
         dataStore,
+        dataStoreStatusProvider,
         flagChangeEventNotifier,
-        dataStoreStatusProvider
+        dataSourceStatusNotifier
         );
-    this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);
-
+    this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);    
+    this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates::getLastStatus);
+    
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {
       if (!(dataSource instanceof Components.NullDataSource)) {
@@ -459,6 +464,11 @@ public final class LDClient implements LDClientInterface {
   @Override
   public DataStoreStatusProvider getDataStoreStatusProvider() {
     return dataStoreStatusProvider;
+  }
+
+  @Override
+  public DataSourceStatusProvider getDataSourceStatusProvider() {
+    return dataSourceStatusProvider;
   }
   
   @Override

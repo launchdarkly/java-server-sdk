@@ -10,11 +10,12 @@ import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
@@ -24,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -133,7 +135,6 @@ final class StreamProcessor implements DataSource {
         .add("Accept", "text/event-stream")
         .build();
     
-    DataStoreStatusProvider.StatusListener statusListener = this::onStoreStatusChanged;
     if (dataSourceUpdates.getDataStoreStatusProvider() != null &&
         dataSourceUpdates.getDataStoreStatusProvider().isStatusMonitoringEnabled()) {
       this.statusListener = this::onStoreStatusChanged;
@@ -160,15 +161,38 @@ final class StreamProcessor implements DataSource {
   private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
     return (Throwable t) -> {
       recordStreamInit(true);
+      
       if (t instanceof UnsuccessfulResponseException) {
         int status = ((UnsuccessfulResponseException)t).getCode();
+        
         logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
+        
+        DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
+            DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE,
+            status,
+            null,
+            Instant.now()
+            );
+        
         if (!isHttpErrorRecoverable(status)) {
+          dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, errorInfo);
           return Action.SHUTDOWN;
         }
+        
+        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
         esStarted = System.currentTimeMillis();
         return Action.PROCEED;
       }
+      
+      DataSourceStatusProvider.ErrorInfo errorInfo= new DataSourceStatusProvider.ErrorInfo(
+          t instanceof IOException ? 
+              DataSourceStatusProvider.ErrorKind.NETWORK_ERROR :
+              DataSourceStatusProvider.ErrorKind.UNKNOWN,
+          0,
+          t.toString(),
+          Instant.now()
+          );
+      dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
       return Action.PROCEED;
     };
   }
@@ -214,6 +238,7 @@ final class StreamProcessor implements DataSource {
       es.close();
     }
     requestor.close();
+    dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, null);
   }
 
   @Override
@@ -265,9 +290,21 @@ final class StreamProcessor implements DataSource {
             break;
         }
         lastStoreUpdateFailed = false;
+        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
       } catch (StreamInputException e) {
         logger.error("LaunchDarkly service request failed or received invalid data: {}", e.toString());
         logger.debug(e.toString(), e);
+        
+        DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
+            e.getCause() instanceof IOException ?
+                DataSourceStatusProvider.ErrorKind.NETWORK_ERROR :
+                DataSourceStatusProvider.ErrorKind.INVALID_DATA,
+            0,
+            e.getCause() == null ? e.getMessage() : e.getCause().toString(),
+            Instant.now()
+            );
+        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
+       
         es.restart();
       } catch (StreamStoreException e) {
         // See item 2 in error handling comments at top of class
