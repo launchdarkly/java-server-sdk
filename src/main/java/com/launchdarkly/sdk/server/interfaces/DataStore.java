@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server.interfaces;
 
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.CacheStats;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;

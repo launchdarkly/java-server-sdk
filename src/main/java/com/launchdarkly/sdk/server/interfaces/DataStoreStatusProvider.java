@@ -76,9 +76,9 @@ public interface DataStoreStatusProvider {
    * not a persistent store, or because you did not enable cache monitoring with
    * {@link PersistentDataStoreBuilder#recordCacheStats(boolean)}. 
    * 
-   * @return a {@link DataStoreTypes.CacheStats} instance; null if not applicable
+   * @return a {@link CacheStats} instance; null if not applicable
    */
-  public DataStoreTypes.CacheStats getCacheStats();
+  public CacheStats getCacheStats();
   
   /**
    * Information about a status change.
@@ -151,5 +151,115 @@ public interface DataStoreStatusProvider {
      * @param newStatus the new status
      */
     public void dataStoreStatusChanged(Status newStatus);
+  }
+  
+  /**
+   * A snapshot of cache statistics. The statistics are cumulative across the lifetime of the data store.
+   * <p>
+   * This is based on the data provided by Guava's caching framework. The SDK currently uses Guava
+   * internally, but is not guaranteed to always do so, and to avoid embedding Guava API details in
+   * the SDK API this is provided as a separate class.
+   * 
+   * @see DataStoreStatusProvider#getCacheStats()
+   * @see PersistentDataStoreBuilder#recordCacheStats(boolean)
+   * @since 4.12.0
+   */
+  public static final class CacheStats {
+    private final long hitCount;
+    private final long missCount;
+    private final long loadSuccessCount;
+    private final long loadExceptionCount;
+    private final long totalLoadTime;
+    private final long evictionCount;
+    
+    /**
+     * Constructs a new instance.
+     * 
+     * @param hitCount number of queries that produced a cache hit
+     * @param missCount number of queries that produced a cache miss
+     * @param loadSuccessCount number of cache misses that loaded a value without an exception
+     * @param loadExceptionCount number of cache misses that tried to load a value but got an exception
+     * @param totalLoadTime number of nanoseconds spent loading new values
+     * @param evictionCount number of cache entries that have been evicted
+     */
+    public CacheStats(long hitCount, long missCount, long loadSuccessCount, long loadExceptionCount,
+        long totalLoadTime, long evictionCount) {
+      this.hitCount = hitCount;
+      this.missCount = missCount;
+      this.loadSuccessCount = loadSuccessCount;
+      this.loadExceptionCount = loadExceptionCount;
+      this.totalLoadTime = totalLoadTime;
+      this.evictionCount = evictionCount;
+    }
+    
+    /**
+     * The number of data queries that received cached data instead of going to the underlying data store.
+     * @return the number of cache hits
+     */
+    public long getHitCount() {
+      return hitCount;
+    }
+
+    /**
+     * The number of data queries that did not find cached data and went to the underlying data store. 
+     * @return the number of cache misses
+     */
+    public long getMissCount() {
+      return missCount;
+    }
+
+    /**
+     * The number of times a cache miss resulted in successfully loading a data store item (or finding
+     * that it did not exist in the store).
+     * @return the number of successful loads
+     */
+    public long getLoadSuccessCount() {
+      return loadSuccessCount;
+    }
+
+    /**
+     * The number of times that an error occurred while querying the underlying data store.
+     * @return the number of failed loads
+     */
+    public long getLoadExceptionCount() {
+      return loadExceptionCount;
+    }
+
+    /**
+     * The total number of nanoseconds that the cache has spent loading new values.
+     * @return total time spent for all cache loads
+     */
+    public long getTotalLoadTime() {
+      return totalLoadTime;
+    }
+
+    /**
+     * The number of times cache entries have been evicted.
+     * @return the number of evictions
+     */
+    public long getEvictionCount() {
+      return evictionCount;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof CacheStats)) {
+        return false;
+      }
+      CacheStats o = (CacheStats)other;
+      return hitCount == o.hitCount && missCount == o.missCount && loadSuccessCount == o.loadSuccessCount &&
+          loadExceptionCount == o.loadExceptionCount && totalLoadTime == o.totalLoadTime && evictionCount == o.evictionCount;
+    }
+    
+    @Override
+    public int hashCode() {
+      return Objects.hash(hitCount, missCount, loadSuccessCount, loadExceptionCount, totalLoadTime, evictionCount);
+    }
+    
+    @Override
+    public String toString() {
+      return "{hit=" + hitCount + ", miss=" + missCount + ", loadSuccess=" + loadSuccessCount +
+          ", loadException=" + loadExceptionCount + ", totalLoadTime=" + totalLoadTime + ", evictionCount=" + evictionCount + "}";
+    }
   }
 }

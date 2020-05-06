@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -13,7 +14,6 @@ import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.CacheStats;
 
 /**
  * A thread-safe, versioned store for feature flags and related data based on a
