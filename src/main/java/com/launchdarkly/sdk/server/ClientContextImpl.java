@@ -17,7 +17,6 @@ import java.util.concurrent.ScheduledExecutorService;
  * implementation of {@link ClientContext}, which might have been created for instance in application
  * test code).
  */
-
 final class ClientContextImpl implements ClientContext {
   private static volatile ScheduledExecutorService fallbackSharedExecutor = null;
   
