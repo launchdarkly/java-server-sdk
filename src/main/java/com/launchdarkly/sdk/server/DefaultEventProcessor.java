@@ -23,6 +23,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +55,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private final BlockingQueue<EventProcessorMessage> inbox;
   private final ScheduledExecutorService scheduler;
   private final AtomicBoolean closed = new AtomicBoolean(false);
+  private final List<ScheduledFuture<?>> scheduledTasks = new ArrayList<>();
   private volatile boolean inputCapacityExceeded = false;
 
   DefaultEventProcessor(
@@ -82,19 +84,19 @@ final class DefaultEventProcessor implements EventProcessor {
     Runnable flusher = () -> {
       postMessageAsync(MessageType.FLUSH, null);
     };
-    this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushInterval.toMillis(),
-        eventsConfig.flushInterval.toMillis(), TimeUnit.MILLISECONDS);
+    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushInterval.toMillis(),
+        eventsConfig.flushInterval.toMillis(), TimeUnit.MILLISECONDS));
     Runnable userKeysFlusher = () -> {
       postMessageAsync(MessageType.FLUSH_USERS, null);
     };
-    this.scheduler.scheduleAtFixedRate(userKeysFlusher, eventsConfig.userKeysFlushInterval.toMillis(),
-        eventsConfig.userKeysFlushInterval.toMillis(), TimeUnit.MILLISECONDS);
+    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(userKeysFlusher, eventsConfig.userKeysFlushInterval.toMillis(),
+        eventsConfig.userKeysFlushInterval.toMillis(), TimeUnit.MILLISECONDS));
     if (diagnosticAccumulator != null) {
       Runnable diagnosticsTrigger = () -> {
         postMessageAsync(MessageType.DIAGNOSTIC, null);
       };
-      this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingInterval.toMillis(),
-          eventsConfig.diagnosticRecordingInterval.toMillis(), TimeUnit.MILLISECONDS);
+      scheduledTasks.add(this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingInterval.toMillis(),
+          eventsConfig.diagnosticRecordingInterval.toMillis(), TimeUnit.MILLISECONDS));
     }
   }
 
@@ -115,6 +117,7 @@ final class DefaultEventProcessor implements EventProcessor {
   @Override
   public void close() throws IOException {
     if (closed.compareAndSet(false, true)) {
+      scheduledTasks.forEach(task -> task.cancel(false));
       postMessageAsync(MessageType.FLUSH, null);
       postMessageAndWait(MessageType.SHUTDOWN, null);
     }
