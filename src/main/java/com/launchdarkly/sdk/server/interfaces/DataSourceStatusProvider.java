@@ -143,6 +143,27 @@ public interface DataSourceStatusProvider {
     }
 
     /**
+     * Constructs an instance based on an exception.
+     * 
+     * @param kind the general category of the error
+     * @param t the exception
+     * @return an ErrorInfo
+     */
+    public static ErrorInfo fromException(ErrorKind kind, Throwable t) {
+      return new ErrorInfo(kind, 0, t.toString(), Instant.now());
+    }
+
+    /**
+     * Constructs an instance based on an HTTP error status.
+     * 
+     * @param statusCode the status code
+     * @return an ErrorInfo
+     */
+    public static ErrorInfo fromHttpError(int statusCode) {
+      return new ErrorInfo(ErrorKind.ERROR_RESPONSE, statusCode, null, Instant.now());
+    }
+    
+    /**
      * Returns an enumerated value representing the general category of the error.
      * 
      * @return the general category of the error

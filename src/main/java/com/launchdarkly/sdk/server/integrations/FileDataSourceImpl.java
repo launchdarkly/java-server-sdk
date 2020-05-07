@@ -7,7 +7,9 @@ import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactor
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileParser;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileRep;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
-import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
@@ -96,17 +98,12 @@ final class FileDataSourceImpl implements DataSource {
       dataLoader.load(builder); 
     } catch (FileDataException e) {
       logger.error(e.getDescription());
-      dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED,
-          new DataSourceStatusProvider.ErrorInfo(
-              DataSourceStatusProvider.ErrorKind.INVALID_DATA,
-              0,
-              e.getDescription(),
-              Instant.now()
-              ));
+      dataSourceUpdates.updateStatus(State.INTERRUPTED,
+          new ErrorInfo(ErrorKind.INVALID_DATA, 0, e.getDescription(), Instant.now()));
       return false;
     }
     dataSourceUpdates.init(builder.build());
-    dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
+    dataSourceUpdates.updateStatus(State.VALID, null);
     inited.set(true);
     return true;
   }

@@ -10,7 +10,9 @@ import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
-import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
@@ -167,32 +169,20 @@ final class StreamProcessor implements DataSource {
         
         logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
         
-        DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
-            DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE,
-            status,
-            null,
-            Instant.now()
-            );
+        ErrorInfo errorInfo = ErrorInfo.fromHttpError(status);
         
         if (!isHttpErrorRecoverable(status)) {
-          dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, errorInfo);
+          dataSourceUpdates.updateStatus(State.OFF, errorInfo);
           return Action.SHUTDOWN;
         }
         
-        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
+        dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
         esStarted = System.currentTimeMillis();
         return Action.PROCEED;
       }
       
-      DataSourceStatusProvider.ErrorInfo errorInfo= new DataSourceStatusProvider.ErrorInfo(
-          t instanceof IOException ? 
-              DataSourceStatusProvider.ErrorKind.NETWORK_ERROR :
-              DataSourceStatusProvider.ErrorKind.UNKNOWN,
-          0,
-          t.toString(),
-          Instant.now()
-          );
-      dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
+      ErrorInfo errorInfo = ErrorInfo.fromException(t instanceof IOException ? ErrorKind.NETWORK_ERROR : ErrorKind.UNKNOWN, t);
+      dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
       return Action.PROCEED;
     };
   }
@@ -238,7 +228,7 @@ final class StreamProcessor implements DataSource {
       es.close();
     }
     requestor.close();
-    dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, null);
+    dataSourceUpdates.updateStatus(State.OFF, null);
   }
 
   @Override
@@ -290,20 +280,18 @@ final class StreamProcessor implements DataSource {
             break;
         }
         lastStoreUpdateFailed = false;
-        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
+        dataSourceUpdates.updateStatus(State.VALID, null);
       } catch (StreamInputException e) {
         logger.error("LaunchDarkly service request failed or received invalid data: {}", e.toString());
         logger.debug(e.toString(), e);
         
-        DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
-            e.getCause() instanceof IOException ?
-                DataSourceStatusProvider.ErrorKind.NETWORK_ERROR :
-                DataSourceStatusProvider.ErrorKind.INVALID_DATA,
+        ErrorInfo errorInfo = new ErrorInfo(
+            e.getCause() instanceof IOException ? ErrorKind.NETWORK_ERROR : ErrorKind.INVALID_DATA,
             0,
             e.getCause() == null ? e.getMessage() : e.getCause().toString(),
             Instant.now()
             );
-        dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.INTERRUPTED, errorInfo);
+        dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
        
         es.restart();
       } catch (StreamStoreException e) {
