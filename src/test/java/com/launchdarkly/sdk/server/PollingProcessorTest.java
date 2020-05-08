@@ -114,7 +114,7 @@ public class PollingProcessorTest {
       assertFalse(pollingProcessor.isInitialized());
       assertFalse(store.isInitialized());
       
-      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.STARTING);
+      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.INITIALIZING);
       assertNotNull(status.getLastError());
       assertEquals(DataSourceStatusProvider.ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
     }
@@ -188,7 +188,7 @@ public class PollingProcessorTest {
       assertFalse(initFuture.isDone());
       assertFalse(pollingProcessor.isInitialized());
       
-      DataSourceStatusProvider.Status status1 = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.STARTING);
+      DataSourceStatusProvider.Status status1 = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.INITIALIZING);
       assertNotNull(status1.getLastError());
       assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status1.getLastError().getKind());
       assertEquals(statusCode, status1.getLastError().getStatusCode());
@@ -203,7 +203,7 @@ public class PollingProcessorTest {
 
       // status should now be VALID (although there might have been more failed polls before that)
       DataSourceStatusProvider.Status status2 = requireDataSourceStatusEventually(statuses,
-          DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.STARTING);
+          DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.INITIALIZING);
       assertNotNull(status2.getLastError());
       assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status2.getLastError().getKind());
       assertEquals(statusCode, status2.getLastError().getStatusCode());

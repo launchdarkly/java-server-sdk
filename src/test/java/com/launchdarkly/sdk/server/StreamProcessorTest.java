@@ -11,7 +11,9 @@ import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.TestComponents.MockEventSourceCreator;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -685,16 +687,16 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private void verifyInvalidDataEvent(String eventName, String eventData) throws Exception {
-    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
     
     verifyEventCausesStreamRestartWithInMemoryStore(eventName, eventData);
     
     // We did not allow the stream to successfully process an event before causing the error, so the
-    // state will still be STARTING, but we should be able to see that an error happened.
-    DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.STARTING);
+    // state will still be INITIALIZING, but we should be able to see that an error happened.
+    Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
     assertNotNull(status.getLastError());
-    assertEquals(DataSourceStatusProvider.ErrorKind.INVALID_DATA, status.getLastError().getKind());
+    assertEquals(ErrorKind.INVALID_DATA, status.getLastError().getKind());
   }
   
   private void expectNoStreamRestart() throws Exception {
@@ -796,7 +798,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> initFuture = sp.start();
     
-    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
     ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
@@ -808,8 +810,8 @@ public class StreamProcessorTest extends EasyMockSupport {
     assertTrue(initFuture.isDone());
     assertFalse(sp.isInitialized());
     
-    DataSourceStatusProvider.Status newStatus = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.OFF);
-    assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, newStatus.getLastError().getKind());
+    Status newStatus = requireDataSourceStatus(statuses, State.OFF);
+    assertEquals(ErrorKind.ERROR_RESPONSE, newStatus.getLastError().getKind());
     assertEquals(statusCode, newStatus.getLastError().getStatusCode());
   }
   
@@ -819,7 +821,7 @@ public class StreamProcessorTest extends EasyMockSupport {
     StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> initFuture = sp.start();
     
-    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
     // simulate error
@@ -833,8 +835,8 @@ public class StreamProcessorTest extends EasyMockSupport {
     assertFalse(initFuture.isDone());
     assertFalse(sp.isInitialized());
     
-    DataSourceStatusProvider.Status failureStatus1 = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.STARTING);
-    assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, failureStatus1.getLastError().getKind());
+    Status failureStatus1 = requireDataSourceStatus(statuses, State.INITIALIZING);
+    assertEquals(ErrorKind.ERROR_RESPONSE, failureStatus1.getLastError().getKind());
     assertEquals(statusCode, failureStatus1.getLastError().getStatusCode());
     
     // simulate successful retry
@@ -844,15 +846,15 @@ public class StreamProcessorTest extends EasyMockSupport {
     assertTrue(initFuture.isDone());
     assertTrue(sp.isInitialized());
 
-    DataSourceStatusProvider.Status successStatus = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.VALID);
+    Status successStatus = requireDataSourceStatus(statuses, State.VALID);
     assertSame(failureStatus1.getLastError(), successStatus.getLastError());
     
     // simulate another error of the same kind - the difference is now the state will be INTERRUPTED
     action = errorHandler.onConnectionError(e);
     assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
 
-    DataSourceStatusProvider.Status failureStatus2 = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.INTERRUPTED);
-    assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, failureStatus2.getLastError().getKind());
+    Status failureStatus2 = requireDataSourceStatus(statuses, State.INTERRUPTED);
+    assertEquals(ErrorKind.ERROR_RESPONSE, failureStatus2.getLastError().getKind());
     assertEquals(statusCode, failureStatus2.getLastError().getStatusCode());
     assertNotSame(failureStatus2.getLastError(), failureStatus1.getLastError()); // a new instance of the same kind of error
   }

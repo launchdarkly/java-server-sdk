@@ -57,8 +57,8 @@ public interface DataSourceUpdates {
    * registered listeners.
    * <p>
    * A special case is that if {@code newState} is {@link DataSourceStatusProvider.State#INTERRUPTED},
-   * but the previous state was {@link DataSourceStatusProvider.State#STARTING}, the state will remain
-   * at {@link DataSourceStatusProvider.State#STARTING} because {@link DataSourceStatusProvider.State#INTERRUPTED}
+   * but the previous state was {@link DataSourceStatusProvider.State#INITIALIZING}, the state will remain
+   * at {@link DataSourceStatusProvider.State#INITIALIZING} because {@link DataSourceStatusProvider.State#INTERRUPTED}
    * is only meaningful after a successful startup.
    *  
    * @param newState the data source state

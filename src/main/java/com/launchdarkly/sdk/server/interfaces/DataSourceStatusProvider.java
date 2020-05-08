@@ -20,7 +20,7 @@ public interface DataSourceStatusProvider {
    * <p>
    * For a custom data source implementation, it is the responsibility of the data source to report its
    * status via {@link DataSourceUpdates}; if it does not do so, the status will always be reported as
-   * {@link State#STARTING}. 
+   * {@link State#INITIALIZING}. 
    * 
    * @return the latest status; will never be null
    */
@@ -51,13 +51,13 @@ public interface DataSourceStatusProvider {
    */
   public enum State {
     /**
-     * The initial state of the data source when the SDK is initialized.
+     * The initial state of the data source when the SDK is being initialized.
      * <p>
      * If it encounters an error that requires it to retry initialization, the state will remain at
-     * {@link #STARTING} until it either succeeds and becomes {@link #VALID}, or permanently fails and
+     * {@link #INITIALIZING} until it either succeeds and becomes {@link #VALID}, or permanently fails and
      * becomes {@link #OFF}.
      */
-    STARTING,
+    INITIALIZING,
     
     /**
      * Indicates that the data source is currently operational and has not had any problems since the
@@ -256,9 +256,9 @@ public interface DataSourceStatusProvider {
      * <p>
      * The meaning of this depends on the current state:
      * <ul>
-     * <li> For {@link State#STARTING}, it is the time that the SDK started initializing.
+     * <li> For {@link State#INITIALIZING}, it is the time that the SDK started initializing.
      * <li> For {@link State#VALID}, it is the time that the data source most recently entered a valid
-     * state, after previously having been either {@link State#STARTING} or {@link State#INTERRUPTED}.
+     * state, after previously having been either {@link State#INITIALIZING} or {@link State#INTERRUPTED}.
      * <li> For {@link State#INTERRUPTED}, it is the time that the data source most recently entered an
      * error state, after previously having been {@link State#VALID}.
      * <li> For {@link State#OFF}, it is the time that the data source encountered an unrecoverable error

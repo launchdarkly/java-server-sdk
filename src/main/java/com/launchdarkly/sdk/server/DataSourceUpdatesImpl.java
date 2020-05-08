@@ -54,7 +54,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
     this.dataStoreStatusProvider = dataStoreStatusProvider;
     
     currentStatus = new DataSourceStatusProvider.Status(
-        DataSourceStatusProvider.State.STARTING,
+        DataSourceStatusProvider.State.INITIALIZING,
         Instant.now(),
         null
         );
@@ -112,8 +112,8 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
     }
     DataSourceStatusProvider.Status newStatus;
     synchronized (this) {
-      if (newState == DataSourceStatusProvider.State.INTERRUPTED && currentStatus.getState() == DataSourceStatusProvider.State.STARTING) {
-        newState = DataSourceStatusProvider.State.STARTING; // see comment on updateStatus in the DataSourceUpdates interface
+      if (newState == DataSourceStatusProvider.State.INTERRUPTED && currentStatus.getState() == DataSourceStatusProvider.State.INITIALIZING) {
+        newState = DataSourceStatusProvider.State.INITIALIZING; // see comment on updateStatus in the DataSourceUpdates interface
       }
       if (newState == currentStatus.getState() && newError == null) {
         return;

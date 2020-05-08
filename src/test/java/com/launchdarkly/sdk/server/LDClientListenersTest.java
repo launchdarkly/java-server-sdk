@@ -140,7 +140,7 @@ public class LDClientListenersTest extends EasyMockSupport {
     Instant timeBeforeStarting = Instant.now();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       DataSourceStatusProvider.Status initialStatus = client.getDataSourceStatusProvider().getStatus();
-      assertThat(initialStatus.getState(), equalTo(DataSourceStatusProvider.State.STARTING));
+      assertThat(initialStatus.getState(), equalTo(DataSourceStatusProvider.State.INITIALIZING));
       assertThat(initialStatus.getStateSince(), greaterThanOrEqualTo(timeBeforeStarting));
       assertThat(initialStatus.getLastError(), nullValue());
       

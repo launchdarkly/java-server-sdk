@@ -135,7 +135,7 @@ public class FileDataSourceTest {
       fp.start();
       assertThat(fp.isInitialized(), equalTo(false));
       
-      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.STARTING);
+      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.INITIALIZING);
       assertNotNull(status.getLastError());
       assertEquals(DataSourceStatusProvider.ErrorKind.INVALID_DATA, status.getLastError().getKind());
     }
@@ -200,9 +200,9 @@ public class FileDataSourceTest {
         setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
         repeatWithTimeout(Duration.ofSeconds(10), Duration.ofMillis(500), () -> {
           if (toItemsMap(store.getAll(FEATURES)).size() > 0) {
-            // success - status is now VALID, after having first been STARTING - can still see that an error occurred
+            // success - status is now VALID, after having first been INITIALIZING - can still see that an error occurred
             DataSourceStatusProvider.Status status = requireDataSourceStatusEventually(statuses,
-                DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.STARTING);
+                DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.INITIALIZING);
             assertNotNull(status.getLastError());
             assertEquals(DataSourceStatusProvider.ErrorKind.INVALID_DATA, status.getLastError().getKind());
 
