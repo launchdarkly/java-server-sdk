@@ -1,0 +1,62 @@
+
+buildscript {
+    repositories {
+        jcenter()
+        mavenCentral()
+    }
+}
+
+plugins {
+    id "me.champeau.gradle.jmh" version "0.5.0"
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext.versions = [
+    "jmh": "1.21"
+]
+
+dependencies {
+    // jmh files("lib/launchdarkly-java-server-sdk-all.jar")
+    // jmh files("lib/launchdarkly-java-server-sdk-test.jar")
+    // jmh "com.squareup.okhttp3:mockwebserver:3.12.10"
+    //jmh "org.hamcrest:hamcrest-all:1.3" // the benchmarks don't use this, but the test jar has references to it
+
+    // the "compile" configuration isn't used when running benchmarks, but it allows us to compile the code in an IDE
+    compile files("lib/launchdarkly-java-server-sdk-all.jar")
+    compile files("lib/launchdarkly-java-server-sdk-test.jar")
+    compile "com.squareup.okhttp3:mockwebserver:3.12.10"
+    // compile "org.hamcrest:hamcrest-all:1.3"
+    compile "org.openjdk.jmh:jmh-core:1.21"
+    compile "org.openjdk.jmh:jmh-generator-annprocess:${versions.jmh}"
+}
+
+jmh {
+    iterations = 10 // Number of measurement iterations to do.
+    benchmarkMode = ['thrpt']
+    // batchSize = 1 // Batch size: number of benchmark method calls per operation. (some benchmark modes can ignore this setting)
+    fork = 1 // How many times to forks a single benchmark. Use 0 to disable forking altogether
+    // failOnError = false // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
+    // forceGC = false // Should JMH force GC between iterations?
+    // humanOutputFile = project.file("${project.buildDir}/reports/jmh/human.txt") // human-readable output file
+    // resultsFile = project.file("${project.buildDir}/reports/jmh/results.txt") // results file
+    operationsPerInvocation = 3 // Operations per invocation.
+    // benchmarkParameters =  [:] // Benchmark parameters.
+    profilers = [ 'gc' ] // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr]
+    timeOnIteration = '1s' // Time to spend at each measurement iteration.
+    // resultFormat = 'CSV' // Result format type (one of CSV, JSON, NONE, SCSV, TEXT)
+    // synchronizeIterations = false // Synchronize iterations?
+    // threads = 4 // Number of worker threads to run with.
+    // timeout = '1s' // Timeout for benchmark iteration.
+    // timeUnit = 'ms' // Output time unit. Available time units are: [m, s, ms, us, ns].
+    // verbosity = 'EXTRA' // Verbosity mode. Available modes are: [SILENT, NORMAL, EXTRA]
+    warmup = '1s' // Time to spend at each warmup iteration.
+    warmupBatchSize = 2 // Warmup batch size: number of benchmark method calls per operation.
+    warmupIterations = 1 // Number of warmup iterations to do.
+    // warmupForks = 0 // How many warmup forks to make for a single benchmark. 0 to disable warmup forks.
+    // warmupMode = 'INDI' // Warmup mode for warming up selected benchmarks. Warmup modes are: [INDI, BULK, BULK_INDI].
+
+    jmhVersion = versions.jmh
+}

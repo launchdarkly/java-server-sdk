@@ -30,6 +30,9 @@ workflows:
       - packaging:
           requires:
             - build-linux
+      - benchmarks:
+          requires:
+            - build-linux
       - build-test-windows:
           name: Java 11 - Windows - OpenJDK
 
@@ -118,3 +121,19 @@ jobs:
       - run:
           name: run packaging tests
           command: cd packaging-test && make all
+
+  benchmarks:
+    docker:
+      - image: circleci/openjdk:8
+    steps:
+      - run: java -version
+      - run: sudo apt-get install make -y -q
+      - checkout
+      - attach_workspace:
+          at: build
+      - run: cat gradle.properties.example >>gradle.properties
+      - run:
+          name: run benchmarks
+          command: cd benchmarks && make
+      - store_artifacts:
+          path: benchmarks/build/reports/jmh
