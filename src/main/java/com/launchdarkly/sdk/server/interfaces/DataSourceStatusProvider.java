@@ -82,8 +82,8 @@ public interface DataSourceStatusProvider {
      * Indicates that the data source has been permanently shut down.
      * <p>
      * This could be because it encountered an unrecoverable error (for instance, the LaunchDarkly service
-     * rejected the SDK key; an invald SDK key will never become vavlid), or because the SDK client was
-     * explicitly shut own.
+     * rejected the SDK key; an invald SDK key will never become valid), or because the SDK client was
+     * explicitly shut down.
      */
     OFF;
   }
