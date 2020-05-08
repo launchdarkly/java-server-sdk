@@ -29,6 +29,7 @@ public final class LDConfig {
   final HttpConfiguration httpConfig;
   final boolean offline;
   final Duration startWait;
+  final int threadPriority;
 
   protected LDConfig(Builder builder) {
     this.dataStoreFactory = builder.dataStoreFactory;
@@ -40,6 +41,7 @@ public final class LDConfig {
         builder.httpConfigFactory.createHttpConfiguration();
     this.offline = builder.offline;
     this.startWait = builder.startWait;
+    this.threadPriority = builder.threadPriority;
   }
   
   LDConfig(LDConfig config) {
@@ -50,6 +52,7 @@ public final class LDConfig {
     this.httpConfig = config.httpConfig;
     this.offline = config.offline;
     this.startWait = config.startWait;
+    this.threadPriority = config.threadPriority;
   }
 
   /**
@@ -71,6 +74,7 @@ public final class LDConfig {
     private HttpConfigurationFactory httpConfigFactory = null;
     private boolean offline = false;
     private Duration startWait = DEFAULT_START_WAIT;
+    private int threadPriority = Thread.MIN_PRIORITY;
 
     /**
      * Creates a builder with all configuration parameters set to the default
@@ -194,6 +198,25 @@ public final class LDConfig {
       return this;
     }
 
+    /**
+     * Set the priority to use for all threads created by the SDK.
+     * <p>
+     * By default, the SDK's worker threads use {@code Thread.MIN_PRIORITY} so that they will yield to
+     * application threads if the JVM is busy. You may increase this if you want the SDK to be prioritized
+     * over some other low-priority tasks.
+     * <p>
+     * Values outside the range of [{@code Thread.MIN_PRIORITY}, {@code Thread.MAX_PRIORITY}] will be set
+     * to the minimum or maximum.
+     *  
+     * @param threadPriority the priority for SDK threads
+     * @return the builder
+     * @since 5.0.0
+     */
+    public Builder threadPriority(int threadPriority) {
+      this.threadPriority = Math.max(Thread.MIN_PRIORITY, Math.min(Thread.MAX_PRIORITY, threadPriority));
+      return this;
+    }
+    
     /**
      * Builds the configured {@link com.launchdarkly.sdk.server.LDConfig} object.
      *

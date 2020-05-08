@@ -83,6 +83,7 @@ final class StreamProcessor implements DataSource {
   @VisibleForTesting final FeatureRequestor requestor;
   private final DiagnosticAccumulator diagnosticAccumulator;
   private final EventSourceCreator eventSourceCreator;
+  private final int threadPriority;
   private final DataStoreStatusProvider.StatusListener statusListener;
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -121,6 +122,7 @@ final class StreamProcessor implements DataSource {
       FeatureRequestor requestor,
       DataSourceUpdates dataSourceUpdates,
       EventSourceCreator eventSourceCreator,
+      int threadPriority,
       DiagnosticAccumulator diagnosticAccumulator,
       URI streamUri,
       Duration initialReconnectDelay
@@ -129,7 +131,8 @@ final class StreamProcessor implements DataSource {
     this.httpConfig = httpConfig;
     this.requestor = requestor;
     this.diagnosticAccumulator = diagnosticAccumulator;
-    this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : StreamProcessor::defaultEventSourceCreator;
+    this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : this::defaultEventSourceCreator;
+    this.threadPriority = threadPriority;
     this.streamUri = streamUri;
     this.initialReconnectDelay = initialReconnectDelay;
 
@@ -413,8 +416,9 @@ final class StreamProcessor implements DataSource {
     }  
   }
 
-  private static EventSource defaultEventSourceCreator(EventSourceParams params) {
+  private EventSource defaultEventSourceCreator(EventSourceParams params) {
     EventSource.Builder builder = new EventSource.Builder(params.handler, params.streamUri)
+        .threadPriority(threadPriority)
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
           public void configure(OkHttpClient.Builder builder) {
             configureHttpClientBuilder(params.httpConfig, builder);

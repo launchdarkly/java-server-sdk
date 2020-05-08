@@ -28,9 +28,11 @@ import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificPersistentDataStore;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertEquals;
 
 /**
  * This file contains tests for all of the event broadcaster/listener functionality in the client, plus
@@ -240,6 +242,36 @@ public class LDClientListenersTest extends EasyMockSupport {
       factoryWithUpdater.dataStoreUpdates.updateStatus(newStatus);
       
       assertThat(statuses.take(), equalTo(newStatus));
+    }
+  }
+  
+  @Test
+  public void eventsAreDispatchedOnTaskThread() throws Exception {
+    int desiredPriority = Thread.MAX_PRIORITY - 1;
+    BlockingQueue<Thread> capturedThreads = new LinkedBlockingQueue<>();
+    
+    DataStore testDataStore = initedDataStore();
+    DataBuilder initialData = new DataBuilder().addAny(DataModel.FEATURES,
+        flagBuilder("flagkey").version(1).build());
+    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(initialData.build());
+    LDConfig config = new LDConfig.Builder()
+        .dataStore(specificDataStore(testDataStore))
+        .dataSource(updatableSource)
+        .events(Components.noEvents())
+        .threadPriority(desiredPriority)
+        .build();
+    
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      client.registerFlagChangeListener(params -> {
+        capturedThreads.add(Thread.currentThread());
+      });
+      
+      updatableSource.updateFlag(flagBuilder("flagkey").version(2).build());
+      
+      Thread handlerThread = capturedThreads.take();
+      
+      assertEquals(desiredPriority, handlerThread.getPriority());
+      assertThat(handlerThread.getName(), containsString("LaunchDarkly-tasks"));
     }
   }
 }

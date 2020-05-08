@@ -409,6 +409,7 @@ public abstract class Components {
           requestor,
           dataSourceUpdates,
           null,
+          context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
           streamUri,
           initialReconnectDelay
@@ -498,6 +499,7 @@ public abstract class Components {
               ),
           context.getHttpConfiguration(),
           ClientContextImpl.get(context).sharedExecutor,
+          context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
           ClientContextImpl.get(context).diagnosticInitEvent
           );

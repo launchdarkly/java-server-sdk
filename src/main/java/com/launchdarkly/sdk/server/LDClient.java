@@ -132,7 +132,7 @@ public final class LDClient implements LDClientInterface {
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
     this.offline = config.offline;
     
-    this.sharedExecutor = createSharedExecutor();
+    this.sharedExecutor = createSharedExecutor(config);
     
     final EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
         Components.sendEvents() : config.eventProcessorFactory;
@@ -520,11 +520,11 @@ public final class LDClient implements LDClientInterface {
   // to be executing frequently so that it is acceptable to use a single thread to execute them one at a
   // time rather than a thread pool, thus reducing the number of threads spawned by the SDK. This also
   // has the benefit of producing predictable delivery order for event listener notifications.
-  private ScheduledExecutorService createSharedExecutor() {
+  private ScheduledExecutorService createSharedExecutor(LDConfig config) {
     ThreadFactory threadFactory = new ThreadFactoryBuilder()
         .setDaemon(true)
         .setNameFormat("LaunchDarkly-tasks-%d")
-        .setPriority(Thread.MIN_PRIORITY)
+        .setPriority(config.threadPriority)
         .build();
     return Executors.newSingleThreadScheduledExecutor(threadFactory);
   }
