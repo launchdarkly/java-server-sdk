@@ -8,7 +8,7 @@ import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
+import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 
 import org.junit.Test;
@@ -18,7 +18,6 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -236,7 +235,7 @@ public class DiagnosticEventTest {
     }
 
     @Override
-    public DataStore createDataStore(ClientContext context, Consumer<Status> statusUpdater) {
+    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
       return null;
     }
   }

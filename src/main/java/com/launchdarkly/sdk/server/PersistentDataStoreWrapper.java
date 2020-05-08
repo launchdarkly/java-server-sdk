@@ -10,13 +10,13 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 
 import org.slf4j.Logger;
@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.filter;
@@ -63,7 +62,7 @@ final class PersistentDataStoreWrapper implements DataStore {
       Duration cacheTtl,
       PersistentDataStoreBuilder.StaleValuesPolicy staleValuesPolicy,
       boolean recordCacheStats,
-      Consumer<DataStoreStatusProvider.Status> statusUpdater,
+      DataStoreUpdates dataStoreUpdates,
       ScheduledExecutorService sharedExecutor
     ) {
     this.core = core;
@@ -113,7 +112,7 @@ final class PersistentDataStoreWrapper implements DataStore {
         !cacheIndefinitely,
         true,
         this::pollAvailabilityAfterOutage,
-        statusUpdater,
+        dataStoreUpdates::updateStatus,
         sharedExecutor
         );
   }

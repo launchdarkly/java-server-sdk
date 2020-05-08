@@ -7,16 +7,16 @@ import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
@@ -34,7 +34,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 
@@ -177,7 +176,7 @@ public class TestComponents {
   }
   
   public static class DataStoreFactoryThatExposesUpdater implements DataStoreFactory {
-    public volatile Consumer<DataStoreStatusProvider.Status> statusUpdater;
+    public volatile DataStoreUpdates dataStoreUpdates;
     private final DataStoreFactory wrappedFactory;
 
     public DataStoreFactoryThatExposesUpdater(DataStoreFactory wrappedFactory) {
@@ -185,9 +184,9 @@ public class TestComponents {
     }
     
     @Override
-    public DataStore createDataStore(ClientContext context, Consumer<Status> statusUpdater) {
-      this.statusUpdater = statusUpdater;
-      return wrappedFactory.createDataStore(context, statusUpdater);
+    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+      this.dataStoreUpdates = dataStoreUpdates;
+      return wrappedFactory.createDataStore(context, dataStoreUpdates);
     }
   }
   
