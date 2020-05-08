@@ -29,4 +29,4 @@ $(SDK_ALL_JAR):
 	cd .. && ./gradlew shadowJarAll
 
 $(SDK_TEST_JAR):
-	cd .. && ./gradlew testCompile
+	cd .. && ./gradlew testJar
