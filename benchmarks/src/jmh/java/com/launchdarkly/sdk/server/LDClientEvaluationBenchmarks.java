@@ -1,6 +1,9 @@
-package com.launchdarkly.client;
+package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.client.value.LDValue;
+import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.interfaces.DataStore;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
@@ -8,18 +11,20 @@ import org.openjdk.jmh.annotations.State;
 
 import java.util.Random;
 
-import static com.launchdarkly.client.TestValues.BOOLEAN_FLAG_KEY;
-import static com.launchdarkly.client.TestValues.FLAG_WITH_PREREQ_KEY;
-import static com.launchdarkly.client.TestValues.FLAG_WITH_TARGET_LIST_KEY;
-import static com.launchdarkly.client.TestValues.INT_FLAG_KEY;
-import static com.launchdarkly.client.TestValues.JSON_FLAG_KEY;
-import static com.launchdarkly.client.TestValues.NOT_TARGETED_USER_KEY;
-import static com.launchdarkly.client.TestValues.SDK_KEY;
-import static com.launchdarkly.client.TestValues.STRING_FLAG_KEY;
-import static com.launchdarkly.client.TestValues.TARGETED_USER_KEYS;
-import static com.launchdarkly.client.TestValues.UNKNOWN_FLAG_KEY;
-import static com.launchdarkly.client.TestValues.makeTestFlags;
-import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
+import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
+import static com.launchdarkly.sdk.server.TestValues.BOOLEAN_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_PREREQ_KEY;
+import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_TARGET_LIST_KEY;
+import static com.launchdarkly.sdk.server.TestValues.INT_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.JSON_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.NOT_TARGETED_USER_KEY;
+import static com.launchdarkly.sdk.server.TestValues.SDK_KEY;
+import static com.launchdarkly.sdk.server.TestValues.STRING_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.TARGETED_USER_KEYS;
+import static com.launchdarkly.sdk.server.TestValues.UNKNOWN_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.makeTestFlags;
 
 /**
  * These benchmarks cover just the evaluation logic itself (and, by necessity, the overhead of getting the
@@ -34,13 +39,13 @@ public class LDClientEvaluationBenchmarks {
     final Random random;
 
     public BenchmarkInputs() {
-      FeatureStore featureStore = TestUtil.initedFeatureStore();
+      DataStore dataStore = initedDataStore();
       for (FeatureFlag flag: makeTestFlags()) {
-        featureStore.upsert(FEATURES, flag);
+        upsertFlag(dataStore, flag);
       }
 
       LDConfig config = new LDConfig.Builder()
-        .dataStore(TestUtil.specificFeatureStore(featureStore))
+        .dataStore(specificDataStore(dataStore))
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();

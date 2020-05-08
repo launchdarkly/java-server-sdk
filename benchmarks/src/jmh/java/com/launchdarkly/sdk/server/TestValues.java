@@ -1,14 +1,16 @@
-package com.launchdarkly.client;
+package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.client.value.LDValue;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Target;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
-import static com.launchdarkly.client.TestUtil.fallthroughVariation;
-import static com.launchdarkly.client.TestUtil.flagWithValue;
+import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
+import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 
 public abstract class TestValues {
   private TestValues() {}
@@ -42,26 +44,26 @@ public abstract class TestValues {
     flags.add(flagWithValue(STRING_FLAG_KEY, LDValue.of("x")));
     flags.add(flagWithValue(JSON_FLAG_KEY, LDValue.buildArray().build()));
 
-    FeatureFlag targetsFlag = new FeatureFlagBuilder(FLAG_WITH_TARGET_LIST_KEY)
+    FeatureFlag targetsFlag = flagBuilder(FLAG_WITH_TARGET_LIST_KEY)
       .on(true)
-      .targets(Arrays.asList(new Target(new HashSet<String>(TARGETED_USER_KEYS), 1)))
-      .fallthrough(fallthroughVariation(0))
+      .targets(new Target(new HashSet<String>(TARGETED_USER_KEYS), 1))
+      .fallthroughVariation(0)
       .offVariation(0)
       .variations(LDValue.of(false), LDValue.of(true))
       .build();
     flags.add(targetsFlag);
 
-    FeatureFlag prereqFlag = new FeatureFlagBuilder("prereq-flag")
+    FeatureFlag prereqFlag = flagBuilder("prereq-flag")
       .on(true)
-      .fallthrough(fallthroughVariation(1))
+      .fallthroughVariation(1)
       .variations(LDValue.of(false), LDValue.of(true))
       .build();
     flags.add(prereqFlag);
 
-    FeatureFlag flagWithPrereq = new FeatureFlagBuilder(FLAG_WITH_PREREQ_KEY)
+    FeatureFlag flagWithPrereq = flagBuilder(FLAG_WITH_PREREQ_KEY)
       .on(true)
-      .prerequisites(Arrays.asList(new Prerequisite("prereq-flag", 1)))
-      .fallthrough(fallthroughVariation(1))
+      .prerequisites(prerequisite("prereq-flag", 1))
+      .fallthroughVariation(1)
       .offVariation(0)
       .variations(LDValue.of(false), LDValue.of(true))
       .build();
