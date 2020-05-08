@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server.integrations;
+package com.launchdarkly.sdk.server;
 
 import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
@@ -7,8 +7,8 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
@@ -28,9 +28,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.Iterables.concat;
@@ -47,7 +45,6 @@ import static com.google.common.collect.Iterables.isEmpty;
  */
 final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProvider {
   private static final Logger logger = LoggerFactory.getLogger(PersistentDataStoreWrapper.class);
-  private static final String CACHE_REFRESH_THREAD_POOL_NAME_FORMAT = "CachingStoreWrapper-refresher-pool-%d";
 
   private final PersistentDataStore core;
   private final LoadingCache<CacheKey, Optional<ItemDescriptor>> itemCache;
@@ -57,13 +54,14 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
   private final boolean cacheIndefinitely;
   private final Set<DataKind> cachedDataKinds = new HashSet<>(); // this map is used in pollForAvailability()
   private final AtomicBoolean inited = new AtomicBoolean(false);
-  private final ListeningExecutorService executorService;
+  private final ListeningExecutorService cacheExecutor;
   
   PersistentDataStoreWrapper(
       final PersistentDataStore core,
       Duration cacheTtl,
       PersistentDataStoreBuilder.StaleValuesPolicy staleValuesPolicy,
-      boolean recordCacheStats
+      boolean recordCacheStats,
+      ScheduledExecutorService sharedExecutor
     ) {
     this.core = core;
     
@@ -71,7 +69,7 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
       itemCache = null;
       allCache = null;
       initCache = null;
-      executorService = null;
+      cacheExecutor = null;
       cacheIndefinitely = false;
     } else {
       cacheIndefinitely = cacheTtl.isNegative();
@@ -95,22 +93,25 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
       };
       
       if (staleValuesPolicy == PersistentDataStoreBuilder.StaleValuesPolicy.REFRESH_ASYNC) {
-        ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CACHE_REFRESH_THREAD_POOL_NAME_FORMAT).setDaemon(true).build();
-        ExecutorService parentExecutor = Executors.newSingleThreadExecutor(threadFactory);
-        executorService = MoreExecutors.listeningDecorator(parentExecutor);
+        cacheExecutor = MoreExecutors.listeningDecorator(sharedExecutor);
         
         // Note that the REFRESH_ASYNC mode is only used for itemCache, not allCache, since retrieving all flags is
         // less frequently needed and we don't want to incur the extra overhead.
-        itemLoader = CacheLoader.asyncReloading(itemLoader, executorService);
+        itemLoader = CacheLoader.asyncReloading(itemLoader, cacheExecutor);
       } else {
-        executorService = null;
+        cacheExecutor = null;
       }
       
       itemCache = newCacheBuilder(cacheTtl, staleValuesPolicy, recordCacheStats).build(itemLoader);
       allCache = newCacheBuilder(cacheTtl, staleValuesPolicy, recordCacheStats).build(allLoader);
       initCache = newCacheBuilder(cacheTtl, staleValuesPolicy, recordCacheStats).build(initLoader);
     }
-    statusManager = new PersistentDataStoreStatusManager(!cacheIndefinitely, true, this::pollAvailabilityAfterOutage);
+    statusManager = new PersistentDataStoreStatusManager(
+        !cacheIndefinitely,
+        true,
+        this::pollAvailabilityAfterOutage,
+        sharedExecutor
+        );
   }
   
   private static CacheBuilder<Object, Object> newCacheBuilder(
@@ -139,10 +140,6 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
   
   @Override
   public void close() throws IOException {
-    if (executorService != null) {
-      executorService.shutdownNow();
-    }
-    statusManager.close();
     core.close();
   }
 

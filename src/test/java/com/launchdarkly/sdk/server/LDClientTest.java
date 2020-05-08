@@ -177,7 +177,7 @@ public class LDClientTest extends EasyMockSupport {
       verifyAll();
       DiagnosticAccumulator acc = ((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticAccumulator; 
       assertNotNull(acc);
-      assertSame(acc, ClientContextImpl.getDiagnosticAccumulator(capturedDataSourceContext.getValue()));
+      assertSame(acc, ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
     }
   }
 
@@ -200,7 +200,7 @@ public class LDClientTest extends EasyMockSupport {
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       verifyAll();
       assertNull(((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticAccumulator);
-      assertNull(ClientContextImpl.getDiagnosticAccumulator(capturedDataSourceContext.getValue()));
+      assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
     }
   }
 
@@ -228,8 +228,8 @@ public class LDClientTest extends EasyMockSupport {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       verifyAll();
-      assertNull(ClientContextImpl.getDiagnosticAccumulator(capturedEventContext.getValue()));
-      assertNull(ClientContextImpl.getDiagnosticAccumulator(capturedDataSourceContext.getValue()));
+      assertNull(ClientContextImpl.get(capturedEventContext.getValue()).diagnosticAccumulator);
+      assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
     }
   }
 

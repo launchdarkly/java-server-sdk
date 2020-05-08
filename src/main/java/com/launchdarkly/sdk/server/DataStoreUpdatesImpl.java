@@ -11,6 +11,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,13 +32,13 @@ import static java.util.Collections.emptyMap;
  */
 final class DataStoreUpdatesImpl implements DataStoreUpdates {
   private final DataStore store;
-  private final FlagChangeEventPublisher flagChangeEventPublisher;
+  private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
   private final DataModelDependencies.DependencyTracker dependencyTracker = new DataModelDependencies.DependencyTracker();
   private final DataStoreStatusProvider dataStoreStatusProvider;
   
-  DataStoreUpdatesImpl(DataStore store, FlagChangeEventPublisher flagChangeEventPublisher) {
+  DataStoreUpdatesImpl(DataStore store, EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier) {
     this.store = store;
-    this.flagChangeEventPublisher = flagChangeEventPublisher;
+    this.flagChangeEventNotifier = flagChangeEventNotifier;
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(store);
   }
   
@@ -87,16 +88,16 @@ final class DataStoreUpdatesImpl implements DataStoreUpdates {
   }
 
   private boolean hasFlagChangeEventListeners() {
-    return flagChangeEventPublisher != null && flagChangeEventPublisher.hasListeners();
+    return flagChangeEventNotifier != null && flagChangeEventNotifier.hasListeners();
   }
   
   private void sendChangeEvents(Iterable<KindAndKey> affectedItems) {
-    if (flagChangeEventPublisher == null) {
+    if (flagChangeEventNotifier == null) {
       return;
     }
     for (KindAndKey item: affectedItems) {
       if (item.kind == FEATURES) {
-        flagChangeEventPublisher.publishEvent(new FlagChangeEvent(item.key));
+        flagChangeEventNotifier.broadcast(new FlagChangeEvent(item.key));
       }
     }
   }

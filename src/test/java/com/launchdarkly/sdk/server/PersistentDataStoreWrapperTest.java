@@ -1,9 +1,11 @@
-package com.launchdarkly.sdk.server.integrations;
+package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
+import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
+import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -26,6 +28,7 @@ import static com.launchdarkly.sdk.server.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toItemsMap;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toSerialized;
+import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -94,8 +97,13 @@ public class PersistentDataStoreWrapperTest {
     this.testMode = testMode;
     this.core = new MockPersistentDataStore();
     this.core.persistOnlyAsString = testMode.persistOnlyAsString;
-    this.wrapper = new PersistentDataStoreWrapper(core, testMode.getCacheTtl(),
-        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, false);
+    this.wrapper = new PersistentDataStoreWrapper(
+        core,
+        testMode.getCacheTtl(),
+        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
+        false,
+        sharedExecutor
+        );
   }
   
   @After
@@ -445,8 +453,13 @@ public class PersistentDataStoreWrapperTest {
     assumeThat(testMode.isCached(), is(true));
     
     // We need to create a different object for this test so we can set a short cache TTL
-    try (PersistentDataStoreWrapper wrapper1 = new PersistentDataStoreWrapper(core,
-        Duration.ofMillis(500), PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, false)) {
+    try (PersistentDataStoreWrapper wrapper1 = new PersistentDataStoreWrapper(
+        core,
+        Duration.ofMillis(500),
+        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
+        false,
+        sharedExecutor
+        )) {
       assertThat(wrapper1.isInitialized(), is(false));
       assertThat(core.initedQueryCount, equalTo(1));
       
@@ -468,8 +481,13 @@ public class PersistentDataStoreWrapperTest {
   public void canGetCacheStats() throws Exception {
     assumeThat(testMode.isCachedWithFiniteTtl(), is(true));
     
-    try (PersistentDataStoreWrapper w = new PersistentDataStoreWrapper(core,
-        Duration.ofSeconds(30), PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, true)) {
+    try (PersistentDataStoreWrapper w = new PersistentDataStoreWrapper(
+        core,
+        Duration.ofSeconds(30),
+        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
+        true,
+        sharedExecutor
+        )) {
       DataStoreStatusProvider.CacheStats stats = w.getCacheStats();
       
       assertThat(stats, equalTo(new DataStoreStatusProvider.CacheStats(0, 0, 0, 0, 0, 0)));

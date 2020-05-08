@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
@@ -12,10 +11,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -27,13 +25,21 @@ final class PollingProcessor implements DataSource {
 
   @VisibleForTesting final FeatureRequestor requestor;
   private final DataStoreUpdates dataStoreUpdates;
+  private final ScheduledExecutorService scheduler;
   @VisibleForTesting final Duration pollInterval;
-  private AtomicBoolean initialized = new AtomicBoolean(false);
-  private ScheduledExecutorService scheduler = null;
+  private final AtomicBoolean initialized = new AtomicBoolean(false);
+  private volatile ScheduledFuture<?> task;
+  private volatile CompletableFuture<Void> initFuture;
 
-  PollingProcessor(FeatureRequestor requestor, DataStoreUpdates dataStoreUpdates, Duration pollInterval) {
+  PollingProcessor(
+      FeatureRequestor requestor,
+      DataStoreUpdates dataStoreUpdates,
+      ScheduledExecutorService sharedExecutor,
+      Duration pollInterval
+      ) {
     this.requestor = requestor; // note that HTTP configuration is applied to the requestor when it is created
     this.dataStoreUpdates = dataStoreUpdates;
+    this.scheduler = sharedExecutor;
     this.pollInterval = pollInterval;
   }
 
@@ -45,44 +51,53 @@ final class PollingProcessor implements DataSource {
   @Override
   public void close() throws IOException {
     logger.info("Closing LaunchDarkly PollingProcessor");
-    if (scheduler != null) {
-      scheduler.shutdown();
-    }
     requestor.close();
+    
+    // Even though the shared executor will be shut down when the LDClient is closed, it's still good
+    // behavior to remove our polling task now - especially because we might be running in a test
+    // environment where there isn't actually an LDClient.
+    synchronized (this) {
+      if (task != null) {
+        task.cancel(false);
+        task = null;
+      }
+    }
   }
 
   @Override
   public Future<Void> start() {
     logger.info("Starting LaunchDarkly polling client with interval: "
         + pollInterval.toMillis() + " milliseconds");
-    final CompletableFuture<Void> initFuture = new CompletableFuture<>();
-    ThreadFactory threadFactory = new ThreadFactoryBuilder()
-        .setNameFormat("LaunchDarkly-PollingProcessor-%d")
-        .build();
-    scheduler = Executors.newScheduledThreadPool(1, threadFactory);
-
-    scheduler.scheduleAtFixedRate(() -> {
-      try {
-        FeatureRequestor.AllData allData = requestor.getAllData();
-        dataStoreUpdates.init(allData.toFullDataSet());
-        if (!initialized.getAndSet(true)) {
-          logger.info("Initialized LaunchDarkly client.");
-          initFuture.complete(null);
-        }
-      } catch (HttpErrorException e) {
-        logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
-        if (!isHttpErrorRecoverable(e.getStatus())) {
-          scheduler.shutdown();
-          initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
-        }
-      } catch (IOException e) {
-        logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
-        logger.debug(e.toString(), e);
-      } catch (SerializationException e) {
-        logger.error("Polling request received malformed data: {}", e.toString());
+    
+    synchronized (this) {
+      if (initFuture != null) {
+        return initFuture;
       }
-    }, 0L, pollInterval.toMillis(), TimeUnit.MILLISECONDS);
-
+      initFuture = new CompletableFuture<>();
+      task = scheduler.scheduleAtFixedRate(this::poll, 0L, pollInterval.toMillis(), TimeUnit.MILLISECONDS);
+    }
+    
     return initFuture;
+  }
+  
+  private void poll() {
+    try {
+      FeatureRequestor.AllData allData = requestor.getAllData();
+      dataStoreUpdates.init(allData.toFullDataSet());
+      if (!initialized.getAndSet(true)) {
+        logger.info("Initialized LaunchDarkly client.");
+        initFuture.complete(null);
+      }
+    } catch (HttpErrorException e) {
+      logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
+      if (!isHttpErrorRecoverable(e.getStatus())) {
+        initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
+      }
+    } catch (IOException e) {
+      logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
+      logger.debug(e.toString(), e);
+    } catch (SerializationException e) {
+      logger.error("Polling request received malformed data: {}", e.toString());
+    }
   }
 }
