@@ -36,10 +36,14 @@ final class DataStoreUpdatesImpl implements DataStoreUpdates {
   private final DataModelDependencies.DependencyTracker dependencyTracker = new DataModelDependencies.DependencyTracker();
   private final DataStoreStatusProvider dataStoreStatusProvider;
   
-  DataStoreUpdatesImpl(DataStore store, EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier) {
+  DataStoreUpdatesImpl(
+      DataStore store,
+      EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier,
+      DataStoreStatusProvider dataStoreStatusProvider
+      ) {
     this.store = store;
     this.flagChangeEventNotifier = flagChangeEventNotifier;
-    this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(store);
+    this.dataStoreStatusProvider = dataStoreStatusProvider;
   }
   
   @Override

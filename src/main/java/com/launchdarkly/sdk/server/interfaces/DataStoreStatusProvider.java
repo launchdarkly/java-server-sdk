@@ -11,16 +11,34 @@ import java.util.Objects;
  * If the data store is a persistent data store, then these methods are implemented by the SDK; if it is a custom
  * class that implements this interface, then these methods delegate to the corresponding methods of the class;
  * if it is the default in-memory data store, then these methods do nothing and return null values.
+ * <p>
+ * Application code should not implement this interface.
  * 
  * @since 5.0.0
  */
 public interface DataStoreStatusProvider {
   /**
    * Returns the current status of the store.
+   * <p>
+   * This is only meaningful for persistent stores, or any other {@link DataStore} implementation that makes use of
+   * the reporting mechanism provided by {@link DataStoreFactory#createDataStore(ClientContext, java.util.function.Consumer)}.
+   * For the default in-memory store, the status will always be reported as "available".
    * 
-   * @return the latest status, or null if not available
+   * @return the latest status; will never be null
    */
   public Status getStoreStatus();
+  
+  /**
+   * Indicates whether the current data store implementation supports status monitoring.
+   * <p>
+   * This is normally true for all persistent data stores, and false for the default in-memory store. A true value
+   * means that any listeners added with {@link #addStatusListener(StatusListener)} can expect to be notified if
+   * there is any error in storing data, and then notified again when the error condition is resolved. A false
+   * value means that the status is not meaningful and listeners should not expect to be notified.
+   * 
+   * @return true if status monitoring is enabled
+   */
+  public boolean isStatusMonitoringEnabled();
   
   /**
    * Subscribes for notifications of status changes.
@@ -38,10 +56,8 @@ public interface DataStoreStatusProvider {
    * are using the default in-memory store rather than a persistent store.
    * 
    * @param listener the listener to add
-   * @return true if the listener was added, or was already registered; false if the data store does not support
-   *   status tracking
    */
-  public boolean addStatusListener(StatusListener listener);
+  public void addStatusListener(StatusListener listener);
 
   /**
    * Unsubscribes from notifications of status changes.
@@ -104,6 +120,25 @@ public interface DataStoreStatusProvider {
      */
     public boolean isRefreshNeeded() {
       return refreshNeeded;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof Status) {
+        Status o = (Status)other;
+        return available == o.available && refreshNeeded == o.refreshNeeded;
+      }
+      return false;
+    }
+    
+    @Override
+    public int hashCode() {
+      return Objects.hash(available, refreshNeeded);
+    }
+    
+    @Override
+    public String toString() {
+      return "Status(" + available + "," + refreshNeeded + ")";
     }
   }
   

@@ -10,6 +10,8 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -18,6 +20,8 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,6 +33,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 
@@ -53,7 +59,7 @@ public class TestComponents {
   }
 
   public static DataStoreUpdates dataStoreUpdates(final DataStore store) {
-    return new DataStoreUpdatesImpl(store, null);
+    return new DataStoreUpdatesImpl(store, null, null);
   }
 
   static EventsConfiguration defaultEventsConfig() {
@@ -90,9 +96,13 @@ public class TestComponents {
   }
 
   public static DataStoreFactory specificDataStore(final DataStore store) {
-    return context -> store;
+    return (context, statusUpdater) -> store;
   }
 
+  public static PersistentDataStoreFactory specificPersistentDataStore(final PersistentDataStore store) {
+    return context -> store;
+  }
+  
   public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {
     return context -> ep;
   }
@@ -166,6 +176,21 @@ public class TestComponents {
     }
   }
   
+  public static class DataStoreFactoryThatExposesUpdater implements DataStoreFactory {
+    public volatile Consumer<DataStoreStatusProvider.Status> statusUpdater;
+    private final DataStoreFactory wrappedFactory;
+
+    public DataStoreFactoryThatExposesUpdater(DataStoreFactory wrappedFactory) {
+      this.wrappedFactory = wrappedFactory;
+    }
+    
+    @Override
+    public DataStore createDataStore(ClientContext context, Consumer<Status> statusUpdater) {
+      this.statusUpdater = statusUpdater;
+      return wrappedFactory.createDataStore(context, statusUpdater);
+    }
+  }
+  
   private static class DataStoreThatThrowsException implements DataStore {
     private final RuntimeException e;
     
@@ -194,72 +219,57 @@ public class TestComponents {
     public boolean isInitialized() {
       return true;
     }
+
+    public boolean isStatusMonitoringEnabled() {
+      return false;
+    }
+
+    public CacheStats getCacheStats() {
+      return null;
+    }
   }
   
-  public static class DataStoreWithStatusUpdates implements DataStore, DataStoreStatusProvider {
-    private final DataStore wrappedStore;
-    private final List<StatusListener> listeners = new ArrayList<>();
-    volatile Status currentStatus = new Status(true, false);
-    
-    DataStoreWithStatusUpdates(DataStore wrappedStore) {
-      this.wrappedStore = wrappedStore;
+  public static class MockDataStoreStatusProvider implements DataStoreStatusProvider {
+    private final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
+    private final AtomicReference<DataStoreStatusProvider.Status> lastStatus;
+
+    public MockDataStoreStatusProvider() {
+      this.statusBroadcaster = new EventBroadcasterImpl<>(
+          DataStoreStatusProvider.StatusListener::dataStoreStatusChanged, sharedExecutor);
+      this.lastStatus = new AtomicReference<>(new DataStoreStatusProvider.Status(true, false));
     }
     
-    public void broadcastStatusChange(final Status newStatus) {
-      currentStatus = newStatus;
-      final StatusListener[] ls;
-      synchronized (this) {
-        ls = listeners.toArray(new StatusListener[listeners.size()]);
-      }
-      Thread t = new Thread(() -> {
-        for (StatusListener l: ls) {
-          l.dataStoreStatusChanged(newStatus);
+    // visible for tests
+    public void updateStatus(DataStoreStatusProvider.Status newStatus) {
+      if (newStatus != null) {
+        DataStoreStatusProvider.Status oldStatus = lastStatus.getAndSet(newStatus);
+        if (!newStatus.equals(oldStatus)) {
+          statusBroadcaster.broadcast(newStatus);
         }
-      });
-      t.start();
+      }
     }
     
-    public void close() throws IOException {
-      wrappedStore.close();
-    }
-
-    public ItemDescriptor get(DataKind kind, String key) {
-      return wrappedStore.get(kind, key);
-    }
-
-    public KeyedItems<ItemDescriptor> getAll(DataKind kind) {
-      return wrappedStore.getAll(kind);
-    }
-
-    public void init(FullDataSet<ItemDescriptor> allData) {
-      wrappedStore.init(allData);
-    }
-
-    public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
-      return wrappedStore.upsert(kind, key, item);
-    }
-
-    public boolean isInitialized() {
-      return wrappedStore.isInitialized();
-    }
-
+    @Override
     public Status getStoreStatus() {
-      return currentStatus;
+      return lastStatus.get();
     }
 
-    public boolean addStatusListener(StatusListener listener) {
-      synchronized (this) {
-        listeners.add(listener);
-      }
+    @Override
+    public void addStatusListener(StatusListener listener) {
+      statusBroadcaster.register(listener);
+    }
+
+    @Override
+    public void removeStatusListener(StatusListener listener) {
+      statusBroadcaster.unregister(listener);
+    }
+
+    @Override
+    public boolean isStatusMonitoringEnabled() {
       return true;
     }
 
-    public void removeStatusListener(StatusListener listener) {
-      synchronized (this) {
-        listeners.remove(listener);
-      }
-    }
-
+    @Override
     public CacheStats getCacheStats() {
       return null;
     }

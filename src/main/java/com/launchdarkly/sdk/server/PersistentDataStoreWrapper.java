@@ -11,6 +11,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -30,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.filter;
@@ -43,7 +45,7 @@ import static com.google.common.collect.Iterables.isEmpty;
  * <p>
  * This class is only constructed by {@link PersistentDataStoreBuilder}.
  */
-final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProvider {
+final class PersistentDataStoreWrapper implements DataStore {
   private static final Logger logger = LoggerFactory.getLogger(PersistentDataStoreWrapper.class);
 
   private final PersistentDataStore core;
@@ -61,6 +63,7 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
       Duration cacheTtl,
       PersistentDataStoreBuilder.StaleValuesPolicy staleValuesPolicy,
       boolean recordCacheStats,
+      Consumer<DataStoreStatusProvider.Status> statusUpdater,
       ScheduledExecutorService sharedExecutor
     ) {
     this.core = core;
@@ -110,6 +113,7 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
         !cacheIndefinitely,
         true,
         this::pollAvailabilityAfterOutage,
+        statusUpdater,
         sharedExecutor
         );
   }
@@ -306,21 +310,10 @@ final class PersistentDataStoreWrapper implements DataStore, DataStoreStatusProv
     }
     return updated;
   }
-
+  
   @Override
-  public Status getStoreStatus() {
-    return new Status(statusManager.isAvailable(), false);
-  }
-
-  @Override
-  public boolean addStatusListener(StatusListener listener) {
-    statusManager.addStatusListener(listener);
+  public boolean isStatusMonitoringEnabled() {
     return true;
-  }
-
-  @Override
-  public void removeStatusListener(StatusListener listener) {
-    statusManager.removeStatusListener(listener);
   }
 
   @Override

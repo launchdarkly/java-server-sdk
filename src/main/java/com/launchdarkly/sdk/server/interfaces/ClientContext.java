@@ -3,10 +3,10 @@ package com.launchdarkly.sdk.server.interfaces;
 /**
  * Context information provided by the {@link com.launchdarkly.sdk.server.LDClient} when creating components.
  * <p>
- * This is passed as a parameter to {@link DataStoreFactory#createDataStore(ClientContext)}, etc. The
- * actual implementation class may contain other properties that are only relevant to the built-in SDK
- * components and are therefore not part of the public interface; this allows the SDK to add its own
- * context information as needed without disturbing the public API.
+ * This is passed as a parameter to {@link DataStoreFactory#createDataStore(ClientContext, java.util.function.Consumer)},
+ * etc. The actual implementation class may contain other properties that are only relevant to the
+ * built-in SDK components and are therefore not part of the public interface; this allows the SDK
+ * to add its own context information as needed without disturbing the public API.
  * 
  * @since 5.0.0
  */

@@ -5,12 +5,14 @@ import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.TestComponents.MockEventSourceCreator;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
@@ -526,7 +528,8 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void restartsStreamIfStoreNeedsRefresh() throws Exception {
-    TestComponents.DataStoreWithStatusUpdates storeWithStatus = new TestComponents.DataStoreWithStatusUpdates(dataStore);
+    MockDataStoreStatusProvider dataStoreStatusProvider = new MockDataStoreStatusProvider();
+    DataStoreUpdates storeUpdates = new DataStoreUpdatesImpl(dataStore, null, dataStoreStatusProvider);
     
     CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
@@ -543,11 +546,11 @@ public class StreamProcessorTest extends EasyMockSupport {
     
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(storeWithStatus)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(storeUpdates)) {
       sp.start();
       
-      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(false, false));
-      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(true, true));
+      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
+      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, true));
 
       restarted.get();
     }
@@ -555,7 +558,8 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void doesNotRestartStreamIfStoreHadOutageButDoesNotNeedRefresh() throws Exception {
-    TestComponents.DataStoreWithStatusUpdates storeWithStatus = new TestComponents.DataStoreWithStatusUpdates(dataStore);
+    MockDataStoreStatusProvider dataStoreStatusProvider = new MockDataStoreStatusProvider();
+    DataStoreUpdates storeUpdates = new DataStoreUpdatesImpl(dataStore, null, dataStoreStatusProvider);
     
     CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
@@ -572,11 +576,11 @@ public class StreamProcessorTest extends EasyMockSupport {
     
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(storeWithStatus)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(storeUpdates)) {
       sp.start();
       
-      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(false, false));
-      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(true, false));
+      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
+      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, false));
 
       Thread.sleep(500);
       assertFalse(restarted.isDone());
@@ -831,7 +835,11 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessorWithStore(DataStore store) {
-    return new StreamProcessor(SDK_KEY, LDConfig.DEFAULT.httpConfig, mockRequestor, dataStoreUpdates(store),
+    return createStreamProcessorWithStoreUpdates(dataStoreUpdates(store));
+  }
+
+  private StreamProcessor createStreamProcessorWithStoreUpdates(DataStoreUpdates storeUpdates) {
+    return new StreamProcessor(SDK_KEY, LDConfig.DEFAULT.httpConfig, mockRequestor, storeUpdates,
         mockEventSourceCreator, null, STREAM_URI, DEFAULT_INITIAL_RECONNECT_DELAY);
   }
 

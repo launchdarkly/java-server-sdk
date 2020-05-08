@@ -13,6 +13,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.Event;
@@ -31,6 +32,7 @@ import java.net.Proxy;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 import okhttp3.Credentials;
 
@@ -292,7 +294,7 @@ public abstract class Components {
   private static final class InMemoryDataStoreFactory implements DataStoreFactory, DiagnosticDescription {
     static final DataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
     @Override
-    public DataStore createDataStore(ClientContext context) {
+    public DataStore createDataStore(ClientContext context, Consumer<DataStoreStatusProvider.Status> statusUpdater) {
       return new InMemoryDataStore();
     }
 
@@ -563,13 +565,14 @@ public abstract class Components {
      * Called by the SDK to create the data store instance.
      */
     @Override
-    public DataStore createDataStore(ClientContext context) {
+    public DataStore createDataStore(ClientContext context, Consumer<DataStoreStatusProvider.Status> statusUpdater) {
       PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
       return new PersistentDataStoreWrapper(
           core,
           cacheTime,
           staleValuesPolicy,
           recordCacheStats,
+          statusUpdater,
           ClientContextImpl.get(context).sharedExecutor
           );
     }

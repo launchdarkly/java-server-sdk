@@ -8,6 +8,9 @@ import java.util.function.Function;
 
 /**
  * Types that are used by the {@link DataStore} interface.
+ * <p>
+ * Applications should never need to use any of these types unless they are implementing a custom
+ * data store.
  * 
  * @since 5.0.0
  */

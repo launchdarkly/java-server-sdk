@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.StatusListener;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +10,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * Used internally to encapsulate the data store status broadcasting mechanism for PersistentDataStoreWrapper.
@@ -22,8 +22,8 @@ final class PersistentDataStoreStatusManager {
   private static final Logger logger = LoggerFactory.getLogger(PersistentDataStoreStatusManager.class);
   static final int POLL_INTERVAL_MS = 500; // visible for testing
   
+  private final Consumer<DataStoreStatusProvider.Status> statusUpdater;
   private final ScheduledExecutorService scheduler;
-  private final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
   private final Callable<Boolean> statusPollFn;
   private final boolean refreshOnRecovery;
   private volatile boolean lastAvailable;
@@ -33,24 +33,14 @@ final class PersistentDataStoreStatusManager {
       boolean refreshOnRecovery,
       boolean availableNow,
       Callable<Boolean> statusPollFn,
+      Consumer<DataStoreStatusProvider.Status> statusUpdater,
       ScheduledExecutorService sharedExecutor
       ) {
     this.refreshOnRecovery = refreshOnRecovery;
     this.lastAvailable = availableNow;
     this.statusPollFn = statusPollFn;
+    this.statusUpdater = statusUpdater;
     this.scheduler = sharedExecutor;
-    this.statusBroadcaster = new EventBroadcasterImpl<>(
-        DataStoreStatusProvider.StatusListener::dataStoreStatusChanged,
-        sharedExecutor
-        );
-  }
-  
-  void addStatusListener(StatusListener listener) {
-    statusBroadcaster.register(listener);
-  }
-  
-  synchronized void removeStatusListener(StatusListener listener) {
-    statusBroadcaster.unregister(listener);
   }
   
   void updateAvailability(boolean available) {
@@ -67,7 +57,7 @@ final class PersistentDataStoreStatusManager {
       logger.warn("Persistent store is available again");
     }
 
-    statusBroadcaster.broadcast(status);
+    statusUpdater.accept(status);
     
     // If the store has just become unavailable, start a poller to detect when it comes back. If it has
     // become available, stop any polling we are currently doing.
