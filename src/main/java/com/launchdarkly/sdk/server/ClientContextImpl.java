@@ -23,6 +23,7 @@ final class ClientContextImpl implements ClientContext {
   private final String sdkKey;
   private final HttpConfiguration httpConfiguration;
   private final boolean offline;
+  private final int threadPriority;
   final ScheduledExecutorService sharedExecutor;
   final DiagnosticAccumulator diagnosticAccumulator;
   final DiagnosticEvent.Init diagnosticInitEvent;
@@ -31,6 +32,7 @@ final class ClientContextImpl implements ClientContext {
       String sdkKey,
       HttpConfiguration httpConfiguration,
       boolean offline,
+      int threadPriority,
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator,
       DiagnosticEvent.Init diagnosticInitEvent
@@ -38,6 +40,7 @@ final class ClientContextImpl implements ClientContext {
     this.sdkKey = sdkKey;
     this.httpConfiguration = httpConfiguration;
     this.offline = offline;
+    this.threadPriority = threadPriority;
     this.sharedExecutor = sharedExecutor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.diagnosticInitEvent = diagnosticInitEvent;
@@ -52,6 +55,7 @@ final class ClientContextImpl implements ClientContext {
     this.sdkKey = sdkKey;
     this.httpConfiguration = configuration.httpConfig;
     this.offline = configuration.offline;
+    this.threadPriority = configuration.threadPriority;
     this.sharedExecutor = sharedExecutor;
     if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {
       this.diagnosticAccumulator = diagnosticAccumulator;
@@ -77,6 +81,11 @@ final class ClientContextImpl implements ClientContext {
     return httpConfiguration;
   }
   
+  @Override
+  public int getThreadPriority() {
+    return threadPriority;
+  }
+  
   /**
    * This mechanism is a convenience for internal components to access the package-private fields of the
    * context if it is a ClientContextImpl, and to receive null values for those fields if it is not.
@@ -93,7 +102,13 @@ final class ClientContextImpl implements ClientContext {
         fallbackSharedExecutor = Executors.newSingleThreadScheduledExecutor();
       }
     }
-    return new ClientContextImpl(context.getSdkKey(), context.getHttpConfiguration(), context.isOffline(),
-        fallbackSharedExecutor, null, null);
+    return new ClientContextImpl(
+        context.getSdkKey(),
+        context.getHttpConfiguration(),
+        context.isOffline(),
+        context.getThreadPriority(),
+        fallbackSharedExecutor,
+        null,
+        null);
   }
 }

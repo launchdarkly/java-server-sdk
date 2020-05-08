@@ -824,14 +824,31 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataSourceUpdates(dataStore),
-        mockEventSourceCreator, diagnosticAccumulator,
-        streamUri, DEFAULT_INITIAL_RECONNECT_DELAY);
+    return new StreamProcessor(
+        SDK_KEY,
+        config.httpConfig,
+        mockRequestor,
+        dataSourceUpdates(dataStore),
+        mockEventSourceCreator,
+        Thread.MIN_PRIORITY,
+        diagnosticAccumulator,
+        streamUri,
+        DEFAULT_INITIAL_RECONNECT_DELAY
+        );
   }
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataSourceUpdates(dataStore), null, null,
-        streamUri, DEFAULT_INITIAL_RECONNECT_DELAY);
+    return new StreamProcessor(
+        SDK_KEY,
+        config.httpConfig,
+        mockRequestor,
+        dataSourceUpdates(dataStore),
+        null,
+        Thread.MIN_PRIORITY,
+        null,
+        streamUri,
+        DEFAULT_INITIAL_RECONNECT_DELAY
+        );
   }
 
   private StreamProcessor createStreamProcessorWithStore(DataStore store) {
@@ -839,8 +856,17 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessorWithStoreUpdates(DataSourceUpdates storeUpdates) {
-    return new StreamProcessor(SDK_KEY, LDConfig.DEFAULT.httpConfig, mockRequestor, storeUpdates,
-        mockEventSourceCreator, null, STREAM_URI, DEFAULT_INITIAL_RECONNECT_DELAY);
+    return new StreamProcessor(
+        SDK_KEY,
+        LDConfig.DEFAULT.httpConfig,
+        mockRequestor,
+        storeUpdates,
+        mockEventSourceCreator,
+        Thread.MIN_PRIORITY,
+        null,
+        STREAM_URI,
+        DEFAULT_INITIAL_RECONNECT_DELAY
+        );
   }
 
   private String featureJson(String key, int version) {

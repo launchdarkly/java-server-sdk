@@ -63,6 +63,7 @@ final class DefaultEventProcessor implements EventProcessor {
       EventsConfiguration eventsConfig,
       HttpConfiguration httpConfig,
       ScheduledExecutorService sharedExecutor,
+      int threadPriority,
       DiagnosticAccumulator diagnosticAccumulator,
       DiagnosticEvent.Init diagnosticInitEvent
       ) {
@@ -75,6 +76,7 @@ final class DefaultEventProcessor implements EventProcessor {
         eventsConfig,
         httpConfig,
         sharedExecutor,
+        threadPriority,
         inbox,
         closed,
         diagnosticAccumulator,
@@ -232,6 +234,7 @@ final class DefaultEventProcessor implements EventProcessor {
         EventsConfiguration eventsConfig,
         HttpConfiguration httpConfig,
         ExecutorService sharedExecutor,
+        int threadPriority,
         final BlockingQueue<EventProcessorMessage> inbox,
         final AtomicBoolean closed,
         DiagnosticAccumulator diagnosticAccumulator,
@@ -245,7 +248,7 @@ final class DefaultEventProcessor implements EventProcessor {
       ThreadFactory threadFactory = new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat("LaunchDarkly-event-delivery-%d")
-          .setPriority(Thread.MIN_PRIORITY)
+          .setPriority(threadPriority)
           .build();
 
       OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
