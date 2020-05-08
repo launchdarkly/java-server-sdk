@@ -11,7 +11,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,13 +50,13 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 final class FileDataSourceImpl implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(FileDataSourceImpl.class);
 
-  private final DataStoreUpdates dataStoreUpdates;
+  private final DataSourceUpdates dataSourceUpdates;
   private final DataLoader dataLoader;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final FileWatcher fileWatcher;
   
-  FileDataSourceImpl(DataStoreUpdates dataStoreUpdates, List<Path> sources, boolean autoUpdate) {
-    this.dataStoreUpdates = dataStoreUpdates;
+  FileDataSourceImpl(DataSourceUpdates dataSourceUpdates, List<Path> sources, boolean autoUpdate) {
+    this.dataSourceUpdates = dataSourceUpdates;
     this.dataLoader = new DataLoader(sources);
 
     FileWatcher fw = null;
@@ -98,7 +98,7 @@ final class FileDataSourceImpl implements DataSource {
       logger.error(e.getDescription());
       return false;
     }
-    dataStoreUpdates.init(builder.build());
+    dataSourceUpdates.init(builder.build());
     inited.set(true);
     return true;
   }

@@ -16,7 +16,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
@@ -51,15 +51,15 @@ public class TestComponents {
   }
 
   public static DataSourceFactory dataSourceWithData(FullDataSet<ItemDescriptor> data) {
-    return (context, dataStoreUpdates) -> new DataSourceWithData(data, dataStoreUpdates);
+    return (context, dataSourceUpdates) -> new DataSourceWithData(data, dataSourceUpdates);
   }
 
   public static DataStore dataStoreThatThrowsException(final RuntimeException e) {
     return new DataStoreThatThrowsException(e);
   }
 
-  public static DataStoreUpdates dataStoreUpdates(final DataStore store) {
-    return new DataStoreUpdatesImpl(store, null, null);
+  public static DataSourceUpdates dataSourceUpdates(final DataStore store) {
+    return new DataSourceUpdatesImpl(store, null, null);
   }
 
   static EventsConfiguration defaultEventsConfig() {
@@ -92,7 +92,7 @@ public class TestComponents {
   }
 
   public static DataSourceFactory specificDataSource(final DataSource up) {
-    return (context, dataStoreUpdates) -> up;
+    return (context, dataSourceUpdates) -> up;
   }
 
   public static DataStoreFactory specificDataStore(final DataStore store) {
@@ -124,20 +124,20 @@ public class TestComponents {
 
   public static class DataSourceFactoryThatExposesUpdater implements DataSourceFactory {
     private final FullDataSet<ItemDescriptor> initialData;
-    private DataStoreUpdates dataStoreUpdates;
+    private DataSourceUpdates dataSourceUpdates;
   
     public DataSourceFactoryThatExposesUpdater(FullDataSet<ItemDescriptor> initialData) {
       this.initialData = initialData;
     }
     
     @Override
-    public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
-      this.dataStoreUpdates = dataStoreUpdates;
-      return dataSourceWithData(initialData).createDataSource(context, dataStoreUpdates);
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+      this.dataSourceUpdates = dataSourceUpdates;
+      return dataSourceWithData(initialData).createDataSource(context, dataSourceUpdates);
     }
     
     public void updateFlag(FeatureFlag flag) {
-      dataStoreUpdates.upsert(FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
+      dataSourceUpdates.upsert(FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
     }
   }
   
@@ -156,15 +156,15 @@ public class TestComponents {
   
   private static class DataSourceWithData implements DataSource {
     private final FullDataSet<ItemDescriptor> data;
-    private final DataStoreUpdates dataStoreUpdates;
+    private final DataSourceUpdates dataSourceUpdates;
     
-    DataSourceWithData(FullDataSet<ItemDescriptor> data, DataStoreUpdates dataStoreUpdates) {
+    DataSourceWithData(FullDataSet<ItemDescriptor> data, DataSourceUpdates dataSourceUpdates) {
       this.data = data;
-      this.dataStoreUpdates = dataStoreUpdates;
+      this.dataSourceUpdates = dataSourceUpdates;
     }
     
     public Future<Void> start() {
-      dataStoreUpdates.init(data);
+      dataSourceUpdates.init(data);
       return CompletableFuture.completedFuture(null);
     }
 

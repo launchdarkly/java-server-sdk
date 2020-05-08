@@ -17,7 +17,7 @@ import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toItemsMap;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestComponents.dataStoreUpdates;
+import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestComponents.inMemoryDataStore;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.ALL_FLAG_KEYS;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.ALL_SEGMENT_KEYS;
@@ -44,7 +44,7 @@ public class FileDataSourceTest {
   }
 
   private DataSource makeDataSource(FileDataSourceBuilder builder) {
-    return builder.createDataSource(clientContext("", config), dataStoreUpdates(store));
+    return builder.createDataSource(clientContext("", config), dataSourceUpdates(store));
   }
   
   @Test

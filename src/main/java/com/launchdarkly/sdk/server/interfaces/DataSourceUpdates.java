@@ -5,15 +5,14 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
 /**
- * Interface that a data source implementation will use to push data into the underlying
- * data store.
+ * Interface that a data source implementation will use to push data into the SDK.
  * <p>
- * This layer of indirection allows the SDK to perform any other necessary operations that must
- * happen when data is updated, by providing its own implementation of {@link DataStoreUpdates}.
+ * The data source interacts with this object, rather than manipulating the data store directly, so
+ * that the SDK can perform any other necessary operations that must happen when data is updated.
  * 
  * @since 5.0.0
  */
-public interface DataStoreUpdates {
+public interface DataSourceUpdates {
   /**
    * Overwrites the store's contents with a set of items for each collection.
    * <p>
@@ -44,12 +43,11 @@ public interface DataStoreUpdates {
   /**
    * Returns an object that provides status tracking for the data store, if applicable.
    * <p>
-   * For data stores that do not support status tracking (the in-memory store, or a custom implementation
-   * that is not based on the SDK's usual persistent data store mechanism), it returns a stub
-   * implementation that returns null from {@link DataStoreStatusProvider#getStoreStatus()} and
-   * false from {@link DataStoreStatusProvider#addStatusListener(com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.StatusListener)}. 
+   * This may be useful if the data source needs to be aware of storage problems that might require it
+   * to take some special action: for instance, if a database outage may have caused some data to be
+   * lost and therefore the data should be re-requested from LaunchDarkly.
    * 
    * @return a {@link DataStoreStatusProvider}
    */
-  DataStoreStatusProvider getStatusProvider();
+  DataStoreStatusProvider getDataStoreStatusProvider();
 }

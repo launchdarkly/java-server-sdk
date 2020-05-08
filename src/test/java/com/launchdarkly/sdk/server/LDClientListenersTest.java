@@ -33,7 +33,7 @@ import static org.hamcrest.Matchers.equalTo;
  * related methods for looking at the same kinds of status values that can be broadcast to listeners.
  * <p>
  * Parts of this functionality are also covered by lower-level component tests like
- * DataStoreUpdatesImplTest. However, the tests here verify that the client is wiring the components
+ * DataSourceUpdatesImplTest. However, the tests here verify that the client is wiring the components
  * together correctly so that they work from an application's point of view.
  */
 @SuppressWarnings("javadoc")

@@ -12,8 +12,8 @@ public interface DataSourceFactory {
    * Creates an implementation instance.
    * 
    * @param context allows access to the client configuration
-   * @param dataStoreUpdates the component pushes data into the SDK via this interface
+   * @param dataSourceUpdates the component pushes data into the SDK via this interface
    * @return an {@link DataSource}
    */
-  public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates);
+  public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates);
 }

@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
@@ -24,7 +24,7 @@ final class PollingProcessor implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
 
   @VisibleForTesting final FeatureRequestor requestor;
-  private final DataStoreUpdates dataStoreUpdates;
+  private final DataSourceUpdates dataSourceUpdates;
   private final ScheduledExecutorService scheduler;
   @VisibleForTesting final Duration pollInterval;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -33,12 +33,12 @@ final class PollingProcessor implements DataSource {
 
   PollingProcessor(
       FeatureRequestor requestor,
-      DataStoreUpdates dataStoreUpdates,
+      DataSourceUpdates dataSourceUpdates,
       ScheduledExecutorService sharedExecutor,
       Duration pollInterval
       ) {
     this.requestor = requestor; // note that HTTP configuration is applied to the requestor when it is created
-    this.dataStoreUpdates = dataStoreUpdates;
+    this.dataSourceUpdates = dataSourceUpdates;
     this.scheduler = sharedExecutor;
     this.pollInterval = pollInterval;
   }
@@ -83,7 +83,7 @@ final class PollingProcessor implements DataSource {
   private void poll() {
     try {
       FeatureRequestor.AllData allData = requestor.getAllData();
-      dataStoreUpdates.init(allData.toFullDataSet());
+      dataSourceUpdates.init(allData.toFullDataSet());
       if (!initialized.getAndSet(true)) {
         logger.info("Initialized LaunchDarkly client.");
         initFuture.complete(null);
