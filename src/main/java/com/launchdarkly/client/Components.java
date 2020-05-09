@@ -7,6 +7,7 @@ import com.launchdarkly.client.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.client.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.client.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.client.interfaces.DiagnosticDescription;
+import com.launchdarkly.client.interfaces.EventSender;
 import com.launchdarkly.client.interfaces.HttpAuthentication;
 import com.launchdarkly.client.interfaces.HttpConfiguration;
 import com.launchdarkly.client.interfaces.PersistentDataStoreFactory;
@@ -393,12 +394,18 @@ public abstract class Components {
       if (config.offline || !config.deprecatedSendEvents) {
         return new NullEventProcessor();
       }
-      return new DefaultEventProcessor(sdkKey,
+      URI eventsBaseUri = config.deprecatedEventsURI == null ? LDConfig.DEFAULT_EVENTS_URI : config.deprecatedEventsURI;
+      EventSender eventSender = new DefaultEventSender.Factory().createEventSender(
+          sdkKey,
+          config.httpConfig
+          );
+      return new DefaultEventProcessor(
           config,
           new EventsConfiguration(
               config.deprecatedAllAttributesPrivate,
               config.deprecatedCapacity,
-              config.deprecatedEventsURI == null ? LDConfig.DEFAULT_EVENTS_URI : config.deprecatedEventsURI,
+              eventSender,
+              eventsBaseUri,
               config.deprecatedFlushInterval,
               config.deprecatedInlineUsersInEvents,
               config.deprecatedPrivateAttrNames,
@@ -407,7 +414,6 @@ public abstract class Components {
               config.deprecatedUserKeysFlushInterval,
               EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS
               ),
-          config.httpConfig,
           diagnosticAccumulator
           );
     }
@@ -667,11 +673,15 @@ public abstract class Components {
       if (config.offline) {
         return new NullEventProcessor();
       }
-      return new DefaultEventProcessor(sdkKey,
+      EventSender eventSender =
+          (eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory)
+          .createEventSender(sdkKey, config.httpConfig);
+      return new DefaultEventProcessor(
           config,
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
+              eventSender,
               baseURI == null ? LDConfig.DEFAULT_EVENTS_URI : baseURI,
               flushIntervalSeconds,
               inlineUsersInEvents,
@@ -681,7 +691,6 @@ public abstract class Components {
               userKeysFlushIntervalSeconds,
               diagnosticRecordingIntervalSeconds
               ),
-          config.httpConfig,
           diagnosticAccumulator
           );
     }
