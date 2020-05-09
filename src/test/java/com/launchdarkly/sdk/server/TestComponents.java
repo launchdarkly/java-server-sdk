@@ -83,11 +83,16 @@ public class TestComponents {
       Set<UserAttribute> privateAttributes) {
     return new EventsConfiguration(
         allAttributesPrivate,
-        0, null, EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
+        0,
+        null,
+        null,
+        EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
         inlineUsersInEvents,
         privateAttributes,
-        0, 0, EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL,
-        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL);
+        0,
+        EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL,
+        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL
+        );
   }
 
   public static DataSourceFactory specificDataSource(final DataSource up) {

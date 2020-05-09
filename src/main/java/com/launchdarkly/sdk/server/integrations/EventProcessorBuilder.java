@@ -3,6 +3,8 @@ package com.launchdarkly.sdk.server.integrations;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 
 import java.net.URI;
 import java.time.Duration;
@@ -66,6 +68,7 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   protected Set<UserAttribute> privateAttributes;
   protected int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
   protected Duration userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL;
+  protected EventSenderFactory eventSenderFactory = null;
 
   /**
    * Sets whether or not all optional user attributes should be hidden from LaunchDarkly.
@@ -141,6 +144,21 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
     return this;
   }
 
+  /**
+   * Specifies a custom implementation for event delivery.
+   * <p>
+   * The standard event delivery implementation sends event data via HTTP/HTTPS to the LaunchDarkly events
+   * service endpoint (or any other endpoint specified with {@link #baseURI(URI)}. Providing a custom
+   * implementation may be useful in tests, or if the event data needs to be stored and forwarded. 
+   * 
+   * @param eventSenderFactory a factory for an {@link EventSender} implementation
+   * @return the builder
+   */
+  public EventProcessorBuilder eventSender(EventSenderFactory eventSenderFactory) {
+    this.eventSenderFactory = eventSenderFactory;
+    return this;
+  }
+  
   /**
    * Sets the interval between flushes of the event buffer.
    * <p>

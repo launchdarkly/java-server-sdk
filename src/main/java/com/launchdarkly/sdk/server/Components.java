@@ -19,6 +19,7 @@ import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
@@ -481,21 +482,22 @@ public abstract class Components {
       if (context.isOffline()) {
         return new NullEventProcessor();
       }
+      EventSender eventSender =
+          (eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory)
+          .createEventSender(context.getSdkKey(), context.getHttpConfiguration());
       return new DefaultEventProcessor(
-          context.getSdkKey(),
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
+              eventSender,
               baseURI == null ? LDConfig.DEFAULT_EVENTS_URI : baseURI,
               flushInterval,
               inlineUsersInEvents,
               privateAttributes,
-              0, // deprecated samplingInterval isn't supported in new builder
               userKeysCapacity,
               userKeysFlushInterval,
               diagnosticRecordingInterval
               ),
-          context.getHttpConfiguration(),
           ClientContextImpl.get(context).sharedExecutor,
           context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
