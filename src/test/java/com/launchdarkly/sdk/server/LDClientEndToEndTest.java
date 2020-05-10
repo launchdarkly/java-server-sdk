@@ -4,12 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.LDClient;
-import com.launchdarkly.sdk.server.LDConfig;
 
 import org.junit.Test;
 
+import static com.launchdarkly.sdk.server.Components.externalUpdatesOnly;
 import static com.launchdarkly.sdk.server.Components.noEvents;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestHttpUtil.basePollingConfig;
@@ -17,11 +15,13 @@ import static com.launchdarkly.sdk.server.TestHttpUtil.baseStreamingConfig;
 import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.sdk.server.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 
 @SuppressWarnings("javadoc")
 public class LDClientEndToEndTest {
@@ -140,6 +140,46 @@ public class LDClientEndToEndTest {
         assertTrue(client.initialized());
         assertTrue(client.boolVariation(flagKey, user, false));
       }
+    }
+  }
+
+  @Test
+  public void clientSendsAnalyticsEvent() throws Exception {
+    MockResponse resp = new MockResponse().setResponseCode(202);
+    
+    try (MockWebServer server = makeStartedServer(resp)) {
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(externalUpdatesOnly())
+          .events(Components.sendEvents().baseURI(server.url("/").uri()))
+          .diagnosticOptOut(true)
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.initialized());
+        client.identify(new LDUser("userkey"));
+      }
+      
+      RecordedRequest req = server.takeRequest();
+      assertEquals("/bulk", req.getPath());
+    }
+  }
+
+  @Test
+  public void clientSendsDiagnosticEvent() throws Exception {
+    MockResponse resp = new MockResponse().setResponseCode(202);
+    
+    try (MockWebServer server = makeStartedServer(resp)) {
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(externalUpdatesOnly())
+          .events(Components.sendEvents().baseURI(server.url("/").uri()))
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.initialized());
+      }
+      
+      RecordedRequest req = server.takeRequest();
+      assertEquals("/diagnostic", req.getPath());
     }
   }
 
