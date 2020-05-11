@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
  * </code></pre>
  * 
  * In this example, {@code .url()} is an option specifically for the Redis integration, whereas
- * {@code ttlSeconds()} is an option that can be used for any persistent data store. 
+ * {@code cacheSeconds()} is an option that can be used for any persistent data store. 
  * <p>
  * Note that this class is abstract; the actual implementation is created by calling
  * {@link Components#persistentDataStore(PersistentDataStoreFactory)}.
