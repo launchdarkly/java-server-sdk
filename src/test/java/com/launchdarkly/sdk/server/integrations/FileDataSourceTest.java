@@ -126,7 +126,7 @@ public class FileDataSourceTest {
   }
 
   @Test
-  public void statusIsStartingAfterUnsuccessfulLoad() throws Exception {
+  public void statusIsInitializingAfterUnsuccessfulLoad() throws Exception {
     BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.register(statuses::add);
     
