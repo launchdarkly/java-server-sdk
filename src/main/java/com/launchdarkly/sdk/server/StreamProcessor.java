@@ -49,9 +49,11 @@ import okhttp3.OkHttpClient;
  * okhttp-eventsource.
  * 
  * Error handling works as follows:
- * 1. If any event is malformed, we must assume the stream is broken and we may have missed updates. Restart it.
+ * 1. If any event is malformed, we must assume the stream is broken and we may have missed updates. Set the
+ * data source state to INTERRUPTED, with an error kind of INVALID_DATA, and restart the stream.
  * 2. If we try to put updates into the data store and we get an error, we must assume something's wrong with the
- * data store.
+ * data store. We don't have to log this error because it is logged by DataSourceUpdatesImpl, which will also set
+ * our state to INTERRUPTED for us.
  * 2a. If the data store supports status notifications (which all persistent stores normally do), then we can
  * assume it has entered a failed state and will notify us once it is working again. If and when it recovers, then
  * it will tell us whether we need to restart the stream (to ensure that we haven't missed any updates), or
@@ -59,8 +61,8 @@ import okhttp3.OkHttpClient;
  * 2b. If the data store doesn't support status notifications (which is normally only true of the in-memory store)
  * then we don't know the significance of the error, but we must assume that updates have been lost, so we'll
  * restart the stream.
- * 3. If we receive an unrecoverable error like HTTP 401, we close the stream and don't retry. Any other HTTP
- * error or network error causes a retry with backoff.
+ * 3. If we receive an unrecoverable error like HTTP 401, we close the stream and don't retry, and set the state
+ * to OFF. Any other HTTP error or network error causes a retry with backoff, with a state of INTERRUPTED.
  * 4. We set the Future returned by start() to tell the client initialization logic that initialization has either
  * succeeded (we got an initial payload and successfully stored it) or permanently failed (we got a 401, etc.).
  * Otherwise, the client initialization method may time out but we will still be retrying in the background, and
@@ -299,11 +301,6 @@ final class StreamProcessor implements DataSource {
         es.restart();
       } catch (StreamStoreException e) {
         // See item 2 in error handling comments at top of class
-        if (!lastStoreUpdateFailed) {
-          logger.error("Unexpected data store failure when storing updates from stream: {}",
-              e.getCause().toString());
-          logger.debug(e.getCause().toString(), e.getCause());
-        }
         if (statusListener == null) {
           if (!lastStoreUpdateFailed) {
             logger.warn("Restarting stream to ensure that we have the latest data");
@@ -322,10 +319,8 @@ final class StreamProcessor implements DataSource {
       esStarted = 0;
       PutData putData = parseStreamJson(PutData.class, eventData);
       FullDataSet<ItemDescriptor> allData = putData.data.toFullDataSet();
-      try {
-        dataSourceUpdates.init(allData);
-      } catch (Exception e) {
-        throw new StreamStoreException(e);
+      if (!dataSourceUpdates.init(allData)) {
+        throw new StreamStoreException();
       }
       if (!initialized.getAndSet(true)) {
         initFuture.complete(null);
@@ -342,10 +337,8 @@ final class StreamProcessor implements DataSource {
       DataKind kind = kindAndKey.getKey();
       String key = kindAndKey.getValue();
       VersionedData item = deserializeFromParsedJson(kind, data.data);
-      try {
-        dataSourceUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
-      } catch (Exception e) {
-        throw new StreamStoreException(e);
+      if (!dataSourceUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item))) {
+        throw new StreamStoreException();
       }
     }
 
@@ -358,10 +351,8 @@ final class StreamProcessor implements DataSource {
       DataKind kind = kindAndKey.getKey();
       String key = kindAndKey.getValue();
       ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
-      try {
-        dataSourceUpdates.upsert(kind, key, placeholder);
-      } catch (Exception e) {
-        throw new StreamStoreException(e);
+      if (!dataSourceUpdates.upsert(kind, key, placeholder)) {
+        throw new StreamStoreException();
       }
     }
 
@@ -373,10 +364,8 @@ final class StreamProcessor implements DataSource {
         throw new StreamInputException(e);
       }
       FullDataSet<ItemDescriptor> allData = putData.toFullDataSet();
-      try {
-        dataSourceUpdates.init(allData);
-      } catch (Exception e) {
-        throw new StreamStoreException(e);
+      if (!dataSourceUpdates.init(allData)) {
+        throw new StreamStoreException();
       }
       if (!initialized.getAndSet(true)) {
         initFuture.complete(null);
@@ -397,10 +386,8 @@ final class StreamProcessor implements DataSource {
         // could be that the request to the polling endpoint failed in some other way. But either way, we must
         // assume that we did not get valid data from LD so we have missed an update.
       }
-      try {
-        dataSourceUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item));
-      } catch (Exception e) {
-        throw new StreamStoreException(e);
+      if (!dataSourceUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item))) {
+        throw new StreamStoreException();
       }
     }
 
@@ -481,11 +468,7 @@ final class StreamProcessor implements DataSource {
   
   // This exception class indicates that the data store failed to persist an update.
   @SuppressWarnings("serial")
-  private static final class StreamStoreException extends Exception {
-    public StreamStoreException(Throwable cause) {
-      super(cause);
-    }
-  }
+  private static final class StreamStoreException extends Exception {}
 
   private static final class PutData {
     FeatureRequestor.AllData data;

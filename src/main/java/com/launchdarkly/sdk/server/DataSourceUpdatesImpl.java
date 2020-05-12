@@ -4,6 +4,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.server.DataModelDependencies.KindAndKey;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
@@ -41,6 +44,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
   private final DataStoreStatusProvider dataStoreStatusProvider;
   
   private volatile DataSourceStatusProvider.Status currentStatus;
+  private volatile boolean lastStoreUpdateFailed = false;
   
   DataSourceUpdatesImpl(
       DataStore store,
@@ -61,19 +65,24 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
   }
   
   @Override
-  public void init(FullDataSet<ItemDescriptor> allData) {
+  public boolean init(FullDataSet<ItemDescriptor> allData) {
     Map<DataKind, Map<String, ItemDescriptor>> oldData = null;
-    
-    if (hasFlagChangeEventListeners()) {
-      // Query the existing data if any, so that after the update we can send events for whatever was changed
-      oldData = new HashMap<>();
-      for (DataKind kind: ALL_DATA_KINDS) {
-        KeyedItems<ItemDescriptor> items = store.getAll(kind);
-        oldData.put(kind, ImmutableMap.copyOf(items.getItems()));
+
+    try {
+      if (hasFlagChangeEventListeners()) {
+        // Query the existing data if any, so that after the update we can send events for whatever was changed
+        oldData = new HashMap<>();
+        for (DataKind kind: ALL_DATA_KINDS) {
+          KeyedItems<ItemDescriptor> items = store.getAll(kind);
+          oldData.put(kind, ImmutableMap.copyOf(items.getItems()));
+        }
       }
+      store.init(DataModelDependencies.sortAllCollections(allData));
+      lastStoreUpdateFailed = false;
+    } catch (RuntimeException e) {
+      reportStoreFailure(e);
+      return false;
     }
-    
-    store.init(DataModelDependencies.sortAllCollections(allData));
     
     // We must always update the dependency graph even if we don't currently have any event listeners, because if
     // listeners are added later, we don't want to have to reread the whole data store to compute the graph
@@ -84,11 +93,20 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
     if (oldData != null) {
       sendChangeEvents(computeChangedItemsForFullDataSet(oldData, fullDataSetToMap(allData)));
     }
+    
+    return true;
   }
 
   @Override
-  public void upsert(DataKind kind, String key, ItemDescriptor item) {
-    boolean successfullyUpdated = store.upsert(kind, key, item); 
+  public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
+    boolean successfullyUpdated;
+    try {
+      successfullyUpdated = store.upsert(kind, key, item);
+      lastStoreUpdateFailed = false;
+    } catch (RuntimeException e) {
+      reportStoreFailure(e);
+      return false;
+    }
     
     if (successfullyUpdated) {
       dependencyTracker.updateDependenciesFrom(kind, key, item);
@@ -98,6 +116,8 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
         sendChangeEvents(affectedItems);
       }
     }
+    
+    return true;
   }
 
   @Override
@@ -193,6 +213,15 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
         // version numbers are different, the higher one is the more recent version).
       }
     }
-    return affectedItems;  
+    return affectedItems;
+  }
+  
+  private void reportStoreFailure(RuntimeException e) {
+    if (!lastStoreUpdateFailed) {
+      LDClient.logger.warn("Unexpected data store error when trying to store an update received from the data source: {}", e.toString());
+      lastStoreUpdateFailed = true;
+    }
+    LDClient.logger.debug(e.toString(), e);
+    updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.STORE_ERROR, e));
   }
 }

@@ -113,7 +113,16 @@ public interface DataSourceStatusProvider {
     /**
      * The SDK received malformed data from the LaunchDarkly service.
      */
-    INVALID_DATA
+    INVALID_DATA,
+    
+    /**
+     * The data source itself is working, but when it tried to put an update into the data store, the data
+     * store failed (so the SDK may not have the latest data).
+     * <p>
+     * Data source implementations do not need to report this kind of error; it will be automatically
+     * reported by the SDK whenever one of the update methods of {@link DataSourceUpdates} throws an exception.
+     */
+    STORE_ERROR
   }
   
   /**

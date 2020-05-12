@@ -15,10 +15,16 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 public interface DataSourceUpdates {
   /**
    * Completely overwrites the current contents of the data store with a set of items for each collection.
+   * <p>
+   * If the underlying data store throws an error during this operation, the SDK will catch it, log it,
+   * and set the data source state to {@link DataSourceStatusProvider.State#INTERRUPTED} with an error of
+   * {@link DataSourceStatusProvider.ErrorKind#STORE_ERROR}. It will not rethrow the error to the data
+   * source, but will simply return {@code false} to indicate that the operation failed.
    * 
    * @param allData a list of {@link DataStoreTypes.DataKind} instances and their corresponding data sets
+   * @return true if the update succeeded, false if it failed
    */
-  void init(FullDataSet<ItemDescriptor> allData);
+  boolean init(FullDataSet<ItemDescriptor> allData);
 
   /**
    * Updates or inserts an item in the specified collection. For updates, the object will only be
@@ -27,12 +33,18 @@ public interface DataSourceUpdates {
    * To mark an item as deleted, pass an {@link ItemDescriptor} that contains a null, with a version
    * number (you may use {@link ItemDescriptor#deletedItem(int)}). Deletions must be versioned so that
    * they do not overwrite a later update in case updates are received out of order.
+   * <p>
+   * If the underlying data store throws an error during this operation, the SDK will catch it, log it,
+   * and set the data source state to {@link DataSourceStatusProvider.State#INTERRUPTED} with an error of
+   * {@link DataSourceStatusProvider.ErrorKind#STORE_ERROR}. It will not rethrow the error to the data
+   * source, but will simply return {@code false} to indicate that the operation failed.
    * 
    * @param kind specifies which collection to use
    * @param key the unique key for the item within that collection
    * @param item the item to insert or update
+   * @return true if the update succeeded, false if it failed
    */
-  void upsert(DataKind kind, String key, ItemDescriptor item); 
+  boolean upsert(DataKind kind, String key, ItemDescriptor item); 
   
   /**
    * Returns an object that provides status tracking for the data store, if applicable.

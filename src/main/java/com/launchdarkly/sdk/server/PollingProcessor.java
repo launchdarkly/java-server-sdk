@@ -84,14 +84,10 @@ final class PollingProcessor implements DataSource {
   }
   
   private void poll() {
+    FeatureRequestor.AllData allData = null;
+    
     try {
-      FeatureRequestor.AllData allData = requestor.getAllData();
-      dataSourceUpdates.init(allData.toFullDataSet());
-      if (!initialized.getAndSet(true)) {
-        logger.info("Initialized LaunchDarkly client.");
-        dataSourceUpdates.updateStatus(State.VALID, null);
-        initFuture.complete(null);
-      }
+      allData = requestor.getAllData();
     } catch (HttpErrorException e) {
       ErrorInfo errorInfo = ErrorInfo.fromHttpError(e.getStatus());
       logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
@@ -112,6 +108,14 @@ final class PollingProcessor implements DataSource {
       logger.error("Unexpected error from polling processor: {}", e.toString());
       logger.debug(e.toString(), e);
       dataSourceUpdates.updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.UNKNOWN, e));
+    }
+    
+    if (allData != null && dataSourceUpdates.init(allData.toFullDataSet())) {
+      if (!initialized.getAndSet(true)) {
+        logger.info("Initialized LaunchDarkly client.");
+        dataSourceUpdates.updateStatus(State.VALID, null);
+        initFuture.complete(null);
+      }
     }
   }
 }

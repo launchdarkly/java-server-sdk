@@ -594,25 +594,28 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void storeFailureOnPutCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     expectStreamRestart();
     replayAll();
 
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("put", emptyPutEvent());
+      
+      assertNotNull(badUpdates.getLastStatus().getLastError());
+      assertEquals(ErrorKind.STORE_ERROR, badUpdates.getLastStatus().getLastError().getKind());
     }    
     verifyAll();
   }
 
   @Test
   public void storeFailureOnPatchCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     expectStreamRestart();
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("patch",
@@ -623,11 +626,11 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void storeFailureOnDeleteCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));    
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     expectStreamRestart();
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("delete",
@@ -638,12 +641,12 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void storeFailureOnIndirectPutCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
     expectStreamRestart();
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("indirect/put", new MessageEvent(""));
@@ -653,13 +656,13 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void storeFailureOnIndirectPatchCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
     
     expectStreamRestart();
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("indirect/put", new MessageEvent(""));
@@ -667,6 +670,12 @@ public class StreamProcessorTest extends EasyMockSupport {
     verifyAll();
   }
 
+  private MockDataSourceUpdates dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring() {
+    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    DataStoreStatusProvider badStoreStatusProvider = new MockDataStoreStatusProvider(false);
+    return TestComponents.dataSourceUpdates(badStore, badStoreStatusProvider);
+  }
+  
   private void verifyEventCausesNoStreamRestart(String eventName, String eventData) throws Exception {
     expectNoStreamRestart();
     verifyEventBehavior(eventName, eventData);
@@ -894,10 +903,6 @@ public class StreamProcessorTest extends EasyMockSupport {
         streamUri,
         DEFAULT_INITIAL_RECONNECT_DELAY
         );
-  }
-
-  private StreamProcessor createStreamProcessorWithStore(DataStore store) {
-    return createStreamProcessorWithStoreUpdates(dataSourceUpdates(store));
   }
 
   private StreamProcessor createStreamProcessorWithStoreUpdates(DataSourceUpdates storeUpdates) {

@@ -4,7 +4,11 @@ import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -20,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatusEventually;
@@ -39,13 +44,12 @@ public class PollingProcessorTest {
   private static final String SDK_KEY = "sdk-key";
   private static final Duration LENGTHY_INTERVAL = Duration.ofSeconds(60);
 
-  private InMemoryDataStore store;
   private MockDataSourceUpdates dataSourceUpdates;
   private MockFeatureRequestor requestor;
 
   @Before
   public void setup() {
-    store = new InMemoryDataStore();
+    DataStore store = new InMemoryDataStore();
     dataSourceUpdates = TestComponents.dataSourceUpdates(store, new MockDataStoreStatusProvider());
     requestor = new MockFeatureRequestor();
   }
@@ -83,16 +87,17 @@ public class PollingProcessorTest {
   public void testConnectionOk() throws Exception {
     requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
     
-    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
     try (PollingProcessor pollingProcessor = makeProcessor()) {    
       Future<Void> initFuture = pollingProcessor.start();
       initFuture.get(1000, TimeUnit.MILLISECONDS);
+
       assertTrue(pollingProcessor.isInitialized());
-      assertTrue(store.isInitialized());
+      assertEquals(requestor.allData.toFullDataSet(), dataSourceUpdates.awaitInit());
       
-      requireDataSourceStatus(statuses, DataSourceStatusProvider.State.VALID);
+      requireDataSourceStatus(statuses, State.VALID);
     }
   }
 
@@ -100,7 +105,7 @@ public class PollingProcessorTest {
   public void testConnectionProblem() throws Exception {
     requestor.ioException = new IOException("This exception is part of a test and yes you should be seeing it.");
 
-    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
     try (PollingProcessor pollingProcessor = makeProcessor()) {
@@ -112,14 +117,38 @@ public class PollingProcessorTest {
       }
       assertFalse(initFuture.isDone());
       assertFalse(pollingProcessor.isInitialized());
-      assertFalse(store.isInitialized());
+      assertEquals(0, dataSourceUpdates.receivedInits.size());
       
-      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.INITIALIZING);
+      Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
       assertNotNull(status.getLastError());
-      assertEquals(DataSourceStatusProvider.ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
+      assertEquals(ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
     }
   }
 
+  @Test
+  public void testDataStoreFailure() throws Exception {
+    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    DataStoreStatusProvider badStoreStatusProvider = new MockDataStoreStatusProvider(false);
+    dataSourceUpdates = TestComponents.dataSourceUpdates(badStore, badStoreStatusProvider);
+
+    requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
+    
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
+    try (PollingProcessor pollingProcessor = makeProcessor()) {  
+      pollingProcessor.start();
+      
+      assertEquals(requestor.allData.toFullDataSet(), dataSourceUpdates.awaitInit());
+
+      assertFalse(pollingProcessor.isInitialized());
+      
+      Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
+      assertNotNull(status.getLastError());
+      assertEquals(ErrorKind.STORE_ERROR, status.getLastError().getKind());
+    }
+  }
+  
   @Test
   public void http400ErrorIsRecoverable() throws Exception {
     testRecoverableHttpError(400);
@@ -153,7 +182,7 @@ public class PollingProcessorTest {
   private void testUnrecoverableHttpError(int statusCode) throws Exception {
     requestor.httpException = new HttpErrorException(statusCode);
     
-    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
     try (PollingProcessor pollingProcessor = makeProcessor()) {  
@@ -165,9 +194,9 @@ public class PollingProcessorTest {
       assertTrue(initFuture.isDone());
       assertFalse(pollingProcessor.isInitialized());
       
-      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.OFF);
+      Status status = requireDataSourceStatus(statuses, State.OFF);
       assertNotNull(status.getLastError());
-      assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status.getLastError().getKind());
+      assertEquals(ErrorKind.ERROR_RESPONSE, status.getLastError().getKind());
       assertEquals(statusCode, status.getLastError().getStatusCode());
     }
   }
@@ -177,7 +206,7 @@ public class PollingProcessorTest {
     Duration shortInterval = Duration.ofMillis(20);
     requestor.httpException = httpError;
     
-    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
     try (PollingProcessor pollingProcessor = makeProcessor(shortInterval)) {
@@ -188,9 +217,9 @@ public class PollingProcessorTest {
       assertFalse(initFuture.isDone());
       assertFalse(pollingProcessor.isInitialized());
       
-      DataSourceStatusProvider.Status status1 = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.INITIALIZING);
+      Status status1 = requireDataSourceStatus(statuses, State.INITIALIZING);
       assertNotNull(status1.getLastError());
-      assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status1.getLastError().getKind());
+      assertEquals(ErrorKind.ERROR_RESPONSE, status1.getLastError().getKind());
       assertEquals(statusCode, status1.getLastError().getStatusCode());
 
       // now make it so the requestor will succeed
@@ -202,19 +231,17 @@ public class PollingProcessorTest {
       assertTrue(pollingProcessor.isInitialized());
 
       // status should now be VALID (although there might have been more failed polls before that)
-      DataSourceStatusProvider.Status status2 = requireDataSourceStatusEventually(statuses,
-          DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.INITIALIZING);
+      Status status2 = requireDataSourceStatusEventually(statuses, State.VALID, State.INITIALIZING);
       assertNotNull(status2.getLastError());
-      assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status2.getLastError().getKind());
+      assertEquals(ErrorKind.ERROR_RESPONSE, status2.getLastError().getKind());
       assertEquals(statusCode, status2.getLastError().getStatusCode());
       
       // simulate another error of the same kind - the difference is now the state will be INTERRUPTED
       requestor.httpException = httpError;
       
-      DataSourceStatusProvider.Status status3 = requireDataSourceStatusEventually(statuses,
-          DataSourceStatusProvider.State.INTERRUPTED, DataSourceStatusProvider.State.VALID);
+      Status status3 = requireDataSourceStatusEventually(statuses, State.INTERRUPTED, State.VALID);
       assertNotNull(status3.getLastError());
-      assertEquals(DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, status3.getLastError().getKind());
+      assertEquals(ErrorKind.ERROR_RESPONSE, status3.getLastError().getKind());
       assertEquals(statusCode, status3.getLastError().getStatusCode());
       assertNotSame(status1.getLastError(), status3.getLastError()); // it's a new error object of the same kind
     }

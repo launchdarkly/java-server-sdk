@@ -38,6 +38,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
@@ -185,11 +186,12 @@ public class TestComponents {
   }
   
   public static class MockDataSourceUpdates implements DataSourceUpdates {
-    private final DataSourceUpdates wrappedInstance;
+    private final DataSourceUpdatesImpl wrappedInstance;
     private final DataStoreStatusProvider dataStoreStatusProvider;
     public final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventBroadcaster;
     public final EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status>
       statusBroadcaster;
+    public final BlockingQueue<FullDataSet<ItemDescriptor>> receivedInits = new LinkedBlockingQueue<>();
     
     public MockDataSourceUpdates(DataStore store, DataStoreStatusProvider dataStoreStatusProvider) {
       this.dataStoreStatusProvider = dataStoreStatusProvider;
@@ -204,13 +206,14 @@ public class TestComponents {
     }
 
     @Override
-    public void init(FullDataSet<ItemDescriptor> allData) {
-      wrappedInstance.init(allData);
+    public boolean init(FullDataSet<ItemDescriptor> allData) {
+      receivedInits.add(allData);
+      return wrappedInstance.init(allData);
     }
 
     @Override
-    public void upsert(DataKind kind, String key, ItemDescriptor item) {
-      wrappedInstance.upsert(kind, key, item);
+    public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
+      return wrappedInstance.upsert(kind, key, item);
     }
 
     @Override
@@ -223,9 +226,23 @@ public class TestComponents {
       wrappedInstance.updateStatus(newState, newError);
     }
     
+    public DataSourceStatusProvider.Status getLastStatus() {
+      return wrappedInstance.getLastStatus();
+    }
+    
     // this method is surfaced for use by tests in other packages that can't see the EventBroadcasterImpl class
     public void register(DataSourceStatusProvider.StatusListener listener) {
       statusBroadcaster.register(listener);
+    }
+    
+    public FullDataSet<ItemDescriptor> awaitInit() {
+      try {
+        FullDataSet<ItemDescriptor> value = receivedInits.poll(5, TimeUnit.SECONDS);
+        if (value != null) {
+          return value;
+        }
+      } catch (InterruptedException e) {}
+      throw new RuntimeException("did not receive expected init call");
     }
   }
   
@@ -285,10 +302,16 @@ public class TestComponents {
   public static class MockDataStoreStatusProvider implements DataStoreStatusProvider {
     public final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
     private final AtomicReference<DataStoreStatusProvider.Status> lastStatus;
-
+    private final boolean statusMonitoringEnabled;
+    
     public MockDataStoreStatusProvider() {
+      this(true);
+    }
+    
+    public MockDataStoreStatusProvider(boolean statusMonitoringEnabled) {
       this.statusBroadcaster = EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
       this.lastStatus = new AtomicReference<>(new DataStoreStatusProvider.Status(true, false));
+      this.statusMonitoringEnabled = statusMonitoringEnabled;
     }
     
     // visible for tests
@@ -318,7 +341,7 @@ public class TestComponents {
 
     @Override
     public boolean isStatusMonitoringEnabled() {
-      return true;
+      return statusMonitoringEnabled;
     }
 
     @Override
