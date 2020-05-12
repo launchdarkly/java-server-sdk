@@ -1,7 +1,10 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.TestComponents;
+import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 
 import org.junit.Test;
@@ -10,32 +13,41 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.google.common.collect.Iterables.size;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toItemsMap;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestComponents.inMemoryDataStore;
+import static com.launchdarkly.sdk.server.TestUtil.repeatWithTimeout;
+import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
+import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatusEventually;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.ALL_FLAG_KEYS;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.ALL_SEGMENT_KEYS;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.getResourceContents;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.resourceFilePath;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 @SuppressWarnings("javadoc")
 public class FileDataSourceTest {
   private static final Path badFilePath = Paths.get("no-such-file.json");
   
-  private final DataStore store = inMemoryDataStore();
+  private final DataStore store;
+  private MockDataSourceUpdates dataSourceUpdates;
   private final LDConfig config = new LDConfig.Builder().build();
   private final FileDataSourceBuilder factory;
   
   public FileDataSourceTest() throws Exception {
+    store = inMemoryDataStore();
+    dataSourceUpdates = TestComponents.dataSourceUpdates(store);
     factory = makeFactoryWithFile(resourceFilePath("all-properties.json"));
   }
   
@@ -44,7 +56,7 @@ public class FileDataSourceTest {
   }
 
   private DataSource makeDataSource(FileDataSourceBuilder builder) {
-    return builder.createDataSource(clientContext("", config), dataSourceUpdates(store));
+    return builder.createDataSource(clientContext("", config), dataSourceUpdates);
   }
   
   @Test
@@ -81,7 +93,20 @@ public class FileDataSourceTest {
       assertThat(fp.isInitialized(), equalTo(true));
     }
   }
-  
+
+  @Test
+  public void statusIsValidAfterSuccessfulLoad() throws Exception {
+    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.register(statuses::add);
+    
+    try (DataSource fp = makeDataSource(factory)) {
+      fp.start();
+      assertThat(fp.isInitialized(), equalTo(true));
+      
+      requireDataSourceStatus(statuses, DataSourceStatusProvider.State.VALID);
+    }
+  }
+
   @Test
   public void startFutureIsCompletedAfterUnsuccessfulLoad() throws Exception {
     factory.filePaths(badFilePath);
@@ -97,6 +122,22 @@ public class FileDataSourceTest {
     try (DataSource fp = makeDataSource(factory)) {
       fp.start();
       assertThat(fp.isInitialized(), equalTo(false));
+    }
+  }
+
+  @Test
+  public void statusIsInitializingAfterUnsuccessfulLoad() throws Exception {
+    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.register(statuses::add);
+    
+    factory.filePaths(badFilePath);
+    try (DataSource fp = makeDataSource(factory)) {
+      fp.start();
+      assertThat(fp.isInitialized(), equalTo(false));
+      
+      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.INITIALIZING);
+      assertNotNull(status.getLastError());
+      assertEquals(DataSourceStatusProvider.ErrorKind.INVALID_DATA, status.getLastError().getKind());
     }
   }
   
@@ -125,22 +166,19 @@ public class FileDataSourceTest {
   public void modifiedFileIsReloadedIfAutoUpdateIsOn() throws Exception {
     File file = makeTempFlagFile();
     FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
-    long maxMsToWait = 10000;
     try {
       setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
       try (DataSource fp = makeDataSource(factory1)) {
         fp.start();
         Thread.sleep(1000);
         setFileContents(file, getResourceContents("all-properties.json"));  // this file has all the flags
-        long deadline = System.currentTimeMillis() + maxMsToWait;
-        while (System.currentTimeMillis() < deadline) {
+        repeatWithTimeout(Duration.ofSeconds(10), Duration.ofMillis(500), () -> {
           if (toItemsMap(store.getAll(FEATURES)).size() == ALL_FLAG_KEYS.size()) {
-            // success
-            return;
+            // success - return a non-null value to make repeatWithTimeout end
+            return fp;
           }
-          Thread.sleep(500);
-        }
-        fail("Waited " + maxMsToWait + "ms after modifying file and it did not reload");
+          return null;
+        });
       }
     } finally {
       file.delete();
@@ -149,24 +187,29 @@ public class FileDataSourceTest {
   
   @Test
   public void ifFilesAreBadAtStartTimeAutoUpdateCanStillLoadGoodDataLater() throws Exception {
+    BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.register(statuses::add);
+    
     File file = makeTempFlagFile();
     setFileContents(file, "not valid");
     FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
-    long maxMsToWait = 10000;
     try {
       try (DataSource fp = makeDataSource(factory1)) {
         fp.start();
         Thread.sleep(1000);
         setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
-        long deadline = System.currentTimeMillis() + maxMsToWait;
-        while (System.currentTimeMillis() < deadline) {
+        repeatWithTimeout(Duration.ofSeconds(10), Duration.ofMillis(500), () -> {
           if (toItemsMap(store.getAll(FEATURES)).size() > 0) {
-            // success
-            return;
+            // success - status is now VALID, after having first been INITIALIZING - can still see that an error occurred
+            DataSourceStatusProvider.Status status = requireDataSourceStatusEventually(statuses,
+                DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.INITIALIZING);
+            assertNotNull(status.getLastError());
+            assertEquals(DataSourceStatusProvider.ErrorKind.INVALID_DATA, status.getLastError().getKind());
+
+            return status;
           }
-          Thread.sleep(500);
-        }
-        fail("Waited " + maxMsToWait + "ms after modifying file and it did not reload");
+          return null;
+        });
       }
     } finally {
       file.delete();

@@ -2,6 +2,9 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
@@ -81,23 +84,38 @@ final class PollingProcessor implements DataSource {
   }
   
   private void poll() {
+    FeatureRequestor.AllData allData = null;
+    
     try {
-      FeatureRequestor.AllData allData = requestor.getAllData();
-      dataSourceUpdates.init(allData.toFullDataSet());
-      if (!initialized.getAndSet(true)) {
-        logger.info("Initialized LaunchDarkly client.");
-        initFuture.complete(null);
-      }
+      allData = requestor.getAllData();
     } catch (HttpErrorException e) {
+      ErrorInfo errorInfo = ErrorInfo.fromHttpError(e.getStatus());
       logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
-      if (!isHttpErrorRecoverable(e.getStatus())) {
+      if (isHttpErrorRecoverable(e.getStatus())) {
+        dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
+      } else {
+        dataSourceUpdates.updateStatus(State.OFF, errorInfo);
         initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
       }
     } catch (IOException e) {
       logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
       logger.debug(e.toString(), e);
+      dataSourceUpdates.updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.NETWORK_ERROR, e));
     } catch (SerializationException e) {
       logger.error("Polling request received malformed data: {}", e.toString());
+      dataSourceUpdates.updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.INVALID_DATA, e));
+    } catch (Exception e) {
+      logger.error("Unexpected error from polling processor: {}", e.toString());
+      logger.debug(e.toString(), e);
+      dataSourceUpdates.updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.UNKNOWN, e));
+    }
+    
+    if (allData != null && dataSourceUpdates.init(allData.toFullDataSet())) {
+      if (!initialized.getAndSet(true)) {
+        logger.info("Initialized LaunchDarkly client.");
+        dataSourceUpdates.updateStatus(State.VALID, null);
+        initFuture.complete(null);
+      }
     }
   }
 }

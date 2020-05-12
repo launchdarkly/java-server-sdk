@@ -1,5 +1,10 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
+
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
@@ -28,6 +33,20 @@ final class EventBroadcasterImpl<ListenerT, EventT> {
   EventBroadcasterImpl(BiConsumer<ListenerT, EventT> broadcastAction, ExecutorService executor) {
     this.broadcastAction = broadcastAction;
     this.executor = executor;
+  }
+
+  static EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> forFlagChangeEvents(ExecutorService executor) {
+    return new EventBroadcasterImpl<>(FlagChangeListener::onFlagChange, executor);
+  }
+  
+  static EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status>
+      forDataSourceStatus(ExecutorService executor) {
+    return new EventBroadcasterImpl<>(DataSourceStatusProvider.StatusListener::dataSourceStatusChanged, executor);
+  }
+
+  static EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status>
+      forDataStoreStatus(ExecutorService executor) {
+    return new EventBroadcasterImpl<>(DataStoreStatusProvider.StatusListener::dataStoreStatusChanged, executor);
   }
 
   /**

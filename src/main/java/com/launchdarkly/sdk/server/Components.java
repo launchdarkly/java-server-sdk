@@ -11,6 +11,7 @@ import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
@@ -338,6 +339,7 @@ public abstract class Components {
       } else {
         LDClient.logger.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
       }
+      dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
       return NullDataSource.INSTANCE;
     }
 
