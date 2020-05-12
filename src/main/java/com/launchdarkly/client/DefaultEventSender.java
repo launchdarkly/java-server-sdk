@@ -113,9 +113,9 @@ final class DefaultEventSender implements EventSender {
         
         String logMessage = httpErrorMessage(response.code(), "posting " + description, nextActionMessage);
         if (isHttpErrorRecoverable(response.code())) {
-          logger.error(logMessage);
-        } else {
           logger.warn(logMessage);
+        } else {
+          logger.error(logMessage);
           mustShutDown = true;
           break;
         }
