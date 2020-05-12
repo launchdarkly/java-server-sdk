@@ -36,10 +36,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.launchdarkly.sdk.server.DataModel.ALL_DATA_KINDS;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
-import static com.launchdarkly.sdk.server.Util.httpErrorMessage;
-import static com.launchdarkly.sdk.server.Util.isHttpErrorRecoverable;
+import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
 
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
@@ -76,6 +76,8 @@ final class StreamProcessor implements DataSource {
   private static final String INDIRECT_PATCH = "indirect/patch";
   private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
   private static final Duration DEAD_CONNECTION_INTERVAL = Duration.ofSeconds(300);
+  private static final String ERROR_CONTEXT_MESSAGE = "in stream connection";
+  private static final String WILL_RETRY_MESSAGE = "will retry";
 
   private final DataSourceUpdates dataSourceUpdates;
   private final HttpConfiguration httpConfig;
@@ -171,21 +173,21 @@ final class StreamProcessor implements DataSource {
       
       if (t instanceof UnsuccessfulResponseException) {
         int status = ((UnsuccessfulResponseException)t).getCode();
-        
-        logger.error(httpErrorMessage(status, "streaming connection", "will retry"));
-        
         ErrorInfo errorInfo = ErrorInfo.fromHttpError(status);
-        
-        if (!isHttpErrorRecoverable(status)) {
+ 
+        boolean recoverable = checkIfErrorIsRecoverableAndLog(logger, httpErrorDescription(status),
+            ERROR_CONTEXT_MESSAGE, status, WILL_RETRY_MESSAGE);       
+        if (recoverable) {
+          dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
+          esStarted = System.currentTimeMillis();
+          return Action.PROCEED;
+        } else {
           dataSourceUpdates.updateStatus(State.OFF, errorInfo);
-          return Action.SHUTDOWN;
+          return Action.SHUTDOWN; 
         }
-        
-        dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
-        esStarted = System.currentTimeMillis();
-        return Action.PROCEED;
       }
       
+      checkIfErrorIsRecoverableAndLog(logger, t.toString(), ERROR_CONTEXT_MESSAGE, 0, WILL_RETRY_MESSAGE);
       ErrorInfo errorInfo = ErrorInfo.fromException(t instanceof IOException ? ErrorKind.NETWORK_ERROR : ErrorKind.UNKNOWN, t);
       dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
       return Action.PROCEED;

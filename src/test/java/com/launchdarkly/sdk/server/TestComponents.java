@@ -201,7 +201,9 @@ public class TestComponents {
           store,
           dataStoreStatusProvider,
           flagChangeEventBroadcaster,
-          statusBroadcaster
+          statusBroadcaster,
+          sharedExecutor,
+          null
           );
     }
 

@@ -9,6 +9,7 @@ import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
@@ -64,6 +65,7 @@ public final class LDClient implements LDClientInterface {
   final EventProcessor eventProcessor;
   final DataSource dataSource;
   final DataStore dataStore;
+  private final DataSourceUpdates dataSourceUpdates;
   private final DataStoreStatusProviderImpl dataStoreStatusProvider;
   private final DataSourceStatusProviderImpl dataSourceStatusProvider;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
@@ -186,8 +188,11 @@ public final class LDClient implements LDClientInterface {
         dataStore,
         dataStoreStatusProvider,
         flagChangeEventNotifier,
-        dataSourceStatusNotifier
+        dataSourceStatusNotifier,
+        sharedExecutor,
+        config.loggingConfig.getLogDataSourceOutageAsErrorAfter()
         );
+    this.dataSourceUpdates = dataSourceUpdates;
     this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);    
     this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates::getLastStatus);
     
@@ -477,6 +482,7 @@ public final class LDClient implements LDClientInterface {
     this.dataStore.close();
     this.eventProcessor.close();
     this.dataSource.close();
+    this.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, null);
     this.sharedExecutor.shutdownNow();
   }
 

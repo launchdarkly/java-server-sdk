@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -22,6 +23,7 @@ final class ClientContextImpl implements ClientContext {
   
   private final String sdkKey;
   private final HttpConfiguration httpConfiguration;
+  private final LoggingConfiguration loggingConfiguration;
   private final boolean offline;
   private final int threadPriority;
   final ScheduledExecutorService sharedExecutor;
@@ -31,6 +33,7 @@ final class ClientContextImpl implements ClientContext {
   private ClientContextImpl(
       String sdkKey,
       HttpConfiguration httpConfiguration,
+      LoggingConfiguration loggingConfiguration,
       boolean offline,
       int threadPriority,
       ScheduledExecutorService sharedExecutor,
@@ -39,6 +42,7 @@ final class ClientContextImpl implements ClientContext {
   ) {
     this.sdkKey = sdkKey;
     this.httpConfiguration = httpConfiguration;
+    this.loggingConfiguration = loggingConfiguration;
     this.offline = offline;
     this.threadPriority = threadPriority;
     this.sharedExecutor = sharedExecutor;
@@ -54,6 +58,7 @@ final class ClientContextImpl implements ClientContext {
   ) {
     this.sdkKey = sdkKey;
     this.httpConfiguration = configuration.httpConfig;
+    this.loggingConfiguration = configuration.loggingConfig;
     this.offline = configuration.offline;
     this.threadPriority = configuration.threadPriority;
     this.sharedExecutor = sharedExecutor;
@@ -80,6 +85,11 @@ final class ClientContextImpl implements ClientContext {
   public HttpConfiguration getHttpConfiguration() {
     return httpConfiguration;
   }
+
+  @Override
+  public LoggingConfiguration getLoggingConfiguration() {
+    return loggingConfiguration;
+  }
   
   @Override
   public int getThreadPriority() {
@@ -105,10 +115,12 @@ final class ClientContextImpl implements ClientContext {
     return new ClientContextImpl(
         context.getSdkKey(),
         context.getHttpConfiguration(),
+        context.getLoggingConfiguration(),
         context.isOffline(),
         context.getThreadPriority(),
         fallbackSharedExecutor,
         null,
-        null);
+        null
+        );
   }
 }

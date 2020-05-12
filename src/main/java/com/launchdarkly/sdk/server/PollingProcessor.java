@@ -20,11 +20,13 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.launchdarkly.sdk.server.Util.httpErrorMessage;
-import static com.launchdarkly.sdk.server.Util.isHttpErrorRecoverable;
+import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
 
 final class PollingProcessor implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
+  private static final String ERROR_CONTEXT_MESSAGE = "on polling request";
+  private static final String WILL_RETRY_MESSAGE = "will retry at next scheduled poll interval";
 
   @VisibleForTesting final FeatureRequestor requestor;
   private final DataSourceUpdates dataSourceUpdates;
@@ -90,16 +92,16 @@ final class PollingProcessor implements DataSource {
       allData = requestor.getAllData();
     } catch (HttpErrorException e) {
       ErrorInfo errorInfo = ErrorInfo.fromHttpError(e.getStatus());
-      logger.error(httpErrorMessage(e.getStatus(), "polling request", "will retry"));
-      if (isHttpErrorRecoverable(e.getStatus())) {
+      boolean recoverable = checkIfErrorIsRecoverableAndLog(logger, httpErrorDescription(e.getStatus()),
+          ERROR_CONTEXT_MESSAGE, e.getStatus(), WILL_RETRY_MESSAGE);
+      if (recoverable) {
         dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
       } else {
         dataSourceUpdates.updateStatus(State.OFF, errorInfo);
         initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
       }
     } catch (IOException e) {
-      logger.error("Encountered exception in LaunchDarkly client when retrieving update: {}", e.toString());
-      logger.debug(e.toString(), e);
+      checkIfErrorIsRecoverableAndLog(logger, e.toString(), ERROR_CONTEXT_MESSAGE, 0, WILL_RETRY_MESSAGE);
       dataSourceUpdates.updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.NETWORK_ERROR, e));
     } catch (SerializationException e) {
       logger.error("Polling request received malformed data: {}", e.toString());

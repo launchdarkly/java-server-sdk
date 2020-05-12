@@ -31,9 +31,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
-import static com.launchdarkly.sdk.server.Util.httpErrorMessage;
+import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
 import static com.launchdarkly.sdk.server.Util.isHttpErrorRecoverable;
 import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 
@@ -50,6 +51,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private static final String EVENT_SCHEMA_VERSION = "3";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
   private static final MediaType JSON_CONTENT_TYPE = MediaType.parse("application/json; charset=utf-8");
+  private static final String WILL_RETRY_MESSAGE = "will retry";
   
   @VisibleForTesting final EventDispatcher dispatcher;
   private final BlockingQueue<EventProcessorMessage> inbox;
@@ -483,12 +485,16 @@ final class DefaultEventProcessor implements EventProcessor {
       if (responseDate != null) {
         lastKnownPastTime.set(responseDate.getTime());
       }
-      if (!isHttpErrorRecoverable(response.code())) {
-        disabled.set(true);
-        logger.error(httpErrorMessage(response.code(), "posting events", "some events were dropped"));
+      boolean recoverable = isHttpErrorRecoverable(response.code());
+      String errorDesc = httpErrorDescription(response.code());
+      if (recoverable) {
+        logger.warn("Error in posting events (some events were dropped): {}", errorDesc);
         // It's "some events were dropped" because we're not going to retry *this* request any more times -
         // we only get to this point if we have used up our retry attempts. So the last batch of events was
         // lost, even though we will still try to post *other* events in the future.
+      } else {
+        disabled.set(true);
+        logger.error("Error in posting events (giving up permanently): {}", errorDesc);
       }
     }
   }
@@ -517,8 +523,9 @@ final class DefaultEventProcessor implements EventProcessor {
         long endTime = System.currentTimeMillis();
         logger.debug("{} delivery took {} ms, response status {}", descriptor, endTime - startTime, response.code());
         if (!response.isSuccessful()) {
-          logger.warn("Unexpected response status when posting {}: {}", descriptor, response.code());
-          if (isHttpErrorRecoverable(response.code())) {
+          boolean recoverable = checkIfErrorIsRecoverableAndLog(logger, httpErrorDescription(response.code()),
+              "posting " + descriptor, response.code(), WILL_RETRY_MESSAGE);
+          if (recoverable) {
             continue;
           }
         }
@@ -538,8 +545,7 @@ final class DefaultEventProcessor implements EventProcessor {
         }
         break;
       } catch (IOException e) {
-        logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: {} ({})", request.url(), e.toString());
-        logger.debug(e.toString(), e);
+        checkIfErrorIsRecoverableAndLog(logger, e.toString(), "posting " + descriptor, 0, WILL_RETRY_MESSAGE);
         continue;
       }
     }

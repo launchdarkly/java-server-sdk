@@ -6,6 +6,8 @@ import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
+import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
 
 import java.net.URI;
 import java.time.Duration;
@@ -27,6 +29,7 @@ public final class LDConfig {
   final boolean diagnosticOptOut;
   final EventProcessorFactory eventProcessorFactory;
   final HttpConfiguration httpConfig;
+  final LoggingConfiguration loggingConfig;
   final boolean offline;
   final Duration startWait;
   final int threadPriority;
@@ -39,6 +42,8 @@ public final class LDConfig {
     this.httpConfig = builder.httpConfigFactory == null ?
         Components.httpConfiguration().createHttpConfiguration() :
         builder.httpConfigFactory.createHttpConfiguration();
+    this.loggingConfig = (builder.loggingConfigFactory == null ? Components.logging() : builder.loggingConfigFactory).
+        createLoggingConfiguration();
     this.offline = builder.offline;
     this.startWait = builder.startWait;
     this.threadPriority = builder.threadPriority;
@@ -50,6 +55,7 @@ public final class LDConfig {
     this.diagnosticOptOut = config.diagnosticOptOut;
     this.eventProcessorFactory = config.eventProcessorFactory;
     this.httpConfig = config.httpConfig;
+    this.loggingConfig = config.loggingConfig;
     this.offline = config.offline;
     this.startWait = config.startWait;
     this.threadPriority = config.threadPriority;
@@ -72,6 +78,7 @@ public final class LDConfig {
     private boolean diagnosticOptOut = false;
     private EventProcessorFactory eventProcessorFactory = null;
     private HttpConfigurationFactory httpConfigFactory = null;
+    private LoggingConfigurationFactory loggingConfigFactory = null;
     private boolean offline = false;
     private Duration startWait = DEFAULT_START_WAIT;
     private int threadPriority = Thread.MIN_PRIORITY;
@@ -163,6 +170,21 @@ public final class LDConfig {
      */
     public Builder http(HttpConfigurationFactory factory) {
       this.httpConfigFactory = factory;
+      return this;
+    }
+
+    /**
+     * Sets the SDK's logging configuration, using a factory object. This object is normally a
+     * configuration builder obtained from {@link Components#logging()}, which has methods
+     * for setting individual logging-related properties.
+     * 
+     * @param factory the factory object
+     * @return the builder
+     * @since 5.0.0
+     * @see Components#logging()
+     */
+    public Builder logging(LoggingConfigurationFactory factory) {
+      this.loggingConfigFactory = factory;
       return this;
     }
     

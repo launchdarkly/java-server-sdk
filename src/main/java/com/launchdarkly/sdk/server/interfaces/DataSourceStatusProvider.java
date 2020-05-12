@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
+import com.google.common.base.Strings;
+
 import java.time.Instant;
 import java.util.Objects;
 
@@ -226,7 +228,26 @@ public interface DataSourceStatusProvider {
     
     @Override
     public String toString() {
-      return "ErrorInfo(" + kind + "," + statusCode + "," + message + "," + time + ")";
+      StringBuilder s = new StringBuilder();
+      s.append(kind.toString());
+      if (statusCode > 0 || !Strings.isNullOrEmpty(message)) {
+        s.append("(");
+        if (statusCode > 0) {
+          s.append(statusCode);
+        }
+        if (!Strings.isNullOrEmpty(message)) {
+          if (statusCode > 0) {
+            s.append(",");
+          }
+          s.append(message);
+        }
+        s.append(")");
+      }
+      if (time != null) {
+        s.append("@");
+        s.append(time.toString());
+      }
+      return s.toString();
     }
   }
   
