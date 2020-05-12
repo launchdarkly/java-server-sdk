@@ -38,7 +38,7 @@ final class DefaultEventSender implements EventSender {
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
   private static final MediaType JSON_CONTENT_TYPE = MediaType.parse("application/json; charset=utf-8");
   private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
-  private static final String ERROR_CONTEXT = "posting events";
+  private static final Object HTTP_DATE_FORMAT_LOCK = new Object(); // synchronize on this because DateFormat isn't thread-safe
 
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
@@ -110,6 +110,7 @@ final class DefaultEventSender implements EventSender {
 
       long startTime = System.currentTimeMillis();
       String nextActionMessage = attempt == 0 ? "will retry" : "some events were dropped";
+      String errorContext = "posting " + description;
       
       try (Response response = httpClient.newCall(request).execute()) {
         long endTime = System.currentTimeMillis();
@@ -123,7 +124,7 @@ final class DefaultEventSender implements EventSender {
         boolean recoverable = checkIfErrorIsRecoverableAndLog(
             logger,
             errorDesc,
-            ERROR_CONTEXT,
+            errorContext,
             response.code(),
             nextActionMessage
             );
@@ -132,7 +133,7 @@ final class DefaultEventSender implements EventSender {
           break;
         }
       } catch (IOException e) {
-        checkIfErrorIsRecoverableAndLog(logger, e.toString(), ERROR_CONTEXT, 0, nextActionMessage);
+        checkIfErrorIsRecoverableAndLog(logger, e.toString(), errorContext, 0, nextActionMessage);
       }
     }
     
@@ -144,7 +145,7 @@ final class DefaultEventSender implements EventSender {
     if (dateStr != null) {
       try {
         // DateFormat is not thread-safe, so must synchronize
-        synchronized (HTTP_DATE_FORMAT) {
+        synchronized (HTTP_DATE_FORMAT_LOCK) {
           return HTTP_DATE_FORMAT.parse(dateStr);
         }
       } catch (ParseException e) {
