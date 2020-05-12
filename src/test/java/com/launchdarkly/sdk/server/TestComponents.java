@@ -7,6 +7,9 @@ import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
@@ -20,6 +23,8 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
@@ -33,6 +38,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
@@ -53,14 +59,18 @@ public class TestComponents {
     return (context, dataSourceUpdates) -> new DataSourceWithData(data, dataSourceUpdates);
   }
 
-  public static DataStore dataStoreThatThrowsException(final RuntimeException e) {
+  public static DataStore dataStoreThatThrowsException(RuntimeException e) {
     return new DataStoreThatThrowsException(e);
   }
 
-  public static DataSourceUpdates dataSourceUpdates(final DataStore store) {
-    return new DataSourceUpdatesImpl(store, null, null);
+  public static MockDataSourceUpdates dataSourceUpdates(DataStore store) {
+    return dataSourceUpdates(store, null);
   }
 
+  public static MockDataSourceUpdates dataSourceUpdates(DataStore store, DataStoreStatusProvider dataStoreStatusProvider) {
+    return new MockDataSourceUpdates(store, dataStoreStatusProvider);
+  }
+  
   static EventsConfiguration defaultEventsConfig() {
     return makeEventsConfig(false, false, null);
   }
@@ -128,7 +138,7 @@ public class TestComponents {
 
   public static class DataSourceFactoryThatExposesUpdater implements DataSourceFactory {
     private final FullDataSet<ItemDescriptor> initialData;
-    private DataSourceUpdates dataSourceUpdates;
+    DataSourceUpdates dataSourceUpdates;
   
     public DataSourceFactoryThatExposesUpdater(FullDataSet<ItemDescriptor> initialData) {
       this.initialData = initialData;
@@ -177,6 +187,69 @@ public class TestComponents {
     }
 
     public void close() throws IOException {
+    }
+  }
+  
+  public static class MockDataSourceUpdates implements DataSourceUpdates {
+    private final DataSourceUpdatesImpl wrappedInstance;
+    private final DataStoreStatusProvider dataStoreStatusProvider;
+    public final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventBroadcaster;
+    public final EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status>
+      statusBroadcaster;
+    public final BlockingQueue<FullDataSet<ItemDescriptor>> receivedInits = new LinkedBlockingQueue<>();
+    
+    public MockDataSourceUpdates(DataStore store, DataStoreStatusProvider dataStoreStatusProvider) {
+      this.dataStoreStatusProvider = dataStoreStatusProvider;
+      this.flagChangeEventBroadcaster = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor);
+      this.statusBroadcaster = EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+      this.wrappedInstance = new DataSourceUpdatesImpl(
+          store,
+          dataStoreStatusProvider,
+          flagChangeEventBroadcaster,
+          statusBroadcaster,
+          sharedExecutor,
+          null
+          );
+    }
+
+    @Override
+    public boolean init(FullDataSet<ItemDescriptor> allData) {
+      receivedInits.add(allData);
+      return wrappedInstance.init(allData);
+    }
+
+    @Override
+    public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
+      return wrappedInstance.upsert(kind, key, item);
+    }
+
+    @Override
+    public DataStoreStatusProvider getDataStoreStatusProvider() {
+      return dataStoreStatusProvider;
+    }
+
+    @Override
+    public void updateStatus(State newState, ErrorInfo newError) {
+      wrappedInstance.updateStatus(newState, newError);
+    }
+    
+    public DataSourceStatusProvider.Status getLastStatus() {
+      return wrappedInstance.getLastStatus();
+    }
+    
+    // this method is surfaced for use by tests in other packages that can't see the EventBroadcasterImpl class
+    public void register(DataSourceStatusProvider.StatusListener listener) {
+      statusBroadcaster.register(listener);
+    }
+    
+    public FullDataSet<ItemDescriptor> awaitInit() {
+      try {
+        FullDataSet<ItemDescriptor> value = receivedInits.poll(5, TimeUnit.SECONDS);
+        if (value != null) {
+          return value;
+        }
+      } catch (InterruptedException e) {}
+      throw new RuntimeException("did not receive expected init call");
     }
   }
   
@@ -234,13 +307,18 @@ public class TestComponents {
   }
   
   public static class MockDataStoreStatusProvider implements DataStoreStatusProvider {
-    private final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
+    public final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
     private final AtomicReference<DataStoreStatusProvider.Status> lastStatus;
-
+    private final boolean statusMonitoringEnabled;
+    
     public MockDataStoreStatusProvider() {
-      this.statusBroadcaster = new EventBroadcasterImpl<>(
-          DataStoreStatusProvider.StatusListener::dataStoreStatusChanged, sharedExecutor);
+      this(true);
+    }
+    
+    public MockDataStoreStatusProvider(boolean statusMonitoringEnabled) {
+      this.statusBroadcaster = EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
       this.lastStatus = new AtomicReference<>(new DataStoreStatusProvider.Status(true, false));
+      this.statusMonitoringEnabled = statusMonitoringEnabled;
     }
     
     // visible for tests
@@ -270,7 +348,7 @@ public class TestComponents {
 
     @Override
     public boolean isStatusMonitoringEnabled() {
-      return true;
+      return statusMonitoringEnabled;
     }
 
     @Override

@@ -11,13 +11,15 @@ import java.io.IOException;
 import java.net.URI;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.Date;
 import java.util.UUID;
 
+import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
+import static com.launchdarkly.sdk.server.Util.describeDuration;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
-import static com.launchdarkly.sdk.server.Util.httpErrorMessage;
-import static com.launchdarkly.sdk.server.Util.isHttpErrorRecoverable;
+import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
 import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 
 import okhttp3.Headers;
@@ -30,18 +32,22 @@ import okhttp3.Response;
 final class DefaultEventSender implements EventSender {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
   
+  static final Duration DEFAULT_RETRY_DELAY = Duration.ofSeconds(1);
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "3";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
   private static final MediaType JSON_CONTENT_TYPE = MediaType.parse("application/json; charset=utf-8");
   private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+  private static final String ERROR_CONTEXT = "posting events";
 
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
+  private final Duration retryDelay;
 
   DefaultEventSender(
       String sdkKey,
-      HttpConfiguration httpConfiguration
+      HttpConfiguration httpConfiguration,
+      Duration retryDelay
       ) {
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(httpConfiguration, httpBuilder);
@@ -51,6 +57,7 @@ final class DefaultEventSender implements EventSender {
         .add("Content-Type", "application/json")
         .build();
     
+    this.retryDelay = retryDelay == null ? DEFAULT_RETRY_DELAY : retryDelay;
   }
   
   @Override
@@ -88,9 +95,9 @@ final class DefaultEventSender implements EventSender {
 
     for (int attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) {
-        logger.warn("Will retry posting {} after 1 second", description);
+        logger.warn("Will retry posting {} after {}", description, describeDuration(retryDelay));
         try {
-          Thread.sleep(1000);
+          Thread.sleep(retryDelay.toMillis());
         } catch (InterruptedException e) {
         }
       }
@@ -112,17 +119,20 @@ final class DefaultEventSender implements EventSender {
           return new Result(true, false, parseResponseDate(response));
         }
         
-        String logMessage = httpErrorMessage(response.code(), "posting " + description, nextActionMessage);
-        if (isHttpErrorRecoverable(response.code())) {
-          logger.error(logMessage);
-        } else {
-          logger.warn(logMessage);
+        String errorDesc = httpErrorDescription(response.code());
+        boolean recoverable = checkIfErrorIsRecoverableAndLog(
+            logger,
+            errorDesc,
+            ERROR_CONTEXT,
+            response.code(),
+            nextActionMessage
+            );
+        if (!recoverable) {
           mustShutDown = true;
           break;
         }
       } catch (IOException e) {
-        String message = "Unhandled exception when posting events - " + nextActionMessage + " (" + e.toString() + ")";
-        logger.warn(message);
+        checkIfErrorIsRecoverableAndLog(logger, e.toString(), ERROR_CONTEXT, 0, nextActionMessage);
       }
     }
     
@@ -147,7 +157,7 @@ final class DefaultEventSender implements EventSender {
   static final class Factory implements EventSenderFactory {
     @Override
     public EventSender createEventSender(String sdkKey, HttpConfiguration httpConfiguration) {
-      return new DefaultEventSender(sdkKey, httpConfiguration);
+      return new DefaultEventSender(sdkKey, httpConfiguration, DefaultEventSender.DEFAULT_RETRY_DELAY);
     }
   }
 }

@@ -37,4 +37,15 @@ public class UtilTest {
       shutdownHttpClient(httpClient);
     }
   }
+  
+  @Test
+  public void describeDuration() {
+    assertEquals("15 milliseconds", Util.describeDuration(Duration.ofMillis(15)));
+    assertEquals("1500 milliseconds", Util.describeDuration(Duration.ofMillis(1500)));
+    assertEquals("1 second", Util.describeDuration(Duration.ofMillis(1000)));
+    assertEquals("2 seconds", Util.describeDuration(Duration.ofMillis(2000)));
+    assertEquals("70 seconds", Util.describeDuration(Duration.ofMillis(70000)));
+    assertEquals("1 minute", Util.describeDuration(Duration.ofMillis(60000)));
+    assertEquals("2 minutes", Util.describeDuration(Duration.ofMillis(120000)));
+  }
 }

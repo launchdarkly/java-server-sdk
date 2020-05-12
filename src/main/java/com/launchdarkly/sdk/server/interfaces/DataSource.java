@@ -7,6 +7,19 @@ import java.util.concurrent.Future;
 /**
  * Interface for an object that receives updates to feature flags, user segments, and anything
  * else that might come from LaunchDarkly, and passes them to a {@link DataStore}.
+ * <p>
+ * The standard implementations are:
+ * <ul>
+ * <li> {@link com.launchdarkly.sdk.server.Components#streamingDataSource()} (the default), which
+ * maintains a streaming connection to LaunchDarkly;
+ * <li> {@link com.launchdarkly.sdk.server.Components#pollingDataSource()}, which polls for
+ * updates at regular intervals;
+ * <li> {@link com.launchdarkly.sdk.server.Components#externalUpdatesOnly()}, which does nothing
+ * (on the assumption that another process will update the data store);
+ * <li> {@link com.launchdarkly.sdk.server.integrations.FileData}, which reads flag data from
+ * the filesystem.
+ * </ul>
+ * 
  * @since 5.0.0
  */
 public interface DataSource extends Closeable {

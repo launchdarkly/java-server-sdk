@@ -1,24 +1,36 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.server.DataModelDependencies.KindAndKey;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.StatusListener;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.transform;
 import static com.launchdarkly.sdk.server.DataModel.ALL_DATA_KINDS;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static java.util.Collections.emptyMap;
@@ -27,39 +39,59 @@ import static java.util.Collections.emptyMap;
  * The data source will push updates into this component. We then apply any necessary
  * transformations before putting them into the data store; currently that just means sorting
  * the data set for init(). We also generate flag change events for any updates or deletions.
+ * <p>
+ * This component is also responsible for receiving updates to the data source status, broadcasting
+ * them to any status listeners, and tracking the length of any period of sustained failure.
  * 
  * @since 4.11.0
  */
 final class DataSourceUpdatesImpl implements DataSourceUpdates {
   private final DataStore store;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
+  private final EventBroadcasterImpl<StatusListener, Status> dataSourceStatusNotifier;
   private final DataModelDependencies.DependencyTracker dependencyTracker = new DataModelDependencies.DependencyTracker();
   private final DataStoreStatusProvider dataStoreStatusProvider;
+  private final OutageTracker outageTracker;
+  
+  private volatile Status currentStatus;
+  private volatile boolean lastStoreUpdateFailed = false;
   
   DataSourceUpdatesImpl(
       DataStore store,
+      DataStoreStatusProvider dataStoreStatusProvider,
       EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier,
-      DataStoreStatusProvider dataStoreStatusProvider
+      EventBroadcasterImpl<StatusListener, Status> dataSourceStatusNotifier,
+      ScheduledExecutorService sharedExecutor,
+      Duration outageLoggingTimeout
       ) {
     this.store = store;
     this.flagChangeEventNotifier = flagChangeEventNotifier;
+    this.dataSourceStatusNotifier = dataSourceStatusNotifier;
     this.dataStoreStatusProvider = dataStoreStatusProvider;
+    this.outageTracker = new OutageTracker(sharedExecutor, outageLoggingTimeout);
+    
+    currentStatus = new Status(State.INITIALIZING, Instant.now(), null);
   }
   
   @Override
-  public void init(FullDataSet<ItemDescriptor> allData) {
+  public boolean init(FullDataSet<ItemDescriptor> allData) {
     Map<DataKind, Map<String, ItemDescriptor>> oldData = null;
-    
-    if (hasFlagChangeEventListeners()) {
-      // Query the existing data if any, so that after the update we can send events for whatever was changed
-      oldData = new HashMap<>();
-      for (DataKind kind: ALL_DATA_KINDS) {
-        KeyedItems<ItemDescriptor> items = store.getAll(kind);
-        oldData.put(kind, ImmutableMap.copyOf(items.getItems()));
+
+    try {
+      if (hasFlagChangeEventListeners()) {
+        // Query the existing data if any, so that after the update we can send events for whatever was changed
+        oldData = new HashMap<>();
+        for (DataKind kind: ALL_DATA_KINDS) {
+          KeyedItems<ItemDescriptor> items = store.getAll(kind);
+          oldData.put(kind, ImmutableMap.copyOf(items.getItems()));
+        }
       }
+      store.init(DataModelDependencies.sortAllCollections(allData));
+      lastStoreUpdateFailed = false;
+    } catch (RuntimeException e) {
+      reportStoreFailure(e);
+      return false;
     }
-    
-    store.init(DataModelDependencies.sortAllCollections(allData));
     
     // We must always update the dependency graph even if we don't currently have any event listeners, because if
     // listeners are added later, we don't want to have to reread the whole data store to compute the graph
@@ -70,11 +102,20 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
     if (oldData != null) {
       sendChangeEvents(computeChangedItemsForFullDataSet(oldData, fullDataSetToMap(allData)));
     }
+    
+    return true;
   }
 
   @Override
-  public void upsert(DataKind kind, String key, ItemDescriptor item) {
-    boolean successfullyUpdated = store.upsert(kind, key, item); 
+  public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
+    boolean successfullyUpdated;
+    try {
+      successfullyUpdated = store.upsert(kind, key, item);
+      lastStoreUpdateFailed = false;
+    } catch (RuntimeException e) {
+      reportStoreFailure(e);
+      return false;
+    }
     
     if (successfullyUpdated) {
       dependencyTracker.updateDependenciesFrom(kind, key, item);
@@ -84,6 +125,8 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
         sendChangeEvents(affectedItems);
       }
     }
+    
+    return true;
   }
 
   @Override
@@ -91,14 +134,49 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
     return dataStoreStatusProvider;
   }
 
+  @Override
+  public void updateStatus(State newState, ErrorInfo newError) {
+    if (newState == null) {
+      return;
+    }
+    
+    Status statusToBroadcast = null;
+    
+    synchronized (this) {
+      Status oldStatus = currentStatus;
+      
+      if (newState == State.INTERRUPTED && oldStatus.getState() == State.INITIALIZING) {
+        newState = State.INITIALIZING; // see comment on updateStatus in the DataSourceUpdates interface
+      }
+      
+      if (newState != oldStatus.getState() || newError != null) {
+        currentStatus = new Status(
+            newState,
+            newState == currentStatus.getState() ? currentStatus.getStateSince() : Instant.now(),
+            newError == null ? currentStatus.getLastError() : newError
+            );
+        statusToBroadcast = currentStatus;
+      }
+      
+      outageTracker.trackDataSourceState(newState, newError);
+    }
+    
+    if (statusToBroadcast != null) {
+      dataSourceStatusNotifier.broadcast(statusToBroadcast);
+    }
+  }
+
+  Status getLastStatus() {
+    synchronized (this) {
+      return currentStatus;
+    }
+  }
+  
   private boolean hasFlagChangeEventListeners() {
-    return flagChangeEventNotifier != null && flagChangeEventNotifier.hasListeners();
+    return flagChangeEventNotifier.hasListeners();
   }
   
   private void sendChangeEvents(Iterable<KindAndKey> affectedItems) {
-    if (flagChangeEventNotifier == null) {
-      return;
-    }
     for (KindAndKey item: affectedItems) {
       if (item.kind == FEATURES) {
         flagChangeEventNotifier.broadcast(new FlagChangeEvent(item.key));
@@ -153,6 +231,89 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
         // version numbers are different, the higher one is the more recent version).
       }
     }
-    return affectedItems;  
+    return affectedItems;
+  }
+  
+  private void reportStoreFailure(RuntimeException e) {
+    if (!lastStoreUpdateFailed) {
+      LDClient.logger.warn("Unexpected data store error when trying to store an update received from the data source: {}", e.toString());
+      lastStoreUpdateFailed = true;
+    }
+    LDClient.logger.debug(e.toString(), e);
+    updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.STORE_ERROR, e));
+  }
+  
+  // Encapsulates our logic for keeping track of the length and cause of data source outages.
+  private static final class OutageTracker {
+    private final boolean enabled;
+    private final ScheduledExecutorService sharedExecutor;
+    private final Duration loggingTimeout;
+    private final HashMap<ErrorInfo, Integer> errorCounts = new HashMap<>();
+    
+    private volatile boolean inOutage;
+    private volatile ScheduledFuture<?> timeoutFuture;
+    
+    OutageTracker(ScheduledExecutorService sharedExecutor, Duration loggingTimeout) {
+      this.sharedExecutor = sharedExecutor;
+      this.loggingTimeout = loggingTimeout;
+      this.enabled = loggingTimeout != null;
+    }
+    
+    void trackDataSourceState(State newState, ErrorInfo newError) {
+      if (!enabled) {
+        return;
+      }
+      
+      synchronized (this) {
+        if (newState == State.INTERRUPTED || newError != null || (newState == State.INITIALIZING && inOutage)) {
+          // We are in a potentially recoverable outage. If that wasn't the case already, and if we've been configured
+          // with a timeout for logging the outage at a higher level, schedule that timeout.
+          if (inOutage) {
+            // We were already in one - just record this latest error for logging later.
+            recordError(newError);
+          } else { 
+            // We weren't already in one, so set the timeout and start recording errors.
+            inOutage = true;
+            errorCounts.clear();
+            recordError(newError);
+            timeoutFuture = sharedExecutor.schedule(this::onTimeout, loggingTimeout.toMillis(), TimeUnit.MILLISECONDS);
+          }
+        } else {
+          if (timeoutFuture != null) {
+            timeoutFuture.cancel(false);
+            timeoutFuture = null;
+          }
+          inOutage = false;
+        }
+      }
+    }
+  
+    private void recordError(ErrorInfo newError) {
+      // Accumulate how many times each kind of error has occurred during the outage - use just the basic
+      // properties as the key so the map won't expand indefinitely
+      ErrorInfo basicErrorInfo = new ErrorInfo(newError.getKind(), newError.getStatusCode(), null, null);
+      LDClient.logger.warn("recordError(" + basicErrorInfo + ")");
+      errorCounts.compute(basicErrorInfo, (key, oldValue) -> oldValue == null ? 1 : oldValue.intValue() + 1);
+    }
+    
+    private void onTimeout() {
+      String errorsDesc;
+      synchronized (this) {
+        if (timeoutFuture == null || !inOutage) {
+          return;
+        }
+        timeoutFuture = null;
+        errorsDesc = Joiner.on(", ").join(transform(errorCounts.entrySet(), OutageTracker::describeErrorCount));
+      }
+      LDClient.logger.error(
+          "LaunchDarkly data source outage - updates have been unavailable for at least {} with the following errors: {}",
+          Util.describeDuration(loggingTimeout),
+          errorsDesc
+          );
+    }
+    
+    private static String describeErrorCount(Map.Entry<ErrorInfo, Integer> entry) {
+      return entry.getKey() + " (" + entry.getValue() + (entry.getValue() == 1 ? " time" : " times") + ")";
+    }
   }
 }
