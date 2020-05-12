@@ -34,7 +34,8 @@ final class DefaultEventSender implements EventSender {
   private static final String EVENT_SCHEMA_VERSION = "3";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
   private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
-
+  private static final Object HTTP_DATE_FORMAT_LOCK = new Object(); // synchronize on this because DateFormat isn't thread-safe
+  
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
 
@@ -133,7 +134,7 @@ final class DefaultEventSender implements EventSender {
     if (dateStr != null) {
       try {
         // DateFormat is not thread-safe, so must synchronize
-        synchronized (HTTP_DATE_FORMAT) {
+        synchronized (HTTP_DATE_FORMAT_LOCK) {
           return HTTP_DATE_FORMAT.parse(dateStr);
         }
       } catch (ParseException e) {
