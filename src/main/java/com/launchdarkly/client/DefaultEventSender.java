@@ -35,13 +35,16 @@ final class DefaultEventSender implements EventSender {
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
   private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
   private static final Object HTTP_DATE_FORMAT_LOCK = new Object(); // synchronize on this because DateFormat isn't thread-safe
+  static final int DEFAULT_RETRY_DELAY_MILLIS = 1000;
   
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
+  private final int retryDelayMillis;
 
   DefaultEventSender(
       String sdkKey,
-      HttpConfiguration httpConfiguration
+      HttpConfiguration httpConfiguration,
+      int retryDelayMillis
       ) {
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(httpConfiguration, httpBuilder);
@@ -51,6 +54,7 @@ final class DefaultEventSender implements EventSender {
         .add("Content-Type", "application/json")
         .build();
     
+    this.retryDelayMillis = retryDelayMillis <= 0 ? DEFAULT_RETRY_DELAY_MILLIS : retryDelayMillis;
   }
   
   @Override
@@ -88,9 +92,9 @@ final class DefaultEventSender implements EventSender {
 
     for (int attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) {
-        logger.warn("Will retry posting {} after 1 second", description);
+        logger.warn("Will retry posting {} after {} milliseconds", description, retryDelayMillis);
         try {
-          Thread.sleep(1000);
+          Thread.sleep(retryDelayMillis);
         } catch (InterruptedException e) {
         }
       }
@@ -147,7 +151,7 @@ final class DefaultEventSender implements EventSender {
   static final class Factory implements EventSenderFactory {
     @Override
     public EventSender createEventSender(String sdkKey, HttpConfiguration httpConfiguration) {
-      return new DefaultEventSender(sdkKey, httpConfiguration);
+      return new DefaultEventSender(sdkKey, httpConfiguration, DefaultEventSender.DEFAULT_RETRY_DELAY_MILLIS);
     }
   }
 }

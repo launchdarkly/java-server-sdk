@@ -35,6 +35,7 @@ public class DefaultEventSenderTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final String FAKE_DATA = "some data";
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+  private static final int BRIEF_RETRY_DELAY_MILLIS = 50;
   
   private static EventSender makeEventSender() {
     return makeEventSender(Components.httpConfiguration().createHttpConfiguration());
@@ -43,7 +44,8 @@ public class DefaultEventSenderTest {
   private static EventSender makeEventSender(HttpConfiguration httpConfiguration) {
     return new DefaultEventSender(
         SDK_KEY,
-        httpConfiguration
+        httpConfiguration,
+        BRIEF_RETRY_DELAY_MILLIS
         );
   }
 
