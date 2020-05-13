@@ -65,25 +65,26 @@ final class DefaultEventSender implements EventSender {
   @Override
   public Result sendEventData(EventDataKind kind, String data, int eventCount, URI eventsBaseUri) {
     Headers.Builder headersBuilder = baseHeaders.newBuilder();
-    URI uri;
+    String path;
     String description;
     
     switch (kind) {
     case ANALYTICS:
-      uri = eventsBaseUri.resolve("bulk");
+      path = "bulk";
       String eventPayloadId = UUID.randomUUID().toString();
       headersBuilder.add(EVENT_PAYLOAD_ID_HEADER, eventPayloadId);
       headersBuilder.add(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION);
       description = String.format("%d event(s)", eventCount);
       break;
     case DIAGNOSTICS:
-      uri = eventsBaseUri.resolve("diagnostic");
+      path = "diagnostic";
       description = "diagnostic event";
       break;
     default:
       throw new IllegalArgumentException("kind");
     }
     
+    URI uri = eventsBaseUri.resolve(eventsBaseUri.getPath().endsWith("/") ? path : ("/" + path));
     Headers headers = headersBuilder.build();
     RequestBody body = RequestBody.create(MediaType.parse("application/json; charset=utf-8"), data);
     boolean mustShutDown = false;
