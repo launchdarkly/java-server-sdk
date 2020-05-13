@@ -301,14 +301,24 @@ public class TestUtil {
     };
   }
 
-  static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate, boolean inlineUsersInEvents,
-      Set<String> privateAttrNames) {
+  static EventsConfiguration makeEventsConfig(
+      boolean allAttributesPrivate,
+      boolean inlineUsersInEvents,
+      Set<String> privateAttrNames
+      ) {
     return new EventsConfiguration(
         allAttributesPrivate,
-        0, null, 0,
+        0,
+        null,
+        null,
+        0,
         inlineUsersInEvents,
         privateAttrNames,
-        0, 0, 0, EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS);
+        0,
+        0,
+        0,
+        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL_SECONDS
+        );
   }
 
   static EventsConfiguration defaultEventsConfig() {
