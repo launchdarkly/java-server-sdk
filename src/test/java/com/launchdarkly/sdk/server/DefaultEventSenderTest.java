@@ -270,6 +270,24 @@ public class DefaultEventSenderTest {
     }
   }
   
+  @Test
+  public void baseUriDoesNotNeedToEndInSlash() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (EventSender es = makeEventSender()) {
+        URI uriWithoutSlash = URI.create(server.url("/").toString().replaceAll("/$", ""));
+        EventSender.Result result = es.sendEventData(ANALYTICS, FAKE_DATA, 1, uriWithoutSlash);
+        
+        assertTrue(result.isSuccess());
+        assertFalse(result.isMustShutDown());
+      }
+      
+      RecordedRequest req = server.takeRequest();   
+      assertEquals("/bulk", req.getPath());
+      assertEquals("application/json; charset=utf-8", req.getHeader("content-type"));
+      assertEquals(FAKE_DATA, req.getBody().readUtf8());
+    }
+  }
+
   private void testUnrecoverableHttpError(int status) throws Exception {
     MockResponse errorResponse = new MockResponse().setResponseCode(status);
     
