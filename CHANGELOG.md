@@ -34,6 +34,13 @@ This is a major rewrite that introduces a cleaner API design, adds new features,
 
 If you want to test this release and you are using Consul, DynamoDB, or Redis as a persistent data store, you will also need to update to version 2.0.0-rc1 of the [Consul integration](https://github.com/launchdarkly/java-server-sdk-consul/tree/2.x), 3.0.0-rc1 of the [DynamoDB integration](https://github.com/launchdarkly/java-server-sdk-dynamodb/tree/3.x), or 1.0.0-rc1 of the [Redis integration](http://github.com/launchdarkly/java-server-sdk-redis) (previously the Redis integration was built in; now it is a separate module).
 
+## [4.14.0] - 2020-05-13
+### Added:
+- `EventSender` interface and `EventsConfigurationBuilder.eventSender()` allow you to specify a custom implementation of how event data is sent. This is mainly to facilitate testing, but could also be used to store and forward event data.
+
+### Fixed:
+- Changed the Javadoc comments for the `LDClient` constructors to provide a better explanation of the client&#39;s initialization behavior.
+
 ## [4.13.0] - 2020-04-21
 ### Added:
 - The new methods `Components.httpConfiguration()` and `LDConfig.Builder.http()`, and the new class `HttpConfigurationBuilder`, provide a subcomponent configuration model that groups together HTTP-related options such as `connectTimeoutMillis` and `proxyHost` - similar to how `Components.streamingDataSource()` works for streaming-related options or `Components.sendEvents()` for event-related options. The individual `LDConfig.Builder` methods for those options will still work, but are deprecated and will be removed in version 5.0.
