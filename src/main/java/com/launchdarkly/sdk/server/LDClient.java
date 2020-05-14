@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
@@ -7,15 +8,17 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
 import org.apache.commons.codec.binary.Hex;
@@ -28,7 +31,10 @@ import java.net.URL;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.jar.Attributes;
@@ -54,19 +60,37 @@ public final class LDClient implements LDClientInterface {
   static final String CLIENT_VERSION = getClientVersion();
 
   private final String sdkKey;
+  private final boolean offline;
   private final Evaluator evaluator;
-  private final FlagChangeEventPublisher flagChangeEventPublisher;
   final EventProcessor eventProcessor;
   final DataSource dataSource;
   final DataStore dataStore;
-  private final DataStoreStatusProvider dataStoreStatusProvider;
-  private final boolean offline;
+  private final DataSourceUpdates dataSourceUpdates;
+  private final DataStoreStatusProviderImpl dataStoreStatusProvider;
+  private final DataSourceStatusProviderImpl dataSourceStatusProvider;
+  private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
+  private final ScheduledExecutorService sharedExecutor;
   
   /**
-   * Creates a new client instance that connects to LaunchDarkly with the default configuration. In most
-   * cases, you should use this constructor.
+   * Creates a new client instance that connects to LaunchDarkly with the default configuration.
+   * <p>
+   * If you need to specify any custom SDK options, use {@link LDClient#LDClient(String, LDConfig)}
+   * instead.
+   * <p>
+   * Applications should instantiate a single instance for the lifetime of the application. In
+   * unusual cases where an application needs to evaluate feature flags from different LaunchDarkly
+   * projects or environments, you may create multiple clients, but they should still be retained
+   * for the lifetime of the application rather than created per request or per thread.
+   * <p>
+   * The client will begin attempting to connect to LaunchDarkly as soon as you call the constructor.
+   * The constructor will return when it successfully connects, or when the default timeout of 5 seconds
+   * expires, whichever comes first. If it has not succeeded in connecting when the timeout elapses,
+   * you will receive the client in an uninitialized state where feature flags will return default
+   * values; it will still continue trying to connect in the background. You can detect whether
+   * initialization has succeeded by calling {@link #initialized()}.
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
+   * @see LDClient#LDClient(String, LDConfig)
    */
   public LDClient(String sdkKey) {
     this(sdkKey, LDConfig.DEFAULT);
@@ -83,16 +107,34 @@ public final class LDClient implements LDClientInterface {
   }
   
   /**
-   * Creates a new client to connect to LaunchDarkly with a custom configuration. This constructor
-   * can be used to configure advanced client features, such as customizing the LaunchDarkly base URL.
+   * Creates a new client to connect to LaunchDarkly with a custom configuration.
+   * <p>
+   * This constructor can be used to configure advanced SDK features; see {@link LDConfig.Builder}.
+   * <p>
+   * Applications should instantiate a single instance for the lifetime of the application. In
+   * unusual cases where an application needs to evaluate feature flags from different LaunchDarkly
+   * projects or environments, you may create multiple clients, but they should still be retained
+   * for the lifetime of the application rather than created per request or per thread.
+   * <p>
+   * Unless it is configured to be offline with {@link LDConfig.Builder#offline(boolean)} or
+   * {@link Components#externalUpdatesOnly()}, the client will begin attempting to connect to
+   * LaunchDarkly as soon as you call the constructor. The constructor will return when it successfully
+   * connects, or when the timeout set by {@link LDConfig.Builder#startWait(java.time.Duration)} (default:
+   * 5 seconds) expires, whichever comes first. If it has not succeeded in connecting when the timeout
+   * elapses, you will receive the client in an uninitialized state where feature flags will return
+   * default values; it will still continue trying to connect in the background. You can detect
+   * whether initialization has succeeded by calling {@link #initialized()}.  
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
    * @param config a client configuration object
+   * @see LDClient#LDClient(String, LDConfig)
    */
   public LDClient(String sdkKey, LDConfig config) {
     checkNotNull(config, "config must not be null");
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
     this.offline = config.offline;
+    
+    this.sharedExecutor = createSharedExecutor(config);
     
     final EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
         Components.sendEvents() : config.eventProcessorFactory;
@@ -108,16 +150,22 @@ public final class LDClient implements LDClientInterface {
     // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
     // standard event processor
     final boolean useDiagnostics = !config.diagnosticOptOut && epFactory instanceof EventProcessorBuilder;
-    final ClientContextImpl context = new ClientContextImpl(sdkKey, config,
-        useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null);
+    final ClientContextImpl context = new ClientContextImpl(
+        sdkKey,
+        config,
+        sharedExecutor,
+        useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null
+        );
 
     this.eventProcessor = epFactory.createEventProcessor(context);
 
     DataStoreFactory factory = config.dataStoreFactory == null ?
         Components.inMemoryDataStore() : config.dataStoreFactory;
-    this.dataStore = factory.createDataStore(context);
-    this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore);
-    
+    EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> dataStoreStatusNotifier =
+        EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
+    DataStoreUpdatesImpl dataStoreUpdates = new DataStoreUpdatesImpl(dataStoreStatusNotifier);
+    this.dataStore = factory.createDataStore(context, dataStoreUpdates);
+
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
         return LDClient.getFlag(LDClient.this.dataStore, key);
@@ -127,14 +175,27 @@ public final class LDClient implements LDClientInterface {
         return LDClient.getSegment(LDClient.this.dataStore, key);
       }
     });
-    
-    this.flagChangeEventPublisher = new FlagChangeEventPublisher();
-    
+
+    this.flagChangeEventNotifier = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor);
+
+    this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore, dataStoreUpdates);
+
     DataSourceFactory dataSourceFactory = config.dataSourceFactory == null ?
         Components.streamingDataSource() : config.dataSourceFactory;
-    DataStoreUpdates dataStoreUpdates = new DataStoreUpdatesImpl(dataStore, flagChangeEventPublisher);
-    this.dataSource = dataSourceFactory.createDataSource(context, dataStoreUpdates);
-
+    EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> dataSourceStatusNotifier =
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+    DataSourceUpdatesImpl dataSourceUpdates = new DataSourceUpdatesImpl(
+        dataStore,
+        dataStoreStatusProvider,
+        flagChangeEventNotifier,
+        dataSourceStatusNotifier,
+        sharedExecutor,
+        config.loggingConfig.getLogDataSourceOutageAsErrorAfter()
+        );
+    this.dataSourceUpdates = dataSourceUpdates;
+    this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);    
+    this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates::getLastStatus);
+    
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {
       if (!(dataSource instanceof Components.NullDataSource)) {
@@ -397,17 +458,22 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public void registerFlagChangeListener(FlagChangeListener listener) {
-    flagChangeEventPublisher.register(listener);
+    flagChangeEventNotifier.register(listener);
   }
   
   @Override
   public void unregisterFlagChangeListener(FlagChangeListener listener) {
-    flagChangeEventPublisher.unregister(listener);
+    flagChangeEventNotifier.unregister(listener);
   }
   
   @Override
   public DataStoreStatusProvider getDataStoreStatusProvider() {
     return dataStoreStatusProvider;
+  }
+
+  @Override
+  public DataSourceStatusProvider getDataSourceStatusProvider() {
+    return dataSourceStatusProvider;
   }
   
   @Override
@@ -416,7 +482,8 @@ public final class LDClient implements LDClientInterface {
     this.dataStore.close();
     this.eventProcessor.close();
     this.dataSource.close();
-    this.flagChangeEventPublisher.close();
+    this.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, null);
+    this.sharedExecutor.shutdownNow();
   }
 
   @Override
@@ -452,6 +519,20 @@ public final class LDClient implements LDClientInterface {
   @Override
   public String version() {
     return CLIENT_VERSION;
+  }
+  
+  // This executor is used for a variety of SDK tasks such as flag change events, checking the data store
+  // status after an outage, and the poll task in polling mode. These are all tasks that we do not expect
+  // to be executing frequently so that it is acceptable to use a single thread to execute them one at a
+  // time rather than a thread pool, thus reducing the number of threads spawned by the SDK. This also
+  // has the benefit of producing predictable delivery order for event listener notifications.
+  private ScheduledExecutorService createSharedExecutor(LDConfig config) {
+    ThreadFactory threadFactory = new ThreadFactoryBuilder()
+        .setDaemon(true)
+        .setNameFormat("LaunchDarkly-tasks-%d")
+        .setPriority(config.threadPriority)
+        .build();
+    return Executors.newSingleThreadScheduledExecutor(threadFactory);
   }
   
   private static String getClientVersion() {

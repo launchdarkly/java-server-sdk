@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -99,7 +100,17 @@ class InMemoryDataStore implements DataStore, DiagnosticDescription {
   public boolean isInitialized() {
     return initialized;
   }
-
+  
+  @Override
+  public boolean isStatusMonitoringEnabled() {
+    return false;
+  }
+  
+  @Override
+  public CacheStats getCacheStats() {
+    return null;
+  }
+  
   /**
    * Does nothing; this class does not have any resources to release
    *

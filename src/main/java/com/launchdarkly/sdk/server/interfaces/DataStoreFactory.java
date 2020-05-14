@@ -12,7 +12,9 @@ public interface DataStoreFactory {
    * Creates an implementation instance.
    * 
    * @param context allows access to the client configuration
+   * @param dataStoreUpdates the data store can use this object to report information back to
+   *   the SDK if desired
    * @return a {@link DataStore}
    */
-  DataStore createDataStore(ClientContext context);
+  DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates);
 }

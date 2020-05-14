@@ -7,11 +7,14 @@ import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactor
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileParser;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileRep;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +29,7 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.Watchable;
+import java.time.Instant;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -50,13 +54,13 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 final class FileDataSourceImpl implements DataSource {
   private static final Logger logger = LoggerFactory.getLogger(FileDataSourceImpl.class);
 
-  private final DataStoreUpdates dataStoreUpdates;
+  private final DataSourceUpdates dataSourceUpdates;
   private final DataLoader dataLoader;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final FileWatcher fileWatcher;
   
-  FileDataSourceImpl(DataStoreUpdates dataStoreUpdates, List<Path> sources, boolean autoUpdate) {
-    this.dataStoreUpdates = dataStoreUpdates;
+  FileDataSourceImpl(DataSourceUpdates dataSourceUpdates, List<Path> sources, boolean autoUpdate) {
+    this.dataSourceUpdates = dataSourceUpdates;
     this.dataLoader = new DataLoader(sources);
 
     FileWatcher fw = null;
@@ -82,9 +86,7 @@ final class FileDataSourceImpl implements DataSource {
     // if we are told to reload by the file watcher.
 
     if (fileWatcher != null) {
-      fileWatcher.start(() -> {
-        FileDataSourceImpl.this.reload();
-      });
+      fileWatcher.start(this::reload);
     }
     
     return initFuture;
@@ -96,9 +98,12 @@ final class FileDataSourceImpl implements DataSource {
       dataLoader.load(builder); 
     } catch (FileDataException e) {
       logger.error(e.getDescription());
+      dataSourceUpdates.updateStatus(State.INTERRUPTED,
+          new ErrorInfo(ErrorKind.INVALID_DATA, 0, e.getDescription(), Instant.now()));
       return false;
     }
-    dataStoreUpdates.init(builder.build());
+    dataSourceUpdates.init(builder.build());
+    dataSourceUpdates.updateStatus(State.VALID, null);
     inited.set(true);
     return true;
   }

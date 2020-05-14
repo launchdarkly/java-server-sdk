@@ -1,10 +1,15 @@
-package com.launchdarkly.sdk.server.integrations;
+package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.launchdarkly.sdk.server.PersistentDataStoreStatusManager;
+import com.launchdarkly.sdk.server.PersistentDataStoreWrapper;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
+import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
+import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
@@ -26,6 +31,7 @@ import static com.launchdarkly.sdk.server.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toItemsMap;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toSerialized;
+import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -42,6 +48,9 @@ public class PersistentDataStoreWrapperTest {
   private final TestMode testMode;
   private final MockPersistentDataStore core;
   private final PersistentDataStoreWrapper wrapper;
+  private final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
+  private final DataStoreUpdatesImpl dataStoreUpdates;
+  private final DataStoreStatusProvider dataStoreStatusProvider;
   
   static class TestMode {
     final boolean cached;
@@ -94,8 +103,21 @@ public class PersistentDataStoreWrapperTest {
     this.testMode = testMode;
     this.core = new MockPersistentDataStore();
     this.core.persistOnlyAsString = testMode.persistOnlyAsString;
-    this.wrapper = new PersistentDataStoreWrapper(core, testMode.getCacheTtl(),
-        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, false);
+    this.wrapper = new PersistentDataStoreWrapper(
+        core,
+        testMode.getCacheTtl(),
+        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
+        false,
+        this::updateStatus,
+        sharedExecutor
+        );
+    this.statusBroadcaster = EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
+    this.dataStoreUpdates = new DataStoreUpdatesImpl(statusBroadcaster);
+    this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(wrapper, dataStoreUpdates);
+  }
+
+  private void updateStatus(DataStoreStatusProvider.Status status) {
+    dataStoreUpdates.updateStatus(status);
   }
   
   @After
@@ -445,8 +467,14 @@ public class PersistentDataStoreWrapperTest {
     assumeThat(testMode.isCached(), is(true));
     
     // We need to create a different object for this test so we can set a short cache TTL
-    try (PersistentDataStoreWrapper wrapper1 = new PersistentDataStoreWrapper(core,
-        Duration.ofMillis(500), PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, false)) {
+    try (PersistentDataStoreWrapper wrapper1 = new PersistentDataStoreWrapper(
+        core,
+        Duration.ofMillis(500),
+        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
+        false,
+        this::updateStatus,
+        sharedExecutor
+        )) {
       assertThat(wrapper1.isInitialized(), is(false));
       assertThat(core.initedQueryCount, equalTo(1));
       
@@ -468,11 +496,17 @@ public class PersistentDataStoreWrapperTest {
   public void canGetCacheStats() throws Exception {
     assumeThat(testMode.isCachedWithFiniteTtl(), is(true));
     
-    try (PersistentDataStoreWrapper w = new PersistentDataStoreWrapper(core,
-        Duration.ofSeconds(30), PersistentDataStoreBuilder.StaleValuesPolicy.EVICT, true)) {
-      DataStoreStatusProvider.CacheStats stats = w.getCacheStats();
+    try (PersistentDataStoreWrapper w = new PersistentDataStoreWrapper(
+        core,
+        Duration.ofSeconds(30),
+        PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
+        true,
+        this::updateStatus,
+        sharedExecutor
+        )) {
+      CacheStats stats = w.getCacheStats();
       
-      assertThat(stats, equalTo(new DataStoreStatusProvider.CacheStats(0, 0, 0, 0, 0, 0)));
+      assertThat(stats, equalTo(new CacheStats(0, 0, 0, 0, 0, 0)));
       
       // Cause a cache miss
       w.get(TEST_ITEMS, "key1");
@@ -510,7 +544,7 @@ public class PersistentDataStoreWrapperTest {
   
   @Test
   public void statusIsOkInitially() throws Exception {
-    DataStoreStatusProvider.Status status = wrapper.getStoreStatus();
+    DataStoreStatusProvider.Status status = dataStoreStatusProvider.getStoreStatus();
     assertThat(status.isAvailable(), is(true));
     assertThat(status.isRefreshNeeded(), is(false));
   }
@@ -519,7 +553,7 @@ public class PersistentDataStoreWrapperTest {
   public void statusIsUnavailableAfterError() throws Exception {
     causeStoreError(core, wrapper);
     
-    DataStoreStatusProvider.Status status = wrapper.getStoreStatus();
+    DataStoreStatusProvider.Status status = dataStoreStatusProvider.getStoreStatus();
     assertThat(status.isAvailable(), is(false));
     assertThat(status.isRefreshNeeded(), is(false));
   }
@@ -527,7 +561,7 @@ public class PersistentDataStoreWrapperTest {
   @Test
   public void statusListenerIsNotifiedOnFailureAndRecovery() throws Exception {
     final BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
-    wrapper.addStatusListener(statuses::add);
+    dataStoreStatusProvider.addStatusListener(statuses::add);
       
     causeStoreError(core, wrapper);
     
@@ -551,7 +585,7 @@ public class PersistentDataStoreWrapperTest {
     assumeThat(testMode.isCachedIndefinitely(), is(true));
 
     final BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
-    wrapper.addStatusListener(statuses::add);
+    dataStoreStatusProvider.addStatusListener(statuses::add);
 
     TestItem item1v1 = new TestItem("key1", 1);
     TestItem item1v2 = item1v1.withVersion(2);
@@ -607,7 +641,7 @@ public class PersistentDataStoreWrapperTest {
     // Most of this test is identical to cacheIsWrittenToStoreAfterRecoveryIfTtlIsInfinite() except as noted below.
     
     final BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
-    wrapper.addStatusListener(statuses::add);
+    dataStoreStatusProvider.addStatusListener(statuses::add);
 
     TestItem item1v1 = new TestItem("key1", 1);
     TestItem item1v2 = item1v1.withVersion(2);

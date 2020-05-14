@@ -1,21 +1,16 @@
-package com.launchdarkly.sdk.server.integrations;
+package com.launchdarkly.sdk.server;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.StatusListener;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * Used internally to encapsulate the data store status broadcasting mechanism for PersistentDataStoreWrapper.
@@ -27,42 +22,33 @@ final class PersistentDataStoreStatusManager {
   private static final Logger logger = LoggerFactory.getLogger(PersistentDataStoreStatusManager.class);
   static final int POLL_INTERVAL_MS = 500; // visible for testing
   
-  private final List<DataStoreStatusProvider.StatusListener> listeners = new ArrayList<>();
+  private final Consumer<DataStoreStatusProvider.Status> statusUpdater;
   private final ScheduledExecutorService scheduler;
   private final Callable<Boolean> statusPollFn;
   private final boolean refreshOnRecovery;
   private volatile boolean lastAvailable;
   private volatile ScheduledFuture<?> pollerFuture;
   
-  PersistentDataStoreStatusManager(boolean refreshOnRecovery, boolean availableNow, Callable<Boolean> statusPollFn) {
+  PersistentDataStoreStatusManager(
+      boolean refreshOnRecovery,
+      boolean availableNow,
+      Callable<Boolean> statusPollFn,
+      Consumer<DataStoreStatusProvider.Status> statusUpdater,
+      ScheduledExecutorService sharedExecutor
+      ) {
     this.refreshOnRecovery = refreshOnRecovery;
     this.lastAvailable = availableNow;
     this.statusPollFn = statusPollFn;
-    
-    ThreadFactory threadFactory = new ThreadFactoryBuilder()
-        .setNameFormat("LaunchDarkly-DataStoreStatusManager-%d")
-        .build();
-    scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
-    // Using newSingleThreadScheduledExecutor avoids ambiguity about execution order if we might have
-    // have a StatusNotificationTask happening soon after another one. 
-  }
-  
-  synchronized void addStatusListener(StatusListener listener) {
-    listeners.add(listener);
-  }
-  
-  synchronized void removeStatusListener(StatusListener listener) {
-    listeners.remove(listener);
+    this.statusUpdater = statusUpdater;
+    this.scheduler = sharedExecutor;
   }
   
   void updateAvailability(boolean available) {
-    StatusListener[] copyOfListeners = null;
     synchronized (this) {
       if (lastAvailable == available) {
         return;
       }
       lastAvailable = available;
-      copyOfListeners = listeners.toArray(new StatusListener[listeners.size()]);
     }
     
     Status status = new Status(available, available && refreshOnRecovery);
@@ -71,10 +57,7 @@ final class PersistentDataStoreStatusManager {
       logger.warn("Persistent store is available again");
     }
 
-    // Notify all the subscribers (on a worker thread, so we can't be blocked by a slow listener).
-    if (copyOfListeners.length > 0) {
-      scheduler.schedule(new StatusNotificationTask(status, copyOfListeners), 0, TimeUnit.MILLISECONDS);
-    }
+    statusUpdater.accept(status);
     
     // If the store has just become unavailable, start a poller to detect when it comes back. If it has
     // become available, stop any polling we are currently doing.
@@ -102,7 +85,12 @@ final class PersistentDataStoreStatusManager {
       };
       synchronized (this) {
         if (pollerFuture == null) {
-          pollerFuture = scheduler.scheduleAtFixedRate(pollerTask, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);          
+          pollerFuture = scheduler.scheduleAtFixedRate(
+              pollerTask,
+              POLL_INTERVAL_MS,
+              POLL_INTERVAL_MS,
+              TimeUnit.MILLISECONDS
+              );          
         }
       }
     }
@@ -110,29 +98,5 @@ final class PersistentDataStoreStatusManager {
   
   synchronized boolean isAvailable() {
     return lastAvailable;
-  }
-  
-  void close() {
-    scheduler.shutdown();
-  }
-  
-  private static final class StatusNotificationTask implements Runnable {
-    private final Status status;
-    private final StatusListener[] listeners;
-    
-    StatusNotificationTask(Status status, StatusListener[] listeners) {
-      this.status = status;
-      this.listeners = listeners;
-    }
-    
-    public void run() {
-      for (StatusListener listener: listeners) {
-        try {
-          listener.dataStoreStatusChanged(status);
-        } catch (Exception e) {
-          logger.error("Unexpected error from StatusListener: {0}", e);
-        }
-      }
-    }
   }
 }

@@ -5,9 +5,16 @@ import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+import com.launchdarkly.sdk.server.StreamProcessor.EventSourceParams;
+import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
+import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.TestComponents.MockEventSourceCreator;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -24,8 +31,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import javax.net.ssl.SSLHandshakeException;
 
@@ -35,10 +40,13 @@ import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
-import static com.launchdarkly.sdk.server.TestComponents.dataStoreUpdates;
 import static com.launchdarkly.sdk.server.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
+import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
+import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
+import static com.launchdarkly.sdk.server.TestUtil.shouldTimeOut;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestUtil.upsertSegment;
 import static com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY;
@@ -51,9 +59,10 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import okhttp3.HttpUrl;
 import okhttp3.mockwebserver.MockWebServer;
@@ -74,6 +83,8 @@ public class StreamProcessorTest extends EasyMockSupport {
       "data: {\"data\":{\"flags\":{},\"segments\":{}}}\n\n";
 
   private InMemoryDataStore dataStore;
+  private MockDataSourceUpdates dataSourceUpdates;
+  private MockDataStoreStatusProvider dataStoreStatusProvider;
   private FeatureRequestor mockRequestor;
   private EventSource mockEventSource;
   private MockEventSourceCreator mockEventSourceCreator;
@@ -81,6 +92,8 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Before
   public void setup() {
     dataStore = new InMemoryDataStore();
+    dataStoreStatusProvider = new MockDataStoreStatusProvider();
+    dataSourceUpdates = TestComponents.dataSourceUpdates(dataStore, dataStoreStatusProvider);
     mockRequestor = createStrictMock(FeatureRequestor.class);
     mockEventSource = createMock(EventSource.class);
     mockEventSourceCreator = new MockEventSourceCreator(mockEventSource);
@@ -90,7 +103,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   public void builderHasDefaultConfiguration() throws Exception {
     DataSourceFactory f = Components.streamingDataSource();
     try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
-        dataStoreUpdates(dataStore))) {
+        dataSourceUpdates)) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
       assertThat(sp.streamUri, equalTo(LDConfig.DEFAULT_STREAM_URI));
       assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
@@ -106,7 +119,7 @@ public class StreamProcessorTest extends EasyMockSupport {
         .initialReconnectDelay(Duration.ofMillis(5555))
         .pollingBaseURI(pollUri);
     try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
-        dataStoreUpdates(dataStore))) {
+        dataSourceUpdates(dataStore))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
       assertThat(sp.streamUri, equalTo(streamUri));      
       assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(pollUri));
@@ -474,22 +487,22 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void putEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestartWithInMemoryStore("put", "{sorry");
+    verifyInvalidDataEvent("put", "{sorry");
   }
 
   @Test
   public void putEventWithWellFormedJsonButInvalidDataCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestartWithInMemoryStore("put", "{\"data\":{\"flags\":3}}");
+    verifyInvalidDataEvent("put", "{\"data\":{\"flags\":3}}");
   }
 
   @Test
   public void patchEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestartWithInMemoryStore("patch", "{sorry");
+    verifyInvalidDataEvent("patch", "{sorry");
   }
 
   @Test
   public void patchEventWithWellFormedJsonButInvalidDataCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestartWithInMemoryStore("patch", "{\"path\":\"/flags/flagkey\", \"data\":{\"rules\":3}}");
+    verifyInvalidDataEvent("patch", "{\"path\":\"/flags/flagkey\", \"data\":{\"rules\":3}}");
   }
 
   @Test
@@ -499,7 +512,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void deleteEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyEventCausesStreamRestartWithInMemoryStore("delete", "{sorry");
+    verifyInvalidDataEvent("delete", "{sorry");
   }
 
   @Test
@@ -526,8 +539,6 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void restartsStreamIfStoreNeedsRefresh() throws Exception {
-    TestComponents.DataStoreWithStatusUpdates storeWithStatus = new TestComponents.DataStoreWithStatusUpdates(dataStore);
-    
     CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
     expectLastCall();
@@ -543,11 +554,11 @@ public class StreamProcessorTest extends EasyMockSupport {
     
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(storeWithStatus)) {
+    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
       sp.start();
       
-      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(false, false));
-      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(true, true));
+      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
+      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, true));
 
       restarted.get();
     }
@@ -555,8 +566,6 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void doesNotRestartStreamIfStoreHadOutageButDoesNotNeedRefresh() throws Exception {
-    TestComponents.DataStoreWithStatusUpdates storeWithStatus = new TestComponents.DataStoreWithStatusUpdates(dataStore);
-    
     CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
     expectLastCall();
@@ -572,11 +581,11 @@ public class StreamProcessorTest extends EasyMockSupport {
     
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(storeWithStatus)) {
+    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
       sp.start();
       
-      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(false, false));
-      storeWithStatus.broadcastStatusChange(new DataStoreStatusProvider.Status(true, false));
+      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
+      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, false));
 
       Thread.sleep(500);
       assertFalse(restarted.isDone());
@@ -585,25 +594,28 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void storeFailureOnPutCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     expectStreamRestart();
     replayAll();
 
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("put", emptyPutEvent());
+      
+      assertNotNull(badUpdates.getLastStatus().getLastError());
+      assertEquals(ErrorKind.STORE_ERROR, badUpdates.getLastStatus().getLastError().getKind());
     }    
     verifyAll();
   }
 
   @Test
   public void storeFailureOnPatchCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     expectStreamRestart();
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("patch",
@@ -614,11 +626,11 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void storeFailureOnDeleteCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));    
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     expectStreamRestart();
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("delete",
@@ -629,12 +641,12 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void storeFailureOnIndirectPutCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
     expectStreamRestart();
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("indirect/put", new MessageEvent(""));
@@ -644,13 +656,13 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void storeFailureOnIndirectPatchCausesStreamRestart() throws Exception {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
     setupRequestorToReturnAllDataWithFlag(FEATURE);
     
     expectStreamRestart();
     replayAll();
     
-    try (StreamProcessor sp = createStreamProcessorWithStore(badStore)) {
+    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("indirect/put", new MessageEvent(""));
@@ -658,6 +670,12 @@ public class StreamProcessorTest extends EasyMockSupport {
     verifyAll();
   }
 
+  private MockDataSourceUpdates dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring() {
+    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
+    DataStoreStatusProvider badStoreStatusProvider = new MockDataStoreStatusProvider(false);
+    return TestComponents.dataSourceUpdates(badStore, badStoreStatusProvider);
+  }
+  
   private void verifyEventCausesNoStreamRestart(String eventName, String eventData) throws Exception {
     expectNoStreamRestart();
     verifyEventBehavior(eventName, eventData);
@@ -676,6 +694,19 @@ public class StreamProcessorTest extends EasyMockSupport {
       handler.onMessage(eventName, new MessageEvent(eventData));
     }    
     verifyAll();
+  }
+  
+  private void verifyInvalidDataEvent(String eventName, String eventData) throws Exception {
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+    
+    verifyEventCausesStreamRestartWithInMemoryStore(eventName, eventData);
+    
+    // We did not allow the stream to successfully process an event before causing the error, so the
+    // state will still be INITIALIZING, but we should be able to see that an error happened.
+    Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
+    assertNotNull(status.getLastError());
+    assertEquals(ErrorKind.INVALID_DATA, status.getLastError().getKind());
   }
   
   private void expectNoStreamRestart() throws Exception {
@@ -771,44 +802,71 @@ public class StreamProcessorTest extends EasyMockSupport {
     }
   }
   
-  private void testUnrecoverableHttpError(int status) throws Exception {
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
+  private void testUnrecoverableHttpError(int statusCode) throws Exception {
+    UnsuccessfulResponseException e = new UnsuccessfulResponseException(statusCode);
     long startTime = System.currentTimeMillis();
     StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> initFuture = sp.start();
     
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
     ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
     assertEquals(ConnectionErrorHandler.Action.SHUTDOWN, action);
     
-    try {
-      initFuture.get(10, TimeUnit.SECONDS);
-    } catch (TimeoutException ignored) {
-      fail("Should not have timed out");
-    }
+    shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
     assertTrue((System.currentTimeMillis() - startTime) < 9000);
     assertTrue(initFuture.isDone());
     assertFalse(sp.isInitialized());
+    
+    Status newStatus = requireDataSourceStatus(statuses, State.OFF);
+    assertEquals(ErrorKind.ERROR_RESPONSE, newStatus.getLastError().getKind());
+    assertEquals(statusCode, newStatus.getLastError().getStatusCode());
   }
   
-  private void testRecoverableHttpError(int status) throws Exception {
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(status);
+  private void testRecoverableHttpError(int statusCode) throws Exception {
+    UnsuccessfulResponseException e = new UnsuccessfulResponseException(statusCode);
     long startTime = System.currentTimeMillis();
     StreamProcessor sp = createStreamProcessor(STREAM_URI);
     Future<Void> initFuture = sp.start();
     
-    ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
+    // simulate error
+    EventSourceParams eventSourceParams = mockEventSourceCreator.getNextReceivedParams();
+    ConnectionErrorHandler errorHandler = eventSourceParams.errorHandler;
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
     assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
     
-    try {
-      initFuture.get(200, TimeUnit.MILLISECONDS);
-      fail("Expected timeout");
-    } catch (TimeoutException ignored) {
-    }
+    shouldTimeOut(initFuture, Duration.ofMillis(200));
     assertTrue((System.currentTimeMillis() - startTime) >= 200);
     assertFalse(initFuture.isDone());
     assertFalse(sp.isInitialized());
+    
+    Status failureStatus1 = requireDataSourceStatus(statuses, State.INITIALIZING);
+    assertEquals(ErrorKind.ERROR_RESPONSE, failureStatus1.getLastError().getKind());
+    assertEquals(statusCode, failureStatus1.getLastError().getStatusCode());
+    
+    // simulate successful retry
+    eventSourceParams.handler.onMessage("put", emptyPutEvent());
+
+    shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+    assertTrue(initFuture.isDone());
+    assertTrue(sp.isInitialized());
+
+    Status successStatus = requireDataSourceStatus(statuses, State.VALID);
+    assertSame(failureStatus1.getLastError(), successStatus.getLastError());
+    
+    // simulate another error of the same kind - the difference is now the state will be INTERRUPTED
+    action = errorHandler.onConnectionError(e);
+    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+
+    Status failureStatus2 = requireDataSourceStatus(statuses, State.INTERRUPTED);
+    assertEquals(ErrorKind.ERROR_RESPONSE, failureStatus2.getLastError().getKind());
+    assertEquals(statusCode, failureStatus2.getLastError().getStatusCode());
+    assertNotSame(failureStatus2.getLastError(), failureStatus1.getLastError()); // a new instance of the same kind of error
   }
   
   private StreamProcessor createStreamProcessor(URI streamUri) {
@@ -820,19 +878,45 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore),
-        mockEventSourceCreator, diagnosticAccumulator,
-        streamUri, DEFAULT_INITIAL_RECONNECT_DELAY);
+    return new StreamProcessor(
+        SDK_KEY,
+        config.httpConfig,
+        mockRequestor,
+        dataSourceUpdates,
+        mockEventSourceCreator,
+        Thread.MIN_PRIORITY,
+        diagnosticAccumulator,
+        streamUri,
+        DEFAULT_INITIAL_RECONNECT_DELAY
+        );
   }
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
-    return new StreamProcessor(SDK_KEY, config.httpConfig, mockRequestor, dataStoreUpdates(dataStore), null, null,
-        streamUri, DEFAULT_INITIAL_RECONNECT_DELAY);
+    return new StreamProcessor(
+        SDK_KEY,
+        config.httpConfig,
+        mockRequestor,
+        dataSourceUpdates,
+        null,
+        Thread.MIN_PRIORITY,
+        null,
+        streamUri,
+        DEFAULT_INITIAL_RECONNECT_DELAY
+        );
   }
 
-  private StreamProcessor createStreamProcessorWithStore(DataStore store) {
-    return new StreamProcessor(SDK_KEY, LDConfig.DEFAULT.httpConfig, mockRequestor, dataStoreUpdates(store),
-        mockEventSourceCreator, null, STREAM_URI, DEFAULT_INITIAL_RECONNECT_DELAY);
+  private StreamProcessor createStreamProcessorWithStoreUpdates(DataSourceUpdates storeUpdates) {
+    return new StreamProcessor(
+        SDK_KEY,
+        LDConfig.DEFAULT.httpConfig,
+        mockRequestor,
+        storeUpdates,
+        mockEventSourceCreator,
+        Thread.MIN_PRIORITY,
+        null,
+        STREAM_URI,
+        DEFAULT_INITIAL_RECONNECT_DELAY
+        );
   }
 
   private String featureJson(String key, int version) {

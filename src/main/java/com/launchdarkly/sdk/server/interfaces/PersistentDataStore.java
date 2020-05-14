@@ -23,19 +23,25 @@ import java.io.Closeable;
  * a version number, and can represent either a serialized object or a placeholder (tombstone)
  * for a deleted item. There are two approaches a persistent store implementation can use for
  * persisting this data:
- * 
+ * <p>
  * 1. Preferably, it should store the version number and the {@link SerializedItemDescriptor#isDeleted()}
  * state separately so that the object does not need to be fully deserialized to read them. In
  * this case, deleted item placeholders can ignore the value of {@link SerializedItemDescriptor#getSerializedItem()}
  * on writes and can set it to null on reads. The store should never call {@link DataKind#deserialize(String)}
  * or {@link DataKind#serialize(DataStoreTypes.ItemDescriptor)}.
- * 
+ * <p>
  * 2. If that isn't possible, then the store should simply persist the exact string from
  * {@link SerializedItemDescriptor#getSerializedItem()} on writes, and return the persisted
  * string on reads (returning zero for the version and false for {@link SerializedItemDescriptor#isDeleted()}).
  * The string is guaranteed to provide the SDK with enough information to infer the version and
  * the deleted state. On updates, the store must call {@link DataKind#deserialize(String)} in
  * order to inspect the version number of the existing item if any.
+ * <p>
+ * Error handling is defined as follows: if any data store operation encounters a database error, or
+ * is otherwise unable to complete its task, it should throw a {@code RuntimeException} to make the SDK
+ * aware of this. The SDK will log the exception and will assume that the data store is now in a
+ * non-operational state; the SDK will then start polling {@link #isStoreAvailable()} to determine
+ * when the store has started working again.
  * 
  * @since 5.0.0
  */

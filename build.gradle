@@ -72,7 +72,7 @@ ext.versions = [
     "guava": "28.2-jre",
     "jackson": "2.10.0", 
     "launchdarklyJavaSdkCommon": "1.0.0-rc1",
-    "okhttpEventsource": "2.1.0",
+    "okhttpEventsource": "2.2.0",
     "slf4j": "1.7.21",
     "snakeyaml": "1.19",
     "jedis": "2.9.0"
@@ -326,11 +326,14 @@ def getFileFromClasspath(config, filePath) {
 }
 
 def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configuration> exportConfigs) {
+    // For a prerelease build with "-beta", "-rc", etc., the prerelease qualifier has to be
+    // removed from the bundle version because OSGi doesn't understand it.
+    def implementationVersion = version.replaceFirst('-.*$', '')
     jarTask.manifest {
         attributes(
-            "Implementation-Version": version,
+            "Implementation-Version": implementationVersion,
             "Bundle-SymbolicName": "com.launchdarkly.sdk",
-            "Bundle-Version": version,
+            "Bundle-Version": implementationVersion,
             "Bundle-Name": "LaunchDarkly SDK",
             "Bundle-ManifestVersion": "2",
             "Bundle-Vendor": "LaunchDarkly"
@@ -351,7 +354,7 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
 
         // Similarly, we're adding package exports for every package in whatever libraries we're
         // making publicly available.
-        def sdkExports = getAllSdkPackages().collect { bundleExport(it, version) }
+        def sdkExports = getAllSdkPackages().collect { bundleExport(it, implementationVersion) }
         def exportedDependencies = forEachArtifactAndVisiblePackage(exportConfigs, { a, p ->
             bundleExport(p, a.moduleVersion.id.version)
         })

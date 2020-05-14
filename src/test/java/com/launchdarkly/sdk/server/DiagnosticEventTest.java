@@ -8,6 +8,7 @@ import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 
 import org.junit.Test;
@@ -234,7 +235,7 @@ public class DiagnosticEventTest {
     }
 
     @Override
-    public DataStore createDataStore(ClientContext context) {
+    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
       return null;
     }
   }

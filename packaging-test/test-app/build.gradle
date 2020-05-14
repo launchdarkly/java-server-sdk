@@ -36,6 +36,13 @@ dependencies {
 
 jar {
     bnd(
+        // This consumer-policy directive completely turns off version checking for the test app's
+        // OSGi imports, so for instance if the app uses version 2.x of package P, the import will
+        // just be for p rather than p;version="[2.x,3)". One wouldn't normally do this, but we
+        // need to be able to run the CI tests for snapshot/beta versions, and bnd does not handle
+        // those correctly (5.0.0-beta1 will become "[5.0.0,6)" which will not work because the
+        // beta is semantically *before* 5.0.0).
+        '-consumer-policy': '',
         'Bundle-Activator': 'testapp.TestAppOsgiEntryPoint',
         'Import-Package': 'com.launchdarkly.sdk,com.launchdarkly.sdk.json' +
             ',com.launchdarkly.sdk.server,org.slf4j' +

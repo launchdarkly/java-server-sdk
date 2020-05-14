@@ -1,11 +1,8 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import java.time.Duration;
@@ -33,7 +30,7 @@ import java.util.concurrent.TimeUnit;
  * </code></pre>
  * 
  * In this example, {@code .url()} is an option specifically for the Redis integration, whereas
- * {@code ttlSeconds()} is an option that can be used for any persistent data store. 
+ * {@code cacheSeconds()} is an option that can be used for any persistent data store. 
  * <p>
  * Note that this class is abstract; the actual implementation is created by calling
  * {@link Components#persistentDataStore(PersistentDataStoreFactory)}.
@@ -45,10 +42,10 @@ public abstract class PersistentDataStoreBuilder implements DataStoreFactory {
    */
   public static final Duration DEFAULT_CACHE_TTL = Duration.ofSeconds(15);
 
-  protected final PersistentDataStoreFactory persistentDataStoreFactory; // see Components for why this is not private
-  private Duration cacheTime = DEFAULT_CACHE_TTL;
-  private StaleValuesPolicy staleValuesPolicy = StaleValuesPolicy.EVICT;
-  private boolean recordCacheStats = false;
+  protected final PersistentDataStoreFactory persistentDataStoreFactory; // see Components for why these are not private
+  protected Duration cacheTime = DEFAULT_CACHE_TTL;
+  protected StaleValuesPolicy staleValuesPolicy = StaleValuesPolicy.EVICT;
+  protected boolean recordCacheStats = false;
 
   /**
    * Possible values for {@link #staleValuesPolicy(StaleValuesPolicy)}.
@@ -195,14 +192,5 @@ public abstract class PersistentDataStoreBuilder implements DataStoreFactory {
   public PersistentDataStoreBuilder recordCacheStats(boolean recordCacheStats) {
     this.recordCacheStats = recordCacheStats;
     return this;
-  }
-  
-  /**
-   * Called by the SDK to create the data store instance.
-   */
-  @Override
-  public DataStore createDataStore(ClientContext context) {
-    PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
-    return new PersistentDataStoreWrapper(core, cacheTime, staleValuesPolicy, recordCacheStats);
   }
 }

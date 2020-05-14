@@ -5,12 +5,15 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DiagnosticEvent.ConfigProperty;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
+import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
@@ -18,10 +21,13 @@ import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import java.io.IOException;
@@ -219,7 +225,7 @@ public abstract class Components {
   }
 
   /**
-   * Returns a configurable factory for the SDK's networking configuration.
+   * Returns a configuration builder for the SDK's networking configuration.
    * <p>
    * Passing this to {@link LDConfig.Builder#http(com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory)}
    * applies this configuration to all HTTP/HTTPS requests made by the SDK.
@@ -262,6 +268,28 @@ public abstract class Components {
   public static HttpAuthentication httpBasicAuthentication(String username, String password) {
     return new HttpBasicAuthentication(username, password);
   }
+
+  /**
+   * Returns a configuration builder for the SDK's logging configuration.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)},
+   * after setting any desired properties on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .logging(
+   *              Components.logging()
+   *                  .logDataSourceOutageAsErrorAfter(Duration.ofSeconds(120))
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * @return a factory object
+   * @since 5.0.0
+   * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)
+   */
+  public static LoggingConfigurationBuilder logging() {
+    return new LoggingConfigurationBuilderImpl();
+  }
   
   /**
    * Convenience method for creating a {@link FlagChangeListener} that tracks a flag's value for a specific user.
@@ -291,7 +319,7 @@ public abstract class Components {
   private static final class InMemoryDataStoreFactory implements DataStoreFactory, DiagnosticDescription {
     static final DataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
     @Override
-    public DataStore createDataStore(ClientContext context) {
+    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
       return new InMemoryDataStore();
     }
 
@@ -328,7 +356,7 @@ public abstract class Components {
     static final NullDataSourceFactory INSTANCE = new NullDataSourceFactory();
     
     @Override
-    public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       if (context.isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
@@ -336,6 +364,7 @@ public abstract class Components {
       } else {
         LDClient.logger.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
       }
+      dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
       return NullDataSource.INSTANCE;
     }
 
@@ -373,11 +402,11 @@ public abstract class Components {
   private static final class StreamingDataSourceBuilderImpl extends StreamingDataSourceBuilder
       implements DiagnosticDescription {
     @Override
-    public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
       if (context.isOffline()) {
-        return Components.externalUpdatesOnly().createDataSource(context, dataStoreUpdates);
+        return Components.externalUpdatesOnly().createDataSource(context, dataSourceUpdates);
       }
       
       LDClient.logger.info("Enabling streaming API");
@@ -403,9 +432,10 @@ public abstract class Components {
           context.getSdkKey(),
           context.getHttpConfiguration(),
           requestor,
-          dataStoreUpdates,
+          dataSourceUpdates,
           null,
-          ClientContextImpl.getDiagnosticAccumulator(context),
+          context.getThreadPriority(),
+          ClientContextImpl.get(context).diagnosticAccumulator,
           streamUri,
           initialReconnectDelay
           );
@@ -431,11 +461,11 @@ public abstract class Components {
   
   private static final class PollingDataSourceBuilderImpl extends PollingDataSourceBuilder implements DiagnosticDescription {
     @Override
-    public DataSource createDataSource(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
       if (context.isOffline()) {
-        return Components.externalUpdatesOnly().createDataSource(context, dataStoreUpdates);
+        return Components.externalUpdatesOnly().createDataSource(context, dataSourceUpdates);
       }
 
       LDClient.logger.info("Disabling streaming API");
@@ -447,7 +477,12 @@ public abstract class Components {
           baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI,
           true
           );
-      return new PollingProcessor(requestor, dataStoreUpdates, pollInterval);
+      return new PollingProcessor(
+          requestor,
+          dataSourceUpdates,
+          ClientContextImpl.get(context).sharedExecutor,
+          pollInterval
+          );
     }
 
     @Override
@@ -473,23 +508,26 @@ public abstract class Components {
       if (context.isOffline()) {
         return new NullEventProcessor();
       }
+      EventSender eventSender =
+          (eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory)
+          .createEventSender(context.getSdkKey(), context.getHttpConfiguration());
       return new DefaultEventProcessor(
-          context.getSdkKey(),
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
+              eventSender,
               baseURI == null ? LDConfig.DEFAULT_EVENTS_URI : baseURI,
               flushInterval,
               inlineUsersInEvents,
               privateAttributes,
-              0, // deprecated samplingInterval isn't supported in new builder
               userKeysCapacity,
               userKeysFlushInterval,
               diagnosticRecordingInterval
               ),
-          context.getHttpConfiguration(),
-          ClientContextImpl.getDiagnosticAccumulator(context),
-          ClientContextImpl.getDiagnosticInitEvent(context)
+          ClientContextImpl.get(context).sharedExecutor,
+          context.getThreadPriority(),
+          ClientContextImpl.get(context).diagnosticAccumulator,
+          ClientContextImpl.get(context).diagnosticInitEvent
           );
     }
     
@@ -550,6 +588,29 @@ public abstract class Components {
         return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
       }
       return LDValue.of("custom");
+    }
+    
+    /**
+     * Called by the SDK to create the data store instance.
+     */
+    @Override
+    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+      PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
+      return new PersistentDataStoreWrapper(
+          core,
+          cacheTime,
+          staleValuesPolicy,
+          recordCacheStats,
+          dataStoreUpdates,
+          ClientContextImpl.get(context).sharedExecutor
+          );
+    }
+  }
+  
+  private static final class LoggingConfigurationBuilderImpl extends LoggingConfigurationBuilder {
+    @Override
+    public LoggingConfiguration createLoggingConfiguration() {
+      return new LoggingConfigurationImpl(logDataSourceOutageAsErrorAfter);
     }
   }
 }

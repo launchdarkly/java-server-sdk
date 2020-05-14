@@ -7,6 +7,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
@@ -18,16 +19,23 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
@@ -44,12 +52,74 @@ public class TestUtil {
    */
   public static final Gson TEST_GSON_INSTANCE = new Gson();
 
+  // repeats until action returns non-null value, throws exception on timeout
+  public static <T> T repeatWithTimeout(Duration timeout, Duration interval, Supplier<T> action) {
+    Instant deadline = Instant.now().plus(timeout);
+    while (Instant.now().isBefore(deadline)) {
+      T result = action.get();
+      if (result != null) {
+        return result;
+      }
+      try {
+        Thread.sleep(interval.toMillis());
+      } catch (InterruptedException e) { // it's annoying to have to keep declaring this exception further up the call chain
+        throw new RuntimeException(e);
+      }
+    }
+    throw new RuntimeException("timed out after " + timeout);
+  }
+  
   public static void upsertFlag(DataStore store, FeatureFlag flag) {
     store.upsert(FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
   }
   
   public static void upsertSegment(DataStore store, Segment segment) {
     store.upsert(SEGMENTS, segment.getKey(), new ItemDescriptor(segment.getVersion(), segment));
+  }
+
+  public static void shouldNotTimeOut(Future<?> future, Duration interval) throws ExecutionException, InterruptedException {
+    try {
+      future.get(interval.toMillis(), TimeUnit.MILLISECONDS);
+    } catch (TimeoutException ignored) {
+      fail("Should not have timed out");
+    }
+  }
+  
+  public static void shouldTimeOut(Future<?> future, Duration interval) throws ExecutionException, InterruptedException {
+    try {
+      future.get(interval.toMillis(), TimeUnit.MILLISECONDS);
+      fail("Expected timeout");
+    } catch (TimeoutException ignored) {
+    }
+  }
+
+  public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses) {
+    try {
+      DataSourceStatusProvider.Status status = statuses.poll(1, TimeUnit.SECONDS);
+      assertNotNull(status);
+      return status;
+    } catch (InterruptedException e) { // it's annoying to have to keep declaring this exception further up the call chain
+      throw new RuntimeException(e);
+    }
+  }
+  
+  public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses,
+      DataSourceStatusProvider.State expectedState) {
+    DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses);
+    assertEquals(expectedState, status.getState());
+    return status;
+  }
+
+  public static DataSourceStatusProvider.Status requireDataSourceStatusEventually(BlockingQueue<DataSourceStatusProvider.Status> statuses,
+      DataSourceStatusProvider.State expectedState, DataSourceStatusProvider.State possibleStateBeforeThat) {
+    return repeatWithTimeout(Duration.ofSeconds(2), Duration.ZERO, () -> {
+      DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses);
+      if (status.getState() == expectedState) {
+        return status;
+      }
+      assertEquals(possibleStateBeforeThat, status.getState());
+      return null;
+    });
   }
   
   public static class FlagChangeEventSink extends FlagChangeEventSinkBase<FlagChangeEvent> implements FlagChangeListener {

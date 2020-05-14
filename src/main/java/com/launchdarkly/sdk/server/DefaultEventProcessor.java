@@ -6,24 +6,21 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -31,61 +28,53 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
-import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
-import static com.launchdarkly.sdk.server.Util.httpErrorMessage;
-import static com.launchdarkly.sdk.server.Util.isHttpErrorRecoverable;
-import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
-
-import okhttp3.Headers;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-
 final class DefaultEventProcessor implements EventProcessor {
   private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
-  private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
-  private static final String EVENT_SCHEMA_VERSION = "3";
-  private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
-  private static final MediaType JSON_CONTENT_TYPE = MediaType.parse("application/json; charset=utf-8");
   
   @VisibleForTesting final EventDispatcher dispatcher;
   private final BlockingQueue<EventProcessorMessage> inbox;
   private final ScheduledExecutorService scheduler;
   private final AtomicBoolean closed = new AtomicBoolean(false);
+  private final List<ScheduledFuture<?>> scheduledTasks = new ArrayList<>();
   private volatile boolean inputCapacityExceeded = false;
 
-  DefaultEventProcessor(String sdkKey, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
-      DiagnosticAccumulator diagnosticAccumulator, DiagnosticEvent.Init diagnosticInitEvent) {
+  DefaultEventProcessor(
+      EventsConfiguration eventsConfig,
+      ScheduledExecutorService sharedExecutor,
+      int threadPriority,
+      DiagnosticAccumulator diagnosticAccumulator,
+      DiagnosticEvent.Init diagnosticInitEvent
+      ) {
     inbox = new ArrayBlockingQueue<>(eventsConfig.capacity);
     
-    ThreadFactory threadFactory = new ThreadFactoryBuilder()
-        .setDaemon(true)
-        .setNameFormat("LaunchDarkly-EventProcessor-%d")
-        .setPriority(Thread.MIN_PRIORITY)
-        .build();
-    scheduler = Executors.newSingleThreadScheduledExecutor(threadFactory);
+    scheduler = sharedExecutor;
 
-    dispatcher = new EventDispatcher(sdkKey, eventsConfig, httpConfig, inbox, threadFactory, closed, diagnosticAccumulator, diagnosticInitEvent);
+    dispatcher = new EventDispatcher(
+        eventsConfig,
+        sharedExecutor,
+        threadPriority,
+        inbox,
+        closed,
+        diagnosticAccumulator,
+        diagnosticInitEvent
+        );
 
     Runnable flusher = () -> {
       postMessageAsync(MessageType.FLUSH, null);
     };
-    this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushInterval.toMillis(),
-        eventsConfig.flushInterval.toMillis(), TimeUnit.MILLISECONDS);
+    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushInterval.toMillis(),
+        eventsConfig.flushInterval.toMillis(), TimeUnit.MILLISECONDS));
     Runnable userKeysFlusher = () -> {
       postMessageAsync(MessageType.FLUSH_USERS, null);
     };
-    this.scheduler.scheduleAtFixedRate(userKeysFlusher, eventsConfig.userKeysFlushInterval.toMillis(),
-        eventsConfig.userKeysFlushInterval.toMillis(), TimeUnit.MILLISECONDS);
+    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(userKeysFlusher, eventsConfig.userKeysFlushInterval.toMillis(),
+        eventsConfig.userKeysFlushInterval.toMillis(), TimeUnit.MILLISECONDS));
     if (diagnosticAccumulator != null) {
       Runnable diagnosticsTrigger = () -> {
         postMessageAsync(MessageType.DIAGNOSTIC, null);
       };
-      this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingInterval.toMillis(),
-          eventsConfig.diagnosticRecordingInterval.toMillis(), TimeUnit.MILLISECONDS);
+      scheduledTasks.add(this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingInterval.toMillis(),
+          eventsConfig.diagnosticRecordingInterval.toMillis(), TimeUnit.MILLISECONDS));
     }
   }
 
@@ -106,7 +95,7 @@ final class DefaultEventProcessor implements EventProcessor {
   @Override
   public void close() throws IOException {
     if (closed.compareAndSet(false, true)) {
-      scheduler.shutdown();
+      scheduledTasks.forEach(task -> task.cancel(false));
       postMessageAsync(MessageType.FLUSH, null);
       postMessageAndWait(MessageType.SHUTDOWN, null);
     }
@@ -205,30 +194,35 @@ final class DefaultEventProcessor implements EventProcessor {
     private static final int MESSAGE_BATCH_SIZE = 50;
 
     @VisibleForTesting final EventsConfiguration eventsConfig;
-    private final OkHttpClient httpClient;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
     @VisibleForTesting final DiagnosticAccumulator diagnosticAccumulator;
-    private final ExecutorService diagnosticExecutor;
+    private final ExecutorService sharedExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
 
     private long deduplicatedUsers = 0;
 
-    private EventDispatcher(String sdkKey, EventsConfiguration eventsConfig, HttpConfiguration httpConfig,
-                            final BlockingQueue<EventProcessorMessage> inbox,
-                            ThreadFactory threadFactory,
-                            final AtomicBoolean closed,
-                            DiagnosticAccumulator diagnosticAccumulator,
-                            DiagnosticEvent.Init diagnosticInitEvent) {
+    private EventDispatcher(
+        EventsConfiguration eventsConfig,
+        ExecutorService sharedExecutor,
+        int threadPriority,
+        final BlockingQueue<EventProcessorMessage> inbox,
+        final AtomicBoolean closed,
+        DiagnosticAccumulator diagnosticAccumulator,
+        DiagnosticEvent.Init diagnosticInitEvent
+        ) {
       this.eventsConfig = eventsConfig;
+      this.sharedExecutor = sharedExecutor;
       this.diagnosticAccumulator = diagnosticAccumulator;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
-      OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-      configureHttpClientBuilder(httpConfig, httpBuilder);
-      httpClient = httpBuilder.build();
+      ThreadFactory threadFactory = new ThreadFactoryBuilder()
+          .setDaemon(true)
+          .setNameFormat("LaunchDarkly-event-delivery-%d")
+          .setPriority(threadPriority)
+          .build();
       
       // This queue only holds one element; it represents a flush task that has not yet been
       // picked up by any worker, so if we try to push another one and are refused, it means
@@ -266,18 +260,21 @@ final class DefaultEventProcessor implements EventProcessor {
       flushWorkers = new ArrayList<>();
       EventResponseListener listener = this::handleResponse;
       for (int i = 0; i < MAX_FLUSH_THREADS; i++) {
-        SendEventsTask task = new SendEventsTask(sdkKey, eventsConfig, httpClient, httpConfig, listener, payloadQueue,
-            busyFlushWorkersCount, threadFactory);
+        SendEventsTask task = new SendEventsTask(
+            eventsConfig,
+            listener,
+            payloadQueue,
+            busyFlushWorkersCount,
+            threadFactory
+            );
         flushWorkers.add(task);
       }
 
       if (diagnosticAccumulator != null) {
         // Set up diagnostics
-        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(sdkKey, eventsConfig, httpClient, httpConfig);
-        diagnosticExecutor = Executors.newSingleThreadExecutor(threadFactory);
-        diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
+        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(eventsConfig);
+        sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
       } else {
-        diagnosticExecutor = null;
         sendDiagnosticTaskFactory = null;
       }
     }
@@ -333,7 +330,7 @@ final class DefaultEventProcessor implements EventProcessor {
       // We pass droppedEvents and deduplicatedUsers as parameters here because they are updated frequently in the main loop so we want to avoid synchronization on them.
       DiagnosticEvent diagnosticEvent = diagnosticAccumulator.createEventAndReset(droppedEvents, deduplicatedUsers);
       deduplicatedUsers = 0;
-      diagnosticExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticEvent));
+      sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticEvent));
     }
 
     private void doShutdown() {
@@ -342,10 +339,12 @@ final class DefaultEventProcessor implements EventProcessor {
       for (SendEventsTask task: flushWorkers) {
         task.stop();
       }
-      if (diagnosticExecutor != null) {
-        diagnosticExecutor.shutdown();
+      try {
+        eventsConfig.eventSender.close();
+      } catch (IOException e) {
+        logger.error("Unexpected error when closing event sender: {}", e.toString());
+        logger.debug(e.toString(), e);
       }
-      shutdownHttpClient(httpClient);
     }
 
     private void waitUntilAllFlushWorkersInactive() {
@@ -459,68 +458,12 @@ final class DefaultEventProcessor implements EventProcessor {
       }
     }
     
-    private void handleResponse(Response response, Date responseDate) {
-      if (responseDate != null) {
-        lastKnownPastTime.set(responseDate.getTime());
+    private void handleResponse(EventSender.Result result) {
+      if (result.getTimeFromServer() != null) {
+        lastKnownPastTime.set(result.getTimeFromServer().getTime());
       }
-      if (!isHttpErrorRecoverable(response.code())) {
+      if (result.isMustShutDown()) {
         disabled.set(true);
-        logger.error(httpErrorMessage(response.code(), "posting events", "some events were dropped"));
-        // It's "some events were dropped" because we're not going to retry *this* request any more times -
-        // we only get to this point if we have used up our retry attempts. So the last batch of events was
-        // lost, even though we will still try to post *other* events in the future.
-      }
-    }
-  }
-
-  private static void postJson(OkHttpClient httpClient, Headers headers, String json, String uriStr, String descriptor,
-                               EventResponseListener responseListener, SimpleDateFormat dateFormat) {
-    logger.debug("Posting {} to {} with payload: {}", descriptor, uriStr, json);
-
-    for (int attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) {
-        logger.warn("Will retry posting {} after 1 second", descriptor);
-        try {
-          Thread.sleep(1000);
-        } catch (InterruptedException e) {
-        }
-      }
-
-      Request request = new Request.Builder()
-          .url(uriStr)
-          .post(RequestBody.create(json, JSON_CONTENT_TYPE))
-          .headers(headers)
-          .build();
-
-      long startTime = System.currentTimeMillis();
-      try (Response response = httpClient.newCall(request).execute()) {
-        long endTime = System.currentTimeMillis();
-        logger.debug("{} delivery took {} ms, response status {}", descriptor, endTime - startTime, response.code());
-        if (!response.isSuccessful()) {
-          logger.warn("Unexpected response status when posting {}: {}", descriptor, response.code());
-          if (isHttpErrorRecoverable(response.code())) {
-            continue;
-          }
-        }
-        if (responseListener != null) {
-          Date respDate = null;
-          if (dateFormat != null) {
-            String dateStr = response.header("Date");
-            if (dateStr != null) {
-              try {
-                respDate = dateFormat.parse(dateStr);
-              } catch (ParseException e) {
-                logger.warn("Received invalid Date header from events service");
-              }
-            }
-          }
-          responseListener.handleResponse(response, respDate);
-        }
-        break;
-      } catch (IOException e) {
-        logger.warn("Unhandled exception in LaunchDarkly client when posting events to URL: {} ({})", request.url(), e.toString());
-        logger.debug(e.toString(), e);
-        continue;
       }
     }
   }
@@ -586,36 +529,31 @@ final class DefaultEventProcessor implements EventProcessor {
   }
 
   private static interface EventResponseListener {
-    void handleResponse(Response response, Date responseDate);
+    void handleResponse(EventSender.Result result);
   }
 
   private static final class SendEventsTask implements Runnable {
-    private final OkHttpClient httpClient;
+    private final EventsConfiguration eventsConfig;
     private final EventResponseListener responseListener;
     private final BlockingQueue<FlushPayload> payloadQueue;
     private final AtomicInteger activeFlushWorkersCount;
     private final AtomicBoolean stopping;
     private final EventOutputFormatter formatter;
     private final Thread thread;
-    private final Headers headers;
-    private final String uriStr;
 
-    private final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz"); // need one instance per task because the date parser isn't thread-safe
-
-    SendEventsTask(String sdkKey, EventsConfiguration eventsConfig, OkHttpClient httpClient, HttpConfiguration httpConfig,
-                   EventResponseListener responseListener, BlockingQueue<FlushPayload> payloadQueue,
-                   AtomicInteger activeFlushWorkersCount, ThreadFactory threadFactory) {
-      this.httpClient = httpClient;
+    SendEventsTask(
+        EventsConfiguration eventsConfig,
+        EventResponseListener responseListener,
+        BlockingQueue<FlushPayload> payloadQueue,
+        AtomicInteger activeFlushWorkersCount,
+        ThreadFactory threadFactory
+        ) {
+      this.eventsConfig = eventsConfig;
       this.formatter = new EventOutputFormatter(eventsConfig);
       this.responseListener = responseListener;
       this.payloadQueue = payloadQueue;
       this.activeFlushWorkersCount = activeFlushWorkersCount;
       this.stopping = new AtomicBoolean(false);
-      this.uriStr = eventsConfig.eventsUri.toString() + "/bulk";
-      this.headers = getHeadersBuilderFor(sdkKey, httpConfig)
-          .add("Content-Type", "application/json")
-          .add(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION)
-          .build();
       thread = threadFactory.newThread(this);
       thread.setDaemon(true);
       thread.start();
@@ -633,7 +571,13 @@ final class DefaultEventProcessor implements EventProcessor {
           StringWriter stringWriter = new StringWriter();
           int outputEventCount = formatter.writeOutputEvents(payload.events, payload.summary, stringWriter);
           if (outputEventCount > 0) {
-            postEvents(stringWriter.toString(), outputEventCount);
+            EventSender.Result result = eventsConfig.eventSender.sendEventData(
+                EventDataKind.ANALYTICS,
+                stringWriter.toString(),
+                outputEventCount,
+                eventsConfig.eventsUri
+                );
+            responseListener.handleResponse(result);
           }
         } catch (Exception e) {
           logger.error("Unexpected error in event processor: {}", e.toString());
@@ -650,25 +594,13 @@ final class DefaultEventProcessor implements EventProcessor {
       stopping.set(true);
       thread.interrupt();
     }
-
-    private void postEvents(String json, int outputEventCount) {
-      String eventPayloadId = UUID.randomUUID().toString();
-      Headers newHeaders = this.headers.newBuilder().add(EVENT_PAYLOAD_ID_HEADER, eventPayloadId).build();
-      postJson(httpClient, newHeaders, json, uriStr, String.format("%d event(s)", outputEventCount), responseListener, httpDateFormat);
-    }
   }
 
   private static final class SendDiagnosticTaskFactory {
-    private final OkHttpClient httpClient;
-    private final String uriStr;
-    private final Headers headers;
+    private final EventsConfiguration eventsConfig;
 
-    SendDiagnosticTaskFactory(String sdkKey, EventsConfiguration eventsConfig, OkHttpClient httpClient, HttpConfiguration httpConfig) {
-      this.httpClient = httpClient;
-      this.uriStr = eventsConfig.eventsUri.toString() + "/diagnostic";
-      this.headers = getHeadersBuilderFor(sdkKey, httpConfig)
-          .add("Content-Type", "application/json")
-          .build();
+    SendDiagnosticTaskFactory(EventsConfiguration eventsConfig) {
+      this.eventsConfig = eventsConfig;
     }
 
     Runnable createSendDiagnosticTask(final DiagnosticEvent diagnosticEvent) {
@@ -676,7 +608,7 @@ final class DefaultEventProcessor implements EventProcessor {
         @Override
         public void run() {
           String json = JsonHelpers.serialize(diagnosticEvent);
-          postJson(httpClient, headers, json, uriStr, "diagnostic event", null, null);
+          eventsConfig.eventSender.sendEventData(EventDataKind.DIAGNOSTICS, json, 1, eventsConfig.eventsUri);
         }
       };
     }
