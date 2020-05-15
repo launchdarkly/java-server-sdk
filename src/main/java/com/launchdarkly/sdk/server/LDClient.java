@@ -194,7 +194,7 @@ public final class LDClient implements LDClientInterface {
         );
     this.dataSourceUpdates = dataSourceUpdates;
     this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);    
-    this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates::getLastStatus);
+    this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates);
     
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {
