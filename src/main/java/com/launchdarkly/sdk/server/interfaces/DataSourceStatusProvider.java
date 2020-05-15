@@ -76,7 +76,7 @@ public interface DataSourceStatusProvider {
    * 
    * @param desiredState the desired connection state (normally this would be {@link State#VALID}) 
    * @param timeout the maximum amount of time to wait-- or {@link Duration#ZERO} to block indefinitely
-   *   (although it will still return if the thread is explicitly interrupted) 
+   *   (unless the thread is explicitly interrupted) 
    * @return true if the connection is now in the desired state; false if it timed out, or if the state
    *   changed to {@link State#OFF} and that was not the desired state
    * @throws InterruptedException if {@link Thread#interrupt()} was called on this thread while blocked
