@@ -319,7 +319,6 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
       // Accumulate how many times each kind of error has occurred during the outage - use just the basic
       // properties as the key so the map won't expand indefinitely
       ErrorInfo basicErrorInfo = new ErrorInfo(newError.getKind(), newError.getStatusCode(), null, null);
-      LDClient.logger.warn("recordError(" + basicErrorInfo + ")");
       errorCounts.compute(basicErrorInfo, (key, oldValue) -> oldValue == null ? 1 : oldValue.intValue() + 1);
     }
     
