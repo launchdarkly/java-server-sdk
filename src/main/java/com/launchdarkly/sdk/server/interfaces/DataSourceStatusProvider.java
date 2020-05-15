@@ -128,7 +128,7 @@ public interface DataSourceStatusProvider {
   }
   
   /**
-   * A description of an error condition that the data source encountered,
+   * A description of an error condition that the data source encountered.
    * 
    * @see Status#getLastError()
    */
