@@ -85,7 +85,12 @@ final class PersistentDataStoreStatusManager {
       };
       synchronized (this) {
         if (pollerFuture == null) {
-          pollerFuture = scheduler.scheduleAtFixedRate(pollerTask, POLL_INTERVAL_MS, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);          
+          pollerFuture = scheduler.scheduleAtFixedRate(
+              pollerTask,
+              POLL_INTERVAL_MS,
+              POLL_INTERVAL_MS,
+              TimeUnit.MILLISECONDS
+              );          
         }
       }
     }

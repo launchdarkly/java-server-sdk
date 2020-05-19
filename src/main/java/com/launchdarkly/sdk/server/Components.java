@@ -5,12 +5,14 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DiagnosticEvent.ConfigProperty;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
+import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
@@ -19,10 +21,12 @@ import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
@@ -221,7 +225,7 @@ public abstract class Components {
   }
 
   /**
-   * Returns a configurable factory for the SDK's networking configuration.
+   * Returns a configuration builder for the SDK's networking configuration.
    * <p>
    * Passing this to {@link LDConfig.Builder#http(com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory)}
    * applies this configuration to all HTTP/HTTPS requests made by the SDK.
@@ -263,6 +267,28 @@ public abstract class Components {
    */
   public static HttpAuthentication httpBasicAuthentication(String username, String password) {
     return new HttpBasicAuthentication(username, password);
+  }
+
+  /**
+   * Returns a configuration builder for the SDK's logging configuration.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)},
+   * after setting any desired properties on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .logging(
+   *              Components.logging()
+   *                  .logDataSourceOutageAsErrorAfter(Duration.ofSeconds(120))
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * @return a factory object
+   * @since 5.0.0
+   * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)
+   */
+  public static LoggingConfigurationBuilder logging() {
+    return new LoggingConfigurationBuilderImpl();
   }
   
   /**
@@ -338,6 +364,7 @@ public abstract class Components {
       } else {
         LDClient.logger.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
       }
+      dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
       return NullDataSource.INSTANCE;
     }
 
@@ -481,21 +508,22 @@ public abstract class Components {
       if (context.isOffline()) {
         return new NullEventProcessor();
       }
+      EventSender eventSender =
+          (eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory)
+          .createEventSender(context.getSdkKey(), context.getHttpConfiguration());
       return new DefaultEventProcessor(
-          context.getSdkKey(),
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
+              eventSender,
               baseURI == null ? LDConfig.DEFAULT_EVENTS_URI : baseURI,
               flushInterval,
               inlineUsersInEvents,
               privateAttributes,
-              0, // deprecated samplingInterval isn't supported in new builder
               userKeysCapacity,
               userKeysFlushInterval,
               diagnosticRecordingInterval
               ),
-          context.getHttpConfiguration(),
           ClientContextImpl.get(context).sharedExecutor,
           context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
@@ -576,6 +604,13 @@ public abstract class Components {
           dataStoreUpdates,
           ClientContextImpl.get(context).sharedExecutor
           );
+    }
+  }
+  
+  private static final class LoggingConfigurationBuilderImpl extends LoggingConfigurationBuilder {
+    @Override
+    public LoggingConfiguration createLoggingConfiguration() {
+      return new LoggingConfigurationImpl(logDataSourceOutageAsErrorAfter);
     }
   }
 }

@@ -2,6 +2,8 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.launchdarkly.sdk.server.PersistentDataStoreStatusManager;
+import com.launchdarkly.sdk.server.PersistentDataStoreWrapper;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
@@ -109,8 +111,7 @@ public class PersistentDataStoreWrapperTest {
         this::updateStatus,
         sharedExecutor
         );
-    this.statusBroadcaster = new EventBroadcasterImpl<>(
-        DataStoreStatusProvider.StatusListener::dataStoreStatusChanged, sharedExecutor);
+    this.statusBroadcaster = EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
     this.dataStoreUpdates = new DataStoreUpdatesImpl(statusBroadcaster);
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(wrapper, dataStoreUpdates);
   }

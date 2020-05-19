@@ -8,6 +8,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
@@ -64,7 +65,9 @@ public final class LDClient implements LDClientInterface {
   final EventProcessor eventProcessor;
   final DataSource dataSource;
   final DataStore dataStore;
+  private final DataSourceUpdates dataSourceUpdates;
   private final DataStoreStatusProviderImpl dataStoreStatusProvider;
+  private final DataSourceStatusProviderImpl dataSourceStatusProvider;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
   private final ScheduledExecutorService sharedExecutor;
   
@@ -84,7 +87,8 @@ public final class LDClient implements LDClientInterface {
    * expires, whichever comes first. If it has not succeeded in connecting when the timeout elapses,
    * you will receive the client in an uninitialized state where feature flags will return default
    * values; it will still continue trying to connect in the background. You can detect whether
-   * initialization has succeeded by calling {@link #initialized()}.
+   * initialization has succeeded by calling {@link #initialized()}. If you prefer to customize
+   * this behavior, use {@link LDClient#LDClient(String, LDConfig)} instead.
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
    * @see LDClient#LDClient(String, LDConfig)
@@ -120,7 +124,23 @@ public final class LDClient implements LDClientInterface {
    * 5 seconds) expires, whichever comes first. If it has not succeeded in connecting when the timeout
    * elapses, you will receive the client in an uninitialized state where feature flags will return
    * default values; it will still continue trying to connect in the background. You can detect
-   * whether initialization has succeeded by calling {@link #initialized()}.  
+   * whether initialization has succeeded by calling {@link #initialized()}.
+   * <p>
+   * If you prefer to have the constructor return immediately, and then wait for initialization to finish
+   * at some other point, you can use {@link #getDataSourceStatusProvider()} as follows:
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .startWait(Duration.ZERO)
+   *         .build();
+   *     LDClient client = new LDClient(sdkKey, config);
+   *     
+   *     // later, when you want to wait for initialization to finish:
+   *     boolean inited = client.getDataSourceStatusProvider().waitFor(
+   *         DataSourceStatusProvider.State.VALID, Duration.ofSeconds(10));
+   *     if (!inited) {
+   *         // do whatever is appropriate if initialization has timed out
+   *     }
+   * </code></pre>
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
    * @param config a client configuration object
@@ -159,7 +179,7 @@ public final class LDClient implements LDClientInterface {
     DataStoreFactory factory = config.dataStoreFactory == null ?
         Components.inMemoryDataStore() : config.dataStoreFactory;
     EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> dataStoreStatusNotifier =
-        new EventBroadcasterImpl<>(DataStoreStatusProvider.StatusListener::dataStoreStatusChanged, sharedExecutor);
+        EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
     DataStoreUpdatesImpl dataStoreUpdates = new DataStoreUpdatesImpl(dataStoreStatusNotifier);
     this.dataStore = factory.createDataStore(context, dataStoreUpdates);
 
@@ -173,19 +193,26 @@ public final class LDClient implements LDClientInterface {
       }
     });
 
-    this.flagChangeEventNotifier = new EventBroadcasterImpl<>(FlagChangeListener::onFlagChange, sharedExecutor);
+    this.flagChangeEventNotifier = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor);
 
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore, dataStoreUpdates);
 
     DataSourceFactory dataSourceFactory = config.dataSourceFactory == null ?
         Components.streamingDataSource() : config.dataSourceFactory;
-    DataSourceUpdates dataSourceUpdates = new DataSourceUpdatesImpl(
+    EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> dataSourceStatusNotifier =
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+    DataSourceUpdatesImpl dataSourceUpdates = new DataSourceUpdatesImpl(
         dataStore,
+        dataStoreStatusProvider,
         flagChangeEventNotifier,
-        dataStoreStatusProvider
+        dataSourceStatusNotifier,
+        sharedExecutor,
+        config.loggingConfig.getLogDataSourceOutageAsErrorAfter()
         );
-    this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);
-
+    this.dataSourceUpdates = dataSourceUpdates;
+    this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);    
+    this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates);
+    
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {
       if (!(dataSource instanceof Components.NullDataSource)) {
@@ -460,6 +487,11 @@ public final class LDClient implements LDClientInterface {
   public DataStoreStatusProvider getDataStoreStatusProvider() {
     return dataStoreStatusProvider;
   }
+
+  @Override
+  public DataSourceStatusProvider getDataSourceStatusProvider() {
+    return dataSourceStatusProvider;
+  }
   
   @Override
   public void close() throws IOException {
@@ -467,6 +499,7 @@ public final class LDClient implements LDClientInterface {
     this.dataStore.close();
     this.eventProcessor.close();
     this.dataSource.close();
+    this.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, null);
     this.sharedExecutor.shutdownNow();
   }
 

@@ -2,6 +2,20 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.0.0-rc2] - 2020-05-13
+The primary purpose of this second beta release is to introduce the new `DataSourceStatusProvider` API, which is the server-side equivalent to the "connection status" API that exists in LaunchDarkly's mobile SDKs. Other additions and changes since the previous beta release (5.0.0-rc1) are described below. See the [5.0.0-rc1 release notes](https://github.com/launchdarkly/java-server-sdk/releases/tag/5.0.0-rc1) for other changes since 4.13.0.
+
+### Added:
+- `LDClient.getDataSourceStatusProvider()` is a status monitoring mechanism similar to `getDataStoreStatusProvider()`, but for the data source (streaming, polling, or file data). You can not only check the current connection status, but also choose to receive notifications when the status changes.
+- `LDConfig.Builder.logging()` is a new configuration category for options related to logging. Currently the only such option is `escalateDataSourceOutageLoggingAfter`, which controls the new connection failure logging behavior described below.
+- `LDConfig.Builder.threadPriority()` allows you to set the priority for worker threads created by the SDK.
+
+### Changed:
+- Network failures and server errors for streaming or polling requests were previously logged at `ERROR` level in most cases but sometimes at `WARN` level. They are now all at `WARN` level, but with a new behavior: if connection failures continue without a successful retry for a certain amount of time, the SDK will log a special `ERROR`-level message to warn you that this is not just a brief outage. The amount of time is one minute by default, but can be changed with the new `logDataSourceOutageAsErrorAfter` option in `LoggingConfigurationBuilder`.
+- The number of worker threads maintained by the SDK has been reduced so that most intermittent background tasks, such as listener notifications, event flush timers, and polling requests, are now dispatched on a single thread. The delivery of analytics events to LaunchDarkly still has its own thread pool because it is a heavier-weight task with greater need for concurrency.
+- In polling mode, the poll requests previously ran on a dedicated worker thread that inherited its priority from the application thread that created the SDK. They are now on the SDK's main worker thread, which has `Thread.MIN_PRIORITY` by default (as all the other SDK threads already did) but the priority can be changed as described above.
+- Only relevant for implementing custom components: The `DataStore` and `DataSource` interfaces, and their factories, have been changed to provide a more general mechanism for status reporting. This does not affect the part of a persistent data store implementation that is database-specific, so new beta releases of the Consul/DynamoDB/Redis libraries were not necessary.
+
 ## [5.0.0-rc1] - 2020-04-29
 This beta release is being made available for testing and user feedback, due to the large number of changes from Java SDK 4.x. Features are still subject to change in the final 5.0.0 release. Until the final release, the beta source code will be on the [5.x branch](https://github.com/launchdarkly/java-server-sdk/tree/5.x). Javadocs can be found on [javadoc.io](https://javadoc.io/doc/com.launchdarkly/launchdarkly-server-sdk/5.0.0-rc1/index.html).
 
@@ -33,6 +47,13 @@ This is a major rewrite that introduces a cleaner API design, adds new features,
 - The deprecated New Relic integration has been removed.
 
 If you want to test this release and you are using Consul, DynamoDB, or Redis as a persistent data store, you will also need to update to version 2.0.0-rc1 of the [Consul integration](https://github.com/launchdarkly/java-server-sdk-consul/tree/2.x), 3.0.0-rc1 of the [DynamoDB integration](https://github.com/launchdarkly/java-server-sdk-dynamodb/tree/3.x), or 1.0.0-rc1 of the [Redis integration](http://github.com/launchdarkly/java-server-sdk-redis) (previously the Redis integration was built in; now it is a separate module).
+
+## [4.14.0] - 2020-05-13
+### Added:
+- `EventSender` interface and `EventsConfigurationBuilder.eventSender()` allow you to specify a custom implementation of how event data is sent. This is mainly to facilitate testing, but could also be used to store and forward event data.
+
+### Fixed:
+- Changed the Javadoc comments for the `LDClient` constructors to provide a better explanation of the client&#39;s initialization behavior.
 
 ## [4.13.0] - 2020-04-21
 ### Added:

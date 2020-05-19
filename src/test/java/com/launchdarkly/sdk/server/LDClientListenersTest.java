@@ -9,6 +9,7 @@ import com.launchdarkly.sdk.server.TestComponents.DataStoreFactoryThatExposesUpd
 import com.launchdarkly.sdk.server.TestUtil.FlagChangeEventSink;
 import com.launchdarkly.sdk.server.TestUtil.FlagValueChangeEventSink;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
@@ -18,6 +19,8 @@ import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
 import org.easymock.EasyMockSupport;
 import org.junit.Test;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -28,11 +31,16 @@ import static com.launchdarkly.sdk.server.TestComponents.specificPersistentDataS
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 
 /**
  * This file contains tests for all of the event broadcaster/listener functionality in the client, plus
  * related methods for looking at the same kinds of status values that can be broadcast to listeners.
+ * It uses mock implementations of the data source and data store, so that it is only the status
+ * monitoring mechanisms that are being tested, not the status behavior of specific real components.
  * <p>
  * Parts of this functionality are also covered by lower-level component tests like
  * DataSourceUpdatesImplTest. However, the tests here verify that the client is wiring the components
@@ -126,6 +134,138 @@ public class LDClientListenersTest extends EasyMockSupport {
   }
   
   @Test
+  public void dataSourceStatusProviderReturnsLatestStatus() throws Exception {
+    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(updatableSource)
+        .events(Components.noEvents())
+        .build();
+
+    Instant timeBeforeStarting = Instant.now();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      DataSourceStatusProvider.Status initialStatus = client.getDataSourceStatusProvider().getStatus();
+      assertThat(initialStatus.getState(), equalTo(DataSourceStatusProvider.State.INITIALIZING));
+      assertThat(initialStatus.getStateSince(), greaterThanOrEqualTo(timeBeforeStarting));
+      assertThat(initialStatus.getLastError(), nullValue());
+      
+      DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
+          DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, 401, null, Instant.now());
+      updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, errorInfo);
+
+      DataSourceStatusProvider.Status newStatus = client.getDataSourceStatusProvider().getStatus();
+      assertThat(newStatus.getState(), equalTo(DataSourceStatusProvider.State.OFF));
+      assertThat(newStatus.getStateSince(), greaterThanOrEqualTo(errorInfo.getTime()));
+      assertThat(newStatus.getLastError(), equalTo(errorInfo));
+    }
+  }
+
+  @Test
+  public void dataSourceStatusProviderSendsStatusUpdates() throws Exception {
+    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(updatableSource)
+        .events(Components.noEvents())
+        .build();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+      client.getDataSourceStatusProvider().addStatusListener(statuses::add);
+
+      DataSourceStatusProvider.ErrorInfo errorInfo = new DataSourceStatusProvider.ErrorInfo(
+          DataSourceStatusProvider.ErrorKind.ERROR_RESPONSE, 401, null, Instant.now());
+      updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, errorInfo);
+
+      DataSourceStatusProvider.Status newStatus = statuses.take();
+      assertThat(newStatus.getState(), equalTo(DataSourceStatusProvider.State.OFF));
+      assertThat(newStatus.getStateSince(), greaterThanOrEqualTo(errorInfo.getTime()));
+      assertThat(newStatus.getLastError(), equalTo(errorInfo));
+    }
+  }
+  
+  @Test
+  public void dataSourceStatusProviderWaitForStatusWithStatusAlreadyCorrect() throws Exception {
+    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(updatableSource)
+        .events(Components.noEvents())
+        .build();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
+      
+      boolean success = client.getDataSourceStatusProvider().waitFor(DataSourceStatusProvider.State.VALID,
+          Duration.ofMillis(500));
+      assertThat(success, equalTo(true));
+    }
+  }
+
+  @Test
+  public void dataSourceStatusProviderWaitForStatusSucceeds() throws Exception {
+    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(updatableSource)
+        .events(Components.noEvents())
+        .build();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      new Thread(() -> {
+        System.out.println("in thread");
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+            System.out.println("interrupted");
+        }
+        System.out.println("updating");
+        updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
+      }).start();
+
+      boolean success = client.getDataSourceStatusProvider().waitFor(DataSourceStatusProvider.State.VALID,
+          Duration.ofMillis(500));
+      assertThat(success, equalTo(true));
+    }
+  }
+
+  @Test
+  public void dataSourceStatusProviderWaitForStatusTimesOut() throws Exception {
+    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(updatableSource)
+        .events(Components.noEvents())
+        .build();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      long timeStart = System.currentTimeMillis();
+      boolean success = client.getDataSourceStatusProvider().waitFor(DataSourceStatusProvider.State.VALID,
+          Duration.ofMillis(300));
+      long timeEnd = System.currentTimeMillis();
+      assertThat(success, equalTo(false));
+      assertThat(timeEnd - timeStart, greaterThanOrEqualTo(270L));
+    }
+  }
+  
+  @Test
+  public void dataSourceStatusProviderWaitForStatusEndsIfShutDown() throws Exception {
+    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(updatableSource)
+        .events(Components.noEvents())
+        .build();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      new Thread(() -> {
+        updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, null);
+      }).start();
+      
+      long timeStart = System.currentTimeMillis();
+      boolean success = client.getDataSourceStatusProvider().waitFor(DataSourceStatusProvider.State.VALID,
+          Duration.ofMillis(500));
+      long timeEnd = System.currentTimeMillis();
+      assertThat(success, equalTo(false));
+      assertThat(timeEnd - timeStart, lessThan(500L));
+    }
+  }
+  
+  @Test
   public void dataStoreStatusMonitoringIsDisabledForInMemoryStore() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
@@ -180,7 +320,7 @@ public class LDClientListenersTest extends EasyMockSupport {
         .events(Components.noEvents())
         .build();    
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      final BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+      BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
       client.getDataStoreStatusProvider().addStatusListener(statuses::add);
 
       DataStoreStatusProvider.Status newStatus = new DataStoreStatusProvider.Status(false, false);

@@ -3,7 +3,10 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
+import org.slf4j.Logger;
+
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.Iterables.transform;
@@ -106,22 +109,46 @@ class Util {
   }
   
   /**
-   * Builds an appropriate log message for an HTTP error status.
-   * @param statusCode the HTTP status
-   * @param context description of what we were trying to do
-   * @param recoverableMessage description of our behavior if the error is recoverable; typically "will retry"
-   * @return a message string
+   * Logs an HTTP error or network error at the appropriate level and determines whether it is recoverable
+   * (as defined by {@link #isHttpErrorRecoverable(int)}).
+   *  
+   * @param logger the logger to log to
+   * @param errorDesc description of the error
+   * @param errorContext a phrase like "when doing such-and-such"
+   * @param statusCode HTTP status code, or 0 for a network error
+   * @param recoverableMessage a phrase like "will retry" to use if the error is recoverable
+   * @return true if the error is recoverable
    */
-  static String httpErrorMessage(int statusCode, String context, String recoverableMessage) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("Received HTTP error ").append(statusCode);
-    switch (statusCode) {
-    case 401:
-    case 403:
-      sb.append(" (invalid SDK key)");
+  static boolean checkIfErrorIsRecoverableAndLog(
+      Logger logger,
+      String errorDesc,
+      String errorContext,
+      int statusCode,
+      String recoverableMessage
+      ) {
+    if (statusCode > 0 && !isHttpErrorRecoverable(statusCode)) {
+      logger.error("Error {} (giving up permanently): {}", errorContext, errorDesc);
+      return false;
+    } else {
+      logger.warn("Error {} ({}): {}", errorContext, recoverableMessage, errorDesc);
+      return true;
     }
-    sb.append(" for ").append(context).append(" - ");
-    sb.append(isHttpErrorRecoverable(statusCode) ? recoverableMessage : "giving up permanently");
-    return sb.toString();
+  }
+  
+  static String httpErrorDescription(int statusCode) {
+    return "HTTP error " + statusCode +
+        (statusCode == 401 || statusCode == 403 ? " (invalid SDK key)" : "");
+  }
+  
+  static String describeDuration(Duration d) {
+    if (d.toMillis() % 1000 == 0) {
+      if (d.toMillis() % 60000 == 0) {
+        return d.toMinutes() + (d.toMinutes() == 1 ? " minute" : " minutes");
+      } else {
+        long sec = d.toMillis() / 1000;
+        return sec + (sec == 1 ? " second" : " seconds");
+      }
+    }
+    return d.toMillis() + " milliseconds";
   }
 }

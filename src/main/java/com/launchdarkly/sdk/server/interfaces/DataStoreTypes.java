@@ -267,6 +267,16 @@ public abstract class DataStoreTypes {
     public FullDataSet(Iterable<Map.Entry<DataKind, KeyedItems<TDescriptor>>> data) {
       this.data = data == null ? ImmutableList.of(): data;
     }
+    
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof FullDataSet<?> && data.equals(((FullDataSet<?>)o).data);
+    }
+    
+    @Override
+    public int hashCode() {
+      return data.hashCode();
+    }
   }
   
   /**
@@ -294,6 +304,16 @@ public abstract class DataStoreTypes {
      */
     public KeyedItems(Iterable<Map.Entry<String, TDescriptor>> items) {
       this.items = items == null ? ImmutableList.of() : items; 
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof KeyedItems<?> && items.equals(((KeyedItems<?>)o).items);
+    }
+    
+    @Override
+    public int hashCode() {
+      return items.hashCode();
     }
   }
 }

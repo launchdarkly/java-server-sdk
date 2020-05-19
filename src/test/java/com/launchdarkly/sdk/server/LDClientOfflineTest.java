@@ -3,11 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.FeatureFlagsState;
-import com.launchdarkly.sdk.server.LDClient;
-import com.launchdarkly.sdk.server.LDClientInterface;
-import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 
 import org.junit.Test;
@@ -52,6 +48,8 @@ public class LDClientOfflineTest {
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertTrue(client.initialized());
+      
+      assertEquals(DataSourceStatusProvider.State.VALID, client.getDataSourceStatusProvider().getStatus().getState());
     }
   }
   

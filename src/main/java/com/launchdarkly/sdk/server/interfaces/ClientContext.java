@@ -38,6 +38,12 @@ public interface ClientContext {
   public HttpConfiguration getHttpConfiguration();
   
   /**
+   * The configured logging properties that apply to all components.
+   * @return the logging configuration
+   */
+  public LoggingConfiguration getLoggingConfiguration();
+  
+  /**
    * The thread priority that should be used for any worker threads created by SDK components.
    * 
    * @return the thread priority
