@@ -1,4 +1,4 @@
-.PHONY: benchmark clean
+.PHONY: benchmark clean sdk
 
 BASE_DIR:=$(shell pwd)
 PROJECT_DIR=$(shell cd .. && pwd)
@@ -16,6 +16,8 @@ benchmark: $(BENCHMARK_ALL_JAR) $(BENCHMARK_TEST_JAR)
 
 clean:
 	rm -rf build lib
+
+sdk: $(BENCHMARK_ALL_JAR) $(BENCHMARK_TEST_JAR)
 
 $(BENCHMARK_ALL_JAR): $(SDK_ALL_JAR)
 	mkdir -p lib

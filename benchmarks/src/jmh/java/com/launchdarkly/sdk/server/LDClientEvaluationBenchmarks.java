@@ -15,16 +15,22 @@ import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestValues.BOOLEAN_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_ATTRIBUTE;
+import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_VALUES;
+import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_MULTI_VALUE_CLAUSE_KEY;
 import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_PREREQ_KEY;
 import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_TARGET_LIST_KEY;
 import static com.launchdarkly.sdk.server.TestValues.INT_FLAG_KEY;
 import static com.launchdarkly.sdk.server.TestValues.JSON_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.NOT_MATCHED_VALUE;
 import static com.launchdarkly.sdk.server.TestValues.NOT_TARGETED_USER_KEY;
 import static com.launchdarkly.sdk.server.TestValues.SDK_KEY;
 import static com.launchdarkly.sdk.server.TestValues.STRING_FLAG_KEY;
 import static com.launchdarkly.sdk.server.TestValues.TARGETED_USER_KEYS;
 import static com.launchdarkly.sdk.server.TestValues.UNKNOWN_FLAG_KEY;
 import static com.launchdarkly.sdk.server.TestValues.makeTestFlags;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /**
  * These benchmarks cover just the evaluation logic itself (and, by necessity, the overhead of getting the
@@ -33,7 +39,7 @@ import static com.launchdarkly.sdk.server.TestValues.makeTestFlags;
 public class LDClientEvaluationBenchmarks {
   @State(Scope.Thread)
   public static class BenchmarkInputs {
-    // Initialization of the things in BenchmarkInputs do not count as part of a benchmark.
+    // Initialization of the things in BenchmarkInputs does not count as part of a benchmark.
     final LDClientInterface client;
     final LDUser basicUser;
     final Random random;
@@ -120,16 +126,34 @@ public class LDClientEvaluationBenchmarks {
   @Benchmark
   public void userFoundInTargetList(BenchmarkInputs inputs) throws Exception {
     String userKey = TARGETED_USER_KEYS.get(inputs.random.nextInt(TARGETED_USER_KEYS.size()));
-    inputs.client.boolVariation(FLAG_WITH_TARGET_LIST_KEY, new LDUser(userKey), false);
+    boolean result = inputs.client.boolVariation(FLAG_WITH_TARGET_LIST_KEY, new LDUser(userKey), false);
+    assertTrue(result);
   }
 
   @Benchmark
   public void userNotFoundInTargetList(BenchmarkInputs inputs) throws Exception {
-    inputs.client.boolVariation(FLAG_WITH_TARGET_LIST_KEY, new LDUser(NOT_TARGETED_USER_KEY), false);
+    boolean result = inputs.client.boolVariation(FLAG_WITH_TARGET_LIST_KEY, new LDUser(NOT_TARGETED_USER_KEY), false);
+    assertFalse(result);
   }
 
   @Benchmark
   public void flagWithPrerequisite(BenchmarkInputs inputs) throws Exception {
-    inputs.client.boolVariation(FLAG_WITH_PREREQ_KEY, inputs.basicUser, false);
+    boolean result = inputs.client.boolVariation(FLAG_WITH_PREREQ_KEY, inputs.basicUser, false);
+    assertTrue(result);
+  }
+  
+  @Benchmark
+  public void userValueFoundInClauseList(BenchmarkInputs inputs) throws Exception {
+    LDValue userValue = CLAUSE_MATCH_VALUES.get(inputs.random.nextInt(CLAUSE_MATCH_VALUES.size()));
+    LDUser user = new LDUser.Builder("key").custom(CLAUSE_MATCH_ATTRIBUTE, userValue).build();
+    boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, user, false);
+    assertTrue(result);
+  }
+  
+  @Benchmark
+  public void userValueNotFoundInClauseList(BenchmarkInputs inputs) throws Exception {
+    LDUser user = new LDUser.Builder("key").custom(CLAUSE_MATCH_ATTRIBUTE, NOT_MATCHED_VALUE).build();
+    boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, user, false);
+    assertFalse(result);
   }
 }
