@@ -6,19 +6,19 @@ import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.TestComponents.DataSourceFactoryThatExposesUpdater;
 import com.launchdarkly.sdk.server.TestComponents.DataStoreFactoryThatExposesUpdater;
-import com.launchdarkly.sdk.server.TestUtil.FlagChangeEventSink;
-import com.launchdarkly.sdk.server.TestUtil.FlagValueChangeEventSink;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
 
 import org.easymock.EasyMockSupport;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -27,6 +27,8 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificPersistentDataStore;
+import static com.launchdarkly.sdk.server.TestUtil.awaitValue;
+import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -50,9 +52,10 @@ public class LDClientListenersTest extends EasyMockSupport {
 
   @Test
   public void clientSendsFlagChangeEvents() throws Exception {
+    String flagKey = "flagkey";
     DataStore testDataStore = initedDataStore();
     DataBuilder initialData = new DataBuilder().addAny(DataModel.FEATURES,
-        flagBuilder("flagkey").version(1).build());
+        flagBuilder(flagKey).version(1).build());
     DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(initialData.build());
     LDConfig config = new LDConfig.Builder()
         .dataStore(specificDataStore(testDataStore))
@@ -61,31 +64,33 @@ public class LDClientListenersTest extends EasyMockSupport {
         .build();
     
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      FlagChangeEventSink eventSink1 = new FlagChangeEventSink();
-      FlagChangeEventSink eventSink2 = new FlagChangeEventSink();
-      client.registerFlagChangeListener(eventSink1);
-      client.registerFlagChangeListener(eventSink2);
+      BlockingQueue<FlagChangeEvent> eventSink1 = new LinkedBlockingQueue<>();
+      BlockingQueue<FlagChangeEvent> eventSink2 = new LinkedBlockingQueue<>();
+      FlagChangeListener listener1 = eventSink1::add;
+      FlagChangeListener listener2 = eventSink2::add; // need to capture the method reference in a variable so it's the same instance when we unregister it
+      client.getFlagTracker().addFlagChangeListener(listener1);
+      client.getFlagTracker().addFlagChangeListener(listener2);
       
-      eventSink1.expectNoEvents();
-      eventSink2.expectNoEvents();
+      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
+      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
       
-      updatableSource.updateFlag(flagBuilder("flagkey").version(2).build());
+      updatableSource.updateFlag(flagBuilder(flagKey).version(2).build());
       
-      FlagChangeEvent event1 = eventSink1.awaitEvent();
-      FlagChangeEvent event2 = eventSink2.awaitEvent();
-      assertThat(event1.getKey(), equalTo("flagkey"));
-      assertThat(event2.getKey(), equalTo("flagkey"));
-      eventSink1.expectNoEvents();
-      eventSink2.expectNoEvents();
+      FlagChangeEvent event1 = awaitValue(eventSink1, Duration.ofSeconds(1));
+      FlagChangeEvent event2 = awaitValue(eventSink2, Duration.ofSeconds(1));
+      assertThat(event1.getKey(), equalTo(flagKey));
+      assertThat(event2.getKey(), equalTo(flagKey));
+      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
+      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
       
-      client.unregisterFlagChangeListener(eventSink1);
+      client.getFlagTracker().removeFlagChangeListener(listener1);
       
-      updatableSource.updateFlag(flagBuilder("flagkey").version(3).build());
+      updatableSource.updateFlag(flagBuilder(flagKey).version(3).build());
   
-      FlagChangeEvent event3 = eventSink2.awaitEvent();
-      assertThat(event3.getKey(), equalTo("flagkey"));
-      eventSink1.expectNoEvents();
-      eventSink2.expectNoEvents();
+      FlagChangeEvent event3 = awaitValue(eventSink2, Duration.ofSeconds(1));
+      assertThat(event3.getKey(), equalTo(flagKey));
+      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
+      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
     }
   }
 
@@ -108,26 +113,35 @@ public class LDClientListenersTest extends EasyMockSupport {
         .build();
     
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      FlagValueChangeEventSink eventSink1 = new FlagValueChangeEventSink();
-      FlagValueChangeEventSink eventSink2 = new FlagValueChangeEventSink();
-      client.registerFlagChangeListener(Components.flagValueMonitoringListener(client, flagKey, user, eventSink1));
-      client.registerFlagChangeListener(Components.flagValueMonitoringListener(client, flagKey, otherUser, eventSink2));
+      BlockingQueue<FlagValueChangeEvent> eventSink1 = new LinkedBlockingQueue<>();
+      BlockingQueue<FlagValueChangeEvent> eventSink2 = new LinkedBlockingQueue<>();
+      BlockingQueue<FlagValueChangeEvent> eventSink3 = new LinkedBlockingQueue<>();
+      client.getFlagTracker().addFlagValueChangeListener(flagKey, user, eventSink1::add);
+      FlagChangeListener listener2 = client.getFlagTracker().addFlagValueChangeListener(flagKey, user, eventSink2::add);
+      client.getFlagTracker().removeFlagChangeListener(listener2); // just verifying that the remove method works
+      client.getFlagTracker().addFlagValueChangeListener(flagKey, otherUser, eventSink3::add);
       
-      eventSink1.expectNoEvents();
-      eventSink2.expectNoEvents();
+      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
+      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
+      expectNoMoreValues(eventSink3, Duration.ofMillis(100));
       
+      // make the flag true for the first user only, and broadcast a flag change event
       FeatureFlag flagIsTrueForMyUserOnly = flagBuilder(flagKey).version(2).on(true).variations(false, true)
           .targets(ModelBuilders.target(1, user.getKey())).fallthroughVariation(0).build();
       updatableSource.updateFlag(flagIsTrueForMyUserOnly);
       
-      // eventSink1 receives a value change event; eventSink2 doesn't because the flag's value hasn't changed for otherUser
-      FlagValueChangeEvent event1 = eventSink1.awaitEvent();
+      // eventSink1 receives a value change event
+      FlagValueChangeEvent event1 = awaitValue(eventSink1, Duration.ofSeconds(1));
       assertThat(event1.getKey(), equalTo(flagKey));
       assertThat(event1.getOldValue(), equalTo(LDValue.of(false)));
       assertThat(event1.getNewValue(), equalTo(LDValue.of(true)));
-      eventSink1.expectNoEvents();
+      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
       
-      eventSink2.expectNoEvents();
+      // eventSink2 doesn't receive one, because it was unregistered
+      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
+      
+      // eventSink3 doesn't receive one, because the flag's value hasn't changed for otherUser
+      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
     }
   }
   
@@ -262,7 +276,7 @@ public class LDClientListenersTest extends EasyMockSupport {
         .build();
     
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      client.registerFlagChangeListener(params -> {
+      client.getFlagTracker().addFlagChangeListener(params -> {
         capturedThreads.add(Thread.currentThread());
       });
       
