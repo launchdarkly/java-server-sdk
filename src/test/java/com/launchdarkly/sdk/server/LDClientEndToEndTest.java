@@ -176,10 +176,10 @@ public class LDClientEndToEndTest {
       
       try (LDClient client = new LDClient(sdkKey, config)) {
         assertTrue(client.initialized());
-      }
-      
-      RecordedRequest req = server.takeRequest();
-      assertEquals("/diagnostic", req.getPath());
+
+        RecordedRequest req = server.takeRequest();
+        assertEquals("/diagnostic", req.getPath());
+      }      
     }
   }
 
