@@ -52,6 +52,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
   private final DataModelDependencies.DependencyTracker dependencyTracker = new DataModelDependencies.DependencyTracker();
   private final DataStoreStatusProvider dataStoreStatusProvider;
   private final OutageTracker outageTracker;
+  private final Object stateLock = new Object();
   
   private volatile Status currentStatus;
   private volatile boolean lastStoreUpdateFailed = false;
@@ -142,7 +143,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
     
     Status statusToBroadcast = null;
     
-    synchronized (this) {
+    synchronized (stateLock) {
       Status oldStatus = currentStatus;
       
       if (newState == State.INTERRUPTED && oldStatus.getState() == State.INITIALIZING) {
@@ -156,6 +157,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
             newError == null ? currentStatus.getLastError() : newError
             );
         statusToBroadcast = currentStatus;
+        stateLock.notifyAll();
       }
       
       outageTracker.trackDataSourceState(newState, newError);
@@ -166,9 +168,34 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
     }
   }
 
+  // package-private - called from DataSourceStatusProviderImpl
   Status getLastStatus() {
-    synchronized (this) {
+    synchronized (stateLock) {
       return currentStatus;
+    }
+  }
+  
+  // package-private - called from DataSourceStatusProviderImpl
+  boolean waitFor(State desiredState, Duration timeout) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + timeout.toMillis();
+    synchronized (stateLock) {
+      while (true) {
+        if (currentStatus.getState() == desiredState) {
+          return true;
+        }
+        if (currentStatus.getState() == State.OFF) {
+          return false;
+        }
+        if (timeout.isZero()) {
+          stateLock.wait();
+        } else {
+          long now = System.currentTimeMillis();
+          if (now >= deadline) {
+            return false;
+          }
+          stateLock.wait(deadline - now);
+        }
+      }
     }
   }
   
@@ -292,7 +319,6 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
       // Accumulate how many times each kind of error has occurred during the outage - use just the basic
       // properties as the key so the map won't expand indefinitely
       ErrorInfo basicErrorInfo = new ErrorInfo(newError.getKind(), newError.getStatusCode(), null, null);
-      LDClient.logger.warn("recordError(" + basicErrorInfo + ")");
       errorCounts.compute(basicErrorInfo, (key, oldValue) -> oldValue == null ? 1 : oldValue.intValue() + 1);
     }
     
