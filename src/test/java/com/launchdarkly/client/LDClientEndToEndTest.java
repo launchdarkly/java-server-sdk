@@ -6,17 +6,20 @@ import com.launchdarkly.client.value.LDValue;
 
 import org.junit.Test;
 
+import static com.launchdarkly.client.Components.externalUpdatesOnly;
 import static com.launchdarkly.client.Components.noEvents;
 import static com.launchdarkly.client.TestHttpUtil.basePollingConfig;
 import static com.launchdarkly.client.TestHttpUtil.baseStreamingConfig;
 import static com.launchdarkly.client.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.client.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.client.TestHttpUtil.makeStartedServer;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 
 @SuppressWarnings("javadoc")
 public class LDClientEndToEndTest {
@@ -135,6 +138,46 @@ public class LDClientEndToEndTest {
         assertTrue(client.initialized());
         assertTrue(client.boolVariation(flagKey, user, false));
       }
+    }
+  }
+
+  @Test
+  public void clientSendsAnalyticsEvent() throws Exception {
+    MockResponse resp = new MockResponse().setResponseCode(202);
+    
+    try (MockWebServer server = makeStartedServer(resp)) {
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(externalUpdatesOnly())
+          .events(Components.sendEvents().baseURI(server.url("/").uri()))
+          .diagnosticOptOut(true)
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.initialized());
+        client.identify(new LDUser("userkey"));
+      }
+      
+      RecordedRequest req = server.takeRequest();
+      assertEquals("/bulk", req.getPath());
+    }
+  }
+
+  @Test
+  public void clientSendsDiagnosticEvent() throws Exception {
+    MockResponse resp = new MockResponse().setResponseCode(202);
+    
+    try (MockWebServer server = makeStartedServer(resp)) {
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(externalUpdatesOnly())
+          .events(Components.sendEvents().baseURI(server.url("/").uri()))
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.initialized());
+
+        RecordedRequest req = server.takeRequest();
+        assertEquals("/diagnostic", req.getPath());
+      }      
     }
   }
 

@@ -67,6 +67,7 @@ abstract class EventFactory {
     return new Event.Identify(getTimestamp(), user);
   }
   
+  @SuppressWarnings("deprecation")
   private boolean isExperiment(FeatureFlag flag, EvaluationReason reason) {
     if (reason == null) {
       // doesn't happen in real life, but possible in testing
