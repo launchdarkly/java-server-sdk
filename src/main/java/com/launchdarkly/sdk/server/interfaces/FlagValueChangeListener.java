@@ -4,7 +4,7 @@ package com.launchdarkly.sdk.server.interfaces;
  * An event listener that is notified when a feature flag's value has changed for a specific user.
  * <p>
  * Use this in conjunction with
- * {@link com.launchdarkly.sdk.server.Components#flagValueMonitoringListener(com.launchdarkly.sdk.server.LDClientInterface, String, com.launchdarkly.sdk.LDUser, FlagValueChangeListener)}
+ * {@link com.launchdarkly.sdk.server.Components#flagValueMonitoringListener(com.launchdarkly.sdk.server.interfaces.LDClientInterface, String, com.launchdarkly.sdk.LDUser, FlagValueChangeListener)}
  * if you want the client to re-evaluate a flag <i>for a specific set of user properties</i> whenever
  * the flag's configuration has changed, and notify you only if the new value is different from the old
  * value. The listener will not be notified if the flag's configuration is changed in some way that does
@@ -28,9 +28,9 @@ package com.launchdarkly.sdk.server.interfaces;
  * 
  * @since 5.0.0
  * @see FlagChangeListener
- * @see com.launchdarkly.sdk.server.LDClientInterface#registerFlagChangeListener(FlagChangeListener)
- * @see com.launchdarkly.sdk.server.LDClientInterface#unregisterFlagChangeListener(FlagChangeListener)
- * @see com.launchdarkly.sdk.server.Components#flagValueMonitoringListener(com.launchdarkly.sdk.server.LDClientInterface, String, com.launchdarkly.sdk.LDUser, FlagValueChangeListener)
+ * @see com.launchdarkly.sdk.server.interfaces.LDClientInterface#registerFlagChangeListener(FlagChangeListener)
+ * @see com.launchdarkly.sdk.server.interfaces.LDClientInterface#unregisterFlagChangeListener(FlagChangeListener)
+ * @see com.launchdarkly.sdk.server.Components#flagValueMonitoringListener(com.launchdarkly.sdk.server.interfaces.LDClientInterface, String, com.launchdarkly.sdk.LDUser, FlagValueChangeListener)
  */
 public interface FlagValueChangeListener {
   /**

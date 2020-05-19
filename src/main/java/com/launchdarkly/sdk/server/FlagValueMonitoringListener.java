@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
+import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import java.util.concurrent.atomic.AtomicReference;
 

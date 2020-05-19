@@ -3,7 +3,7 @@ package com.launchdarkly.sdk.server.interfaces;
 /**
  * An event listener that is notified when a feature flag's configuration has changed.
  * <p>
- * As described in {@link com.launchdarkly.sdk.server.LDClientInterface#registerFlagChangeListener(FlagChangeListener)},
+ * As described in {@link com.launchdarkly.sdk.server.interfaces.LDClientInterface#registerFlagChangeListener(FlagChangeListener)},
  * this notification does not mean that the flag now returns a different value for any particular user,
  * only that it <i>may</i> do so. LaunchDarkly feature flags can be configured to return a single value
  * for all users, or to have complex targeting behavior. To know what effect the change would have for
@@ -16,8 +16,8 @@ package com.launchdarkly.sdk.server.interfaces;
  * 
  * @since 5.0.0
  * @see FlagValueChangeListener
- * @see com.launchdarkly.sdk.server.LDClientInterface#registerFlagChangeListener(FlagChangeListener)
- * @see com.launchdarkly.sdk.server.LDClientInterface#unregisterFlagChangeListener(FlagChangeListener)
+ * @see com.launchdarkly.sdk.server.interfaces.LDClientInterface#registerFlagChangeListener(FlagChangeListener)
+ * @see com.launchdarkly.sdk.server.interfaces.LDClientInterface#unregisterFlagChangeListener(FlagChangeListener)
  */
 public interface FlagChangeListener {
   /**

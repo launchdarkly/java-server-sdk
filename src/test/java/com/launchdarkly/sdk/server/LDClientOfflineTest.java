@@ -5,6 +5,7 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import org.junit.Test;
 
@@ -47,7 +48,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertTrue(client.initialized());
+      assertTrue(client.isInitialized());
       
       assertEquals(DataSourceStatusProvider.State.VALID, client.getDataSourceStatusProvider().getStatus().getState());
     }

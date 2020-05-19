@@ -7,6 +7,7 @@ import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.json.JsonSerializable;
+import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import java.io.IOException;
 import java.util.Collections;

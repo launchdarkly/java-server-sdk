@@ -8,8 +8,8 @@ package com.launchdarkly.sdk.server.interfaces;
  * @since 5.0.0
  * @see FlagChangeListener
  * @see FlagValueChangeEvent
- * @see com.launchdarkly.sdk.server.LDClientInterface#registerFlagChangeListener(FlagChangeListener)
- * @see com.launchdarkly.sdk.server.LDClientInterface#unregisterFlagChangeListener(FlagChangeListener)
+ * @see com.launchdarkly.sdk.server.interfaces.LDClientInterface#registerFlagChangeListener(FlagChangeListener)
+ * @see com.launchdarkly.sdk.server.interfaces.LDClientInterface#unregisterFlagChangeListener(FlagChangeListener)
  */
 public class FlagChangeEvent {
   private final String key;
