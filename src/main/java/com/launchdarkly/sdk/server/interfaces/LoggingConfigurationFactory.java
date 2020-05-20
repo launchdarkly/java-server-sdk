@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
 /**
- * Interface for a factory that creates an {@link LoggingConfiguration}.
+ * Interface for a factory that creates a {@link LoggingConfiguration}.
  * 
  * @see com.launchdarkly.sdk.server.Components#logging()
  * @see com.launchdarkly.sdk.server.LDConfig.Builder#logging(LoggingConfigurationFactory)

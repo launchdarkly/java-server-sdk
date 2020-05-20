@@ -21,6 +21,7 @@ import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagTracker;
+import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -89,7 +90,8 @@ public final class LDClient implements LDClientInterface {
    * expires, whichever comes first. If it has not succeeded in connecting when the timeout elapses,
    * you will receive the client in an uninitialized state where feature flags will return default
    * values; it will still continue trying to connect in the background. You can detect whether
-   * initialization has succeeded by calling {@link #initialized()}.
+   * initialization has succeeded by calling {@link #isInitialized()}. If you prefer to customize
+   * this behavior, use {@link LDClient#LDClient(String, LDConfig)} instead.
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
    * @see LDClient#LDClient(String, LDConfig)
@@ -125,7 +127,23 @@ public final class LDClient implements LDClientInterface {
    * 5 seconds) expires, whichever comes first. If it has not succeeded in connecting when the timeout
    * elapses, you will receive the client in an uninitialized state where feature flags will return
    * default values; it will still continue trying to connect in the background. You can detect
-   * whether initialization has succeeded by calling {@link #initialized()}.  
+   * whether initialization has succeeded by calling {@link #isInitialized()}.
+   * <p>
+   * If you prefer to have the constructor return immediately, and then wait for initialization to finish
+   * at some other point, you can use {@link #getDataSourceStatusProvider()} as follows:
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .startWait(Duration.ZERO)
+   *         .build();
+   *     LDClient client = new LDClient(sdkKey, config);
+   *     
+   *     // later, when you want to wait for initialization to finish:
+   *     boolean inited = client.getDataSourceStatusProvider().waitFor(
+   *         DataSourceStatusProvider.State.VALID, Duration.ofSeconds(10));
+   *     if (!inited) {
+   *         // do whatever is appropriate if initialization has timed out
+   *     }
+   * </code></pre>
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
    * @param config a client configuration object
@@ -198,7 +216,7 @@ public final class LDClient implements LDClientInterface {
         );
     this.dataSourceUpdates = dataSourceUpdates;
     this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);    
-    this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates::getLastStatus);
+    this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates);
     
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {
@@ -220,7 +238,7 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public boolean initialized() {
+  public boolean isInitialized() {
     return dataSource.isInitialized();
   }
 
@@ -268,7 +286,7 @@ public final class LDClient implements LDClientInterface {
       logger.debug("allFlagsState() was called when client is in offline mode.");
     }
     
-    if (!initialized()) {
+    if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         logger.warn("allFlagsState() was called before client initialized; using last known values from data store");
       } else {
@@ -369,7 +387,7 @@ public final class LDClient implements LDClientInterface {
   
   @Override
   public boolean isFlagKnown(String featureKey) {
-    if (!initialized()) {
+    if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         logger.warn("isFlagKnown called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {
@@ -400,7 +418,7 @@ public final class LDClient implements LDClientInterface {
   
   private Evaluator.EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue, boolean checkType,
       EventFactory eventFactory) {
-    if (!initialized()) {
+    if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         logger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {

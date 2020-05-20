@@ -1,24 +1,28 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.FlagTracker;
+import com.launchdarkly.sdk.server.FeatureFlagsState;
+import com.launchdarkly.sdk.server.FlagsStateOption;
+import com.launchdarkly.sdk.server.LDClient;
 
 import java.io.Closeable;
 import java.io.IOException;
 
 /**
  * This interface defines the public methods of {@link LDClient}.
+ * <p>
+ * Applications will normally interact directly with {@link LDClient}, and must use its constructor to
+ * initialize the SDK, but being able to refer to it indirectly via an interface may be helpul in test
+ * scenarios (mocking) or for some dependency injection frameworks.
  */
 public interface LDClientInterface extends Closeable {
   /**
    * Tests whether the client is ready to be used.
    * @return true if the client is ready, or false if it is still initializing
    */
-  boolean initialized();
+  boolean isInitialized();
 
   /**
    * Tracks that a user performed an event.

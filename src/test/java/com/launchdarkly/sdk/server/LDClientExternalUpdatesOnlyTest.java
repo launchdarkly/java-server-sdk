@@ -44,7 +44,7 @@ public class LDClientExternalUpdatesOnlyTest {
         .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertTrue(client.initialized());
+      assertTrue(client.isInitialized());
       
       assertEquals(DataSourceStatusProvider.State.VALID, client.getDataSourceStatusProvider().getStatus().getState());
     }

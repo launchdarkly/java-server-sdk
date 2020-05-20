@@ -2,23 +2,30 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 
-import java.util.function.Supplier;
+import java.time.Duration;
 
 final class DataSourceStatusProviderImpl implements DataSourceStatusProvider {
   private final EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> dataSourceStatusNotifier;
-  private final Supplier<DataSourceStatusProvider.Status> statusSupplier;
+  private final DataSourceUpdatesImpl dataSourceUpdates;
 
-  DataSourceStatusProviderImpl(EventBroadcasterImpl<StatusListener, Status> dataSourceStatusNotifier,
-      Supplier<Status> statusSupplier) {
+  DataSourceStatusProviderImpl(
+      EventBroadcasterImpl<StatusListener, Status> dataSourceStatusNotifier,
+      DataSourceUpdatesImpl dataSourceUpdates
+      ) {
     this.dataSourceStatusNotifier = dataSourceStatusNotifier;
-    this.statusSupplier = statusSupplier;
+    this.dataSourceUpdates = dataSourceUpdates;
   }
 
   @Override
   public Status getStatus() {
-    return statusSupplier.get();
+    return dataSourceUpdates.getLastStatus();
   }
 
+  @Override
+  public boolean waitFor(State desiredState, Duration timeout) throws InterruptedException {
+    return dataSourceUpdates.waitFor(desiredState, timeout);
+  }
+  
   @Override
   public void addStatusListener(StatusListener listener) {
     dataSourceStatusNotifier.register(listener);

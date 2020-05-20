@@ -2,13 +2,16 @@ package com.launchdarkly.sdk.server.interfaces;
 
 import com.google.common.base.Strings;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 
 /**
- * An interface for querying the status of a {@link DataSource}.
+ * An interface for querying the status of a {@link DataSource}. The data source is the component
+ * that receives updates to feature flag data; normally this is a streaming connection, but it could
+ * be polling or file data depending on your configuration.
  * <p>
- * An implementation of this interface is returned by {@link com.launchdarkly.sdk.server.LDClientInterface#getDataSourceStatusProvider}.
+ * An implementation of this interface is returned by {@link com.launchdarkly.sdk.server.interfaces.LDClientInterface#getDataSourceStatusProvider}.
  * Application code never needs to implement this interface.
  * 
  * @since 5.0.0
@@ -48,6 +51,38 @@ public interface DataSourceStatusProvider {
    */
   public void removeStatusListener(StatusListener listener);
 
+  /**
+   * A synchronous method for waiting for a desired connection state.
+   * <p>
+   * If the current state is already {@code desiredState} when this method is called, it immediately returns.
+   * Otherwise, it blocks until 1. the state has become {@code desiredState}, 2. the state has become
+   * {@link State#OFF} (since that is a permanent condition), 3. the specified timeout elapses, or 4.
+   * the current thread is deliberately interrupted with {@link Thread#interrupt()}.
+   * <p>
+   * A scenario in which this might be useful is if you want to create the {@code LDClient} without waiting
+   * for it to initialize, and then wait for initialization at a later time or on a different thread:
+   * <pre><code>
+   *     // create the client but do not wait
+   *     LDConfig config = new LDConfig.Builder().startWait(Duration.ZERO).build();
+   *     client = new LDClient(sdkKey, config);
+   *     
+   *     // later, possibly on another thread:
+   *     boolean inited = client.getDataSourceStatusProvider().waitFor(
+   *         DataSourceStatusProvider.State.VALID, Duration.ofSeconds(10));
+   *     if (!inited) {
+   *         // do whatever is appropriate if initialization has timed out
+   *     }       
+   * </code></pre>
+   * 
+   * @param desiredState the desired connection state (normally this would be {@link State#VALID}) 
+   * @param timeout the maximum amount of time to wait-- or {@link Duration#ZERO} to block indefinitely
+   *   (unless the thread is explicitly interrupted) 
+   * @return true if the connection is now in the desired state; false if it timed out, or if the state
+   *   changed to {@link State#OFF} and that was not the desired state
+   * @throws InterruptedException if {@link Thread#interrupt()} was called on this thread while blocked
+   */
+  public boolean waitFor(State desiredState, Duration timeout) throws InterruptedException;
+  
   /**
    * An enumeration of possible values for {@link DataSourceStatusProvider.Status#getState()}.
    */

@@ -44,7 +44,7 @@ public class LDClientEndToEndTest {
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.initialized());
+        assertTrue(client.isInitialized());
         assertTrue(client.boolVariation(flagKey, user, false));
       }
     }
@@ -61,7 +61,7 @@ public class LDClientEndToEndTest {
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
-        assertFalse(client.initialized());
+        assertFalse(client.isInitialized());
         assertFalse(client.boolVariation(flagKey, user, false));
       }
     }
@@ -80,7 +80,7 @@ public class LDClientEndToEndTest {
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.initialized());
+        assertTrue(client.isInitialized());
         assertTrue(client.boolVariation(flagKey, user, false));
       }
     }
@@ -99,7 +99,7 @@ public class LDClientEndToEndTest {
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.initialized());
+        assertTrue(client.isInitialized());
         assertTrue(client.boolVariation(flagKey, user, false));
       }
     }
@@ -116,7 +116,7 @@ public class LDClientEndToEndTest {
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
-        assertFalse(client.initialized());
+        assertFalse(client.isInitialized());
         assertFalse(client.boolVariation(flagKey, user, false));
       }
     }
@@ -137,7 +137,7 @@ public class LDClientEndToEndTest {
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.initialized());
+        assertTrue(client.isInitialized());
         assertTrue(client.boolVariation(flagKey, user, false));
       }
     }
@@ -155,7 +155,7 @@ public class LDClientEndToEndTest {
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.initialized());
+        assertTrue(client.isInitialized());
         client.identify(new LDUser("userkey"));
       }
       
@@ -175,7 +175,7 @@ public class LDClientEndToEndTest {
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.initialized());
+        assertTrue(client.isInitialized());
 
         RecordedRequest req = server.takeRequest();
         assertEquals("/diagnostic", req.getPath());

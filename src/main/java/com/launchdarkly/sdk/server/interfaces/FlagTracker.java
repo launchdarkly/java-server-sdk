@@ -6,7 +6,7 @@ import com.launchdarkly.sdk.server.Components;
 /**
  * An interface for tracking changes in feature flag configurations.
  * <p>
- * An implementation of this interface is returned by {@link com.launchdarkly.sdk.server.LDClientInterface#getFlagTracker()}.
+ * An implementation of this interface is returned by {@link com.launchdarkly.sdk.server.interfaces.LDClientInterface#getFlagTracker()}.
  * Application code never needs to implement this interface.
  * 
  * @since 5.0.0
