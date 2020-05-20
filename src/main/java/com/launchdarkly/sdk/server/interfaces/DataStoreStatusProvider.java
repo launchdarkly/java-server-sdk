@@ -7,7 +7,7 @@ import java.util.Objects;
 /**
  * An interface for querying the status of a persistent data store.
  * <p>
- * An implementation of this interface is returned by {@link com.launchdarkly.sdk.server.LDClientInterface#getDataStoreStatusProvider}.
+ * An implementation of this interface is returned by {@link com.launchdarkly.sdk.server.interfaces.LDClientInterface#getDataStoreStatusProvider}.
  * Application code should not implement this interface.
  * 
  * @since 5.0.0

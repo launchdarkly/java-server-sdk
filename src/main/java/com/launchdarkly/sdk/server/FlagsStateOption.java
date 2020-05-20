@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 /**
  * Optional parameters that can be passed to {@link LDClientInterface#allFlagsState(com.launchdarkly.sdk.LDUser, FlagsStateOption...)}.
