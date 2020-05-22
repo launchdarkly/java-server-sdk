@@ -231,7 +231,7 @@ public class EventOutputTest {
         "}");
     assertEquals(feJson4, getSingleOutputEvent(f, feUnknownFlag));
 
-    Event.FeatureRequest debugEvent = factory.newDebugEvent(feWithVariation);
+    Event.FeatureRequest debugEvent = EventFactory.newDebugEvent(feWithVariation);
     LDValue feJson5 = parseValue("{" +
         "\"kind\":\"debug\"," +
         "\"creationDate\":100000," +
@@ -371,11 +371,7 @@ public class EventOutputTest {
   }
 
   private EventFactory eventFactoryWithTimestamp(final long timestamp, final boolean includeReasons) {
-    return new EventFactory(false, includeReasons) {
-      protected long getTimestamp() {
-        return timestamp;
-      }
-    };
+    return new EventFactory.Default(includeReasons, () -> timestamp);
   }
   
   private LDValue getSingleOutputEvent(EventOutputFormatter f, Event event) throws IOException {

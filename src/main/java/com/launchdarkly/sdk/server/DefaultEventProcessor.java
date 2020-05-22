@@ -379,7 +379,7 @@ final class DefaultEventProcessor implements EventProcessor {
         Event.FeatureRequest fe = (Event.FeatureRequest)e;
         addFullEvent = fe.isTrackEvents();
         if (shouldDebugEvent(fe)) {
-          debugEvent = EventFactory.DEFAULT.newDebugEvent(fe);
+          debugEvent = EventFactory.newDebugEvent(fe);
         }
       } else {
         addFullEvent = true;

@@ -162,8 +162,8 @@ public final class LDClient implements LDClientInterface {
         Components.sendEvents() : config.eventProcessorFactory;
     boolean eventsDisabled = Components.isNullImplementation(epFactory);
     if (eventsDisabled) {
-      this.eventFactoryDefault = EventFactory.DisabledEventFactory.INSTANCE;
-      this.eventFactoryWithReasons = EventFactory.DisabledEventFactory.INSTANCE;
+      this.eventFactoryDefault = EventFactory.Disabled.INSTANCE;
+      this.eventFactoryWithReasons = EventFactory.Disabled.INSTANCE;
     } else {
       this.eventFactoryDefault = EventFactory.DEFAULT;
       this.eventFactoryWithReasons = EventFactory.DEFAULT_WITH_REASONS;

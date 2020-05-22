@@ -21,12 +21,7 @@ public class EventSummarizerTest {
   private static final LDUser user = new LDUser.Builder("key").build();
   
   private long eventTimestamp;
-  private EventFactory eventFactory = new EventFactory(false, false) {
-    @Override
-    protected long getTimestamp() {
-      return eventTimestamp;
-    }
-  };
+  private EventFactory eventFactory = new EventFactory.Default(false, () -> eventTimestamp);
   
   @Test
   public void summarizeEventDoesNothingForIdentifyEvent() {
