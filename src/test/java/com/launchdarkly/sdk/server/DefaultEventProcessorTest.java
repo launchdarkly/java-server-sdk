@@ -1,79 +1,38 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.gson.Gson;
-import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
-import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Date;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
-import static com.launchdarkly.sdk.server.Components.sendEvents;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestUtil.hasJsonProperty;
-import static com.launchdarkly.sdk.server.TestUtil.isJsonArray;
+import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
-import static org.hamcrest.Matchers.samePropertyValuesAs;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
 
+/**
+ * These tests cover all of the basic DefaultEventProcessor behavior that is not covered by
+ * DefaultEventProcessorOutputTest or DefaultEventProcessorDiagnosticTest.
+ */
 @SuppressWarnings("javadoc")
-public class DefaultEventProcessorTest {
-  private static final String SDK_KEY = "SDK_KEY";
-  private static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
-  private static final Gson gson = new Gson();
-  private static final LDValue userJson = LDValue.buildObject().put("key", "userkey").put("name", "Red").build();
-  private static final LDValue filteredUserJson = LDValue.buildObject().put("key", "userkey")
-      .put("privateAttrs", LDValue.buildArray().add("name").build()).build();
-  private static final LDConfig baseLDConfig = new LDConfig.Builder().diagnosticOptOut(true).build();
-  private static final LDConfig diagLDConfig = new LDConfig.Builder().diagnosticOptOut(false).build();
-  
-  // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
-  // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
-
-  private EventProcessorBuilder baseConfig(MockEventSender es) {
-    return sendEvents().eventSender(senderFactory(es));
-  }
-
-  private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec) {
-    return makeEventProcessor(ec, baseLDConfig);
-  }
-  
-  private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
-    return (DefaultEventProcessor)ec.createEventProcessor(clientContext(SDK_KEY, config));
-  }
-
-  private DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
-    return (DefaultEventProcessor)ec.createEventProcessor(
-        clientContext(SDK_KEY, diagLDConfig, diagnosticAccumulator));
-  }
-  
+public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
     EventProcessorFactory epf = Components.sendEvents();
@@ -94,11 +53,10 @@ public class DefaultEventProcessorTest {
   
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    URI uri = URI.create("http://fake");
     MockEventSender es = new MockEventSender();
     EventProcessorFactory epf = Components.sendEvents()
         .allAttributesPrivate(true)
-        .baseURI(uri)
+        .baseURI(FAKE_URI)
         .capacity(3333)
         .diagnosticRecordingInterval(Duration.ofSeconds(480))
         .eventSender(senderFactory(es))
@@ -111,8 +69,8 @@ public class DefaultEventProcessorTest {
       assertThat(ec.allAttributesPrivate, is(true));
       assertThat(ec.capacity, equalTo(3333));
       assertThat(ec.diagnosticRecordingInterval, equalTo(Duration.ofSeconds(480)));
-assertThat(ec.eventSender, sameInstance((EventSender)es));
-      assertThat(ec.eventsUri, equalTo(uri));
+      assertThat(ec.eventSender, sameInstance((EventSender)es));
+      assertThat(ec.eventsUri, equalTo(FAKE_URI));
       assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
       assertThat(ec.inlineUsersInEvents, is(false)); // will test this separately below
       assertThat(ec.privateAttributes, equalTo(ImmutableSet.of(UserAttribute.NAME, UserAttribute.forName("dogs"))));
@@ -129,351 +87,47 @@ assertThat(ec.eventSender, sameInstance((EventSender)es));
     }
   }
 
-  @Test
-  public void identifyEventIsQueued() throws Exception {
-    MockEventSender es = new MockEventSender();
-    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(e);
-    }
-
-    assertThat(es.getEventsFromLastRequest(), contains(
-      isIdentifyEvent(e, userJson)
-    ));
-  }
-  
-  @Test
-  public void userIsFilteredInIdentifyEvent() throws Exception {
-    MockEventSender es = new MockEventSender();
-    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).allAttributesPrivate(true))) {
-      ep.sendEvent(e);
-    }
-
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIdentifyEvent(e, filteredUserJson)
-    ));
-  }
-  
   @SuppressWarnings("unchecked")
   @Test
-  public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
+  public void eventsAreFlushedAutomatically() throws Exception {
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(fe);
-    }
-  
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, false, null),
-        isSummaryEvent()
-    ));
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void userIsFilteredInIndexEvent() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).allAttributesPrivate(true))) {
-      ep.sendEvent(fe);
-    }
-  
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, filteredUserJson),
-        isFeatureEvent(fe, flag, false, null),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void featureEventCanContainInlineUser() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Duration briefFlushInterval = Duration.ofMillis(50);
     
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).inlineUsersInEvents(true))) {
-      ep.sendEvent(fe);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isFeatureEvent(fe, flag, false, userJson),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void userIsFilteredInFeatureEvent() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
-        .inlineUsersInEvents(true).allAttributesPrivate(true))) {
-      ep.sendEvent(fe);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isFeatureEvent(fe, flag, false, filteredUserJson),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void featureEventCanContainReason() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
-    Event.FeatureRequest fe = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(flag, user,
-          new Evaluator.EvalResult(LDValue.of("value"), 1, reason), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(fe);
-    }
-
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, false, null, reason),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void indexEventIsStillGeneratedIfInlineUsersIsTrueButFeatureEventIsNotTracked() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(false).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), null);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).inlineUsersInEvents(true))) {
-      ep.sendEvent(fe);
-    }
-
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void eventKindIsDebugIfFlagIsTemporarilyInDebugMode() throws Exception {
-    MockEventSender es = new MockEventSender();
-    long futureTime = System.currentTimeMillis() + 1000000;
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(fe);
-    }
-  
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, true, userJson),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void eventCanBeBothTrackedAndDebugged() throws Exception {
-    MockEventSender es = new MockEventSender();
-    long futureTime = System.currentTimeMillis() + 1000000;
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true)
-        .debugEventsUntilDate(futureTime).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(fe);
-    }
-
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, false, null),
-        isFeatureEvent(fe, flag, true, userJson),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void debugModeExpiresBasedOnClientTimeIfClientTimeIsLaterThanServerTime() throws Exception {
-    MockEventSender es = new MockEventSender();
-    
-    // Pick a server time that is somewhat behind the client time
-    long serverTime = System.currentTimeMillis() - 20000;
-    es.result = new EventSender.Result(true, false, new Date(serverTime));
-    
-    long debugUntil = serverTime + 1000;
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      // Send and flush an event we don't care about, just so we'll receive "resp1" which sets the last server time
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
-      ep.flush();
-      ep.waitUntilInactive(); // this ensures that it has received the first response, with the date
+    // Can't use the regular config builder for this, because it will enforce a minimum flush interval
+    EventsConfiguration eventsConfig = new EventsConfiguration(
+        false,
+        100,
+        es,
+        FAKE_URI,
+        briefFlushInterval,
+        true,
+        ImmutableSet.of(),
+        100,
+        Duration.ofSeconds(5),
+        null
+        );
+    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY, null, null)) {
+      Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("event1", user, null, null);
+      Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("event2", user, null, null);
+      ep.sendEvent(event1);
+      ep.sendEvent(event2);
       
-      es.receivedParams.clear();
-      es.result = new EventSender.Result(true, false, null);
+      // getEventsFromLastRequest will block until the MockEventSender receives a payload - we expect
+      // both events to be in one payload, but if some unusual delay happened in between the two
+      // sendEvent calls, they might be in two
+      Iterable<LDValue> payload1 = es.getEventsFromLastRequest();
+      if (Iterables.size(payload1) == 1) {
+        assertThat(payload1, contains(isCustomEvent(event1, userJson)));
+        assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event2, userJson)));
+      } else {
+        assertThat(payload1, contains(isCustomEvent(event1, userJson), isCustomEvent(event2, userJson)));
+      }
       
-      // Now send an event with debug mode on, with a "debug until" time that is further in
-      // the future than the server time, but in the past compared to the client.
-      ep.sendEvent(fe);
+      Event.Custom event3 = EventFactory.DEFAULT.newCustomEvent("event3", user, null, null);
+      ep.sendEvent(event3);
+      assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event3, userJson)));
     }
     
-    // Should get a summary event only, not a full feature event
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
-        isSummaryEvent(fe.getCreationDate(), fe.getCreationDate())
-    ));
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void debugModeExpiresBasedOnServerTimeIfServerTimeIsLaterThanClientTime() throws Exception {
-    MockEventSender es = new MockEventSender();
-    
-    // Pick a server time that is somewhat ahead of the client time
-    long serverTime = System.currentTimeMillis() + 20000;
-    es.result = new EventSender.Result(true, false, new Date(serverTime));
-    
-    long debugUntil = serverTime - 1000;
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      // Send and flush an event we don't care about, just to set the last server time
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
-      ep.flush();
-      ep.waitUntilInactive(); // this ensures that it has received the first response, with the date
-      
-      es.receivedParams.clear();
-      es.result = new EventSender.Result(true, false, null);
-
-      // Now send an event with debug mode on, with a "debug until" time that is further in
-      // the future than the client time, but in the past compared to the server.
-      ep.sendEvent(fe);
-    }
-    
-    // Should get a summary event only, not a full feature event
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
-        isSummaryEvent(fe.getCreationDate(), fe.getCreationDate())
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void twoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
-    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
-    LDValue value = LDValue.of("value");
-    Event.FeatureRequest fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, value), LDValue.ofNull());
-    Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-        simpleEvaluation(1, value), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(fe1);
-      ep.sendEvent(fe2);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe1, userJson),
-        isFeatureEvent(fe1, flag1, false, null),
-        isFeatureEvent(fe2, flag2, false, null),
-        isSummaryEvent(fe1.getCreationDate(), fe2.getCreationDate())
-    ));
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void identifyEventMakesIndexEventUnnecessary() throws Exception {
-    MockEventSender es = new MockEventSender();
-    Event ie = EventFactory.DEFAULT.newIdentifyEvent(user);
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), null);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(ie);
-      ep.sendEvent(fe); 
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIdentifyEvent(ie, userJson),
-        isFeatureEvent(fe, flag, false, null),
-        isSummaryEvent()
-    ));
-  }
-
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void nonTrackedEventsAreSummarized() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).build();
-    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).build();
-    LDValue value1 = LDValue.of("value1");
-    LDValue value2 = LDValue.of("value2");
-    LDValue default1 = LDValue.of("default1");
-    LDValue default2 = LDValue.of("default2");
-    Event fe1a = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, value1), default1);
-    Event fe1b = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, value1), default1);
-    Event fe1c = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-        simpleEvaluation(2, value2), default1);
-    Event fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-        simpleEvaluation(2, value2), default2);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(fe1a);
-      ep.sendEvent(fe1b);
-      ep.sendEvent(fe1c);
-      ep.sendEvent(fe2);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe1a, userJson),
-        allOf(
-            isSummaryEvent(fe1a.getCreationDate(), fe2.getCreationDate()),
-            hasSummaryFlag(flag1.getKey(), default1,
-                Matchers.containsInAnyOrder(
-                    isSummaryEventCounter(flag1, 1, value1, 2),
-                    isSummaryEventCounter(flag1, 2, value2, 1)
-                )),
-            hasSummaryFlag(flag2.getKey(), default2,
-                contains(isSummaryEventCounter(flag2, 2, value2, 1)))
-        )
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void customEventIsQueuedWithUser() throws Exception {
-    MockEventSender es = new MockEventSender();
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     double metric = 1.5;
     Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, metric);
@@ -488,33 +142,6 @@ assertThat(ec.eventSender, sameInstance((EventSender)es));
     ));
   }
 
-  @Test
-  public void customEventCanContainInlineUser() throws Exception {
-    MockEventSender es = new MockEventSender();
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).inlineUsersInEvents(true))) {
-      ep.sendEvent(ce);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(ce, userJson)));
-  }
-  
-  @Test
-  public void userIsFilteredInCustomEvent() throws Exception {
-    MockEventSender es = new MockEventSender();
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
-        .inlineUsersInEvents(true).allAttributesPrivate(true))) {
-      ep.sendEvent(ce);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(ce, filteredUserJson)));
-  }
-  
   @Test
   public void closingEventProcessorForcesSynchronousFlush() throws Exception {
     MockEventSender es = new MockEventSender();
@@ -536,101 +163,57 @@ assertThat(ec.eventSender, sameInstance((EventSender)es));
     assertEquals(0, es.receivedParams.size());
   }
 
+  @SuppressWarnings("unchecked")
   @Test
-  public void diagnosticEventsSentToDiagnosticEndpoint() throws Exception {
+  public void userKeysAreFlushedAutomatically() throws Exception {
+    // This test overrides the user key flush interval to a small value and verifies that a new
+    // index event is generated for a user after the user keys have been flushed.
     MockEventSender es = new MockEventSender();
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticAccumulator)) {
-      MockEventSender.Params initReq = es.awaitRequest();
-      ep.postDiagnostic();
-      MockEventSender.Params periodicReq = es.awaitRequest();
-
-      assertThat(initReq.kind, equalTo(EventSender.EventDataKind.DIAGNOSTICS));
-      assertThat(periodicReq.kind, equalTo(EventSender.EventDataKind.DIAGNOSTICS));
-    }
-  }
-
-  @Test
-  public void initialDiagnosticEventHasInitBody() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticAccumulator)) {
-      MockEventSender.Params req = es.awaitRequest();
-
-      DiagnosticEvent.Init initEvent = gson.fromJson(req.data, DiagnosticEvent.Init.class);
-
-      assertNotNull(initEvent);
-      assertThat(initEvent.kind, equalTo("diagnostic-init"));
-      assertThat(initEvent.id, samePropertyValuesAs(diagnosticId));
-      assertNotNull(initEvent.configuration);
-      assertNotNull(initEvent.sdk);
-      assertNotNull(initEvent.platform);
-    }
-  }
-
-  @Test
-  public void periodicDiagnosticEventHasStatisticsBody() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    long dataSinceDate = diagnosticAccumulator.dataSinceDate;
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticAccumulator)) {
-      // Ignore the initial diagnostic event
-      es.awaitRequest();
-      ep.postDiagnostic();
-      MockEventSender.Params periodicReq = es.awaitRequest();
-
-      assertNotNull(periodicReq);
-      DiagnosticEvent.Statistics statsEvent = gson.fromJson(periodicReq.data, DiagnosticEvent.Statistics.class);
-
-      assertNotNull(statsEvent);
-      assertThat(statsEvent.kind, equalTo("diagnostic"));
-      assertThat(statsEvent.id, samePropertyValuesAs(diagnosticId));
-      assertThat(statsEvent.dataSinceDate, equalTo(dataSinceDate));
-      assertThat(statsEvent.creationDate, equalTo(diagnosticAccumulator.dataSinceDate));
-      assertThat(statsEvent.deduplicatedUsers, equalTo(0L));
-      assertThat(statsEvent.eventsInLastBatch, equalTo(0L));
-      assertThat(statsEvent.droppedEvents, equalTo(0L));
-    }
-  }
-
-  @Test
-  public void periodicDiagnosticEventGetsEventsInLastBatchAndDeduplicatedUsers() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
-    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
-    LDValue value = LDValue.of("value");
-    Event.FeatureRequest fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
-            simpleEvaluation(1, value), LDValue.ofNull());
-    Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
-            simpleEvaluation(1, value), LDValue.ofNull());
-
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticAccumulator)) {
-      // Ignore the initial diagnostic event
-      es.awaitRequest();
-
-      ep.sendEvent(fe1);
-      ep.sendEvent(fe2);
+    Duration briefUserKeyFlushInterval = Duration.ofMillis(60);
+    
+    // Can't use the regular config builder for this, because it will enforce a minimum flush interval
+    EventsConfiguration eventsConfig = new EventsConfiguration(
+        false,
+        100,
+        es,
+        FAKE_URI,
+        Duration.ofSeconds(5),
+        false, // do not inline users in events
+        ImmutableSet.of(),
+        100,
+        briefUserKeyFlushInterval,
+        null
+        );
+    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
+        null, null)) {
+      Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("event1", user, null, null);
+      Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("event2", user, null, null);
+      ep.sendEvent(event1);
+      ep.sendEvent(event2);
+      
+      // We're relying on the user key flush not happening in between event1 and event2, so we should get
+      // a single index event for the user.
       ep.flush();
-      // Ignore normal events
-      es.awaitRequest();
+      assertThat(es.getEventsFromLastRequest(), contains(
+          isIndexEvent(event1, userJson),
+          isCustomEvent(event1, null),
+          isCustomEvent(event2, null)
+      ));
 
-      ep.postDiagnostic();
-      MockEventSender.Params periodicReq = es.awaitRequest();
+      // Now wait long enough for the user key cache to be flushed
+      Thread.sleep(briefUserKeyFlushInterval.toMillis() * 2);
 
-      assertNotNull(periodicReq);
-      DiagnosticEvent.Statistics statsEvent = gson.fromJson(periodicReq.data, DiagnosticEvent.Statistics.class);
-
-      assertNotNull(statsEvent);
-      assertThat(statsEvent.deduplicatedUsers, equalTo(1L));
-      assertThat(statsEvent.eventsInLastBatch, equalTo(3L));
-      assertThat(statsEvent.droppedEvents, equalTo(0L));
+      // Referencing the same user in a new even should produce a new index event
+      Event.Custom event3 = EventFactory.DEFAULT.newCustomEvent("event3", user, null, null);
+      ep.sendEvent(event3);
+      ep.flush();
+      assertThat(es.getEventsFromLastRequest(), contains(
+          isIndexEvent(event3, userJson),
+          isCustomEvent(event3, null)
+      ));
     }
   }
-
+  
   @Test
   public void eventSenderIsClosedWithEventProcessor() throws Exception {
     MockEventSender es = new MockEventSender();
@@ -655,150 +238,79 @@ assertThat(ec.eventSender, sameInstance((EventSender)es));
   }
   
   @Test
-  public void customBaseUriIsPassedToEventSenderForDiagnosticEvents() throws Exception {
+  public void eventCapacityIsEnforced() throws Exception {
+    int capacity = 10;
     MockEventSender es = new MockEventSender();
-    URI uri = URI.create("fake-uri");
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).baseURI(uri), diagnosticAccumulator)) {
-    }
-
-    MockEventSender.Params p = es.awaitRequest();
-    assertThat(p.eventsBaseUri, equalTo(uri));
-  }
-
-  private static EventSenderFactory senderFactory(final MockEventSender es) {
-    return new EventSenderFactory() {
-      @Override
-      public EventSender createEventSender(String sdkKey, HttpConfiguration httpConfiguration) {
-        return es;
-      }
-    };
-  }
-  
-  private static final class MockEventSender implements EventSender {
-    volatile boolean closed;
-    volatile Result result = new Result(true, false, null);
-    final BlockingQueue<Params> receivedParams = new LinkedBlockingQueue<>();
+    EventProcessorBuilder config = baseConfig(es).capacity(capacity);
     
-    static final class Params {
-      final EventDataKind kind;
-      final String data;
-      final int eventCount;
-      final URI eventsBaseUri;
+    try (DefaultEventProcessor ep = makeEventProcessor(config)) {
+      for (int i = 0; i < capacity + 2; i++) {
+        ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      }
+      ep.flush();
+      assertThat(es.getEventsFromLastRequest(), Matchers.iterableWithSize(capacity));
+    }
+  }
+
+  @Test
+  public void eventCapacityDoesNotPreventSummaryEventFromBeingSent() throws Exception {
+    int capacity = 10;
+    MockEventSender es = new MockEventSender();
+    EventProcessorBuilder config = baseConfig(es).capacity(capacity).inlineUsersInEvents(true);
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
+
+    try (DefaultEventProcessor ep = makeEventProcessor(config)) {
+      for (int i = 0; i < capacity; i++) {
+        Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+            simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+        ep.sendEvent(fe);
+        
+        // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
+        // delay to keep EventDispatcher from being overwhelmed
+        Thread.sleep(1);
+      }
       
-      Params(EventDataKind kind, String data, int eventCount, URI eventsBaseUri) {
-        this.kind = kind;
-        this.data = data;
-        this.eventCount = eventCount;
-        assertNotNull(eventsBaseUri);
-        this.eventsBaseUri = eventsBaseUri;
-      }
+      ep.flush();
+      Iterable<LDValue> eventsReceived = es.getEventsFromLastRequest(); 
+      
+      assertThat(eventsReceived, Matchers.iterableWithSize(capacity + 1));
+      assertThat(Iterables.get(eventsReceived, capacity), isSummaryEvent());
     }
-    
-    @Override
-    public void close() throws IOException {
-      closed = true;
-    }
-
-    @Override
-    public Result sendEventData(EventDataKind kind, String data, int eventCount, URI eventsBaseUri) {
-      receivedParams.add(new Params(kind, data, eventCount, eventsBaseUri));
-      return result;
-    }
-    
-    Params awaitRequest() throws Exception {
-      Params p = receivedParams.poll(5, TimeUnit.SECONDS);
-      if (p == null) {
-        fail("did not receive event post within 5 seconds");
-      }
-      return p;
-    }
-    
-    Iterable<LDValue> getEventsFromLastRequest() throws Exception {
-      Params p = awaitRequest();
-      LDValue a = LDValue.parse(p.data);
-      assertEquals(p.eventCount, a.size());
-      return a.values();
-    }
-  }
-
-  private Matcher<LDValue> isIdentifyEvent(Event sourceEvent, LDValue user) {
-    return allOf(
-        hasJsonProperty("kind", "identify"),
-        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        hasJsonProperty("user", user)
-    );
-  }
-
-  private Matcher<LDValue> isIndexEvent(Event sourceEvent, LDValue user) {
-    return allOf(
-        hasJsonProperty("kind", "index"),
-        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        hasJsonProperty("user", user)
-    );
-  }
-
-  private Matcher<LDValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser) {
-    return isFeatureEvent(sourceEvent, flag, debug, inlineUser, null);
-  }
-
-  @SuppressWarnings("unchecked")
-  private Matcher<LDValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser,
-      EvaluationReason reason) {
-    return allOf(
-        hasJsonProperty("kind", debug ? "debug" : "feature"),
-        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        hasJsonProperty("key", flag.getKey()),
-        hasJsonProperty("version", (double)flag.getVersion()),
-        hasJsonProperty("variation", sourceEvent.getVariation()),
-        hasJsonProperty("value", sourceEvent.getValue()),
-        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKey()) : LDValue.ofNull()),
-        hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
-        hasJsonProperty("reason", reason == null ? LDValue.ofNull() : LDValue.parse(gson.toJson(reason)))
-    );
-  }
-
-  @SuppressWarnings("unchecked")
-  private Matcher<LDValue> isCustomEvent(Event.Custom sourceEvent, LDValue inlineUser) {
-    return allOf(
-        hasJsonProperty("kind", "custom"),
-        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        hasJsonProperty("key", "eventkey"),
-        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKey()) : LDValue.ofNull()),
-        hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
-        hasJsonProperty("data", sourceEvent.getData()),
-        hasJsonProperty("metricValue", sourceEvent.getMetricValue() == null ? LDValue.ofNull() : LDValue.of(sourceEvent.getMetricValue()))              
-    );
-  }
-
-  private Matcher<LDValue> isSummaryEvent() {
-    return hasJsonProperty("kind", "summary");
-  }
-
-  private Matcher<LDValue> isSummaryEvent(long startDate, long endDate) {
-    return allOf(
-        hasJsonProperty("kind", "summary"),
-        hasJsonProperty("startDate", (double)startDate),
-        hasJsonProperty("endDate", (double)endDate)
-    );
   }
   
-  private Matcher<LDValue> hasSummaryFlag(String key, LDValue defaultVal, Matcher<Iterable<? extends LDValue>> counters) {
-    return hasJsonProperty("features",
-        hasJsonProperty(key, allOf(
-          hasJsonProperty("default", defaultVal),
-          hasJsonProperty("counters", isJsonArray(counters))
-    )));
+  @Test
+  public void noMoreEventsAreProcessedAfterUnrecoverableError() throws Exception {
+    MockEventSender es = new MockEventSender();
+    es.result = new EventSender.Result(false, true, null); // mustShutdown == true
+    
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
+      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.flush();
+      es.awaitRequest();
+      
+      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.flush();
+      es.expectNoRequests(Duration.ofMillis(100));
+    }
   }
-  
-  private Matcher<LDValue> isSummaryEventCounter(DataModel.FeatureFlag flag, Integer variation, LDValue value, int count) {
-    return allOf(
-        hasJsonProperty("variation", variation),
-        hasJsonProperty("version", (double)flag.getVersion()),
-        hasJsonProperty("value", value),
-        hasJsonProperty("count", (double)count)
-    );
+
+  @Test
+  public void uncheckedExceptionFromEventSenderDoesNotStopWorkerThread() throws Exception {
+    MockEventSender es = new MockEventSender();
+    
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
+      es.fakeError = new RuntimeException("sorry");
+      
+      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.flush();
+      es.awaitRequest();
+      // MockEventSender now throws an unchecked exception up to EventProcessor's flush worker -
+      // verify that a subsequent flush still works
+      
+      es.fakeError = null;
+      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.flush();
+      es.awaitRequest();
+    }
   }
 }
