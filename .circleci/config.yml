@@ -25,6 +25,7 @@ workflows:
       - test-linux:
           name: Java 11 - Linux - OpenJDK
           docker-image: circleci/openjdk:11
+          with-coverage: true
           requires:
             - build-linux
       - packaging:
@@ -52,6 +53,9 @@ jobs:
     parameters:
       docker-image:
         type: string
+      with-coverage:
+        type: boolean
+        default: false
     docker:
       - image: <<parameters.docker-image>>
     steps:
@@ -61,6 +65,12 @@ jobs:
           at: build
       - run: java -version
       - run: ./gradlew test
+      - when:
+          condition: <<parameters.with-coverage>>
+          steps:
+            - run:
+                name: Generate test coverage report
+                command: ./gradlew jacocoTestReport
       - run:
           name: Save test results
           command: |
@@ -71,6 +81,11 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+      - when:
+          condition: <<parameters.with-coverage>>
+          steps:
+            - store_artifacts:
+                path: build/reports/jacoco
 
   build-test-windows:
     executor:
