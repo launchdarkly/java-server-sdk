@@ -371,13 +371,9 @@ public class EventOutputTest {
   }
 
   private EventFactory eventFactoryWithTimestamp(final long timestamp, final boolean includeReasons) {
-    return new EventFactory() {
+    return new EventFactory(false, includeReasons) {
       protected long getTimestamp() {
         return timestamp;
-      }
-      
-      protected boolean isIncludeReasons() {
-        return includeReasons;
       }
     };
   }
