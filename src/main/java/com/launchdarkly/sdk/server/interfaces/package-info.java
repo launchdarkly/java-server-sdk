@@ -5,6 +5,6 @@
  * Most applications will not need to refer to these types. You will use them if you are creating a
  * plug-in component, such as a database integration, or if you use advanced features such as
  * {@link com.launchdarkly.sdk.server.interfaces.LDClientInterface#getDataStoreStatusProvider()} or
- * {@link com.launchdarkly.sdk.server.interfaces.LDClientInterface#registerFlagChangeListener(FlagChangeListener)}.
+ * {@link com.launchdarkly.sdk.server.interfaces.LDClientInterface#getFlagTracker()}.
  */
 package com.launchdarkly.sdk.server.interfaces;

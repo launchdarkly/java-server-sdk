@@ -3,7 +3,6 @@ package com.launchdarkly.sdk.server.interfaces;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.FeatureFlagsState;
 import com.launchdarkly.sdk.server.FlagsStateOption;
 import com.launchdarkly.sdk.server.LDClient;
@@ -232,44 +231,16 @@ public interface LDClientInterface extends Closeable {
   boolean isOffline();
 
   /**
-   * Registers a listener to be notified of feature flag changes.
+   * Returns an interface for tracking changes in feature flag configurations.
    * <p>
-   * The listener will be notified whenever the SDK receives any change to any feature flag's configuration,
-   * or to a user segment that is referenced by a feature flag. If the updated flag is used as a prerequisite
-   * for other flags, the SDK assumes that those flags may now behave differently and sends events for them
-   * as well.
-   * <p>
-   * Note that this does not necessarily mean the flag's value has changed for any particular user, only that
-   * some part of the flag configuration was changed so that it <i>may</i> return a different value than it
-   * previously returned for some user.
-   * <p>
-   * Change events only work if the SDK is actually connecting to LaunchDarkly (or using the file data source).
-   * If the SDK is only reading flags from a database ({@link Components#externalUpdatesOnly()}) then it cannot
-   * know when there is a change, because flags are read on an as-needed basis.
-   * <p>
-   * The listener will be called from a worker thread.
-   * <p>
-   * Calling this method for an already-registered listener has no effect.
-   * 
-   * @param listener the event listener to register
-   * @see #unregisterFlagChangeListener(FlagChangeListener)
-   * @see FlagChangeListener
+   * The {@link FlagTracker} contains methods for requesting notifications about feature flag changes using
+   * an event listener model.
+   *
+   * @return a {@link FlagTracker}
    * @since 5.0.0
    */
-  void registerFlagChangeListener(FlagChangeListener listener);
+  FlagTracker getFlagTracker();
   
-  /**
-   * Unregisters a listener so that it will no longer be notified of feature flag changes.
-   * <p>
-   * Calling this method for a listener that was not previously registered has no effect.
-   * 
-   * @param listener the event listener to unregister
-   * @see #registerFlagChangeListener(FlagChangeListener)
-   * @see FlagChangeListener
-   * @since 5.0.0
-   */
-  void unregisterFlagChangeListener(FlagChangeListener listener);
-
   /**
    * Returns an interface for tracking the status of the data source.
    * <p>

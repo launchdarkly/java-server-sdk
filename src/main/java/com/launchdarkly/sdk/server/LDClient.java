@@ -20,6 +20,7 @@ import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
+import com.launchdarkly.sdk.server.interfaces.FlagTracker;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import org.apache.commons.codec.binary.Hex;
@@ -69,7 +70,8 @@ public final class LDClient implements LDClientInterface {
   private final DataSourceUpdates dataSourceUpdates;
   private final DataStoreStatusProviderImpl dataStoreStatusProvider;
   private final DataSourceStatusProviderImpl dataSourceStatusProvider;
-  private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
+  private final FlagTrackerImpl flagTracker;
+  private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeBroadcaster;
   private final ScheduledExecutorService sharedExecutor;
   
   /**
@@ -194,7 +196,9 @@ public final class LDClient implements LDClientInterface {
       }
     });
 
-    this.flagChangeEventNotifier = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor);
+    this.flagChangeBroadcaster = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor);
+    this.flagTracker = new FlagTrackerImpl(flagChangeBroadcaster,
+        (key, user) -> jsonValueVariation(key, user, LDValue.ofNull()));
 
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore, dataStoreUpdates);
 
@@ -205,7 +209,7 @@ public final class LDClient implements LDClientInterface {
     DataSourceUpdatesImpl dataSourceUpdates = new DataSourceUpdatesImpl(
         dataStore,
         dataStoreStatusProvider,
-        flagChangeEventNotifier,
+        flagChangeBroadcaster,
         dataSourceStatusNotifier,
         sharedExecutor,
         config.loggingConfig.getLogDataSourceOutageAsErrorAfter()
@@ -475,13 +479,8 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public void registerFlagChangeListener(FlagChangeListener listener) {
-    flagChangeEventNotifier.register(listener);
-  }
-  
-  @Override
-  public void unregisterFlagChangeListener(FlagChangeListener listener) {
-    flagChangeEventNotifier.unregister(listener);
+  public FlagTracker getFlagTracker() {
+    return flagTracker;
   }
   
   @Override
