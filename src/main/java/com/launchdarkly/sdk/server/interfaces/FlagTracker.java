@@ -17,8 +17,8 @@ public interface FlagTracker {
    * <p>
    * The listener will be notified whenever the SDK receives any change to any feature flag's configuration,
    * or to a user segment that is referenced by a feature flag. If the updated flag is used as a prerequisite
-   * for other flags, the SDK assumes that those flags may now behave differently and sends events for them
-   * as well.
+   * for other flags, the SDK assumes that those flags may now behave differently and sends flag change events
+   * for them as well.
    * <p>
    * Note that this does not necessarily mean the flag's value has changed for any particular user, only that
    * some part of the flag configuration was changed so that it <i>may</i> return a different value than it
