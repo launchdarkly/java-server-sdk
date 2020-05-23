@@ -25,6 +25,8 @@ import static java.util.Collections.emptySet;
  * store or serialize them.
  */
 public abstract class DataModel {
+  private DataModel() {}
+  
   /**
    * The {@link DataKind} instance that describes feature flag data.
    * <p>
@@ -239,7 +241,7 @@ public abstract class DataModel {
   
     // Guaranteed non-null
     Collection<String> getValues() {
-      return values == null ? emptyList() : values;
+      return values == null ? emptySet() : values;
     }
   
     int getVariation() {

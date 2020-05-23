@@ -8,6 +8,7 @@ import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
+import com.launchdarkly.sdk.server.DataModel.Target;
 
 import org.junit.Test;
 
@@ -37,6 +38,12 @@ public class DataModelTest {
   public void flagVariationsListCanNeverBeNull() {
     FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, false, false, false, null, false);
     assertEquals(ImmutableList.of(), f.getVariations());
+  }
+  
+  @Test
+  public void targetKeysSetCanNeverBeNull() {
+    Target t = new Target(null, 0);
+    assertEquals(ImmutableSet.of(), t.getValues());
   }
   
   @Test

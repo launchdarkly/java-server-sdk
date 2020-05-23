@@ -22,7 +22,7 @@ abstract class EvaluatorBucketing {
       return variation;
     } else {
       DataModel.Rollout rollout = vr.getRollout();
-      if (rollout != null && rollout.getVariations() != null && !rollout.getVariations().isEmpty()) {
+      if (rollout != null && !rollout.getVariations().isEmpty()) {
         float bucket = bucketUser(user, key, rollout.getBucketBy(), salt);
         float sum = 0F;
         for (DataModel.WeightedVariation wv : rollout.getVariations()) {
