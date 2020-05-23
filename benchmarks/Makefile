@@ -14,6 +14,7 @@ benchmark: $(BENCHMARK_ALL_JAR) $(BENCHMARK_TEST_JAR)
 	rm -rf build/tmp
 	../gradlew jmh
 	cat build/reports/jmh/human.txt
+	../gradlew jmhReport
 
 clean:
 	rm -rf build lib
