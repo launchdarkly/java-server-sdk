@@ -95,6 +95,8 @@ public final class LDClient implements LDClientInterface {
    * @see LDClient#LDClient(String, LDConfig)
    */
   public LDClient(String sdkKey) {
+    // COVERAGE: this constructor cannot be called in unit tests because it uses the default base
+    // URI and will attempt to make a live connection to LaunchDarkly.
     this(sdkKey, LDConfig.DEFAULT);
   }
 
@@ -309,7 +311,15 @@ public final class LDClient implements LDClientInterface {
     }
 
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
-    KeyedItems<ItemDescriptor> flags = dataStore.getAll(FEATURES);
+    KeyedItems<ItemDescriptor> flags;
+    try {
+      flags = dataStore.getAll(FEATURES);
+    } catch (Exception e) {
+      logger.error("Exception from data store when evaluating all flags: {}", e.toString());
+      logger.debug(e.toString(), e);
+      return builder.valid(false).build();
+    }
+    
     for (Map.Entry<String, ItemDescriptor> entry : flags.getItems()) {
       if (entry.getValue().getItem() == null) {
         continue; // deleted flag placeholder
@@ -531,6 +541,7 @@ public final class LDClient implements LDClientInterface {
       mac.init(new SecretKeySpec(sdkKey.getBytes(), HMAC_ALGORITHM));
       return Hex.encodeHexString(mac.doFinal(user.getKey().getBytes("UTF8")));
     } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
+      // COVERAGE: there is no way to cause these errors in a unit test.
       logger.error("Could not generate secure mode hash: {}", e.toString());
       logger.debug(e.toString(), e);
     }

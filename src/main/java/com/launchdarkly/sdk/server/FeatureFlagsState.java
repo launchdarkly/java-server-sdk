@@ -61,6 +61,7 @@ public class FeatureFlagsState implements JsonSerializable {
       if (other instanceof FlagMetadata) {
         FlagMetadata o = (FlagMetadata)other;
         return Objects.equals(variation, o.variation) &&
+            Objects.equals(reason, o.reason) &&
             Objects.equals(version, o.version) &&
             Objects.equals(trackEvents, o.trackEvents) &&
             Objects.equals(debugEventsUntilDate, o.debugEventsUntilDate);
@@ -93,7 +94,8 @@ public class FeatureFlagsState implements JsonSerializable {
   /**
    * Returns the value of an individual feature flag at the time the state was recorded.
    * @param key the feature flag key
-   * @return the flag's JSON value; null if the flag returned the default value, or if there was no such flag
+   * @return the flag's JSON value; {@link LDValue#ofNull()} if the flag returned the default value;
+   *   {@code null} if there was no such flag
    */
   public LDValue getFlagValue(String key) {
     return flagValues.get(key);

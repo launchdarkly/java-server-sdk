@@ -7,6 +7,8 @@ import com.launchdarkly.sdk.LDValue;
 
 import org.junit.Test;
 
+import java.net.URI;
+
 import static com.launchdarkly.sdk.server.Components.externalUpdatesOnly;
 import static com.launchdarkly.sdk.server.Components.noEvents;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
@@ -15,10 +17,15 @@ import static com.launchdarkly.sdk.server.TestHttpUtil.baseStreamingConfig;
 import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.sdk.server.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import okhttp3.HttpUrl;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -143,6 +150,60 @@ public class LDClientEndToEndTest {
     }
   }
 
+  @Test
+  public void clientUsesProxy() throws Exception {
+    URI fakeBaseUri = URI.create("http://not-a-real-host");
+    MockResponse resp = jsonResponse(makeAllDataJson());
+    
+    try (MockWebServer server = makeStartedServer(resp)) {
+      HttpUrl serverUrl = server.url("/");
+      LDConfig config = new LDConfig.Builder()
+          .http(Components.httpConfiguration()
+              .proxyHostAndPort(serverUrl.host(), serverUrl.port()))
+          .dataSource(Components.pollingDataSource().baseURI(fakeBaseUri))
+          .events(Components.noEvents())
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.isInitialized());
+        
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getRequestLine(), startsWith("GET " + fakeBaseUri + "/sdk/latest-all"));
+        assertThat(req.getHeader("Proxy-Authorization"), nullValue());
+      }
+    }
+  }
+
+  @Test
+  public void clientUsesProxyWithBasicAuth() throws Exception {
+    URI fakeBaseUri = URI.create("http://not-a-real-host");
+    MockResponse challengeResp = new MockResponse().setResponseCode(407).setHeader("Proxy-Authenticate", "Basic realm=x");
+    MockResponse resp = jsonResponse(makeAllDataJson());
+    
+    try (MockWebServer server = makeStartedServer(challengeResp, resp)) {
+      HttpUrl serverUrl = server.url("/");
+      LDConfig config = new LDConfig.Builder()
+          .http(Components.httpConfiguration()
+              .proxyHostAndPort(serverUrl.host(), serverUrl.port())
+              .proxyAuth(Components.httpBasicAuthentication("user", "pass")))
+          .dataSource(Components.pollingDataSource().baseURI(fakeBaseUri))
+          .events(Components.noEvents())
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.isInitialized());
+        
+        RecordedRequest req1 = server.takeRequest();
+        assertThat(req1.getRequestLine(), startsWith("GET " + fakeBaseUri + "/sdk/latest-all"));
+        assertThat(req1.getHeader("Proxy-Authorization"), nullValue());
+        
+        RecordedRequest req2 = server.takeRequest();
+        assertThat(req2.getRequestLine(), equalTo(req1.getRequestLine()));
+        assertThat(req2.getHeader("Proxy-Authorization"), equalTo("Basic dXNlcjpwYXNz"));
+      }
+    }
+  }
+  
   @Test
   public void clientSendsAnalyticsEvent() throws Exception {
     MockResponse resp = new MockResponse().setResponseCode(202);

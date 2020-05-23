@@ -384,4 +384,11 @@ public class EvaluatorTest {
     assertEquals(fromValue(MATCH_VALUE, MATCH_VARIATION, EvaluationReason.ruleMatch(1, "ruleid1")), result.getDetails());
     assertThat(result.getPrerequisiteEvents(), emptyIterable());
   }
+  
+  @Test(expected=RuntimeException.class)
+  public void canSimulateErrorUsingTestInstrumentationFlagKey() {
+    // Other tests rely on the ability to simulate an exception in this way
+    DataModel.FeatureFlag badFlag = flagBuilder(Evaluator.INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION).build();
+    BASE_EVALUATOR.evaluate(badFlag, BASE_USER, EventFactory.DEFAULT);
+  }
 }

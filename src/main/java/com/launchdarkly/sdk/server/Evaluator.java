@@ -25,6 +25,14 @@ import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
  */
 class Evaluator {
   private final static Logger logger = LoggerFactory.getLogger(Evaluator.class);
+
+  /**
+   * This key cannot exist in LaunchDarkly because it contains invalid characters. We use it in tests as a way to
+   * simulate an unexpected RuntimeException during flag evaluations. We check for it by reference equality, so
+   * the tests must use this exact constant.
+   */
+  static final String INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION = "$ test error flag $";
+  static final RuntimeException EXPECTED_EXCEPTION_FROM_INVALID_FLAG = new RuntimeException("deliberate test error");
   
   private final Getters getters;
   
@@ -112,6 +120,10 @@ class Evaluator {
    * @return an {@link EvalResult} - guaranteed non-null
    */
   EvalResult evaluate(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory) {
+    if (flag.getKey() == INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION) {
+      throw EXPECTED_EXCEPTION_FROM_INVALID_FLAG;
+    }
+    
     if (user == null || user.getKey() == null) {
       // this should have been prevented by LDClient.evaluateInternal
       logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", flag.getKey());

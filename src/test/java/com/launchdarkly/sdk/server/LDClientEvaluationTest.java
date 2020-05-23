@@ -8,8 +8,8 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import org.junit.Test;
 
@@ -19,6 +19,8 @@ import java.util.Map;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.Evaluator.EXPECTED_EXCEPTION_FROM_INVALID_FLAG;
+import static com.launchdarkly.sdk.server.Evaluator.INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.fallthroughVariation;
@@ -166,6 +168,13 @@ public class LDClientEvaluationTest {
 
     assertEquals("a", client.stringVariation("key", user, "a"));
   }
+
+  @Test
+  public void stringVariationWithNullDefaultReturnsDefaultValueForWrongType() throws Exception {
+    upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
+
+    assertNull(client.stringVariation("key", user, null));
+  }
   
   @Test
   public void jsonValueVariationReturnsFlagValue() throws Exception {
@@ -183,7 +192,8 @@ public class LDClientEvaluationTest {
   
   @Test
   public void canMatchUserBySegment() throws Exception {
-    // This is similar to one of the tests in FeatureFlagTest, but more end-to-end
+    // This is similar to EvaluatorSegmentMatchTest, but more end-to-end - we're verifying that
+    // the client is forwarding the Evaluator's segment queries to the data store
     DataModel.Segment segment = segmentBuilder("segment1")
         .version(1)
         .included(user.getKey())
@@ -196,7 +206,19 @@ public class LDClientEvaluationTest {
     
     assertTrue(client.boolVariation("feature", user, false));
   }
-  
+
+  @Test
+  public void canTryToMatchUserBySegmentWhenSegmentIsNotFound() throws Exception {
+    // This is similar to EvaluatorSegmentMatchTest, but more end-to-end - we're verifying that
+    // the client is forwarding the Evaluator's segment queries to the data store, and that we
+    // don't blow up if the segment is missing.
+    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of("segment1"));
+    DataModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
+    upsertFlag(dataStore, feature);
+    
+    assertFalse(client.boolVariation("feature", user, false));
+  }
+
   @Test
   public void canGetDetailsForSuccessfulEvaluation() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
@@ -207,11 +229,21 @@ public class LDClientEvaluationTest {
   }
   
   @Test
-  public void variationReturnsDefaultIfFlagEvaluatesToNull() {
-    DataModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(null).build();
+  public void jsonVariationReturnsNullIfFlagEvaluatesToNull() {
+    DataModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(0).variations(LDValue.ofNull()).build();
     upsertFlag(dataStore, flag);
     
-    assertEquals("default", client.stringVariation("key", user, "default"));
+    assertEquals(LDValue.ofNull(), client.jsonValueVariation("key", user, LDValue.buildObject().build()));
+  }
+
+  @Test
+  public void typedVariationReturnsZeroValueForTypeIfFlagEvaluatesToNull() {
+    DataModel.FeatureFlag flag = flagBuilder("key").on(false).offVariation(0).variations(LDValue.ofNull()).build();
+    upsertFlag(dataStore, flag);
+    
+    assertEquals(false, client.boolVariation("key", user, true));
+    assertEquals(0, client.intVariation("key", user, 1));
+    assertEquals(0d, client.doubleVariation("key", user, 1.0d), 0d);
   }
   
   @Test
@@ -224,6 +256,15 @@ public class LDClientEvaluationTest {
     EvaluationDetail<String> actual = client.stringVariationDetail("key", user, "default");
     assertEquals(expected, actual);
     assertTrue(actual.isDefaultValue());
+  }
+
+  @Test
+  public void deletedFlagPlaceholderIsTreatedAsUnknownFlag() {
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of("hello"));
+    upsertFlag(dataStore, flag);
+    dataStore.upsert(DataModel.FEATURES, flag.getKey(), ItemDescriptor.deletedItem(flag.getVersion() + 1));
+    
+    assertEquals("default", client.stringVariation(flag.getKey(), user, "default"));
   }
   
   @Test
@@ -257,6 +298,16 @@ public class LDClientEvaluationTest {
         EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
     assertEquals(expectedResult, client.stringVariationDetail("key", null, "default"));
   }
+
+  @Test
+  public void appropriateErrorIfUserHasNullKey() throws Exception {
+    LDUser userWithNullKey = new LDUser(null);
+    upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
+
+    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
+    assertEquals(expectedResult, client.stringVariationDetail("key", userWithNullKey, "default"));
+  }
   
   @Test
   public void appropriateErrorIfValueWrongType() throws Exception {
@@ -268,7 +319,7 @@ public class LDClientEvaluationTest {
   }
   
   @Test
-  public void appropriateErrorForUnexpectedException() throws Exception {
+  public void appropriateErrorForUnexpectedExceptionFromDataStore() throws Exception {
     RuntimeException exception = new RuntimeException("sorry");
     DataStore badDataStore = dataStoreThatThrowsException(exception);
     LDConfig badConfig = new LDConfig.Builder()
@@ -282,7 +333,41 @@ public class LDClientEvaluationTest {
       assertEquals(expectedResult, badClient.boolVariationDetail("key", user, false));
     }
   }
+
+  @Test
+  public void appropriateErrorForUnexpectedExceptionFromFlagEvaluation() throws Exception {
+    upsertFlag(dataStore, flagWithValue(INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION, LDValue.of(true)));
+    
+    EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, NO_VARIATION,
+        EvaluationReason.exception(EXPECTED_EXCEPTION_FROM_INVALID_FLAG));
+    assertEquals(expectedResult, client.boolVariationDetail(INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION, user, false));
+  }
   
+  @Test
+  public void canEvaluateWithNonNullButEmptyUserKey() throws Exception {
+    LDUser userWithEmptyKey = new LDUser("");
+    upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
+    
+    assertEquals(true, client.boolVariation("key", userWithEmptyKey, false));
+  }
+
+  @Test
+  public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
+    upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
+    LDConfig customConfig = new LDConfig.Builder()
+        .dataStore(specificDataStore(dataStore))
+        .events(Components.noEvents())
+        .dataSource(specificDataSource(failedDataSource()))
+        .startWait(Duration.ZERO)
+        .build();
+
+    try (LDClient client = new LDClient("SDK_KEY", customConfig)) {
+      assertFalse(client.isInitialized());
+      
+      assertEquals("value", client.stringVariation("key", user, ""));
+    }
+  }
+
   @Test
   public void allFlagsStateReturnsState() throws Exception {
     DataModel.FeatureFlag flag1 = flagBuilder("key1")
@@ -457,5 +542,68 @@ public class LDClientEvaluationTest {
     FeatureFlagsState state = client.allFlagsState(userWithNullKey);
     assertFalse(state.isValid());
     assertEquals(0, state.toValuesMap().size());
+  }
+
+  @Test
+  public void allFlagsStateReturnsEmptyStateIfDataStoreThrowsException() throws Exception {
+    LDConfig customConfig = new LDConfig.Builder()
+        .dataStore(specificDataStore(TestComponents.dataStoreThatThrowsException(new RuntimeException("sorry"))))
+        .events(Components.noEvents())
+        .dataSource(Components.externalUpdatesOnly())
+        .startWait(Duration.ZERO)
+        .build();
+
+    try (LDClient client = new LDClient("SDK_KEY", customConfig)) {
+      FeatureFlagsState state = client.allFlagsState(user);
+      assertFalse(state.isValid());
+      assertEquals(0, state.toValuesMap().size());
+    }
+  }
+
+  @Test
+  public void allFlagsStateUsesNullValueForFlagIfEvaluationThrowsException() throws Exception {
+    upsertFlag(dataStore, flagWithValue("goodkey", LDValue.of("value")));
+    upsertFlag(dataStore, flagWithValue(INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION, LDValue.of("nope")));
+
+    FeatureFlagsState state = client.allFlagsState(user);
+    assertTrue(state.isValid());
+    assertEquals(2, state.toValuesMap().size());
+    assertEquals(LDValue.of("value"), state.getFlagValue("goodkey"));
+    assertEquals(LDValue.ofNull(), state.getFlagValue(INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION));
+  }
+  
+  @Test
+  public void allFlagsStateUsesStoreDataIfStoreIsInitializedButClientIsNot() throws Exception {
+    upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
+    LDConfig customConfig = new LDConfig.Builder()
+        .dataStore(specificDataStore(dataStore))
+        .events(Components.noEvents())
+        .dataSource(specificDataSource(failedDataSource()))
+        .startWait(Duration.ZERO)
+        .build();
+    
+    try (LDClient client = new LDClient("SDK_KEY", customConfig)) {
+      assertFalse(client.isInitialized());
+      
+      FeatureFlagsState state = client.allFlagsState(user);
+      assertTrue(state.isValid());
+      assertEquals(LDValue.of("value"), state.getFlagValue("key"));
+    }
+  }
+  
+  @Test
+  public void allFlagsStateReturnsEmptyStateIfClientAndStoreAreNotInitialized() throws Exception {
+    LDConfig customConfig = new LDConfig.Builder()
+        .events(Components.noEvents())
+        .dataSource(specificDataSource(failedDataSource()))
+        .startWait(Duration.ZERO)
+        .build();
+    
+    try (LDClient client = new LDClient("SDK_KEY", customConfig)) {
+      assertFalse(client.isInitialized());
+      
+      FeatureFlagsState state = client.allFlagsState(user);
+      assertFalse(state.isValid());
+    }
   }
 }
