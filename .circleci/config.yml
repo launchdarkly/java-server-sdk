@@ -79,8 +79,10 @@ jobs:
           when: always
       - store_test_results:
           path: ~/junit
+          when: always
       - store_artifacts:
           path: ~/junit
+          when: always
       - when:
           condition: <<parameters.with-coverage>>
           steps:
