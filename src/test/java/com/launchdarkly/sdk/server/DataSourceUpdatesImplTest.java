@@ -6,7 +6,6 @@ import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
-import com.launchdarkly.sdk.server.TestUtil.FlagChangeEventSink;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
@@ -21,6 +20,8 @@ import org.junit.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
@@ -32,6 +33,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.inMemoryDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
+import static com.launchdarkly.sdk.server.TestUtil.expectEvents;
 import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -61,8 +63,8 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
 
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
     
     builder.addAny(FEATURES, flagBuilder("flag2").version(1).build())
         .addAny(SEGMENTS, segmentBuilder("segment2").version(1).build());
@@ -70,7 +72,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     
     storeUpdates.init(builder.build());
   
-    eventSink.expectEvents("flag2");
+    expectEvents(eventSink, "flag2");
   }
 
   @Test
@@ -86,12 +88,12 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
     
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
     
     storeUpdates.upsert(FEATURES, "flag2", new ItemDescriptor(1, flagBuilder("flag2").version(1).build()));
   
-    eventSink.expectEvents("flag2");
+    expectEvents(eventSink, "flag2");
   }
   
   @Test
@@ -109,14 +111,14 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
 
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
     
     builder.addAny(FEATURES, flagBuilder("flag2").version(2).build()) // modified flag
         .addAny(SEGMENTS, segmentBuilder("segment2").version(2).build()); // modified segment, but it's irrelevant
     storeUpdates.init(builder.build());
     
-    eventSink.expectEvents("flag2");
+    expectEvents(eventSink, "flag2");
   }
 
   @Test
@@ -133,12 +135,12 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
 
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
     
     storeUpdates.upsert(FEATURES, "flag2", new ItemDescriptor(2, flagBuilder("flag2").version(2).build()));
   
-    eventSink.expectEvents("flag2");
+    expectEvents(eventSink, "flag2");
   }
   
   @Test
@@ -155,8 +157,8 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
 
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
     
     builder.remove(FEATURES, "flag2");
     builder.remove(SEGMENTS, "segment1"); // deleted segment isn't being used so it's irrelevant
@@ -164,7 +166,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     
     storeUpdates.init(builder.build());
   
-    eventSink.expectEvents("flag2");
+    expectEvents(eventSink, "flag2");
   }
 
   @Test
@@ -181,12 +183,12 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
     
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> events = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(events::add);
     
     storeUpdates.upsert(FEATURES, "flag2", ItemDescriptor.deletedItem(2));
   
-    eventSink.expectEvents("flag2");
+    expectEvents(events, "flag2");
   }
 
   @Test
@@ -205,13 +207,13 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     
     storeUpdates.init(builder.build());
     
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
   
     builder.addAny(FEATURES, flagBuilder("flag1").version(2).build());
     storeUpdates.init(builder.build());
   
-    eventSink.expectEvents("flag1", "flag2", "flag4", "flag5");
+    expectEvents(eventSink, "flag1", "flag2", "flag4", "flag5");
   }
 
   @Test
@@ -230,12 +232,12 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
     
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
     
     storeUpdates.upsert(FEATURES, "flag1", new ItemDescriptor(2, flagBuilder("flag1").version(2).build()));
   
-    eventSink.expectEvents("flag1", "flag2", "flag4", "flag5");
+    expectEvents(eventSink, "flag1", "flag2", "flag4", "flag5");
   }
 
   @Test
@@ -259,12 +261,12 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
     
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
     
     storeUpdates.upsert(SEGMENTS, "segment1", new ItemDescriptor(2, segmentBuilder("segment1").version(2).build()));
   
-    eventSink.expectEvents("flag2", "flag4");
+    expectEvents(eventSink, "flag2", "flag4");
   }
   
   @Test
@@ -288,13 +290,13 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
     storeUpdates.init(builder.build());
     
-    FlagChangeEventSink eventSink = new FlagChangeEventSink();
-    flagChangeBroadcaster.register(eventSink);
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
     
     builder.addAny(SEGMENTS, segmentBuilder("segment1").version(2).build());
     storeUpdates.init(builder.build());
     
-    eventSink.expectEvents("flag2", "flag4");
+    expectEvents(eventSink, "flag2", "flag4");
   }
 
   @Test

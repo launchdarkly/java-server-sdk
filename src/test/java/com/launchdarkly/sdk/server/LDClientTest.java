@@ -10,6 +10,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
+import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import org.easymock.Capture;
 import org.easymock.EasyMock;
@@ -233,7 +234,7 @@ public class LDClientTest extends EasyMockSupport {
     replayAll();
 
     client = createMockClient(config);
-    assertFalse(client.initialized());
+    assertFalse(client.isInitialized());
 
     verifyAll();
   }
@@ -249,7 +250,7 @@ public class LDClientTest extends EasyMockSupport {
     replayAll();
 
     client = createMockClient(config);
-    assertFalse(client.initialized());
+    assertFalse(client.isInitialized());
 
     verifyAll();
   }
@@ -265,7 +266,7 @@ public class LDClientTest extends EasyMockSupport {
     replayAll();
 
     client = createMockClient(config);
-    assertFalse(client.initialized());
+    assertFalse(client.isInitialized());
 
     verifyAll();
   }
@@ -281,7 +282,7 @@ public class LDClientTest extends EasyMockSupport {
     replayAll();
 
     client = createMockClient(config);
-    assertFalse(client.initialized());
+    assertFalse(client.isInitialized());
 
     verifyAll();
   }

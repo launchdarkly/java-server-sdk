@@ -11,7 +11,7 @@ import java.util.Objects;
  * that receives updates to feature flag data; normally this is a streaming connection, but it could
  * be polling or file data depending on your configuration.
  * <p>
- * An implementation of this interface is returned by {@link com.launchdarkly.sdk.server.LDClientInterface#getDataSourceStatusProvider}.
+ * An implementation of this interface is returned by {@link com.launchdarkly.sdk.server.interfaces.LDClientInterface#getDataSourceStatusProvider}.
  * Application code never needs to implement this interface.
  * 
  * @since 5.0.0

@@ -11,9 +11,6 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
-import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
-import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
-import com.launchdarkly.sdk.server.interfaces.FlagValueChangeListener;
 
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -23,7 +20,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -122,57 +118,32 @@ public class TestUtil {
     });
   }
   
-  public static class FlagChangeEventSink extends FlagChangeEventSinkBase<FlagChangeEvent> implements FlagChangeListener {
-    @Override
-    public void onFlagChange(FlagChangeEvent event) {
-      events.add(event);
+  public static <T> T awaitValue(BlockingQueue<T> values, Duration timeout) {
+    try {
+      T value = values.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
+      assertNotNull("did not receive expected value within " + timeout, value);
+      return value;
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
     }
   }
-
-  public static class FlagValueChangeEventSink extends FlagChangeEventSinkBase<FlagValueChangeEvent> implements FlagValueChangeListener {
-    @Override
-    public void onFlagValueChange(FlagValueChangeEvent event) {
-      events.add(event);
-    }
+  
+  public static <T> void expectNoMoreValues(BlockingQueue<T> values, Duration timeout) {
+    try {
+      T value = values.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
+      assertNull("expected no more values", value);
+    } catch (InterruptedException e) {}
   }
-
-  private static class FlagChangeEventSinkBase<T extends FlagChangeEvent> {
-    protected final BlockingQueue<T> events = new ArrayBlockingQueue<>(100);
-
-    public T awaitEvent() {
-      try {
-        T event = events.poll(1, TimeUnit.SECONDS);
-        assertNotNull("expected flag change event", event);
-        return event;
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      }
+  
+  public static <T extends FlagChangeEvent> void expectEvents(BlockingQueue<T> events, String... flagKeys) {
+    Set<String> expectedChangedFlagKeys = ImmutableSet.copyOf(flagKeys);
+    Set<String> actualChangedFlagKeys = new HashSet<>();
+    for (int i = 0; i < expectedChangedFlagKeys.size(); i++) {
+      T e = awaitValue(events, Duration.ofSeconds(1));
+      actualChangedFlagKeys.add(e.getKey());
     }
-    
-    public void expectEvents(String... flagKeys) {
-      Set<String> expectedChangedFlagKeys = ImmutableSet.copyOf(flagKeys);
-      Set<String> actualChangedFlagKeys = new HashSet<>();
-      for (int i = 0; i < expectedChangedFlagKeys.size(); i++) {
-        try {
-          T e = events.poll(1, TimeUnit.SECONDS);
-          if (e == null) {
-            fail("expected change events for " + expectedChangedFlagKeys + " but got " + actualChangedFlagKeys);
-          }
-          actualChangedFlagKeys.add(e.getKey());
-        } catch (InterruptedException e) {
-          throw new RuntimeException(e);
-        }
-      }
-      assertThat(actualChangedFlagKeys, equalTo(expectedChangedFlagKeys));
-      expectNoEvents();
-    }
-    
-    public void expectNoEvents() {
-      try {
-        T event = events.poll(100, TimeUnit.MILLISECONDS);
-        assertNull("expected no more flag change events", event);
-      } catch (InterruptedException e) {}
-    }
+    assertThat(actualChangedFlagKeys, equalTo(expectedChangedFlagKeys));
+    expectNoMoreValues(events, Duration.ofMillis(100));
   }
   
   public static Evaluator.EvalResult simpleEvaluation(int variation, LDValue value) {
