@@ -15,6 +15,7 @@ import java.util.List;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 
 @SuppressWarnings("javadoc")
 public class EvaluatorBucketingTest {
@@ -84,5 +85,14 @@ public class EvaluatorBucketingTest {
         .build();
     float result = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("boolattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
+  }
+
+  @Test
+  public void userSecondaryKeyAffectsBucketValue() {
+    LDUser user1 = new LDUser.Builder("key").build();
+    LDUser user2 = new LDUser.Builder("key").secondary("other").build();
+    float result1 = EvaluatorBucketing.bucketUser(user1, "flagkey", UserAttribute.KEY, "salt");
+    float result2 = EvaluatorBucketing.bucketUser(user2, "flagkey", UserAttribute.KEY, "salt");
+    assertNotEquals(result1, result2);
   }
 }

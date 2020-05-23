@@ -10,6 +10,8 @@ import org.apache.commons.codec.digest.DigestUtils;
  * Encapsulates the logic for percentage rollouts.
  */
 abstract class EvaluatorBucketing {
+  private EvaluatorBucketing() {}
+  
   private static final float LONG_SCALE = (float) 0xFFFFFFFFFFFFFFFL;
 
   // Attempt to determine the variation index for a given user. Returns null if no index can be computed

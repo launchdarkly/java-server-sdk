@@ -53,27 +53,21 @@ abstract class EvaluatorPreprocessing {
   }
   
   static void preprocessFlag(FeatureFlag f) {
-    if (f.getPrerequisites() != null) {
-      for (Prerequisite p: f.getPrerequisites()) {
-        EvaluatorPreprocessing.preprocessPrerequisite(p);
-      }
+    for (Prerequisite p: f.getPrerequisites()) {
+      EvaluatorPreprocessing.preprocessPrerequisite(p);
     }
     List<Rule> rules = f.getRules();
-    if (rules != null) {
-      int n = rules.size();
-      for (int i = 0; i < n; i++) {
-        preprocessFlagRule(rules.get(i), i);
-      }
+    int n = rules.size();
+    for (int i = 0; i < n; i++) {
+      preprocessFlagRule(rules.get(i), i);
     }
   }
   
   static void preprocessSegment(Segment s) {
     List<SegmentRule> rules = s.getRules();
-    if (rules != null) {
-      int n = rules.size();
-      for (int i = 0; i < n; i++) {
-        preprocessSegmentRule(rules.get(i), i);
-      }
+    int n = rules.size();
+    for (int i = 0; i < n; i++) {
+      preprocessSegmentRule(rules.get(i), i);
     }
   }
   
@@ -86,18 +80,14 @@ abstract class EvaluatorPreprocessing {
     // Precompute an immutable EvaluationReason instance that will be used if a user matches this rule.
     r.setRuleMatchReason(EvaluationReason.ruleMatch(ruleIndex, r.getId()));
     
-    if (r.getClauses() != null) {
-      for (Clause c: r.getClauses()) {
-        preprocessClause(c);
-      }
+    for (Clause c: r.getClauses()) {
+      preprocessClause(c);
     }
   }
 
   static void preprocessSegmentRule(SegmentRule r, int ruleIndex) {
-    if (r.getClauses() != null) {
-      for (Clause c: r.getClauses()) {
-        preprocessClause(c);
-      }
+    for (Clause c: r.getClauses()) {
+      preprocessClause(c);
     }
   }
   
@@ -113,7 +103,7 @@ abstract class EvaluatorPreprocessing {
       // a linear search. We do not do this for other operators (or if there are fewer than two
       // values) because the slight extra overhead of a Set is not worthwhile in those case.
       List<LDValue> values = c.getValues();
-      if (values != null && values.size() > 1) {
+      if (values.size() > 1) {
         c.setPreprocessed(new ClauseExtra(ImmutableSet.copyOf(values), null));
       }
       break;
@@ -144,9 +134,6 @@ abstract class EvaluatorPreprocessing {
       List<LDValue> values,
       Function<LDValue, ClauseExtra.ValueExtra> f
       ) {
-    if (values == null) {
-      return null;
-    }
     List<ClauseExtra.ValueExtra> valuesExtra = new ArrayList<>(values.size());
     for (LDValue v: values) {
       valuesExtra.add(f.apply(v));

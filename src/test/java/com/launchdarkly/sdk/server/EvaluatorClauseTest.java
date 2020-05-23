@@ -24,13 +24,21 @@ import static org.junit.Assert.assertNotNull;
 
 @SuppressWarnings("javadoc")
 public class EvaluatorClauseTest {
+  private static void assertMatch(Evaluator eval, DataModel.FeatureFlag flag, LDUser user, boolean expectMatch) {
+    assertEquals(LDValue.of(expectMatch), eval.evaluate(flag, user, EventFactory.DEFAULT).getDetails().getValue());
+  }
+  
+  private static DataModel.Segment makeSegmentThatMatchesUser(String segmentKey, String userKey) {
+    return segmentBuilder(segmentKey).included(userKey).build();
+  }
+  
   @Test
   public void clauseCanMatchBuiltInAttribute() throws Exception {
     DataModel.Clause clause = clause(UserAttribute.NAME, DataModel.Operator.in, LDValue.of("Bob"));
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
-    
-    assertEquals(LDValue.of(true), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
+  
+    assertMatch(BASE_EVALUATOR, f, user, true);
   }
   
   @Test
@@ -39,7 +47,7 @@ public class EvaluatorClauseTest {
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").custom("legs", 4).build();
     
-    assertEquals(LDValue.of(true), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
+    assertMatch(BASE_EVALUATOR, f, user, true);
   }
   
   @Test
@@ -48,18 +56,107 @@ public class EvaluatorClauseTest {
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(LDValue.of(false), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
+    assertMatch(BASE_EVALUATOR, f, user, false);
+  }
+
+  @Test
+  public void clauseMatchesUserValueToAnyOfMultipleValues() throws Exception {
+    DataModel.Clause clause = clause(UserAttribute.NAME, DataModel.Operator.in, LDValue.of("Bob"), LDValue.of("Carol"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser.Builder("key").name("Carol").build();
+    
+    assertMatch(BASE_EVALUATOR, f, user, true);
+  }
+
+  @Test
+  public void clauseMatchesUserValueToAnyOfMultipleValuesWithNonEqualityOperator() throws Exception {
+    // We check this separately because of the special preprocessing logic for equality matches.
+    DataModel.Clause clause = clause(UserAttribute.NAME, DataModel.Operator.contains, LDValue.of("Bob"), LDValue.of("Carol"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser.Builder("key").name("Caroline").build();
+    
+    assertMatch(BASE_EVALUATOR, f, user, true);
+  }
+
+  @Test
+  public void clauseMatchesArrayOfUserValuesToClauseValue() throws Exception {
+    DataModel.Clause clause = clause(UserAttribute.forName("alias"), DataModel.Operator.in, LDValue.of("Maurice"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser.Builder("key").custom("alias",
+        LDValue.buildArray().add("Space Cowboy").add("Maurice").build()).build();
+    
+    assertMatch(BASE_EVALUATOR, f, user, true);
+  }
+
+  @Test
+  public void clauseFindsNoMatchInArrayOfUserValues() throws Exception {
+    DataModel.Clause clause = clause(UserAttribute.forName("alias"), DataModel.Operator.in, LDValue.of("Ma"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser.Builder("key").custom("alias",
+        LDValue.buildArray().add("Mary").add("May").build()).build();
+    
+    assertMatch(BASE_EVALUATOR, f, user, false);
+  }
+
+  @Test
+  public void userValueMustNotBeAnArrayOfArrays() throws Exception {
+    LDValue arrayValue = LDValue.buildArray().add("thing").build();
+    LDValue arrayOfArrays = LDValue.buildArray().add(arrayValue).build();
+    DataModel.Clause clause = clause(UserAttribute.forName("data"), DataModel.Operator.in, arrayOfArrays);
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser.Builder("key").custom("data", arrayOfArrays).build();
+    
+    assertMatch(BASE_EVALUATOR, f, user, false);
+  }
+
+  @Test
+  public void userValueMustNotBeAnObject() throws Exception {
+    LDValue objectValue = LDValue.buildObject().put("thing", LDValue.of(true)).build();
+    DataModel.Clause clause = clause(UserAttribute.forName("data"), DataModel.Operator.in, objectValue);
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser.Builder("key").custom("data", objectValue).build();
+    
+    assertMatch(BASE_EVALUATOR, f, user, false);
+  }
+
+  @Test
+  public void userValueMustNotBeAnArrayOfObjects() throws Exception {
+    LDValue objectValue = LDValue.buildObject().put("thing", LDValue.of(true)).build();
+    LDValue arrayOfObjects = LDValue.buildArray().add(objectValue).build();
+    DataModel.Clause clause = clause(UserAttribute.forName("data"), DataModel.Operator.in, arrayOfObjects);
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser.Builder("key").custom("data", arrayOfObjects).build();
+    
+    assertMatch(BASE_EVALUATOR, f, user, false);
+  }
+
+  @Test
+  public void clauseReturnsFalseForNullOperator() throws Exception {
+    DataModel.Clause clause = clause(UserAttribute.KEY, null, LDValue.of("key"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser("key");
+    
+    assertMatch(BASE_EVALUATOR, f, user, false);
   }
   
   @Test
-  public void clauseCanBeNegated() throws Exception {
-    DataModel.Clause clause = clause(UserAttribute.NAME, DataModel.Operator.in, true, LDValue.of("Bob"));
+  public void clauseCanBeNegatedToReturnFalse() throws Exception {
+    DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, true, LDValue.of("key"));
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(LDValue.of(false), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
+    assertMatch(BASE_EVALUATOR, f, user, false);
   }
-  
+
+  @Test
+  public void clauseCanBeNegatedToReturnTrue() throws Exception {
+    DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, true, LDValue.of("other"));
+    DataModel.FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDUser user = new LDUser.Builder("key").name("Bob").build();
+    
+    assertMatch(BASE_EVALUATOR, f, user, true);
+  }
+
   @Test
   public void clauseWithUnsupportedOperatorStringIsUnmarshalledWithNullOperator() throws Exception {
     // This just verifies that GSON will give us a null in this case instead of throwing an exception,
@@ -81,7 +178,7 @@ public class EvaluatorClauseTest {
     DataModel.FeatureFlag f = booleanFlagWithClauses("flag", badClause);
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    assertEquals(LDValue.of(false), BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails().getValue());
+    assertMatch(BASE_EVALUATOR, f, user, false);
   }
   
   @Test
@@ -105,31 +202,37 @@ public class EvaluatorClauseTest {
   
   @Test
   public void testSegmentMatchClauseRetrievesSegmentFromStore() throws Exception {
-    DataModel.Segment segment = segmentBuilder("segkey")
-        .included("foo")
-        .version(1)
-        .build();
-    Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
-    
-    DataModel.FeatureFlag flag = segmentMatchBooleanFlag("segkey");
+    String segmentKey = "segkey";
+    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of(segmentKey));
+    DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
+    DataModel.Segment segment = makeSegmentThatMatchesUser(segmentKey, "foo");
     LDUser user = new LDUser.Builder("foo").build();
     
-    Evaluator.EvalResult result = e.evaluate(flag, user, EventFactory.DEFAULT);
-    assertEquals(LDValue.of(true), result.getDetails().getValue());
+    Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
+    assertMatch(e, flag, user, true);
   }
 
   @Test
   public void testSegmentMatchClauseFallsThroughIfSegmentNotFound() throws Exception {
-    DataModel.FeatureFlag flag = segmentMatchBooleanFlag("segkey");
+    String segmentKey = "segkey";
+    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of(segmentKey));
+    DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("foo").build();
     
-    Evaluator e = evaluatorBuilder().withNonexistentSegment("segkey").build();
-    Evaluator.EvalResult result = e.evaluate(flag, user, EventFactory.DEFAULT);
-    assertEquals(LDValue.of(false), result.getDetails().getValue());
+    Evaluator e = evaluatorBuilder().withNonexistentSegment(segmentKey).build();
+    assertMatch(e, flag, user, false);
   }
-  
-  private DataModel.FeatureFlag segmentMatchBooleanFlag(String segmentKey) {
-    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of(segmentKey));
-    return booleanFlagWithClauses("flag", clause);
+
+  @Test
+  public void testSegmentMatchClauseIgnoresNonStringValues() throws Exception {
+    String segmentKey = "segkey";
+    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch,
+        LDValue.of(123), LDValue.of(segmentKey));
+    DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
+    DataModel.Segment segment = makeSegmentThatMatchesUser(segmentKey, "foo");
+    LDUser user = new LDUser.Builder("foo").build();
+
+    Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
+    assertMatch(e, flag, user, true);
   }
 }

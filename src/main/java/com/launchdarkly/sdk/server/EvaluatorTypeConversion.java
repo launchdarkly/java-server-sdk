@@ -12,9 +12,6 @@ abstract class EvaluatorTypeConversion {
   private EvaluatorTypeConversion() {}
   
   static ZonedDateTime valueToDateTime(LDValue value) {
-    if (value == null) {
-      return null;
-    }
     if (value.isNumber()) {
       return ZonedDateTime.ofInstant(Instant.ofEpochMilli(value.longValue()), ZoneOffset.UTC);
     } else if (value.isString()) {
@@ -29,7 +26,7 @@ abstract class EvaluatorTypeConversion {
   }
   
   static Pattern valueToRegex(LDValue value) {
-    if (value == null || !value.isString()) {
+    if (!value.isString()) {
       return null;
     }
     try {
@@ -40,7 +37,7 @@ abstract class EvaluatorTypeConversion {
   }
   
   static SemanticVersion valueToSemVer(LDValue value) {
-    if (value == null || !value.isString()) {
+    if (!value.isString()) {
       return null;
     }
     try {
