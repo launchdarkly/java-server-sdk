@@ -22,7 +22,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -226,11 +225,10 @@ final class DefaultEventProcessor implements EventProcessor {
           .setPriority(threadPriority)
           .build();
       
-      // A SynchronousQueue is not exactly a queue - it represents an opportunity to transfer a
-      // single value from the producer to whichever consumer has asked for it first. We will
-      // never allow the producer (EventDispatcher) to block on this: if we want to push a
-      // payload and all of the workers are busy so no one is waiting, we'll cancel the flush.
-      final SynchronousQueue<FlushPayload> payloadQueue = new SynchronousQueue<>();
+      // This queue only holds one element; it represents a flush task that has not yet been
+      // picked up by any worker, so if we try to push another one and are refused, it means
+      // all the workers are busy.
+      final BlockingQueue<FlushPayload> payloadQueue = new ArrayBlockingQueue<>(1);
 
       final EventBuffer outbox = new EventBuffer(eventsConfig.capacity);
       final SimpleLRUCache<String, String> userKeys = new SimpleLRUCache<String, String>(eventsConfig.userKeysCapacity);
@@ -289,7 +287,7 @@ final class DefaultEventProcessor implements EventProcessor {
      */
     private void runMainLoop(BlockingQueue<EventProcessorMessage> inbox,
         EventBuffer outbox, SimpleLRUCache<String, String> userKeys,
-        SynchronousQueue<FlushPayload> payloadQueue) {
+        BlockingQueue<FlushPayload> payloadQueue) {
       List<EventProcessorMessage> batch = new ArrayList<EventProcessorMessage>(MESSAGE_BATCH_SIZE);
       while (true) {
         try {
@@ -439,7 +437,7 @@ final class DefaultEventProcessor implements EventProcessor {
       return false;
     }
 
-    private void triggerFlush(EventBuffer outbox, SynchronousQueue<FlushPayload> payloadQueue) {
+    private void triggerFlush(EventBuffer outbox, BlockingQueue<FlushPayload> payloadQueue) {
       if (disabled.get() || outbox.isEmpty()) {
         return;
       }
