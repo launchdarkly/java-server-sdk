@@ -394,7 +394,9 @@ final class DefaultEventProcessor implements EventProcessor {
         LDUser user = e.getUser();
         if (user != null && user.getKey() != null) {
           boolean isIndexEvent = e instanceof Event.Identify;
-          boolean alreadySeen = noticeUser(user, userKeys);
+          String key = user.getKey();
+          // Add to the set of users we've noticed
+          boolean alreadySeen = (userKeys.put(key, key) != null);
           addIndexEvent = !isIndexEvent & !alreadySeen;
           if (!isIndexEvent & alreadySeen) {
             deduplicatedUsers++;
@@ -412,12 +414,6 @@ final class DefaultEventProcessor implements EventProcessor {
       if (debugEvent != null) {
         outbox.add(debugEvent);
       }
-    }
-
-    // Add to the set of users we've noticed, and return true if the user was already known to us.
-    private boolean noticeUser(LDUser user, SimpleLRUCache<String, String> userKeys) {
-      String key = user.getKey();
-      return userKeys.put(key, key) != null;
     }
 
     private boolean shouldDebugEvent(Event.FeatureRequest fe) {

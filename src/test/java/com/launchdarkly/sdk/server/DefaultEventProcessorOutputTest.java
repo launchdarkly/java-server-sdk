@@ -52,22 +52,26 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     ));
   }
 
+  @SuppressWarnings("unchecked")
   @Test
-  public void identifyEventWithNullUserKeyDoesNotCauseError() throws Exception {
+  public void identifyEventWithNullUserOrNullUserKeyDoesNotCauseError() throws Exception {
     // This should never happen because LDClient.identify() rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
-    Event e = EventFactory.DEFAULT.newIdentifyEvent(userWithNullKey);
+    Event event1 = EventFactory.DEFAULT.newIdentifyEvent(userWithNullKey);
+    Event event2 = EventFactory.DEFAULT.newIdentifyEvent(null);
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).allAttributesPrivate(true))) {
-      ep.sendEvent(e);
+      ep.sendEvent(event1);
+      ep.sendEvent(event2);
     }
 
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIdentifyEvent(e, LDValue.buildObject().build())
+        isIdentifyEvent(event1, LDValue.buildObject().build()),
+        isIdentifyEvent(event2, LDValue.ofNull())
     ));
   }
-  
+
   @SuppressWarnings("unchecked")
   @Test
   public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
@@ -144,17 +148,20 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
   }
   
   @Test
-  public void featureEventWithNullUserKeyIsIgnored() throws Exception {
+  public void featureEventWithNullUserOrNullUserKeyIsIgnored() throws Exception {
     // This should never happen because LDClient rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
     DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, userWithNullKey,
+    Event.FeatureRequest event1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag, userWithNullKey,
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Event.FeatureRequest event2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag, null,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
         .inlineUsersInEvents(true).allAttributesPrivate(true))) {
-      ep.sendEvent(fe);
+      ep.sendEvent(event1);
+      ep.sendEvent(event2);
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(
@@ -445,20 +452,24 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(ce, filteredUserJson)));
   }
 
+  @SuppressWarnings("unchecked")
   @Test
-  public void customEventWithNullUserKeyDoesNotCauseError() throws Exception {
+  public void customEventWithNullUserOrNullUserKeyDoesNotCauseError() throws Exception {
     // This should never happen because LDClient rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", userWithNullKey, LDValue.ofNull(), null);
+    Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("eventkey", userWithNullKey, LDValue.ofNull(), null);
+    Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("eventkey", null, LDValue.ofNull(), null);
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
         .inlineUsersInEvents(true).allAttributesPrivate(true))) {
-      ep.sendEvent(ce);
+      ep.sendEvent(event1);
+      ep.sendEvent(event2);
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(
-        isCustomEvent(ce, LDValue.buildObject().build())
+        isCustomEvent(event1, LDValue.buildObject().build()),
+        isCustomEvent(event2, LDValue.ofNull())
     ));
   }
 }
