@@ -8,6 +8,7 @@ buildscript {
 
 plugins {
     id "me.champeau.gradle.jmh" version "0.5.0"
+    id "io.morethan.jmhreport" version "0.9.0"
 }
 
 repositories {
@@ -54,4 +55,9 @@ jmh {
     // warmupMode = 'INDI' // Warmup mode for warming up selected benchmarks. Warmup modes are: [INDI, BULK, BULK_INDI].
 
     jmhVersion = versions.jmh
+}
+
+jmhReport {
+    jmhResultPath = project.file('build/reports/jmh/result.json')
+    jmhReportOutput = project.file('build/reports/jmh')
 }

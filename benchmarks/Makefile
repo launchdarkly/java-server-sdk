@@ -12,7 +12,7 @@ SDK_TEST_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-test.ja
 
 benchmark: $(BENCHMARK_ALL_JAR) $(BENCHMARK_TEST_JAR)
 	rm -rf build/tmp
-	../gradlew jmh
+	../gradlew jmh jmhReport
 	cat build/reports/jmh/human.txt
 
 clean:
