@@ -43,6 +43,6 @@ To build the SDK and run all unit tests:
 ./gradlew test
 ```
 
-## Benchmarks
+### Benchmarks
 
 The project in the `benchmarks` subdirectory uses [JMH](https://openjdk.java.net/projects/code-tools/jmh/) to generate performance metrics for the SDK. This is run as a CI job, and can also be run manually by running `make` within `benchmarks` and then inspecting `build/reports/jmh`.
