@@ -3,6 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
@@ -14,6 +15,7 @@ import org.openjdk.jmh.annotations.State;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 
 public class EventProcessorBenchmarks {
   private static final int EVENT_BUFFER_SIZE = 1000;
@@ -24,8 +26,8 @@ public class EventProcessorBenchmarks {
   @State(Scope.Thread)
   public static class BenchmarkInputs {
     // Initialization of the things in BenchmarkInputs does not count as part of a benchmark.
-    final DefaultEventProcessor eventProcessor;
-    final EventSender eventSender;
+    final EventProcessor eventProcessor;
+    final MockEventSender eventSender;
     final LDUser basicUser;
     final Random random;
 
@@ -35,7 +37,7 @@ public class EventProcessorBenchmarks {
       // JSON data in the payload.
       eventSender = new MockEventSender();
       
-      eventProcessor = (DefaultEventProcessor)Components.sendEvents()
+      eventProcessor = Components.sendEvents()
           .capacity(EVENT_BUFFER_SIZE)
           .eventSender(new MockEventSenderFactory())
           .createEventProcessor(TestComponents.clientContext(TestValues.SDK_KEY, LDConfig.DEFAULT));
@@ -79,7 +81,7 @@ public class EventProcessorBenchmarks {
       inputs.eventProcessor.sendEvent(event);
     }
     inputs.eventProcessor.flush();
-    inputs.eventProcessor.waitUntilInactive();
+    inputs.eventSender.awaitEvents();
   }
 
   @Benchmark
@@ -103,7 +105,7 @@ public class EventProcessorBenchmarks {
       inputs.eventProcessor.sendEvent(event);
     }
     inputs.eventProcessor.flush();
-    inputs.eventProcessor.waitUntilInactive();
+    inputs.eventSender.awaitEvents();
   }
   
   @Benchmark
@@ -120,11 +122,12 @@ public class EventProcessorBenchmarks {
       inputs.eventProcessor.sendEvent(event);;
     }
     inputs.eventProcessor.flush();
-    inputs.eventProcessor.waitUntilInactive();
+    inputs.eventSender.awaitEvents();
   }
   
   private static final class MockEventSender implements EventSender {
     private static final Result RESULT = new Result(true, false, null);
+    private static final CountDownLatch counter = new CountDownLatch(1);
     
     @Override
     public void close() throws IOException {}
@@ -132,6 +135,10 @@ public class EventProcessorBenchmarks {
     @Override
     public Result sendEventData(EventDataKind arg0, String arg1, int arg2, URI arg3) {
       return RESULT;
+    }
+    
+    public void awaitEvents() throws InterruptedException {
+      counter.await();
     }
   }
   
