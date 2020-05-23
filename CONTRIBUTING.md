@@ -51,4 +51,4 @@ Sometimes a gap in coverage is unavoidable, usually because the compiler require
 
 * Mark the code with an explanatory comment beginning with "COVERAGE:".
 
-The current coverage report can be observed by running `./gradlew jacocoTestReport` and viewing `build/reports/jacoco/test/html/index.html`. This file is also produced as an artifact of the CircleCI build for the most recent Java version.
+The current coverage report can be observed by running `./gradlew jacocoTestReport` and viewing `build/reports/jacoco/test/html/index.html`. This report is also produced as an artifact of the CircleCI build for the most recent Java version.

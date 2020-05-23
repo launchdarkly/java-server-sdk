@@ -64,30 +64,33 @@ jobs:
       - attach_workspace:
           at: build
       - run: java -version
-      - run: ./gradlew test
+      - run:
+          name: Run tests
+          command: ./gradlew test
       - when:
           condition: <<parameters.with-coverage>>
           steps:
             - run:
                 name: Generate test coverage report
-                command: ./gradlew jacocoTestReport
+                command: |
+                  ./gradlew jacocoTestReport
+                  mkdir -p coverage/
+                  cp -r build/reports/jacoco/test/* ./coverage
       - run:
           name: Save test results
           command: |
-            mkdir -p ~/junit/;
+            mkdir -p ~/junit/
             find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
           when: always
       - store_test_results:
           path: ~/junit
-          when: always
       - store_artifacts:
           path: ~/junit
-          when: always
       - when:
           condition: <<parameters.with-coverage>>
           steps:
             - store_artifacts:
-                path: build/reports/jacoco
+                path: coverage
 
   build-test-windows:
     executor:
