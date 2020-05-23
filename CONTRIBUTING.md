@@ -43,6 +43,6 @@ To build the SDK and run all unit tests:
 
 By default, the full unit test suite includes live tests of the Redis integration. Those tests expect you to have Redis running locally. To skip them, set the environment variable `LD_SKIP_DATABASE_TESTS=1` before running the tests.
 
-## Benchmarks
+### Benchmarks
 
 The project in the `benchmarks` subdirectory uses [JMH](https://openjdk.java.net/projects/code-tools/jmh/) to generate performance metrics for the SDK. This is run as a CI job, and can also be run manually by running `make` within `benchmarks` and then inspecting `build/reports/jmh`.
