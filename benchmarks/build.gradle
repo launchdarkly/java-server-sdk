@@ -30,7 +30,7 @@ dependencies {
 
 jmh {
     iterations = 10 // Number of measurement iterations to do.
-    benchmarkMode = ['thrpt']
+    benchmarkMode = ['avgt'] // "average time" - reports execution time as ns/op and allocations as B/op.
     // batchSize = 1 // Batch size: number of benchmark method calls per operation. (some benchmark modes can ignore this setting)
     fork = 1 // How many times to forks a single benchmark. Use 0 to disable forking altogether
     // failOnError = false // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
