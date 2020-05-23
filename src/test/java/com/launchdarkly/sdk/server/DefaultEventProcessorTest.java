@@ -288,6 +288,9 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       ep.flush();
       es.awaitRequest();
       
+      // allow a little time for the event processor to pass the "must shut down" signal back from the sender
+      Thread.sleep(50);
+      
       ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
       ep.flush();
       es.expectNoRequests(Duration.ofMillis(100));
