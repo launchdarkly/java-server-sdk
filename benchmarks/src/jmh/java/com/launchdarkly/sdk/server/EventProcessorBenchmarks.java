@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
@@ -14,8 +13,14 @@ import org.openjdk.jmh.annotations.State;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+
+import static com.launchdarkly.sdk.server.TestValues.BASIC_USER;
+import static com.launchdarkly.sdk.server.TestValues.CUSTOM_EVENT;
+import static com.launchdarkly.sdk.server.TestValues.TEST_EVENTS_COUNT;
 
 public class EventProcessorBenchmarks {
   private static final int EVENT_BUFFER_SIZE = 1000;
@@ -28,7 +33,8 @@ public class EventProcessorBenchmarks {
     // Initialization of the things in BenchmarkInputs does not count as part of a benchmark.
     final EventProcessor eventProcessor;
     final MockEventSender eventSender;
-    final LDUser basicUser;
+    final List<Event.FeatureRequest> featureRequestEventsWithoutTracking = new ArrayList<>();
+    final List<Event.FeatureRequest> featureRequestEventsWithTracking = new ArrayList<>();
     final Random random;
 
     public BenchmarkInputs() {
@@ -42,9 +48,30 @@ public class EventProcessorBenchmarks {
           .eventSender(new MockEventSenderFactory(eventSender))
           .createEventProcessor(TestComponents.clientContext(TestValues.SDK_KEY, LDConfig.DEFAULT));
       
-      basicUser = new LDUser("userkey");
-
       random = new Random();
+      
+      for (int i = 0; i < TEST_EVENTS_COUNT; i++) {
+        String flagKey = "flag" + random.nextInt(FLAG_COUNT);
+        int version = random.nextInt(FLAG_VERSIONS) + 1;
+        int variation = random.nextInt(FLAG_VARIATIONS);
+        for (boolean trackEvents: new boolean[] { false, true }) {
+          Event.FeatureRequest event = new Event.FeatureRequest(
+              System.currentTimeMillis(),
+              flagKey,
+              BASIC_USER,
+              version,
+              variation,
+              LDValue.of(variation),
+              LDValue.ofNull(),
+              null,
+              null,
+              trackEvents,
+              0,
+              false
+              );
+          (trackEvents ? featureRequestEventsWithTracking : featureRequestEventsWithoutTracking).add(event);
+        }
+      }
     }
     
     public String randomFlagKey() {
@@ -62,22 +89,7 @@ public class EventProcessorBenchmarks {
   
   @Benchmark
   public void summarizeFeatureRequestEvents(BenchmarkInputs inputs) throws Exception {
-    for (int i = 0; i < 1000; i++) {
-      int variation = inputs.randomFlagVariation();
-      Event.FeatureRequest event = new Event.FeatureRequest(
-          System.currentTimeMillis(),
-          inputs.randomFlagKey(),
-          inputs.basicUser,
-          inputs.randomFlagVersion(),
-          variation,
-          LDValue.of(variation),
-          LDValue.ofNull(),
-          null,
-          null,
-          false, // trackEvents == false: only summary counts are generated
-          0L,
-          false
-          );
+    for (Event.FeatureRequest event: inputs.featureRequestEventsWithoutTracking) {
       inputs.eventProcessor.sendEvent(event);
     }
     inputs.eventProcessor.flush();
@@ -86,22 +98,7 @@ public class EventProcessorBenchmarks {
 
   @Benchmark
   public void featureRequestEventsWithFullTracking(BenchmarkInputs inputs) throws Exception {
-    for (int i = 0; i < 1000; i++) {
-      int variation = inputs.randomFlagVariation();
-      Event.FeatureRequest event = new Event.FeatureRequest(
-          System.currentTimeMillis(),
-          inputs.randomFlagKey(),
-          inputs.basicUser,
-          inputs.randomFlagVersion(),
-          variation,
-          LDValue.of(variation),
-          LDValue.ofNull(),
-          null,
-          null,
-          true, // trackEvents == true: the full events are included in the output
-          0L,
-          false
-          );
+    for (Event.FeatureRequest event: inputs.featureRequestEventsWithTracking) {
       inputs.eventProcessor.sendEvent(event);
     }
     inputs.eventProcessor.flush();
@@ -110,16 +107,8 @@ public class EventProcessorBenchmarks {
   
   @Benchmark
   public void customEvents(BenchmarkInputs inputs) throws Exception {
-    LDValue data = LDValue.of("data");
-    for (int i = 0; i < 1000; i++) {
-      Event.Custom event = new Event.Custom(
-          System.currentTimeMillis(),
-          "event-key",
-          inputs.basicUser,
-          data,
-          null
-          );
-      inputs.eventProcessor.sendEvent(event);;
+    for (int i = 0; i < TEST_EVENTS_COUNT; i++) {
+      inputs.eventProcessor.sendEvent(CUSTOM_EVENT);
     }
     inputs.eventProcessor.flush();
     inputs.eventSender.awaitEvents();

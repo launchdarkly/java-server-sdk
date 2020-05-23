@@ -5,6 +5,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Target;
+import com.launchdarkly.sdk.server.interfaces.Event;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -19,6 +20,8 @@ public abstract class TestValues {
   private TestValues() {}
 
   public static final String SDK_KEY = "sdk-key";
+  
+  public static final LDUser BASIC_USER = new LDUser("userkey");
   
   public static final String BOOLEAN_FLAG_KEY = "flag-bool";
   public static final String INT_FLAG_KEY = "flag-int";
@@ -108,4 +111,16 @@ public abstract class TestValues {
     
     return flags;
   }
+
+  public static final int TEST_EVENTS_COUNT = 1000;
+  
+  public static final LDValue CUSTOM_EVENT_DATA = LDValue.of("data");
+  
+  public static final Event.Custom CUSTOM_EVENT = new Event.Custom(
+      System.currentTimeMillis(),
+      "event-key",
+      BASIC_USER,
+      CUSTOM_EVENT_DATA,
+      null
+      );
 }
