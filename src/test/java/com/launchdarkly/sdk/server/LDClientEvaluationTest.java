@@ -75,14 +75,14 @@ public class LDClientEvaluationTest {
   public void intVariationReturnsFlagValue() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(2)));
 
-    assertEquals(new Integer(2), client.intVariation("key", user, 1));
+    assertEquals(2, client.intVariation("key", user, 1));
   }
 
   @Test
   public void intVariationReturnsFlagValueEvenIfEncodedAsDouble() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(2.0)));
 
-    assertEquals(new Integer(2), client.intVariation("key", user, 1));
+    assertEquals(2, client.intVariation("key", user, 1));
   }
 
   @Test
@@ -92,48 +92,48 @@ public class LDClientEvaluationTest {
     upsertFlag(dataStore, flagWithValue("flag3", LDValue.of(-2.25)));
     upsertFlag(dataStore, flagWithValue("flag4", LDValue.of(-2.75)));
 
-    assertEquals(new Integer(2), client.intVariation("flag1", user, 1));
-    assertEquals(new Integer(2), client.intVariation("flag2", user, 1));
-    assertEquals(new Integer(-2), client.intVariation("flag3", user, 1));
-    assertEquals(new Integer(-2), client.intVariation("flag4", user, 1));
+    assertEquals(2, client.intVariation("flag1", user, 1));
+    assertEquals(2, client.intVariation("flag2", user, 1));
+    assertEquals(-2, client.intVariation("flag3", user, 1));
+    assertEquals(-2, client.intVariation("flag4", user, 1));
   }
   
   @Test
   public void intVariationReturnsDefaultValueForUnknownFlag() throws Exception {
-    assertEquals(new Integer(1), client.intVariation("key", user, 1));
+    assertEquals(1, client.intVariation("key", user, 1));
   }
 
   @Test
   public void intVariationReturnsDefaultValueForWrongType() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("wrong")));
 
-    assertEquals(new Integer(1), client.intVariation("key", user, 1));
+    assertEquals(1, client.intVariation("key", user, 1));
   }
   
   @Test
   public void doubleVariationReturnsFlagValue() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(2.5d)));
 
-    assertEquals(new Double(2.5d), client.doubleVariation("key", user, 1.0d));
+    assertEquals(2.5d, client.doubleVariation("key", user, 1.0d), 0d);
   }
 
   @Test
   public void doubleVariationReturnsFlagValueEvenIfEncodedAsInt() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(2)));
 
-    assertEquals(new Double(2.0d), client.doubleVariation("key", user, 1.0d));
+    assertEquals(2.0d, client.doubleVariation("key", user, 1.0d), 0d);
   }
 
   @Test
   public void doubleVariationReturnsDefaultValueForUnknownFlag() throws Exception {
-    assertEquals(new Double(1.0d), client.doubleVariation("key", user, 1.0d));
+    assertEquals(1.0d, client.doubleVariation("key", user, 1.0d), 0d);
   }
 
   @Test
   public void doubleVariationReturnsDefaultValueForWrongType() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("wrong")));
 
-    assertEquals(new Double(1.0d), client.doubleVariation("key", user, 1.0d));
+    assertEquals(1.0d, client.doubleVariation("key", user, 1.0d), 0d);
   }
   
   @Test

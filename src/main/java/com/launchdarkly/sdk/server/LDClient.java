@@ -340,12 +340,12 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public Integer intVariation(String featureKey, LDUser user, int defaultValue) {
+  public int intVariation(String featureKey, LDUser user, int defaultValue) {
     return evaluate(featureKey, user, LDValue.of(defaultValue), true).intValue();
   }
 
   @Override
-  public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
+  public double doubleVariation(String featureKey, LDUser user, double defaultValue) {
     return evaluate(featureKey, user, LDValue.of(defaultValue), true).doubleValue();
   }
 

@@ -368,7 +368,7 @@ public class LDClientTest extends EasyMockSupport {
     client = createMockClient(config);
     
     upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
-    assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
+    assertEquals(1, client.intVariation("key", new LDUser("user"), 0));
     
     verifyAll();
   }
