@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -73,6 +74,9 @@ public abstract class DefaultEventProcessorTestBase {
     volatile boolean closed;
     volatile Result result = new Result(true, false, null);
     volatile RuntimeException fakeError = null;
+    volatile IOException fakeErrorOnClose = null;
+    volatile CountDownLatch receivedCounter = null;
+    volatile Object waitSignal = null;
     
     final BlockingQueue<Params> receivedParams = new LinkedBlockingQueue<>();
     
@@ -94,11 +98,25 @@ public abstract class DefaultEventProcessorTestBase {
     @Override
     public void close() throws IOException {
       closed = true;
+      if (fakeErrorOnClose != null) {
+        throw fakeErrorOnClose;
+      }
     }
 
     @Override
     public Result sendEventData(EventDataKind kind, String data, int eventCount, URI eventsBaseUri) {
       receivedParams.add(new Params(kind, data, eventCount, eventsBaseUri));
+      if (waitSignal != null) {
+        // this is used in DefaultEventProcessorTest.eventsAreKeptInBufferIfAllFlushWorkersAreBusy 
+        synchronized (waitSignal) {
+          if (receivedCounter != null) {
+            receivedCounter.countDown();
+          }
+          try {
+            waitSignal.wait();
+          } catch (InterruptedException e) {}
+        }
+      }
       if (fakeError != null) {
         throw fakeError;
       }
