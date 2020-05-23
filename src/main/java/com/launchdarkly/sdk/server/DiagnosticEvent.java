@@ -148,7 +148,7 @@ class DiagnosticEvent {
     
     static class DiagnosticSdk {
       final String name = "java-server-sdk";
-      final String version = LDClient.CLIENT_VERSION;
+      final String version = Version.SDK_VERSION;
       final String wrapperName;
       final String wrapperVersion;
 

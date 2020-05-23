@@ -143,7 +143,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void headersHaveUserAgent() {
     createStreamProcessor(STREAM_URI).start();
-    assertEquals("JavaClient/" + LDClient.CLIENT_VERSION,
+    assertEquals("JavaClient/" + Version.SDK_VERSION,
         mockEventSourceCreator.getNextReceivedParams().headers.get("User-Agent"));
   }
 

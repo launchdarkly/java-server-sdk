@@ -135,6 +135,15 @@ checkstyle {
     configDir file("${project.rootDir}/config/checkstyle")
 }
 
+task generateJava(type: Copy) {
+    // This updates Version.java
+    from 'src/templates/java'
+    into "src/main/java"
+    filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [VERSION: version.toString()])
+}
+
+compileJava.dependsOn 'generateJava'
+
 jar {
     // thin classifier means that the non-shaded non-fat jar is still available
     // but is opt-in since users will have to specify it.
