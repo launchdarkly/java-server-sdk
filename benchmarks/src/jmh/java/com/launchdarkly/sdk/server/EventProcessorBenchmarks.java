@@ -39,7 +39,7 @@ public class EventProcessorBenchmarks {
       
       eventProcessor = Components.sendEvents()
           .capacity(EVENT_BUFFER_SIZE)
-          .eventSender(new MockEventSenderFactory())
+          .eventSender(new MockEventSenderFactory(eventSender))
           .createEventProcessor(TestComponents.clientContext(TestValues.SDK_KEY, LDConfig.DEFAULT));
       
       basicUser = new LDUser("userkey");
@@ -143,9 +143,15 @@ public class EventProcessorBenchmarks {
   }
   
   private static final class MockEventSenderFactory implements EventSenderFactory {
+    private final MockEventSender instance;
+    
+    MockEventSenderFactory(MockEventSender instance) {
+      this.instance = instance;
+    }
+    
     @Override
     public EventSender createEventSender(String arg0, HttpConfiguration arg1) {
-      return new MockEventSender();
+      return instance;
     }
   }
 }
