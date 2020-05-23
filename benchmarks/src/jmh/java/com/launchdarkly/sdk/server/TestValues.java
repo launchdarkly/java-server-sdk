@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
@@ -38,14 +39,23 @@ public abstract class TestValues {
   public static final String NOT_TARGETED_USER_KEY = "no-match";
 
   public static final String CLAUSE_MATCH_ATTRIBUTE = "clause-match-attr";
+  public static final int CLAUSE_MATCH_VALUE_COUNT = 1000;
   public static final List<LDValue> CLAUSE_MATCH_VALUES;
+  public static final List<LDUser> CLAUSE_MATCH_VALUE_USERS;
   static {
-    CLAUSE_MATCH_VALUES = new ArrayList<>();
+    // pre-generate all these values and matching users so this work doesn't count in the evaluation benchmark performance
+    CLAUSE_MATCH_VALUES = new ArrayList<>(CLAUSE_MATCH_VALUE_COUNT);
+    CLAUSE_MATCH_VALUE_USERS = new ArrayList<>(CLAUSE_MATCH_VALUE_COUNT);
     for (int i = 0; i < 1000; i++) {
-      CLAUSE_MATCH_VALUES.add(LDValue.of("value-" + i));
+      LDValue value = LDValue.of("value-" + i);
+      LDUser user = new LDUser.Builder("key").custom(CLAUSE_MATCH_ATTRIBUTE, value).build();
+      CLAUSE_MATCH_VALUES.add(value);
+      CLAUSE_MATCH_VALUE_USERS.add(user);
     }
   }
   public static final LDValue NOT_MATCHED_VALUE = LDValue.of("no-match");
+  public static final LDUser NOT_MATCHED_VALUE_USER =
+      new LDUser.Builder("key").custom(CLAUSE_MATCH_ATTRIBUTE, NOT_MATCHED_VALUE).build();
   
   public static final String EMPTY_JSON_DATA = "{\"flags\":{},\"segments\":{}}";
   

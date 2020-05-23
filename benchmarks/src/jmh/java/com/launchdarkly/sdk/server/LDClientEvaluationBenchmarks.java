@@ -16,14 +16,13 @@ import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestValues.BOOLEAN_FLAG_KEY;
-import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_ATTRIBUTE;
-import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_VALUES;
+import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_VALUE_COUNT;
 import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_MULTI_VALUE_CLAUSE_KEY;
 import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_PREREQ_KEY;
 import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_TARGET_LIST_KEY;
 import static com.launchdarkly.sdk.server.TestValues.INT_FLAG_KEY;
 import static com.launchdarkly.sdk.server.TestValues.JSON_FLAG_KEY;
-import static com.launchdarkly.sdk.server.TestValues.NOT_MATCHED_VALUE;
+import static com.launchdarkly.sdk.server.TestValues.NOT_MATCHED_VALUE_USER;
 import static com.launchdarkly.sdk.server.TestValues.NOT_TARGETED_USER_KEY;
 import static com.launchdarkly.sdk.server.TestValues.SDK_KEY;
 import static com.launchdarkly.sdk.server.TestValues.STRING_FLAG_KEY;
@@ -145,16 +144,15 @@ public class LDClientEvaluationBenchmarks {
   
   @Benchmark
   public void userValueFoundInClauseList(BenchmarkInputs inputs) throws Exception {
-    LDValue userValue = CLAUSE_MATCH_VALUES.get(inputs.random.nextInt(CLAUSE_MATCH_VALUES.size()));
-    LDUser user = new LDUser.Builder("key").custom(CLAUSE_MATCH_ATTRIBUTE, userValue).build();
+    int i = inputs.random.nextInt(CLAUSE_MATCH_VALUE_COUNT);
+    LDUser user = TestValues.CLAUSE_MATCH_VALUE_USERS.get(i);
     boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, user, false);
     assertTrue(result);
   }
   
   @Benchmark
   public void userValueNotFoundInClauseList(BenchmarkInputs inputs) throws Exception {
-    LDUser user = new LDUser.Builder("key").custom(CLAUSE_MATCH_ATTRIBUTE, NOT_MATCHED_VALUE).build();
-    boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, user, false);
+    boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, NOT_MATCHED_VALUE_USER, false);
     assertFalse(result);
   }
 }
