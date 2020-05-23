@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
@@ -12,8 +13,10 @@ import com.launchdarkly.sdk.server.interfaces.EventSender;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
@@ -222,6 +225,16 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     ep.close();
     assertThat(es.closed, is(true));
   }
+
+  @Test
+  public void eventProcessorCatchesExceptionWhenClosingEventSender() throws Exception {
+    MockEventSender es = new MockEventSender();
+    es.fakeErrorOnClose = new IOException("sorry");
+    assertThat(es.closed, is(false));
+    DefaultEventProcessor ep = makeEventProcessor(baseConfig(es));
+    ep.close();
+    assertThat(es.closed, is(true));
+  }
   
   @Test
   public void customBaseUriIsPassedToEventSenderForAnalyticsEvents() throws Exception {
@@ -298,6 +311,20 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   }
 
   @Test
+  public void noMoreEventsAreProcessedAfterClosingEventProcessor() throws Exception {
+    MockEventSender es = new MockEventSender();
+    
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
+      ep.close();
+      
+      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.flush();
+      
+      es.expectNoRequests(Duration.ofMillis(100));
+    }
+  }
+
+  @Test
   public void uncheckedExceptionFromEventSenderDoesNotStopWorkerThread() throws Exception {
     MockEventSender es = new MockEventSender();
     
@@ -314,6 +341,76 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
       ep.flush();
       es.awaitRequest();
+    }
+  }
+  
+  @SuppressWarnings("unchecked")
+  @Test
+  public void eventsAreKeptInBufferIfAllFlushWorkersAreBusy() throws Exception {
+    // Note that in the current implementation, although the intention was that we would cancel a flush
+    // if there's not an available flush worker, instead what happens is that we will queue *one* flush
+    // in that case, and then cancel the *next* flush if the workers are still busy. This is because we
+    // used a BlockingQueue with a size of 1, rather than a SynchronousQueue. The test below verifies
+    // the current behavior.
+    
+    int numWorkers = 5; // must equal EventDispatcher.MAX_FLUSH_THREADS
+    LDUser testUser1 = new LDUser("me");
+    LDValue testUserJson1 = LDValue.buildObject().put("key", "me").build();
+    LDUser testUser2 = new LDUser("you");
+    LDValue testUserJson2 = LDValue.buildObject().put("key", "you").build();
+    LDUser testUser3 = new LDUser("everyone we know");
+    LDValue testUserJson3 = LDValue.buildObject().put("key", "everyone we know").build();
+    
+    Object sendersWaitOnThis = new Object();
+    CountDownLatch sendersSignalThisWhenWaiting = new CountDownLatch(numWorkers);
+    MockEventSender es = new MockEventSender();
+    es.waitSignal = sendersWaitOnThis;
+    es.receivedCounter = sendersSignalThisWhenWaiting;
+    
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
+      for (int i = 0; i < 5; i++) {
+        ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+        ep.flush();
+        es.awaitRequest(); // we don't need to see this payload, just throw it away
+      }
+      
+      // When our CountDownLatch reaches zero, it means all of the worker threads are blocked in MockEventSender
+      sendersSignalThisWhenWaiting.await();
+      es.waitSignal = null;
+      es.receivedCounter = null;
+      
+      // Now, put an event in the buffer and try to flush again. In the current implementation (see
+      // above) this payload gets queued in a holding area, and will be flushed after a worker
+      // becomes free.
+      Event.Identify event1 = EventFactory.DEFAULT.newIdentifyEvent(testUser1);
+      ep.sendEvent(event1);
+      ep.flush();
+      
+      // Do an additional flush with another event. This time, the event processor should see that there's
+      // no space available and simply ignore the flush request. There's no way to verify programmatically
+      // that this has happened, so just give it a short delay.
+      Event.Identify event2 = EventFactory.DEFAULT.newIdentifyEvent(testUser2);
+      ep.sendEvent(event2);
+      ep.flush();
+      Thread.sleep(100);
+      
+      // Enqueue a third event. The current payload should now be event2 + event3.
+      Event.Identify event3 = EventFactory.DEFAULT.newIdentifyEvent(testUser3);
+      ep.sendEvent(event3);
+      
+      // Now allow the workers to unblock
+      synchronized (sendersWaitOnThis) {
+        sendersWaitOnThis.notifyAll();
+      }
+      
+      // The first unblocked worker should pick up the queued payload with event1.
+      assertThat(es.getEventsFromLastRequest(), contains(isIdentifyEvent(event1, testUserJson1)));
+
+      // Now a flush should succeed and send the current payload.
+      ep.flush();
+      assertThat(es.getEventsFromLastRequest(), contains(
+          isIdentifyEvent(event2, testUserJson2),
+          isIdentifyEvent(event3, testUserJson3)));
     }
   }
 }

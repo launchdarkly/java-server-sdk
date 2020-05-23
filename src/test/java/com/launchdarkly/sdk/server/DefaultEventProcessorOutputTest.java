@@ -22,6 +22,8 @@ import static org.hamcrest.Matchers.contains;
  */
 @SuppressWarnings("javadoc")
 public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBase {
+  private static final LDUser userWithNullKey = new LDUser(null);
+  
   @Test
   public void identifyEventIsQueued() throws Exception {
     MockEventSender es = new MockEventSender();
@@ -47,6 +49,22 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
 
     assertThat(es.getEventsFromLastRequest(), contains(
         isIdentifyEvent(e, filteredUserJson)
+    ));
+  }
+
+  @Test
+  public void identifyEventWithNullUserKeyDoesNotCauseError() throws Exception {
+    // This should never happen because LDClient.identify() rejects such a user, but just in case,
+    // we want to make sure it doesn't blow up the event processor.
+    MockEventSender es = new MockEventSender();
+    Event e = EventFactory.DEFAULT.newIdentifyEvent(userWithNullKey);
+
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).allAttributesPrivate(true))) {
+      ep.sendEvent(e);
+    }
+
+    assertThat(es.getEventsFromLastRequest(), contains(
+        isIdentifyEvent(e, LDValue.buildObject().build())
     ));
   }
   
@@ -121,6 +139,25 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     
     assertThat(es.getEventsFromLastRequest(), contains(
         isFeatureEvent(fe, flag, false, filteredUserJson),
+        isSummaryEvent()
+    ));
+  }
+  
+  @Test
+  public void featureEventWithNullUserKeyIsIgnored() throws Exception {
+    // This should never happen because LDClient rejects such a user, but just in case,
+    // we want to make sure it doesn't blow up the event processor.
+    MockEventSender es = new MockEventSender();
+    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).build();
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, userWithNullKey,
+        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
+        .inlineUsersInEvents(true).allAttributesPrivate(true))) {
+      ep.sendEvent(fe);
+    }
+    
+    assertThat(es.getEventsFromLastRequest(), contains(
         isSummaryEvent()
     ));
   }
@@ -406,5 +443,22 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(ce, filteredUserJson)));
+  }
+
+  @Test
+  public void customEventWithNullUserKeyDoesNotCauseError() throws Exception {
+    // This should never happen because LDClient rejects such a user, but just in case,
+    // we want to make sure it doesn't blow up the event processor.
+    MockEventSender es = new MockEventSender();
+    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", userWithNullKey, LDValue.ofNull(), null);
+
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
+        .inlineUsersInEvents(true).allAttributesPrivate(true))) {
+      ep.sendEvent(ce);
+    }
+    
+    assertThat(es.getEventsFromLastRequest(), contains(
+        isCustomEvent(ce, LDValue.buildObject().build())
+    ));
   }
 }
