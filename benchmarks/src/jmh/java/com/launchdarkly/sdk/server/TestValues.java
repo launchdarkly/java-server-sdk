@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.client.Event;
 import com.launchdarkly.client.LDUser;
 import com.launchdarkly.client.value.LDValue;
 
@@ -10,6 +11,8 @@ public abstract class TestValues {
   private TestValues() {}
 
   public static final String SDK_KEY = "sdk-key";
+  
+  public static final LDUser BASIC_USER = new LDUser("userkey");
   
   public static final String BOOLEAN_FLAG_KEY = "flag-bool";
   public static final String INT_FLAG_KEY = "flag-int";
@@ -49,4 +52,16 @@ public abstract class TestValues {
       new LDUser.Builder("key").custom(CLAUSE_MATCH_ATTRIBUTE, NOT_MATCHED_VALUE).build();
   
   public static final String EMPTY_JSON_DATA = "{\"flags\":{},\"segments\":{}}";
+  
+  public static final int TEST_EVENTS_COUNT = 1000;
+  
+  public static final LDValue CUSTOM_EVENT_DATA = LDValue.of("data");
+  
+  public static final Event.Custom CUSTOM_EVENT = new Event.Custom(
+      System.currentTimeMillis(),
+      "event-key",
+      BASIC_USER,
+      CUSTOM_EVENT_DATA,
+      null
+      );
 }
