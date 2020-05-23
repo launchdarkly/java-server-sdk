@@ -134,6 +134,7 @@ public class EventProcessorBenchmarks {
 
     @Override
     public Result sendEventData(EventDataKind arg0, String arg1, int arg2, URI arg3) {
+      counter.countDown();
       return RESULT;
     }
     
