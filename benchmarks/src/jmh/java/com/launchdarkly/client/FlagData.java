@@ -9,41 +9,27 @@ import java.util.List;
 
 import static com.launchdarkly.client.TestUtil.fallthroughVariation;
 import static com.launchdarkly.client.TestUtil.flagWithValue;
+import static com.launchdarkly.client.VersionedDataKind.FEATURES;
+import static com.launchdarkly.sdk.server.TestValues.BOOLEAN_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_ATTRIBUTE;
+import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_VALUES;
+import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_MULTI_VALUE_CLAUSE_KEY;
+import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_PREREQ_KEY;
+import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_TARGET_LIST_KEY;
+import static com.launchdarkly.sdk.server.TestValues.INT_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.JSON_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.STRING_FLAG_KEY;
+import static com.launchdarkly.sdk.server.TestValues.TARGETED_USER_KEYS;
 
-public abstract class TestValues {
-  private TestValues() {}
-
-  public static final String SDK_KEY = "sdk-key";
-  
-  public static final String BOOLEAN_FLAG_KEY = "flag-bool";
-  public static final String INT_FLAG_KEY = "flag-int";
-  public static final String STRING_FLAG_KEY = "flag-string";
-  public static final String JSON_FLAG_KEY = "flag-json";
-  public static final String FLAG_WITH_TARGET_LIST_KEY = "flag-with-targets";
-  public static final String FLAG_WITH_PREREQ_KEY = "flag-with-prereq";
-  public static final String FLAG_WITH_MULTI_VALUE_CLAUSE_KEY = "flag-with-multi-value-clause";
-  public static final String UNKNOWN_FLAG_KEY = "no-such-flag";
-
-  public static final List<String> TARGETED_USER_KEYS;
-  static {
-    TARGETED_USER_KEYS = new ArrayList<>();
-    for (int i = 0; i < 1000; i++) {
-      TARGETED_USER_KEYS.add("user-" + i);
+// This class must be in com.launchdarkly.client because FeatureFlagBuilder is package-private in the
+// SDK, but we are keeping the rest of the benchmark implementation code in com.launchdarkly.sdk.server
+// so we can more clearly compare between 4.x and 5.0.
+public class FlagData {
+  public static void loadTestFlags(FeatureStore store) {
+    for (FeatureFlag flag: FlagData.makeTestFlags()) {
+      store.upsert(FEATURES, flag);
     }
   }
-  public static final String NOT_TARGETED_USER_KEY = "no-match";
-
-  public static final String CLAUSE_MATCH_ATTRIBUTE = "clause-match-attr";
-  public static final List<LDValue> CLAUSE_MATCH_VALUES;
-  static {
-    CLAUSE_MATCH_VALUES = new ArrayList<>();
-    for (int i = 0; i < 1000; i++) {
-      CLAUSE_MATCH_VALUES.add(LDValue.of("value-" + i));
-    }
-  }
-  public static final LDValue NOT_MATCHED_VALUE = LDValue.of("no-match");
-  
-  public static final String EMPTY_JSON_DATA = "{\"flags\":{},\"segments\":{}}";
   
   public static List<FeatureFlag> makeTestFlags() {
     List<FeatureFlag> flags = new ArrayList<>();
