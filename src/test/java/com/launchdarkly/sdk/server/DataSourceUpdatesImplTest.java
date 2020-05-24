@@ -47,8 +47,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
       EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor);
   
   private DataSourceUpdatesImpl makeInstance(DataStore store) {
-    return new DataSourceUpdatesImpl(store, null, flagChangeBroadcaster, null, sharedExecutor,
-        Components.logging().logDataSourceOutageAsErrorAfter(null).createLoggingConfiguration());
+    return new DataSourceUpdatesImpl(store, null, flagChangeBroadcaster, null, sharedExecutor, null);
   }
   
   @Test
