@@ -20,7 +20,7 @@ public final class LDConfig {
   static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
   static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
 
-  private static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
+  static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
   
   protected static final LDConfig DEFAULT = new Builder().build();
 
@@ -49,18 +49,6 @@ public final class LDConfig {
     this.threadPriority = builder.threadPriority;
   }
   
-  LDConfig(LDConfig config) {
-    this.dataSourceFactory = config.dataSourceFactory;
-    this.dataStoreFactory = config.dataStoreFactory;
-    this.diagnosticOptOut = config.diagnosticOptOut;
-    this.eventProcessorFactory = config.eventProcessorFactory;
-    this.httpConfig = config.httpConfig;
-    this.loggingConfig = config.loggingConfig;
-    this.offline = config.offline;
-    this.startWait = config.startWait;
-    this.threadPriority = config.threadPriority;
-  }
-
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct
    * {@link com.launchdarkly.sdk.server.LDConfig} objects. Builder calls can be chained, enabling the

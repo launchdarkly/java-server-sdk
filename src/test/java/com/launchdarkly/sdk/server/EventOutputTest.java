@@ -166,6 +166,14 @@ public class EventOutputTest {
     assertEquals(o.build(), userJson);
   }
   
+  private ObjectBuilder buildFeatureEventProps(String key) {
+    return LDValue.buildObject()
+        .put("kind", "feature")
+        .put("key", key)
+        .put("creationDate", 100000)
+        .put("userKey", "userkey");
+  }
+  
   @Test
   public void featureEventIsSerialized() throws Exception {
     EventFactory factory = eventFactoryWithTimestamp(100000, false);
@@ -177,72 +185,87 @@ public class EventOutputTest {
     FeatureRequest feWithVariation = factory.newFeatureRequestEvent(flag, user,
         new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
         LDValue.of("defaultvalue"));
-    LDValue feJson1 = parseValue("{" +
-        "\"kind\":\"feature\"," +
-        "\"creationDate\":100000," +
-        "\"key\":\"flag\"," +
-        "\"version\":11," +
-        "\"userKey\":\"userkey\"," +
-        "\"value\":\"flagvalue\"," +
-        "\"variation\":1," +
-        "\"default\":\"defaultvalue\"" +
-        "}");
+    LDValue feJson1 = buildFeatureEventProps("flag")
+        .put("version", 11)
+        .put("variation", 1)
+        .put("value", "flagvalue")
+        .put("default", "defaultvalue")
+        .build();
     assertEquals(feJson1, getSingleOutputEvent(f, feWithVariation));
 
     FeatureRequest feWithoutVariationOrDefault = factory.newFeatureRequestEvent(flag, user,
         new Evaluator.EvalResult(LDValue.of("flagvalue"), NO_VARIATION, EvaluationReason.off()),
         LDValue.ofNull());
-    LDValue feJson2 = parseValue("{" +
-        "\"kind\":\"feature\"," +
-        "\"creationDate\":100000," +
-        "\"key\":\"flag\"," +
-        "\"version\":11," +
-        "\"userKey\":\"userkey\"," +
-        "\"value\":\"flagvalue\"" +
-        "}");
+    LDValue feJson2 = buildFeatureEventProps("flag")
+        .put("version", 11)
+        .put("value", "flagvalue")
+        .build();
     assertEquals(feJson2, getSingleOutputEvent(f, feWithoutVariationOrDefault));
 
     FeatureRequest feWithReason = factoryWithReason.newFeatureRequestEvent(flag, user,
-        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.ruleMatch(1, "id")),
+        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()),
         LDValue.of("defaultvalue"));
-    LDValue feJson3 = parseValue("{" +
-        "\"kind\":\"feature\"," +
-        "\"creationDate\":100000," +
-        "\"key\":\"flag\"," +
-        "\"version\":11," +
-        "\"userKey\":\"userkey\"," +
-        "\"value\":\"flagvalue\"," +
-        "\"variation\":1," +
-        "\"default\":\"defaultvalue\"," +
-        "\"reason\":{\"kind\":\"RULE_MATCH\",\"ruleIndex\":1,\"ruleId\":\"id\"}" +
-        "}");
+    LDValue feJson3 = buildFeatureEventProps("flag")
+        .put("version", 11)
+        .put("variation", 1)
+        .put("value", "flagvalue")
+        .put("default", "defaultvalue")
+        .put("reason", LDValue.buildObject().put("kind", "FALLTHROUGH").build())
+        .build();
     assertEquals(feJson3, getSingleOutputEvent(f, feWithReason));
 
     FeatureRequest feUnknownFlag = factoryWithReason.newUnknownFeatureRequestEvent("flag", user,
         LDValue.of("defaultvalue"), EvaluationReason.ErrorKind.FLAG_NOT_FOUND);
-    LDValue feJson4 = parseValue("{" +
-        "\"kind\":\"feature\"," +
-        "\"creationDate\":100000," +
-        "\"key\":\"flag\"," +
-        "\"userKey\":\"userkey\"," +
-        "\"value\":\"defaultvalue\"," +
-        "\"default\":\"defaultvalue\"," +
-        "\"reason\":{\"kind\":\"ERROR\",\"errorKind\":\"FLAG_NOT_FOUND\"}" +
-        "}");
+    LDValue feJson4 = buildFeatureEventProps("flag")
+        .put("value", "defaultvalue")
+        .put("default", "defaultvalue")
+        .put("reason", LDValue.buildObject().put("kind", "ERROR").put("errorKind", "FLAG_NOT_FOUND").build())
+        .build();
     assertEquals(feJson4, getSingleOutputEvent(f, feUnknownFlag));
 
     Event.FeatureRequest debugEvent = EventFactory.newDebugEvent(feWithVariation);
-    LDValue feJson5 = parseValue("{" +
-        "\"kind\":\"debug\"," +
-        "\"creationDate\":100000," +
-        "\"key\":\"flag\"," +
-        "\"version\":11," +
-        "\"user\":{\"key\":\"userkey\",\"name\":\"me\"}," +
-        "\"value\":\"flagvalue\"," +
-        "\"variation\":1," +
-        "\"default\":\"defaultvalue\"" +
-        "}");
+    
+    LDValue feJson5 = LDValue.buildObject()
+        .put("kind", "debug")
+        .put("key", "flag")
+        .put("creationDate", 100000)
+        .put("version", 11)
+        .put("variation", 1)
+        .put("user", LDValue.buildObject().put("key", "userkey").put("name", "me").build())
+        .put("value", "flagvalue")
+        .put("default", "defaultvalue")
+        .build();
     assertEquals(feJson5, getSingleOutputEvent(f, debugEvent));
+    
+    DataModel.FeatureFlag parentFlag = flagBuilder("parent").build();
+    Event.FeatureRequest prereqEvent = factory.newPrerequisiteFeatureRequestEvent(flag, user,
+        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()), parentFlag);
+    LDValue feJson6 = buildFeatureEventProps("flag")
+        .put("version", 11)
+        .put("variation", 1)
+        .put("value", "flagvalue")
+        .put("prereqOf", "parent")
+        .build();
+    assertEquals(feJson6, getSingleOutputEvent(f, prereqEvent));
+
+    Event.FeatureRequest prereqWithReason = factoryWithReason.newPrerequisiteFeatureRequestEvent(flag, user,
+        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()), parentFlag);
+    LDValue feJson7 = buildFeatureEventProps("flag")
+        .put("version", 11)
+        .put("variation", 1)
+        .put("value", "flagvalue")
+        .put("reason", LDValue.buildObject().put("kind", "FALLTHROUGH").build())
+        .put("prereqOf", "parent")
+        .build();
+    assertEquals(feJson7, getSingleOutputEvent(f, prereqWithReason));
+
+    Event.FeatureRequest prereqWithoutResult = factoryWithReason.newPrerequisiteFeatureRequestEvent(flag, user,
+        null, parentFlag);
+    LDValue feJson8 = buildFeatureEventProps("flag")
+        .put("version", 11)
+        .put("prereqOf", "parent")
+        .build();
+    assertEquals(feJson8, getSingleOutputEvent(f, prereqWithoutResult));
   }
 
   @Test
@@ -364,6 +387,24 @@ public class EventOutputTest {
     assertThat(thirdJson.get("counters").values(), contains(
         parseValue("{\"unknown\":true,\"value\":\"default3\",\"count\":1}")
     ));
+  }
+  
+  @Test
+  public void unknownEventClassIsNotSerialized() throws Exception {
+    // This shouldn't be able to happen in reality.
+    Event event = new FakeEventClass(1000, new LDUser("user"));
+    
+    EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
+    StringWriter w = new StringWriter();
+    f.writeOutputEvents(new Event[] { event }, new EventSummary(), w);
+    
+    assertEquals("[]", w.toString());
+  }
+  
+  private static class FakeEventClass extends Event {
+    public FakeEventClass(long creationDate, LDUser user) {
+      super(creationDate, user);
+    }
   }
   
   private static LDValue parseValue(String json) {

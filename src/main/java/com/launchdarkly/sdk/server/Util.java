@@ -19,7 +19,9 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.Route;
 
-class Util {
+abstract class Util {
+  private Util() {}
+  
   static Headers.Builder getHeadersBuilderFor(String sdkKey, HttpConfiguration config) {
     Headers.Builder builder = new Headers.Builder()
         .add("Authorization", sdkKey)

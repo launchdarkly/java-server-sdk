@@ -141,11 +141,30 @@ public class SemanticVersionTest {
     assertEquals("build1", sv.getBuild());
   }
   
+  @Test(expected=SemanticVersion.InvalidVersionException.class)
+  public void majorVersionMustBeNumeric() throws Exception {
+    SemanticVersion.parse("x.0.0");
+  }
+
+  @Test(expected=SemanticVersion.InvalidVersionException.class)
+  public void minorVersionMustBeNumeric() throws Exception {
+    SemanticVersion.parse("0.x.0");
+  }
+
+  @Test(expected=SemanticVersion.InvalidVersionException.class)
+  public void patchVersionMustBeNumeric() throws Exception {
+    SemanticVersion.parse("0.0.x");
+  }
+  
   @Test
   public void equalVersionsHaveEqualPrecedence() throws Exception {
     SemanticVersion sv1 = SemanticVersion.parse("2.3.4-beta1");
     SemanticVersion sv2 = SemanticVersion.parse("2.3.4-beta1");
     assertEquals(0, sv1.comparePrecedence(sv2));
+
+    SemanticVersion sv3 = SemanticVersion.parse("2.3.4");
+    SemanticVersion sv4 = SemanticVersion.parse("2.3.4");
+    assertEquals(0, sv3.comparePrecedence(sv4));
   }
 
   @Test
@@ -205,10 +224,25 @@ public class SemanticVersionTest {
   }
 
   @Test
+  public void numericPrereleaseIdentifiersAreLowerThanStrings() throws Exception {
+    SemanticVersion sv1 = SemanticVersion.parse("2.3.4-beta1.x.100");
+    SemanticVersion sv2 = SemanticVersion.parse("2.3.4-beta1.3.100");
+    assertEquals(1, sv1.comparePrecedence(sv2));
+    assertEquals(-1, sv2.comparePrecedence(sv1));
+  }
+
+  @Test
   public void buildIdentifierDoesNotAffectPrecedence() throws Exception {
     SemanticVersion sv1 = SemanticVersion.parse("2.3.4-beta1+build1");
     SemanticVersion sv2 = SemanticVersion.parse("2.3.4-beta1+build2");
     assertEquals(0, sv1.comparePrecedence(sv2));
     assertEquals(0, sv2.comparePrecedence(sv1));
+  }
+  
+  @Test
+  public void anyVersionIsGreaterThanNull() throws Exception {
+    SemanticVersion sv = SemanticVersion.parse("0.0.0");
+    assertEquals(1, sv.comparePrecedence(null));
+    assertEquals(1, sv.compareTo(null));
   }
 }

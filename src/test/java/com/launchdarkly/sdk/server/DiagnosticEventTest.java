@@ -152,6 +152,7 @@ public class DiagnosticEventTest {
           .events(
               Components.sendEvents()
                 .allAttributesPrivate(true)
+                .baseURI(URI.create("http://custom"))
                 .capacity(20_000)
                 .diagnosticRecordingInterval(Duration.ofSeconds(1_800))
                 .flushInterval(Duration.ofSeconds(10))
@@ -164,6 +165,7 @@ public class DiagnosticEventTest {
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
     LDValue expected = expectedDefaultProperties()
         .put("allAttributesPrivate", true)
+        .put("customEventsURI", true)
         .put("diagnosticRecordingIntervalMillis", 1_800_000)
         .put("eventsCapacity", 20_000)
         .put("eventsFlushIntervalMillis", 10_000)
@@ -193,16 +195,36 @@ public class DiagnosticEventTest {
 
   @Test
   public void testCustomDiagnosticConfigurationForOffline() {
-    LDConfig ldConfig = new LDConfig.Builder()
-            .offline(true)
-            .build();
-
+    LDConfig ldConfig = new LDConfig.Builder().offline(true).build();
     LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
     LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("offline", true)
         .build();
 
     assertEquals(expected, diagnosticJson);
+
+    LDConfig ldConfig2 = new LDConfig.Builder().offline(true)
+        .dataStore(Components.inMemoryDataStore()) // just double-checking the logic in NullDataSourceFactory.describeConfiguration()
+        .build();
+    LDValue diagnosticJson2 = DiagnosticEvent.Init.getConfigurationData(ldConfig2);
+    
+    assertEquals(expected, diagnosticJson2);
+    
+    // streaming or polling + offline == offline
+    
+    LDConfig ldConfig3 = new LDConfig.Builder().offline(true)
+        .dataSource(Components.streamingDataSource())
+        .build();
+    LDValue diagnosticJson3 = DiagnosticEvent.Init.getConfigurationData(ldConfig3);
+    
+    assertEquals(expected, diagnosticJson3);
+
+    LDConfig ldConfig4 = new LDConfig.Builder().offline(true)
+        .dataSource(Components.pollingDataSource())
+        .build();
+    LDValue diagnosticJson4 = DiagnosticEvent.Init.getConfigurationData(ldConfig4);
+    
+    assertEquals(expected, diagnosticJson4);
   }
   
   @Test

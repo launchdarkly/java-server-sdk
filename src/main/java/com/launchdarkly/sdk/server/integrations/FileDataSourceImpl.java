@@ -124,6 +124,8 @@ final class FileDataSourceImpl implements DataSource {
    * If auto-updating is enabled, this component watches for file changes on a worker thread.
    */
   private static final class FileWatcher implements Runnable {
+    private static final WatchEvent.Kind<?>[] WATCH_KINDS = new WatchEvent.Kind<?>[] { ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE };
+    
     private final WatchService watchService;
     private final Set<Path> watchedFilePaths;
     private Runnable fileModifiedAction;
@@ -141,11 +143,30 @@ final class FileDataSourceImpl implements DataSource {
         absoluteFilePaths.add(p);
         directoryPaths.add(p.getParent());
       }
+      
       for (Path d: directoryPaths) {
-        d.register(ws, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
+        registerWatch(d, ws);
       }
       
       return new FileWatcher(ws, absoluteFilePaths);
+    }
+    
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void registerWatch(Path dirPath, WatchService watchService) throws IOException {
+      // The following is a workaround for a known issue with Mac JDK implementations which do not have a
+      // native file watcher, and are based instead on sun.nio.fs.PollingWatchService. Without passing an
+      // extra parameter of type com.sun.nio.file.SensitivityWatchEventModifier (which does not exist in
+      // other JDKs), this polling file watcher will only detect changes every 10 seconds.
+      // See: https://bugs.openjdk.java.net/browse/JDK-7133447
+      WatchEvent.Modifier[] modifiers = new WatchEvent.Modifier[0];
+      if (watchService.getClass().getName().equals("sun.nio.fs.PollingWatchService")) {
+        try {
+          Class<Enum> modifierClass = (Class<Enum>)Class.forName("com.sun.nio.file.SensitivityWatchEventModifier");
+          Enum mod = Enum.valueOf(modifierClass, "HIGH");
+          modifiers = new WatchEvent.Modifier[] { (WatchEvent.Modifier)mod };
+        } catch (Exception e) {}
+      }
+      dirPath.register(watchService, WATCH_KINDS, modifiers);
     }
     
     private FileWatcher(WatchService watchService, Set<Path> watchedFilePaths) {
