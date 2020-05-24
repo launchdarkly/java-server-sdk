@@ -63,7 +63,12 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
    * whenever there is a change. By default, it will not, so the flags will only be loaded once.
    * <p>
    * Note that auto-updating will only work if all of the files you specified have valid directory paths at
-   * startup time; if a directory does not exist, creating it later will not result in files being loaded from it. 
+   * startup time; if a directory does not exist, creating it later will not result in files being loaded from it.
+   * <p>
+   * The performance of this feature depends on what implementation of {@code java.nio.file.WatchService} is
+   * available in the Java runtime. On Linux and Windows, an implementation based on native filesystem APIs
+   * should be available. On MacOS, there is a long-standing known issue where due to the lack of such an
+   * implementation, it must use a file polling approach that can take up to 10 seconds to detect a change. 
    * 
    * @param autoUpdate true if flags should be reloaded whenever a source file changes
    * @return the same factory object
