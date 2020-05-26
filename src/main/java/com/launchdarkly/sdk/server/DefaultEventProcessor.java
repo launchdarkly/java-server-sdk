@@ -10,7 +10,6 @@ import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -29,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 final class DefaultEventProcessor implements EventProcessor {
-  private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
+  private static final Logger logger = Loggers.EVENTS;
   
   @VisibleForTesting final EventDispatcher dispatcher;
   private final BlockingQueue<EventProcessorMessage> inbox;

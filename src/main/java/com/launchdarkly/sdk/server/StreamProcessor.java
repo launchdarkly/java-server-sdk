@@ -22,7 +22,6 @@ import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -74,7 +73,7 @@ final class StreamProcessor implements DataSource {
   private static final String DELETE = "delete";
   private static final String INDIRECT_PUT = "indirect/put";
   private static final String INDIRECT_PATCH = "indirect/patch";
-  private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
+  private static final Logger logger = Loggers.DATA_SOURCE;
   private static final Duration DEAD_CONNECTION_INTERVAL = Duration.ofSeconds(300);
   private static final String ERROR_CONTEXT_MESSAGE = "in stream connection";
   private static final String WILL_RETRY_MESSAGE = "will retry";
@@ -408,6 +407,7 @@ final class StreamProcessor implements DataSource {
   private EventSource defaultEventSourceCreator(EventSourceParams params) {
     EventSource.Builder builder = new EventSource.Builder(params.handler, params.streamUri)
         .threadPriority(threadPriority)
+        .logger(new EventSourceLogger())
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
           public void configure(OkHttpClient.Builder builder) {
             configureHttpClientBuilder(params.httpConfig, builder);
@@ -493,5 +493,35 @@ final class StreamProcessor implements DataSource {
 
     @SuppressWarnings("unused") // used by Gson
     public DeleteData() { }
+  }
+  
+  // We use this adapter so that EventSource's logging will go to the same logger name we use for other
+  // stream-related things (Loggers.DATA_SOURCE), rather than using "com.launchdarkly.eventsource.EventSource"
+  // which is an implementation detail SDK users shouldn't need to know about.
+  private static final class EventSourceLogger implements com.launchdarkly.eventsource.Logger {
+    @Override
+    public void debug(String format, Object param) {
+      Loggers.DATA_SOURCE.debug(format, param);
+    }
+
+    @Override
+    public void debug(String format, Object param1, Object param2) {
+      Loggers.DATA_SOURCE.debug(format, param1, param2);
+    }
+
+    @Override
+    public void info(String message) {
+      Loggers.DATA_SOURCE.info(message);
+    }
+
+    @Override
+    public void warn(String message) {
+      Loggers.DATA_SOURCE.warn(message);
+    }
+
+    @Override
+    public void error(String message) {
+      Loggers.DATA_SOURCE.error(message);
+    }
   }
 }

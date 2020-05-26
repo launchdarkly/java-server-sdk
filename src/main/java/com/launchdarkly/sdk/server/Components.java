@@ -332,9 +332,9 @@ public abstract class Components {
       if (context.isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
-        LDClient.logger.info("Starting LaunchDarkly client in offline mode");
+        Loggers.MAIN.info("Starting LaunchDarkly client in offline mode");
       } else {
-        LDClient.logger.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
+        Loggers.MAIN.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
       }
       dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
       return NullDataSource.INSTANCE;
@@ -381,7 +381,7 @@ public abstract class Components {
         return Components.externalUpdatesOnly().createDataSource(context, dataSourceUpdates);
       }
       
-      LDClient.logger.info("Enabling streaming API");
+      Loggers.DATA_SOURCE.info("Enabling streaming API");
 
       URI streamUri = baseURI == null ? LDConfig.DEFAULT_STREAM_URI : baseURI;
       URI pollUri;
@@ -440,8 +440,8 @@ public abstract class Components {
         return Components.externalUpdatesOnly().createDataSource(context, dataSourceUpdates);
       }
 
-      LDClient.logger.info("Disabling streaming API");
-      LDClient.logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
+      Loggers.DATA_SOURCE.info("Disabling streaming API");
+      Loggers.DATA_SOURCE.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           context.getSdkKey(),

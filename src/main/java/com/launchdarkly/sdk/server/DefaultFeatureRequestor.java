@@ -13,7 +13,6 @@ import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,7 +35,7 @@ import okhttp3.Response;
  * Implementation of getting flag data via a polling request. Used by both streaming and polling components.
  */
 final class DefaultFeatureRequestor implements FeatureRequestor {
-  private static final Logger logger = LoggerFactory.getLogger(DefaultFeatureRequestor.class);
+  private static final Logger logger = Loggers.DATA_SOURCE;
   private static final String GET_LATEST_FLAGS_PATH = "/sdk/latest-flags";
   private static final String GET_LATEST_SEGMENTS_PATH = "/sdk/latest-segments";
   private static final String GET_LATEST_ALL_PATH = "/sdk/latest-all";
