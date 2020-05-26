@@ -259,6 +259,10 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     try (DefaultEventProcessor ep = makeEventProcessor(config)) {
       for (int i = 0; i < capacity + 2; i++) {
         ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+        
+        // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
+        // delay to keep EventDispatcher from being overwhelmed
+        Thread.sleep(1);
       }
       ep.flush();
       assertThat(es.getEventsFromLastRequest(), Matchers.iterableWithSize(capacity));
