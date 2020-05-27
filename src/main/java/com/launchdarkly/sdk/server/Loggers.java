@@ -20,30 +20,34 @@ import org.slf4j.LoggerFactory;
 abstract class Loggers {
   private Loggers() {}
   
-  private static final String BASE_NAME = LDClient.class.getName();
-
+  static final String BASE_LOGGER_NAME = LDClient.class.getName();
+  static final String DATA_SOURCE_LOGGER_NAME = BASE_LOGGER_NAME + ".DataSource";
+  static final String DATA_STORE_LOGGER_NAME = BASE_LOGGER_NAME + ".DataStore";
+  static final String EVALUATION_LOGGER_NAME = BASE_LOGGER_NAME + ".Evaluation";
+  static final String EVENTS_LOGGER_NAME = BASE_LOGGER_NAME + ".Events";
+  
   /**
    * The default logger instance to use for SDK messages: "com.launchdarkly.sdk.server.LDClient"
    */
-  static final Logger MAIN = LoggerFactory.getLogger(BASE_NAME);
+  static final Logger MAIN = LoggerFactory.getLogger(BASE_LOGGER_NAME);
 
   /**
    * The logger instance to use for messages related to polling, streaming, etc.: "com.launchdarkly.sdk.server.LDClient.DataSource"
    */
-  static final Logger DATA_SOURCE = LoggerFactory.getLogger(BASE_NAME + ".DataSource");
+  static final Logger DATA_SOURCE = LoggerFactory.getLogger(DATA_SOURCE_LOGGER_NAME);
 
   /**
    * The logger instance to use for messages related to data store problems: "com.launchdarkly.sdk.server.LDClient.DataStore"
    */
-  static final Logger DATA_STORE = LoggerFactory.getLogger(BASE_NAME + ".DataStore");
+  static final Logger DATA_STORE = LoggerFactory.getLogger(DATA_STORE_LOGGER_NAME);
 
   /**
    * The logger instance to use for messages related to flag evaluation: "com.launchdarkly.sdk.server.LDClient.Evaluation"
    */
-  static final Logger EVALUATION = LoggerFactory.getLogger(BASE_NAME + ".Evaluation");
+  static final Logger EVALUATION = LoggerFactory.getLogger(EVALUATION_LOGGER_NAME);
 
   /**
    * The logger instance to use for messages from the event processor: "com.launchdarkly.sdk.server.LDClient.Events"
    */
-  static final Logger EVENTS = LoggerFactory.getLogger(BASE_NAME + ".Events");
+  static final Logger EVENTS = LoggerFactory.getLogger(EVENTS_LOGGER_NAME);
 }

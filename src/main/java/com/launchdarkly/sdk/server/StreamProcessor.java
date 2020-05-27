@@ -407,7 +407,7 @@ final class StreamProcessor implements DataSource {
   private EventSource defaultEventSourceCreator(EventSourceParams params) {
     EventSource.Builder builder = new EventSource.Builder(params.handler, params.streamUri)
         .threadPriority(threadPriority)
-        .logger(new EventSourceLogger())
+        .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
           public void configure(OkHttpClient.Builder builder) {
             configureHttpClientBuilder(params.httpConfig, builder);
@@ -493,35 +493,5 @@ final class StreamProcessor implements DataSource {
 
     @SuppressWarnings("unused") // used by Gson
     public DeleteData() { }
-  }
-  
-  // We use this adapter so that EventSource's logging will go to the same logger name we use for other
-  // stream-related things (Loggers.DATA_SOURCE), rather than using "com.launchdarkly.eventsource.EventSource"
-  // which is an implementation detail SDK users shouldn't need to know about.
-  private static final class EventSourceLogger implements com.launchdarkly.eventsource.Logger {
-    @Override
-    public void debug(String format, Object param) {
-      Loggers.DATA_SOURCE.debug(format, param);
-    }
-
-    @Override
-    public void debug(String format, Object param1, Object param2) {
-      Loggers.DATA_SOURCE.debug(format, param1, param2);
-    }
-
-    @Override
-    public void info(String message) {
-      Loggers.DATA_SOURCE.info(message);
-    }
-
-    @Override
-    public void warn(String message) {
-      Loggers.DATA_SOURCE.warn(message);
-    }
-
-    @Override
-    public void error(String message) {
-      Loggers.DATA_SOURCE.error(message);
-    }
   }
 }
