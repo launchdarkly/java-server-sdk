@@ -4,8 +4,10 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 import java.util.List;
+import java.util.Map;
 
 class DiagnosticEvent {
   static enum ConfigProperty {
@@ -80,20 +82,20 @@ class DiagnosticEvent {
     final LDValue configuration;
     final DiagnosticPlatform platform = new DiagnosticPlatform();
 
-    Init(long creationDate, DiagnosticId diagnosticId, LDConfig config) {
+    Init(long creationDate, DiagnosticId diagnosticId, LDConfig config, HttpConfiguration httpConfig) {
       super("diagnostic-init", creationDate, diagnosticId);
-      this.sdk = new DiagnosticSdk(config);
-      this.configuration = getConfigurationData(config);
+      this.sdk = new DiagnosticSdk(httpConfig);
+      this.configuration = getConfigurationData(config, httpConfig);
     }
 
-    static LDValue getConfigurationData(LDConfig config) {
+    static LDValue getConfigurationData(LDConfig config, HttpConfiguration httpConfig) {
       ObjectBuilder builder = LDValue.buildObject();
       
       // Add the top-level properties that are not specific to a particular component type.
-      builder.put("connectTimeoutMillis", config.httpConfig.getConnectTimeout().toMillis());
-      builder.put("socketTimeoutMillis", config.httpConfig.getSocketTimeout().toMillis());
-      builder.put("usingProxy", config.httpConfig.getProxy() != null);
-      builder.put("usingProxyAuthenticator", config.httpConfig.getProxyAuthentication() != null);
+      builder.put("connectTimeoutMillis", httpConfig.getConnectTimeout().toMillis());
+      builder.put("socketTimeoutMillis", httpConfig.getSocketTimeout().toMillis());
+      builder.put("usingProxy", httpConfig.getProxy() != null);
+      builder.put("usingProxyAuthenticator", httpConfig.getProxyAuthentication() != null);
       builder.put("offline", config.offline);
       builder.put("startWaitMillis", config.startWait.toMillis());
       
@@ -152,20 +154,22 @@ class DiagnosticEvent {
       final String wrapperName;
       final String wrapperVersion;
 
-      DiagnosticSdk(LDConfig config) {
-        String id = config.httpConfig.getWrapperIdentifier();
-        if (id == null) {
-          this.wrapperName = null;
-          this.wrapperVersion = null;
-        } else {
-          if (id.indexOf("/") >= 0) {
-            this.wrapperName = id.substring(0, id.indexOf("/"));
-            this.wrapperVersion = id.substring(id.indexOf("/") + 1);
-          } else {
-            this.wrapperName = id;
-            this.wrapperVersion = null;
+      DiagnosticSdk(HttpConfiguration httpConfig) {
+        for (Map.Entry<String, String> headers: httpConfig.getDefaultHeaders()) {
+          if (headers.getKey().equalsIgnoreCase("X-LaunchDarkly-Wrapper") ) {
+            String id = headers.getValue();
+            if (id.indexOf("/") >= 0) {
+              this.wrapperName = id.substring(0, id.indexOf("/"));
+              this.wrapperVersion = id.substring(id.indexOf("/") + 1);
+            } else {
+              this.wrapperName = id;
+              this.wrapperVersion = null;
+            }
+            return;
           }
         }
+        this.wrapperName = null;
+        this.wrapperVersion = null;
       }
     }
 

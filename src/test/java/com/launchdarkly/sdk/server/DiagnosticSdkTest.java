@@ -3,9 +3,11 @@ package com.launchdarkly.sdk.server;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.server.DiagnosticEvent.Init.DiagnosticSdk;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 import org.junit.Test;
 
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -13,9 +15,14 @@ import static org.junit.Assert.assertNull;
 public class DiagnosticSdkTest {
   private static final Gson gson = new Gson();
 
+  private static HttpConfiguration makeHttpConfig(LDConfig config) {
+    // the SDK key doesn't matter for these tests
+    return clientContext("SDK_KEY", config).getHttp();
+  }
+  
   @Test
   public void defaultFieldValues() {
-    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(new LDConfig.Builder().build());
+    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(makeHttpConfig(LDConfig.DEFAULT));
     assertEquals("java-server-sdk", diagnosticSdk.name);
     assertEquals(Version.SDK_VERSION, diagnosticSdk.version);
     assertNull(diagnosticSdk.wrapperName);
@@ -27,7 +34,7 @@ public class DiagnosticSdkTest {
     LDConfig config = new LDConfig.Builder()
         .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
         .build();
-    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(config);
+    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(makeHttpConfig(config));
     assertEquals("java-server-sdk", diagnosticSdk.name);
     assertEquals(Version.SDK_VERSION, diagnosticSdk.version);
     assertEquals(diagnosticSdk.wrapperName, "Scala");
@@ -36,7 +43,7 @@ public class DiagnosticSdkTest {
 
   @Test
   public void gsonSerializationNoWrapper() {
-    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(new LDConfig.Builder().build());
+    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(makeHttpConfig(LDConfig.DEFAULT));
     JsonObject jsonObject = gson.toJsonTree(diagnosticSdk).getAsJsonObject();
     assertEquals(2, jsonObject.size());
     assertEquals("java-server-sdk", jsonObject.getAsJsonPrimitive("name").getAsString());
@@ -48,7 +55,7 @@ public class DiagnosticSdkTest {
     LDConfig config = new LDConfig.Builder()
         .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
         .build();
-    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(config);
+    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(makeHttpConfig(config));
     JsonObject jsonObject = gson.toJsonTree(diagnosticSdk).getAsJsonObject();
     assertEquals(4, jsonObject.size());
     assertEquals("java-server-sdk", jsonObject.getAsJsonPrimitive("name").getAsString());

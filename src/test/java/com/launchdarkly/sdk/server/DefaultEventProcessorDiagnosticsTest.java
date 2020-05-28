@@ -11,6 +11,7 @@ import java.net.URI;
 import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -125,7 +126,8 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     // at least one periodic event without having to force a send via ep.postDiagnostic().
     MockEventSender es = new MockEventSender();
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT);
+    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT,
+        clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp());
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
     Duration briefPeriodicInterval = Duration.ofMillis(50);
     

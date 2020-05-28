@@ -879,8 +879,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
     return new StreamProcessor(
-        SDK_KEY,
-        config.httpConfig,
+        clientContext(SDK_KEY, config).getHttp(),
         mockRequestor,
         dataSourceUpdates,
         mockEventSourceCreator,
@@ -893,8 +892,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
     return new StreamProcessor(
-        SDK_KEY,
-        config.httpConfig,
+        clientContext(SDK_KEY, config).getHttp(),
         mockRequestor,
         dataSourceUpdates,
         null,
@@ -907,8 +905,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   private StreamProcessor createStreamProcessorWithStoreUpdates(DataSourceUpdates storeUpdates) {
     return new StreamProcessor(
-        SDK_KEY,
-        LDConfig.DEFAULT.httpConfig,
+        clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp(),
         mockRequestor,
         storeUpdates,
         mockEventSourceCreator,

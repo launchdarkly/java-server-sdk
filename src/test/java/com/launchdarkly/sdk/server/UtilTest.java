@@ -1,11 +1,13 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 import org.junit.Test;
 
 import java.time.Duration;
 
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 import static org.junit.Assert.assertEquals;
@@ -22,8 +24,9 @@ public class UtilTest {
   @Test
   public void testConnectTimeout() {
     LDConfig config = new LDConfig.Builder().http(Components.httpConfiguration().connectTimeout(Duration.ofSeconds(3))).build();
+    HttpConfiguration httpConfig = clientContext("", config).getHttp();
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(config.httpConfig, httpBuilder);
+    configureHttpClientBuilder(httpConfig, httpBuilder);
     OkHttpClient httpClient = httpBuilder.build();
     try {
       assertEquals(3000, httpClient.connectTimeoutMillis());
@@ -35,8 +38,9 @@ public class UtilTest {
   @Test
   public void testSocketTimeout() {
     LDConfig config = new LDConfig.Builder().http(Components.httpConfiguration().socketTimeout(Duration.ofSeconds(3))).build();
+    HttpConfiguration httpConfig = clientContext("", config).getHttp();
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(config.httpConfig, httpBuilder);
+    configureHttpClientBuilder(httpConfig, httpBuilder);
     OkHttpClient httpClient = httpBuilder.build();
     try {
       assertEquals(3000, httpClient.readTimeoutMillis());

@@ -16,38 +16,23 @@ package com.launchdarkly.sdk.server.interfaces;
  */
 public interface ClientContext {
   /**
-   * The current {@link com.launchdarkly.sdk.server.LDClient} instance's SDK key.
+   * The SDK's basic global properties.
    * 
-   * @return the SDK key
+   * @return the basic configuration
    */
-  public String getSdkKey();
-  
-  /**
-   * True if the SDK was configured to be completely offline.
-   * 
-   * @return the offline status
-   * @see com.launchdarkly.sdk.server.LDConfig.Builder#offline(boolean)
-   */
-  public boolean isOffline();
+  public BasicConfiguration getBasic();
   
   /**
    * The configured networking properties that apply to all components.
    * 
    * @return the HTTP configuration
    */
-  public HttpConfiguration getHttpConfiguration();
+  public HttpConfiguration getHttp();
   
   /**
    * The configured logging properties that apply to all components.
    * @return the logging configuration
    */
-  public LoggingConfiguration getLoggingConfiguration();
+  public LoggingConfiguration getLogging();
   
-  /**
-   * The thread priority that should be used for any worker threads created by SDK components.
-   * 
-   * @return the thread priority
-   * @see com.launchdarkly.sdk.server.LDConfig.Builder#threadPriority(int)
-   */
-  public int getThreadPriority();
 }

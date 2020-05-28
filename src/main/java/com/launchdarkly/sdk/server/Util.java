@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.Iterables.transform;
@@ -22,15 +23,11 @@ import okhttp3.Route;
 abstract class Util {
   private Util() {}
   
-  static Headers.Builder getHeadersBuilderFor(String sdkKey, HttpConfiguration config) {
-    Headers.Builder builder = new Headers.Builder()
-        .add("Authorization", sdkKey)
-        .add("User-Agent", "JavaClient/" + Version.SDK_VERSION);
-
-    if (config.getWrapperIdentifier() != null) {
-      builder.add("X-LaunchDarkly-Wrapper", config.getWrapperIdentifier());
+  static Headers.Builder getHeadersBuilderFor(HttpConfiguration config) {
+    Headers.Builder builder = new Headers.Builder();
+    for (Map.Entry<String, String> kv: config.getDefaultHeaders()) {
+      builder.add(kv.getKey(), kv.getValue());
     }
-
     return builder;
   }
   

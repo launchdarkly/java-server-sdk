@@ -47,13 +47,13 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   private final Headers headers;
   private final boolean useCache;
 
-  DefaultFeatureRequestor(String sdkKey, HttpConfiguration httpConfig, URI baseUri, boolean useCache) {
+  DefaultFeatureRequestor(HttpConfiguration httpConfig, URI baseUri, boolean useCache) {
     this.baseUri = baseUri;
     this.useCache = useCache;
     
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(httpConfig, httpBuilder);
-    this.headers = getHeadersBuilderFor(sdkKey, httpConfig).build();
+    this.headers = getHeadersBuilderFor(httpConfig).build();
 
     // HTTP caching is used only for FeatureRequestor. However, when streaming is enabled, HTTP GETs
     // made by FeatureRequester will always guarantee a new flag state, so we disable the cache.

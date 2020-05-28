@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
+import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
@@ -28,17 +29,17 @@ public class ClientContextImplTest {
 
     ClientContext c = new ClientContextImpl(SDK_KEY, config, null, null);
     
-    assertEquals(SDK_KEY, c.getSdkKey());
-    assertFalse(c.isOffline());
+    BasicConfiguration basicConfig = c.getBasic();
+    assertEquals(SDK_KEY, basicConfig.getSdkKey());
+    assertFalse(basicConfig.isOffline());
+    assertEquals(Thread.MIN_PRIORITY, basicConfig.getThreadPriority());
     
-    HttpConfiguration httpConfig = c.getHttpConfiguration();
+    HttpConfiguration httpConfig = c.getHttp();
     assertEquals(HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT, httpConfig.getConnectTimeout());
     
-    LoggingConfiguration loggingConfig = c.getLoggingConfiguration();
+    LoggingConfiguration loggingConfig = c.getLogging();
     assertEquals(LoggingConfigurationBuilder.DEFAULT_LOG_DATA_SOURCE_OUTAGE_AS_ERROR_AFTER,
         loggingConfig.getLogDataSourceOutageAsErrorAfter());
-    
-    assertEquals(Thread.MIN_PRIORITY, c.getThreadPriority());
   }
   
   @Test
@@ -52,16 +53,16 @@ public class ClientContextImplTest {
  
     ClientContext c = new ClientContextImpl(SDK_KEY, config, sharedExecutor, null);
     
-    assertEquals(SDK_KEY, c.getSdkKey());
-    assertTrue(c.isOffline());
-    
-    HttpConfiguration httpConfig = c.getHttpConfiguration();
+    BasicConfiguration basicConfig = c.getBasic();
+    assertEquals(SDK_KEY, basicConfig.getSdkKey());
+    assertTrue(basicConfig.isOffline());
+    assertEquals(Thread.MAX_PRIORITY, basicConfig.getThreadPriority());
+
+    HttpConfiguration httpConfig = c.getHttp();
     assertEquals(Duration.ofSeconds(10), httpConfig.getConnectTimeout());
     
-    LoggingConfiguration loggingConfig = c.getLoggingConfiguration();
+    LoggingConfiguration loggingConfig = c.getLogging();
     assertEquals(Duration.ofMinutes(20), loggingConfig.getLogDataSourceOutageAsErrorAfter());
-    
-    assertEquals(Thread.MAX_PRIORITY, c.getThreadPriority());
   }
   
   @Test
@@ -131,24 +132,16 @@ public class ClientContextImplTest {
   }
   
   private static final class SomeOtherContextImpl implements ClientContext {
-    public String getSdkKey() {
+    public BasicConfiguration getBasic() {
+      return new BasicConfiguration(SDK_KEY, false, Thread.MIN_PRIORITY);
+    }
+
+    public HttpConfiguration getHttp() {
       return null;
     }
-
-    public boolean isOffline() {
-      return false;
-    }
-
-    public HttpConfiguration getHttpConfiguration() {
+    
+    public LoggingConfiguration getLogging() {
       return null;
     }
-
-    public LoggingConfiguration getLoggingConfiguration() {
-      return null;
-    }
-
-    public int getThreadPriority() {
-      return 0;
-    }    
   }
 }

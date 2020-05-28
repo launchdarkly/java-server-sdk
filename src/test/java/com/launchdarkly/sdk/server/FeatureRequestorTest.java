@@ -1,5 +1,8 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -40,7 +43,11 @@ public class FeatureRequestorTest {
 
   private DefaultFeatureRequestor makeRequestor(MockWebServer server, LDConfig config) {
     URI uri = server.url("").uri();
-    return new DefaultFeatureRequestor(sdkKey, config.httpConfig, uri, true);
+    return new DefaultFeatureRequestor(makeHttpConfig(config), uri, true);
+  }
+
+  private HttpConfiguration makeHttpConfig(LDConfig config) {
+    return config.httpConfigFactory.createHttpConfiguration(new BasicConfiguration(sdkKey, false, 0));
   }
 
   @Test
@@ -198,7 +205,7 @@ public class FeatureRequestorTest {
           .http(Components.httpConfiguration().proxyHostAndPort(serverUrl.host(), serverUrl.port()))
           .build();
       
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config.httpConfig, fakeBaseUri, true)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), fakeBaseUri, true)) {
         DataModel.FeatureFlag flag = r.getFlag(flag1Key);
         verifyFlag(flag, flag1Key);
         

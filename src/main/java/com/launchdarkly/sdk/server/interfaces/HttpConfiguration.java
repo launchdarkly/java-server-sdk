@@ -4,6 +4,7 @@ import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 
 import java.net.Proxy;
 import java.time.Duration;
+import java.util.Map;
 
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
@@ -12,6 +13,11 @@ import javax.net.ssl.X509TrustManager;
  * Encapsulates top-level HTTP configuration that applies to all SDK components.
  * <p>
  * Use {@link HttpConfigurationBuilder} to construct an instance.
+ * <p>
+ * The SDK's built-in components use OkHttp as the HTTP client implementation, but since OkHttp types
+ * are not surfaced in the public API and custom components might use some other implementation, this
+ * class only provides the properties that would be used to create an HTTP client; it does not create
+ * the client itself. SDK implementation code uses its own helper methods to do so.
  * 
  * @since 4.13.0
  */
@@ -63,12 +69,10 @@ public interface HttpConfiguration {
   X509TrustManager getTrustManager();
 
   /**
-   * An optional identifier used by wrapper libraries to indicate what wrapper is being used.
+   * Returns the basic headers that should be added to all HTTP requests from SDK components to
+   * LaunchDarkly services, based on the current SDK configuration.
    * 
-   * This allows LaunchDarkly to gather metrics on the usage of wrappers that are based on the Java SDK.
-   * It is part of {@link HttpConfiguration} because it is included in HTTP headers.
-   * 
-   * @return a wrapper identifier string or null
+   * @return a list of HTTP header names and values
    */
-  String getWrapperIdentifier();
+  Iterable<Map.Entry<String, String>> getDefaultHeaders();
 }

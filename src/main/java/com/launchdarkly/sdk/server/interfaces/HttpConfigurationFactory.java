@@ -10,7 +10,9 @@ package com.launchdarkly.sdk.server.interfaces;
 public interface HttpConfigurationFactory {
   /**
    * Creates the configuration object.
+   * 
+   * @param basicConfiguration provides the basic SDK configuration properties
    * @return an {@link HttpConfiguration}
    */
-  public HttpConfiguration createHttpConfiguration();
+  public HttpConfiguration createHttpConfiguration(BasicConfiguration basicConfiguration);
 }

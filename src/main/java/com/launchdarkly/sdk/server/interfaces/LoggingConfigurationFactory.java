@@ -10,7 +10,9 @@ package com.launchdarkly.sdk.server.interfaces;
 public interface LoggingConfigurationFactory {
   /**
    * Creates the configuration object.
+   * 
+   * @param basicConfiguration provides the basic SDK configuration properties
    * @return a {@link LoggingConfiguration}
    */
-  public LoggingConfiguration createLoggingConfiguration();
+  public LoggingConfiguration createLoggingConfiguration(BasicConfiguration basicConfiguration);
 }
