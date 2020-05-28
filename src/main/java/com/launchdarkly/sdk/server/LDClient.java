@@ -73,6 +73,8 @@ public final class LDClient implements LDClientInterface {
   private final FlagTrackerImpl flagTracker;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeBroadcaster;
   private final ScheduledExecutorService sharedExecutor;
+  private final EventFactory eventFactoryDefault;
+  private final EventFactory eventFactoryWithReasons;
   
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration.
@@ -158,7 +160,15 @@ public final class LDClient implements LDClientInterface {
     
     final EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
         Components.sendEvents() : config.eventProcessorFactory;
-
+    boolean eventsDisabled = Components.isNullImplementation(epFactory);
+    if (eventsDisabled) {
+      this.eventFactoryDefault = EventFactory.Disabled.INSTANCE;
+      this.eventFactoryWithReasons = EventFactory.Disabled.INSTANCE;
+    } else {
+      this.eventFactoryDefault = EventFactory.DEFAULT;
+      this.eventFactoryWithReasons = EventFactory.DEFAULT_WITH_REASONS;
+    }
+    
     if (config.httpConfig.getProxy() != null) {
       if (config.httpConfig.getProxyAuthentication() != null) {
         logger.info("Using proxy: {} with authentication.", config.httpConfig.getProxy());
@@ -252,7 +262,7 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     } else {
-      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, null));
+      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, null));
     }
   }
 
@@ -261,7 +271,7 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Track called with null user or null user key!");
     } else {
-      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, metricValue));
+      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, metricValue));
     }
   }
 
@@ -270,14 +280,16 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       logger.warn("Identify called with null user or null user key!");
     } else {
-      eventProcessor.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      eventProcessor.sendEvent(eventFactoryDefault.newIdentifyEvent(user));
     }
   }
 
   private void sendFlagRequestEvent(Event.FeatureRequest event) {
-    eventProcessor.sendEvent(event);
+    if (event != null) {
+      eventProcessor.sendEvent(event);
+    }
   }
-
+  
   @Override
   public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
     FeatureFlagsState.Builder builder = new FeatureFlagsState.Builder(options);
@@ -311,7 +323,7 @@ public final class LDClient implements LDClientInterface {
         continue;
       }
       try {
-        Evaluator.EvalResult result = evaluator.evaluate(flag, user, EventFactory.DEFAULT);
+        Evaluator.EvalResult result = evaluator.evaluate(flag, user, eventFactoryDefault);
         builder.addFlag(flag, result);
       } catch (Exception e) {
         logger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
@@ -350,7 +362,7 @@ public final class LDClient implements LDClientInterface {
   @Override
   public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue) {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-         EventFactory.DEFAULT_WITH_REASONS);
+        eventFactoryWithReasons);
      return EvaluationDetail.fromValue(result.getValue().booleanValue(),
          result.getVariationIndex(), result.getReason());
   }
@@ -358,7 +370,7 @@ public final class LDClient implements LDClientInterface {
   @Override
   public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue) {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-         EventFactory.DEFAULT_WITH_REASONS);
+        eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().intValue(),
         result.getVariationIndex(), result.getReason());
   }
@@ -366,7 +378,7 @@ public final class LDClient implements LDClientInterface {
   @Override
   public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue) {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-         EventFactory.DEFAULT_WITH_REASONS);
+        eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().doubleValue(),
         result.getVariationIndex(), result.getReason());
   }
@@ -374,14 +386,14 @@ public final class LDClient implements LDClientInterface {
   @Override
   public EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue) {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-         EventFactory.DEFAULT_WITH_REASONS);
+        eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().stringValue(),
         result.getVariationIndex(), result.getReason());
   }
 
   @Override
   public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue), false, EventFactory.DEFAULT_WITH_REASONS);
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue), false, eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue(), result.getVariationIndex(), result.getReason());
   }
   
@@ -409,7 +421,7 @@ public final class LDClient implements LDClientInterface {
   }
 
   private LDValue evaluate(String featureKey, LDUser user, LDValue defaultValue, boolean checkType) {
-    return evaluateInternal(featureKey, user, defaultValue, checkType, EventFactory.DEFAULT).getValue();
+    return evaluateInternal(featureKey, user, defaultValue, checkType, eventFactoryDefault).getValue();
   }
   
   private Evaluator.EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {

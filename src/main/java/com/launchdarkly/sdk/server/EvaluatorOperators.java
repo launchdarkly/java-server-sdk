@@ -2,10 +2,12 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
+
+import static com.launchdarkly.sdk.server.EvaluatorTypeConversion.valueToDateTime;
+import static com.launchdarkly.sdk.server.EvaluatorTypeConversion.valueToRegex;
+import static com.launchdarkly.sdk.server.EvaluatorTypeConversion.valueToSemVer;
 
 /**
  * Defines the behavior of all operators that can be used in feature flag rules and segment rules.
@@ -35,7 +37,12 @@ abstract class EvaluatorOperators {
     }
   }
 
-  static boolean apply(DataModel.Operator op, LDValue userValue, LDValue clauseValue) {
+  static boolean apply(
+      DataModel.Operator op,
+      LDValue userValue,
+      LDValue clauseValue,
+      EvaluatorPreprocessing.ClauseExtra.ValueExtra preprocessed
+      ) {
     switch (op) {
     case in:
       return userValue.equals(clauseValue);
@@ -47,8 +54,11 @@ abstract class EvaluatorOperators {
       return userValue.isString() && clauseValue.isString() && userValue.stringValue().startsWith(clauseValue.stringValue());
     
     case matches:
-      return userValue.isString() && clauseValue.isString() &&
-              Pattern.compile(clauseValue.stringValue()).matcher(userValue.stringValue()).find();
+      // If preprocessed is non-null, it means we've already tried to parse the clause value as a regex,
+      // in which case if preprocessed.parsedRegex is null it was not a valid regex.
+      Pattern clausePattern = preprocessed == null ? valueToRegex(clauseValue) : preprocessed.parsedRegex;
+      return clausePattern != null && userValue.isString() &&
+          clausePattern.matcher(userValue.stringValue()).find();
 
     case contains:
       return userValue.isString() && clauseValue.isString() && userValue.stringValue().contains(clauseValue.stringValue());
@@ -66,19 +76,19 @@ abstract class EvaluatorOperators {
       return compareNumeric(ComparisonOp.GTE, userValue, clauseValue);
 
     case before:
-      return compareDate(ComparisonOp.LT, userValue, clauseValue);
+      return compareDate(ComparisonOp.LT, userValue, clauseValue, preprocessed);
 
     case after:
-      return compareDate(ComparisonOp.GT, userValue, clauseValue);
+      return compareDate(ComparisonOp.GT, userValue, clauseValue, preprocessed);
 
     case semVerEqual:
-      return compareSemVer(ComparisonOp.EQ, userValue, clauseValue);
+      return compareSemVer(ComparisonOp.EQ, userValue, clauseValue, preprocessed);
 
     case semVerLessThan:
-      return compareSemVer(ComparisonOp.LT, userValue, clauseValue);
+      return compareSemVer(ComparisonOp.LT, userValue, clauseValue, preprocessed);
 
     case semVerGreaterThan:
-      return compareSemVer(ComparisonOp.GT, userValue, clauseValue);
+      return compareSemVer(ComparisonOp.GT, userValue, clauseValue, preprocessed);
 
     case segmentMatch:
       // We shouldn't call apply() for this operator, because it is really implemented in
@@ -98,46 +108,41 @@ abstract class EvaluatorOperators {
     return op.test(compare);
   }
 
-  private static boolean compareDate(ComparisonOp op, LDValue userValue, LDValue clauseValue) {
-    ZonedDateTime dt1 = valueToDateTime(userValue);
-    ZonedDateTime dt2 = valueToDateTime(clauseValue);
-    if (dt1 == null || dt2 == null) {
+  private static boolean compareDate(
+      ComparisonOp op,
+      LDValue userValue,
+      LDValue clauseValue,
+      EvaluatorPreprocessing.ClauseExtra.ValueExtra preprocessed
+      ) {
+    // If preprocessed is non-null, it means we've already tried to parse the clause value as a date/time,
+    // in which case if preprocessed.parsedDate is null it was not a valid date/time.
+    ZonedDateTime clauseDate = preprocessed == null ? valueToDateTime(clauseValue) : preprocessed.parsedDate;
+    if (clauseDate == null) {
       return false;
     }
-    return op.test(dt1.compareTo(dt2));
+    ZonedDateTime userDate = valueToDateTime(userValue);
+    if (userDate == null) {
+      return false;
+    }
+    return op.test(userDate.compareTo(clauseDate));
   }
 
-  private static boolean compareSemVer(ComparisonOp op, LDValue userValue, LDValue clauseValue) {
-    SemanticVersion sv1 = valueToSemVer(userValue);
-    SemanticVersion sv2 = valueToSemVer(clauseValue);
-    if (sv1 == null || sv2 == null) {
+  private static boolean compareSemVer(
+      ComparisonOp op,
+      LDValue userValue,
+      LDValue clauseValue,
+      EvaluatorPreprocessing.ClauseExtra.ValueExtra preprocessed
+      ) {
+    // If preprocessed is non-null, it means we've already tried to parse the clause value as a version,
+    // in which case if preprocessed.parsedSemVer is null it was not a valid version.
+    SemanticVersion clauseVer = preprocessed == null ? valueToSemVer(clauseValue) : preprocessed.parsedSemVer;
+    if (clauseVer == null) {
       return false;
     }
-    return op.test(sv1.compareTo(sv2));
-  }
-  
-  private static ZonedDateTime valueToDateTime(LDValue value) {
-    if (value.isNumber()) {
-      return ZonedDateTime.ofInstant(Instant.ofEpochMilli(value.longValue()), ZoneOffset.UTC);
-    } else if (value.isString()) {
-      try {
-        return ZonedDateTime.parse(value.stringValue());
-      } catch (Throwable t) {
-        return null;
-      }
-    } else {
-      return null;
+    SemanticVersion userVer = valueToSemVer(userValue);
+    if (userVer == null) {
+      return false;
     }
-  }
-  
-  private static SemanticVersion valueToSemVer(LDValue value) {
-    if (!value.isString()) {
-      return null;
-    }
-    try {
-      return SemanticVersion.parse(value.stringValue(), true);
-    } catch (SemanticVersion.InvalidVersionException e) {
-      return null;
-    }
+    return op.test(userVer.compareTo(clauseVer));
   }
 }

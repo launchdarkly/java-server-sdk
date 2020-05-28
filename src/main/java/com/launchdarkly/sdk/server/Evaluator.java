@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 
@@ -271,11 +272,26 @@ class Evaluator {
     return false;
   }
   
-  private boolean clauseMatchAny(DataModel.Clause clause, LDValue userValue) {
+  static boolean clauseMatchAny(DataModel.Clause clause, LDValue userValue) {
     DataModel.Operator op = clause.getOp();
     if (op != null) {
-      for (LDValue v : clause.getValues()) {
-        if (EvaluatorOperators.apply(op, userValue, v)) {
+      EvaluatorPreprocessing.ClauseExtra preprocessed = clause.getPreprocessed();
+      if (op == DataModel.Operator.in) {
+        // see if we have precomputed a Set for fast equality matching
+        Set<LDValue> vs = preprocessed == null ? null : preprocessed.valuesSet;
+        if (vs != null) {
+          return vs.contains(userValue);
+        }
+      }
+      List<LDValue> values = clause.getValues();
+      List<EvaluatorPreprocessing.ClauseExtra.ValueExtra> preprocessedValues =
+          preprocessed == null ? null : preprocessed.valuesExtra;
+      int n = values.size();
+      for (int i = 0; i < n; i++) {
+        // the preprocessed list, if present, will always have the same size as the values list
+        EvaluatorPreprocessing.ClauseExtra.ValueExtra p = preprocessedValues == null ? null : preprocessedValues.get(i);
+        LDValue v = values.get(i);
+        if (EvaluatorOperators.apply(op, userValue, v, p)) {
           return true;
         }
       }

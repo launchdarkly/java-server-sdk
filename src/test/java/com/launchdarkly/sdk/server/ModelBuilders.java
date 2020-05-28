@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Segment;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -283,7 +284,9 @@ public abstract class ModelBuilders {
     }
     
     public DataModel.Segment build() {
-      return new DataModel.Segment(key, included, excluded, salt, rules, version, deleted);
+      Segment s = new DataModel.Segment(key, included, excluded, salt, rules, version, deleted);
+      s.afterDeserialized();
+      return s;
     }
     
     public SegmentBuilder included(String... included) {

@@ -191,17 +191,7 @@ public abstract class DataModel {
 
     // Precompute some invariant values for improved efficiency during evaluations - called from JsonHelpers.PostProcessingDeserializableTypeAdapter
     public void afterDeserialized() {
-      if (prerequisites != null) {
-        for (Prerequisite p: prerequisites) {
-          p.setPrerequisiteFailedReason(EvaluationReason.prerequisiteFailed(p.getKey()));
-        }
-      }
-      if (rules != null) {
-        for (int i = 0; i < rules.size(); i++) {
-          Rule r = rules.get(i);
-          r.setRuleMatchReason(EvaluationReason.ruleMatch(i, r.getId()));
-        }
-      }
+      EvaluatorPreprocessing.preprocessFlag(this);
     }
   }
 
@@ -303,12 +293,16 @@ public abstract class DataModel {
     }
   }
   
-  static class Clause {
+  static final class Clause {
     private UserAttribute attribute;
     private Operator op;
     private List<LDValue> values; //interpreted as an OR of values
     private boolean negate;
-  
+    
+    // The following property is marked transient because it is not to be serialized or deserialized;
+    // it is (if necessary) precomputed in FeatureFlag.afterDeserialized() to speed up evaluations. 
+    transient EvaluatorPreprocessing.ClauseExtra preprocessed;
+    
     Clause() {
     }
     
@@ -327,12 +321,20 @@ public abstract class DataModel {
       return op;
     }
     
-    Iterable<LDValue> getValues() {
+    List<LDValue> getValues() {
       return values;
     }
     
     boolean isNegate() {
       return negate;
+    }
+    
+    EvaluatorPreprocessing.ClauseExtra getPreprocessed() {
+      return preprocessed;
+    }
+    
+    void setPreprocessed(EvaluatorPreprocessing.ClauseExtra preprocessed) {
+      this.preprocessed = preprocessed;
     }
   }
 
@@ -400,7 +402,8 @@ public abstract class DataModel {
     }
   }
   
-  static final class Segment implements VersionedData {
+  @JsonAdapter(JsonHelpers.PostProcessingDeserializableTypeAdapterFactory.class)
+  static final class Segment implements VersionedData, JsonHelpers.PostProcessingDeserializable {
     private String key;
     private Set<String> included;
     private Set<String> excluded;
@@ -450,6 +453,11 @@ public abstract class DataModel {
     
     public boolean isDeleted() {
       return deleted;
+    }
+
+    // Precompute some invariant values for improved efficiency during evaluations - called from JsonHelpers.PostProcessingDeserializableTypeAdapter
+    public void afterDeserialized() {
+      EvaluatorPreprocessing.preprocessSegment(this);
     }
   }
   

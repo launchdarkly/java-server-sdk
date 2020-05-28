@@ -106,7 +106,7 @@ public class DataModelSerializationTest {
                     .add(LDValue.buildObject()
                         .put("attribute", "name")
                         .put("op", "in")
-                        .put("values", LDValue.buildArray().add("Lucy").build())
+                        .put("values", LDValue.buildArray().add("Lucy").add("Mina").build())
                         .put("negate", true)
                         .build())
                     .build())
@@ -160,8 +160,13 @@ public class DataModelSerializationTest {
     Clause c0 = r0.getClauses().get(0);
     assertEquals(UserAttribute.NAME, c0.getAttribute());
     assertEquals(Operator.in, c0.getOp());
-    assertEquals(ImmutableList.of(LDValue.of("Lucy")), c0.getValues());
+    assertEquals(ImmutableList.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.getValues());
     assertTrue(c0.isNegate());
+    
+    // Check for just one example of preprocessing, to verify that preprocessing has happened in
+    // general for this flag - the details are covered in EvaluatorPreprocessingTest.
+    assertNotNull(c0.preprocessed);
+    assertEquals(ImmutableSet.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.preprocessed.valuesSet);
     
     Rule r1 = flag.getRules().get(1);
     assertEquals("id1", r1.getId());
@@ -200,7 +205,7 @@ public class DataModelSerializationTest {
                     .add(LDValue.buildObject()
                         .put("attribute", "name")
                         .put("op", "in")
-                        .put("values", LDValue.buildArray().add("Lucy").build())
+                        .put("values", LDValue.buildArray().add("Lucy").add("Mina").build())
                         .put("negate", true)
                         .build())
                     .build())
@@ -223,12 +228,19 @@ public class DataModelSerializationTest {
     SegmentRule r0 = segment.getRules().get(0);
     assertEquals(new Integer(50000), r0.getWeight());
     assertNotNull(r0.getClauses());
+    
     assertEquals(1, r0.getClauses().size());
     Clause c0 = r0.getClauses().get(0);
     assertEquals(UserAttribute.NAME, c0.getAttribute());
     assertEquals(Operator.in, c0.getOp());
-    assertEquals(ImmutableList.of(LDValue.of("Lucy")), c0.getValues());
+    assertEquals(ImmutableList.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.getValues());
     assertTrue(c0.isNegate());
+    
+    // Check for just one example of preprocessing, to verify that preprocessing has happened in
+    // general for this segment - the details are covered in EvaluatorPreprocessingTest.
+    assertNotNull(c0.preprocessed);
+    assertEquals(ImmutableSet.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.preprocessed.valuesSet);
+    
     SegmentRule r1 = segment.getRules().get(1);
     assertNull(r1.getWeight());
     assertNull(r1.getBucketBy());

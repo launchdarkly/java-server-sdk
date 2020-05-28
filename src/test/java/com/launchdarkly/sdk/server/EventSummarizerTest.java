@@ -3,9 +3,6 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.EventFactory;
-import com.launchdarkly.sdk.server.EventSummarizer;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
 import org.junit.Test;
@@ -24,17 +21,7 @@ public class EventSummarizerTest {
   private static final LDUser user = new LDUser.Builder("key").build();
   
   private long eventTimestamp;
-  private EventFactory eventFactory = new EventFactory() {
-    @Override
-    protected long getTimestamp() {
-      return eventTimestamp;
-    }
-    
-    @Override
-    protected boolean isIncludeReasons() {
-      return false;
-    }
-  };
+  private EventFactory eventFactory = new EventFactory.Default(false, () -> eventTimestamp);
   
   @Test
   public void summarizeEventDoesNothingForIdentifyEvent() {
