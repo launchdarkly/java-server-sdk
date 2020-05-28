@@ -53,7 +53,7 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(LDConfig config) {
+    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
       return LDValue.of("memory");
     }
   }
@@ -98,15 +98,17 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(LDConfig config) {
-      // We can assume that if they don't have a data source, and they *do* have a persistent data store, then
-      // they're using Relay in daemon mode.
+    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
+      // The difference between "offline" and "using the Relay daemon" is irrelevant from the data source's
+      // point of view, but we describe them differently in diagnostic events. This is easy because if we were
+      // configured to be completely offline... we wouldn't be sending any diagnostic events. Therefore, if
+      // Components.externalUpdatesOnly() was specified as the data source and we are sending a diagnostic
+      // event, we can assume usingRelayDaemon should be true.
       return LDValue.buildObject()
           .put(ConfigProperty.CUSTOM_BASE_URI.name, false)
           .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
           .put(ConfigProperty.STREAMING_DISABLED.name, false)
-          .put(ConfigProperty.USING_RELAY_DAEMON.name,
-              config.dataStoreFactory != null && config.dataStoreFactory != Components.inMemoryDataStore())
+          .put(ConfigProperty.USING_RELAY_DAEMON.name, true)
           .build();
     }
   }
@@ -169,10 +171,7 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(LDConfig config) {
-      if (config.offline) {
-        return NullDataSourceFactory.INSTANCE.describeConfiguration(config);
-      }
+    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
       return LDValue.buildObject()
           .put(ConfigProperty.STREAMING_DISABLED.name, false)
           .put(ConfigProperty.CUSTOM_BASE_URI.name,
@@ -212,10 +211,7 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(LDConfig config) {
-      if (config.offline) {
-        return NullDataSourceFactory.INSTANCE.describeConfiguration(config);
-      }
+    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
       return LDValue.buildObject()
           .put(ConfigProperty.STREAMING_DISABLED.name, true)
           .put(ConfigProperty.CUSTOM_BASE_URI.name,
@@ -258,7 +254,7 @@ abstract class ComponentsImpl {
     }
     
     @Override
-    public LDValue describeConfiguration(LDConfig config) {
+    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
       return LDValue.buildObject()
           .put(ConfigProperty.ALL_ATTRIBUTES_PRIVATE.name, allAttributesPrivate)
           .put(ConfigProperty.CUSTOM_EVENTS_URI.name, baseURI != null && !baseURI.equals(LDConfig.DEFAULT_EVENTS_URI))
@@ -318,9 +314,9 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(LDConfig config) {
+    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
       if (persistentDataStoreFactory instanceof DiagnosticDescription) {
-        return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(config);
+        return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(basicConfiguration);
       }
       return LDValue.of("custom");
     }

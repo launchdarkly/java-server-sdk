@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 
@@ -126,8 +127,9 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     // at least one periodic event without having to force a send via ep.postDiagnostic().
     MockEventSender es = new MockEventSender();
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
+    ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
     DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT,
-        clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp());
+        context.getBasic(), context.getHttp());
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
     Duration briefPeriodicInterval = Duration.ofMillis(50);
     

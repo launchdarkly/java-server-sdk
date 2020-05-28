@@ -64,6 +64,7 @@ final class ClientContextImpl implements ClientContext {
           diagnosticAccumulator.dataSinceDate,
           diagnosticAccumulator.diagnosticId,
           configuration,
+          basicConfiguration,
           httpConfiguration
           );
     } else {

@@ -3,6 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
@@ -82,13 +83,19 @@ class DiagnosticEvent {
     final LDValue configuration;
     final DiagnosticPlatform platform = new DiagnosticPlatform();
 
-    Init(long creationDate, DiagnosticId diagnosticId, LDConfig config, HttpConfiguration httpConfig) {
+    Init(
+        long creationDate,
+        DiagnosticId diagnosticId,
+        LDConfig config,
+        BasicConfiguration basicConfig,
+        HttpConfiguration httpConfig
+        ) {
       super("diagnostic-init", creationDate, diagnosticId);
       this.sdk = new DiagnosticSdk(httpConfig);
-      this.configuration = getConfigurationData(config, httpConfig);
+      this.configuration = getConfigurationData(config, basicConfig, httpConfig);
     }
 
-    static LDValue getConfigurationData(LDConfig config, HttpConfiguration httpConfig) {
+    static LDValue getConfigurationData(LDConfig config, BasicConfiguration basicConfig, HttpConfiguration httpConfig) {
       ObjectBuilder builder = LDValue.buildObject();
       
       // Add the top-level properties that are not specific to a particular component type.
@@ -96,19 +103,12 @@ class DiagnosticEvent {
       builder.put("socketTimeoutMillis", httpConfig.getSocketTimeout().toMillis());
       builder.put("usingProxy", httpConfig.getProxy() != null);
       builder.put("usingProxyAuthenticator", httpConfig.getProxyAuthentication() != null);
-      builder.put("offline", config.offline);
       builder.put("startWaitMillis", config.startWait.toMillis());
       
       // Allow each pluggable component to describe its own relevant properties. 
-      mergeComponentProperties(builder,
-          config.dataStoreFactory == null ? Components.inMemoryDataStore() : config.dataStoreFactory,
-          config, "dataStoreType");
-      mergeComponentProperties(builder,
-          config.dataSourceFactory == null ? Components.streamingDataSource() : config.dataSourceFactory,
-          config, null);
-      mergeComponentProperties(builder,
-          config.eventProcessorFactory == null ? Components.sendEvents() : config.eventProcessorFactory,
-          config, null);
+      mergeComponentProperties(builder, config.dataStoreFactory, basicConfig, "dataStoreType");
+      mergeComponentProperties(builder, config.dataSourceFactory, basicConfig, null);
+      mergeComponentProperties(builder, config.eventProcessorFactory, basicConfig, null);
       return builder.build();
     }
     
@@ -118,17 +118,19 @@ class DiagnosticEvent {
     // - If the value is a string, then set the defaultPropertyName property to that value.
     // - If the value is an object, then copy all of its properties as long as they are ones we recognize
     //   and have the expected type.
-    private static void mergeComponentProperties(ObjectBuilder builder, Object component, LDConfig config, String defaultPropertyName) {
-      if (component == null) {
-        return;
-      }
+    private static void mergeComponentProperties(
+        ObjectBuilder builder,
+        Object component,
+        BasicConfiguration basicConfig,
+        String defaultPropertyName
+        ) {
       if (!(component instanceof DiagnosticDescription)) {
         if (defaultPropertyName != null) {
           builder.put(defaultPropertyName, LDValue.of(component.getClass().getSimpleName()));
         }
         return;
       }
-      LDValue componentDesc = ((DiagnosticDescription)component).describeConfiguration(config);
+      LDValue componentDesc = ((DiagnosticDescription)component).describeConfiguration(basicConfig);
       if (componentDesc == null || componentDesc.isNull()) {
         return;
       }
