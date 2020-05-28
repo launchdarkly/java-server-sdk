@@ -17,6 +17,7 @@ plugins {
     id "java"
     id "java-library"
     id "checkstyle"
+    id "jacoco"
     id "signing"
     id "com.github.johnrengelman.shadow" version "5.2.0"
     id "maven-publish"
@@ -412,6 +413,14 @@ test {
         events "passed", "skipped", "failed", "standardOut", "standardError"
         showStandardStreams = true
         exceptionFormat = 'full'
+    }
+}
+
+jacocoTestReport { // code coverage report
+    reports {
+        xml.enabled
+        csv.enabled true
+        html.enabled true
     }
 }
 

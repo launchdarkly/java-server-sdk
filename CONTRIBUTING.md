@@ -42,3 +42,13 @@ To build the SDK and run all unit tests:
 ```
 ./gradlew test
 ```
+
+## Code coverage
+
+It is important to keep unit test coverage as close to 100% as possible in this project.
+
+Sometimes a gap in coverage is unavoidable, usually because the compiler requires us to provide a code path for some condition that in practice can't happen and can't be tested, or because of a known issue with the code coverage tool. Please handle all such cases as follows:
+
+* Mark the code with an explanatory comment beginning with "COVERAGE:".
+
+The current coverage report can be observed by running `./gradlew jacocoTestReport` and viewing `build/reports/jacoco/test/html/index.html`. This report is also produced as an artifact of the CircleCI build for the most recent Java version.
