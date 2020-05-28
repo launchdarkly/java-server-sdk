@@ -7,13 +7,17 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLHandshakeException;
 
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.sdk.server.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -215,8 +219,10 @@ public class FeatureRequestorTest {
   }
   
   private void verifyHeaders(RecordedRequest req) {
-    assertEquals(sdkKey, req.getHeader("Authorization"));
-    assertEquals("JavaClient/" + Version.SDK_VERSION, req.getHeader("User-Agent"));
+    HttpConfiguration httpConfig = clientContext(sdkKey, LDConfig.DEFAULT).getHttp();
+    for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
+      assertThat(req.getHeader(kv.getKey()), equalTo(kv.getValue()));
+    }
   }
   
   private void verifyFlag(DataModel.FeatureFlag flag, String key) {
