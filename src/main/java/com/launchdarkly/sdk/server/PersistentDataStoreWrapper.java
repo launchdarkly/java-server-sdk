@@ -152,14 +152,14 @@ final class PersistentDataStoreWrapper implements DataStore {
       return true;
     }
     boolean result;
-    if (initCache != null) {
-      try {
+    try {
+      if (initCache != null) {
         result = initCache.get("");
-      } catch (ExecutionException e) {
-        result = false;
+      } else {
+        result = core.isInitialized();
       }
-    } else {
-      result = core.isInitialized();
+    } catch (Exception e) {
+      result = false;
     }
     if (result) {
       inited.set(true);

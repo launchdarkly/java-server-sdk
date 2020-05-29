@@ -62,7 +62,7 @@ public class DataSourceStatusProviderImplTest {
     
     updates.updateStatus(State.VALID, null);
 
-    Status newStatus = awaitValue(statuses, Duration.ofMillis(300));
+    Status newStatus = awaitValue(statuses, Duration.ofMillis(500));
     assertThat(newStatus.getState(), equalTo(State.VALID));
     
     expectNoMoreValues(unwantedStatuses, Duration.ofMillis(100));

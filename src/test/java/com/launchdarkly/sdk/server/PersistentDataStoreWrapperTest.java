@@ -494,6 +494,13 @@ public class PersistentDataStoreWrapperTest {
   }
   
   @Test
+  public void isInitializedCatchesException() throws Exception {
+    core.fakeError = FAKE_ERROR;
+    
+    assertThat(wrapper.isInitialized(), is(false));
+  }
+  
+  @Test
   public void canGetCacheStats() throws Exception {
     try (PersistentDataStoreWrapper w = new PersistentDataStoreWrapper(
         core,

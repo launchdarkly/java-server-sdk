@@ -56,7 +56,7 @@ public class DataStoreStatusProviderImplTest {
     
     updates.updateStatus(new Status(false, false));
 
-    Status newStatus = awaitValue(statuses, Duration.ofMillis(300));
+    Status newStatus = awaitValue(statuses, Duration.ofMillis(500));
     assertThat(newStatus, equalTo(new Status(false, false)));
     
     expectNoMoreValues(unwantedStatuses, Duration.ofMillis(100));
