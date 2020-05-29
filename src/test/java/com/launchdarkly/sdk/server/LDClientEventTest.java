@@ -110,11 +110,23 @@ public class LDClientEventTest {
   public void trackWithNullUserDoesNotSendEvent() {
     client.track("eventkey", null);
     assertEquals(0, eventSink.events.size());
+    
+    client.trackData("eventkey", null, LDValue.of(1));
+    assertEquals(0, eventSink.events.size());
+
+    client.trackMetric("eventkey", null, LDValue.of(1), 1.5);
+    assertEquals(0, eventSink.events.size());
   }
 
   @Test
   public void trackWithUserWithNoKeyDoesNotSendEvent() {
     client.track("eventkey", userWithNullKey);
+    assertEquals(0, eventSink.events.size());
+    
+    client.trackData("eventkey", userWithNullKey, LDValue.of(1));
+    assertEquals(0, eventSink.events.size());
+
+    client.trackMetric("eventkey", userWithNullKey, LDValue.of(1), 1.5);
     assertEquals(0, eventSink.events.size());
   }
 
@@ -472,6 +484,13 @@ public class LDClientEventTest {
     assertEquals(1, eventSink.events.size());
     checkFeatureEvent(eventSink.events.get(0), f0, LDValue.of("off"), LDValue.of("default"), null,
         EvaluationReason.prerequisiteFailed("feature1"));
+  }
+  
+  @Test
+  public void canFlush() {
+    assertEquals(0, eventSink.flushCount);
+    client.flush();
+    assertEquals(1, eventSink.flushCount);
   }
   
   private void checkFeatureEvent(Event e, DataModel.FeatureFlag flag, LDValue value, LDValue defaultVal,
