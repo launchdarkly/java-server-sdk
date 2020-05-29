@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 import org.junit.Test;
@@ -18,6 +19,7 @@ import static com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind.A
 import static com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind.DIAGNOSTICS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -54,6 +56,25 @@ public class DefaultEventSenderTest {
     return server.url("/").uri();
   }
 
+  @Test
+  public void factoryCreatesDefaultSenderWithDefaultRetryDelay() throws Exception {
+    EventSenderFactory f = new DefaultEventSender.Factory();
+    try (EventSender es = f.createEventSender(SDK_KEY, Components.httpConfiguration().createHttpConfiguration())) {
+      assertThat(es, isA(EventSender.class));
+      assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
+    }
+  }
+
+  @Test
+  public void constructorUsesDefaultRetryDelayIfNotSpecified() throws Exception {
+    try (EventSender es = new DefaultEventSender(
+        SDK_KEY,
+        Components.httpConfiguration().createHttpConfiguration(),
+        null)) {
+      assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
+    }
+  }
+  
   @Test
   public void analyticsDataIsDelivered() throws Exception {
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
@@ -236,6 +257,20 @@ public class DefaultEventSenderTest {
       }
     }
   }
+
+  @Test
+  public void invalidServerDateIsIgnored() throws Exception {
+    MockResponse resp = eventsSuccessResponse().addHeader("Date", "not a date");
+
+    try (MockWebServer server = makeStartedServer(resp)) {
+      try (EventSender es = makeEventSender()) {
+        EventSender.Result result = es.sendEventData(DIAGNOSTICS, FAKE_DATA, 1, getBaseUri(server));
+        
+        assertTrue(result.isSuccess());
+        assertNull(result.getTimeFromServer());
+      }
+    }
+  }
   
   @Test
   public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
@@ -288,6 +323,34 @@ public class DefaultEventSenderTest {
     }
   }
 
+  @Test
+  public void nothingIsSentForNullData() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (EventSender es = makeEventSender()) {
+        EventSender.Result result1 = es.sendEventData(ANALYTICS, null, 0, getBaseUri(server));
+        EventSender.Result result2 = es.sendEventData(DIAGNOSTICS, null, 0, getBaseUri(server));
+        
+        assertTrue(result1.isSuccess());
+        assertTrue(result2.isSuccess());
+        assertEquals(0, server.getRequestCount());
+      }
+    }
+  }
+
+  @Test
+  public void nothingIsSentForEmptyData() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (EventSender es = makeEventSender()) {
+        EventSender.Result result1 = es.sendEventData(ANALYTICS, "", 0, getBaseUri(server));
+        EventSender.Result result2 = es.sendEventData(DIAGNOSTICS, "", 0, getBaseUri(server));
+        
+        assertTrue(result1.isSuccess());
+        assertTrue(result2.isSuccess());
+        assertEquals(0, server.getRequestCount());
+      }
+    }
+  }
+  
   private void testUnrecoverableHttpError(int status) throws Exception {
     MockResponse errorResponse = new MockResponse().setResponseCode(status);
     
