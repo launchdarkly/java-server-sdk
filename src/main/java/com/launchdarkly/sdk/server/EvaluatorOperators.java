@@ -13,6 +13,8 @@ import static com.launchdarkly.sdk.server.EvaluatorTypeConversion.valueToSemVer;
  * Defines the behavior of all operators that can be used in feature flag rules and segment rules.
  */
 abstract class EvaluatorOperators {
+  private EvaluatorOperators() {}
+  
   private static enum ComparisonOp {
     EQ,
     LT,
@@ -33,6 +35,7 @@ abstract class EvaluatorOperators {
       case GTE:
         return delta >= 0;
       }
+      // COVERAGE: the compiler insists on a fallthrough line here, even though it's unreachable
       return false;
     }
   }
@@ -95,6 +98,7 @@ abstract class EvaluatorOperators {
       // Evaluator.clauseMatchesUser().
       return false;
     };
+    // COVERAGE: the compiler insists on a fallthrough line here, even though it's unreachable
     return false;
   }
 

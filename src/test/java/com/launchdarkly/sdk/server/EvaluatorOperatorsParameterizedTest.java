@@ -48,7 +48,7 @@ public class EvaluatorOperatorsParameterizedTest {
     this.shouldBe = shouldBe;
   }
   
-  @Parameterized.Parameters(name = "{1} {0} {2} should be {3}")
+  @Parameterized.Parameters(name = "{1} {0} {2}+{3} should be {4}")
   public static Iterable<Object[]> data() {
     return Arrays.asList(new Object[][] {
       // numeric comparisons
@@ -77,10 +77,16 @@ public class EvaluatorOperatorsParameterizedTest {
       { Operator.in, LDValue.of("x"), LDValue.of("x"), new LDValue[] { LDValue.of("a"), LDValue.of("b"), LDValue.of("c") }, true },
       { Operator.startsWith, LDValue.of("xyz"), LDValue.of("x"), null, true },
       { Operator.startsWith, LDValue.of("x"), LDValue.of("xyz"), null, false },
+      { Operator.startsWith, LDValue.of(1), LDValue.of("xyz"), null, false },
+      { Operator.startsWith, LDValue.of("1xyz"), LDValue.of(1), null, false },
       { Operator.endsWith, LDValue.of("xyz"), LDValue.of("z"), null, true },
       { Operator.endsWith, LDValue.of("z"), LDValue.of("xyz"), null, false },
+      { Operator.endsWith, LDValue.of(1), LDValue.of("xyz"), null, false },
+      { Operator.endsWith, LDValue.of("xyz1"), LDValue.of(1), null, false },
       { Operator.contains, LDValue.of("xyz"), LDValue.of("y"), null, true },
       { Operator.contains, LDValue.of("y"), LDValue.of("xyz"), null, false },
+      { Operator.contains, LDValue.of(2), LDValue.of("xyz"), null, false },
+      { Operator.contains, LDValue.of("that 2 is not a string"), LDValue.of(2), null, false },
       
       // mixed strings and numbers
       { Operator.in, LDValue.of("99"), LDValue.of(99), null, false },
@@ -108,6 +114,7 @@ public class EvaluatorOperatorsParameterizedTest {
       { Operator.matches, LDValue.of("hello world"), LDValue.of("aloha"), null, false },
       // note that an invalid regex in a clause should *not* cause an exception, just a non-match
       { Operator.matches, LDValue.of("hello world"), LDValue.of("***not a regex"), null, false },
+      { Operator.matches, LDValue.of(2), LDValue.of("that 2 is not a string"), null, false },
       
       // dates
       { Operator.before, dateStr1, dateStr2, null, true },
@@ -119,6 +126,7 @@ public class EvaluatorOperatorsParameterizedTest {
       { Operator.before, dateStr1, dateStr1, null, false },
       { Operator.before, dateMs1, dateMs1, null, false },
       { Operator.before, dateStr1, invalidDate, null, false },
+      { Operator.before, invalidDate, dateStr1, null, false },
       { Operator.after, dateStr1, dateStr2, null, false },
       { Operator.after, dateStrUtc1, dateStrUtc2, null, false },
       { Operator.after, dateMs1, dateMs2, null, false },
@@ -128,13 +136,19 @@ public class EvaluatorOperatorsParameterizedTest {
       { Operator.after, dateStr1, dateStr1, null, false },
       { Operator.after, dateMs1, dateMs1, null, false },
       { Operator.after, dateStr1, invalidDate, null, false },
+      { Operator.after, invalidDate, dateStr1, null, false },
       
       // semver
       { Operator.semVerEqual, LDValue.of("2.0.1"), LDValue.of("2.0.1"), null, true },
+      { Operator.semVerEqual, LDValue.of("2.0.2"), LDValue.of("2.0.1"), null, false },
       { Operator.semVerEqual, LDValue.of("2.0"), LDValue.of("2.0.0"), null, true },
       { Operator.semVerEqual, LDValue.of("2"), LDValue.of("2.0.0"), null, true },
       { Operator.semVerEqual, LDValue.of("2-rc1"), LDValue.of("2.0.0-rc1"), null, true },
       { Operator.semVerEqual, LDValue.of("2+build2"), LDValue.of("2.0.0+build2"), null, true },
+      { Operator.semVerEqual, LDValue.of("xxx"), LDValue.of("2.0.1"), null, false },
+      { Operator.semVerEqual, LDValue.of(2), LDValue.of("2.0.1"), null, false },
+      { Operator.semVerEqual, LDValue.of("2.0.1"), LDValue.of("xxx"), null, false },
+      { Operator.semVerEqual, LDValue.of("2.0.1"), LDValue.of(2), null, false },
       { Operator.semVerLessThan, LDValue.of("2.0.0"), LDValue.of("2.0.1"), null, true },
       { Operator.semVerLessThan, LDValue.of("2.0"), LDValue.of("2.0.1"), null, true },
       { Operator.semVerLessThan, LDValue.of("2.0.1"), LDValue.of("2.0.0"), null, false },
@@ -147,7 +161,11 @@ public class EvaluatorOperatorsParameterizedTest {
       { Operator.semVerGreaterThan, LDValue.of("2.0"), LDValue.of("2.0.1"), null, false },
       { Operator.semVerGreaterThan, LDValue.of("2.0.0-rc.1"), LDValue.of("2.0.0-rc.0"), null, true },
       { Operator.semVerLessThan, LDValue.of("2.0.1"), invalidVer, null, false },
-      { Operator.semVerGreaterThan, LDValue.of("2.0.1"), invalidVer, null, false }
+      { Operator.semVerGreaterThan, LDValue.of("2.0.1"), invalidVer, null, false },
+      
+      // miscellaneous invalid conditions
+      { null, LDValue.of("x"), LDValue.of("y"), null, false }, // no operator
+      { Operator.segmentMatch, LDValue.of("x"), LDValue.of("y"), null, false } // segmentMatch is handled elsewhere
     });
   }
 

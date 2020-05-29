@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 
 /**
  * Contains information about the internal data model for feature flags and user segments.
@@ -24,6 +25,8 @@ import static java.util.Collections.emptyList;
  * store or serialize them.
  */
 public abstract class DataModel {
+  private DataModel() {}
+  
   /**
    * The {@link DataKind} instance that describes feature flag data.
    * <p>
@@ -153,7 +156,6 @@ public abstract class DataModel {
       return on;
     }
 
-    // Guaranteed non-null
     List<Prerequisite> getPrerequisites() {
       return prerequisites == null ? emptyList() : prerequisites;
     }
@@ -239,7 +241,7 @@ public abstract class DataModel {
   
     // Guaranteed non-null
     Collection<String> getValues() {
-      return values == null ? emptyList() : values;
+      return values == null ? emptySet() : values;
     }
   
     int getVariation() {
@@ -321,8 +323,9 @@ public abstract class DataModel {
       return op;
     }
     
+    // Guaranteed non-null
     List<LDValue> getValues() {
-      return values;
+      return values == null ? emptyList() : values;
     }
     
     boolean isNegate() {
@@ -349,8 +352,9 @@ public abstract class DataModel {
       this.bucketBy = bucketBy;
     }
     
+    // Guaranteed non-null
     List<WeightedVariation> getVariations() {
-      return variations;
+      return variations == null ? emptyList() : variations;
     }
     
     UserAttribute getBucketBy() {
@@ -430,12 +434,12 @@ public abstract class DataModel {
     
     // Guaranteed non-null
     Collection<String> getIncluded() {
-      return included == null ? emptyList() : included;
+      return included == null ? emptySet() : included;
     }
     
     // Guaranteed non-null
     Collection<String> getExcluded() {
-      return excluded == null ? emptyList() : excluded;
+      return excluded == null ? emptySet() : excluded;
     }
     
     String getSalt() {
