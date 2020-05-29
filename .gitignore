@@ -17,3 +17,4 @@ out/
 classes/
 
 packaging-test/temp/
+benchmarks/lib/
