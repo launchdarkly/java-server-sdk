@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
@@ -11,9 +11,8 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
 
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -136,7 +135,7 @@ public class DataStoreTestTypes {
   }
   
   public static class DataBuilder {
-    private Map<DataKind, List<Map.Entry<String, ItemDescriptor>>> data = new HashMap<>();
+    private Map<DataKind, Map<String, ItemDescriptor>> data = new HashMap<>();
     
     public DataBuilder add(DataKind kind, TestItem... items) {
       return addAny(kind, items);
@@ -144,21 +143,20 @@ public class DataStoreTestTypes {
 
     // This is defined separately because test code that's outside of this package can't see DataModel.VersionedData
     public DataBuilder addAny(DataKind kind, VersionedData... items) {
-      List<Map.Entry<String, ItemDescriptor>> itemsList = data.get(kind);
-      if (itemsList == null) {
-        itemsList = new ArrayList<>();
-        data.put(kind, itemsList);
+      Map<String, ItemDescriptor> itemsMap = data.get(kind);
+      if (itemsMap == null) {
+        itemsMap = new LinkedHashMap<>(); // use LinkedHashMap to preserve insertion order
+        data.put(kind, itemsMap);
       }
       for (VersionedData item: items) {
-        itemsList.removeIf(e -> e.getKey().equals(item.getKey()));
-        itemsList.add(new AbstractMap.SimpleEntry<>(item.getKey(), new ItemDescriptor(item.getVersion(), item)));
+        itemsMap.put(item.getKey(), new ItemDescriptor(item.getVersion(), item));
       }
       return this;
     }
     
     public DataBuilder remove(DataKind kind, String key) {
       if (data.get(kind) != null) {
-        data.get(kind).removeIf(e -> e.getKey().equals(key));
+        data.get(kind).remove(key);
       }
       return this;
     }
@@ -166,18 +164,22 @@ public class DataStoreTestTypes {
     public FullDataSet<ItemDescriptor> build() {
       return new FullDataSet<>(
           ImmutableMap.copyOf(
-              Maps.transformValues(data, itemsList -> new KeyedItems<>(itemsList))).entrySet()
+            Maps.transformValues(data, itemsMap ->
+              new KeyedItems<>(ImmutableList.copyOf(itemsMap.entrySet()))
+            )).entrySet()
           );
     }
     
     public FullDataSet<SerializedItemDescriptor> buildSerialized() {
       return new FullDataSet<>(
           ImmutableMap.copyOf(
-              Maps.transformEntries(data, (kind, itemsList) ->
+              Maps.transformEntries(data, (kind, itemsMap) ->
                 new KeyedItems<>(
-                    Iterables.transform(itemsList, e ->
-                      new AbstractMap.SimpleEntry<>(e.getKey(), DataStoreTestTypes.toSerialized(kind, e.getValue())))
-                ))
+                    ImmutableMap.copyOf(
+                        Maps.transformValues(itemsMap, item -> DataStoreTestTypes.toSerialized(kind, item))
+                    ).entrySet()
+                    )
+                )
           ).entrySet());
     }
   }
