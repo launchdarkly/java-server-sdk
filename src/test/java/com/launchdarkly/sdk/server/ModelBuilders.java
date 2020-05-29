@@ -103,7 +103,8 @@ public abstract class ModelBuilders {
     private boolean trackEventsFallthrough;
     private Long debugEventsUntilDate;
     private boolean deleted;
-  
+    private boolean disablePreprocessing = false;
+    
     private FlagBuilder(String key) {
       this.key = key;
     }
@@ -212,10 +213,17 @@ public abstract class ModelBuilders {
       return this;
     }
   
+    FlagBuilder disablePreprocessing(boolean disable) {
+      this.disablePreprocessing = disable;
+      return this;
+    }
+    
     DataModel.FeatureFlag build() {
       FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
           clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);
-      flag.afterDeserialized();
+      if (!disablePreprocessing) {
+        flag.afterDeserialized();
+      }
       return flag;
     }
   }

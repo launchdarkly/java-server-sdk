@@ -222,13 +222,9 @@ public class LDClientListenersTest extends EasyMockSupport {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       new Thread(() -> {
-        System.out.println("in thread");
         try {
           Thread.sleep(100);
-        } catch (InterruptedException e) {
-            System.out.println("interrupted");
-        }
-        System.out.println("updating");
+        } catch (InterruptedException e) {}
         updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
       }).start();
 

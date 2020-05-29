@@ -105,7 +105,7 @@ public interface LDClientInterface extends Closeable {
    * @param defaultValue the default value of the flag
    * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
-  Integer intVariation(String featureKey, LDUser user, int defaultValue);
+  int intVariation(String featureKey, LDUser user, int defaultValue);
 
   /**
    * Calculates the floating point numeric value of a feature flag for a given user.
@@ -115,7 +115,7 @@ public interface LDClientInterface extends Closeable {
    * @param defaultValue the default value of the flag
    * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
    */
-  Double doubleVariation(String featureKey, LDUser user, Double defaultValue);
+  double doubleVariation(String featureKey, LDUser user, double defaultValue);
 
   /**
    * Calculates the String value of a feature flag for a given user.

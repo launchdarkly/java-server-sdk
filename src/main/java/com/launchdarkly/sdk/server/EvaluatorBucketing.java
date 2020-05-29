@@ -10,6 +10,8 @@ import org.apache.commons.codec.digest.DigestUtils;
  * Encapsulates the logic for percentage rollouts.
  */
 abstract class EvaluatorBucketing {
+  private EvaluatorBucketing() {}
+  
   private static final float LONG_SCALE = (float) 0xFFFFFFFFFFFFFFFL;
 
   // Attempt to determine the variation index for a given user. Returns null if no index can be computed
@@ -20,7 +22,7 @@ abstract class EvaluatorBucketing {
       return variation;
     } else {
       DataModel.Rollout rollout = vr.getRollout();
-      if (rollout != null && rollout.getVariations() != null && !rollout.getVariations().isEmpty()) {
+      if (rollout != null && !rollout.getVariations().isEmpty()) {
         float bucket = bucketUser(user, key, rollout.getBucketBy(), salt);
         float sum = 0F;
         for (DataModel.WeightedVariation wv : rollout.getVariations()) {

@@ -368,9 +368,20 @@ public class LDClientTest extends EasyMockSupport {
     client = createMockClient(config);
     
     upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
-    assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
+    assertEquals(1, client.intVariation("key", new LDUser("user"), 0));
     
     verifyAll();
+  }
+
+  @Test
+  public void getVersion() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.noEvents())
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(Version.SDK_VERSION, client.version());
+    }
   }
 
   private void expectEventsSent(int count) {

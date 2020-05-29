@@ -59,6 +59,19 @@ public class DataModelSerializationTest {
   }
   
   @Test
+  public void deletedFlagIsConvertedToAndFromJsonPlaceholder() {
+    String json0 = LDValue.buildObject().put("version", 99)
+        .put("deleted", true).build().toJsonString();
+    ItemDescriptor item = FEATURES.deserialize(json0);
+    assertNotNull(item);
+    assertNull(item.getItem());
+    assertEquals(99, item.getVersion());
+    
+    String json1 = FEATURES.serialize(item);
+    assertEquals(LDValue.parse(json0), LDValue.parse(json1));
+  }
+  
+  @Test
   public void segmentIsDeserializedWithAllProperties() {
     String json0 = segmentWithAllPropertiesJson().toJsonString();
     Segment segment0 = (Segment)SEGMENTS.deserialize(json0).getItem();
@@ -81,6 +94,19 @@ public class DataModelSerializationTest {
     assertEquals(0, segment.getExcluded().size());
     assertNotNull(segment.getRules());
     assertEquals(0, segment.getRules().size());
+  }
+
+  @Test
+  public void deletedSegmentIsConvertedToAndFromJsonPlaceholder() {
+    String json0 = LDValue.buildObject().put("version", 99)
+        .put("deleted", true).build().toJsonString();
+    ItemDescriptor item = SEGMENTS.deserialize(json0);
+    assertNotNull(item);
+    assertNull(item.getItem());
+    assertEquals(99, item.getVersion());
+    
+    String json1 = SEGMENTS.serialize(item);
+    assertEquals(LDValue.parse(json0), LDValue.parse(json1));
   }
   
   private LDValue flagWithAllPropertiesJson() {

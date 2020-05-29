@@ -109,7 +109,7 @@ class Evaluator {
    * @param flag an existing feature flag; any other referenced flags or segments will be queried via {@link Getters}
    * @param user the user to evaluate against
    * @param eventFactory produces feature request events
-   * @return an {@link EvalResult}
+   * @return an {@link EvalResult} - guaranteed non-null
    */
   EvalResult evaluate(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory) {
     if (user == null || user.getKey() == null) {
@@ -174,9 +174,10 @@ class Evaluator {
         EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, user, eventFactory, eventsOut);
         // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
         // off variation was. But we still need to evaluate it in order to generate an event.
-        if (!prereqFeatureFlag.isOn() || prereqEvalResult == null || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
+        if (!prereqFeatureFlag.isOn() || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
           prereqOk = false;
         }
+        // COVERAGE: currently eventsOut is never null because we preallocate the list in evaluate() if there are any prereqs
         if (eventsOut != null) {
           eventsOut.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, flag));
         }
@@ -304,10 +305,7 @@ class Evaluator {
   }
   
   private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
-    String userKey = user.getKey();
-    if (userKey == null) {
-      return false;
-    }
+    String userKey = user.getKey(); // we've already verified that the key is non-null at the top of evaluate()
     if (segment.getIncluded().contains(userKey)) { // getIncluded(), getExcluded(), and getRules() are guaranteed non-null
       return true;
     }

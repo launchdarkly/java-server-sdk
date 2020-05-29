@@ -23,7 +23,7 @@ class Util {
   static Headers.Builder getHeadersBuilderFor(String sdkKey, HttpConfiguration config) {
     Headers.Builder builder = new Headers.Builder()
         .add("Authorization", sdkKey)
-        .add("User-Agent", "JavaClient/" + LDClient.CLIENT_VERSION);
+        .add("User-Agent", "JavaClient/" + Version.SDK_VERSION);
 
     if (config.getWrapperIdentifier() != null) {
       builder.add("X-LaunchDarkly-Wrapper", config.getWrapperIdentifier());
