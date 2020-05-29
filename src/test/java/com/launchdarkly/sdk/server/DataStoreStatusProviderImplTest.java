@@ -17,6 +17,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
+import static com.launchdarkly.sdk.server.TestUtil.awaitValue;
 import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -55,7 +56,7 @@ public class DataStoreStatusProviderImplTest {
     
     updates.updateStatus(new Status(false, false));
 
-    Status newStatus = TestUtil.awaitValue(statuses, Duration.ofMillis(200));
+    Status newStatus = awaitValue(statuses, Duration.ofMillis(300));
     assertThat(newStatus, equalTo(new Status(false, false)));
     
     expectNoMoreValues(unwantedStatuses, Duration.ofMillis(100));
