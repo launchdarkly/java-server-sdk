@@ -452,7 +452,6 @@ jacocoTestCoverageVerification {
             "LDClient.secureModeHash(com.launchdarkly.sdk.LDUser)": 4,
             "PersistentDataStoreStatusManager.1.run()": 2,
             "PersistentDataStoreWrapper.PersistentDataStoreWrapper(com.launchdarkly.sdk.server.interfaces.PersistentDataStore, java.time.Duration, com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder.StaleValuesPolicy, boolean, com.launchdarkly.sdk.server.interfaces.DataStoreUpdates, java.util.concurrent.ScheduledExecutorService)": 2,
-            "PersistentDataStoreWrapper.isInitialized()": 2,
             "PersistentDataStoreWrapper.getAll(com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind)": 3,
             "PersistentDataStoreWrapper.deserialize(com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind, com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor)": 2,
             "SemanticVersion.parse(java.lang.String, boolean)": 2,
