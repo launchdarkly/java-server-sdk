@@ -1,5 +1,4 @@
-Contributing to the LaunchDarkly Server-side SDK for Java
-================================================
+# Contributing to the LaunchDarkly Server-side SDK for Java
  
 LaunchDarkly has published an [SDK contributor's guide](https://docs.launchdarkly.com/docs/sdk-contributors-guide) that provides a detailed explanation of how our SDKs work. See below for additional information on how to contribute to this SDK.
  
@@ -42,6 +41,10 @@ To build the SDK and run all unit tests:
 ```
 ./gradlew test
 ```
+
+### Benchmarks
+
+The project in the `benchmarks` subdirectory uses [JMH](https://openjdk.java.net/projects/code-tools/jmh/) to generate performance metrics for the SDK. This is run as a CI job, and can also be run manually by running `make` within `benchmarks` and then inspecting `build/reports/jmh`.
 
 ## Code coverage
 
