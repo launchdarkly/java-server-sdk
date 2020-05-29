@@ -373,6 +373,17 @@ public class LDClientTest extends EasyMockSupport {
     verifyAll();
   }
 
+  @Test
+  public void getVersion() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.noEvents())
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(Version.SDK_VERSION, client.version());
+    }
+  }
+
   private void expectEventsSent(int count) {
     eventProcessor.sendEvent(anyObject(Event.class));
     if (count > 0) {

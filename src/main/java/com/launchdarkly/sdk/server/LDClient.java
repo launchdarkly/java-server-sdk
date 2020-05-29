@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URL;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
@@ -39,8 +38,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -59,7 +56,6 @@ public final class LDClient implements LDClientInterface {
   static final Logger logger = LoggerFactory.getLogger(LDClient.class);
   
   private static final String HMAC_ALGORITHM = "HmacSHA256";
-  static final String CLIENT_VERSION = getClientVersion();
 
   private final String sdkKey;
   private final boolean offline;
@@ -547,7 +543,7 @@ public final class LDClient implements LDClientInterface {
    */
   @Override
   public String version() {
-    return CLIENT_VERSION;
+    return Version.SDK_VERSION;
   }
   
   // This executor is used for a variety of SDK tasks such as flag change events, checking the data store
@@ -562,28 +558,5 @@ public final class LDClient implements LDClientInterface {
         .setPriority(config.threadPriority)
         .build();
     return Executors.newSingleThreadScheduledExecutor(threadFactory);
-  }
-  
-  private static String getClientVersion() {
-    Class<?> clazz = LDConfig.class;
-    String className = clazz.getSimpleName() + ".class";
-    String classPath = clazz.getResource(className).toString();
-    if (!classPath.startsWith("jar")) {
-      // Class not from JAR
-      return "Unknown";
-    }
-    String manifestPath = classPath.substring(0, classPath.lastIndexOf("!") + 1) +
-        "/META-INF/MANIFEST.MF";
-    Manifest manifest = null;
-    try {
-      manifest = new Manifest(new URL(manifestPath).openStream());
-      Attributes attr = manifest.getMainAttributes();
-      String value = attr.getValue("Implementation-Version");
-      return value;
-    } catch (IOException e) {
-      logger.warn("Unable to determine LaunchDarkly client library version: {}", e.toString());
-      logger.debug(e.toString(), e);
-      return "Unknown";
-    }
   }
 }

@@ -1,12 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.DefaultFeatureRequestor;
-import com.launchdarkly.sdk.server.FeatureRequestor;
-import com.launchdarkly.sdk.server.HttpErrorException;
-import com.launchdarkly.sdk.server.LDClient;
-import com.launchdarkly.sdk.server.LDConfig;
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -216,7 +209,7 @@ public class FeatureRequestorTest {
   
   private void verifyHeaders(RecordedRequest req) {
     assertEquals(sdkKey, req.getHeader("Authorization"));
-    assertEquals("JavaClient/" + LDClient.CLIENT_VERSION, req.getHeader("User-Agent"));
+    assertEquals("JavaClient/" + Version.SDK_VERSION, req.getHeader("User-Agent"));
   }
   
   private void verifyFlag(DataModel.FeatureFlag flag, String key) {
