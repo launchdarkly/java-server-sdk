@@ -18,6 +18,31 @@ public class EventBroadcasterImplTest {
   public void sendingEventWithNoListenersDoesNotCauseError() {
     broadcaster.broadcast(new FakeEvent());
   }
+
+  @Test
+  public void sendingEventWithNoExecutorDoesNotCauseError() {
+    new EventBroadcasterImpl<>(FakeListener::sendEvent, null).broadcast(new FakeEvent());
+  }
+  
+  @Test
+  public void hasListeners() {
+    assertThat(broadcaster.hasListeners(), is(false));
+    
+    FakeListener listener1 = e -> {};
+    FakeListener listener2 = e -> {};
+    broadcaster.register(listener1);
+    broadcaster.register(listener2);
+    
+    assertThat(broadcaster.hasListeners(), is(true));
+    
+    broadcaster.unregister(listener1);
+    
+    assertThat(broadcaster.hasListeners(), is(true));
+    
+    broadcaster.unregister(listener2);
+    
+    assertThat(broadcaster.hasListeners(), is(false));
+  }
   
   @Test
   public void allListenersReceiveEvent() throws Exception {
@@ -72,6 +97,23 @@ public class EventBroadcasterImplTest {
     assertThat(events2.take(), is(e1));
     assertThat(events2.take(), is(e3)); // did not get e2
     assertThat(events2.isEmpty(), is(true));
+  }
+  
+  @Test
+  public void exceptionFromEarlierListenerDoesNotInterfereWithLaterListener() throws Exception {
+    FakeListener listener1 = e -> {
+      throw new RuntimeException("sorry");
+    };
+    broadcaster.register(listener1);
+    
+    BlockingQueue<FakeEvent> events2 = new LinkedBlockingQueue<>();
+    FakeListener listener2 = events2::add;
+    broadcaster.register(listener2);
+    
+    FakeEvent e = new FakeEvent();
+    broadcaster.broadcast(e);
+    
+    assertThat(events2.take(), is(e));
   }
   
   static class FakeEvent {}

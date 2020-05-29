@@ -16,7 +16,9 @@ import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.FU
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.resourceFilePath;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.fail;
 
 @SuppressWarnings("javadoc")
 public abstract class FlagFileParserTestBase {
@@ -68,10 +70,15 @@ public abstract class FlagFileParserTestBase {
     }
   }
   
-  @Test(expected = FileDataException.class)
+  @Test
   public void throwsExpectedErrorForBadFile() throws Exception {
     try (FileInputStream input = openFile("malformed")) {
-      parser.parse(input);
+      try {
+        parser.parse(input);
+        fail("expected exception");
+      } catch (FileDataException e) {
+        assertThat(e.getDescription(), not(nullValue()));
+      }
     }
   }
   

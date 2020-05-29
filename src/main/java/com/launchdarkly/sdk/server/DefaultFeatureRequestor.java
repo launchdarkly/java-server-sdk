@@ -1,14 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.io.Files;
-import com.launchdarkly.sdk.server.DataModel.VersionedData;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
@@ -18,10 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Map;
 
-import static com.launchdarkly.sdk.server.DataModel.FEATURES;
-import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
 import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
@@ -85,24 +75,6 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
     return JsonHelpers.deserialize(body, AllData.class);
   }
 
-  static FullDataSet<ItemDescriptor> toFullDataSet(AllData allData) {
-    return new FullDataSet<ItemDescriptor>(ImmutableMap.of(
-        FEATURES, toKeyedItems(allData.flags),
-        SEGMENTS, toKeyedItems(allData.segments)
-        ).entrySet());
-  }
-  
-  static <T extends VersionedData> KeyedItems<ItemDescriptor> toKeyedItems(Map<String, T> itemsMap) {
-    if (itemsMap == null) {
-      return new KeyedItems<>(null);
-    }
-    return new KeyedItems<>(
-      ImmutableList.copyOf(
-          Maps.transformValues(itemsMap, item -> new ItemDescriptor(item.getVersion(), item)).entrySet()
-          )
-      );
-  }
-  
   private String get(String path) throws IOException, HttpErrorException {
     Request request = new Request.Builder()
         .url(baseUri.resolve(path).toURL())

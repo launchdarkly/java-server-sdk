@@ -22,7 +22,7 @@ public interface DataStoreStatusProvider {
    * 
    * @return the latest status; will never be null
    */
-  public Status getStoreStatus();
+  public Status getStatus();
   
   /**
    * Indicates whether the current data store implementation supports status monitoring.

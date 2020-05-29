@@ -197,6 +197,8 @@ final class DefaultEventProcessor implements EventProcessor {
     private static final int MESSAGE_BATCH_SIZE = 50;
 
     @VisibleForTesting final EventsConfiguration eventsConfig;
+    private final BlockingQueue<EventProcessorMessage> inbox;
+    private final AtomicBoolean closed;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
@@ -211,12 +213,14 @@ final class DefaultEventProcessor implements EventProcessor {
         EventsConfiguration eventsConfig,
         ExecutorService sharedExecutor,
         int threadPriority,
-        final BlockingQueue<EventProcessorMessage> inbox,
-        final AtomicBoolean closed,
+        BlockingQueue<EventProcessorMessage> inbox,
+        AtomicBoolean closed,
         DiagnosticAccumulator diagnosticAccumulator,
         DiagnosticEvent.Init diagnosticInitEvent
         ) {
       this.eventsConfig = eventsConfig;
+      this.inbox = inbox;
+      this.closed = closed;
       this.sharedExecutor = sharedExecutor;
       this.diagnosticAccumulator = diagnosticAccumulator;
       this.busyFlushWorkersCount = new AtomicInteger(0);
@@ -240,24 +244,8 @@ final class DefaultEventProcessor implements EventProcessor {
       });
       mainThread.setDaemon(true);
 
-      mainThread.setUncaughtExceptionHandler((Thread t, Throwable e) -> {
-        // The thread's main loop catches all exceptions, so we'll only get here if an Error was thrown.
-        // In that case, the application is probably already in a bad state, but we can try to degrade
-        // relatively gracefully by performing an orderly shutdown of the event processor, so the
-        // application won't end up blocking on a queue that's no longer being consumed.
-        
-        // COVERAGE: there is no way to make this happen from test code.
-        logger.error("Event processor thread was terminated by an unrecoverable error. No more analytics events will be sent.", e);
-        // Flip the switch to prevent DefaultEventProcessor from putting any more messages on the queue
-        closed.set(true);
-        // Now discard everything that was on the queue, but also make sure no one was blocking on a message
-        List<EventProcessorMessage> messages = new ArrayList<EventProcessorMessage>();
-        inbox.drainTo(messages);
-        for (EventProcessorMessage m: messages) {
-          m.completed();
-        }
-      });
-
+      mainThread.setUncaughtExceptionHandler(this::onUncaughtException);
+      
       mainThread.start();
 
       flushWorkers = new ArrayList<>();
@@ -282,6 +270,24 @@ final class DefaultEventProcessor implements EventProcessor {
       }
     }
 
+    private void onUncaughtException(Thread thread, Throwable e) {
+      // The thread's main loop catches all exceptions, so we'll only get here if an Error was thrown.
+      // In that case, the application is probably already in a bad state, but we can try to degrade
+      // relatively gracefully by performing an orderly shutdown of the event processor, so the
+      // application won't end up blocking on a queue that's no longer being consumed.
+      // COVERAGE: there is no way to make this happen from test code.
+      
+      logger.error("Event processor thread was terminated by an unrecoverable error. No more analytics events will be sent.", e);
+      // Flip the switch to prevent DefaultEventProcessor from putting any more messages on the queue
+      closed.set(true);
+      // Now discard everything that was on the queue, but also make sure no one was blocking on a message
+      List<EventProcessorMessage> messages = new ArrayList<EventProcessorMessage>();
+      inbox.drainTo(messages);
+      for (EventProcessorMessage m: messages) {
+        m.completed();
+      }  
+    }
+    
     /**
      * This task drains the input queue as quickly as possible. Everything here is done on a single
      * thread so we don't have to synchronize on our internal structures; when it's time to flush,

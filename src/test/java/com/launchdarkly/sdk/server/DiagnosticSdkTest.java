@@ -31,14 +31,21 @@ public class DiagnosticSdkTest {
 
   @Test
   public void getsWrapperValuesFromConfig() {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config1 = new LDConfig.Builder()
         .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
         .build();
-    DiagnosticSdk diagnosticSdk = new DiagnosticSdk(makeHttpConfig(config));
-    assertEquals("java-server-sdk", diagnosticSdk.name);
-    assertEquals(Version.SDK_VERSION, diagnosticSdk.version);
-    assertEquals(diagnosticSdk.wrapperName, "Scala");
-    assertEquals(diagnosticSdk.wrapperVersion, "0.1.0");
+    DiagnosticSdk diagnosticSdk1 = new DiagnosticSdk(makeHttpConfig(config1));
+    assertEquals("java-server-sdk", diagnosticSdk1.name);
+    assertEquals(Version.SDK_VERSION, diagnosticSdk1.version);
+    assertEquals(diagnosticSdk1.wrapperName, "Scala");
+    assertEquals(diagnosticSdk1.wrapperVersion, "0.1.0");
+
+    LDConfig config2 = new LDConfig.Builder()
+        .http(Components.httpConfiguration().wrapper("Scala", null))
+        .build();
+    DiagnosticSdk diagnosticSdk2 = new DiagnosticSdk(makeHttpConfig(config2));
+    assertEquals(diagnosticSdk2.wrapperName, "Scala");
+    assertNull(diagnosticSdk2.wrapperVersion);
   }
 
   @Test
@@ -62,5 +69,25 @@ public class DiagnosticSdkTest {
     assertEquals(Version.SDK_VERSION, jsonObject.getAsJsonPrimitive("version").getAsString());
     assertEquals("Scala", jsonObject.getAsJsonPrimitive("wrapperName").getAsString());
     assertEquals("0.1.0", jsonObject.getAsJsonPrimitive("wrapperVersion").getAsString());
+  }
+  
+  @Test
+  public void platformOsNames() {
+    String realOsName = System.getProperty("os.name");
+    try {
+      System.setProperty("os.name", "Mac OS X");
+      assertEquals("MacOS", new DiagnosticEvent.Init.DiagnosticPlatform().osName);
+      
+      System.setProperty("os.name", "Windows 10");
+      assertEquals("Windows", new DiagnosticEvent.Init.DiagnosticPlatform().osName);
+      
+      System.setProperty("os.name", "Linux");
+      assertEquals("Linux", new DiagnosticEvent.Init.DiagnosticPlatform().osName);
+
+      System.clearProperty("os.name");
+      assertNull(new DiagnosticEvent.Init.DiagnosticPlatform().osName);
+    } finally {
+      System.setProperty("os.name", realOsName);
+    }
   }
 }

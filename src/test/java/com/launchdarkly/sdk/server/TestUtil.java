@@ -19,6 +19,7 @@ import org.hamcrest.TypeSafeDiagnosingMatcher;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
@@ -31,6 +32,8 @@ import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -93,6 +96,35 @@ public class TestUtil {
     }
   }
 
+  public static <T> void verifyEqualityForType(List<Supplier<T>> creatorsForPossibleValues) {
+    for (int i = 0; i < creatorsForPossibleValues.size(); i++) {
+      for (int j = 0; j < creatorsForPossibleValues.size(); j++) {
+        T value1 = creatorsForPossibleValues.get(i).get();
+        T value2 = creatorsForPossibleValues.get(j).get();
+        assertThat(value1, not(sameInstance(value2)));
+        if (i == j) {
+          // instance is equal to itself
+          assertThat(value1, equalTo(value1));
+          
+          // commutative equality
+          assertThat(value1, equalTo(value2));
+          assertThat(value2, equalTo(value1));
+          
+          // equal hash code
+          assertThat(value1.hashCode(), equalTo(value2.hashCode()));
+          
+          // unequal to null, unequal to value of wrong class
+          assertThat(value1, not(equalTo(null)));
+          assertThat(value1, not(equalTo(new Object())));
+        } else {
+          // commutative inequality
+          assertThat(value1, not(equalTo(value2)));
+          assertThat(value2, not(equalTo(value1)));
+        }
+      }
+    }
+  }
+  
   public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses) {
     try {
       DataSourceStatusProvider.Status status = statuses.poll(1, TimeUnit.SECONDS);

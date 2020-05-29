@@ -5,8 +5,12 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
+import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
@@ -23,6 +27,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -31,7 +38,8 @@ public class DiagnosticEventTest {
 
   private static Gson gson = new Gson();
   private static List<DiagnosticEvent.StreamInit> testStreamInits = Collections.singletonList(new DiagnosticEvent.StreamInit(1500, 100, true));
-
+  private static final URI CUSTOM_URI = URI.create("http://1.1.1.1");
+  
   @Test
   public void testSerialization() {
     DiagnosticId diagnosticId = new DiagnosticId("SDK_KEY");
@@ -115,62 +123,139 @@ public class DiagnosticEventTest {
   
   @Test
   public void testCustomDiagnosticConfigurationForStreaming() {
-    LDConfig ldConfig = new LDConfig.Builder()
+    LDConfig ldConfig1 = new LDConfig.Builder()
             .dataSource(
                 Components.streamingDataSource()
-                  .baseURI(URI.create("https://1.1.1.1"))
-                  .pollingBaseURI(URI.create("https://1.1.1.1"))
+                  .baseURI(CUSTOM_URI)
+                  .pollingBaseURI(CUSTOM_URI)
                   .initialReconnectDelay(Duration.ofSeconds(2))
                 )
             .build();
-
-    LDValue diagnosticJson = makeConfigData(ldConfig);
-    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
+    LDValue expected1 = expectedDefaultPropertiesWithoutStreaming()
         .put("customBaseURI", true)
         .put("customStreamURI", true)
         .put("reconnectTimeMillis", 2_000)
         .build();
+    assertEquals(expected1, makeConfigData(ldConfig1));
+    
+    LDConfig ldConfig2 = new LDConfig.Builder()
+        .dataSource(Components.streamingDataSource()) // no custom base URIs
+        .build();
+    LDValue expected2 = expectedDefaultProperties().build();
+    assertEquals(expected2, makeConfigData(ldConfig2));
 
-    assertEquals(expected, diagnosticJson);
+    LDConfig ldConfig3 = new LDConfig.Builder()
+        .dataSource(Components.streamingDataSource().baseURI(LDConfig.DEFAULT_STREAM_URI)) // set a URI, but not a custom one
+        .build();
+    LDValue expected3 = expectedDefaultProperties().build();
+    assertEquals(expected3, makeConfigData(ldConfig3));
+    
+    LDConfig ldConfig4 = new LDConfig.Builder()
+        .dataSource(Components.streamingDataSource().pollingBaseURI(CUSTOM_URI))
+        .build();
+    LDValue expected4 = expectedDefaultProperties()
+        .put("customBaseURI", true)
+        .build();
+    assertEquals(expected4, makeConfigData(ldConfig4));
+
+    LDConfig ldConfig5 = new LDConfig.Builder()
+        .dataSource(Components.streamingDataSource().pollingBaseURI(LDConfig.DEFAULT_BASE_URI))
+        .build();
+    LDValue expected5 = expectedDefaultProperties().build();
+    assertEquals(expected5, makeConfigData(ldConfig5));
+
+    LDConfig ldConfig6 = new LDConfig.Builder()
+        .dataSource(Components.streamingDataSource().baseURI(CUSTOM_URI))
+        .build();
+    LDValue expected6 = expectedDefaultProperties()
+        .put("customBaseURI", true)
+        .put("customStreamURI", true)
+        .build();
+    assertEquals(expected6, makeConfigData(ldConfig6));
   }
 
   @Test
   public void testCustomDiagnosticConfigurationForPolling() {
-    LDConfig ldConfig = new LDConfig.Builder()
+    LDConfig ldConfig1 = new LDConfig.Builder()
             .dataSource(
                 Components.pollingDataSource()
-                  .baseURI(URI.create("https://1.1.1.1"))
+                  .baseURI(CUSTOM_URI)
                   .pollInterval(Duration.ofSeconds(60))
                 )
             .build();
-
-    LDValue diagnosticJson = makeConfigData(ldConfig);
-    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
+    LDValue expected1 = expectedDefaultPropertiesWithoutStreaming()
         .put("customBaseURI", true)
         .put("pollingIntervalMillis", 60_000)
         .put("streamingDisabled", true)
         .build();
+    assertEquals(expected1,  makeConfigData(ldConfig1));
 
-    assertEquals(expected, diagnosticJson);
+    LDConfig ldConfig2 = new LDConfig.Builder()
+        .dataSource(Components.pollingDataSource()) // no custom base URI
+        .build();
+    LDValue expected2 = expectedDefaultPropertiesWithoutStreaming()
+        .put("pollingIntervalMillis", PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL.toMillis())
+        .put("streamingDisabled", true)
+        .build();
+    assertEquals(expected2, makeConfigData(ldConfig2));
+
+    LDConfig ldConfig3 = new LDConfig.Builder()
+        .dataSource(Components.pollingDataSource().baseURI(LDConfig.DEFAULT_BASE_URI)) // set a URI, but not a custom one
+        .build();
+    assertEquals(expected2, makeConfigData(ldConfig3)); // result is same as previous test case
+  }
+
+  @Test
+  public void testCustomDiagnosticConfigurationForCustomDataStore() {
+    LDConfig ldConfig1 = new LDConfig.Builder()
+        .dataStore(new DataStoreFactoryWithDiagnosticDescription(LDValue.of("my-test-store")))
+        .build();
+    LDValue expected1 = expectedDefaultProperties().put("dataStoreType", "my-test-store").build();
+    assertEquals(expected1, makeConfigData(ldConfig1));
+
+    LDConfig ldConfig2 = new LDConfig.Builder()
+        .dataStore(new DataStoreFactoryWithoutDiagnosticDescription())
+        .build();
+    LDValue expected2 = expectedDefaultProperties().put("dataStoreType", "custom").build();
+    assertEquals(expected2, makeConfigData(ldConfig2));
+
+    LDConfig ldConfig3 = new LDConfig.Builder()
+        .dataStore(new DataStoreFactoryWithDiagnosticDescription(null))
+        .build();
+    LDValue expected3 = expectedDefaultProperties().put("dataStoreType", "custom").build();
+    assertEquals(expected3, makeConfigData(ldConfig3));
+
+    LDConfig ldConfig4 = new LDConfig.Builder()
+        .dataStore(new DataStoreFactoryWithDiagnosticDescription(LDValue.of(4)))
+        .build();
+    LDValue expected4 = expectedDefaultProperties().put("dataStoreType", "custom").build();
+    assertEquals(expected4, makeConfigData(ldConfig4));
   }
 
   @Test
   public void testCustomDiagnosticConfigurationForPersistentDataStore() {
-    LDConfig ldConfig = new LDConfig.Builder()
+    LDConfig ldConfig1 = new LDConfig.Builder()
         .dataStore(Components.persistentDataStore(new PersistentDataStoreFactoryWithComponentName()))
         .build();
 
-    LDValue diagnosticJson = makeConfigData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
-        .put("dataStoreType", "my-test-store")
+    LDValue diagnosticJson1 = makeConfigData(ldConfig1);
+    LDValue expected1 = expectedDefaultProperties().put("dataStoreType", "my-test-store").build();
+
+    assertEquals(expected1, diagnosticJson1);
+
+    LDConfig ldConfig2 = new LDConfig.Builder()
+        .dataStore(Components.persistentDataStore(new PersistentDataStoreFactoryWithoutComponentName()))
         .build();
 
-    assertEquals(expected, diagnosticJson);
+    LDValue diagnosticJson2 = makeConfigData(ldConfig2);
+    LDValue expected2 = expectedDefaultProperties().put("dataStoreType", "custom").build();
+
+    assertEquals(expected2, diagnosticJson2);
   }
 
   @Test
   public void testCustomDiagnosticConfigurationForEvents() {
-    LDConfig ldConfig = new LDConfig.Builder()
+    LDConfig ldConfig1 = new LDConfig.Builder()
           .events(
               Components.sendEvents()
                 .allAttributesPrivate(true)
@@ -184,8 +269,8 @@ public class DiagnosticEventTest {
               )
           .build();
 
-    LDValue diagnosticJson = makeConfigData(ldConfig);
-    LDValue expected = expectedDefaultProperties()
+    LDValue diagnosticJson1 = makeConfigData(ldConfig1);
+    LDValue expected1 = expectedDefaultProperties()
         .put("allAttributesPrivate", true)
         .put("customEventsURI", true)
         .put("diagnosticRecordingIntervalMillis", 1_800_000)
@@ -196,19 +281,32 @@ public class DiagnosticEventTest {
         .put("userKeysFlushIntervalMillis", 600_000)
         .build();
 
-    assertEquals(expected, diagnosticJson);
-  }
+    assertEquals(expected1, diagnosticJson1);
+    
+    LDConfig ldConfig2 = new LDConfig.Builder()
+        .events(Components.sendEvents()) // no custom base URI
+        .build();
+    
+    LDValue diagnosticJson2 = makeConfigData(ldConfig2);
+    LDValue expected2 = expectedDefaultProperties().build();
+    
+    assertEquals(expected2, diagnosticJson2);
+
+    LDConfig ldConfig3 = new LDConfig.Builder()
+        .events(Components.sendEvents().baseURI(LDConfig.DEFAULT_EVENTS_URI)) // set a base URI, but not a custom one
+        .build();
+    
+    assertEquals(expected2, makeConfigData(ldConfig3)); // result is same as previous test case
+}
 
   @Test
   public void testCustomDiagnosticConfigurationForDaemonMode() {
     LDConfig ldConfig = new LDConfig.Builder()
             .dataSource(Components.externalUpdatesOnly())
-            .dataStore(new DataStoreFactoryWithComponentName())
             .build();
 
     LDValue diagnosticJson = makeConfigData(ldConfig);
     LDValue expected = expectedDefaultPropertiesWithoutStreaming()
-        .put("dataStoreType", "my-test-store")
         .put("usingRelayDaemon", true)
         .build();
 
@@ -238,12 +336,90 @@ public class DiagnosticEventTest {
     assertEquals(expected, diagnosticJson);
   }
   
-  private static class DataStoreFactoryWithComponentName implements DataStoreFactory, DiagnosticDescription {
+  @Test
+  public void customComponentCannotInjectUnsupportedConfigProperty() {
+    String unsupportedPropertyName = "fake";
+    LDValue description = LDValue.buildObject().put(unsupportedPropertyName, true).build();
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(new DataSourceFactoryWithDiagnosticDescription(description))
+        .build();
+    
+    LDValue diagnosticJson = makeConfigData(config);
+    
+    assertThat(diagnosticJson.keys(), not(hasItem(unsupportedPropertyName)));
+  }
+
+  @Test
+  public void customComponentCannotInjectSupportedConfigPropertyWithWrongType() {
+    LDValue description = LDValue.buildObject().put("streamingDisabled", 3).build();
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(new DataSourceFactoryWithDiagnosticDescription(description))
+        .build();
+    
+    LDValue diagnosticJson = makeConfigData(config);
+    
+    assertThat(diagnosticJson.keys(), not(hasItem("streamingDisabled")));
+  }
+
+  @Test
+  public void customComponentDescriptionOfUnsupportedTypeIsIgnored() {
+    LDConfig config1 = new LDConfig.Builder()
+        .dataSource(new DataSourceFactoryWithDiagnosticDescription(LDValue.of(3)))
+        .build();
+    LDConfig config2 = new LDConfig.Builder()
+        .dataSource(new DataSourceFactoryWithoutDiagnosticDescription())
+        .build();
+    
+    LDValue diagnosticJson1 = makeConfigData(config1);
+    LDValue diagnosticJson2 = makeConfigData(config2);
+    
+    assertEquals(diagnosticJson1, diagnosticJson2);
+  }
+
+  private static class DataSourceFactoryWithDiagnosticDescription implements DataSourceFactory, DiagnosticDescription {
+    private final LDValue value;
+    
+    DataSourceFactoryWithDiagnosticDescription(LDValue value) {
+      this.value = value;
+    }
+    
     @Override
     public LDValue describeConfiguration(BasicConfiguration basicConfig) {
-      return LDValue.of("my-test-store");
+      return value;
     }
 
+    @Override
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+      return null;
+    }
+  }
+
+  private static class DataSourceFactoryWithoutDiagnosticDescription implements DataSourceFactory {
+    @Override
+    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+      return null;
+    }
+  }
+
+  private static class DataStoreFactoryWithDiagnosticDescription implements DataStoreFactory, DiagnosticDescription {
+    private final LDValue value;
+    
+    DataStoreFactoryWithDiagnosticDescription(LDValue value) {
+      this.value = value;
+    }
+    
+    @Override
+    public LDValue describeConfiguration(BasicConfiguration basicConfig) {
+      return value;
+    }
+
+    @Override
+    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+      return null;
+    }
+  }
+
+  private static class DataStoreFactoryWithoutDiagnosticDescription implements DataStoreFactory {
     @Override
     public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
       return null;
@@ -256,6 +432,13 @@ public class DiagnosticEventTest {
       return LDValue.of("my-test-store");
     }
 
+    @Override
+    public PersistentDataStore createPersistentDataStore(ClientContext context) {
+      return null;
+    }
+  }
+  
+  private static class PersistentDataStoreFactoryWithoutComponentName implements PersistentDataStoreFactory {
     @Override
     public PersistentDataStore createPersistentDataStore(ClientContext context) {
       return null;

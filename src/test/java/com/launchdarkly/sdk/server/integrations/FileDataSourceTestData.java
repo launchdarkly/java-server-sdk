@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.LDValue;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -42,5 +43,56 @@ public class FileDataSourceTestData {
   
   public static String getResourceContents(String filename) throws Exception {
     return new String(Files.readAllBytes(resourceFilePath(filename)));
+  }
+
+  // These helpers ensure that we clean up all temporary files, and also that we only create temporary
+  // files within our own temporary directories - since creating a file within a shared system temp
+  // directory might mean there are thousands of other files there, which could be a problem if the
+  // filesystem watcher implementation has to traverse the directory.
+  
+  static class TempDir implements AutoCloseable {
+    final Path path;
+    
+    private TempDir(Path path) {
+      this.path = path;
+    }
+    
+    public void close() throws IOException {
+      Files.delete(path);
+    }
+    
+    public static TempDir create() throws IOException {
+      return new TempDir(Files.createTempDirectory("java-sdk-tests"));
+    }
+    
+    public TempFile tempFile(String suffix) throws IOException {
+      return new TempFile(Files.createTempFile(path, "java-sdk-tests", suffix));
+    }
+  }
+  
+  // These helpers ensure that we clean up all temporary files, and also that we only create temporary
+  // files within our own temporary directories - since creating a file within a shared system temp
+  // directory might mean there are thousands of other files there, which could be a problem if the
+  // filesystem watcher implementation has to traverse the directory.
+  
+  static class TempFile implements AutoCloseable {
+    final Path path;
+    
+    private TempFile(Path path) {
+      this.path = path;
+    }
+  
+    @Override
+    public void close() throws IOException {
+      delete();
+    }
+    
+    public void delete() throws IOException {
+      Files.delete(path);
+    }
+    
+    public void setContents(String content) throws IOException {
+      Files.write(path, content.getBytes("UTF-8"));
+    }
   }
 }

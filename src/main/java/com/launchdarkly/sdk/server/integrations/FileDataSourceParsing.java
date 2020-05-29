@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
@@ -21,6 +22,8 @@ import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 
 abstract class FileDataSourceParsing {
+  private FileDataSourceParsing() {}
+  
   /**
    * Indicates that the file processor encountered an error in one of the input files. This exception is
    * not surfaced to the host application, it is only logged, and we don't do anything different programmatically
@@ -39,21 +42,13 @@ abstract class FileDataSourceParsing {
       this(message, cause, null);
     }
   
-    public Path getFilePath() {
-      return filePath;
-    }
-    
     public String getDescription() {
       StringBuilder s = new StringBuilder();
       if (getMessage() != null) {
         s.append(getMessage());
-        if (getCause() != null) {
-          s.append(" ");
-        }
+        s.append(" ");
       }
-      if (getCause() != null) {
-        s.append(" [").append(getCause().toString()).append("]");
-      }
+      s.append("[").append(getCause().toString()).append("]");
       if (filePath != null) {
         s.append(": ").append(filePath);
       }
@@ -71,12 +66,6 @@ abstract class FileDataSourceParsing {
     Map<String, LDValue> segments;
     
     FlagFileRep() {}
-  
-    FlagFileRep(Map<String, LDValue> flags, Map<String, LDValue> flagValues, Map<String, LDValue> segments) {
-      this.flags = flags;
-      this.flagValues = flagValues;
-      this.segments = segments;
-    }
   }
 
   static abstract class FlagFileParser {
@@ -105,6 +94,7 @@ abstract class FileDataSourceParsing {
             return false;
           }
         } catch (IOException e) {
+          // COVERAGE: there is no way to simulate this condition in a unit test
           return false;
         }
       }
@@ -127,6 +117,7 @@ abstract class FileDataSourceParsing {
       try {
         return gson.fromJson(tree, FlagFileRep.class);
       } catch (JsonSyntaxException e) {
+        // COVERAGE: there is no way to simulate this condition in a unit test
         throw new FileDataException("cannot parse JSON", e);
       }    
     }
@@ -169,7 +160,7 @@ abstract class FileDataSourceParsing {
       } catch (YAMLException e) {
         throw new FileDataException("unable to parse YAML", e);
       }
-      JsonElement jsonRoot = gson.toJsonTree(root);
+      JsonElement jsonRoot = root == null ? new JsonObject() : gson.toJsonTree(root);
       return jsonFileParser.parseJson(jsonRoot);
     }
   }
@@ -182,7 +173,9 @@ abstract class FileDataSourceParsing {
    * if we want to construct a flag from scratch, we can't use the constructor but instead must
    * build some JSON and then parse that.
    */
-  static final class FlagFactory {
+  static abstract class FlagFactory {
+    private FlagFactory() {}
+    
     static ItemDescriptor flagFromJson(String jsonString) {
       return FEATURES.deserialize(jsonString);
     }

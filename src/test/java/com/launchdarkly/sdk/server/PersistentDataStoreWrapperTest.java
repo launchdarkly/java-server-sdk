@@ -37,6 +37,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeThat;
 
@@ -494,17 +495,20 @@ public class PersistentDataStoreWrapperTest {
   
   @Test
   public void canGetCacheStats() throws Exception {
-    assumeThat(testMode.isCachedWithFiniteTtl(), is(true));
-    
     try (PersistentDataStoreWrapper w = new PersistentDataStoreWrapper(
         core,
-        Duration.ofSeconds(30),
+        testMode.getCacheTtl(),
         PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
         true,
         this::updateStatus,
         sharedExecutor
         )) {
       CacheStats stats = w.getCacheStats();
+      
+      if (!testMode.isCached()) {
+        assertNull(stats);
+        return;
+      }
       
       assertThat(stats, equalTo(new CacheStats(0, 0, 0, 0, 0, 0)));
       
@@ -544,7 +548,7 @@ public class PersistentDataStoreWrapperTest {
   
   @Test
   public void statusIsOkInitially() throws Exception {
-    DataStoreStatusProvider.Status status = dataStoreStatusProvider.getStoreStatus();
+    DataStoreStatusProvider.Status status = dataStoreStatusProvider.getStatus();
     assertThat(status.isAvailable(), is(true));
     assertThat(status.isRefreshNeeded(), is(false));
   }
@@ -553,7 +557,7 @@ public class PersistentDataStoreWrapperTest {
   public void statusIsUnavailableAfterError() throws Exception {
     causeStoreError(core, wrapper);
     
-    DataStoreStatusProvider.Status status = dataStoreStatusProvider.getStoreStatus();
+    DataStoreStatusProvider.Status status = dataStoreStatusProvider.getStatus();
     assertThat(status.isAvailable(), is(false));
     assertThat(status.isRefreshNeeded(), is(false));
   }
