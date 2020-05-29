@@ -122,7 +122,8 @@ public class TestComponents {
   }
 
   public static class TestEventProcessor implements EventProcessor {
-    List<Event> events = new ArrayList<>();
+    volatile List<Event> events = new ArrayList<>();
+    volatile int flushCount;
   
     @Override
     public void close() throws IOException {}
@@ -133,7 +134,9 @@ public class TestComponents {
     }
   
     @Override
-    public void flush() {}
+    public void flush() {
+      flushCount++;
+    }
   }
 
   public static class DataSourceFactoryThatExposesUpdater implements DataSourceFactory {

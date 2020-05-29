@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 
@@ -23,6 +24,14 @@ import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
  */
 class Evaluator {
   private final static Logger logger = Loggers.EVALUATION;
+
+  /**
+   * This key cannot exist in LaunchDarkly because it contains invalid characters. We use it in tests as a way to
+   * simulate an unexpected RuntimeException during flag evaluations. We check for it by reference equality, so
+   * the tests must use this exact constant.
+   */
+  static final String INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION = "$ test error flag $";
+  static final RuntimeException EXPECTED_EXCEPTION_FROM_INVALID_FLAG = new RuntimeException("deliberate test error");
   
   private final Getters getters;
   
@@ -107,9 +116,13 @@ class Evaluator {
    * @param flag an existing feature flag; any other referenced flags or segments will be queried via {@link Getters}
    * @param user the user to evaluate against
    * @param eventFactory produces feature request events
-   * @return an {@link EvalResult}
+   * @return an {@link EvalResult} - guaranteed non-null
    */
   EvalResult evaluate(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory) {
+    if (flag.getKey() == INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION) {
+      throw EXPECTED_EXCEPTION_FROM_INVALID_FLAG;
+    }
+    
     if (user == null || user.getKey() == null) {
       // this should have been prevented by LDClient.evaluateInternal
       logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", flag.getKey());
@@ -172,9 +185,10 @@ class Evaluator {
         EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, user, eventFactory, eventsOut);
         // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
         // off variation was. But we still need to evaluate it in order to generate an event.
-        if (!prereqFeatureFlag.isOn() || prereqEvalResult == null || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
+        if (!prereqFeatureFlag.isOn() || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
           prereqOk = false;
         }
+        // COVERAGE: currently eventsOut is never null because we preallocate the list in evaluate() if there are any prereqs
         if (eventsOut != null) {
           eventsOut.add(eventFactory.newPrerequisiteFeatureRequestEvent(prereqFeatureFlag, user, prereqEvalResult, flag));
         }
@@ -270,11 +284,26 @@ class Evaluator {
     return false;
   }
   
-  private boolean clauseMatchAny(DataModel.Clause clause, LDValue userValue) {
+  static boolean clauseMatchAny(DataModel.Clause clause, LDValue userValue) {
     DataModel.Operator op = clause.getOp();
     if (op != null) {
-      for (LDValue v : clause.getValues()) {
-        if (EvaluatorOperators.apply(op, userValue, v)) {
+      EvaluatorPreprocessing.ClauseExtra preprocessed = clause.getPreprocessed();
+      if (op == DataModel.Operator.in) {
+        // see if we have precomputed a Set for fast equality matching
+        Set<LDValue> vs = preprocessed == null ? null : preprocessed.valuesSet;
+        if (vs != null) {
+          return vs.contains(userValue);
+        }
+      }
+      List<LDValue> values = clause.getValues();
+      List<EvaluatorPreprocessing.ClauseExtra.ValueExtra> preprocessedValues =
+          preprocessed == null ? null : preprocessed.valuesExtra;
+      int n = values.size();
+      for (int i = 0; i < n; i++) {
+        // the preprocessed list, if present, will always have the same size as the values list
+        EvaluatorPreprocessing.ClauseExtra.ValueExtra p = preprocessedValues == null ? null : preprocessedValues.get(i);
+        LDValue v = values.get(i);
+        if (EvaluatorOperators.apply(op, userValue, v, p)) {
           return true;
         }
       }
@@ -287,10 +316,7 @@ class Evaluator {
   }
   
   private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
-    String userKey = user.getKey();
-    if (userKey == null) {
-      return false;
-    }
+    String userKey = user.getKey(); // we've already verified that the key is non-null at the top of evaluate()
     if (segment.getIncluded().contains(userKey)) { // getIncluded(), getExcluded(), and getRules() are guaranteed non-null
       return true;
     }

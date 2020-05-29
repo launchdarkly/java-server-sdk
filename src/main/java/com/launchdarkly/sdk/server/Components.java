@@ -141,6 +141,12 @@ public abstract class Components {
     return NULL_EVENT_PROCESSOR_FACTORY;
   }
 
+  // package-private method for verifying that the given EventProcessorFactory is the same kind that is
+  // returned by noEvents() - we can use reference equality here because we know we're using a static instance
+  static boolean isNullImplementation(EventProcessorFactory f) {
+    return f == NULL_EVENT_PROCESSOR_FACTORY;
+  }
+  
   /**
    * Returns a configurable factory for using streaming mode to get feature flag data.
    * <p>

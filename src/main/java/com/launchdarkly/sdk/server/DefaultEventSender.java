@@ -41,7 +41,7 @@ final class DefaultEventSender implements EventSender {
 
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
-  private final Duration retryDelay;
+  final Duration retryDelay; // visible for testing
 
   DefaultEventSender(
       String sdkKey,
@@ -66,6 +66,11 @@ final class DefaultEventSender implements EventSender {
 
   @Override
   public Result sendEventData(EventDataKind kind, String data, int eventCount, URI eventsBaseUri) {
+    if (data == null || data.isEmpty()) {
+      // DefaultEventProcessor won't normally pass us an empty payload, but if it does, don't bother sending
+      return new Result(true, false, null);
+    }
+    
     Headers.Builder headersBuilder = baseHeaders.newBuilder();
     String path;
     String description;
@@ -83,7 +88,7 @@ final class DefaultEventSender implements EventSender {
       description = "diagnostic event";
       break;
     default:
-      throw new IllegalArgumentException("kind");
+      throw new IllegalArgumentException("kind"); // COVERAGE: unreachable code, those are the only enum values
     }
     
     URI uri = eventsBaseUri.resolve(eventsBaseUri.getPath().endsWith("/") ? path : ("/" + path));
@@ -98,7 +103,7 @@ final class DefaultEventSender implements EventSender {
         logger.warn("Will retry posting {} after {}", description, describeDuration(retryDelay));
         try {
           Thread.sleep(retryDelay.toMillis());
-        } catch (InterruptedException e) {
+        } catch (InterruptedException e) { // COVERAGE: there's no way to cause this in tests
         }
       }
 

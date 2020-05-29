@@ -5,7 +5,6 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import org.junit.Test;
 
@@ -76,17 +75,6 @@ public class LDClientOfflineTest {
       FeatureFlagsState state = client.allFlagsState(user);
       assertTrue(state.isValid());
       assertEquals(ImmutableMap.<String, LDValue>of("key", LDValue.of(true)), state.toValuesMap());
-    }
-  }
-  
-  @Test
-  public void testSecureModeHash() throws IOException {
-    LDConfig config = new LDConfig.Builder()
-            .offline(true)
-            .build();
-    try (LDClientInterface client = new LDClient("secret", config)) {
-      LDUser user = new LDUser.Builder("Message").build();
-      assertEquals("aa747c502a898200f9e4fa21bac68136f886a0e27aec70ba06daf2e2a5cb5597", client.secureModeHash(user));
     }
   }
 }

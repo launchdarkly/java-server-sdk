@@ -27,7 +27,6 @@ import org.apache.commons.codec.binary.Hex;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URL;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
@@ -37,8 +36,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -54,7 +51,6 @@ import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
  */
 public final class LDClient implements LDClientInterface {
   private static final String HMAC_ALGORITHM = "HmacSHA256";
-  static final String CLIENT_VERSION = getClientVersion();
 
   private final String sdkKey;
   private final boolean offline;
@@ -68,6 +64,8 @@ public final class LDClient implements LDClientInterface {
   private final FlagTrackerImpl flagTracker;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeBroadcaster;
   private final ScheduledExecutorService sharedExecutor;
+  private final EventFactory eventFactoryDefault;
+  private final EventFactory eventFactoryWithReasons;
   
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration.
@@ -92,6 +90,8 @@ public final class LDClient implements LDClientInterface {
    * @see LDClient#LDClient(String, LDConfig)
    */
   public LDClient(String sdkKey) {
+    // COVERAGE: this constructor cannot be called in unit tests because it uses the default base
+    // URI and will attempt to make a live connection to LaunchDarkly.
     this(sdkKey, LDConfig.DEFAULT);
   }
 
@@ -153,7 +153,15 @@ public final class LDClient implements LDClientInterface {
     
     final EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
         Components.sendEvents() : config.eventProcessorFactory;
-
+    boolean eventsDisabled = Components.isNullImplementation(epFactory);
+    if (eventsDisabled) {
+      this.eventFactoryDefault = EventFactory.Disabled.INSTANCE;
+      this.eventFactoryWithReasons = EventFactory.Disabled.INSTANCE;
+    } else {
+      this.eventFactoryDefault = EventFactory.DEFAULT;
+      this.eventFactoryWithReasons = EventFactory.DEFAULT_WITH_REASONS;
+    }
+    
     if (config.httpConfig.getProxy() != null) {
       if (config.httpConfig.getProxyAuthentication() != null) {
         Loggers.MAIN.info("Using proxy: {} with authentication.", config.httpConfig.getProxy());
@@ -247,7 +255,7 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       Loggers.MAIN.warn("Track called with null user or null user key!");
     } else {
-      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, null));
+      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, null));
     }
   }
 
@@ -256,7 +264,7 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       Loggers.MAIN.warn("Track called with null user or null user key!");
     } else {
-      eventProcessor.sendEvent(EventFactory.DEFAULT.newCustomEvent(eventName, user, data, metricValue));
+      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, metricValue));
     }
   }
 
@@ -265,14 +273,16 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null) {
       Loggers.MAIN.warn("Identify called with null user or null user key!");
     } else {
-      eventProcessor.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      eventProcessor.sendEvent(eventFactoryDefault.newIdentifyEvent(user));
     }
   }
 
   private void sendFlagRequestEvent(Event.FeatureRequest event) {
-    eventProcessor.sendEvent(event);
+    if (event != null) {
+      eventProcessor.sendEvent(event);
+    }
   }
-
+  
   @Override
   public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
     FeatureFlagsState.Builder builder = new FeatureFlagsState.Builder(options);
@@ -296,7 +306,15 @@ public final class LDClient implements LDClientInterface {
     }
 
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
-    KeyedItems<ItemDescriptor> flags = dataStore.getAll(FEATURES);
+    KeyedItems<ItemDescriptor> flags;
+    try {
+      flags = dataStore.getAll(FEATURES);
+    } catch (Exception e) {
+      Loggers.EVALUATION.error("Exception from data store when evaluating all flags: {}", e.toString());
+      Loggers.EVALUATION.debug(e.toString(), e);
+      return builder.valid(false).build();
+    }
+    
     for (Map.Entry<String, ItemDescriptor> entry : flags.getItems()) {
       if (entry.getValue().getItem() == null) {
         continue; // deleted flag placeholder
@@ -306,7 +324,7 @@ public final class LDClient implements LDClientInterface {
         continue;
       }
       try {
-        Evaluator.EvalResult result = evaluator.evaluate(flag, user, EventFactory.DEFAULT);
+        Evaluator.EvalResult result = evaluator.evaluate(flag, user, eventFactoryDefault);
         builder.addFlag(flag, result);
       } catch (Exception e) {
         Loggers.EVALUATION.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
@@ -323,12 +341,12 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public Integer intVariation(String featureKey, LDUser user, int defaultValue) {
+  public int intVariation(String featureKey, LDUser user, int defaultValue) {
     return evaluate(featureKey, user, LDValue.of(defaultValue), true).intValue();
   }
 
   @Override
-  public Double doubleVariation(String featureKey, LDUser user, Double defaultValue) {
+  public double doubleVariation(String featureKey, LDUser user, double defaultValue) {
     return evaluate(featureKey, user, LDValue.of(defaultValue), true).doubleValue();
   }
 
@@ -345,7 +363,7 @@ public final class LDClient implements LDClientInterface {
   @Override
   public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue) {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-         EventFactory.DEFAULT_WITH_REASONS);
+        eventFactoryWithReasons);
      return EvaluationDetail.fromValue(result.getValue().booleanValue(),
          result.getVariationIndex(), result.getReason());
   }
@@ -353,7 +371,7 @@ public final class LDClient implements LDClientInterface {
   @Override
   public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue) {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-         EventFactory.DEFAULT_WITH_REASONS);
+        eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().intValue(),
         result.getVariationIndex(), result.getReason());
   }
@@ -361,7 +379,7 @@ public final class LDClient implements LDClientInterface {
   @Override
   public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue) {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-         EventFactory.DEFAULT_WITH_REASONS);
+        eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().doubleValue(),
         result.getVariationIndex(), result.getReason());
   }
@@ -369,14 +387,14 @@ public final class LDClient implements LDClientInterface {
   @Override
   public EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue) {
     Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-         EventFactory.DEFAULT_WITH_REASONS);
+        eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().stringValue(),
         result.getVariationIndex(), result.getReason());
   }
 
   @Override
   public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue), false, EventFactory.DEFAULT_WITH_REASONS);
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue), false, eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue(), result.getVariationIndex(), result.getReason());
   }
   
@@ -404,7 +422,7 @@ public final class LDClient implements LDClientInterface {
   }
 
   private LDValue evaluate(String featureKey, LDUser user, LDValue defaultValue, boolean checkType) {
-    return evaluateInternal(featureKey, user, defaultValue, checkType, EventFactory.DEFAULT).getValue();
+    return evaluateInternal(featureKey, user, defaultValue, checkType, eventFactoryDefault).getValue();
   }
   
   private Evaluator.EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {
@@ -518,6 +536,7 @@ public final class LDClient implements LDClientInterface {
       mac.init(new SecretKeySpec(sdkKey.getBytes(), HMAC_ALGORITHM));
       return Hex.encodeHexString(mac.doFinal(user.getKey().getBytes("UTF8")));
     } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
+      // COVERAGE: there is no way to cause these errors in a unit test.
       Loggers.MAIN.error("Could not generate secure mode hash: {}", e.toString());
       Loggers.MAIN.debug(e.toString(), e);
     }
@@ -530,7 +549,7 @@ public final class LDClient implements LDClientInterface {
    */
   @Override
   public String version() {
-    return CLIENT_VERSION;
+    return Version.SDK_VERSION;
   }
   
   // This executor is used for a variety of SDK tasks such as flag change events, checking the data store
@@ -545,28 +564,5 @@ public final class LDClient implements LDClientInterface {
         .setPriority(config.threadPriority)
         .build();
     return Executors.newSingleThreadScheduledExecutor(threadFactory);
-  }
-  
-  private static String getClientVersion() {
-    Class<?> clazz = LDConfig.class;
-    String className = clazz.getSimpleName() + ".class";
-    String classPath = clazz.getResource(className).toString();
-    if (!classPath.startsWith("jar")) {
-      // Class not from JAR
-      return "Unknown";
-    }
-    String manifestPath = classPath.substring(0, classPath.lastIndexOf("!") + 1) +
-        "/META-INF/MANIFEST.MF";
-    Manifest manifest = null;
-    try {
-      manifest = new Manifest(new URL(manifestPath).openStream());
-      Attributes attr = manifest.getMainAttributes();
-      String value = attr.getValue("Implementation-Version");
-      return value;
-    } catch (IOException e) {
-      Loggers.MAIN.warn("Unable to determine LaunchDarkly client library version: {}", e.toString());
-      Loggers.MAIN.debug(e.toString(), e);
-      return "Unknown";
-    }
   }
 }

@@ -10,10 +10,17 @@ import com.launchdarkly.sdk.json.SerializationException;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.EvaluationReason.ErrorKind.MALFORMED_FLAG;
+import static com.launchdarkly.sdk.server.FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS;
+import static com.launchdarkly.sdk.server.FlagsStateOption.WITH_REASONS;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 @SuppressWarnings("javadoc")
@@ -61,6 +68,28 @@ public class FeatureFlagsStateTest {
   }
 
   @Test
+  public void flagIsTreatedAsTrackedIfDebugEventsUntilDateIsInFuture() {
+    Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
+    DataModel.FeatureFlag flag = flagBuilder("key").debugEventsUntilDate(System.currentTimeMillis() + 1000000).build();
+    FeatureFlagsState state = new FeatureFlagsState.Builder(
+        FlagsStateOption.WITH_REASONS, DETAILS_ONLY_FOR_TRACKED_FLAGS
+        ).addFlag(flag, eval).build();
+    
+    assertNotNull(state.getFlagReason("key"));
+  }
+
+  @Test
+  public void flagIsNotTreatedAsTrackedIfDebugEventsUntilDateIsInPast() {
+    Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
+    DataModel.FeatureFlag flag = flagBuilder("key").debugEventsUntilDate(System.currentTimeMillis() - 1000000).build();
+    FeatureFlagsState state = new FeatureFlagsState.Builder(
+        FlagsStateOption.WITH_REASONS, DETAILS_ONLY_FOR_TRACKED_FLAGS
+        ).addFlag(flag, eval).build();
+    
+    assertNull(state.getFlagReason("key"));
+  }
+  
+  @Test
   public void flagCanHaveNullValue() {
     Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.ofNull(), 1, null);
     DataModel.FeatureFlag flag = flagBuilder("key").build();
@@ -80,6 +109,76 @@ public class FeatureFlagsStateTest {
     
     ImmutableMap<String, LDValue> expected = ImmutableMap.<String, LDValue>of("key1", LDValue.of("value1"), "key2", LDValue.of("value2"));
     assertEquals(expected, state.toValuesMap());
+  }
+  
+  @Test
+  public void equalInstancesAreEqual() {
+    DataModel.FeatureFlag flag1 = flagBuilder("key1").build();
+    DataModel.FeatureFlag flag2 = flagBuilder("key2").build();
+    Evaluator.EvalResult eval1a = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
+    Evaluator.EvalResult eval1b = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
+    Evaluator.EvalResult eval2a = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
+    Evaluator.EvalResult eval2b = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
+    Evaluator.EvalResult eval3a = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
+    
+    FeatureFlagsState justOneFlag = new FeatureFlagsState.Builder()
+        .addFlag(flag1, eval1a).build();
+    FeatureFlagsState sameFlagsDifferentInstances1 = new FeatureFlagsState.Builder(WITH_REASONS)
+        .addFlag(flag1, eval1a).addFlag(flag2, eval2a).build();
+    FeatureFlagsState sameFlagsDifferentInstances2 = new FeatureFlagsState.Builder(WITH_REASONS)
+        .addFlag(flag2, eval2b).addFlag(flag1, eval1b).build();
+    FeatureFlagsState sameFlagsDifferentMetadata = new FeatureFlagsState.Builder(WITH_REASONS)
+        .addFlag(flag1, eval3a).addFlag(flag2, eval2a).build();
+    FeatureFlagsState noFlagsButValid = new FeatureFlagsState.Builder(WITH_REASONS).build();
+    FeatureFlagsState noFlagsAndNotValid = new FeatureFlagsState.Builder(WITH_REASONS).valid(false).build();
+    
+    assertEquals(sameFlagsDifferentInstances1, sameFlagsDifferentInstances2);
+    assertEquals(sameFlagsDifferentInstances1.hashCode(), sameFlagsDifferentInstances2.hashCode());
+    assertNotEquals(justOneFlag, sameFlagsDifferentInstances1);
+    assertNotEquals(sameFlagsDifferentInstances1, sameFlagsDifferentMetadata);
+    
+    assertNotEquals(noFlagsButValid, noFlagsAndNotValid);
+    assertNotEquals(noFlagsButValid, "");
+  }
+  
+  @Test
+  public void equalMetadataInstancesAreEqual() {
+    // Testing this various cases is easier at a low level - equalInstancesAreEqual() above already
+    // verifies that we test for metadata equality in general
+    List<FeatureFlagsState.FlagMetadata> allPermutations = new ArrayList<>();
+    for (Integer variation: new Integer[] { null, 0, 1 }) {
+      for (EvaluationReason reason: new EvaluationReason[] { null, EvaluationReason.off(), EvaluationReason.fallthrough() }) {
+        for (Integer version: new Integer[] { null, 10, 11 }) {
+          for (boolean trackEvents: new boolean[] { false, true }) {
+            for (Long debugEventsUntilDate: new Long[] { null, 1000L, 1001L }) {
+              FeatureFlagsState.FlagMetadata m1 = new FeatureFlagsState.FlagMetadata(
+                  variation, reason, version, trackEvents, debugEventsUntilDate);
+              FeatureFlagsState.FlagMetadata m2 = new FeatureFlagsState.FlagMetadata(
+                  variation, reason, version, trackEvents, debugEventsUntilDate);
+              assertEquals(m1, m2);
+              assertEquals(m2, m1);
+              assertNotEquals(m1, null);
+              assertNotEquals(m1, "x");
+              allPermutations.add(m1);
+            }
+          }
+        }
+      }
+    }
+    for (int i = 0; i < allPermutations.size(); i++) {
+      for (int j = 0; j < allPermutations.size(); j++) {
+        if (i != j) {
+          assertNotEquals(allPermutations.get(i), allPermutations.get(j));
+        }
+      }
+    }
+  }
+  
+  @Test
+  public void optionsHaveHumanReadableNames() {
+    assertEquals("CLIENT_SIDE_ONLY", FlagsStateOption.CLIENT_SIDE_ONLY.toString());
+    assertEquals("WITH_REASONS", FlagsStateOption.WITH_REASONS.toString());
+    assertEquals("DETAILS_ONLY_FOR_TRACKED_FLAGS", FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS.toString());
   }
   
   @Test

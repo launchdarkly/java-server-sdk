@@ -117,6 +117,7 @@ final class DefaultEventProcessor implements EventProcessor {
   private void postMessageAndWait(MessageType type, Event event) {
     EventProcessorMessage message = new EventProcessorMessage(type, event, true);
     if (postToChannel(message)) {
+      // COVERAGE: There is no way to reliably cause this to fail in tests
       message.waitForCompletion();
     }
   }
@@ -131,6 +132,7 @@ final class DefaultEventProcessor implements EventProcessor {
     // of the app. To avoid that, we'll just drop the event. The log warning about this will only be shown once.
     boolean alreadyLogged = inputCapacityExceeded; // possible race between this and the next line, but it's of no real consequence - we'd just get an extra log line
     inputCapacityExceeded = true;
+    // COVERAGE: There is no way to reliably cause this condition in tests
     if (!alreadyLogged) {
       logger.warn("Events are being produced faster than they can be processed; some events will be dropped");
     }
@@ -164,7 +166,7 @@ final class DefaultEventProcessor implements EventProcessor {
     }
 
     void waitForCompletion() {
-      if (reply == null) {
+      if (reply == null) { // COVERAGE: there is no way to make this happen from test code
         return;
       }
       while (true) {
@@ -172,16 +174,17 @@ final class DefaultEventProcessor implements EventProcessor {
           reply.acquire();
           return;
         }
-        catch (InterruptedException ex) {
+        catch (InterruptedException ex) { // COVERAGE: there is no way to make this happen from test code.
         }
       }
     }
 
-    @Override
-    public String toString() { // for debugging only
-      return ((event == null) ? type.toString() : (type + ": " + event.getClass().getSimpleName())) +
-          (reply == null ? "" : " (sync)");
-    }
+// intentionally commented out so this doesn't affect coverage reports when we're not debugging
+//    @Override
+//    public String toString() { // for debugging only
+//      return ((event == null) ? type.toString() : (type + ": " + event.getClass().getSimpleName())) +
+//          (reply == null ? "" : " (sync)");
+//    }
   }
 
   /**
@@ -236,21 +239,21 @@ final class DefaultEventProcessor implements EventProcessor {
       });
       mainThread.setDaemon(true);
 
-      mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+      mainThread.setUncaughtExceptionHandler((Thread t, Throwable e) -> {
         // The thread's main loop catches all exceptions, so we'll only get here if an Error was thrown.
         // In that case, the application is probably already in a bad state, but we can try to degrade
         // relatively gracefully by performing an orderly shutdown of the event processor, so the
         // application won't end up blocking on a queue that's no longer being consumed.
-        public void uncaughtException(Thread t, Throwable e) {
-          logger.error("Event processor thread was terminated by an unrecoverable error. No more analytics events will be sent.", e);
-          // Flip the switch to prevent DefaultEventProcessor from putting any more messages on the queue
-          closed.set(true);
-          // Now discard everything that was on the queue, but also make sure no one was blocking on a message
-          List<EventProcessorMessage> messages = new ArrayList<EventProcessorMessage>();
-          inbox.drainTo(messages);
-          for (EventProcessorMessage m: messages) {
-            m.completed();
-          }
+        
+        // COVERAGE: there is no way to make this happen from test code.
+        logger.error("Event processor thread was terminated by an unrecoverable error. No more analytics events will be sent.", e);
+        // Flip the switch to prevent DefaultEventProcessor from putting any more messages on the queue
+        closed.set(true);
+        // Now discard everything that was on the queue, but also make sure no one was blocking on a message
+        List<EventProcessorMessage> messages = new ArrayList<EventProcessorMessage>();
+        inbox.drainTo(messages);
+        for (EventProcessorMessage m: messages) {
+          m.completed();
         }
       });
 
@@ -293,7 +296,7 @@ final class DefaultEventProcessor implements EventProcessor {
           batch.add(inbox.take()); // take() blocks until a message is available
           inbox.drainTo(batch, MESSAGE_BATCH_SIZE - 1); // this nonblocking call allows us to pick up more messages if available
           for (EventProcessorMessage message: batch) {
-            switch (message.type) {
+            switch (message.type) { // COVERAGE: adding a default branch does not prevent coverage warnings here due to compiler issues
             case EVENT:
               processEvent(message.event, userKeys, outbox);
               break;
@@ -317,7 +320,7 @@ final class DefaultEventProcessor implements EventProcessor {
             message.completed();
           }
         } catch (InterruptedException e) {
-        } catch (Exception e) {
+        } catch (Exception e) { // COVERAGE: there is no way to cause this condition in tests
           logger.error("Unexpected error in event processor: {}", e.toString());
           logger.debug(e.toString(), e);
         }
@@ -356,7 +359,7 @@ final class DefaultEventProcessor implements EventProcessor {
               busyFlushWorkersCount.wait();
             }
           }
-        } catch (InterruptedException e) {}
+        } catch (InterruptedException e) {} // COVERAGE: there is no way to cause this condition in tests
       }
     }
 
@@ -378,7 +381,7 @@ final class DefaultEventProcessor implements EventProcessor {
         Event.FeatureRequest fe = (Event.FeatureRequest)e;
         addFullEvent = fe.isTrackEvents();
         if (shouldDebugEvent(fe)) {
-          debugEvent = EventFactory.DEFAULT.newDebugEvent(fe);
+          debugEvent = EventFactory.newDebugEvent(fe);
         }
       } else {
         addFullEvent = true;
@@ -390,7 +393,9 @@ final class DefaultEventProcessor implements EventProcessor {
         LDUser user = e.getUser();
         if (user != null && user.getKey() != null) {
           boolean isIndexEvent = e instanceof Event.Identify;
-          boolean alreadySeen = noticeUser(user, userKeys);
+          String key = user.getKey();
+          // Add to the set of users we've noticed
+          boolean alreadySeen = (userKeys.put(key, key) != null);
           addIndexEvent = !isIndexEvent & !alreadySeen;
           if (!isIndexEvent & alreadySeen) {
             deduplicatedUsers++;
@@ -408,15 +413,6 @@ final class DefaultEventProcessor implements EventProcessor {
       if (debugEvent != null) {
         outbox.add(debugEvent);
       }
-    }
-
-    // Add to the set of users we've noticed, and return true if the user was already known to us.
-    private boolean noticeUser(LDUser user, SimpleLRUCache<String, String> userKeys) {
-      if (user == null || user.getKey() == null) {
-        return false;
-      }
-      String key = user.getKey();
-      return userKeys.put(key, key) != null;
     }
 
     private boolean shouldDebugEvent(Event.FeatureRequest fe) {
@@ -569,15 +565,13 @@ final class DefaultEventProcessor implements EventProcessor {
         try {
           StringWriter stringWriter = new StringWriter();
           int outputEventCount = formatter.writeOutputEvents(payload.events, payload.summary, stringWriter);
-          if (outputEventCount > 0) {
-            EventSender.Result result = eventsConfig.eventSender.sendEventData(
-                EventDataKind.ANALYTICS,
-                stringWriter.toString(),
-                outputEventCount,
-                eventsConfig.eventsUri
-                );
-            responseListener.handleResponse(result);
-          }
+          EventSender.Result result = eventsConfig.eventSender.sendEventData(
+              EventDataKind.ANALYTICS,
+              stringWriter.toString(),
+              outputEventCount,
+              eventsConfig.eventsUri
+              );
+          responseListener.handleResponse(result);
         } catch (Exception e) {
           logger.error("Unexpected error in event processor: {}", e.toString());
           logger.debug(e.toString(), e);

@@ -2,8 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.launchdarkly.sdk.server.LDClient;
-import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.DiagnosticEvent.Init.DiagnosticSdk;
 
 import org.junit.Test;
@@ -19,7 +17,7 @@ public class DiagnosticSdkTest {
   public void defaultFieldValues() {
     DiagnosticSdk diagnosticSdk = new DiagnosticSdk(new LDConfig.Builder().build());
     assertEquals("java-server-sdk", diagnosticSdk.name);
-    assertEquals(LDClient.CLIENT_VERSION, diagnosticSdk.version);
+    assertEquals(Version.SDK_VERSION, diagnosticSdk.version);
     assertNull(diagnosticSdk.wrapperName);
     assertNull(diagnosticSdk.wrapperVersion);
   }
@@ -31,7 +29,7 @@ public class DiagnosticSdkTest {
         .build();
     DiagnosticSdk diagnosticSdk = new DiagnosticSdk(config);
     assertEquals("java-server-sdk", diagnosticSdk.name);
-    assertEquals(LDClient.CLIENT_VERSION, diagnosticSdk.version);
+    assertEquals(Version.SDK_VERSION, diagnosticSdk.version);
     assertEquals(diagnosticSdk.wrapperName, "Scala");
     assertEquals(diagnosticSdk.wrapperVersion, "0.1.0");
   }
@@ -42,7 +40,7 @@ public class DiagnosticSdkTest {
     JsonObject jsonObject = gson.toJsonTree(diagnosticSdk).getAsJsonObject();
     assertEquals(2, jsonObject.size());
     assertEquals("java-server-sdk", jsonObject.getAsJsonPrimitive("name").getAsString());
-    assertEquals(LDClient.CLIENT_VERSION, jsonObject.getAsJsonPrimitive("version").getAsString());
+    assertEquals(Version.SDK_VERSION, jsonObject.getAsJsonPrimitive("version").getAsString());
   }
 
   @Test
@@ -54,7 +52,7 @@ public class DiagnosticSdkTest {
     JsonObject jsonObject = gson.toJsonTree(diagnosticSdk).getAsJsonObject();
     assertEquals(4, jsonObject.size());
     assertEquals("java-server-sdk", jsonObject.getAsJsonPrimitive("name").getAsString());
-    assertEquals(LDClient.CLIENT_VERSION, jsonObject.getAsJsonPrimitive("version").getAsString());
+    assertEquals(Version.SDK_VERSION, jsonObject.getAsJsonPrimitive("version").getAsString());
     assertEquals("Scala", jsonObject.getAsJsonPrimitive("wrapperName").getAsString());
     assertEquals("0.1.0", jsonObject.getAsJsonPrimitive("wrapperVersion").getAsString());
   }

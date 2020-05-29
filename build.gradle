@@ -17,6 +17,7 @@ plugins {
     id "java"
     id "java-library"
     id "checkstyle"
+    id "jacoco"
     id "signing"
     id "com.github.johnrengelman.shadow" version "5.2.0"
     id "maven-publish"
@@ -133,6 +134,15 @@ checkstyle {
     configFile file("${project.rootDir}/config/checkstyle/checkstyle.xml")
     configDir file("${project.rootDir}/config/checkstyle")
 }
+
+task generateJava(type: Copy) {
+    // This updates Version.java
+    from 'src/templates/java'
+    into "src/main/java"
+    filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [VERSION: version.toString()])
+}
+
+compileJava.dependsOn 'generateJava'
 
 jar {
     // thin classifier means that the non-shaded non-fat jar is still available
@@ -412,6 +422,14 @@ test {
         events "passed", "skipped", "failed", "standardOut", "standardError"
         showStandardStreams = true
         exceptionFormat = 'full'
+    }
+}
+
+jacocoTestReport { // code coverage report
+    reports {
+        xml.enabled
+        csv.enabled true
+        html.enabled true
     }
 }
 

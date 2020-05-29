@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Segment;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -102,7 +103,8 @@ public abstract class ModelBuilders {
     private boolean trackEventsFallthrough;
     private Long debugEventsUntilDate;
     private boolean deleted;
-  
+    private boolean disablePreprocessing = false;
+    
     private FlagBuilder(String key) {
       this.key = key;
     }
@@ -211,10 +213,17 @@ public abstract class ModelBuilders {
       return this;
     }
   
+    FlagBuilder disablePreprocessing(boolean disable) {
+      this.disablePreprocessing = disable;
+      return this;
+    }
+    
     DataModel.FeatureFlag build() {
       FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
           clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);
-      flag.afterDeserialized();
+      if (!disablePreprocessing) {
+        flag.afterDeserialized();
+      }
       return flag;
     }
   }
@@ -283,7 +292,9 @@ public abstract class ModelBuilders {
     }
     
     public DataModel.Segment build() {
-      return new DataModel.Segment(key, included, excluded, salt, rules, version, deleted);
+      Segment s = new DataModel.Segment(key, included, excluded, salt, rules, version, deleted);
+      s.afterDeserialized();
+      return s;
     }
     
     public SegmentBuilder included(String... included) {

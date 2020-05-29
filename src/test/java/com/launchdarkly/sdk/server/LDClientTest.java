@@ -5,9 +5,8 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
@@ -26,16 +25,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
+import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
 import static com.launchdarkly.sdk.server.TestComponents.failedDataSource;
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificDataSource;
 import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificEventProcessor;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
-import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.isA;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -44,8 +42,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
-import junit.framework.AssertionFailedError;
 
 /**
  * See also LDClientEvaluationTest, etc. This file contains mostly tests for the startup logic.
@@ -98,6 +94,7 @@ public class LDClientTest extends EasyMockSupport {
   public void clientHasDefaultEventProcessorWithDefaultConfig() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
+        .diagnosticOptOut(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
@@ -109,6 +106,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
         .events(Components.sendEvents())
+        .diagnosticOptOut(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
@@ -130,6 +128,7 @@ public class LDClientTest extends EasyMockSupport {
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.streamingDataSource().baseURI(URI.create("http://fake")))
+        .events(Components.noEvents())
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -141,6 +140,7 @@ public class LDClientTest extends EasyMockSupport {
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.pollingDataSource().baseURI(URI.create("http://fake")))
+        .events(Components.noEvents())
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -240,13 +240,28 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
-  public void willWaitForDataSourceIfWaitMillisIsNonZero() throws Exception {
+  public void willWaitForDataSourceIfWaitMillisIsGreaterThanZero() throws Exception {
     LDConfig.Builder config = new LDConfig.Builder()
         .startWait(Duration.ofMillis(10));
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(null);
     expect(dataSource.isInitialized()).andReturn(false).anyTimes();
+    replayAll();
+
+    client = createMockClient(config);
+    assertFalse(client.isInitialized());
+
+    verifyAll();
+  }
+
+  @Test
+  public void noWaitForDataSourceIfWaitMillisIsNegative() throws Exception {
+    LDConfig.Builder config = new LDConfig.Builder()
+        .startWait(Duration.ofMillis(-10));
+
+    expect(dataSource.start()).andReturn(initFuture);
+    expect(dataSource.isInitialized()).andReturn(false);
     replayAll();
 
     client = createMockClient(config);
@@ -355,34 +370,51 @@ public class LDClientTest extends EasyMockSupport {
   }
   
   @Test
-  public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
-    DataStore testDataStore = initedDataStore();
+  public void isFlagKnownCatchesExceptionFromDataStore() throws Exception {
+    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
     LDConfig.Builder config = new LDConfig.Builder()
-        .dataStore(specificDataStore(testDataStore))
-        .startWait(Duration.ZERO);
+        .startWait(Duration.ZERO)
+        .dataStore(specificDataStore(badStore));
     expect(dataSource.start()).andReturn(initFuture);
-    expect(dataSource.isInitialized()).andReturn(false);
-    expectEventsSent(1);
+    expect(dataSource.isInitialized()).andReturn(false).times(1);
     replayAll();
 
     client = createMockClient(config);
     
-    upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
-    assertEquals(new Integer(1), client.intVariation("key", new LDUser("user"), 0));
-    
-    verifyAll();
-  }
-
-  private void expectEventsSent(int count) {
-    eventProcessor.sendEvent(anyObject(Event.class));
-    if (count > 0) {
-      expectLastCall().times(count);
-    } else {
-      expectLastCall().andThrow(new AssertionFailedError("should not have queued an event")).anyTimes();
-    }
+    assertFalse(client.isFlagKnown("key"));
   }
   
-  private LDClientInterface createMockClient(LDConfig.Builder config) {
+  @Test
+  public void getVersion() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.noEvents())
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(Version.SDK_VERSION, client.version());
+    }
+  }
+
+  @Test
+  public void testSecureModeHash() throws IOException {
+    setupMockDataSourceToInitialize(true);
+    LDUser user = new LDUser.Builder("userkey").build();
+    String expectedHash = "c097a70924341660427c2e487b86efee789210f9e6dafc3b5f50e75bc596ff99";
+    
+    client = createMockClient(new LDConfig.Builder().startWait(Duration.ZERO));
+    assertEquals(expectedHash, client.secureModeHash(user));
+  
+    assertNull(client.secureModeHash(null));
+    assertNull(client.secureModeHash(new LDUser(null)));
+  }
+
+  private void setupMockDataSourceToInitialize(boolean willInitialize) {
+    expect(dataSource.start()).andReturn(initFuture);
+    expect(dataSource.isInitialized()).andReturn(willInitialize);
+    replayAll();
+  }
+  
+  private LDClient createMockClient(LDConfig.Builder config) {
     config.dataSource(specificDataSource(dataSource));
     config.events(specificEventProcessor(eventProcessor));
     return new LDClient(SDK_KEY, config.build());
