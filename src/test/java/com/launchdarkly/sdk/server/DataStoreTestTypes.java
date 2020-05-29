@@ -164,9 +164,9 @@ public class DataStoreTestTypes {
     public FullDataSet<ItemDescriptor> build() {
       return new FullDataSet<>(
           ImmutableMap.copyOf(
-            Maps.transformValues(data, itemsMap ->
-              new KeyedItems<>(ImmutableList.copyOf(itemsMap.entrySet()))
-            )).entrySet()
+              Maps.transformValues(data, itemsMap ->
+                new KeyedItems<>(ImmutableList.copyOf(itemsMap.entrySet()))
+              )).entrySet()
           );
     }
     
