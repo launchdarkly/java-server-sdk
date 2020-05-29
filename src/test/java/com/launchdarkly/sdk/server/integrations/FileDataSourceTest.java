@@ -9,7 +9,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStore;
 
 import org.junit.Test;
 
-import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -143,19 +143,18 @@ public class FileDataSourceTest {
   
   @Test
   public void modifiedFileIsNotReloadedIfAutoUpdateIsOff() throws Exception {
-    File file = makeTempFlagFile();
-    FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath());
-    try {
-      setFileContents(file, getResourceContents("flag-only.json"));
-      try (DataSource fp = makeDataSource(factory1)) {
-        fp.start();
-        setFileContents(file, getResourceContents("segment-only.json"));
-        Thread.sleep(400);
-        assertThat(toItemsMap(store.getAll(FEATURES)).size(), equalTo(1));
-        assertThat(toItemsMap(store.getAll(SEGMENTS)).size(), equalTo(0));
+    try (TempDir dir = TempDir.create()) {
+      try (TempFile file = dir.tempFile(".json")) {
+        file.setContents(getResourceContents("flag-only.json"));
+        FileDataSourceBuilder factory1 = makeFactoryWithFile(file.path);
+        try (DataSource fp = makeDataSource(factory1)) {
+          fp.start();
+          file.setContents(getResourceContents("segment-only.json"));
+          Thread.sleep(400);
+          assertThat(toItemsMap(store.getAll(FEATURES)).size(), equalTo(1));
+          assertThat(toItemsMap(store.getAll(SEGMENTS)).size(), equalTo(0));
+        } 
       }
-    } finally {
-      file.delete();
     }
   }
 
@@ -164,24 +163,24 @@ public class FileDataSourceTest {
   // to be extremely slow. See: https://stackoverflow.com/questions/9588737/is-java-7-watchservice-slow-for-anyone-else
   @Test
   public void modifiedFileIsReloadedIfAutoUpdateIsOn() throws Exception {
-    File file = makeTempFlagFile();
-    FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
-    try {
-      setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
-      try (DataSource fp = makeDataSource(factory1)) {
-        fp.start();
-        Thread.sleep(1000);
-        setFileContents(file, getResourceContents("all-properties.json"));  // this file has all the flags
-        repeatWithTimeout(Duration.ofSeconds(10), Duration.ofMillis(500), () -> {
-          if (toItemsMap(store.getAll(FEATURES)).size() == ALL_FLAG_KEYS.size()) {
-            // success - return a non-null value to make repeatWithTimeout end
-            return fp;
-          }
-          return null;
-        });
+    try (TempDir dir = TempDir.create()) {
+      try (TempFile file = dir.tempFile(".json")) {
+        System.out.println("dir = " + dir.path + ", file = " + file.path);
+        FileDataSourceBuilder factory1 = makeFactoryWithFile(file.path).autoUpdate(true);
+        file.setContents(getResourceContents("flag-only.json"));  // this file has 1 flag
+        try (DataSource fp = makeDataSource(factory1)) {
+          fp.start();
+          Thread.sleep(1000);
+          file.setContents(getResourceContents("all-properties.json"));  // this file has all the flags
+          repeatWithTimeout(Duration.ofSeconds(10), Duration.ofMillis(500), () -> {
+            if (toItemsMap(store.getAll(FEATURES)).size() == ALL_FLAG_KEYS.size()) {
+              // success - return a non-null value to make repeatWithTimeout end
+              return fp;
+            }
+            return null;
+          });
+        }
       }
-    } finally {
-      file.delete();
     }
   }
   
@@ -190,37 +189,74 @@ public class FileDataSourceTest {
     BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.register(statuses::add);
     
-    File file = makeTempFlagFile();
-    setFileContents(file, "not valid");
-    FileDataSourceBuilder factory1 = makeFactoryWithFile(file.toPath()).autoUpdate(true);
-    try {
-      try (DataSource fp = makeDataSource(factory1)) {
-        fp.start();
-        Thread.sleep(1000);
-        setFileContents(file, getResourceContents("flag-only.json"));  // this file has 1 flag
-        repeatWithTimeout(Duration.ofSeconds(10), Duration.ofMillis(500), () -> {
-          if (toItemsMap(store.getAll(FEATURES)).size() > 0) {
-            // success - status is now VALID, after having first been INITIALIZING - can still see that an error occurred
-            DataSourceStatusProvider.Status status = requireDataSourceStatusEventually(statuses,
-                DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.INITIALIZING);
-            assertNotNull(status.getLastError());
-            assertEquals(DataSourceStatusProvider.ErrorKind.INVALID_DATA, status.getLastError().getKind());
-
-            return status;
-          }
-          return null;
-        });
+    try (TempDir dir = TempDir.create()) {
+      try (TempFile file = dir.tempFile(".json")) {
+        file.setContents("not valid");
+        FileDataSourceBuilder factory1 = makeFactoryWithFile(file.path).autoUpdate(true);
+        try (DataSource fp = makeDataSource(factory1)) {
+          fp.start();
+          Thread.sleep(1000);
+          file.setContents(getResourceContents("flag-only.json"));  // this file has 1 flag
+          repeatWithTimeout(Duration.ofSeconds(10), Duration.ofMillis(500), () -> {
+            if (toItemsMap(store.getAll(FEATURES)).size() > 0) {
+              // success - status is now VALID, after having first been INITIALIZING - can still see that an error occurred
+              DataSourceStatusProvider.Status status = requireDataSourceStatusEventually(statuses,
+                  DataSourceStatusProvider.State.VALID, DataSourceStatusProvider.State.INITIALIZING);
+              assertNotNull(status.getLastError());
+              assertEquals(DataSourceStatusProvider.ErrorKind.INVALID_DATA, status.getLastError().getKind());
+  
+              return status;
+            }
+            return null;
+          });
+        }
       }
-    } finally {
-      file.delete();
     }
   }
   
-  private File makeTempFlagFile() throws Exception {
-    return File.createTempFile("flags", ".json");
+  // These helpers ensure that we clean up all temporary files, and also that we only create temporary
+  // files within our own temporary directories - since creating a file within a shared system temp
+  // directory might mean there are thousands of other files there, which could be a problem if the
+  // filesystem watcher implementation has to traverse the directory.
+  
+  private static class TempDir implements AutoCloseable {
+    final Path path;
+    
+    private TempDir(Path path) {
+      this.path = path;
+    }
+    
+    public void close() throws IOException {
+      Files.delete(path);
+    }
+    
+    public static TempDir create() throws IOException {
+      return new TempDir(Files.createTempDirectory("java-sdk-tests"));
+    }
+    
+    public TempFile tempFile(String suffix) throws IOException {
+      return new TempFile(Files.createTempFile(path, "java-sdk-tests", suffix));
+    }
   }
   
-  private void setFileContents(File file, String content) throws Exception {
-    Files.write(file.toPath(), content.getBytes("UTF-8"));
+  private static class TempFile implements AutoCloseable {
+    final Path path;
+    
+    private TempFile(Path path) {
+      this.path = path;
+    }
+
+    @Override
+    public void close() throws IOException {
+      delete();
+    }
+    
+    public void delete() throws IOException {
+      Files.delete(path);
+    }
+    
+    public void setContents(String content) throws IOException {
+      Files.write(path, content.getBytes("UTF-8"));
+    }
   }
 }

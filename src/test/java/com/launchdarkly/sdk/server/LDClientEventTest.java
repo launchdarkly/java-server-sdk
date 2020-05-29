@@ -493,6 +493,39 @@ public class LDClientEventTest {
     assertEquals(1, eventSink.flushCount);
   }
   
+  @Test
+  public void identifyWithEventsDisabledDoesNotCauseError() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .events(Components.noEvents())
+        .dataSource(Components.externalUpdatesOnly())
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      client.identify(user);
+    }
+  }
+  
+  @Test
+  public void trackWithEventsDisabledDoesNotCauseError() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .events(Components.noEvents())
+        .dataSource(Components.externalUpdatesOnly())
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      client.track("event", user);
+    }
+  }
+
+  @Test
+  public void flushWithEventsDisabledDoesNotCauseError() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .events(Components.noEvents())
+        .dataSource(Components.externalUpdatesOnly())
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {
+      client.flush();
+    }
+  }
+
   private void checkFeatureEvent(Event e, DataModel.FeatureFlag flag, LDValue value, LDValue defaultVal,
       String prereqOf, EvaluationReason reason) {
     assertEquals(Event.FeatureRequest.class, e.getClass());

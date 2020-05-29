@@ -141,6 +141,13 @@ public class EventUserSerializationTest {
     assertEquals(expected, o);
   }
   
+  @Test
+  public void cannotDeserializeEventUser() {
+    String json = "{}";
+    LDUser user = gsonInstanceForEventsSerialization(defaultEventsConfig()).fromJson(json, LDUser.class);
+    assertNull(user);
+  }
+  
   private Set<String> getPrivateAttrs(JsonObject o) {
     Type type = new TypeToken<HashSet<String>>(){}.getType();
     return TEST_GSON_INSTANCE.<HashSet<String>>fromJson(o.get("privateAttrs"), type);

@@ -2,14 +2,12 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -22,7 +20,7 @@ import java.util.Map;
  * As of version 5.0.0, this is package-private; applications must use the factory method
  * {@link Components#inMemoryDataStore()}.
  */
-class InMemoryDataStore implements DataStore, DiagnosticDescription {
+class InMemoryDataStore implements DataStore {
   private volatile ImmutableMap<DataKind, Map<String, ItemDescriptor>> allData = ImmutableMap.of();
   private volatile boolean initialized = false;
   private Object writeLock = new Object();
@@ -119,10 +117,5 @@ class InMemoryDataStore implements DataStore, DiagnosticDescription {
   @Override
   public void close() throws IOException {
     return;
-  }
-
-  @Override
-  public LDValue describeConfiguration(LDConfig config) {
-    return LDValue.of("memory");
   }
 }

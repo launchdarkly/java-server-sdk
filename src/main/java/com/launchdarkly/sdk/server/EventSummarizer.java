@@ -91,12 +91,15 @@ final class EventSummarizer {
         EventSummary o = (EventSummary)other;
         return o.counters.equals(counters) && startDate == o.startDate && endDate == o.endDate;
       }
-      return true;
+      return false;
     }
     
     @Override
     public int hashCode() {
-      return counters.hashCode() + 31 * ((int)startDate + 31 * (int)endDate);
+      // We can't make meaningful hash codes for EventSummary, because the same counters could be
+      // represented differently in our Map. It doesn't matter because there's no reason to use an
+      // EventSummary instance as a hash key.
+      return 0;
     }
   }
 
@@ -157,6 +160,7 @@ final class EventSummarizer {
       }
       return false;
     }
+    
     @Override
     public String toString() {
       return "(" + count + "," + flagValue + "," + defaultVal + ")";

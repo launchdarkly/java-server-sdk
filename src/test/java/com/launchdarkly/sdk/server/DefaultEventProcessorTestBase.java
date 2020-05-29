@@ -182,6 +182,10 @@ public abstract class DefaultEventProcessorTestBase {
     );
   }
 
+  public static Matcher<LDValue> isPrerequisiteOf(String parentFlagKey) {
+    return hasJsonProperty("prereqOf", parentFlagKey);
+  }
+
   @SuppressWarnings("unchecked")
   public static Matcher<LDValue> isCustomEvent(Event.Custom sourceEvent, LDValue inlineUser) {
     return allOf(

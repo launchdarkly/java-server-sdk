@@ -50,6 +50,8 @@ import okhttp3.Credentials;
  * @since 4.0.0
  */
 public abstract class Components {
+  private Components() {}
+  
   /**
    * Returns a configuration object for using the default in-memory implementation of a data store.
    * <p>
