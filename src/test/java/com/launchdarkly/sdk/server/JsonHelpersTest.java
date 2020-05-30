@@ -2,13 +2,12 @@ package com.launchdarkly.sdk.server;
 
 import com.google.gson.JsonElement;
 import com.google.gson.annotations.JsonAdapter;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
-import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

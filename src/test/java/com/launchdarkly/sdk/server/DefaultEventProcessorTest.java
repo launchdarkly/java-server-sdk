@@ -266,7 +266,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         
         // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
         // delay to keep EventDispatcher from being overwhelmed
-        Thread.sleep(1);
+        Thread.sleep(10);
       }
       ep.flush();
       assertThat(es.getEventsFromLastRequest(), Matchers.iterableWithSize(capacity));
@@ -293,7 +293,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         
         // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
         // delay to keep EventDispatcher from being overwhelmed
-        Thread.sleep(1);
+        Thread.sleep(10);
       }
       
       ep.flush();
