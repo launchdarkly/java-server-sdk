@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableList;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.integrations.FileDataSourceBuilder.SourceInfo;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FileDataException;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactory;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileParser;
@@ -23,7 +24,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
@@ -59,14 +59,14 @@ final class FileDataSourceImpl implements DataSource {
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final FileWatcher fileWatcher;
   
-  FileDataSourceImpl(DataSourceUpdates dataSourceUpdates, List<Path> sources, boolean autoUpdate) {
+  FileDataSourceImpl(DataSourceUpdates dataSourceUpdates, List<SourceInfo> sources, boolean autoUpdate) {
     this.dataSourceUpdates = dataSourceUpdates;
     this.dataLoader = new DataLoader(sources);
 
     FileWatcher fw = null;
     if (autoUpdate) {
       try {
-        fw = FileWatcher.create(dataLoader.getFiles());
+        fw = FileWatcher.create(dataLoader.getSources());
       } catch (IOException e) {
         // COVERAGE: there is no way to simulate this condition in a unit test
         logger.error("Unable to watch files for auto-updating: " + e);
@@ -131,16 +131,19 @@ final class FileDataSourceImpl implements DataSource {
     private final Thread thread;
     private volatile boolean stopped;
 
-    private static FileWatcher create(Iterable<Path> files) throws IOException {
+    private static FileWatcher create(Iterable<SourceInfo> sources) throws IOException {
       Set<Path> directoryPaths = new HashSet<>();
       Set<Path> absoluteFilePaths = new HashSet<>();
       FileSystem fs = FileSystems.getDefault();
       WatchService ws = fs.newWatchService();
       
       // In Java, you watch for filesystem changes at the directory level, not for individual files.
-      for (Path p: files) {
-        absoluteFilePaths.add(p);
-        directoryPaths.add(p.getParent());
+      for (SourceInfo s: sources) {
+        Path p = s.toFilePath();
+        if (p != null) {
+          absoluteFilePaths.add(p);
+          directoryPaths.add(p.getParent()); 
+        }
       }
       for (Path d: directoryPaths) {
         d.register(ws, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
@@ -206,21 +209,21 @@ final class FileDataSourceImpl implements DataSource {
    * be read or parsed, or if any flag or segment keys are duplicates.
    */
   static final class DataLoader {
-    private final List<Path> files;
+    private final List<SourceInfo> sources;
 
-    public DataLoader(List<Path> files) {
-      this.files = new ArrayList<Path>(files);
+    public DataLoader(List<SourceInfo> sources) {
+      this.sources = new ArrayList<>(sources);
     }
     
-    public Iterable<Path> getFiles() {
-      return files;
+    public Iterable<SourceInfo> getSources() {
+      return sources;
     }
     
     public void load(DataBuilder builder) throws FileDataException
     {
-      for (Path p: files) {
+      for (SourceInfo s: sources) {
         try {
-          byte[] data = Files.readAllBytes(p);
+          byte[] data = s.readData();
           FlagFileParser parser = FlagFileParser.selectForContent(data);
           FlagFileRep fileContents = parser.parse(new ByteArrayInputStream(data));
           if (fileContents.flags != null) {
@@ -239,9 +242,9 @@ final class FileDataSourceImpl implements DataSource {
             }
           }
         } catch (FileDataException e) {
-          throw new FileDataException(e.getMessage(), e.getCause(), p);
+          throw new FileDataException(e.getMessage(), e.getCause(), s);
         } catch (IOException e) {
-          throw new FileDataException(null, e, p);
+          throw new FileDataException(null, e, s);
         }
       }
     }

@@ -1,10 +1,14 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import com.google.common.io.ByteStreams;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -12,16 +16,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * To use the file data source, obtain a new instance of this class with {@link FileData#dataSource()},
- * call the builder method {@link #filePaths(String...)} to specify file path(s),
- * then pass the resulting object to {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(DataSourceFactory)}.
+ * To use the file data source, obtain a new instance of this class with {@link FileData#dataSource()};
+ * call the builder method {@link #filePaths(String...)} to specify file path(s), and/or
+ * {@link #classpathResources(String...)} to specify classpath data resources; then pass the resulting
+ * object to {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(DataSourceFactory)}.
  * <p>
  * For more details, see {@link FileData}.
  * 
  * @since 4.12.0
  */
 public final class FileDataSourceBuilder implements DataSourceFactory {
-  private final List<Path> sources = new ArrayList<>();
+  final List<SourceInfo> sources = new ArrayList<>(); // visible for tests
   private boolean autoUpdate = false;
   
   /**
@@ -37,7 +42,7 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
    */
   public FileDataSourceBuilder filePaths(String... filePaths) throws InvalidPathException {
     for (String p: filePaths) {
-      sources.add(Paths.get(p));
+      sources.add(new FilePathSourceInfo(Paths.get(p)));
     }
     return this;
   }
@@ -53,14 +58,33 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
    */
   public FileDataSourceBuilder filePaths(Path... filePaths) {
     for (Path p: filePaths) {
-      sources.add(p);
+      sources.add(new FilePathSourceInfo(p));
+    }
+    return this;
+  }
+
+  /**
+   * Adds any number of classpath resources for loading flag data. The resources will not actually be loaded until the
+   * LaunchDarkly client starts up.
+   * <p> 
+   * Files will be parsed as JSON if their first non-whitespace character is '{'. Otherwise, they will be parsed as YAML.
+   * 
+   * @param resourceLocations resource location(s) in the format used by {@code ClassLoader.getResource()}; these
+   *   are absolute paths, so for instance a resource called "data.json" in the package "com.mypackage" would have
+   *   the location "/com/mypackage/data.json" 
+   * @return the same factory object
+   */
+  public FileDataSourceBuilder classpathResources(String... resourceLocations) {
+    for (String location: resourceLocations) {
+      sources.add(new ClasspathResourceSourceInfo(location));
     }
     return this;
   }
   
   /**
    * Specifies whether the data source should watch for changes to the source file(s) and reload flags
-   * whenever there is a change. By default, it will not, so the flags will only be loaded once.
+   * whenever there is a change. By default, it will not, so the flags will only be loaded once. This feature
+   * only works with real files, not with {@link #classpathResources(String...)}.
    * <p>
    * Note that auto-updating will only work if all of the files you specified have valid directory paths at
    * startup time; if a directory does not exist, creating it later will not result in files being loaded from it.
@@ -84,5 +108,61 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
   @Override
   public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
     return new FileDataSourceImpl(dataSourceUpdates, sources, autoUpdate);
+  }
+  
+  static abstract class SourceInfo {
+    abstract byte[] readData() throws IOException;
+    abstract Path toFilePath();
+  }
+  
+  static final class FilePathSourceInfo extends SourceInfo {
+    final Path path;
+    
+    FilePathSourceInfo(Path path) {
+      this.path = path;
+    }
+    
+    @Override
+    byte[] readData() throws IOException {
+      return Files.readAllBytes(path);
+    }
+    
+    @Override
+    Path toFilePath() {
+      return path;
+    }
+    
+    @Override
+    public String toString() {
+      return path.toString();
+    }
+  }
+  
+  static final class ClasspathResourceSourceInfo extends SourceInfo {
+    String location;
+    
+    ClasspathResourceSourceInfo(String location) {
+      this.location = location;
+    }
+    
+    @Override
+    byte[] readData() throws IOException {
+      try (InputStream is = getClass().getClassLoader().getResourceAsStream(location)) {
+        if (is == null) {
+          throw new IOException("classpath resource not found");
+        }
+        return ByteStreams.toByteArray(is);
+      }
+    }
+
+    @Override
+    Path toFilePath() {
+      return null;
+    }
+
+    @Override
+    public String toString() {
+      return "classpath:" + location;
+    }
   }
 }
