@@ -121,7 +121,6 @@ final class StreamProcessor implements DataSource {
   }
   
   StreamProcessor(
-      String sdkKey,
       HttpConfiguration httpConfig,
       FeatureRequestor requestor,
       DataSourceUpdates dataSourceUpdates,
@@ -140,7 +139,7 @@ final class StreamProcessor implements DataSource {
     this.streamUri = streamUri;
     this.initialReconnectDelay = initialReconnectDelay;
 
-    this.headers = getHeadersBuilderFor(sdkKey, httpConfig)
+    this.headers = getHeadersBuilderFor(httpConfig)
         .add("Accept", "text/event-stream")
         .build();
     

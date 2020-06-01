@@ -120,7 +120,7 @@ public class LDClientTest extends EasyMockSupport {
         .events(Components.noEvents())
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertEquals(Components.NullEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(ComponentsImpl.NullEventProcessor.class, client.eventProcessor.getClass());
     }
   }
 

@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
@@ -10,9 +11,11 @@ import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind.ANALYTICS;
@@ -41,13 +44,12 @@ public class DefaultEventSenderTest {
   private static final Duration BRIEF_RETRY_DELAY = Duration.ofMillis(50);
   
   private static EventSender makeEventSender() {
-    return makeEventSender(Components.httpConfiguration().createHttpConfiguration());
+    return makeEventSender(LDConfig.DEFAULT);
   }
 
-  private static EventSender makeEventSender(HttpConfiguration httpConfiguration) {
+  private static EventSender makeEventSender(LDConfig config) {
     return new DefaultEventSender(
-        SDK_KEY,
-        httpConfiguration,
+        clientContext(SDK_KEY, config).getHttp(),
         BRIEF_RETRY_DELAY
         );
   }
@@ -59,7 +61,8 @@ public class DefaultEventSenderTest {
   @Test
   public void factoryCreatesDefaultSenderWithDefaultRetryDelay() throws Exception {
     EventSenderFactory f = new DefaultEventSender.Factory();
-    try (EventSender es = f.createEventSender(SDK_KEY, Components.httpConfiguration().createHttpConfiguration())) {
+    ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT);
+    try (EventSender es = f.createEventSender(context.getBasic(), context.getHttp())) {
       assertThat(es, isA(EventSender.class));
       assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
     }
@@ -67,10 +70,8 @@ public class DefaultEventSenderTest {
 
   @Test
   public void constructorUsesDefaultRetryDelayIfNotSpecified() throws Exception {
-    try (EventSender es = new DefaultEventSender(
-        SDK_KEY,
-        Components.httpConfiguration().createHttpConfiguration(),
-        null)) {
+    ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT);
+    try (EventSender es = new DefaultEventSender(context.getHttp(), null)) {
       assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
     }
   }
@@ -110,26 +111,34 @@ public class DefaultEventSenderTest {
   }
 
   @Test
-  public void sdkKeyIsSentForAnalytics() throws Exception {
+  public void defaultHeadersAreSentForAnalytics() throws Exception {
+    HttpConfiguration httpConfig = clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp();
+    
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
         es.sendEventData(ANALYTICS, FAKE_DATA, 1, getBaseUri(server));
       }
       
-      RecordedRequest req = server.takeRequest();      
-      assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
+      RecordedRequest req = server.takeRequest();
+      for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
+        assertThat(req.getHeader(kv.getKey()), equalTo(kv.getValue()));
+      }
     }
   }
 
   @Test
-  public void sdkKeyIsSentForDiagnostics() throws Exception {
+  public void defaultHeadersAreSentForDiagnostics() throws Exception {
+    HttpConfiguration httpConfig = clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp();
+    
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
         es.sendEventData(DIAGNOSTICS, FAKE_DATA, 1, getBaseUri(server));
       }
       
       RecordedRequest req = server.takeRequest();      
-      assertThat(req.getHeader("Authorization"), equalTo(SDK_KEY));
+      for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
+        assertThat(req.getHeader(kv.getKey()), equalTo(kv.getValue()));
+      }
     }
   }
 
@@ -192,22 +201,6 @@ public class DefaultEventSenderTest {
 
       RecordedRequest req = server.takeRequest();
       assertNull(req.getHeader("X-LaunchDarkly-Event-Schema"));
-    }
-  }
-
-  @Test
-  public void wrapperHeaderSentWhenSet() throws Exception {
-    HttpConfiguration httpConfig = Components.httpConfiguration()
-        .wrapper("Scala", "0.1.0")
-        .createHttpConfiguration();
-    
-    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
-      try (EventSender es = makeEventSender(httpConfig)) {
-        es.sendEventData(ANALYTICS, FAKE_DATA, 1, getBaseUri(server));
-      }
-
-      RecordedRequest req = server.takeRequest();
-      assertThat(req.getHeader("X-LaunchDarkly-Wrapper"), equalTo("Scala/0.1.0"));
     }
   }
 
@@ -289,12 +282,14 @@ public class DefaultEventSenderTest {
   @Test
   public void httpClientCanUseCustomTlsConfig() throws Exception {
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(eventsSuccessResponse())) {
-      HttpConfiguration httpConfig = Components.httpConfiguration()
-          .sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager)
-          // allows us to trust the self-signed cert
-          .createHttpConfiguration();
+      LDConfig config = new LDConfig.Builder()
+          .http(Components.httpConfiguration()
+              .sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager)
+              // allows us to trust the self-signed cert
+              )
+          .build();
       
-      try (EventSender es = makeEventSender(httpConfig)) {
+      try (EventSender es = makeEventSender(config)) {
         EventSender.Result result = es.sendEventData(ANALYTICS, FAKE_DATA, 1, serverWithCert.uri());
         
         assertTrue(result.isSuccess());

@@ -27,7 +27,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(Components.NullDataSource.class, client.dataSource.getClass());
+      assertEquals(ComponentsImpl.NullDataSource.class, client.dataSource.getClass());
     }
   }
 
@@ -37,7 +37,7 @@ public class LDClientOfflineTest {
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(Components.NullEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(ComponentsImpl.NullEventProcessor.class, client.eventProcessor.getClass());
     }
   }
   
