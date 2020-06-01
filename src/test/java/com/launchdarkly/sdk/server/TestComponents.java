@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.sdk.UserAttribute;
-import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
@@ -41,8 +40,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.launchdarkly.sdk.server.DataModel.FEATURES;
-
 @SuppressWarnings("javadoc")
 public class TestComponents {
   static ScheduledExecutorService sharedExecutor = Executors.newSingleThreadScheduledExecutor();
@@ -53,10 +50,6 @@ public class TestComponents {
 
   public static ClientContext clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
     return new ClientContextImpl(sdkKey, config, sharedExecutor, diagnosticAccumulator);
-  }
-
-  public static DataSourceFactory dataSourceWithData(FullDataSet<ItemDescriptor> data) {
-    return (context, dataSourceUpdates) -> new DataSourceWithData(data, dataSourceUpdates);
   }
 
   public static DataStore dataStoreThatThrowsException(RuntimeException e) {
@@ -139,25 +132,6 @@ public class TestComponents {
     }
   }
 
-  public static class DataSourceFactoryThatExposesUpdater implements DataSourceFactory {
-    private final FullDataSet<ItemDescriptor> initialData;
-    DataSourceUpdates dataSourceUpdates;
-  
-    public DataSourceFactoryThatExposesUpdater(FullDataSet<ItemDescriptor> initialData) {
-      this.initialData = initialData;
-    }
-    
-    @Override
-    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-      this.dataSourceUpdates = dataSourceUpdates;
-      return dataSourceWithData(initialData).createDataSource(context, dataSourceUpdates);
-    }
-    
-    public void updateFlag(FeatureFlag flag) {
-      dataSourceUpdates.upsert(FEATURES, flag.getKey(), new ItemDescriptor(flag.getVersion(), flag));
-    }
-  }
-  
   private static class DataSourceThatNeverInitializes implements DataSource {
     public Future<Void> start() {
       return new CompletableFuture<>();
@@ -170,28 +144,6 @@ public class TestComponents {
     public void close() throws IOException {
     }          
   };
-  
-  private static class DataSourceWithData implements DataSource {
-    private final FullDataSet<ItemDescriptor> data;
-    private final DataSourceUpdates dataSourceUpdates;
-    
-    DataSourceWithData(FullDataSet<ItemDescriptor> data, DataSourceUpdates dataSourceUpdates) {
-      this.data = data;
-      this.dataSourceUpdates = dataSourceUpdates;
-    }
-    
-    public Future<Void> start() {
-      dataSourceUpdates.init(data);
-      return CompletableFuture.completedFuture(null);
-    }
-
-    public boolean isInitialized() {
-      return true;
-    }
-
-    public void close() throws IOException {
-    }
-  }
   
   public static class MockDataSourceUpdates implements DataSourceUpdates {
     private final DataSourceUpdatesImpl wrappedInstance;
