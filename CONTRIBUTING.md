@@ -48,10 +48,10 @@ The project in the `benchmarks` subdirectory uses [JMH](https://openjdk.java.net
 
 ## Code coverage
 
-It is important to keep unit test coverage as close to 100% as possible in this project. You can view the latest code coverage report in CircleCI, as `coverage/html/index.html` in the artifacts for the "Java 11 - Linux - OpenJDK" job. You can also run the report locally with `./gradlew jacocoTestCoverage` and view `./build/reports/jacoco/test`.
+It is important to keep unit test coverage as close to 100% as possible in this project. You can view the latest code coverage report in CircleCI, as `coverage/html/index.html` in the artifacts for the "Java 11 - Linux - OpenJDK" job. You can also run the report locally with `./gradlew jacocoTestCoverage` and view `./build/reports/jacoco/test`. _The CircleCI build will fail if you commit a change that increases the number of uncovered lines_, unless you explicitly add an override as shown below.
 
 Sometimes a gap in coverage is unavoidable, usually because the compiler requires us to provide a code path for some condition that in practice can't happen and can't be tested, or because of a known issue with the code coverage tool. Please handle all such cases as follows:
 
 * Mark the code with an explanatory comment beginning with "COVERAGE:".
 * Run the code coverage task with `./gradlew jacocoTestCoverageVerification`. It should fail and indicate how many lines of missed coverage exist in the method you modified.
-* Add an item in the `knownMissedLinesForMethods` map in `build.gradle` that specifies that number of missed lines for that method signature.
+* Add an item in the `knownMissedLinesForMethods` map in `build.gradle` that specifies that number of missed lines for that method signature. For instance, if the method `com.launchdarkly.sdk.server.SomeClass.someMethod(java.lang.String)` has two missed lines that cannot be covered, you would add `"SomeClass.someMethod(java.lang.String)": 2`.
