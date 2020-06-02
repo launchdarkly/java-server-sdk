@@ -267,10 +267,10 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
   
   private void reportStoreFailure(RuntimeException e) {
     if (!lastStoreUpdateFailed) {
-      LDClient.logger.warn("Unexpected data store error when trying to store an update received from the data source: {}", e.toString());
+      Loggers.DATA_STORE.warn("Unexpected data store error when trying to store an update received from the data source: {}", e.toString());
       lastStoreUpdateFailed = true;
     }
-    LDClient.logger.debug(e.toString(), e);
+    Loggers.DATA_STORE.debug(e.toString(), e);
     updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.STORE_ERROR, e));
   }
   
@@ -339,7 +339,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
       if (onOutageErrorLog != null) {
         onOutageErrorLog.accept(errorsDesc);
       }
-      LDClient.logger.error(
+      Loggers.DATA_SOURCE.error(
           "LaunchDarkly data source outage - updates have been unavailable for at least {} with the following errors: {}",
           Util.describeDuration(loggingTimeout),
           errorsDesc

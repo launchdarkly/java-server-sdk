@@ -90,8 +90,8 @@ final class EventBroadcasterImpl<ListenerT, EventT> {
         try {
           broadcastAction.accept(l, event);
         } catch (Exception e) {
-          LDClient.logger.warn("Unexpected error from listener ({0}): {1}", l.getClass(), e.toString());
-          LDClient.logger.debug(e.toString(), e);
+          Loggers.MAIN.warn("Unexpected error from listener ({0}): {1}", l.getClass(), e.toString());
+          Loggers.MAIN.debug(e.toString(), e);
         }
       });
     }

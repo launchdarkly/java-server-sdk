@@ -9,7 +9,6 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -24,7 +23,7 @@ import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
 import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
 
 final class PollingProcessor implements DataSource {
-  private static final Logger logger = LoggerFactory.getLogger(PollingProcessor.class);
+  private static final Logger logger = Loggers.DATA_SOURCE;
   private static final String ERROR_CONTEXT_MESSAGE = "on polling request";
   private static final String WILL_RETRY_MESSAGE = "will retry at next scheduled poll interval";
 

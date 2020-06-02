@@ -22,7 +22,6 @@ import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -74,7 +73,7 @@ final class StreamProcessor implements DataSource {
   private static final String DELETE = "delete";
   private static final String INDIRECT_PUT = "indirect/put";
   private static final String INDIRECT_PATCH = "indirect/patch";
-  private static final Logger logger = LoggerFactory.getLogger(StreamProcessor.class);
+  private static final Logger logger = Loggers.DATA_SOURCE;
   private static final Duration DEAD_CONNECTION_INTERVAL = Duration.ofSeconds(300);
   private static final String ERROR_CONTEXT_MESSAGE = "in stream connection";
   private static final String WILL_RETRY_MESSAGE = "will retry";
@@ -407,6 +406,7 @@ final class StreamProcessor implements DataSource {
   private EventSource defaultEventSourceCreator(EventSourceParams params) {
     EventSource.Builder builder = new EventSource.Builder(params.handler, params.streamUri)
         .threadPriority(threadPriority)
+        .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
           public void configure(OkHttpClient.Builder builder) {
             configureHttpClientBuilder(params.httpConfig, builder);
