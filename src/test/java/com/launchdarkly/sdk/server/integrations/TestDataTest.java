@@ -138,8 +138,43 @@ public class TestDataTest {
     verifyFlag(td -> td.flag("flag").on(false), offProps);
     verifyFlag(td -> td.flag("flag").variationForAllUsers(false), offProps);
     verifyFlag(td -> td.flag("flag").variationForAllUsers(true), onProps);
+
+    verifyFlag(
+        td -> td.flag("flag").fallthroughVariation(true).offVariation(false),
+        onProps
+        );
+
+    verifyFlag(
+        td -> td.flag("flag").fallthroughVariation(false).offVariation(true),
+        "\"key\":\"flag\",\"version\":1,\"variations\":[true,false],\"on\":true" +
+            ",\"offVariation\":0,\"fallthrough\":{\"variation\":1}"
+        );
   }
 
+  @Test
+  public void usingBooleanConfigMethodsForcesFlagToBeBoolean() throws Exception {
+    String booleanProps = "\"key\":\"flag\",\"version\":1,\"on\":true"
+        + ",\"variations\":[true,false],\"offVariation\":1,\"fallthrough\":{\"variation\":0}";
+
+    verifyFlag(
+        td -> td.flag("flag")
+          .variations(LDValue.of(1), LDValue.of(2))
+          .booleanFlag(),
+        booleanProps
+        );
+    verifyFlag(
+        td -> td.flag("flag")
+          .variations(LDValue.of(true), LDValue.of(2))
+          .booleanFlag(),
+          booleanProps
+        );
+    verifyFlag(
+        td -> td.flag("flag").valueForAllUsers(LDValue.of("x"))
+          .booleanFlag(),
+          booleanProps
+        );
+  }
+  
   @Test
   public void flagConfigStringVariations() throws Exception {
     String basicProps = "\"key\":\"flag\",\"version\":1,\"variations\":[\"red\",\"green\",\"blue\"],\"on\":true"
@@ -158,6 +193,10 @@ public class TestDataTest {
     verifyFlag(
         td -> td.flag("flag").variationForUser("a", true).variationForUser("b", true),
         booleanFlagBasicProps + ",\"targets\":[{\"variation\":0,\"values\":[\"a\",\"b\"]}]"
+        );
+    verifyFlag(
+        td -> td.flag("flag").variationForUser("a", true).variationForUser("a", true),
+        booleanFlagBasicProps + ",\"targets\":[{\"variation\":0,\"values\":[\"a\"]}]"
         );
     verifyFlag(
         td -> td.flag("flag").variationForUser("a", false).variationForUser("b", true).variationForUser("c", false),
@@ -190,6 +229,7 @@ public class TestDataTest {
     String basicProps = "\"key\":\"flag\",\"version\":1,\"variations\":[true,false]" +
         ",\"on\":true,\"offVariation\":1,\"fallthrough\":{\"variation\":0}";
 
+    // match that returns variation 0/true
     String matchReturnsVariation0 = basicProps +
         ",\"rules\":[{\"id\":\"rule0\",\"variation\":0,\"trackEvents\":false,\"clauses\":[" +
         "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"],\"negate\":false}" +
@@ -203,6 +243,7 @@ public class TestDataTest {
         matchReturnsVariation0
         );
 
+    // match that returns variation 1/false
     String matchReturnsVariation1 = basicProps +
         ",\"rules\":[{\"id\":\"rule0\",\"variation\":1,\"trackEvents\":false,\"clauses\":[" +
         "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"],\"negate\":false}" +
@@ -216,12 +257,41 @@ public class TestDataTest {
         matchReturnsVariation1
         );
 
+    // negated match
     verifyFlag(
         td -> td.flag("flag").ifNotMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true),
         basicProps + ",\"rules\":[{\"id\":\"rule0\",\"variation\":0,\"trackEvents\":false,\"clauses\":[" +
             "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"],\"negate\":true}" +
             "]}]"
         );
+    
+    // multiple clauses
+    verifyFlag(
+        td -> td.flag("flag")
+          .ifMatch(UserAttribute.NAME, LDValue.of("Lucy"))
+          .andMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
+          .thenReturn(true),
+        basicProps + ",\"rules\":[{\"id\":\"rule0\",\"variation\":0,\"trackEvents\":false,\"clauses\":[" +
+            "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"],\"negate\":false}," +
+            "{\"attribute\":\"country\",\"op\":\"in\",\"values\":[\"gb\"],\"negate\":false}" +
+            "]}]"
+        );
+
+    // multiple rules
+    verifyFlag(
+        td -> td.flag("flag")
+          .ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true)
+          .ifMatch(UserAttribute.NAME, LDValue.of("Mina")).thenReturn(true),
+        basicProps + ",\"rules\":["
+          + "{\"id\":\"rule0\",\"variation\":0,\"trackEvents\":false,\"clauses\":[" +
+            "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"],\"negate\":false}" +
+            "]},"
+          + "{\"id\":\"rule1\",\"variation\":0,\"trackEvents\":false,\"clauses\":[" +
+            "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Mina\"],\"negate\":false}" +
+            "]}"
+          + "]"
+        );
+
   }
   
   private void verifyFlag(Function<TestData, TestData.FlagBuilder> makeFlag, String expectedProps) throws Exception {

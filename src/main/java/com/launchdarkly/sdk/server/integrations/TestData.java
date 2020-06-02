@@ -58,7 +58,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
  * If the same {@code TestData} instance is used to configure multiple {@code LDClient} instances,
  * any changes made to the data will propagate to all of the {@code LDClient}s.
  * 
- * @since 5.0.0
+ * @since 5.1.0
+ * @see FileData
  */
 public final class TestData implements DataSourceFactory {
   private final Object lock = new Object();
@@ -294,6 +295,17 @@ public final class TestData implements DataSourceFactory {
     }
 
     /**
+     * Specifies the off variation for a boolean flag. This is the variation that is returned
+     * whenever targeting is off.
+     * 
+     * @param value true if the flag should return true when targeting is off
+     * @return the builder
+     */
+    public FlagBuilder offVariation(boolean value) {
+      return this.booleanFlag().offVariation(value ? TRUE_VARIATION_FOR_BOOLEAN : FALSE_VARIATION_FOR_BOOLEAN);
+    }
+
+    /**
      * Specifies the index of the off variation. This is the variation that is returned
      * whenever targeting is off.
      * 
@@ -310,19 +322,18 @@ public final class TestData implements DataSourceFactory {
      * <p>
      * If the flag is a boolean flag, this causes targeting to be switched on or off, and also
      * removes any existing targets or rules. If the flag was not already a boolean flag, it is
-     * the same as calling {@code valueForAllUsers(LDValue.of(true))}.
+     * converted to a boolean flag.
      * 
      * @param variation the desired true/false variation to be returned for all users
      * @return the builder
      */
     public FlagBuilder variationForAllUsers(boolean variation) {
-      if (isBooleanFlag()) {
-        targets = null;
-        return offVariation(FALSE_VARIATION_FOR_BOOLEAN)
-            .fallthroughVariation(TRUE_VARIATION_FOR_BOOLEAN)
-            .on(variation);
-      }
-      return valueForAllUsers(LDValue.of(variation));
+      return clearRules()
+          .clearUserTargets()
+          .booleanFlag()
+          .offVariation(FALSE_VARIATION_FOR_BOOLEAN)
+          .fallthroughVariation(TRUE_VARIATION_FOR_BOOLEAN)
+          .on(variation);
     }
 
     /**
@@ -509,7 +520,7 @@ public final class TestData implements DataSourceFactory {
       }
       builder.put("variations", jsonVariations.build());
       
-      if (targets != null && !targets.isEmpty()) {
+      if (targets != null) {
         ArrayBuilder jsonTargets = LDValue.buildArray();
         for (Map.Entry<Integer, ImmutableSet<String>> e: targets.entrySet()) {
           jsonTargets.add(LDValue.buildObject()
@@ -520,7 +531,7 @@ public final class TestData implements DataSourceFactory {
         builder.put("targets", jsonTargets.build());
       }
       
-      if (rules != null && !rules.isEmpty()) {
+      if (rules != null) {
         ArrayBuilder jsonRules = LDValue.buildArray();
         int ri = 0;
         for (FlagRuleBuilder r: rules) {

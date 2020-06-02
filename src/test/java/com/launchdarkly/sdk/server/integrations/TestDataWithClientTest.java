@@ -6,6 +6,8 @@ import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDClient;
 import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 
 import org.junit.Test;
 
@@ -90,6 +92,19 @@ public class TestDataWithClientTest {
       td.update(td.flag("flag").on(false));
 
       assertThat(client.stringVariation("flag", new LDUser.Builder("user1").name("Lucy").build(), ""), equalTo("red"));
+    }
+  }
+  
+  @Test
+  public void canUpdateStatus() throws Exception {
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertThat(client.getDataSourceStatusProvider().getStatus().getState(), equalTo(State.VALID));
+      
+      ErrorInfo ei = ErrorInfo.fromHttpError(500);
+      td.updateStatus(State.INTERRUPTED, ei);
+      
+      assertThat(client.getDataSourceStatusProvider().getStatus().getState(), equalTo(State.INTERRUPTED));
+      assertThat(client.getDataSourceStatusProvider().getStatus().getLastError(), equalTo(ei));
     }
   }
   
