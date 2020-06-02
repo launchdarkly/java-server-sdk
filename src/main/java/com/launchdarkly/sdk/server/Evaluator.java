@@ -9,7 +9,6 @@ import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +23,7 @@ import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
  * flags, but does not send them.
  */
 class Evaluator {
-  private final static Logger logger = LoggerFactory.getLogger(Evaluator.class);
+  private final static Logger logger = Loggers.EVALUATION;
 
   /**
    * This key cannot exist in LaunchDarkly because it contains invalid characters. We use it in tests as a way to

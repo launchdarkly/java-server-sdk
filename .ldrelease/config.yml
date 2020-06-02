@@ -11,6 +11,11 @@ publications:
 template:
   name: gradle
 
+releasableBranches:
+  - name: master
+    description: 5.x
+  - name: 4.x
+
 documentation:
   githubPages: true
 
