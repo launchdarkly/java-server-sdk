@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.integrations.FileDataSourceBuilder.SourceInfo;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
 import org.yaml.snakeyaml.Yaml;
@@ -15,7 +16,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.nio.file.Path;
 import java.util.Map;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
@@ -31,11 +31,11 @@ abstract class FileDataSourceParsing {
    */
   @SuppressWarnings("serial")
   static final class FileDataException extends Exception {
-    private final Path filePath;
+    private final SourceInfo source;
     
-    public FileDataException(String message, Throwable cause, Path filePath) {
+    public FileDataException(String message, Throwable cause, SourceInfo source) {
       super(message, cause);
-      this.filePath = filePath;
+      this.source = source;
     }
   
     public FileDataException(String message, Throwable cause) {
@@ -49,8 +49,8 @@ abstract class FileDataSourceParsing {
         s.append(" ");
       }
       s.append("[").append(getCause().toString()).append("]");
-      if (filePath != null) {
-        s.append(": ").append(filePath);
+      if (source != null) {
+        s.append(": ").append(source.toString());
       }
       return s.toString();
     }

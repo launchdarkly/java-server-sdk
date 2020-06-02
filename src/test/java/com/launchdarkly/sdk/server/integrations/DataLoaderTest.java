@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server.integrations;
 
-import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -20,6 +19,7 @@ import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.FLAG_VALUE_1_KEY;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.resourceFilePath;
+import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.resourceLocation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -28,25 +28,42 @@ import static org.hamcrest.Matchers.equalTo;
 public class DataLoaderTest {
   private static final Gson gson = new Gson();
   private DataBuilder builder = new DataBuilder();
+
+  @Test
+  public void canLoadFromFilePath() throws Exception {
+    DataLoader ds = new DataLoader(FileData.dataSource().filePaths(resourceFilePath("flag-only.json")).sources);
+    ds.load(builder);
+    assertDataHasItemsOfKind(FEATURES);
+  }
+
+  @Test
+  public void canLoadFromClasspath() throws Exception {
+    DataLoader ds = new DataLoader(FileData.dataSource().classpathResources(resourceLocation("flag-only.json")).sources);
+    ds.load(builder);
+    assertDataHasItemsOfKind(FEATURES);
+  }
   
+
   @Test
   public void yamlFileIsAutoDetected() throws Exception {
-    DataLoader ds = new DataLoader(ImmutableList.of(resourceFilePath("flag-only.yml")));
+    DataLoader ds = new DataLoader(FileData.dataSource().filePaths(resourceFilePath("flag-only.yml")).sources);
     ds.load(builder);
     assertDataHasItemsOfKind(FEATURES);
   }
   
   @Test
   public void jsonFileIsAutoDetected() throws Exception {
-    DataLoader ds = new DataLoader(ImmutableList.of(resourceFilePath("segment-only.json")));
+    DataLoader ds = new DataLoader(FileData.dataSource().filePaths(resourceFilePath("segment-only.json")).sources);
     ds.load(builder);
     assertDataHasItemsOfKind(SEGMENTS);
   }
   
   @Test
   public void canLoadMultipleFiles() throws Exception {
-    DataLoader ds = new DataLoader(ImmutableList.of(resourceFilePath("flag-only.json"),
-        resourceFilePath("segment-only.yml")));
+    DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
+        resourceFilePath("flag-only.json"),
+        resourceFilePath("segment-only.yml")
+        ).sources);
     ds.load(builder);
     assertDataHasItemsOfKind(FEATURES);
     assertDataHasItemsOfKind(SEGMENTS);
@@ -54,7 +71,7 @@ public class DataLoaderTest {
   
   @Test
   public void flagValueIsConvertedToFlag() throws Exception {
-    DataLoader ds = new DataLoader(ImmutableList.of(resourceFilePath("value-only.json")));
+    DataLoader ds = new DataLoader(FileData.dataSource().filePaths(resourceFilePath("value-only.json")).sources);
     JsonObject expected = gson.fromJson(
         "{\"key\":\"flag2\",\"on\":true,\"fallthrough\":{\"variation\":0},\"variations\":[\"value2\"]," +
         "\"trackEvents\":false,\"deleted\":false,\"version\":0}",
@@ -72,8 +89,10 @@ public class DataLoaderTest {
   @Test
   public void duplicateFlagKeyInFlagsThrowsException() throws Exception {
     try {
-      DataLoader ds = new DataLoader(ImmutableList.of(resourceFilePath("flag-only.json"),
-          resourceFilePath("flag-with-duplicate-key.json")));
+      DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
+          resourceFilePath("flag-only.json"),
+          resourceFilePath("flag-with-duplicate-key.json")
+          ).sources);
       ds.load(builder);
     } catch (FileDataException e) {
       assertThat(e.getMessage(), containsString("key \"flag1\" was already defined"));
@@ -83,8 +102,10 @@ public class DataLoaderTest {
   @Test
   public void duplicateFlagKeyInFlagsAndFlagValuesThrowsException() throws Exception {
     try {
-      DataLoader ds = new DataLoader(ImmutableList.of(resourceFilePath("flag-only.json"),
-          resourceFilePath("value-with-duplicate-key.json")));
+      DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
+          resourceFilePath("flag-only.json"),
+          resourceFilePath("value-with-duplicate-key.json")
+          ).sources);
       ds.load(builder);
     } catch (FileDataException e) {
       assertThat(e.getMessage(), containsString("key \"flag1\" was already defined"));
@@ -94,8 +115,10 @@ public class DataLoaderTest {
   @Test
   public void duplicateSegmentKeyThrowsException() throws Exception {
     try {
-      DataLoader ds = new DataLoader(ImmutableList.of(resourceFilePath("segment-only.json"),
-          resourceFilePath("segment-with-duplicate-key.json")));
+      DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
+          resourceFilePath("segment-only.json"),
+          resourceFilePath("segment-with-duplicate-key.json")
+          ).sources);
       ds.load(builder);
     } catch (FileDataException e) {
       assertThat(e.getMessage(), containsString("key \"seg1\" was already defined"));

@@ -37,8 +37,12 @@ public class FileDataSourceTestData {
   public static final Set<String> ALL_SEGMENT_KEYS = ImmutableSet.of(FULL_SEGMENT_1_KEY);
   
   public static Path resourceFilePath(String filename) throws URISyntaxException {
-    URL resource = FileDataSourceTestData.class.getClassLoader().getResource("filesource/" + filename);
+    URL resource = FileDataSourceTestData.class.getClassLoader().getResource(resourceLocation(filename));
     return Paths.get(resource.toURI());
+  }
+
+  public static String resourceLocation(String filename) throws URISyntaxException {
+    return "filesource/" + filename;
   }
   
   public static String getResourceContents(String filename) throws Exception {

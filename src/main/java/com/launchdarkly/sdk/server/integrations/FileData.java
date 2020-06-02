@@ -12,8 +12,8 @@ package com.launchdarkly.sdk.server.integrations;
 public abstract class FileData {
   /**
    * Creates a {@link FileDataSourceBuilder} which you can use to configure the file data source.
-   * This allows you to use local files as a source of feature flag state, instead of using an actual
-   * LaunchDarkly connection.
+   * This allows you to use local files (or classpath resources containing file data) as a source of
+   * feature flag state, instead of using an actual LaunchDarkly connection.
    * <p>
    * This object can be modified with {@link FileDataSourceBuilder} methods for any desired
    * custom settings, before including it in the SDK configuration with

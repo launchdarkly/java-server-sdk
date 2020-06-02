@@ -29,6 +29,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class FileDataSourceAutoUpdateTest {
@@ -118,6 +119,19 @@ public class FileDataSourceAutoUpdateTest {
           });
         }
       }
+    }
+  }
+  
+  @Test
+  public void autoUpdateDoesNothingForClasspathResource() throws Exception {
+    // This just verifies that we don't cause an exception by trying to start a FileWatcher for
+    // something that isn't a real file.
+    FileDataSourceBuilder factory = FileData.dataSource()
+        .classpathResources(FileDataSourceTestData.resourceLocation("all-properties.json"))
+        .autoUpdate(true);
+    try (DataSource fp = makeDataSource(factory)) {
+      fp.start();
+      assertTrue(fp.isInitialized());
     }
   }
 }

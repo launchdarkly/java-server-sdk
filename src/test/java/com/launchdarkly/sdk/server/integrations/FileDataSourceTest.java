@@ -122,6 +122,14 @@ public class FileDataSourceTest {
     }
   }
 
+  @Test
+  public void startFailsWithNonexistentClasspathResource() throws Exception {
+    FileDataSourceBuilder factory = FileData.dataSource().classpathResources("we-have-no-such-thing");
+    try (DataSource fp = makeDataSource(factory)) {
+      verifyUnsuccessfulStart(fp);
+    }
+  }
+
   private void verifyUnsuccessfulStart(DataSource fp) {
     BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.register(statuses::add);
