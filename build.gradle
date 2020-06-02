@@ -1,3 +1,6 @@
+import java.nio.file.Files
+import java.nio.file.FileSystems
+import java.nio.file.StandardCopyOption
 
 buildscript {
     repositories {
@@ -14,6 +17,7 @@ plugins {
     id "java"
     id "java-library"
     id "checkstyle"
+    id "jacoco"
     id "signing"
     id "com.github.johnrengelman.shadow" version "5.2.0"
     id "maven-publish"
@@ -30,6 +34,15 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    commonClasses {
+        transitive false
+    }
+    commonDoc {
+        transitive false
+    }
+}
+
 configurations.all {
     // check for updates every build for dependencies with: 'changing: true'
     resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
@@ -39,13 +52,14 @@ allprojects {
     group = 'com.launchdarkly'
     version = "${version}"
     archivesBaseName = 'launchdarkly-java-server-sdk'
-    sourceCompatibility = 1.7
-    targetCompatibility = 1.7
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
 }
 
 ext {
-    sdkBasePackage = "com.launchdarkly.client"
-
+    sdkBasePackage = "com.launchdarkly.sdk"
+    sdkBaseName = "launchdarkly-java-server-sdk"
+    
     // List any packages here that should be included in OSGi imports for the SDK, if they cannot
     // be discovered by looking in our explicit dependencies.
     systemPackageImports = [ "javax.net", "javax.net.ssl" ]
@@ -56,9 +70,10 @@ ext.libraries = [:]
 ext.versions = [
     "commonsCodec": "1.10",
     "gson": "2.7",
-    "guava": "19.0",
-    "jodaTime": "2.9.3",
-    "okhttpEventsource": "1.11.0",
+    "guava": "28.2-jre",
+    "jackson": "2.10.0", 
+    "launchdarklyJavaSdkCommon": "1.0.0",
+    "okhttpEventsource": "2.3.0",
     "slf4j": "1.7.21",
     "snakeyaml": "1.19",
     "jedis": "2.9.0"
@@ -68,35 +83,40 @@ ext.versions = [
 // will be completely omitted from the "thin" jar, and will be embedded with shaded names
 // in the other two SDK jars.
 libraries.internal = [
+    "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}",
     "commons-codec:commons-codec:${versions.commonsCodec}",
+    "com.google.code.gson:gson:${versions.gson}",
     "com.google.guava:guava:${versions.guava}",
-    "joda-time:joda-time:${versions.jodaTime}",
     "com.launchdarkly:okhttp-eventsource:${versions.okhttpEventsource}",
     "org.yaml:snakeyaml:${versions.snakeyaml}",
-    "redis.clients:jedis:${versions.jedis}"
 ]
 
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have
 // global state that must be shared between the SDK and the caller.
 libraries.external = [
-    "com.google.code.gson:gson:${versions.gson}",
     "org.slf4j:slf4j-api:${versions.slf4j}"
 ]
 
 // Add dependencies to "libraries.test" that are used only in unit tests.
 libraries.test = [
-    "com.squareup.okhttp3:mockwebserver:3.12.10",
-    "com.squareup.okhttp3:okhttp-tls:3.12.10",
+	// Note that the okhttp3 test deps must be kept in sync with the okhttp version used in okhttp-eventsource
+    "com.squareup.okhttp3:mockwebserver:4.5.0",
+    "com.squareup.okhttp3:okhttp-tls:4.5.0",
     "org.hamcrest:hamcrest-all:1.3",
     "org.easymock:easymock:3.4",
     "junit:junit:4.12",
-    "ch.qos.logback:logback-classic:1.1.7"
+    "ch.qos.logback:logback-classic:1.1.7",
+    "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
+    "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
 ]
 
 dependencies {
     implementation libraries.internal
     api libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
+
+    commonClasses "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}"
+    commonDoc "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}:sources"
 
     // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
     // should *not* be shaded by the Shadow plugin when we build our shaded jars.
@@ -111,13 +131,25 @@ configurations {
 }
 
 checkstyle {
-	configFile file("${project.rootDir}/checkstyle.xml")
+    configFile file("${project.rootDir}/config/checkstyle/checkstyle.xml")
+    configDir file("${project.rootDir}/config/checkstyle")
 }
+
+task generateJava(type: Copy) {
+    // This updates Version.java
+    from 'src/templates/java'
+    into "src/main/java"
+    filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [VERSION: version.toString()])
+}
+
+compileJava.dependsOn 'generateJava'
 
 jar {
     // thin classifier means that the non-shaded non-fat jar is still available
     // but is opt-in since users will have to specify it.
     classifier = 'thin'
+
+    from configurations.commonClasses.collect { zipTree(it) }
 
     // doFirst causes the following step to be run during Gradle's execution phase rather than the
     // configuration phase; this is necessary because it accesses the build products
@@ -135,7 +167,6 @@ shadowJar {
 
     dependencies {
         exclude(dependency('org.slf4j:.*:.*'))
-        exclude(dependency('com.google.code.gson:.*:.*'))
     }
 
     // doFirst causes the following steps to be run during Gradle's execution phase rather than the
@@ -145,6 +176,10 @@ shadowJar {
         // Note that "configurations.shadow" is the same as "libraries.external", except it contains
         // objects with detailed information about the resolved dependencies.
         addOsgiManifest(project.tasks.shadowJar, [ project.configurations.shadow ], [])
+    }
+
+    doLast {
+        replaceUnshadedClasses(project.tasks.shadowJar)
     }
 }
 
@@ -167,6 +202,10 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
         // higher version if one is provided by another bundle.
         addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.shadow ], [ project.configurations.shadow ])
     }
+
+    doLast {
+        replaceUnshadedClasses(project.tasks.shadowJarAll)
+    }
 }
 
 task testJar(type: Jar, dependsOn: testClasses) {
@@ -185,24 +224,33 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
     from javadoc.destinationDir
 }
 
+javadoc {
+    source configurations.commonDoc.collect { zipTree(it) }
+    include '**/*.java'
+
+    // Use test classpath so Javadoc won't complain about java-sdk-common classes that internally
+    // reference stuff we don't use directly, like Jackson
+    classpath = sourceSets.test.compileClasspath
+}
 
 // Force the Javadoc build to fail if there are any Javadoc warnings. See: https://discuss.gradle.org/t/javadoc-fail-on-warning/18141/3
 if (JavaVersion.current().isJava8Compatible()) {
-	tasks.withType(Javadoc) {
-		// The '-quiet' as second argument is actually a hack,
-		// since the one paramater addStringOption doesn't seem to
-		// work, we extra add '-quiet', which is added anyway by
-		// gradle. See https://github.com/gradle/gradle/issues/2354
+    tasks.withType(Javadoc) {
+        // The '-quiet' as second argument is actually a hack,
+        // since the one paramater addStringOption doesn't seem to
+        // work, we extra add '-quiet', which is added anyway by
+        // gradle. See https://github.com/gradle/gradle/issues/2354
         // See JDK-8200363 (https://bugs.openjdk.java.net/browse/JDK-8200363)
         // for information about the -Xwerror option.
-		options.addStringOption('Xwerror', '-quiet')
-	}
+        options.addStringOption('Xwerror', '-quiet')
+    }
 }
 
 // Returns the names of all Java packages defined in this library - not including
 // enclosing packages like "com" that don't have any classes in them.
 def getAllSdkPackages() {
-    def names = []
+    // base package classes come from launchdarkly-java-sdk-common
+    def names = [ "com.launchdarkly.sdk", "com.launchdarkly.sdk.json" ]
     project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output.each { baseDir ->
         if (baseDir.getPath().contains("classes" + File.separator + "java" + File.separator + "main")) {
             baseDir.eachFileRecurse { f ->
@@ -222,8 +270,8 @@ def getAllSdkPackages() {
 def getPackagesInDependencyJar(jarFile) {
     new java.util.zip.ZipFile(jarFile).withCloseable { zf ->
         zf.entries().findAll { !it.directory && it.name.endsWith(".class") }.collect {
-            it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".")
-        }.unique()
+            it.name.contains("/") ? it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".") : ""
+        }.findAll { !it.equals("") }.unique()
     }
 }
 
@@ -235,17 +283,56 @@ def getPackagesInDependencyJar(jarFile) {
 // phase; instead we have to run it after configuration, with the "afterEvaluate" block below.
 def shadeDependencies(jarTask) {
     def excludePackages = getAllSdkPackages() +
-        configurations.shadow.collectMany { getPackagesInDependencyJar(it)}
+        configurations.shadow.collectMany { getPackagesInDependencyJar(it) }
     def topLevelPackages =
         configurations.internal.collectMany {
             getPackagesInDependencyJar(it).collect { it.contains(".") ? it.substring(0, it.indexOf(".")) : it }
         }.
             unique()
     topLevelPackages.forEach { top ->
-        jarTask.relocate(top, "com.launchdarkly.shaded." + top) {
+        // This special-casing for javax.annotation is hacky, but the issue is that Guava pulls in a jsr305
+        // implementation jar that provides javax.annotation, and we *do* want to embed and shade those classes
+        // so that Guava won't fail to find them and they won't conflict with anyone else's version - but we do
+        // *not* want references to any classes from javax.net, javax.security, etc. to be munged. 
+        def packageToRelocate = (top == "javax") ? "javax.annotation" : top
+        jarTask.relocate(packageToRelocate, "com.launchdarkly.shaded." + packageToRelocate) {
             excludePackages.forEach { exclude(it + ".*") }
         }
     }
+}
+
+def replaceUnshadedClasses(jarTask) {
+    // The LDGson class is a special case where we do *not* want any of the Gson class names it uses to be
+    // modified by shading (because its purpose is to interoperate with a non-shaded instance of Gson).
+    // Shadow doesn't seem to provide a way to say "make this class file immune from the changes that result
+    // from shading *other* classes", so the workaround is to simply recopy the original class file. Note that
+    // we use a wildcard to make sure we also get any inner classes.
+    def protectedClassFilePattern = 'com/launchdarkly/sdk/json/LDGson*.class'
+    jarTask.exclude protectedClassFilePattern
+    def protectedClassFiles = configurations.commonClasses.collectMany {
+        zipTree(it).matching {
+            include protectedClassFilePattern
+        } getFiles()
+    }
+    def jarPath = jarTask.archiveFile.asFile.get().toPath()
+    FileSystems.newFileSystem(jarPath, null).withCloseable { fs ->
+        protectedClassFiles.forEach { classFile ->
+            def classSubpath = classFile.path.substring(classFile.path.indexOf("com/launchdarkly"))
+            Files.copy(classFile.toPath(), fs.getPath(classSubpath), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+}
+
+def getFileFromClasspath(config, filePath) {
+    def files = config.collectMany {
+        zipTree(it) matching {
+            include filePath
+        } getFiles()
+    }
+    if (files.size != 1) {
+        throw new RuntimeException("could not find " + filePath);
+    }
+    return files[0]
 }
 
 def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configuration> exportConfigs) {
@@ -255,7 +342,7 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
     jarTask.manifest {
         attributes(
             "Implementation-Version": implementationVersion,
-            "Bundle-SymbolicName": "com.launchdarkly.client",
+            "Bundle-SymbolicName": "com.launchdarkly.sdk",
             "Bundle-Version": implementationVersion,
             "Bundle-Name": "LaunchDarkly SDK",
             "Bundle-ManifestVersion": "2",
@@ -265,10 +352,14 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
         // Since we're not currently able to use bnd or the Gradle OSGi plugin, we're not discovering
         // imports by looking at the actual code; instead, we're just importing whatever packages each
         // dependency is exporting (if it has an OSGi manifest) or every package in the dependency (if
-        // it doesn't).
+        // it doesn't). We also always add *optional* imports for Gson, so that GsonTypeAdapters will
+        // work *if* Gson is present externally.
         def imports = forEachArtifactAndVisiblePackage(importConfigs, { a, p ->
             bundleImport(p, a.moduleVersion.id.version, nextMajorVersion(a.moduleVersion.id.version))
         }) + systemPackageImports
+        imports += "com.google.gson;resolution:=optional"	
+        	imports += "com.google.gson.reflect;resolution:=optional"
+        	imports += "com.google.gson.stream;resolution:=optional"
         attributes("Import-Package": imports.join(","))
 
         // Similarly, we're adding package exports for every package in whatever libraries we're
@@ -331,6 +422,71 @@ test {
         events "passed", "skipped", "failed", "standardOut", "standardError"
         showStandardStreams = true
         exceptionFormat = 'full'
+    }
+}
+
+jacocoTestReport { // code coverage report
+    reports {
+        xml.enabled
+        csv.enabled true
+        html.enabled true
+    }
+}
+
+jacocoTestCoverageVerification {
+    // See notes in CONTRIBUTING.md on code coverage. Unfortunately we can't configure line-by-line code
+    // coverage overrides within the source code itself, because Jacoco operates on bytecode.
+    violationRules { rules ->
+        def knownMissedLinesForMethods = [
+            // The key for each of these items is the complete method signature minus the "com.launchdarkly.sdk.server." prefix.
+            "DataSourceUpdatesImpl.OutageTracker.onTimeout()": 1,
+            "DataSourceUpdatesImpl.computeChangedItemsForFullDataSet(java.util.Map, java.util.Map)": 2,
+            "DefaultEventProcessor.EventProcessorMessage.waitForCompletion()": 3,
+            "DefaultEventProcessor.EventDispatcher.onUncaughtException(java.lang.Thread, java.lang.Throwable)": 8,
+            "DefaultEventProcessor.EventDispatcher.runMainLoop(java.util.concurrent.BlockingQueue, com.launchdarkly.sdk.server.DefaultEventProcessor.EventBuffer, com.launchdarkly.sdk.server.SimpleLRUCache, java.util.concurrent.BlockingQueue)": 4,
+            "DefaultEventProcessor.postToChannel(com.launchdarkly.sdk.server.DefaultEventProcessor.EventProcessorMessage)": 5,
+            "DefaultEventSender.sendEventData(com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind, java.lang.String, int, java.net.URI)": 1,
+            "EvaluatorOperators.ComparisonOp.test(int)": 1,
+            "EvaluatorOperators.apply(com.launchdarkly.sdk.server.DataModel.Operator, com.launchdarkly.sdk.LDValue, com.launchdarkly.sdk.LDValue, com.launchdarkly.sdk.server.EvaluatorPreprocessing.ClauseExtra.ValueExtra)": 1,
+            "LDClient.LDClient(java.lang.String)": 2,
+            "LDClient.secureModeHash(com.launchdarkly.sdk.LDUser)": 4,
+            "PersistentDataStoreStatusManager.1.run()": 2,
+            "PersistentDataStoreWrapper.PersistentDataStoreWrapper(com.launchdarkly.sdk.server.interfaces.PersistentDataStore, java.time.Duration, com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder.StaleValuesPolicy, boolean, com.launchdarkly.sdk.server.interfaces.DataStoreUpdates, java.util.concurrent.ScheduledExecutorService)": 2,
+            "PersistentDataStoreWrapper.getAll(com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind)": 3,
+            "PersistentDataStoreWrapper.deserialize(com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind, com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor)": 2,
+            "SemanticVersion.parse(java.lang.String, boolean)": 2,
+            "Util.1.lambda\$authenticate\$0(okhttp3.Challenge)": 1,
+            "integrations.FileDataSourceImpl.FileDataSourceImpl(com.launchdarkly.sdk.server.interfaces.DataSourceUpdates, java.util.List, boolean)": 3,
+            "integrations.FileDataSourceImpl.FileWatcher.run()": 3,
+            "integrations.FileDataSourceParsing.FlagFileParser.detectJson(java.io.Reader)": 2
+        ]
+
+        knownMissedLinesForMethods.each { partialSignature, maxMissedLines ->
+            if (maxMissedLines > 0) {  // < 0 means skip entire method
+                rules.rule {
+                    element = "METHOD"
+                    includes = [ "com.launchdarkly.sdk.server." + partialSignature ]
+                    limit {
+                        counter = "LINE"
+                        value = "MISSEDCOUNT"
+                        maximum = maxMissedLines
+                    }
+                }
+            }
+        }
+        
+        // General rule that we should expect 100% test coverage; exclude any methods that have overrides above
+        rule {
+            element = "METHOD"
+            limit {
+                counter = "LINE"
+                value = "MISSEDCOUNT"
+                maximum = 0
+            }
+            excludes = knownMissedLinesForMethods.collect { partialSignature, maxMissedLines ->
+                "com.launchdarkly.sdk.server." + partialSignature
+            }
+        }
     }
 }
 

@@ -10,8 +10,11 @@ publications:
 
 template:
   name: gradle
-  env:
-    LD_SKIP_DATABASE_TESTS: 1
+
+releasableBranches:
+  - name: master
+    description: 5.x
+  - name: 4.x
 
 documentation:
   githubPages: true

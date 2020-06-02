@@ -1,5 +1,4 @@
-Contributing to the LaunchDarkly Server-side SDK for Java
-================================================
+# Contributing to the LaunchDarkly Server-side SDK for Java
  
 LaunchDarkly has published an [SDK contributor's guide](https://docs.launchdarkly.com/docs/sdk-contributors-guide) that provides a detailed explanation of how our SDKs work. See below for additional information on how to contribute to this SDK.
  
@@ -15,8 +14,10 @@ We encourage pull requests and other contributions from the community. Before su
  
 ### Prerequisites
  
-The SDK builds with [Gradle](https://gradle.org/) and should be built against Java 7.
- 
+The SDK builds with [Gradle](https://gradle.org/) and should be built against Java 8.
+
+Many basic classes are implemented in the module `launchdarkly-java-sdk-common`, whose source code is in the [`launchdarkly/java-sdk-common`](https://github.com/launchdarkly/java-sdk-common) repository; this is so the common code can be shared with the LaunchDarkly Android SDK. By design, the LaunchDarkly Java SDK distribution does not expose a dependency on that module; instead, its classes and Javadoc content are embedded in the SDK jars.
+
 ### Building
 
 To build the SDK without running any tests:
@@ -41,4 +42,28 @@ To build the SDK and run all unit tests:
 ./gradlew test
 ```
 
-By default, the full unit test suite includes live tests of the Redis integration. Those tests expect you to have Redis running locally. To skip them, set the environment variable `LD_SKIP_DATABASE_TESTS=1` before running the tests.
+### Benchmarks
+
+The project in the `benchmarks` subdirectory uses [JMH](https://openjdk.java.net/projects/code-tools/jmh/) to generate performance metrics for the SDK. This is run as a CI job, and can also be run manually by running `make` within `benchmarks` and then inspecting `build/reports/jmh`.
+
+## Coding best practices
+
+### Logging
+
+Currently the SDK uses SLF4J for all log output. Here some things to keep in mind for good logging behavior:
+
+1. Stick to the standardized logger name scheme defined in `Loggers.java`, preferably for all log output, but definitely for all log output above `DEBUG` level. Logger names can be useful for filtering log output, so it is desirable for users to be able to reference a clear, stable logger name like `com.launchdarkly.sdk.server.LDClient.Events` rather than a class name like `com.launchdarkly.sdk.server.EventSummarizer` which is an implementation detail. The text of a log message should be distinctive enough that we can easily find which class generated the message.
+
+2. Use parameterized messages (`Logger.MAIN.info("The value is {}", someValue)`) rather than string concatenation (`Logger.MAIN.info("The value is " + someValue)`). This avoids the overhead of string concatenation if the logger is not enabled for that level. If computing the value is an expensive operation, and it is _only_ relevant for logging, consider implementing that computation via a custom `toString()` method on some wrapper type so that it will be done lazily only if the log level is enabled.
+
+3. Exception stacktraces should only be logged at debug level. For instance: `Logger.MAIN.warn("An error happened: {}", ex.toString()); Logger.MAIN.debug(ex.toString(), ex)`. Also, consider whether the stacktrace would be at all meaningful in this particular context; for instance, in a `try` block around a network I/O operation, the stacktrace would only tell us (a) some internal location in Java standard libraries and (b) the location in our own code where we tried to do the operation; (a) is very unlikely to tell us anything that the exception's type and message doesn't already tell us, and (b) could be more clearly communicated by just writing a specific log message.
+
+### Code coverage
+
+It is important to keep unit test coverage as close to 100% as possible in this project. You can view the latest code coverage report in CircleCI, as `coverage/html/index.html` in the artifacts for the "Java 11 - Linux - OpenJDK" job. You can also run the report locally with `./gradlew jacocoTestCoverage` and view `./build/reports/jacoco/test`. _The CircleCI build will fail if you commit a change that increases the number of uncovered lines_, unless you explicitly add an override as shown below.
+
+Sometimes a gap in coverage is unavoidable, usually because the compiler requires us to provide a code path for some condition that in practice can't happen and can't be tested, or because of a known issue with the code coverage tool. Please handle all such cases as follows:
+
+* Mark the code with an explanatory comment beginning with "COVERAGE:".
+* Run the code coverage task with `./gradlew jacocoTestCoverageVerification`. It should fail and indicate how many lines of missed coverage exist in the method you modified.
+* Add an item in the `knownMissedLinesForMethods` map in `build.gradle` that specifies that number of missed lines for that method signature. For instance, if the method `com.launchdarkly.sdk.server.SomeClass.someMethod(java.lang.String)` has two missed lines that cannot be covered, you would add `"SomeClass.someMethod(java.lang.String)": 2`.

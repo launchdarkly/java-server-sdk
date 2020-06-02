@@ -25,9 +25,13 @@ workflows:
       - test-linux:
           name: Java 11 - Linux - OpenJDK
           docker-image: circleci/openjdk:11
+          with-coverage: true
           requires:
             - build-linux
       - packaging:
+          requires:
+            - build-linux
+      - benchmarks:
           requires:
             - build-linux
       - build-test-windows:
@@ -52,26 +56,44 @@ jobs:
     parameters:
       docker-image:
         type: string
+      with-coverage:
+        type: boolean
+        default: false
     docker:
       - image: <<parameters.docker-image>>
-      - image: redis
     steps:
       - checkout
       - run: cp gradle.properties.example gradle.properties
       - attach_workspace:
           at: build
       - run: java -version
-      - run: ./gradlew test
+      - run:
+          name: Run tests
+          command: ./gradlew test
+      - when:
+          condition: <<parameters.with-coverage>>
+          steps:
+            - run:
+                name: Generate test coverage report
+                command: |
+                  ./gradlew jacocoTestReport
+                  mkdir -p coverage/
+                  cp -r build/reports/jacoco/test/* ./coverage
       - run:
           name: Save test results
           command: |
-            mkdir -p ~/junit/;
+            mkdir -p ~/junit/
             find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
           when: always
       - store_test_results:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+      - when:
+          condition: <<parameters.with-coverage>>
+          steps:
+            - store_artifacts:
+                path: coverage
 
   build-test-windows:
     executor:
@@ -85,18 +107,6 @@ jobs:
             $ProgressPreference = "SilentlyContinue"  # prevents console errors from CircleCI host
             iwr -outf openjdk.msi https://developers.redhat.com/download-manager/file/java-11-openjdk-11.0.5.10-2.windows.redhat.x86_64.msi
             Start-Process msiexec.exe -Wait -ArgumentList '/I openjdk.msi /quiet'
-      - run:
-          name: start Redis
-          command: |
-            $ProgressPreference = "SilentlyContinue"
-            iwr -outf redis.zip https://github.com/MicrosoftArchive/redis/releases/download/win-3.0.504/Redis-x64-3.0.504.zip
-            mkdir redis
-            Expand-Archive -Path redis.zip -DestinationPath redis
-            cd redis
-            .\redis-server --service-install
-            .\redis-server --service-start
-            Start-Sleep -s 5
-            .\redis-cli ping
       - run:
           name: build and test
           command: |
@@ -131,3 +141,19 @@ jobs:
       - run:
           name: run packaging tests
           command: cd packaging-test && make all
+
+  benchmarks:
+    docker:
+      - image: circleci/openjdk:11
+    steps:
+      - run: java -version
+      - run: sudo apt-get install make -y -q
+      - checkout
+      - attach_workspace:
+          at: build
+      - run: cat gradle.properties.example >>gradle.properties
+      - run:
+          name: run benchmarks
+          command: cd benchmarks && make
+      - store_artifacts:
+          path: benchmarks/build/reports/jmh

@@ -43,7 +43,11 @@ jar {
         // those correctly (5.0.0-beta1 will become "[5.0.0,6)" which will not work because the
         // beta is semantically *before* 5.0.0).
         '-consumer-policy': '',
-        'Bundle-Activator': 'testapp.TestAppOsgiEntryPoint'
+        'Bundle-Activator': 'testapp.TestAppOsgiEntryPoint',
+        'Import-Package': 'com.launchdarkly.sdk,com.launchdarkly.sdk.json' +
+            ',com.launchdarkly.sdk.server,org.slf4j' +
+            ',org.osgi.framework' +
+            ',com.google.gson;resolution:=optional'
     )
 }
 
