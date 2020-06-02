@@ -18,6 +18,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -134,34 +136,22 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   @Test
-  public void headersHaveAuthorization() {
+  public void basicHeadersAreSent() {
+    HttpConfiguration httpConfig = clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp();
+    
     createStreamProcessor(STREAM_URI).start();
-    assertEquals(SDK_KEY,
-        mockEventSourceCreator.getNextReceivedParams().headers.get("Authorization"));
+    EventSourceParams params = mockEventSourceCreator.getNextReceivedParams();
+    
+    for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
+      assertThat(params.headers.get(kv.getKey()), equalTo(kv.getValue()));
+    }
   }
   
-  @Test
-  public void headersHaveUserAgent() {
-    createStreamProcessor(STREAM_URI).start();
-    assertEquals("JavaClient/" + Version.SDK_VERSION,
-        mockEventSourceCreator.getNextReceivedParams().headers.get("User-Agent"));
-  }
-
   @Test
   public void headersHaveAccept() {
     createStreamProcessor(STREAM_URI).start();
     assertEquals("text/event-stream",
         mockEventSourceCreator.getNextReceivedParams().headers.get("Accept"));
-  }
-
-  @Test
-  public void headersHaveWrapperWhenSet() {
-    LDConfig config = new LDConfig.Builder()
-        .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
-        .build();
-    createStreamProcessor(config, STREAM_URI).start();
-    assertEquals("Scala/0.1.0",
-        mockEventSourceCreator.getNextReceivedParams().headers.get("X-LaunchDarkly-Wrapper"));
   }
 
   @Test
@@ -873,14 +863,9 @@ public class StreamProcessorTest extends EasyMockSupport {
     return createStreamProcessor(LDConfig.DEFAULT, streamUri, null);
   }
 
-  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri) {
-    return createStreamProcessor(config, streamUri, null);
-  }
-
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
     return new StreamProcessor(
-        SDK_KEY,
-        config.httpConfig,
+        clientContext(SDK_KEY, config).getHttp(),
         mockRequestor,
         dataSourceUpdates,
         mockEventSourceCreator,
@@ -893,8 +878,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
     return new StreamProcessor(
-        SDK_KEY,
-        config.httpConfig,
+        clientContext(SDK_KEY, config).getHttp(),
         mockRequestor,
         dataSourceUpdates,
         null,
@@ -907,8 +891,7 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   private StreamProcessor createStreamProcessorWithStoreUpdates(DataSourceUpdates storeUpdates) {
     return new StreamProcessor(
-        SDK_KEY,
-        LDConfig.DEFAULT.httpConfig,
+        clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp(),
         mockRequestor,
         storeUpdates,
         mockEventSourceCreator,

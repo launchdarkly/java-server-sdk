@@ -22,6 +22,8 @@ import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 
 abstract class JsonHelpers {
+  private JsonHelpers() {}
+  
   private static final Gson gson = new Gson();
   
   /**

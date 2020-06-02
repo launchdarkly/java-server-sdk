@@ -24,6 +24,7 @@ final class SemanticVersion implements Comparable<SemanticVersion> {
   private final int minor;
   private final int patch;
   private final String prerelease;
+  private final String[] prereleaseComponents;
   private final String build;
   
   public SemanticVersion(int major, int minor, int patch, String prerelease, String build) {
@@ -31,6 +32,7 @@ final class SemanticVersion implements Comparable<SemanticVersion> {
     this.minor = minor;
     this.patch = patch;
     this.prerelease = prerelease;
+    this.prereleaseComponents = prerelease == null ? null : prerelease.split("\\.");
     this.build = build;
   }
   
@@ -89,6 +91,7 @@ final class SemanticVersion implements Comparable<SemanticVersion> {
       minor = matcher.group("minor") == null ? 0 : Integer.parseInt(matcher.group("minor"));
       patch = matcher.group("patch") == null ? 0 : Integer.parseInt(matcher.group("patch"));
     } catch (NumberFormatException e) {
+      // COVERAGE: This should be impossible, because our regex should only match if these strings are numeric.
       throw new InvalidVersionException("Invalid semantic version");
     }
     String prerelease = matcher.group("prerel");
@@ -129,7 +132,7 @@ final class SemanticVersion implements Comparable<SemanticVersion> {
     if (other.prerelease == null) {
       return -1;
     }
-    return compareIdentifiers(prerelease.split("\\."), other.prerelease.split("\\."));
+    return compareIdentifiers(prereleaseComponents, other.prereleaseComponents);
   }
   
   private int compareIdentifiers(String[] ids1, String[] ids2) {

@@ -4,9 +4,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
 
 import java.net.URI;
@@ -20,7 +18,7 @@ public final class LDConfig {
   static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
   static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
 
-  private static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
+  static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
   
   protected static final LDConfig DEFAULT = new Builder().build();
 
@@ -28,39 +26,29 @@ public final class LDConfig {
   final DataStoreFactory dataStoreFactory;
   final boolean diagnosticOptOut;
   final EventProcessorFactory eventProcessorFactory;
-  final HttpConfiguration httpConfig;
-  final LoggingConfiguration loggingConfig;
+  final HttpConfigurationFactory httpConfigFactory;
+  final LoggingConfigurationFactory loggingConfigFactory;
   final boolean offline;
   final Duration startWait;
   final int threadPriority;
 
   protected LDConfig(Builder builder) {
-    this.dataStoreFactory = builder.dataStoreFactory;
-    this.eventProcessorFactory = builder.eventProcessorFactory;
-    this.dataSourceFactory = builder.dataSourceFactory;
+    this.dataStoreFactory = builder.dataStoreFactory == null ? Components.inMemoryDataStore() :
+      builder.dataStoreFactory;
+    this.eventProcessorFactory = builder.eventProcessorFactory == null ? Components.sendEvents() :
+      builder.eventProcessorFactory;
+    this.dataSourceFactory = builder.dataSourceFactory == null ? Components.streamingDataSource() :
+      builder.dataSourceFactory;
     this.diagnosticOptOut = builder.diagnosticOptOut;
-    this.httpConfig = builder.httpConfigFactory == null ?
-        Components.httpConfiguration().createHttpConfiguration() :
-        builder.httpConfigFactory.createHttpConfiguration();
-    this.loggingConfig = (builder.loggingConfigFactory == null ? Components.logging() : builder.loggingConfigFactory).
-        createLoggingConfiguration();
+    this.httpConfigFactory = builder.httpConfigFactory == null ? Components.httpConfiguration() :
+      builder.httpConfigFactory;
+    this.loggingConfigFactory = builder.loggingConfigFactory == null ? Components.logging() :
+      builder.loggingConfigFactory;
     this.offline = builder.offline;
     this.startWait = builder.startWait;
     this.threadPriority = builder.threadPriority;
   }
   
-  LDConfig(LDConfig config) {
-    this.dataSourceFactory = config.dataSourceFactory;
-    this.dataStoreFactory = config.dataStoreFactory;
-    this.diagnosticOptOut = config.diagnosticOptOut;
-    this.eventProcessorFactory = config.eventProcessorFactory;
-    this.httpConfig = config.httpConfig;
-    this.loggingConfig = config.loggingConfig;
-    this.offline = config.offline;
-    this.startWait = config.startWait;
-    this.threadPriority = config.threadPriority;
-  }
-
   /**
    * A <a href="http://en.wikipedia.org/wiki/Builder_pattern">builder</a> that helps construct
    * {@link com.launchdarkly.sdk.server.LDConfig} objects. Builder calls can be chained, enabling the

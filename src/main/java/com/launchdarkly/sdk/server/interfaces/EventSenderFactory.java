@@ -10,9 +10,9 @@ public interface EventSenderFactory {
   /**
    * Called by the SDK to create the implementation object.
    * 
-   * @param sdkKey the configured SDK key
+   * @param basicConfiguration the basic global SDK configuration properties
    * @param httpConfiguration HTTP configuration properties
    * @return an {@link EventSender}
    */
-  EventSender createEventSender(String sdkKey, HttpConfiguration httpConfiguration);
+  EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration);
 }

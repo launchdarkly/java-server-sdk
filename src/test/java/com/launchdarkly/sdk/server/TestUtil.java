@@ -48,6 +48,10 @@ public class TestUtil {
    */
   public static final Gson TEST_GSON_INSTANCE = new Gson();
 
+  public static String getSdkVersion() {
+    return Version.SDK_VERSION;
+  }
+  
   // repeats until action returns non-null value, throws exception on timeout
   public static <T> T repeatWithTimeout(Duration timeout, Duration interval, Supplier<T> action) {
     Instant deadline = Instant.now().plus(timeout);

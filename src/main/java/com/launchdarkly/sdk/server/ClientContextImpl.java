@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
@@ -21,30 +22,24 @@ import java.util.concurrent.ScheduledExecutorService;
 final class ClientContextImpl implements ClientContext {
   private static volatile ScheduledExecutorService fallbackSharedExecutor = null;
   
-  private final String sdkKey;
+  private final BasicConfiguration basicConfiguration;
   private final HttpConfiguration httpConfiguration;
   private final LoggingConfiguration loggingConfiguration;
-  private final boolean offline;
-  private final int threadPriority;
   final ScheduledExecutorService sharedExecutor;
   final DiagnosticAccumulator diagnosticAccumulator;
   final DiagnosticEvent.Init diagnosticInitEvent;
 
   private ClientContextImpl(
-      String sdkKey,
+      BasicConfiguration basicConfiguration,
       HttpConfiguration httpConfiguration,
       LoggingConfiguration loggingConfiguration,
-      boolean offline,
-      int threadPriority,
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator,
       DiagnosticEvent.Init diagnosticInitEvent
   ) {
-    this.sdkKey = sdkKey;
+    this.basicConfiguration = basicConfiguration;
     this.httpConfiguration = httpConfiguration;
     this.loggingConfiguration = loggingConfiguration;
-    this.offline = offline;
-    this.threadPriority = threadPriority;
     this.sharedExecutor = sharedExecutor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.diagnosticInitEvent = diagnosticInitEvent;
@@ -56,15 +51,22 @@ final class ClientContextImpl implements ClientContext {
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator
   ) {
-    this.sdkKey = sdkKey;
-    this.httpConfiguration = configuration.httpConfig;
-    this.loggingConfiguration = configuration.loggingConfig;
-    this.offline = configuration.offline;
-    this.threadPriority = configuration.threadPriority;
+    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority);
+    
+    this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
+    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(basicConfiguration);
+        
     this.sharedExecutor = sharedExecutor;
+    
     if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {
       this.diagnosticAccumulator = diagnosticAccumulator;
-      this.diagnosticInitEvent = new DiagnosticEvent.Init(diagnosticAccumulator.dataSinceDate, diagnosticAccumulator.diagnosticId, configuration);
+      this.diagnosticInitEvent = new DiagnosticEvent.Init(
+          diagnosticAccumulator.dataSinceDate,
+          diagnosticAccumulator.diagnosticId,
+          configuration,
+          basicConfiguration,
+          httpConfiguration
+          );
     } else {
       this.diagnosticAccumulator = null;
       this.diagnosticInitEvent = null;
@@ -72,28 +74,18 @@ final class ClientContextImpl implements ClientContext {
   }
 
   @Override
-  public String getSdkKey() {
-    return sdkKey;
-  }
-
-  @Override
-  public boolean isOffline() {
-    return offline;
+  public BasicConfiguration getBasic() {
+    return basicConfiguration;
   }
   
   @Override
-  public HttpConfiguration getHttpConfiguration() {
+  public HttpConfiguration getHttp() {
     return httpConfiguration;
   }
 
   @Override
-  public LoggingConfiguration getLoggingConfiguration() {
+  public LoggingConfiguration getLogging() {
     return loggingConfiguration;
-  }
-  
-  @Override
-  public int getThreadPriority() {
-    return threadPriority;
   }
   
   /**
@@ -113,11 +105,9 @@ final class ClientContextImpl implements ClientContext {
       }
     }
     return new ClientContextImpl(
-        context.getSdkKey(),
-        context.getHttpConfiguration(),
-        context.getLoggingConfiguration(),
-        context.isOffline(),
-        context.getThreadPriority(),
+        context.getBasic(),
+        context.getHttp(),
+        context.getLogging(),
         fallbackSharedExecutor,
         null,
         null

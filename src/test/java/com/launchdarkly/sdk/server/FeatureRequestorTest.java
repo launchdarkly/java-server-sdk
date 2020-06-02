@@ -1,16 +1,23 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLHandshakeException;
 
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.sdk.server.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -40,7 +47,11 @@ public class FeatureRequestorTest {
 
   private DefaultFeatureRequestor makeRequestor(MockWebServer server, LDConfig config) {
     URI uri = server.url("").uri();
-    return new DefaultFeatureRequestor(sdkKey, config.httpConfig, uri, true);
+    return new DefaultFeatureRequestor(makeHttpConfig(config), uri, true);
+  }
+
+  private HttpConfiguration makeHttpConfig(LDConfig config) {
+    return config.httpConfigFactory.createHttpConfiguration(new BasicConfiguration(sdkKey, false, 0));
   }
 
   @Test
@@ -198,7 +209,7 @@ public class FeatureRequestorTest {
           .http(Components.httpConfiguration().proxyHostAndPort(serverUrl.host(), serverUrl.port()))
           .build();
       
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(sdkKey, config.httpConfig, fakeBaseUri, true)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), fakeBaseUri, true)) {
         DataModel.FeatureFlag flag = r.getFlag(flag1Key);
         verifyFlag(flag, flag1Key);
         
@@ -208,8 +219,10 @@ public class FeatureRequestorTest {
   }
   
   private void verifyHeaders(RecordedRequest req) {
-    assertEquals(sdkKey, req.getHeader("Authorization"));
-    assertEquals("JavaClient/" + Version.SDK_VERSION, req.getHeader("User-Agent"));
+    HttpConfiguration httpConfig = clientContext(sdkKey, LDConfig.DEFAULT).getHttp();
+    for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
+      assertThat(req.getHeader(kv.getKey()), equalTo(kv.getValue()));
+    }
   }
   
   private void verifyFlag(DataModel.FeatureFlag flag, String key) {

@@ -5,11 +5,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import org.junit.Test;
 
@@ -19,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -70,7 +74,6 @@ public class DiagnosticEventTest {
         .put("eventsCapacity", 10_000)
         .put("eventsFlushIntervalMillis",5_000)
         .put("inlineUsersInEvents", false)
-        .put("offline", false)
         .put("samplingInterval", 0)
         .put("socketTimeoutMillis", 10_000)
         .put("startWaitMillis", 5_000)
@@ -82,10 +85,15 @@ public class DiagnosticEventTest {
         .put("usingRelayDaemon", false);
   }
   
+  private static LDValue makeConfigData(LDConfig config) {
+    ClientContext context = clientContext("SDK_KEY", config); // the SDK key doesn't matter for these tests
+    return DiagnosticEvent.Init.getConfigurationData(config, context.getBasic(), context.getHttp());
+  }
+  
   @Test
   public void testDefaultDiagnosticConfiguration() {
     LDConfig ldConfig = new LDConfig.Builder().build();
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue diagnosticJson = makeConfigData(ldConfig);
     LDValue expected = expectedDefaultProperties().build();
 
     assertEquals(expected, diagnosticJson);
@@ -97,7 +105,7 @@ public class DiagnosticEventTest {
             .startWait(Duration.ofSeconds(10))
             .build();
 
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue diagnosticJson = makeConfigData(ldConfig);
     LDValue expected = expectedDefaultProperties()
         .put("startWaitMillis", 10_000)
         .build();
@@ -116,7 +124,7 @@ public class DiagnosticEventTest {
                 )
             .build();
 
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue diagnosticJson = makeConfigData(ldConfig);
     LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("customBaseURI", true)
         .put("customStreamURI", true)
@@ -136,11 +144,25 @@ public class DiagnosticEventTest {
                 )
             .build();
 
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue diagnosticJson = makeConfigData(ldConfig);
     LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("customBaseURI", true)
         .put("pollingIntervalMillis", 60_000)
         .put("streamingDisabled", true)
+        .build();
+
+    assertEquals(expected, diagnosticJson);
+  }
+
+  @Test
+  public void testCustomDiagnosticConfigurationForPersistentDataStore() {
+    LDConfig ldConfig = new LDConfig.Builder()
+        .dataStore(Components.persistentDataStore(new PersistentDataStoreFactoryWithComponentName()))
+        .build();
+
+    LDValue diagnosticJson = makeConfigData(ldConfig);
+    LDValue expected = expectedDefaultProperties()
+        .put("dataStoreType", "my-test-store")
         .build();
 
     assertEquals(expected, diagnosticJson);
@@ -152,6 +174,7 @@ public class DiagnosticEventTest {
           .events(
               Components.sendEvents()
                 .allAttributesPrivate(true)
+                .baseURI(URI.create("http://custom"))
                 .capacity(20_000)
                 .diagnosticRecordingInterval(Duration.ofSeconds(1_800))
                 .flushInterval(Duration.ofSeconds(10))
@@ -161,9 +184,10 @@ public class DiagnosticEventTest {
               )
           .build();
 
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue diagnosticJson = makeConfigData(ldConfig);
     LDValue expected = expectedDefaultProperties()
         .put("allAttributesPrivate", true)
+        .put("customEventsURI", true)
         .put("diagnosticRecordingIntervalMillis", 1_800_000)
         .put("eventsCapacity", 20_000)
         .put("eventsFlushIntervalMillis", 10_000)
@@ -182,7 +206,7 @@ public class DiagnosticEventTest {
             .dataStore(new DataStoreFactoryWithComponentName())
             .build();
 
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue diagnosticJson = makeConfigData(ldConfig);
     LDValue expected = expectedDefaultPropertiesWithoutStreaming()
         .put("dataStoreType", "my-test-store")
         .put("usingRelayDaemon", true)
@@ -191,20 +215,6 @@ public class DiagnosticEventTest {
     assertEquals(expected, diagnosticJson);
   }
 
-  @Test
-  public void testCustomDiagnosticConfigurationForOffline() {
-    LDConfig ldConfig = new LDConfig.Builder()
-            .offline(true)
-            .build();
-
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
-    LDValue expected = expectedDefaultPropertiesWithoutStreaming()
-        .put("offline", true)
-        .build();
-
-    assertEquals(expected, diagnosticJson);
-  }
-  
   @Test
   public void testCustomDiagnosticConfigurationHttpProperties() {
     LDConfig ldConfig = new LDConfig.Builder()
@@ -217,7 +227,7 @@ public class DiagnosticEventTest {
         )
         .build();
 
-    LDValue diagnosticJson = DiagnosticEvent.Init.getConfigurationData(ldConfig);
+    LDValue diagnosticJson = makeConfigData(ldConfig);
     LDValue expected = expectedDefaultProperties()
         .put("connectTimeoutMillis", 5_000)
         .put("socketTimeoutMillis",  20_000)
@@ -230,12 +240,24 @@ public class DiagnosticEventTest {
   
   private static class DataStoreFactoryWithComponentName implements DataStoreFactory, DiagnosticDescription {
     @Override
-    public LDValue describeConfiguration(LDConfig config) {
+    public LDValue describeConfiguration(BasicConfiguration basicConfig) {
       return LDValue.of("my-test-store");
     }
 
     @Override
     public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+      return null;
+    }
+  }
+  
+  private static class PersistentDataStoreFactoryWithComponentName implements PersistentDataStoreFactory, DiagnosticDescription {
+    @Override
+    public LDValue describeConfiguration(BasicConfiguration basicConfig) {
+      return LDValue.of("my-test-store");
+    }
+
+    @Override
+    public PersistentDataStore createPersistentDataStore(ClientContext context) {
       return null;
     }
   }

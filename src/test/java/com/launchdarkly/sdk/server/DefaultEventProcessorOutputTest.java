@@ -146,7 +146,28 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
         isSummaryEvent()
     ));
   }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void featureEventCanBeForPrerequisite() throws Exception {
+    MockEventSender es = new MockEventSender();
+    DataModel.FeatureFlag mainFlag = flagBuilder("flagkey").version(11).build();
+    DataModel.FeatureFlag prereqFlag = flagBuilder("prereqkey").version(12).trackEvents(true).build();
+    Event.FeatureRequest fe = EventFactory.DEFAULT.newPrerequisiteFeatureRequestEvent(prereqFlag, user,
+        simpleEvaluation(1, LDValue.of("value")),
+        mainFlag);
+
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
+      ep.sendEvent(fe);
+    }
   
+    assertThat(es.getEventsFromLastRequest(), contains(
+        isIndexEvent(fe, userJson),
+        allOf(isFeatureEvent(fe, prereqFlag, false, null), isPrerequisiteOf(mainFlag.getKey())),
+        isSummaryEvent()
+    ));
+  }
+
   @Test
   public void featureEventWithNullUserOrNullUserKeyIsIgnored() throws Exception {
     // This should never happen because LDClient rejects such a user, but just in case,

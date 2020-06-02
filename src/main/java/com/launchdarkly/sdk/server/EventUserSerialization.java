@@ -11,7 +11,8 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.TreeSet;
 
-class EventUserSerialization {
+abstract class EventUserSerialization {
+  private EventUserSerialization() {}
 
   // Used internally when including users in analytics events, to ensure that private attributes are stripped out.
   static class UserAdapterWithPrivateAttributeBehavior extends TypeAdapter<LDUser> {

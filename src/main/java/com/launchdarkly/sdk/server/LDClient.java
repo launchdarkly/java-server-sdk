@@ -7,17 +7,14 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagTracker;
@@ -151,9 +148,7 @@ public final class LDClient implements LDClientInterface {
     
     this.sharedExecutor = createSharedExecutor(config);
     
-    final EventProcessorFactory epFactory = config.eventProcessorFactory == null ?
-        Components.sendEvents() : config.eventProcessorFactory;
-    boolean eventsDisabled = Components.isNullImplementation(epFactory);
+    boolean eventsDisabled = Components.isNullImplementation(config.eventProcessorFactory);
     if (eventsDisabled) {
       this.eventFactoryDefault = EventFactory.Disabled.INSTANCE;
       this.eventFactoryWithReasons = EventFactory.Disabled.INSTANCE;
@@ -162,17 +157,9 @@ public final class LDClient implements LDClientInterface {
       this.eventFactoryWithReasons = EventFactory.DEFAULT_WITH_REASONS;
     }
     
-    if (config.httpConfig.getProxy() != null) {
-      if (config.httpConfig.getProxyAuthentication() != null) {
-        Loggers.MAIN.info("Using proxy: {} with authentication.", config.httpConfig.getProxy());
-      } else {
-        Loggers.MAIN.info("Using proxy: {} without authentication.", config.httpConfig.getProxy());
-      }
-    }
-
     // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
     // standard event processor
-    final boolean useDiagnostics = !config.diagnosticOptOut && epFactory instanceof EventProcessorBuilder;
+    final boolean useDiagnostics = !config.diagnosticOptOut && config.eventProcessorFactory instanceof EventProcessorBuilder;
     final ClientContextImpl context = new ClientContextImpl(
         sdkKey,
         config,
@@ -180,14 +167,20 @@ public final class LDClient implements LDClientInterface {
         useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null
         );
 
-    this.eventProcessor = epFactory.createEventProcessor(context);
+    if (context.getHttp().getProxy() != null) {
+      if (context.getHttp().getProxyAuthentication() != null) {
+        Loggers.MAIN.info("Using proxy: {} with authentication.", context.getHttp().getProxy());
+      } else {
+        Loggers.MAIN.info("Using proxy: {} without authentication.", context.getHttp().getProxy());
+      }
+    }
 
-    DataStoreFactory factory = config.dataStoreFactory == null ?
-        Components.inMemoryDataStore() : config.dataStoreFactory;
+    this.eventProcessor = config.eventProcessorFactory.createEventProcessor(context);
+
     EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> dataStoreStatusNotifier =
         EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
     DataStoreUpdatesImpl dataStoreUpdates = new DataStoreUpdatesImpl(dataStoreStatusNotifier);
-    this.dataStore = factory.createDataStore(context, dataStoreUpdates);
+    this.dataStore = config.dataStoreFactory.createDataStore(context, dataStoreUpdates);
 
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
@@ -205,8 +198,6 @@ public final class LDClient implements LDClientInterface {
 
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore, dataStoreUpdates);
 
-    DataSourceFactory dataSourceFactory = config.dataSourceFactory == null ?
-        Components.streamingDataSource() : config.dataSourceFactory;
     EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> dataSourceStatusNotifier =
         EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
     DataSourceUpdatesImpl dataSourceUpdates = new DataSourceUpdatesImpl(
@@ -215,15 +206,15 @@ public final class LDClient implements LDClientInterface {
         flagChangeBroadcaster,
         dataSourceStatusNotifier,
         sharedExecutor,
-        config.loggingConfig.getLogDataSourceOutageAsErrorAfter()
+        context.getLogging().getLogDataSourceOutageAsErrorAfter()
         );
     this.dataSourceUpdates = dataSourceUpdates;
-    this.dataSource = dataSourceFactory.createDataSource(context, dataSourceUpdates);    
+    this.dataSource = config.dataSourceFactory.createDataSource(context, dataSourceUpdates);    
     this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates);
     
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {
-      if (!(dataSource instanceof Components.NullDataSource)) {
+      if (!(dataSource instanceof ComponentsImpl.NullDataSource)) {
         Loggers.MAIN.info("Waiting up to " + config.startWait.toMillis() + " milliseconds for LaunchDarkly client to start...");
       }
       try {

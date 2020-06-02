@@ -16,6 +16,8 @@ import java.io.Writer;
  * Transforms analytics events and summary data into the JSON format that we send to LaunchDarkly.
  * Rather than creating intermediate objects to represent this schema, we use the Gson streaming
  * output API to construct JSON directly.
+ * 
+ * Test coverage for this logic is in EventOutputTest and DefaultEventProcessorOutputTest.
  */
 final class EventOutputFormatter {
   private final EventsConfiguration config;
@@ -26,14 +28,12 @@ final class EventOutputFormatter {
     this.gson = JsonHelpers.gsonInstanceForEventsSerialization(config);
   }
   
-  int writeOutputEvents(Event[] events, EventSummarizer.EventSummary summary, Writer writer) throws IOException {
-    int count = 0;    
+  final int writeOutputEvents(Event[] events, EventSummarizer.EventSummary summary, Writer writer) throws IOException {
+    int count = events.length;    
     try (JsonWriter jsonWriter = new JsonWriter(writer)) {
       jsonWriter.beginArray();
       for (Event event: events) {
-        if (writeOutputEvent(event, jsonWriter)) {
-          count++;
-        }
+        writeOutputEvent(event, jsonWriter);
       }
       if (!summary.isEmpty()) {
         writeSummaryEvent(summary, jsonWriter);
@@ -44,7 +44,7 @@ final class EventOutputFormatter {
     return count;
   }
   
-  private boolean writeOutputEvent(Event event, JsonWriter jw) throws IOException {
+  private final void writeOutputEvent(Event event, JsonWriter jw) throws IOException {
     if (event instanceof Event.FeatureRequest) {
       Event.FeatureRequest fe = (Event.FeatureRequest)event;
       startEvent(fe, fe.isDebug() ? "debug" : "feature", fe.getKey(), jw);
@@ -83,13 +83,10 @@ final class EventOutputFormatter {
       startEvent(event, "index", null, jw);
       writeUser(event.getUser(), jw);
       jw.endObject();
-    } else {
-      return false;
     }
-    return true;
   }
   
-  private void writeSummaryEvent(EventSummarizer.EventSummary summary, JsonWriter jw) throws IOException {
+  private final void writeSummaryEvent(EventSummarizer.EventSummary summary, JsonWriter jw) throws IOException {
     jw.beginObject();
     
     jw.name("kind");
@@ -158,7 +155,7 @@ final class EventOutputFormatter {
     jw.endObject();
   }
   
-  private void startEvent(Event event, String kind, String key, JsonWriter jw) throws IOException {
+  private final void startEvent(Event event, String kind, String key, JsonWriter jw) throws IOException {
     jw.beginObject();
     jw.name("kind");
     jw.value(kind);
@@ -170,7 +167,7 @@ final class EventOutputFormatter {
     }
   }
   
-  private void writeUserOrKey(Event event, boolean forceInline, JsonWriter jw) throws IOException {
+  private final void writeUserOrKey(Event event, boolean forceInline, JsonWriter jw) throws IOException {
     LDUser user = event.getUser();
     if (user != null) {
       if (config.inlineUsersInEvents || forceInline) {
@@ -182,14 +179,14 @@ final class EventOutputFormatter {
     }
   }
   
-  private void writeUser(LDUser user, JsonWriter jw) throws IOException {
+  private final void writeUser(LDUser user, JsonWriter jw) throws IOException {
     jw.name("user");
     // config.gson is already set up to use our custom serializer, which knows about private attributes
     // and already uses the streaming approach
     gson.toJson(user, LDUser.class, jw);
   }
   
-  private void writeLDValue(String key, LDValue value, JsonWriter jw) throws IOException {
+  private final void writeLDValue(String key, LDValue value, JsonWriter jw) throws IOException {
     if (value == null || value.isNull()) {
       return;
     }
@@ -198,38 +195,11 @@ final class EventOutputFormatter {
   }
   
   // This logic is so that we don't have to define multiple custom serializers for the various reason subclasses.
-  private void writeEvaluationReason(String key, EvaluationReason er, JsonWriter jw) throws IOException {
+  private final void writeEvaluationReason(String key, EvaluationReason er, JsonWriter jw) throws IOException {
     if (er == null) {
       return;
     }
     jw.name(key);
-    
-    jw.beginObject();
-    
-    jw.name("kind");
-    jw.value(er.getKind().name());
-    
-    switch (er.getKind()) {
-    case ERROR:
-      jw.name("errorKind");
-      jw.value(er.getErrorKind().name());
-      break;
-    case PREREQUISITE_FAILED:
-      jw.name("prerequisiteKey");
-      jw.value(er.getPrerequisiteKey());
-      break;
-    case RULE_MATCH:
-      jw.name("ruleIndex");
-      jw.value(er.getRuleIndex());
-      if (er.getRuleId() != null) {
-        jw.name("ruleId");
-        jw.value(er.getRuleId());
-      }
-      break;
-    default:
-      break;
-    }   
-    
-    jw.endObject();
+    gson.toJson(er, EvaluationReason.class, jw); // EvaluationReason defines its own custom serializer
   }
 }

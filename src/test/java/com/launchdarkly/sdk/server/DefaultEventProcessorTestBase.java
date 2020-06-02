@@ -5,6 +5,7 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
@@ -64,7 +65,7 @@ public abstract class DefaultEventProcessorTestBase {
   public static EventSenderFactory senderFactory(final MockEventSender es) {
     return new EventSenderFactory() {
       @Override
-      public EventSender createEventSender(String sdkKey, HttpConfiguration httpConfiguration) {
+      public EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration) {
         return es;
       }
     };
@@ -180,6 +181,10 @@ public abstract class DefaultEventProcessorTestBase {
         hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
         hasJsonProperty("reason", reason == null ? LDValue.ofNull() : LDValue.parse(gson.toJson(reason)))
     );
+  }
+
+  public static Matcher<LDValue> isPrerequisiteOf(String parentFlagKey) {
+    return hasJsonProperty("prereqOf", parentFlagKey);
   }
 
   @SuppressWarnings("unchecked")

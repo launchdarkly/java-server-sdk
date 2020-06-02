@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.LDConfig;
 
 /**
  * Optional interface for components to describe their own configuration.
@@ -13,7 +12,7 @@ import com.launchdarkly.sdk.server.LDConfig;
  * values to this representation, although the SDK may or may not use them. For components that do not
  * implement this interface, the SDK may instead describe them using {@code getClass().getSimpleName()}.
  * <p>
- * The {@link #describeConfiguration(LDConfig)} method should return either null or a JSON value. For
+ * The {@link #describeConfiguration(BasicConfiguration)} method should return either null or a JSON value. For
  * custom components, the value must be a string that describes the basic nature of this component
  * implementation (e.g. "Redis"). Built-in LaunchDarkly components may instead return a JSON object
  * containing multiple properties specific to the LaunchDarkly diagnostic schema.
@@ -23,8 +22,8 @@ import com.launchdarkly.sdk.server.LDConfig;
 public interface DiagnosticDescription {
   /**
    * Used internally by the SDK to inspect the configuration.
-   * @param config the full configuration, in case this component depends on properties outside itself
+   * @param basicConfiguration general SDK configuration properties that are not specific to this component
    * @return an {@link LDValue} or null
    */
-  LDValue describeConfiguration(LDConfig config);
+  LDValue describeConfiguration(BasicConfiguration basicConfiguration);
 }

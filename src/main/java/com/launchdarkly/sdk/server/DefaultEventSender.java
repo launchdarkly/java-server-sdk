@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
@@ -44,7 +45,6 @@ final class DefaultEventSender implements EventSender {
   final Duration retryDelay; // visible for testing
 
   DefaultEventSender(
-      String sdkKey,
       HttpConfiguration httpConfiguration,
       Duration retryDelay
       ) {
@@ -52,7 +52,7 @@ final class DefaultEventSender implements EventSender {
     configureHttpClientBuilder(httpConfiguration, httpBuilder);
     this.httpClient = httpBuilder.build();
 
-    this.baseHeaders = getHeadersBuilderFor(sdkKey, httpConfiguration)
+    this.baseHeaders = getHeadersBuilderFor(httpConfiguration)
         .add("Content-Type", "application/json")
         .build();
     
@@ -162,8 +162,8 @@ final class DefaultEventSender implements EventSender {
   
   static final class Factory implements EventSenderFactory {
     @Override
-    public EventSender createEventSender(String sdkKey, HttpConfiguration httpConfiguration) {
-      return new DefaultEventSender(sdkKey, httpConfiguration, DefaultEventSender.DEFAULT_RETRY_DELAY);
+    public EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration) {
+      return new DefaultEventSender(httpConfiguration, DefaultEventSender.DEFAULT_RETRY_DELAY);
     }
   }
 }
