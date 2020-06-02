@@ -20,7 +20,6 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -45,7 +44,7 @@ import static com.google.common.collect.Iterables.isEmpty;
  * This class is only constructed by {@link PersistentDataStoreBuilder}.
  */
 final class PersistentDataStoreWrapper implements DataStore {
-  private static final Logger logger = LoggerFactory.getLogger(PersistentDataStoreWrapper.class);
+  private static final Logger logger = Loggers.DATA_STORE;
 
   private final PersistentDataStore core;
   private final LoadingCache<CacheKey, Optional<ItemDescriptor>> itemCache;
