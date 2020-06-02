@@ -2,11 +2,13 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
@@ -395,6 +397,25 @@ public class LDClientTest extends EasyMockSupport {
     }
   }
 
+  @Test
+  public void canGetCacheStatsFromDataStoreStatusProvider() throws Exception {
+    LDConfig config1 = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.noEvents())
+        .build();
+    try (LDClient client1 = new LDClient(SDK_KEY, config1)) {
+      assertNull(client1.getDataStoreStatusProvider().getCacheStats());
+    }
+    
+    LDConfig config2 = new LDConfig.Builder()
+        .dataStore(Components.persistentDataStore(c -> new MockPersistentDataStore()))
+        .build();
+    try (LDClient client2 = new LDClient(SDK_KEY, config2)) {
+      DataStoreStatusProvider.CacheStats expectedStats = new DataStoreStatusProvider.CacheStats(0, 0, 0, 0, 0, 0);
+      assertEquals(expectedStats, client2.getDataStoreStatusProvider().getCacheStats());
+    }
+  }
+  
   @Test
   public void testSecureModeHash() throws IOException {
     setupMockDataSourceToInitialize(true);

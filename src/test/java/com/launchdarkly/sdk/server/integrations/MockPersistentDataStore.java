@@ -2,11 +2,11 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableList;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -26,6 +26,7 @@ public final class MockPersistentDataStore implements PersistentDataStore {
   public final AtomicBoolean inited;
   public final AtomicInteger initedCount = new AtomicInteger(0);
   public volatile int initedQueryCount;
+  public volatile int getQueryCount;
   public volatile boolean persistOnlyAsString;
   public volatile boolean unavailable;
   public volatile RuntimeException fakeError;
@@ -56,6 +57,7 @@ public final class MockPersistentDataStore implements PersistentDataStore {
 
   @Override
   public SerializedItemDescriptor get(DataKind kind, String key) {
+    getQueryCount++;
     maybeThrow();
     if (data.containsKey(kind)) {
       SerializedItemDescriptor item = data.get(kind).get(key);

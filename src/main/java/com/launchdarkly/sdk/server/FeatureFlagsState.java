@@ -35,7 +35,7 @@ import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
  * @since 4.3.0
  */
 @JsonAdapter(FeatureFlagsState.JsonSerialization.class)
-public class FeatureFlagsState implements JsonSerializable {
+public final class FeatureFlagsState implements JsonSerializable {
   private final Map<String, LDValue> flagValues;
   private final Map<String, FlagMetadata> flagMetadata;
   private final boolean valid;

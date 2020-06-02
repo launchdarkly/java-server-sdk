@@ -5,6 +5,7 @@ import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.StreamProcessor.EventSourceParams;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
@@ -17,6 +18,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
@@ -49,8 +51,6 @@ import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
 import static com.launchdarkly.sdk.server.TestUtil.shouldTimeOut;
-import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
-import static com.launchdarkly.sdk.server.TestUtil.upsertSegment;
 import static com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
@@ -231,68 +231,53 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void patchUpdatesFeature() throws Exception {
-    expectNoStreamRestart();
-    
-    createStreamProcessor(STREAM_URI).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("put", emptyPutEvent());
-    
-    String path = "/flags/" + FEATURE1_KEY;
-    MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"data\":" +
-        featureJson(FEATURE1_KEY, FEATURE1_VERSION) + "}");
-    handler.onMessage("patch", event);
-    
-    assertFeatureInStore(FEATURE);
+    doPatchSuccessTest(FEATURES, FEATURE, "/flags/" + FEATURE.getKey());
   }
 
   @Test
   public void patchUpdatesSegment() throws Exception {
-    expectNoStreamRestart();
-    
-    createStreamProcessor(STREAM_URI).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("put", emptyPutEvent());
-    
-    String path = "/segments/" + SEGMENT1_KEY;
-    MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"data\":" +
-        segmentJson(SEGMENT1_KEY, SEGMENT1_VERSION) + "}");
-    handler.onMessage("patch", event);
-    
-    assertSegmentInStore(SEGMENT);
+    doPatchSuccessTest(SEGMENTS, SEGMENT, "/segments/" + SEGMENT.getKey());
   }
 
-  @Test
-  public void deleteDeletesFeature() throws Exception {
+  private void doPatchSuccessTest(DataKind kind, VersionedData item, String path) throws Exception {
     expectNoStreamRestart();
     
     createStreamProcessor(STREAM_URI).start();
     EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
     handler.onMessage("put", emptyPutEvent());
-    upsertFlag(dataStore, FEATURE);
     
-    String path = "/flags/" + FEATURE1_KEY;
-    MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"version\":" +
-        (FEATURE1_VERSION + 1) + "}");
-    handler.onMessage("delete", event);
+    String json = kind.serialize(new ItemDescriptor(item.getVersion(), item));
+    MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"data\":" + json + "}");
+    handler.onMessage("patch", event);
     
-    assertEquals(ItemDescriptor.deletedItem(FEATURE1_VERSION + 1), dataStore.get(FEATURES, FEATURE1_KEY));
+    ItemDescriptor result = dataStore.get(kind, item.getKey());
+    assertNotNull(result.getItem());
+    assertEquals(item.getVersion(), result.getVersion());
+  }
+  
+  @Test
+  public void deleteDeletesFeature() throws Exception {
+    doDeleteSuccessTest(FEATURES, FEATURE, "/flags/" + FEATURE.getKey());
   }
   
   @Test
   public void deleteDeletesSegment() throws Exception {
+    doDeleteSuccessTest(SEGMENTS, SEGMENT, "/segments/" + SEGMENT.getKey());
+  }
+  
+  private void doDeleteSuccessTest(DataKind kind, VersionedData item, String path) throws Exception {
     expectNoStreamRestart();
     
     createStreamProcessor(STREAM_URI).start();
     EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
     handler.onMessage("put", emptyPutEvent());
-    upsertSegment(dataStore, SEGMENT);
+    dataStore.upsert(kind, item.getKey(), new ItemDescriptor(item.getVersion(), item));
     
-    String path = "/segments/" + SEGMENT1_KEY;
     MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"version\":" +
-        (SEGMENT1_VERSION + 1) + "}");
+        (item.getVersion() + 1) + "}");
     handler.onMessage("delete", event);
     
-    assertEquals(ItemDescriptor.deletedItem(SEGMENT1_VERSION + 1), dataStore.get(SEGMENTS, SEGMENT1_KEY));
+    assertEquals(ItemDescriptor.deletedItem(item.getVersion() + 1), dataStore.get(kind, item.getKey()));
   }
   
   @Test
@@ -396,6 +381,32 @@ public class StreamProcessorTest extends EasyMockSupport {
     ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
     ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new IOException());
     assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+    
+    assertNotNull(dataSourceUpdates.getLastStatus().getLastError());
+    assertEquals(ErrorKind.NETWORK_ERROR, dataSourceUpdates.getLastStatus().getLastError().getKind());
+  }
+
+  @Test
+  public void streamWillReconnectAfterHttpError() throws Exception {
+    createStreamProcessor(STREAM_URI).start();
+    ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
+    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new UnsuccessfulResponseException(500));
+    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+    
+    assertNotNull(dataSourceUpdates.getLastStatus().getLastError());
+    assertEquals(ErrorKind.ERROR_RESPONSE, dataSourceUpdates.getLastStatus().getLastError().getKind());
+    assertEquals(500, dataSourceUpdates.getLastStatus().getLastError().getStatusCode());
+  }
+
+  @Test
+  public void streamWillReconnectAfterUnknownError() throws Exception {
+    createStreamProcessor(STREAM_URI).start();
+    ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
+    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new RuntimeException("what?"));
+    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+    
+    assertNotNull(dataSourceUpdates.getLastStatus().getLastError());
+    assertEquals(ErrorKind.UNKNOWN, dataSourceUpdates.getLastStatus().getLastError().getKind());
   }
 
   @Test
@@ -498,6 +509,11 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void patchEventWithInvalidPathCausesNoStreamRestart() throws Exception {
     verifyEventCausesNoStreamRestart("patch", "{\"path\":\"/wrong\", \"data\":{\"key\":\"flagkey\"}}");
+  }
+
+  @Test
+  public void patchEventWithNullPathCausesStreamRestart() throws Exception {
+    verifyInvalidDataEvent("patch", "{\"path\":null, \"data\":{\"key\":\"flagkey\"}}");
   }
 
   @Test
@@ -647,7 +663,7 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void storeFailureOnIndirectPatchCausesStreamRestart() throws Exception {
     MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
-    setupRequestorToReturnAllDataWithFlag(FEATURE);
+    expect(mockRequestor.getFlag(FEATURE1_KEY)).andReturn(FEATURE);
     
     expectStreamRestart();
     replayAll();
@@ -655,9 +671,32 @@ public class StreamProcessorTest extends EasyMockSupport {
     try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
       sp.start();
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("indirect/put", new MessageEvent(""));
+      handler.onMessage("indirect/patch", new MessageEvent("/flags/" + FEATURE1_KEY));
     }    
     verifyAll();
+  }
+
+  @Test
+  public void onCommentIsIgnored() throws Exception {
+    // This just verifies that we are not doing anything with comment data, by passing a null instead of a string
+    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
+      sp.start();
+      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
+      handler.onComment(null);
+    }
+  }
+
+  @Test
+  public void onErrorIsIgnored() throws Exception {
+    expectNoStreamRestart();
+    replayAll();
+    
+    // EventSource won't call our onError() method because we are using a ConnectionErrorHandler instead.
+    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
+      sp.start();
+      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
+      handler.onError(new Exception("sorry"));
+    }
   }
 
   private MockDataSourceUpdates dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring() {

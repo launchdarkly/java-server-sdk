@@ -15,6 +15,8 @@ import java.util.function.Function;
  * @since 5.0.0
  */
 public abstract class DataStoreTypes {
+  private DataStoreTypes() {}
+  
   /**
    * Represents a separately namespaced collection of storable data items.
    * <p>
@@ -161,6 +163,11 @@ public abstract class DataStoreTypes {
     }
     
     @Override
+    public int hashCode() {
+      return Objects.hash(version, item);
+    }
+    
+    @Override
     public String toString() {
       return "ItemDescriptor(" + version + "," + item + ")";
     }
@@ -229,6 +236,11 @@ public abstract class DataStoreTypes {
             Objects.equals(serializedItem, other.serializedItem);
       }
       return false;
+    }
+    
+    @Override
+    public int hashCode() {
+      return Objects.hash(version, deleted, serializedItem);
     }
     
     @Override

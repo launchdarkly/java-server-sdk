@@ -82,11 +82,18 @@ public class LDConfigTest {
 
   @Test
   public void offline() {
-    LDConfig config = new LDConfig.Builder().offline(true).build();
-    assertTrue(config.offline);
+    LDConfig config1 = new LDConfig.Builder().offline(true).build();
+    assertTrue(config1.offline);
+    assertSame(Components.externalUpdatesOnly(), config1.dataSourceFactory);
+    assertSame(Components.noEvents(), config1.eventProcessorFactory);
     
-    LDConfig config1 = new LDConfig.Builder().offline(true).offline(false).build();
-    assertFalse(config1.offline);
+    LDConfig config2 = new LDConfig.Builder().offline(true).dataSource(Components.streamingDataSource()).build();
+    assertTrue(config2.offline);
+    assertSame(Components.externalUpdatesOnly(), config2.dataSourceFactory); // offline overrides specified factory
+    assertSame(Components.noEvents(), config2.eventProcessorFactory);
+    
+    LDConfig config3 = new LDConfig.Builder().offline(true).offline(false).build();
+    assertFalse(config3.offline); // just testing that the setter works for both true and false
   }
 
   @Test

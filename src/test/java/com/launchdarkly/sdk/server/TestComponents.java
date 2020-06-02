@@ -335,7 +335,7 @@ public class TestComponents {
     }
     
     @Override
-    public Status getStoreStatus() {
+    public Status getStatus() {
       return lastStatus.get();
     }
 

@@ -433,6 +433,63 @@ jacocoTestReport { // code coverage report
     }
 }
 
+jacocoTestCoverageVerification {
+    // See notes in CONTRIBUTING.md on code coverage. Unfortunately we can't configure line-by-line code
+    // coverage overrides within the source code itself, because Jacoco operates on bytecode.
+    violationRules { rules ->
+        def knownMissedLinesForMethods = [
+            // The key for each of these items is the complete method signature minus the "com.launchdarkly.sdk.server." prefix.
+            "DataSourceUpdatesImpl.OutageTracker.onTimeout()": 1,
+            "DataSourceUpdatesImpl.computeChangedItemsForFullDataSet(java.util.Map, java.util.Map)": 2,
+            "DefaultEventProcessor.EventProcessorMessage.waitForCompletion()": 3,
+            "DefaultEventProcessor.EventDispatcher.onUncaughtException(java.lang.Thread, java.lang.Throwable)": 8,
+            "DefaultEventProcessor.EventDispatcher.runMainLoop(java.util.concurrent.BlockingQueue, com.launchdarkly.sdk.server.DefaultEventProcessor.EventBuffer, com.launchdarkly.sdk.server.SimpleLRUCache, java.util.concurrent.BlockingQueue)": 4,
+            "DefaultEventProcessor.postToChannel(com.launchdarkly.sdk.server.DefaultEventProcessor.EventProcessorMessage)": 5,
+            "DefaultEventSender.sendEventData(com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind, java.lang.String, int, java.net.URI)": 1,
+            "EvaluatorOperators.ComparisonOp.test(int)": 1,
+            "EvaluatorOperators.apply(com.launchdarkly.sdk.server.DataModel.Operator, com.launchdarkly.sdk.LDValue, com.launchdarkly.sdk.LDValue, com.launchdarkly.sdk.server.EvaluatorPreprocessing.ClauseExtra.ValueExtra)": 1,
+            "LDClient.LDClient(java.lang.String)": 2,
+            "LDClient.secureModeHash(com.launchdarkly.sdk.LDUser)": 4,
+            "PersistentDataStoreStatusManager.1.run()": 2,
+            "PersistentDataStoreWrapper.PersistentDataStoreWrapper(com.launchdarkly.sdk.server.interfaces.PersistentDataStore, java.time.Duration, com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder.StaleValuesPolicy, boolean, com.launchdarkly.sdk.server.interfaces.DataStoreUpdates, java.util.concurrent.ScheduledExecutorService)": 2,
+            "PersistentDataStoreWrapper.getAll(com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind)": 3,
+            "PersistentDataStoreWrapper.deserialize(com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind, com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor)": 2,
+            "SemanticVersion.parse(java.lang.String, boolean)": 2,
+            "Util.1.lambda\$authenticate\$0(okhttp3.Challenge)": 1,
+            "integrations.FileDataSourceImpl.FileDataSourceImpl(com.launchdarkly.sdk.server.interfaces.DataSourceUpdates, java.util.List, boolean)": 3,
+            "integrations.FileDataSourceImpl.FileWatcher.run()": 3,
+            "integrations.FileDataSourceParsing.FlagFileParser.detectJson(java.io.Reader)": 2
+        ]
+
+        knownMissedLinesForMethods.each { partialSignature, maxMissedLines ->
+            if (maxMissedLines > 0) {  // < 0 means skip entire method
+                rules.rule {
+                    element = "METHOD"
+                    includes = [ "com.launchdarkly.sdk.server." + partialSignature ]
+                    limit {
+                        counter = "LINE"
+                        value = "MISSEDCOUNT"
+                        maximum = maxMissedLines
+                    }
+                }
+            }
+        }
+        
+        // General rule that we should expect 100% test coverage; exclude any methods that have overrides above
+        rule {
+            element = "METHOD"
+            limit {
+                counter = "LINE"
+                value = "MISSEDCOUNT"
+                maximum = 0
+            }
+            excludes = knownMissedLinesForMethods.collect { partialSignature, maxMissedLines ->
+                "com.launchdarkly.sdk.server." + partialSignature
+            }
+        }
+    }
+}
+
 idea {
     module {
         downloadJavadoc = true

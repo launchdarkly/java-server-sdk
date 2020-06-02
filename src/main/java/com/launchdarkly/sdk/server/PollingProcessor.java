@@ -32,8 +32,8 @@ final class PollingProcessor implements DataSource {
   private final ScheduledExecutorService scheduler;
   @VisibleForTesting final Duration pollInterval;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
+  private final CompletableFuture<Void> initFuture;
   private volatile ScheduledFuture<?> task;
-  private volatile CompletableFuture<Void> initFuture;
 
   PollingProcessor(
       FeatureRequestor requestor,
@@ -45,6 +45,7 @@ final class PollingProcessor implements DataSource {
     this.dataSourceUpdates = dataSourceUpdates;
     this.scheduler = sharedExecutor;
     this.pollInterval = pollInterval;
+    this.initFuture = new CompletableFuture<>();
   }
 
   @Override
@@ -62,7 +63,7 @@ final class PollingProcessor implements DataSource {
     // environment where there isn't actually an LDClient.
     synchronized (this) {
       if (task != null) {
-        task.cancel(false);
+        task.cancel(true);
         task = null;
       }
     }
@@ -74,11 +75,9 @@ final class PollingProcessor implements DataSource {
         + pollInterval.toMillis() + " milliseconds");
     
     synchronized (this) {
-      if (initFuture != null) {
-        return initFuture;
+      if (task == null) {
+        task = scheduler.scheduleAtFixedRate(this::poll, 0L, pollInterval.toMillis(), TimeUnit.MILLISECONDS);
       }
-      initFuture = new CompletableFuture<>();
-      task = scheduler.scheduleAtFixedRate(this::poll, 0L, pollInterval.toMillis(), TimeUnit.MILLISECONDS);
     }
     
     return initFuture;

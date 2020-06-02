@@ -21,6 +21,8 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
 
 import static com.launchdarkly.sdk.server.TestUtil.getSdkVersion;
+import static com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT;
+import static com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder.DEFAULT_SOCKET_TIMEOUT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -40,10 +42,10 @@ public class HttpConfigurationBuilderTest {
   @Test
   public void testDefaults() {
     HttpConfiguration hc = Components.httpConfiguration().createHttpConfiguration(BASIC_CONFIG);
-    assertEquals(HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT, hc.getConnectTimeout());
+    assertEquals(DEFAULT_CONNECT_TIMEOUT, hc.getConnectTimeout());
     assertNull(hc.getProxy());
     assertNull(hc.getProxyAuthentication());
-    assertEquals(HttpConfigurationBuilder.DEFAULT_SOCKET_TIMEOUT, hc.getSocketTimeout());
+    assertEquals(DEFAULT_SOCKET_TIMEOUT, hc.getSocketTimeout());
     assertNull(hc.getSslSocketFactory());
     assertNull(hc.getTrustManager());
     assertEquals(buildBasicHeaders().build(), ImmutableMap.copyOf(hc.getDefaultHeaders()));
@@ -55,7 +57,13 @@ public class HttpConfigurationBuilderTest {
         .connectTimeout(Duration.ofMillis(999))
         .createHttpConfiguration(BASIC_CONFIG);
     assertEquals(999, hc.getConnectTimeout().toMillis());
-  }
+
+    HttpConfiguration hc2 = Components.httpConfiguration()
+        .connectTimeout(Duration.ofMillis(999))
+        .connectTimeout(null)
+        .createHttpConfiguration(BASIC_CONFIG);
+    assertEquals(DEFAULT_CONNECT_TIMEOUT, hc2.getConnectTimeout());
+}
 
   @Test
   public void testProxy() {
@@ -79,10 +87,16 @@ public class HttpConfigurationBuilderTest {
 
   @Test
   public void testSocketTimeout() {
-    HttpConfiguration hc = Components.httpConfiguration()
+    HttpConfiguration hc1 = Components.httpConfiguration()
         .socketTimeout(Duration.ofMillis(999))
         .createHttpConfiguration(BASIC_CONFIG);
-    assertEquals(999, hc.getSocketTimeout().toMillis());
+    assertEquals(999, hc1.getSocketTimeout().toMillis());
+
+    HttpConfiguration hc2 = Components.httpConfiguration()
+        .socketTimeout(Duration.ofMillis(999))
+        .socketTimeout(null)
+        .createHttpConfiguration(BASIC_CONFIG);
+    assertEquals(DEFAULT_SOCKET_TIMEOUT, hc2.getSocketTimeout());
   }
   
   @Test

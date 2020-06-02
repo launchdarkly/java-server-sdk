@@ -12,12 +12,14 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.EvaluationReason.ErrorKind.MALFORMED_FLAG;
 import static com.launchdarkly.sdk.server.FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS;
 import static com.launchdarkly.sdk.server.FlagsStateOption.WITH_REASONS;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.TestUtil.verifyEqualityForType;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -145,33 +147,20 @@ public class FeatureFlagsStateTest {
   public void equalMetadataInstancesAreEqual() {
     // Testing this various cases is easier at a low level - equalInstancesAreEqual() above already
     // verifies that we test for metadata equality in general
-    List<FeatureFlagsState.FlagMetadata> allPermutations = new ArrayList<>();
+    List<Supplier<FeatureFlagsState.FlagMetadata>> allPermutations = new ArrayList<>();
     for (Integer variation: new Integer[] { null, 0, 1 }) {
       for (EvaluationReason reason: new EvaluationReason[] { null, EvaluationReason.off(), EvaluationReason.fallthrough() }) {
         for (Integer version: new Integer[] { null, 10, 11 }) {
           for (boolean trackEvents: new boolean[] { false, true }) {
             for (Long debugEventsUntilDate: new Long[] { null, 1000L, 1001L }) {
-              FeatureFlagsState.FlagMetadata m1 = new FeatureFlagsState.FlagMetadata(
-                  variation, reason, version, trackEvents, debugEventsUntilDate);
-              FeatureFlagsState.FlagMetadata m2 = new FeatureFlagsState.FlagMetadata(
-                  variation, reason, version, trackEvents, debugEventsUntilDate);
-              assertEquals(m1, m2);
-              assertEquals(m2, m1);
-              assertNotEquals(m1, null);
-              assertNotEquals(m1, "x");
-              allPermutations.add(m1);
+              allPermutations.add(() -> new FeatureFlagsState.FlagMetadata(
+                  variation, reason, version, trackEvents, debugEventsUntilDate));
             }
           }
         }
       }
     }
-    for (int i = 0; i < allPermutations.size(); i++) {
-      for (int j = 0; j < allPermutations.size(); j++) {
-        if (i != j) {
-          assertNotEquals(allPermutations.get(i), allPermutations.get(j));
-        }
-      }
-    }
+    verifyEqualityForType(allPermutations);
   }
   
   @Test

@@ -69,6 +69,7 @@ final class FileDataSourceImpl implements DataSource {
       try {
         fw = FileWatcher.create(dataLoader.getFiles());
       } catch (IOException e) {
+        // COVERAGE: there is no way to simulate this condition in a unit test
         logger.error("Unable to watch files for auto-updating: " + e);
         fw = null;
       }
@@ -128,7 +129,7 @@ final class FileDataSourceImpl implements DataSource {
     private final WatchService watchService;
     private final Set<Path> watchedFilePaths;
     private Runnable fileModifiedAction;
-    private Thread thread;
+    private final Thread thread;
     private volatile boolean stopped;
 
     private static FileWatcher create(Iterable<Path> files) throws IOException {
@@ -152,6 +153,9 @@ final class FileDataSourceImpl implements DataSource {
     private FileWatcher(WatchService watchService, Set<Path> watchedFilePaths) {
       this.watchService = watchService;
       this.watchedFilePaths = watchedFilePaths;
+      
+      thread = new Thread(this, FileDataSourceImpl.class.getName());
+      thread.setDaemon(true);
     }
     
     public void run() {
@@ -176,6 +180,7 @@ final class FileDataSourceImpl implements DataSource {
             try {
               fileModifiedAction.run();
             } catch (Exception e) {
+              // COVERAGE: there is no way to simulate this condition in a unit test
               logger.warn("Unexpected exception when reloading file data: " + e);
             }
           }
@@ -188,16 +193,12 @@ final class FileDataSourceImpl implements DataSource {
     
     public void start(Runnable fileModifiedAction) {
       this.fileModifiedAction = fileModifiedAction;
-      thread = new Thread(this, FileDataSourceImpl.class.getName());
-      thread.setDaemon(true);
       thread.start();
     }
     
     public void stop() {
       stopped = true;
-      if (thread != null) {
-        thread.interrupt();
-      }
+      thread.interrupt();
     }
   }
   

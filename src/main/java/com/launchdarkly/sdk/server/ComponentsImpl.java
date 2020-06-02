@@ -136,10 +136,6 @@ abstract class ComponentsImpl {
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
-      if (context.getBasic().isOffline()) {
-        return Components.externalUpdatesOnly().createDataSource(context, dataSourceUpdates);
-      }
-      
       Loggers.DATA_SOURCE.info("Enabling streaming API");
 
       URI streamUri = baseURI == null ? LDConfig.DEFAULT_STREAM_URI : baseURI;
@@ -190,10 +186,6 @@ abstract class ComponentsImpl {
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
-      if (context.getBasic().isOffline()) {
-        return Components.externalUpdatesOnly().createDataSource(context, dataSourceUpdates);
-      }
-
       Loggers.DATA_SOURCE.info("Disabling streaming API");
       Loggers.DATA_SOURCE.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
       
@@ -227,9 +219,6 @@ abstract class ComponentsImpl {
       implements DiagnosticDescription {
     @Override
     public EventProcessor createEventProcessor(ClientContext context) {
-      if (context.getBasic().isOffline()) {
-        return new NullEventProcessor();
-      }
       EventSender eventSender =
           (eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory)
           .createEventSender(context.getBasic(), context.getHttp());
@@ -281,9 +270,14 @@ abstract class ComponentsImpl {
         headers.put("X-LaunchDarkly-Wrapper", wrapperId);        
       }
       
+      Proxy proxy = proxyHost == null ? null : new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
+      if (proxy != null) {
+        Loggers.MAIN.info("Using proxy: {} {} authentication.", proxy, proxyAuth == null ? "without" : "with");
+      }
+      
       return new HttpConfigurationImpl(
           connectTimeout,
-          proxyHost == null ? null : new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort)),
+          proxy,
           proxyAuth,
           socketTimeout,
           sslSocketFactory,

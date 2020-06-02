@@ -33,7 +33,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 
@@ -196,85 +195,6 @@ public class LDClientListenersTest extends EasyMockSupport {
   }
   
   @Test
-  public void dataSourceStatusProviderWaitForStatusWithStatusAlreadyCorrect() throws Exception {
-    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
-    LDConfig config = new LDConfig.Builder()
-        .dataSource(updatableSource)
-        .events(Components.noEvents())
-        .build();
-
-    try (LDClient client = new LDClient(SDK_KEY, config)) {
-      updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
-      
-      boolean success = client.getDataSourceStatusProvider().waitFor(DataSourceStatusProvider.State.VALID,
-          Duration.ofMillis(500));
-      assertThat(success, equalTo(true));
-    }
-  }
-
-  @Test
-  public void dataSourceStatusProviderWaitForStatusSucceeds() throws Exception {
-    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
-    LDConfig config = new LDConfig.Builder()
-        .dataSource(updatableSource)
-        .events(Components.noEvents())
-        .build();
-
-    try (LDClient client = new LDClient(SDK_KEY, config)) {
-      new Thread(() -> {
-        try {
-          Thread.sleep(100);
-        } catch (InterruptedException e) {}
-        updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
-      }).start();
-
-      boolean success = client.getDataSourceStatusProvider().waitFor(DataSourceStatusProvider.State.VALID,
-          Duration.ofMillis(500));
-      assertThat(success, equalTo(true));
-    }
-  }
-
-  @Test
-  public void dataSourceStatusProviderWaitForStatusTimesOut() throws Exception {
-    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
-    LDConfig config = new LDConfig.Builder()
-        .dataSource(updatableSource)
-        .events(Components.noEvents())
-        .build();
-
-    try (LDClient client = new LDClient(SDK_KEY, config)) {
-      long timeStart = System.currentTimeMillis();
-      boolean success = client.getDataSourceStatusProvider().waitFor(DataSourceStatusProvider.State.VALID,
-          Duration.ofMillis(300));
-      long timeEnd = System.currentTimeMillis();
-      assertThat(success, equalTo(false));
-      assertThat(timeEnd - timeStart, greaterThanOrEqualTo(270L));
-    }
-  }
-  
-  @Test
-  public void dataSourceStatusProviderWaitForStatusEndsIfShutDown() throws Exception {
-    DataSourceFactoryThatExposesUpdater updatableSource = new DataSourceFactoryThatExposesUpdater(new DataBuilder().build());
-    LDConfig config = new LDConfig.Builder()
-        .dataSource(updatableSource)
-        .events(Components.noEvents())
-        .build();
-
-    try (LDClient client = new LDClient(SDK_KEY, config)) {
-      new Thread(() -> {
-        updatableSource.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, null);
-      }).start();
-      
-      long timeStart = System.currentTimeMillis();
-      boolean success = client.getDataSourceStatusProvider().waitFor(DataSourceStatusProvider.State.VALID,
-          Duration.ofMillis(500));
-      long timeEnd = System.currentTimeMillis();
-      assertThat(success, equalTo(false));
-      assertThat(timeEnd - timeStart, lessThan(500L));
-    }
-  }
-  
-  @Test
   public void dataStoreStatusMonitoringIsDisabledForInMemoryStore() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
@@ -312,9 +232,9 @@ public class LDClientListenersTest extends EasyMockSupport {
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       DataStoreStatusProvider.Status originalStatus = new DataStoreStatusProvider.Status(true, false);
       DataStoreStatusProvider.Status newStatus = new DataStoreStatusProvider.Status(false, false);
-      assertThat(client.getDataStoreStatusProvider().getStoreStatus(), equalTo(originalStatus));
+      assertThat(client.getDataStoreStatusProvider().getStatus(), equalTo(originalStatus));
       factoryWithUpdater.dataStoreUpdates.updateStatus(newStatus);
-      assertThat(client.getDataStoreStatusProvider().getStoreStatus(), equalTo(newStatus));
+      assertThat(client.getDataStoreStatusProvider().getStatus(), equalTo(newStatus));
     }
   }
 

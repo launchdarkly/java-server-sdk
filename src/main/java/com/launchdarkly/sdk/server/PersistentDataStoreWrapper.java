@@ -66,7 +66,7 @@ final class PersistentDataStoreWrapper implements DataStore {
     ) {
     this.core = core;
     
-    if (cacheTtl == null || cacheTtl.isZero()) {
+    if (cacheTtl.isZero()) {
       itemCache = null;
       allCache = null;
       initCache = null;
@@ -151,14 +151,14 @@ final class PersistentDataStoreWrapper implements DataStore {
       return true;
     }
     boolean result;
-    if (initCache != null) {
-      try {
+    try {
+      if (initCache != null) {
         result = initCache.get("");
-      } catch (ExecutionException e) {
-        result = false;
+      } else {
+        result = core.isInitialized();
       }
-    } else {
-      result = core.isInitialized();
+    } catch (Exception e) {
+      result = false;
     }
     if (result) {
       inited.set(true);
@@ -330,15 +330,6 @@ final class PersistentDataStoreWrapper implements DataStore {
         itemStats.evictionCount() + allStats.evictionCount());
   }
 
-  /**
-   * Return the underlying implementation object.
-   * 
-   * @return the underlying implementation object
-   */
-  public PersistentDataStore getCore() {
-    return core;
-  }
-  
   private ItemDescriptor getAndDeserializeItem(DataKind kind, String key) {
     SerializedItemDescriptor maybeSerializedItem = core.get(kind, key);
     return maybeSerializedItem == null ? null : deserialize(kind, maybeSerializedItem);
@@ -437,7 +428,7 @@ final class PersistentDataStoreWrapper implements DataStore {
     return true;
   }
   
-  private static final class CacheKey {
+  static final class CacheKey {
     final DataKind kind;
     final String key;
     

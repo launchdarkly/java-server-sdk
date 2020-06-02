@@ -1,13 +1,14 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
@@ -18,25 +19,28 @@ import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.junit.Test;
 
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import static com.google.common.collect.Iterables.transform;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
-import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.inMemoryDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
+import static com.launchdarkly.sdk.server.TestUtil.awaitValue;
 import static com.launchdarkly.sdk.server.TestUtil.expectEvents;
+import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
 import static org.easymock.EasyMock.replay;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.is;
 
 @SuppressWarnings("javadoc")
 public class DataSourceUpdatesImplTest extends EasyMockSupport {
@@ -47,7 +51,14 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
       EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor);
   
   private DataSourceUpdatesImpl makeInstance(DataStore store) {
-    return new DataSourceUpdatesImpl(store, null, flagChangeBroadcaster, null, sharedExecutor, null);
+    return makeInstance(store, null);
+  }
+
+  private DataSourceUpdatesImpl makeInstance(
+      DataStore store,
+      EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> statusBroadcaster
+      ) {
+    return new DataSourceUpdatesImpl(store, null, flagChangeBroadcaster, statusBroadcaster, sharedExecutor, null);
   }
   
   @Test
@@ -141,6 +152,26 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     storeUpdates.upsert(FEATURES, "flag2", new ItemDescriptor(2, flagBuilder("flag2").version(2).build()));
   
     expectEvents(eventSink, "flag2");
+  }
+
+  @Test
+  public void doesNotSendsEventOnUpdateIfItemWasNotReallyUpdated() throws Exception {
+    DataStore store = inMemoryDataStore();
+    DataModel.FeatureFlag flag1 = flagBuilder("flag1").version(1).build();
+    DataModel.FeatureFlag flag2 = flagBuilder("flag2").version(1).build();
+    DataBuilder builder = new DataBuilder()
+        .addAny(FEATURES, flag1, flag2);
+    
+    DataSourceUpdatesImpl storeUpdates = makeInstance(store);
+
+    storeUpdates.init(builder.build());
+
+    BlockingQueue<FlagChangeEvent> eventSink = new LinkedBlockingQueue<>();
+    flagChangeBroadcaster.register(eventSink::add);
+    
+    storeUpdates.upsert(FEATURES, flag2.getKey(), new ItemDescriptor(flag2.getVersion(), flag2));
+  
+    expectNoMoreValues(eventSink, Duration.ofMillis(100));
   }
   
   @Test
@@ -301,57 +332,111 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
 
   @Test
   public void dataSetIsPassedToDataStoreInCorrectOrder() throws Exception {
-    // This verifies that the client is using DataStoreClientWrapper and that it is applying the
-    // correct ordering for flag prerequisites, etc. This should work regardless of what kind of
-    // DataSource we're using.
-    
+    // The logic for this is already tested in DataModelDependenciesTest, but here we are verifying
+    // that DataSourceUpdatesImpl is actually using DataModelDependencies.
     Capture<FullDataSet<ItemDescriptor>> captureData = Capture.newInstance();
     DataStore store = createStrictMock(DataStore.class);
     store.init(EasyMock.capture(captureData));
     replay(store);
     
     DataSourceUpdatesImpl storeUpdates = makeInstance(store);
-    storeUpdates.init(DEPENDENCY_ORDERING_TEST_DATA);
-       
-    Map<DataKind, Map<String, ItemDescriptor>> dataMap = toDataMap(captureData.getValue());
-    assertEquals(2, dataMap.size());
-    Map<DataKind, Map<String, ItemDescriptor>> inputDataMap = toDataMap(DEPENDENCY_ORDERING_TEST_DATA);
+    storeUpdates.init(DataModelDependenciesTest.DEPENDENCY_ORDERING_TEST_DATA);
     
-    // Segments should always come first
-    assertEquals(SEGMENTS, Iterables.get(dataMap.keySet(), 0));
-    assertEquals(inputDataMap.get(SEGMENTS).size(), Iterables.get(dataMap.values(), 0).size());
-    
-    // Features should be ordered so that a flag always appears after its prerequisites, if any
-    assertEquals(FEATURES, Iterables.get(dataMap.keySet(), 1));
-    Map<String, ItemDescriptor> map1 = Iterables.get(dataMap.values(), 1);
-    List<DataModel.FeatureFlag> list1 = ImmutableList.copyOf(transform(map1.values(), d -> (DataModel.FeatureFlag)d.getItem()));
-    assertEquals(inputDataMap.get(FEATURES).size(), map1.size());
-    for (int itemIndex = 0; itemIndex < list1.size(); itemIndex++) {
-      DataModel.FeatureFlag item = list1.get(itemIndex);
-      for (DataModel.Prerequisite prereq: item.getPrerequisites()) {
-        DataModel.FeatureFlag depFlag = (DataModel.FeatureFlag)map1.get(prereq.getKey()).getItem();
-        int depIndex = list1.indexOf(depFlag);
-        if (depIndex > itemIndex) {
-          fail(String.format("%s depends on %s, but %s was listed first; keys in order are [%s]",
-              item.getKey(), prereq.getKey(), item.getKey(),
-              Joiner.on(", ").join(map1.keySet())));
-        }
-      }
-    }
+    DataModelDependenciesTest.verifySortedData(captureData.getValue(),
+        DataModelDependenciesTest.DEPENDENCY_ORDERING_TEST_DATA);
+
   }
 
-  private static FullDataSet<ItemDescriptor> DEPENDENCY_ORDERING_TEST_DATA =
-      new DataBuilder()
-        .addAny(FEATURES,
-              flagBuilder("a")
-                  .prerequisites(prerequisite("b", 0), prerequisite("c", 0)).build(),
-              flagBuilder("b")
-                  .prerequisites(prerequisite("c", 0), prerequisite("e", 0)).build(),
-              flagBuilder("c").build(),
-              flagBuilder("d").build(),
-              flagBuilder("e").build(),
-              flagBuilder("f").build())
-        .addAny(SEGMENTS,
-              segmentBuilder("o").build())
-        .build();
+  @Test
+  public void updateStatusBroadcastsNewStatus() {
+    EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> broadcaster =
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+    DataSourceUpdatesImpl updates = makeInstance(inMemoryDataStore(), broadcaster);
+    
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    broadcaster.register(statuses::add);
+    
+    Instant timeBeforeUpdate = Instant.now();
+    ErrorInfo errorInfo = ErrorInfo.fromHttpError(401);
+    updates.updateStatus(State.OFF, errorInfo);
+    
+    Status status = awaitValue(statuses, Duration.ofMillis(500));
+    
+    assertThat(status.getState(), is(State.OFF));
+    assertThat(status.getStateSince(), greaterThanOrEqualTo(timeBeforeUpdate));
+    assertThat(status.getLastError(), is(errorInfo));
+  }
+
+  @Test
+  public void updateStatusKeepsStateUnchangedIfStateWasInitializingAndNewStateIsInterrupted() {
+    EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> broadcaster =
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+    DataSourceUpdatesImpl updates = makeInstance(inMemoryDataStore(), broadcaster);
+    
+    assertThat(updates.getLastStatus().getState(), is(State.INITIALIZING));
+    Instant originalTime = updates.getLastStatus().getStateSince();
+    
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    broadcaster.register(statuses::add);
+    
+    ErrorInfo errorInfo = ErrorInfo.fromHttpError(401);
+    updates.updateStatus(State.INTERRUPTED, errorInfo);
+    
+    Status status = awaitValue(statuses, Duration.ofMillis(500));
+    
+    assertThat(status.getState(), is(State.INITIALIZING));
+    assertThat(status.getStateSince(), is(originalTime));
+    assertThat(status.getLastError(), is(errorInfo));
+  }
+
+  @Test
+  public void updateStatusDoesNothingIfParametersHaveNoNewData() {
+    EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> broadcaster =
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+    DataSourceUpdatesImpl updates = makeInstance(inMemoryDataStore(), broadcaster);
+    
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    broadcaster.register(statuses::add);
+    
+    updates.updateStatus(null, null);
+    updates.updateStatus(State.INITIALIZING, null);
+
+    TestUtil.expectNoMoreValues(statuses, Duration.ofMillis(100));
+  }
+  
+  @Test
+  public void outageTimeoutLogging() throws Exception {
+    BlockingQueue<String> outageErrors = new LinkedBlockingQueue<>();
+    Duration outageTimeout = Duration.ofMillis(100);
+    
+    DataSourceUpdatesImpl updates = new DataSourceUpdatesImpl(
+        inMemoryDataStore(),
+        null,
+        flagChangeBroadcaster,
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor),
+        sharedExecutor,
+        outageTimeout
+    );
+    updates.onOutageErrorLog = outageErrors::add;
+    
+    // simulate an outage
+    updates.updateStatus(State.INTERRUPTED, ErrorInfo.fromHttpError(500));
+    
+    // but recover from it immediately
+    updates.updateStatus(State.VALID, null);
+    
+    // wait till the timeout would have elapsed - no special message should be logged
+    expectNoMoreValues(outageErrors, outageTimeout.plus(Duration.ofMillis(20)));
+    
+    // simulate another outage
+    updates.updateStatus(State.INTERRUPTED, ErrorInfo.fromHttpError(501));
+    updates.updateStatus(State.INTERRUPTED, ErrorInfo.fromHttpError(502));
+    updates.updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.NETWORK_ERROR, new IOException("x")));
+    updates.updateStatus(State.INTERRUPTED, ErrorInfo.fromHttpError(501));
+    
+    String errorsDesc = awaitValue(outageErrors, Duration.ofMillis(250)); // timing is approximate
+    assertThat(errorsDesc, containsString("NETWORK_ERROR (1 time)"));
+    assertThat(errorsDesc, containsString("ERROR_RESPONSE(501) (2 times)"));
+    assertThat(errorsDesc, containsString("ERROR_RESPONSE(502) (1 time)"));
+  }
 }

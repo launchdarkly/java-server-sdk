@@ -39,6 +39,8 @@ import static java.util.Collections.emptySet;
  * @since 4.6.1
  */
 abstract class DataModelDependencies {
+  private DataModelDependencies() {}
+  
   static class KindAndKey {
     final DataKind kind;
     final String key;
@@ -197,29 +199,26 @@ abstract class DataModelDependencies {
      */
     public void updateDependenciesFrom(DataKind fromKind, String fromKey, ItemDescriptor fromItem) {
       KindAndKey fromWhat = new KindAndKey(fromKind, fromKey);
-      Set<KindAndKey> updatedDependencies = computeDependenciesFrom(fromKind, fromItem);
+      Set<KindAndKey> updatedDependencies = computeDependenciesFrom(fromKind, fromItem); // never null
       
       Set<KindAndKey> oldDependencySet = dependenciesFrom.get(fromWhat);
       if (oldDependencySet != null) {
         for (KindAndKey oldDep: oldDependencySet) {
           Set<KindAndKey> depsToThisOldDep = dependenciesTo.get(oldDep);
           if (depsToThisOldDep != null) {
+            // COVERAGE: cannot cause this condition in unit tests, it should never be null 
             depsToThisOldDep.remove(fromWhat);
           }
         }
       }
-      if (updatedDependencies == null) {
-        dependenciesFrom.remove(fromWhat);
-      } else {
-        dependenciesFrom.put(fromWhat, updatedDependencies);
-        for (KindAndKey newDep: updatedDependencies) {
-          Set<KindAndKey> depsToThisNewDep = dependenciesTo.get(newDep);
-          if (depsToThisNewDep == null) {
-            depsToThisNewDep = new HashSet<>();
-            dependenciesTo.put(newDep, depsToThisNewDep);
-          }
-          depsToThisNewDep.add(fromWhat);
+      dependenciesFrom.put(fromWhat, updatedDependencies);
+      for (KindAndKey newDep: updatedDependencies) {
+        Set<KindAndKey> depsToThisNewDep = dependenciesTo.get(newDep);
+        if (depsToThisNewDep == null) {
+          depsToThisNewDep = new HashSet<>();
+          dependenciesTo.put(newDep, depsToThisNewDep);
         }
+        depsToThisNewDep.add(fromWhat);
       }
     }
     

@@ -167,14 +167,6 @@ public final class LDClient implements LDClientInterface {
         useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null
         );
 
-    if (context.getHttp().getProxy() != null) {
-      if (context.getHttp().getProxyAuthentication() != null) {
-        Loggers.MAIN.info("Using proxy: {} with authentication.", context.getHttp().getProxy());
-      } else {
-        Loggers.MAIN.info("Using proxy: {} without authentication.", context.getHttp().getProxy());
-      }
-    }
-
     this.eventProcessor = config.eventProcessorFactory.createEventProcessor(context);
 
     EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> dataStoreStatusNotifier =

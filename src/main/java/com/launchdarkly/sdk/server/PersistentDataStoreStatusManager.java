@@ -94,8 +94,4 @@ final class PersistentDataStoreStatusManager {
       }
     }
   }
-  
-  synchronized boolean isAvailable() {
-    return lastAvailable;
-  }
 }

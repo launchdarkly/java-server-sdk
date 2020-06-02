@@ -16,7 +16,7 @@ final class DataStoreStatusProviderImpl implements DataStoreStatusProvider {
   }
   
   @Override
-  public Status getStoreStatus() {
+  public Status getStatus() {
     return dataStoreUpdates.lastStatus.get();
   }
 

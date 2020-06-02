@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
@@ -56,6 +57,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
   
   private volatile Status currentStatus;
   private volatile boolean lastStoreUpdateFailed = false;
+  volatile Consumer<String> onOutageErrorLog = null; // test instrumentation
   
   DataSourceUpdatesImpl(
       DataStore store,
@@ -237,6 +239,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
       Map<String, ItemDescriptor> oldItems = oldDataMap.get(kind);
       Map<String, ItemDescriptor> newItems = newDataMap.get(kind);
       if (oldItems == null) {
+        // COVERAGE: there is no way to simulate this condition in unit tests
         oldItems = emptyMap();
       }
       if (newItems == null) {
@@ -247,6 +250,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
         ItemDescriptor oldItem = oldItems.get(key);
         ItemDescriptor newItem = newItems.get(key);
         if (oldItem == null && newItem == null) { // shouldn't be possible due to how we computed allKeys
+          // COVERAGE: there is no way to simulate this condition in unit tests
           continue;
         }
         if (oldItem == null || newItem == null || oldItem.getVersion() < newItem.getVersion()) {
@@ -271,7 +275,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
   }
   
   // Encapsulates our logic for keeping track of the length and cause of data source outages.
-  private static final class OutageTracker {
+  private final class OutageTracker {
     private final boolean enabled;
     private final ScheduledExecutorService sharedExecutor;
     private final Duration loggingTimeout;
@@ -326,10 +330,14 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
       String errorsDesc;
       synchronized (this) {
         if (timeoutFuture == null || !inOutage) {
+          // COVERAGE: there is no way to simulate this condition in unit tests
           return;
         }
         timeoutFuture = null;
-        errorsDesc = Joiner.on(", ").join(transform(errorCounts.entrySet(), OutageTracker::describeErrorCount));
+        errorsDesc = Joiner.on(", ").join(transform(errorCounts.entrySet(), DataSourceUpdatesImpl::describeErrorCount));
+      }
+      if (onOutageErrorLog != null) {
+        onOutageErrorLog.accept(errorsDesc);
       }
       Loggers.DATA_SOURCE.error(
           "LaunchDarkly data source outage - updates have been unavailable for at least {} with the following errors: {}",
@@ -337,9 +345,9 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
           errorsDesc
           );
     }
-    
-    private static String describeErrorCount(Map.Entry<ErrorInfo, Integer> entry) {
-      return entry.getKey() + " (" + entry.getValue() + (entry.getValue() == 1 ? " time" : " times") + ")";
-    }
+  }
+  
+  private static String describeErrorCount(Map.Entry<ErrorInfo, Integer> entry) {
+    return entry.getKey() + " (" + entry.getValue() + (entry.getValue() == 1 ? " time" : " times") + ")";
   }
 }

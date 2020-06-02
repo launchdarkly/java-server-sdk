@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
@@ -9,6 +10,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -16,16 +18,20 @@ import org.junit.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
+import static com.launchdarkly.sdk.server.TestUtil.awaitValue;
+import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatusEventually;
 import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
@@ -36,6 +42,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -84,20 +91,38 @@ public class PollingProcessorTest {
   }
   
   @Test
-  public void testConnectionOk() throws Exception {
-    requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
+  public void successfulPolls() throws Exception {
+    FeatureFlag flagv1 = ModelBuilders.flagBuilder("flag").version(1).build();
+    FeatureFlag flagv2 = ModelBuilders.flagBuilder(flagv1.getKey()).version(2).build();
+    FeatureRequestor.AllData datav1 = new FeatureRequestor.AllData(Collections.singletonMap(flagv1.getKey(), flagv1),
+        Collections.emptyMap()); 
+    FeatureRequestor.AllData datav2 = new FeatureRequestor.AllData(Collections.singletonMap(flagv1.getKey(), flagv2),
+        Collections.emptyMap()); 
+
+    requestor.gate = new Semaphore(0);
+    requestor.allData = datav1;
     
     BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
-    try (PollingProcessor pollingProcessor = makeProcessor()) {    
+    try (PollingProcessor pollingProcessor = makeProcessor(Duration.ofMillis(100))) {    
       Future<Void> initFuture = pollingProcessor.start();
+      
+      // allow first poll to complete
+      requestor.gate.release();
+      
       initFuture.get(1000, TimeUnit.MILLISECONDS);
 
       assertTrue(pollingProcessor.isInitialized());
-      assertEquals(requestor.allData.toFullDataSet(), dataSourceUpdates.awaitInit());
+      assertEquals(datav1.toFullDataSet(), dataSourceUpdates.awaitInit());
       
+      // allow second poll to complete - should return new data
+      requestor.allData = datav2;
+      requestor.gate.release();
+
       requireDataSourceStatus(statuses, State.VALID);
+
+      assertEquals(datav2.toFullDataSet(), dataSourceUpdates.awaitInit());
     }
   }
 
@@ -146,6 +171,61 @@ public class PollingProcessorTest {
       Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
       assertNotNull(status.getLastError());
       assertEquals(ErrorKind.STORE_ERROR, status.getLastError().getKind());
+    }
+  }
+  
+  @Test
+  public void testMalformedData() throws Exception {
+    requestor.runtimeException = new SerializationException(new Exception("the JSON was displeasing"));
+    
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
+    try (PollingProcessor pollingProcessor = makeProcessor()) {  
+      pollingProcessor.start();
+      
+      Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
+      assertNotNull(status.getLastError());
+      assertEquals(ErrorKind.INVALID_DATA, status.getLastError().getKind());
+      assertEquals(requestor.runtimeException.toString(), status.getLastError().getMessage());
+
+      assertFalse(pollingProcessor.isInitialized());
+    }
+  }
+
+  @Test
+  public void testUnknownException() throws Exception {
+    requestor.runtimeException = new RuntimeException("everything is displeasing");
+    
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+
+    try (PollingProcessor pollingProcessor = makeProcessor()) {  
+      pollingProcessor.start();
+      
+      Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
+      assertNotNull(status.getLastError());
+      assertEquals(ErrorKind.UNKNOWN, status.getLastError().getKind());
+      assertEquals(requestor.runtimeException.toString(), status.getLastError().getMessage());
+
+      assertFalse(pollingProcessor.isInitialized());
+    }
+  }
+  
+  @Test
+  public void startingWhenAlreadyStartedDoesNothing() throws Exception {
+    requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
+
+    try (PollingProcessor pollingProcessor = makeProcessor(Duration.ofMillis(500))) {  
+      Future<Void> initFuture1 = pollingProcessor.start();
+      
+      awaitValue(requestor.queries, Duration.ofMillis(100)); // a poll request was made
+      
+      Future<Void> initFuture2 = pollingProcessor.start();
+      assertSame(initFuture1, initFuture2);
+      
+      
+      expectNoMoreValues(requestor.queries, Duration.ofMillis(100)); // we did NOT start another polling task
     }
   }
   
@@ -251,6 +331,9 @@ public class PollingProcessorTest {
     volatile AllData allData;
     volatile HttpErrorException httpException;
     volatile IOException ioException;
+    volatile RuntimeException runtimeException;
+    volatile Semaphore gate;
+    final BlockingQueue<Boolean> queries = new LinkedBlockingQueue<>();
     
     public void close() throws IOException {}
 
@@ -263,11 +346,20 @@ public class PollingProcessorTest {
     }
 
     public AllData getAllData() throws IOException, HttpErrorException {
+      queries.add(true);
+      if (gate != null) {
+        try {
+          gate.acquire();
+        } catch (InterruptedException e) {}
+      }
       if (httpException != null) {
         throw httpException;
       }
       if (ioException != null) {
         throw ioException;
+      }
+      if (runtimeException != null) {
+        throw runtimeException;
       }
       return allData;
     }

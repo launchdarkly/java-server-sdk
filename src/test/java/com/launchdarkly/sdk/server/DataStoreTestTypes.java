@@ -12,6 +12,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescr
 
 import java.util.AbstractMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -79,6 +80,10 @@ public class DataStoreTestTypes {
     public ItemDescriptor toItemDescriptor() {
       return new ItemDescriptor(version, this);
     }
+
+    public Map.Entry<String, ItemDescriptor> toKeyedItemDescriptor() {
+      return new AbstractMap.SimpleEntry<>(key, toItemDescriptor());
+    }
     
     public SerializedItemDescriptor toSerializedItemDescriptor() {
       return toSerialized(TEST_ITEMS, toItemDescriptor());
@@ -140,7 +145,7 @@ public class DataStoreTestTypes {
     public DataBuilder addAny(DataKind kind, VersionedData... items) {
       Map<String, ItemDescriptor> itemsMap = data.get(kind);
       if (itemsMap == null) {
-        itemsMap = new HashMap<>();
+        itemsMap = new LinkedHashMap<>(); // use LinkedHashMap to preserve insertion order
         data.put(kind, itemsMap);
       }
       for (VersionedData item: items) {

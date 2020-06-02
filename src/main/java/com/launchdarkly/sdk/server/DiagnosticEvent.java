@@ -113,7 +113,7 @@ class DiagnosticEvent {
     }
     
     // Attempts to add relevant configuration properties, if any, from a customizable component:
-    // - If the component does not implement DiagnosticDescription, set the defaultPropertyName property to its class name.
+    // - If the component does not implement DiagnosticDescription, set the defaultPropertyName property to "custom".
     // - If it does implement DiagnosticDescription, call its describeConfiguration() method to get a value.
     // - If the value is a string, then set the defaultPropertyName property to that value.
     // - If the value is an object, then copy all of its properties as long as they are ones we recognize
@@ -126,22 +126,19 @@ class DiagnosticEvent {
         ) {
       if (!(component instanceof DiagnosticDescription)) {
         if (defaultPropertyName != null) {
-          builder.put(defaultPropertyName, LDValue.of(component.getClass().getSimpleName()));
+          builder.put(defaultPropertyName, "custom");
         }
         return;
       }
-      LDValue componentDesc = ((DiagnosticDescription)component).describeConfiguration(basicConfig);
-      if (componentDesc == null || componentDesc.isNull()) {
-        return;
-      }
-      if (componentDesc.isString() && defaultPropertyName != null) {
-        builder.put(defaultPropertyName, componentDesc);
+      LDValue componentDesc = LDValue.normalize(((DiagnosticDescription)component).describeConfiguration(basicConfig));
+      if (defaultPropertyName != null) {
+        builder.put(defaultPropertyName, componentDesc.isString() ? componentDesc.stringValue() : "custom");
       } else if (componentDesc.getType() == LDValueType.OBJECT) {
         for (String key: componentDesc.keys()) {
           for (ConfigProperty prop: ConfigProperty.values()) {
             if (prop.name.equals(key)) {
               LDValue value = componentDesc.get(key);
-              if (value.isNull() || value.getType() == prop.type) {
+              if (value.getType() == prop.type) {
                 builder.put(key, value);
               }
             }
@@ -181,7 +178,7 @@ class DiagnosticEvent {
       private final String javaVendor = System.getProperty("java.vendor");
       private final String javaVersion = System.getProperty("java.version");
       private final String osArch = System.getProperty("os.arch");
-      private final String osName = normalizeOsName(System.getProperty("os.name"));
+      final String osName = normalizeOsName(System.getProperty("os.name")); // visible for tests
       private final String osVersion = System.getProperty("os.version");
 
       DiagnosticPlatform() {

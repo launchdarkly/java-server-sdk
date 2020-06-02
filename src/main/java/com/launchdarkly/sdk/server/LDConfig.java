@@ -33,12 +33,17 @@ public final class LDConfig {
   final int threadPriority;
 
   protected LDConfig(Builder builder) {
+    if (builder.offline) {
+      this.dataSourceFactory = Components.externalUpdatesOnly();
+      this.eventProcessorFactory = Components.noEvents();
+    } else {
+      this.dataSourceFactory = builder.dataSourceFactory == null ? Components.streamingDataSource() :
+        builder.dataSourceFactory;
+      this.eventProcessorFactory = builder.eventProcessorFactory == null ? Components.sendEvents() :
+        builder.eventProcessorFactory;
+    }
     this.dataStoreFactory = builder.dataStoreFactory == null ? Components.inMemoryDataStore() :
       builder.dataStoreFactory;
-    this.eventProcessorFactory = builder.eventProcessorFactory == null ? Components.sendEvents() :
-      builder.eventProcessorFactory;
-    this.dataSourceFactory = builder.dataSourceFactory == null ? Components.streamingDataSource() :
-      builder.dataSourceFactory;
     this.diagnosticOptOut = builder.diagnosticOptOut;
     this.httpConfigFactory = builder.httpConfigFactory == null ? Components.httpConfiguration() :
       builder.httpConfigFactory;
