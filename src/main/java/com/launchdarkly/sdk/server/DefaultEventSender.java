@@ -6,7 +6,6 @@ import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -31,7 +30,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 final class DefaultEventSender implements EventSender {
-  private static final Logger logger = LoggerFactory.getLogger(DefaultEventProcessor.class);
+  private static final Logger logger = Loggers.EVENTS;
   
   static final Duration DEFAULT_RETRY_DELAY = Duration.ofSeconds(1);
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";

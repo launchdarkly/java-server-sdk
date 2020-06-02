@@ -4,7 +4,6 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
@@ -19,7 +18,7 @@ import java.util.function.Consumer;
  * clarity and also lets us reuse this logic in tests.
  */
 final class PersistentDataStoreStatusManager {
-  private static final Logger logger = LoggerFactory.getLogger(PersistentDataStoreStatusManager.class);
+  private static final Logger logger = Loggers.DATA_STORE;
   static final int POLL_INTERVAL_MS = 500; // visible for testing
   
   private final Consumer<DataStoreStatusProvider.Status> statusUpdater;

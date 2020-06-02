@@ -89,9 +89,9 @@ abstract class ComponentsImpl {
       if (context.getBasic().isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
-        LDClient.logger.info("Starting LaunchDarkly client in offline mode");
+        Loggers.MAIN.info("Starting LaunchDarkly client in offline mode");
       } else {
-        LDClient.logger.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
+        Loggers.MAIN.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
       }
       dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
       return NullDataSource.INSTANCE;
@@ -136,7 +136,7 @@ abstract class ComponentsImpl {
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
-      LDClient.logger.info("Enabling streaming API");
+      Loggers.DATA_SOURCE.info("Enabling streaming API");
 
       URI streamUri = baseURI == null ? LDConfig.DEFAULT_STREAM_URI : baseURI;
       URI pollUri;
@@ -186,8 +186,8 @@ abstract class ComponentsImpl {
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable
       
-      LDClient.logger.info("Disabling streaming API");
-      LDClient.logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
+      Loggers.DATA_SOURCE.info("Disabling streaming API");
+      Loggers.DATA_SOURCE.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           context.getHttp(),
@@ -272,7 +272,7 @@ abstract class ComponentsImpl {
       
       Proxy proxy = proxyHost == null ? null : new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
       if (proxy != null) {
-        LDClient.logger.info("Using proxy: {} {} authentication.", proxy, proxyAuth == null ? "without" : "with");
+        Loggers.MAIN.info("Using proxy: {} {} authentication.", proxy, proxyAuth == null ? "without" : "with");
       }
       
       return new HttpConfigurationImpl(

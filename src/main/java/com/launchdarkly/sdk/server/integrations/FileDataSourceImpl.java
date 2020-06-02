@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableList;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.LDClient;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceBuilder.SourceInfo;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FileDataException;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactory;
@@ -52,7 +53,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
  * optionally whenever files change.
  */
 final class FileDataSourceImpl implements DataSource {
-  private static final Logger logger = LoggerFactory.getLogger(FileDataSourceImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(LDClient.class.getName() + ".DataSource");
 
   private final DataSourceUpdates dataSourceUpdates;
   private final DataLoader dataLoader;
