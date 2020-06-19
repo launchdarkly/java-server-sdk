@@ -26,6 +26,7 @@ import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
@@ -826,7 +827,9 @@ public class StreamProcessorTest extends EasyMockSupport {
     final BlockingQueue<Throwable> errors = new LinkedBlockingQueue<>();
     
     public Action onConnectionError(Throwable t) {
-      errors.add(t);
+      if (!(t instanceof EOFException)) {
+        errors.add(t);
+      }
       return Action.SHUTDOWN;
     }
   }
