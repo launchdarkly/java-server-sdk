@@ -73,7 +73,7 @@ ext.versions = [
     "guava": "28.2-jre",
     "jackson": "2.10.0", 
     "launchdarklyJavaSdkCommon": "1.0.0",
-    "okhttpEventsource": "2.3.0",
+    "okhttpEventsource": "2.3.1",
     "slf4j": "1.7.21",
     "snakeyaml": "1.19",
     "jedis": "2.9.0"
