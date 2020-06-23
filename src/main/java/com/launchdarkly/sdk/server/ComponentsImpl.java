@@ -139,24 +139,9 @@ abstract class ComponentsImpl {
       Loggers.DATA_SOURCE.info("Enabling streaming API");
 
       URI streamUri = baseURI == null ? LDConfig.DEFAULT_STREAM_URI : baseURI;
-      URI pollUri;
-      if (pollingBaseURI != null) {
-        pollUri = pollingBaseURI;
-      } else {
-        // If they have set a custom base URI, and they did *not* set a custom polling URI, then we can
-        // assume they're using Relay in which case both of those values are the same.
-        pollUri = baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI;
-      }
-      
-      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
-          context.getHttp(),
-          pollUri,
-          false
-          );
       
       return new StreamProcessor(
           context.getHttp(),
-          requestor,
           dataSourceUpdates,
           null,
           context.getBasic().getThreadPriority(),
@@ -170,9 +155,7 @@ abstract class ComponentsImpl {
     public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
       return LDValue.buildObject()
           .put(ConfigProperty.STREAMING_DISABLED.name, false)
-          .put(ConfigProperty.CUSTOM_BASE_URI.name,
-              (pollingBaseURI != null && !pollingBaseURI.equals(LDConfig.DEFAULT_BASE_URI)) ||
-              (pollingBaseURI == null && baseURI != null && !baseURI.equals(LDConfig.DEFAULT_STREAM_URI)))
+          .put(ConfigProperty.CUSTOM_BASE_URI.name, false)
           .put(ConfigProperty.CUSTOM_STREAM_URI.name,
               baseURI != null && !baseURI.equals(LDConfig.DEFAULT_STREAM_URI))
           .put(ConfigProperty.RECONNECT_TIME_MILLIS.name, initialReconnectDelay.toMillis())
