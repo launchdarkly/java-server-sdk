@@ -18,7 +18,7 @@ package com.launchdarkly.sdk.server.interfaces;
  *         }
  *     };
  *     client.getFlagTracker().addFlagValueChangeListener(flagKey,
- *         userForEvaluation, listenForNewValue));
+ *         userForFlagEvaluation, listenForNewValue);
  * </code></pre>
  * 
  * In the above example, the value provided in {@code event.getNewValue()} is the result of calling
