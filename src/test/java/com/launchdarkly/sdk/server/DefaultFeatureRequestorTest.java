@@ -3,12 +3,10 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.net.URI;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLHandshakeException;
 
@@ -29,7 +27,7 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
 @SuppressWarnings("javadoc")
-public class FeatureRequestorTest {
+public class DefaultFeatureRequestorTest {
   private static final String sdkKey = "sdk-key";
   private static final String flag1Key = "flag1";
   private static final String flag1Json = "{\"key\":\"" + flag1Key + "\"}";
@@ -47,133 +45,104 @@ public class FeatureRequestorTest {
 
   private DefaultFeatureRequestor makeRequestor(MockWebServer server, LDConfig config) {
     URI uri = server.url("").uri();
-    return new DefaultFeatureRequestor(makeHttpConfig(config), uri, true);
+    return new DefaultFeatureRequestor(makeHttpConfig(config), uri);
   }
 
   private HttpConfiguration makeHttpConfig(LDConfig config) {
     return config.httpConfigFactory.createHttpConfiguration(new BasicConfiguration(sdkKey, false, 0));
   }
 
+  private void verifyExpectedData(FeatureRequestor.AllData data) {
+    assertNotNull(data);
+    assertNotNull(data.flags);
+    assertNotNull(data.segments);
+    assertEquals(1, data.flags.size());
+    assertEquals(1, data.flags.size());
+    verifyFlag(data.flags.get(flag1Key), flag1Key);
+    verifySegment(data.segments.get(segment1Key), segment1Key);
+  }
+  
   @Test
   public void requestAllData() throws Exception {
     MockResponse resp = jsonResponse(allDataJson);
     
     try (MockWebServer server = makeStartedServer(resp)) {
       try (DefaultFeatureRequestor r = makeRequestor(server)) {
-        FeatureRequestor.AllData data = r.getAllData();
+        FeatureRequestor.AllData data = r.getAllData(true);
         
         RecordedRequest req = server.takeRequest();
         assertEquals("/sdk/latest-all", req.getPath());
         verifyHeaders(req);
         
-        assertNotNull(data);
-        assertNotNull(data.flags);
-        assertNotNull(data.segments);
-        assertEquals(1, data.flags.size());
-        assertEquals(1, data.flags.size());
-        verifyFlag(data.flags.get(flag1Key), flag1Key);
-        verifySegment(data.segments.get(segment1Key), segment1Key);
+        verifyExpectedData(data);
       }
     }
   }
   
   @Test
-  public void requestFlag() throws Exception {
-    MockResponse resp = jsonResponse(flag1Json);
-    
-    try (MockWebServer server = makeStartedServer(resp)) {
-      try (DefaultFeatureRequestor r = makeRequestor(server)) {      
-        DataModel.FeatureFlag flag = r.getFlag(flag1Key);
- 
-        RecordedRequest req = server.takeRequest();
-        assertEquals("/sdk/latest-flags/" + flag1Key, req.getPath());
-        verifyHeaders(req);
-        
-        verifyFlag(flag, flag1Key);
-      }
-    }
-  }
-
-  @Test
-  public void requestSegment() throws Exception {
-    MockResponse resp = jsonResponse(segment1Json);
-    
-    try (MockWebServer server = makeStartedServer(resp)) {
-      try (DefaultFeatureRequestor r = makeRequestor(server)) {     
-        DataModel.Segment segment = r.getSegment(segment1Key);
- 
-        RecordedRequest req = server.takeRequest();
-        assertEquals("/sdk/latest-segments/" + segment1Key, req.getPath());
-        verifyHeaders(req);
-        
-        verifySegment(segment, segment1Key);
-      }
-    }
-  }
-  
-  @Test
-  public void requestFlagNotFound() throws Exception {
-    MockResponse notFoundResp = new MockResponse().setResponseCode(404);
-    
-    try (MockWebServer server = makeStartedServer(notFoundResp)) {
-      try (DefaultFeatureRequestor r = makeRequestor(server)) {     
-        try {
-          r.getFlag(flag1Key);
-          Assert.fail("expected exception");
-        } catch (HttpErrorException e) {
-          assertEquals(404, e.getStatus());
-        }
-      }
-    }
-  }
-
-  @Test
-  public void requestSegmentNotFound() throws Exception {
-    MockResponse notFoundResp = new MockResponse().setResponseCode(404);
-    
-    try (MockWebServer server = makeStartedServer(notFoundResp)) {
-      try (DefaultFeatureRequestor r = makeRequestor(server)) {      
-        try {
-          r.getSegment(segment1Key);
-          fail("expected exception");
-        } catch (HttpErrorException e) {
-          assertEquals(404, e.getStatus());
-        }
-      }
-    }
-  }
-
-  @Test
-  public void requestsAreCached() throws Exception {
-    MockResponse cacheableResp = jsonResponse(flag1Json)
+  public void responseIsCached() throws Exception {
+    MockResponse cacheableResp = jsonResponse(allDataJson)
         .setHeader("ETag", "aaa")
-        .setHeader("Cache-Control", "max-age=1000");
+        .setHeader("Cache-Control", "max-age=0");
+    MockResponse cachedResp = new MockResponse().setResponseCode(304);
     
-    try (MockWebServer server = makeStartedServer(cacheableResp)) {
+    try (MockWebServer server = makeStartedServer(cacheableResp, cachedResp)) {
       try (DefaultFeatureRequestor r = makeRequestor(server)) {
-        DataModel.FeatureFlag flag1a = r.getFlag(flag1Key);
- 
+        FeatureRequestor.AllData data1 = r.getAllData(true);
+        verifyExpectedData(data1);
+         
         RecordedRequest req1 = server.takeRequest();
-        assertEquals("/sdk/latest-flags/" + flag1Key, req1.getPath());
+        assertEquals("/sdk/latest-all", req1.getPath());
         verifyHeaders(req1);
-        
-        verifyFlag(flag1a, flag1Key);
-        
-        DataModel.FeatureFlag flag1b = r.getFlag(flag1Key);
-        verifyFlag(flag1b, flag1Key);
-        assertNull(server.takeRequest(0, TimeUnit.SECONDS)); // there was no second request, due to the cache hit
+        assertNull(req1.getHeader("If-None-Match"));
+         
+        FeatureRequestor.AllData data2 = r.getAllData(false);
+        assertNull(data2);
+
+        RecordedRequest req2 = server.takeRequest();
+        assertEquals("/sdk/latest-all", req2.getPath());
+        verifyHeaders(req2);
+        assertEquals("aaa", req2.getHeader("If-None-Match"));
+      }
+    }
+  }
+
+  @Test
+  public void responseIsCachedButWeWantDataAnyway() throws Exception {
+    MockResponse cacheableResp = jsonResponse(allDataJson)
+        .setHeader("ETag", "aaa")
+        .setHeader("Cache-Control", "max-age=0");
+    MockResponse cachedResp = new MockResponse().setResponseCode(304);
+    
+    try (MockWebServer server = makeStartedServer(cacheableResp, cachedResp)) {
+      try (DefaultFeatureRequestor r = makeRequestor(server)) {
+        FeatureRequestor.AllData data1 = r.getAllData(true);
+        verifyExpectedData(data1);
+         
+        RecordedRequest req1 = server.takeRequest();
+        assertEquals("/sdk/latest-all", req1.getPath());
+        verifyHeaders(req1);
+        assertNull(req1.getHeader("If-None-Match"));
+         
+        FeatureRequestor.AllData data2 = r.getAllData(true);
+        verifyExpectedData(data2);
+
+        RecordedRequest req2 = server.takeRequest();
+        assertEquals("/sdk/latest-all", req2.getPath());
+        verifyHeaders(req2);
+        assertEquals("aaa", req2.getHeader("If-None-Match"));
       }
     }
   }
   
   @Test
   public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
-    MockResponse resp = jsonResponse(flag1Json);
+    MockResponse resp = jsonResponse(allDataJson);
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
       try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server)) {
         try {
-          r.getFlag(flag1Key);
+          r.getAllData(false);
           fail("expected exception");
         } catch (SSLHandshakeException e) {
         }
@@ -185,7 +154,7 @@ public class FeatureRequestorTest {
   
   @Test
   public void httpClientCanUseCustomTlsConfig() throws Exception {
-    MockResponse resp = jsonResponse(flag1Json);
+    MockResponse resp = jsonResponse(allDataJson);
     
     try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
       LDConfig config = new LDConfig.Builder()
@@ -194,8 +163,8 @@ public class FeatureRequestorTest {
           .build();
 
       try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server, config)) {
-        DataModel.FeatureFlag flag = r.getFlag(flag1Key);
-        verifyFlag(flag, flag1Key);
+        FeatureRequestor.AllData data = r.getAllData(false);
+        verifyExpectedData(data);
       }
     }
   }
@@ -203,15 +172,15 @@ public class FeatureRequestorTest {
   @Test
   public void httpClientCanUseProxyConfig() throws Exception {
     URI fakeBaseUri = URI.create("http://not-a-real-host");
-    try (MockWebServer server = makeStartedServer(jsonResponse(flag1Json))) {
+    try (MockWebServer server = makeStartedServer(jsonResponse(allDataJson))) {
       HttpUrl serverUrl = server.url("/");
       LDConfig config = new LDConfig.Builder()
           .http(Components.httpConfiguration().proxyHostAndPort(serverUrl.host(), serverUrl.port()))
           .build();
       
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), fakeBaseUri, true)) {
-        DataModel.FeatureFlag flag = r.getFlag(flag1Key);
-        verifyFlag(flag, flag1Key);
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), fakeBaseUri)) {
+        FeatureRequestor.AllData data = r.getAllData(false);
+        verifyExpectedData(data);
         
         assertEquals(1, server.getRequestCount());
       }

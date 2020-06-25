@@ -127,12 +127,11 @@ public class DiagnosticEventTest {
             .dataSource(
                 Components.streamingDataSource()
                   .baseURI(CUSTOM_URI)
-                  .pollingBaseURI(CUSTOM_URI)
                   .initialReconnectDelay(Duration.ofSeconds(2))
                 )
             .build();
     LDValue expected1 = expectedDefaultPropertiesWithoutStreaming()
-        .put("customBaseURI", true)
+        .put("customBaseURI", false)
         .put("customStreamURI", true)
         .put("reconnectTimeMillis", 2_000)
         .build();
@@ -150,25 +149,11 @@ public class DiagnosticEventTest {
     LDValue expected3 = expectedDefaultProperties().build();
     assertEquals(expected3, makeConfigData(ldConfig3));
     
-    LDConfig ldConfig4 = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource().pollingBaseURI(CUSTOM_URI))
-        .build();
-    LDValue expected4 = expectedDefaultProperties()
-        .put("customBaseURI", true)
-        .build();
-    assertEquals(expected4, makeConfigData(ldConfig4));
-
-    LDConfig ldConfig5 = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource().pollingBaseURI(LDConfig.DEFAULT_BASE_URI))
-        .build();
-    LDValue expected5 = expectedDefaultProperties().build();
-    assertEquals(expected5, makeConfigData(ldConfig5));
-
     LDConfig ldConfig6 = new LDConfig.Builder()
         .dataSource(Components.streamingDataSource().baseURI(CUSTOM_URI))
         .build();
     LDValue expected6 = expectedDefaultProperties()
-        .put("customBaseURI", true)
+        .put("customBaseURI", false)
         .put("customStreamURI", true)
         .build();
     assertEquals(expected6, makeConfigData(ldConfig6));

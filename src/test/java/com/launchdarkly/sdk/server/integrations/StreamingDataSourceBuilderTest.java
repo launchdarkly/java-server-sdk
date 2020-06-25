@@ -34,10 +34,10 @@ public class StreamingDataSourceBuilderTest {
   
   @Test
   public void pollingBaseURI() {
-    assertNull(streamingDataSource().pollingBaseURI);
-    
-    assertEquals(URI.create("x"), streamingDataSource().pollingBaseURI(URI.create("x")).pollingBaseURI);
-    
-    assertNull(streamingDataSource().pollingBaseURI(URI.create("x")).pollingBaseURI(null).pollingBaseURI);
+    // The pollingBaseURI option is now ignored, so this test just verifies that changing it does *not*
+    // change the stream's regular baseURI property.
+    StreamingDataSourceBuilder b = streamingDataSource();
+    b.pollingBaseURI(URI.create("x"));
+    assertNull(b.baseURI);
   }
 }
