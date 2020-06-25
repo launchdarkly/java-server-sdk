@@ -3,8 +3,10 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
+import com.launchdarkly.sdk.server.TestUtil.ActionCanThrowAnyException;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
@@ -12,6 +14,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
+import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -38,10 +41,10 @@ import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
 import static com.launchdarkly.sdk.server.TestUtil.shouldTimeOut;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -50,6 +53,7 @@ import static org.junit.Assert.fail;
 public class PollingProcessorTest {
   private static final String SDK_KEY = "sdk-key";
   private static final Duration LENGTHY_INTERVAL = Duration.ofSeconds(60);
+  private static final Duration BRIEF_INTERVAL = Duration.ofMillis(20);
 
   private MockDataSourceUpdates dataSourceUpdates;
   private MockFeatureRequestor requestor;
@@ -260,70 +264,137 @@ public class PollingProcessorTest {
   }
   
   private void testUnrecoverableHttpError(int statusCode) throws Exception {
-    requestor.httpException = new HttpErrorException(statusCode);
-    
-    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
-    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+    HttpErrorException httpError = new HttpErrorException(statusCode);
 
-    try (PollingProcessor pollingProcessor = makeProcessor()) {  
-      long startTime = System.currentTimeMillis();
-      Future<Void> initFuture = pollingProcessor.start();
+    // Test a scenario where the very first request gets this error
+    withStatusQueue(statuses -> {
+      requestor.httpException = httpError;
       
-      shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
-      assertTrue((System.currentTimeMillis() - startTime) < 9000);
-      assertTrue(initFuture.isDone());
-      assertFalse(pollingProcessor.isInitialized());
-      
-      Status status = requireDataSourceStatus(statuses, State.OFF);
-      assertNotNull(status.getLastError());
-      assertEquals(ErrorKind.ERROR_RESPONSE, status.getLastError().getKind());
-      assertEquals(statusCode, status.getLastError().getStatusCode());
-    }
+      try (PollingProcessor pollingProcessor = makeProcessor()) {
+        long startTime = System.currentTimeMillis();
+        Future<Void> initFuture = pollingProcessor.start();
+        
+        shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+        assertTrue((System.currentTimeMillis() - startTime) < 9000);
+        assertTrue(initFuture.isDone());
+        assertFalse(pollingProcessor.isInitialized());
+        
+        verifyHttpErrorCausedShutdown(statuses, statusCode);
+      }
+    });
+    
+    // Now test a scenario where we have a successful startup, but the next poll gets the error
+    withStatusQueue(statuses -> {
+      requestor.httpException = null;    
+      requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
+
+      try (PollingProcessor pollingProcessor = makeProcessor(BRIEF_INTERVAL)) {
+        Future<Void> initFuture = pollingProcessor.start();
+        
+        shouldNotTimeOut(initFuture, Duration.ofSeconds(20000));
+        assertTrue(initFuture.isDone());
+        assertTrue(pollingProcessor.isInitialized());
+        requireDataSourceStatusEventually(statuses, State.VALID, State.INITIALIZING);
+  
+        // cause the next poll to get an error
+        requestor.httpException = httpError;
+        
+        verifyHttpErrorCausedShutdown(statuses, statusCode);
+      }
+    });
+  }
+  
+  private void verifyHttpErrorCausedShutdown(BlockingQueue<DataSourceStatusProvider.Status> statuses, int statusCode) {
+    Status status = requireDataSourceStatusEventually(statuses, State.OFF, State.VALID);
+    assertNotNull(status.getLastError());
+    assertEquals(ErrorKind.ERROR_RESPONSE, status.getLastError().getKind());
+    assertEquals(statusCode, status.getLastError().getStatusCode());
   }
   
   private void testRecoverableHttpError(int statusCode) throws Exception {
     HttpErrorException httpError = new HttpErrorException(statusCode);
-    Duration shortInterval = Duration.ofMillis(20);
-    requestor.httpException = httpError;
-    
-    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
-    dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
-    try (PollingProcessor pollingProcessor = makeProcessor(shortInterval)) {
-      Future<Void> initFuture = pollingProcessor.start();
-      
-      // first poll gets an error
-      shouldTimeOut(initFuture, Duration.ofMillis(200));
-      assertFalse(initFuture.isDone());
-      assertFalse(pollingProcessor.isInitialized());
-      
-      Status status1 = requireDataSourceStatus(statuses, State.INITIALIZING);
-      assertNotNull(status1.getLastError());
-      assertEquals(ErrorKind.ERROR_RESPONSE, status1.getLastError().getKind());
-      assertEquals(statusCode, status1.getLastError().getStatusCode());
-
-      // now make it so the requestor will succeed
-      requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
-      requestor.httpException = null;
-      
-      shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
-      assertTrue(initFuture.isDone());
-      assertTrue(pollingProcessor.isInitialized());
-
-      // status should now be VALID (although there might have been more failed polls before that)
-      Status status2 = requireDataSourceStatusEventually(statuses, State.VALID, State.INITIALIZING);
-      assertNotNull(status2.getLastError());
-      assertEquals(ErrorKind.ERROR_RESPONSE, status2.getLastError().getKind());
-      assertEquals(statusCode, status2.getLastError().getStatusCode());
-      
-      // simulate another error of the same kind - the difference is now the state will be INTERRUPTED
+    // Test a scenario where the very first request gets this error
+    withStatusQueue(statuses -> {
       requestor.httpException = httpError;
       
-      Status status3 = requireDataSourceStatusEventually(statuses, State.INTERRUPTED, State.VALID);
-      assertNotNull(status3.getLastError());
-      assertEquals(ErrorKind.ERROR_RESPONSE, status3.getLastError().getKind());
-      assertEquals(statusCode, status3.getLastError().getStatusCode());
-      assertNotSame(status1.getLastError(), status3.getLastError()); // it's a new error object of the same kind
+      try (PollingProcessor pollingProcessor = makeProcessor(BRIEF_INTERVAL)) {
+        Future<Void> initFuture = pollingProcessor.start();
+        
+        // first poll gets an error
+        shouldTimeOut(initFuture, Duration.ofMillis(200));
+        assertFalse(initFuture.isDone());
+        assertFalse(pollingProcessor.isInitialized());
+        
+        Status status0 = requireDataSourceStatus(statuses, State.INITIALIZING);
+        assertNotNull(status0.getLastError());
+        assertEquals(ErrorKind.ERROR_RESPONSE, status0.getLastError().getKind());
+        assertEquals(statusCode, status0.getLastError().getStatusCode());
+
+        verifyHttpErrorWasRecoverable(statuses, statusCode);
+        
+        shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+        assertTrue(initFuture.isDone());
+        assertTrue(pollingProcessor.isInitialized());
+      }
+    });
+    
+    // Now test a scenario where we have a successful startup, but the next poll gets the error
+    withStatusQueue(statuses -> {
+      requestor.httpException = null;    
+      requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
+      
+      try (PollingProcessor pollingProcessor = makeProcessor(BRIEF_INTERVAL)) {
+        Future<Void> initFuture = pollingProcessor.start();
+        
+        shouldNotTimeOut(initFuture, Duration.ofSeconds(20000));
+        assertTrue(initFuture.isDone());
+        assertTrue(pollingProcessor.isInitialized());
+        requireDataSourceStatusEventually(statuses, State.VALID, State.INITIALIZING);
+  
+        // cause the next poll to get an error
+        requestor.httpException = httpError;
+       
+        Status status0 = requireDataSourceStatusEventually(statuses, State.INTERRUPTED, State.VALID);
+        assertEquals(ErrorKind.ERROR_RESPONSE, status0.getLastError().getKind());
+        assertEquals(statusCode, status0.getLastError().getStatusCode());
+        
+        verifyHttpErrorWasRecoverable(statuses, statusCode);
+      }
+    });
+  }
+
+  private void verifyHttpErrorWasRecoverable(BlockingQueue<DataSourceStatusProvider.Status> statuses, int statusCode) throws Exception {
+    long startTime = System.currentTimeMillis();
+    
+    // first make it so the requestor will succeed after the previous error
+    requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
+    requestor.httpException = null;
+    
+    // status should now be VALID (although there might have been more failed polls before that)
+    Status status1 = requireDataSourceStatusEventually(statuses, State.VALID, State.INITIALIZING);
+    assertNotNull(status1.getLastError());
+    assertEquals(ErrorKind.ERROR_RESPONSE, status1.getLastError().getKind());
+    assertEquals(statusCode, status1.getLastError().getStatusCode());
+    
+    // simulate another error of the same kind - the state will be INTERRUPTED
+    requestor.httpException = new HttpErrorException(statusCode);
+    
+    Status status2 = requireDataSourceStatusEventually(statuses, State.INTERRUPTED, State.VALID);
+    assertNotNull(status2.getLastError());
+    assertEquals(ErrorKind.ERROR_RESPONSE, status2.getLastError().getKind());
+    assertEquals(statusCode, status2.getLastError().getStatusCode());
+    MatcherAssert.assertThat(status2.getLastError().getTime().toEpochMilli(), greaterThanOrEqualTo(startTime));
+  }
+  
+  private void withStatusQueue(ActionCanThrowAnyException<BlockingQueue<DataSourceStatusProvider.Status>> action) throws Exception {
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    DataSourceStatusProvider.StatusListener addStatus = statuses::add;
+    dataSourceUpdates.statusBroadcaster.register(addStatus);
+    try {
+      action.apply(statuses);
+    } finally {
+      dataSourceUpdates.statusBroadcaster.unregister(addStatus);
     }
   }
   
@@ -337,15 +408,7 @@ public class PollingProcessorTest {
     
     public void close() throws IOException {}
 
-    public DataModel.FeatureFlag getFlag(String featureKey) throws IOException, HttpErrorException {
-      return null;
-    }
-
-    public DataModel.Segment getSegment(String segmentKey) throws IOException, HttpErrorException {
-      return null;
-    }
-
-    public AllData getAllData() throws IOException, HttpErrorException {
+    public AllData getAllData(boolean returnDataEvenIfCached) throws IOException, HttpErrorException {
       queries.add(true);
       if (gate != null) {
         try {

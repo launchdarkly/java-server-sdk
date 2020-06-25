@@ -32,7 +32,6 @@ public class StreamingDataSourceBuilderTest {
         streamingDataSource().initialReconnectDelay(Duration.ofMillis(222)).initialReconnectDelay(null).initialReconnectDelay);
   }
   
-  @SuppressWarnings("deprecation")
   @Test
   public void pollingBaseURI() {
     // The pollingBaseURI option is now ignored, so this test just verifies that changing it does *not*

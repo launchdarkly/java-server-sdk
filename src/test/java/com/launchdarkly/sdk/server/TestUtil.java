@@ -16,6 +16,7 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
@@ -152,6 +153,10 @@ public class TestUtil {
       assertEquals(possibleStateBeforeThat, status.getState());
       return null;
     });
+  }
+  
+  public static interface ActionCanThrowAnyException<T> {
+    void apply(T param) throws Exception;
   }
   
   public static <T> T awaitValue(BlockingQueue<T> values, Duration timeout) {

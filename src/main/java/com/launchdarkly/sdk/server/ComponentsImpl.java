@@ -174,8 +174,7 @@ abstract class ComponentsImpl {
       
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
           context.getHttp(),
-          baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI,
-          true
+          baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI
           );
       return new PollingProcessor(
           requestor,

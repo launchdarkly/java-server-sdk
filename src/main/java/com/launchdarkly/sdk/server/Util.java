@@ -6,6 +6,11 @@ import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -150,4 +155,26 @@ abstract class Util {
     }
     return d.toMillis() + " milliseconds";
   }
+  
+  static void deleteDirectory(Path path) {
+    try {
+      Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+        @Override
+        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+          try {
+            Files.delete(file);
+          } catch (IOException e) {}
+          return FileVisitResult.CONTINUE;
+        }
+        
+        @Override
+        public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
+          try {
+            Files.delete(dir);
+          } catch (IOException e) {}
+          return FileVisitResult.CONTINUE;
+        }
+      });
+    } catch (IOException e) {}
+  }  
 }

@@ -73,12 +73,11 @@ public abstract class StreamingDataSourceBuilder implements DataSourceFactory {
    * Previously, LaunchDarkly sometimes required the SDK to temporarily do a polling request even in
    * streaming mode (based on the size of the updated data item); this property specified the base URI
    * for such requests. However, the system no longer has this behavior so this property is ignored.
+   * It will be deprecated and then removed in a future release.
    *  
    * @param pollingBaseURI the polling endpoint URI; null to use the default
    * @return the builder
-   * @deprecated this method no longer affects anything and will be removed in the future 
    */
-  @Deprecated
   public StreamingDataSourceBuilder pollingBaseURI(URI pollingBaseURI) {
     return this;
   }

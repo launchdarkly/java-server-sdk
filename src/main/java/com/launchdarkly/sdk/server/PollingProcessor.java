@@ -84,10 +84,23 @@ final class PollingProcessor implements DataSource {
   }
   
   private void poll() {
-    FeatureRequestor.AllData allData = null;
-    
     try {
-      allData = requestor.getAllData();
+      // If we already obtained data earlier, and the poll request returns a cached response, then we don't
+      // want to bother parsing the data or reinitializing the data store. But if we never succeeded in
+      // storing any data, then we would still want to parse and try to store it even if it's cached.
+      boolean alreadyInited = initialized.get();
+      FeatureRequestor.AllData allData = requestor.getAllData(!alreadyInited);
+      if (allData == null) {
+        // This means it was cached, and alreadyInited was true
+        dataSourceUpdates.updateStatus(State.VALID, null);
+      } else {
+        if (dataSourceUpdates.init(allData.toFullDataSet())) {
+          dataSourceUpdates.updateStatus(State.VALID, null);
+          logger.info("Initialized LaunchDarkly client.");
+          initialized.getAndSet(true);
+          initFuture.complete(null);
+        }
+      }
     } catch (HttpErrorException e) {
       ErrorInfo errorInfo = ErrorInfo.fromHttpError(e.getStatus());
       boolean recoverable = checkIfErrorIsRecoverableAndLog(logger, httpErrorDescription(e.getStatus()),
@@ -108,14 +121,6 @@ final class PollingProcessor implements DataSource {
       logger.error("Unexpected error from polling processor: {}", e.toString());
       logger.debug(e.toString(), e);
       dataSourceUpdates.updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.UNKNOWN, e));
-    }
-    
-    if (allData != null && dataSourceUpdates.init(allData.toFullDataSet())) {
-      if (!initialized.getAndSet(true)) {
-        logger.info("Initialized LaunchDarkly client.");
-        dataSourceUpdates.updateStatus(State.VALID, null);
-        initFuture.complete(null);
-      }
     }
   }
 }
