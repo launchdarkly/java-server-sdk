@@ -2,6 +2,17 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.0.2] - 2020-06-25
+### Changed:
+- It is no longer necessary to set `StreamingDataSourceBuilder.pollingBaseURI` if you are also setting `baseURI`. This is due to a change in how the LaunchDarkly streaming service works. The setter method still exists, but no longer has any effect and will be deprecated in a future release.
+
+### Fixed:
+- In polling mode, if a poll request failed due to a temporary network problem but then a subsequent request succeeded, `DataSourceStatusProvider` was continuing to report the status as `INTERRUPTED` when it should have been restored to `VALID`.
+- In polling mode, the SDK was unnecessarily re-storing the flag data in the data store even if it had not changed since the last poll request. This would cause unnecessary updates when using a database.
+- In polling mode, temporary files used for HTTP caching (in the system temporary directory) were not being cleaned up when the client was closed.
+- Fixed incorrect sample code in the documentation comment for `FlagValueChangeListener`.
+
+
 ## [5.0.1] - 2020-06-19
 ### Fixed:
 - Fixed a bug that could cause worker threads for the EventSource stream to persist after closing the client, if the client had shut down the stream due to detecting an invalid SDK key.
