@@ -127,97 +127,94 @@ public class TestDataTest {
   
   @Test
   public void flagConfigSimpleBoolean() throws Exception {
-    String basicProps = "\"key\":\"flag\",\"version\":1,\"variations\":[true,false]" +
-        ",\"offVariation\":1,\"fallthrough\":{\"variation\":0}";
+    String basicProps = "\"variations\":[true,false],\"offVariation\":1";
     String onProps = basicProps + ",\"on\":true";
     String offProps = basicProps + ",\"on\":false";
+    String fallthroughTrue = ",\"fallthrough\":{\"variation\":0}";
+    String fallthroughFalse = ",\"fallthrough\":{\"variation\":1}";
 
-    verifyFlag(td -> td.flag("flag"), onProps);
-    verifyFlag(td -> td.flag("flag").booleanFlag(), onProps);
-    verifyFlag(td -> td.flag("flag").on(true), onProps);
-    verifyFlag(td -> td.flag("flag").on(false), offProps);
-    verifyFlag(td -> td.flag("flag").variationForAllUsers(false), offProps);
-    verifyFlag(td -> td.flag("flag").variationForAllUsers(true), onProps);
+    verifyFlag(f -> f, onProps + fallthroughTrue);
+    verifyFlag(f -> f.booleanFlag(), onProps + fallthroughTrue);
+    verifyFlag(f -> f.on(true), onProps + fallthroughTrue);
+    verifyFlag(f -> f.on(false), offProps + fallthroughTrue);
+    verifyFlag(f -> f.variationForAllUsers(false), onProps + fallthroughFalse);
+    verifyFlag(f -> f.variationForAllUsers(true), onProps + fallthroughTrue);
 
     verifyFlag(
-        td -> td.flag("flag").fallthroughVariation(true).offVariation(false),
-        onProps
+        f -> f.fallthroughVariation(true).offVariation(false),
+        onProps + fallthroughTrue
         );
 
     verifyFlag(
-        td -> td.flag("flag").fallthroughVariation(false).offVariation(true),
-        "\"key\":\"flag\",\"version\":1,\"variations\":[true,false],\"on\":true" +
-            ",\"offVariation\":0,\"fallthrough\":{\"variation\":1}"
+        f -> f.fallthroughVariation(false).offVariation(true),
+        "\"variations\":[true,false],\"on\":true,\"offVariation\":0,\"fallthrough\":{\"variation\":1}"
         );
   }
 
   @Test
   public void usingBooleanConfigMethodsForcesFlagToBeBoolean() throws Exception {
-    String booleanProps = "\"key\":\"flag\",\"version\":1,\"on\":true"
+    String booleanProps = "\"on\":true"
         + ",\"variations\":[true,false],\"offVariation\":1,\"fallthrough\":{\"variation\":0}";
 
     verifyFlag(
-        td -> td.flag("flag")
-          .variations(LDValue.of(1), LDValue.of(2))
+        f -> f.variations(LDValue.of(1), LDValue.of(2))
           .booleanFlag(),
         booleanProps
         );
     verifyFlag(
-        td -> td.flag("flag")
-          .variations(LDValue.of(true), LDValue.of(2))
+        f -> f.variations(LDValue.of(true), LDValue.of(2))
           .booleanFlag(),
           booleanProps
         );
     verifyFlag(
-        td -> td.flag("flag").valueForAllUsers(LDValue.of("x"))
-          .booleanFlag(),
+        f -> f.booleanFlag(),
           booleanProps
         );
   }
   
   @Test
   public void flagConfigStringVariations() throws Exception {
-    String basicProps = "\"key\":\"flag\",\"version\":1,\"variations\":[\"red\",\"green\",\"blue\"],\"on\":true"
+    String basicProps = "\"variations\":[\"red\",\"green\",\"blue\"],\"on\":true"
         + ",\"offVariation\":0,\"fallthrough\":{\"variation\":2}";
 
     verifyFlag(
-        td -> td.flag("flag").variations(THREE_STRING_VALUES).offVariation(0).fallthroughVariation(2),
+        f -> f.variations(THREE_STRING_VALUES).offVariation(0).fallthroughVariation(2),
         basicProps
         );
   }
 
   @Test
   public void userTargets() throws Exception {
-    String booleanFlagBasicProps = "\"key\":\"flag\",\"version\":1,\"on\":true,\"variations\":[true,false]" +
+    String booleanFlagBasicProps = "\"on\":true,\"variations\":[true,false]" +
         ",\"offVariation\":1,\"fallthrough\":{\"variation\":0}";
     verifyFlag(
-        td -> td.flag("flag").variationForUser("a", true).variationForUser("b", true),
+        f -> f.variationForUser("a", true).variationForUser("b", true),
         booleanFlagBasicProps + ",\"targets\":[{\"variation\":0,\"values\":[\"a\",\"b\"]}]"
         );
     verifyFlag(
-        td -> td.flag("flag").variationForUser("a", true).variationForUser("a", true),
+    	f -> f.variationForUser("a", true).variationForUser("a", true),
         booleanFlagBasicProps + ",\"targets\":[{\"variation\":0,\"values\":[\"a\"]}]"
         );
     verifyFlag(
-        td -> td.flag("flag").variationForUser("a", false).variationForUser("b", true).variationForUser("c", false),
+    	f -> f.variationForUser("a", false).variationForUser("b", true).variationForUser("c", false),
         booleanFlagBasicProps + ",\"targets\":[{\"variation\":0,\"values\":[\"b\"]}" +
           ",{\"variation\":1,\"values\":[\"a\",\"c\"]}]"
         );
     verifyFlag(
-        td -> td.flag("flag").variationForUser("a", true).variationForUser("b", true).variationForUser("a", false),
+    	f -> f.variationForUser("a", true).variationForUser("b", true).variationForUser("a", false),
         booleanFlagBasicProps + ",\"targets\":[{\"variation\":0,\"values\":[\"b\"]}" +
           ",{\"variation\":1,\"values\":[\"a\"]}]"
         );
 
-    String stringFlagBasicProps = "\"key\":\"flag\",\"version\":1,\"variations\":[\"red\",\"green\",\"blue\"],\"on\":true"
+    String stringFlagBasicProps = "\"variations\":[\"red\",\"green\",\"blue\"],\"on\":true"
         + ",\"offVariation\":0,\"fallthrough\":{\"variation\":2}";
     verifyFlag(
-        td -> td.flag("flag").variations(THREE_STRING_VALUES).offVariation(0).fallthroughVariation(2)
+    	f -> f.variations(THREE_STRING_VALUES).offVariation(0).fallthroughVariation(2)
           .variationForUser("a", 2).variationForUser("b", 2),
         stringFlagBasicProps + ",\"targets\":[{\"variation\":2,\"values\":[\"a\",\"b\"]}]"
         );
     verifyFlag(
-        td -> td.flag("flag").variations(THREE_STRING_VALUES).offVariation(0).fallthroughVariation(2)
+    	f -> f.variations(THREE_STRING_VALUES).offVariation(0).fallthroughVariation(2)
           .variationForUser("a", 2).variationForUser("b", 1).variationForUser("c", 2),
           stringFlagBasicProps + ",\"targets\":[{\"variation\":1,\"values\":[\"b\"]}" +
             ",{\"variation\":2,\"values\":[\"a\",\"c\"]}]"
@@ -226,7 +223,7 @@ public class TestDataTest {
   
   @Test
   public void flagRules() throws Exception {
-    String basicProps = "\"key\":\"flag\",\"version\":1,\"variations\":[true,false]" +
+    String basicProps = "\"variations\":[true,false]" +
         ",\"on\":true,\"offVariation\":1,\"fallthrough\":{\"variation\":0}";
 
     // match that returns variation 0/true
@@ -235,11 +232,11 @@ public class TestDataTest {
         "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"],\"negate\":false}" +
         "]}]";
     verifyFlag(
-        td -> td.flag("flag").ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true),
+    	f -> f.ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true),
         matchReturnsVariation0
         );
     verifyFlag(
-        td -> td.flag("flag").ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(0),
+    	f -> f.ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(0),
         matchReturnsVariation0
         );
 
@@ -249,17 +246,17 @@ public class TestDataTest {
         "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"],\"negate\":false}" +
         "]}]";    
     verifyFlag(
-        td -> td.flag("flag").ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(false),
+    	f -> f.ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(false),
         matchReturnsVariation1
         );
     verifyFlag(
-        td -> td.flag("flag").ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(1),
+    	f -> f.ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(1),
         matchReturnsVariation1
         );
 
     // negated match
     verifyFlag(
-        td -> td.flag("flag").ifNotMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true),
+    	f -> f.ifNotMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true),
         basicProps + ",\"rules\":[{\"id\":\"rule0\",\"variation\":0,\"trackEvents\":false,\"clauses\":[" +
             "{\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"],\"negate\":true}" +
             "]}]"
@@ -267,8 +264,7 @@ public class TestDataTest {
     
     // multiple clauses
     verifyFlag(
-        td -> td.flag("flag")
-          .ifMatch(UserAttribute.NAME, LDValue.of("Lucy"))
+    	f -> f.ifMatch(UserAttribute.NAME, LDValue.of("Lucy"))
           .andMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
           .thenReturn(true),
         basicProps + ",\"rules\":[{\"id\":\"rule0\",\"variation\":0,\"trackEvents\":false,\"clauses\":[" +
@@ -279,8 +275,7 @@ public class TestDataTest {
 
     // multiple rules
     verifyFlag(
-        td -> td.flag("flag")
-          .ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true)
+    	f -> f.ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true)
           .ifMatch(UserAttribute.NAME, LDValue.of("Mina")).thenReturn(true),
         basicProps + ",\"rules\":["
           + "{\"id\":\"rule0\",\"variation\":0,\"trackEvents\":false,\"clauses\":[" +
@@ -294,8 +289,11 @@ public class TestDataTest {
 
   }
   
-  private void verifyFlag(Function<TestData, TestData.FlagBuilder> makeFlag, String expectedProps) throws Exception {
-    String expectedJson = "{" + expectedProps +
+  private void verifyFlag(
+	  Function<TestData.FlagBuilder, TestData.FlagBuilder> configureFlag,
+	  String expectedProps
+	  ) throws Exception {
+    String expectedJson = "{\"key\":\"flagkey\",\"version\":1," + expectedProps +
           ",\"clientSide\":false,\"deleted\":false,\"trackEvents\":false,\"trackEventsFallthrough\":false}";
     
     TestData td = TestData.dataSource();
@@ -303,7 +301,7 @@ public class TestDataTest {
     DataSource ds = td.createDataSource(null, updates);
     ds.start();
 
-    td.update(makeFlag.apply(td));
+    td.update(configureFlag.apply(td.flag("flagkey")));
     
     assertThat(updates.upserts.size(), equalTo(1));
     UpsertParams up = updates.upserts.take();

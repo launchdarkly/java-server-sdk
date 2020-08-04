@@ -278,7 +278,7 @@ public final class TestData implements DataSourceFactory {
      * @return the builder
      */
     public FlagBuilder fallthroughVariation(boolean value) {
-      return this.booleanFlag().fallthroughVariation(value ? TRUE_VARIATION_FOR_BOOLEAN : FALSE_VARIATION_FOR_BOOLEAN);
+      return this.booleanFlag().fallthroughVariation(variationForBoolean(value));
     }
 
     /**
@@ -286,11 +286,11 @@ public final class TestData implements DataSourceFactory {
      * that is returned if targeting is on and the user was not matched by a more specific
      * target or rule.
      * 
-     * @param index the desired fallthrough variation: 0 for the first, 1 for the second, etc.
+     * @param variationIndex the desired fallthrough variation: 0 for the first, 1 for the second, etc.
      * @return the builder
      */
-    public FlagBuilder fallthroughVariation(int index) {
-      this.fallthroughVariation = index;
+    public FlagBuilder fallthroughVariation(int variationIndex) {
+      this.fallthroughVariation = variationIndex;
       return this;
     }
 
@@ -302,56 +302,49 @@ public final class TestData implements DataSourceFactory {
      * @return the builder
      */
     public FlagBuilder offVariation(boolean value) {
-      return this.booleanFlag().offVariation(value ? TRUE_VARIATION_FOR_BOOLEAN : FALSE_VARIATION_FOR_BOOLEAN);
+      return this.booleanFlag().offVariation(variationForBoolean(value));
     }
 
     /**
      * Specifies the index of the off variation. This is the variation that is returned
      * whenever targeting is off.
      * 
-     * @param index the desired off variation: 0 for the first, 1 for the second, etc.
+     * @param variationIndex the desired off variation: 0 for the first, 1 for the second, etc.
      * @return the builder
      */
-    public FlagBuilder offVariation(int index) {
-      this.offVariation = index;
+    public FlagBuilder offVariation(int variationIndex) {
+      this.offVariation = variationIndex;
       return this;
     }
 
     /**
      * Sets the flag to always return the specified boolean variation for all users.
      * <p>
-     * If the flag is a boolean flag, this causes targeting to be switched on or off, and also
-     * removes any existing targets or rules. If the flag was not already a boolean flag, it is
-     * converted to a boolean flag.
-     * 
+     * VariationForAllUsers sets the flag to return the specified boolean variation by default for all users.
+     * <p>
+     * Targeting is switched on, any existing targets or rules are removed, and the flag's variations are
+     * set to true and false. The fallthrough variation is set to the specified value. The off variation is
+     * left unchanged.
+     *
      * @param variation the desired true/false variation to be returned for all users
      * @return the builder
      */
     public FlagBuilder variationForAllUsers(boolean variation) {
-      return clearRules()
-          .clearUserTargets()
-          .booleanFlag()
-          .offVariation(FALSE_VARIATION_FOR_BOOLEAN)
-          .fallthroughVariation(TRUE_VARIATION_FOR_BOOLEAN)
-          .on(variation);
+      return booleanFlag().variationForAllUsers(variationForBoolean(variation));
     }
 
     /**
      * Sets the flag to always return the specified variation for all users.
      * <p>
      * The variation is specified by number, out of whatever variation values have already been
-     * defined. The flag will always return this variation regardless of whether targeting is
-     * on or off (it is used as both the fallthrough variation and the off variation). Any
-     * existing targets or rules are removed.
+     * defined. Targeting is switched on, and any existing targets or rules are removed. The fallthrough
+     * variation is set to the specified value. The off variation is left unchanged.
      * 
-     * @param index the desired variation: 0 for the first, 1 for the second, etc.
+     * @param variationIndex the desired variation: 0 for the first, 1 for the second, etc.
      * @return the builder
      */
-    public FlagBuilder variationForAllUsers(int index) {
-      offVariation = index;
-      fallthroughVariation = index;
-      targets = null;
-      return this;
+    public FlagBuilder variationForAllUsers(int variationIndex) {
+      return on(true).clearRules().clearUserTargets().fallthroughVariation(variationIndex);
     }
     
     /**
@@ -385,8 +378,7 @@ public final class TestData implements DataSourceFactory {
      * @return the builder
      */
     public FlagBuilder variationForUser(String userKey, boolean variation) {
-      return booleanFlag().variationForUser(userKey,
-          variation ? TRUE_VARIATION_FOR_BOOLEAN : FALSE_VARIATION_FOR_BOOLEAN);
+      return booleanFlag().variationForUser(userKey, variationForBoolean(variation));
     }
     
     /**
@@ -399,17 +391,17 @@ public final class TestData implements DataSourceFactory {
      * defined.
      * 
      * @param userKey a user key
-     * @param index the desired variation to be returned for this user when targeting is on:
+     * @param variationIndex the desired variation to be returned for this user when targeting is on:
      *   0 for the first, 1 for the second, etc.
      * @return the builder
      */
-    public FlagBuilder variationForUser(String userKey, int index) {
+    public FlagBuilder variationForUser(String userKey, int variationIndex) {
       if (targets == null) {
         targets = new TreeMap<>(); // TreeMap keeps variations in order for test determinacy
       }
       for (int i = 0; i < variations.size(); i++) {
         ImmutableSet<String> keys = targets.get(i);
-        if (i == index) {
+        if (i == variationIndex) {
           if (keys == null) {
             targets.put(i, ImmutableSortedSet.of(userKey));
           } else if (!keys.contains(userKey)) {
@@ -562,6 +554,10 @@ public final class TestData implements DataSourceFactory {
       return DataModel.FEATURES.deserialize(json);
     }
     
+    private static int variationForBoolean(boolean value) {
+      return value ? TRUE_VARIATION_FOR_BOOLEAN : FALSE_VARIATION_FOR_BOOLEAN;
+    }
+    
     /**
      * A builder for feature flag rules to be used with {@link FlagBuilder}.
      * <p>
@@ -631,18 +627,18 @@ public final class TestData implements DataSourceFactory {
        */
       public FlagBuilder thenReturn(boolean variation) {
         FlagBuilder.this.booleanFlag();
-        return thenReturn(variation ? TRUE_VARIATION_FOR_BOOLEAN : FALSE_VARIATION_FOR_BOOLEAN);
+        return thenReturn(variationForBoolean(variation));
       }
       
       /**
        * Finishes defining the rule, specifying the result as a variation index.
        * 
-       * @param index the variation to return if the rule matches the user: 0 for the first, 1
+       * @param variationIndex the variation to return if the rule matches the user: 0 for the first, 1
        *   for the second, etc.
        * @return the flag builder
        */
-      public FlagBuilder thenReturn(int index) {
-        this.variation = index;
+      public FlagBuilder thenReturn(int variationIndex) {
+        this.variation = variationIndex;
         if (FlagBuilder.this.rules == null) {
           FlagBuilder.this.rules = new ArrayList<>();
         }
