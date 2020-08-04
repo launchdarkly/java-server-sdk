@@ -494,6 +494,14 @@ public class LDUserTest {
     assertEquals(expectedAttr, jo.get("custom"));
   }
   
+  @Test
+  public void gsonDeserialization() {
+    for (Map.Entry<LDUser, String> e: getUserPropertiesJsonMap().entrySet()) {
+      LDUser user = TEST_GSON_INSTANCE.fromJson(e.getValue(), LDUser.class);
+      assertEquals(e.getKey(), user);
+    }
+  }
+  
   private JsonElement makeCustomAttrWithListOfValues(String name, JsonElement... values) {
     JsonObject ret = new JsonObject();
     JsonArray a = new JsonArray();
