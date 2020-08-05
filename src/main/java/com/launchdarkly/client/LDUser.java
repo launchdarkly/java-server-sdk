@@ -98,49 +98,49 @@ public class LDUser {
   }
 
   LDValue getKey() {
-    return key;
+    return LDValue.normalize(key);
   }
 
   String getKeyAsString() {
-    return key.stringValue();
+    return key == null ? null : key.stringValue();
   }
 
   // All of the LDValue getters are guaranteed not to return null (although the LDValue may *be* a JSON null).
   
   LDValue getIp() {
-    return ip;
+    return LDValue.normalize(ip);
   }
 
   LDValue getCountry() {
-    return country;
+    return LDValue.normalize(country);
   }
 
   LDValue getSecondary() {
-    return secondary;
+    return LDValue.normalize(secondary);
   }
 
   LDValue getName() {
-    return name;
+    return LDValue.normalize(name);
   }
 
   LDValue getFirstName() {
-    return firstName;
+    return LDValue.normalize(firstName);
   }
 
   LDValue getLastName() {
-    return lastName;
+    return LDValue.normalize(lastName);
   }
 
   LDValue getEmail() {
-    return email;
+    return LDValue.normalize(email);
   }
 
   LDValue getAvatar() {
-    return avatar;
+    return LDValue.normalize(avatar);
   }
 
   LDValue getAnonymous() {
-    return anonymous;
+    return LDValue.normalize(anonymous);
   }
 
   LDValue getCustom(String key) {
@@ -157,23 +157,24 @@ public class LDUser {
 
     LDUser ldUser = (LDUser) o;
 
-    return Objects.equals(key, ldUser.key) &&
-        Objects.equals(secondary, ldUser.secondary) &&
-        Objects.equals(ip, ldUser.ip) &&
-        Objects.equals(email, ldUser.email) &&
-        Objects.equals(name, ldUser.name) &&
-        Objects.equals(avatar, ldUser.avatar) &&
-        Objects.equals(firstName, ldUser.firstName) &&
-        Objects.equals(lastName, ldUser.lastName) &&
-        Objects.equals(anonymous, ldUser.anonymous) &&
-        Objects.equals(country, ldUser.country) &&
+    return Objects.equals(getKey(), ldUser.getKey()) &&
+        Objects.equals(getSecondary(), ldUser.getSecondary()) &&
+        Objects.equals(getIp(), ldUser.getIp()) &&
+        Objects.equals(getEmail(), ldUser.getEmail()) &&
+        Objects.equals(getName(), ldUser.getName()) &&
+        Objects.equals(getAvatar(), ldUser.getAvatar()) &&
+        Objects.equals(getFirstName(), ldUser.getFirstName()) &&
+        Objects.equals(getLastName(), ldUser.getLastName()) &&
+        Objects.equals(getAnonymous(), ldUser.getAnonymous()) &&
+        Objects.equals(getCountry(), ldUser.getCountry()) &&
         Objects.equals(custom, ldUser.custom) &&
         Objects.equals(privateAttributeNames, ldUser.privateAttributeNames);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(key, secondary, ip, email, name, avatar, firstName, lastName, anonymous, country, custom, privateAttributeNames);
+    return Objects.hash(getKey(), getSecondary(), getIp(), getEmail(), getName(), getAvatar(), getFirstName(),
+        getLastName(), getAnonymous(), getCountry(), custom, privateAttributeNames);
   }
 
   // Used internally when including users in analytics events, to ensure that private attributes are stripped out.
