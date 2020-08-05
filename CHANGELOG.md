@@ -68,6 +68,10 @@ This is a major rewrite that introduces a cleaner API design, adds new features,
 - The Redis integration is no longer built into the main SDK library. See: https://github.com/launchdarkly/java-server-sdk-redis
 - The deprecated New Relic integration has been removed.
 
+## [4.14.1] - 2020-08-04
+### Fixed:
+- Deserializing `LDUser` from JSON using Gson resulted in an object that had nulls in some fields where nulls were not expected, which could cause null pointer exceptions later. While there was no defined behavior for deserializing users in the 4.x SDK (it is supported in 5.0 and above), it was simple to fix. Results of deserializing with any other JSON framework are undefined. ([#199](https://github.com/launchdarkly/java-server-sdk/issues/199))
+
 ## [4.14.0] - 2020-05-13
 ### Added:
 - `EventSender` interface and `EventsConfigurationBuilder.eventSender()` allow you to specify a custom implementation of how event data is sent. This is mainly to facilitate testing, but could also be used to store and forward event data.
