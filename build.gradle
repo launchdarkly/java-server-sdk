@@ -169,6 +169,11 @@ shadowJar {
         exclude(dependency('org.slf4j:.*:.*'))
     }
 
+    // Kotlin metadata for shaded classes should not be included - it confuses IDEs
+    exclude '**/*.kotlin_metadata'
+    exclude '**/*.kotlin_module'
+    exclude '**/*.kotlin_builtins'
+
     // doFirst causes the following steps to be run during Gradle's execution phase rather than the
     // configuration phase; this is necessary because they access the build products
     doFirst {
@@ -192,6 +197,10 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
     configurations = [project.configurations.runtimeClasspath]
     exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+
+    exclude '**/*.kotlin_metadata'
+    exclude '**/*.kotlin_module'
+    exclude '**/*.kotlin_builtins'
 
     // doFirst causes the following steps to be run during Gradle's execution phase rather than the
     // configuration phase; this is necessary because they access the build products
@@ -315,7 +324,7 @@ def replaceUnshadedClasses(jarTask) {
         } getFiles()
     }
     def jarPath = jarTask.archiveFile.asFile.get().toPath()
-    FileSystems.newFileSystem(jarPath, null).withCloseable { fs ->
+    FileSystems.newFileSystem(jarPath, (ClassLoader)null).withCloseable { fs ->
         protectedClassFiles.forEach { classFile ->
             def classSubpath = classFile.path.substring(classFile.path.indexOf("com/launchdarkly"))
             Files.copy(classFile.toPath(), fs.getPath(classSubpath), StandardCopyOption.REPLACE_EXISTING)
@@ -580,8 +589,13 @@ signing {
     sign publishing.publications.shadow
 }
 
-tasks.withType(Sign) {
-    onlyIf { !"1".equals(project.findProperty("LD_SKIP_SIGNING")) } // so we can build jars for testing in CI
+tasks.withType(Sign) { t ->
+    onlyIf { !shouldSkipSigning() } // so we can build jars for testing in CI
+}
+
+def shouldSkipSigning() {
+    return "1".equals(project.findProperty("LD_SKIP_SIGNING")) ||
+        "1".equals(System.getenv("LD_SKIP_SIGNING"))
 }
 
 // This task is used by the logic in ./packaging-test to get copies of all the direct and transitive
