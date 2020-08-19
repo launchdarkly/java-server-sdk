@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.0.3] - 2020-08-18
+### Fixed:
+- A packaging issue with Kotlin dependencies caused problems with IntelliJ code completion and code highlighting. ([#201](https://github.com/launchdarkly/java-server-sdk/issues/201))
+
 ## [5.0.2] - 2020-06-25
 ### Changed:
 - It is no longer necessary to set `StreamingDataSourceBuilder.pollingBaseURI` if you are also setting `baseURI`. This is due to a change in how the LaunchDarkly streaming service works. The setter method still exists, but no longer has any effect and will be deprecated in a future release.
