@@ -16,7 +16,6 @@ All notable changes to the LaunchDarkly Java SDK will be documented in this file
 - In polling mode, temporary files used for HTTP caching (in the system temporary directory) were not being cleaned up when the client was closed.
 - Fixed incorrect sample code in the documentation comment for `FlagValueChangeListener`.
 
-
 ## [5.0.1] - 2020-06-19
 ### Fixed:
 - Fixed a bug that could cause worker threads for the EventSource stream to persist after closing the client, if the client had shut down the stream due to detecting an invalid SDK key.
@@ -71,6 +70,10 @@ This is a major rewrite that introduces a cleaner API design, adds new features,
 - All types and methods that were deprecated as of Java SDK 4.13.0 have been removed. This includes many `LDConfig.Builder()` methods, which have been replaced by the modular configuration syntax that was already added in the 4.12.0 and 4.13.0 releases. See the [migration guide](https://docs.launchdarkly.com/sdk/server-side/java/migration-4-to-5) for details on how to update your configuration code if you were using the older syntax.
 - The Redis integration is no longer built into the main SDK library. See: https://github.com/launchdarkly/java-server-sdk-redis
 - The deprecated New Relic integration has been removed.
+
+## [4.14.2] - 2020-09-01
+### Fixed:
+- Updated the version of OkHttp contained within the SDK from 3.12.10 to 3.14.9, to address multiple [known issues](https://square.github.io/okhttp/changelog_3x/) including an incompatibility with OpenJDK 8.0.252 under some conditions. ([#204](https://github.com/launchdarkly/java-server-sdk/issues/204))
 
 ## [4.14.1] - 2020-08-04
 ### Fixed:

@@ -25,6 +25,16 @@ workflows:
       - test-linux:
           name: Java 11 - Linux - OpenJDK
           docker-image: circleci/openjdk:11
+          requires:
+            - build-linux
+      - test-linux:
+          name: Java 13 - Linux - OpenJDK
+          docker-image: circleci/openjdk:13-jdk-buster
+          requires:
+            - build-linux
+      - test-linux:
+          name: Java 14 - Linux - OpenJDK
+          docker-image: circleci/openjdk:14-jdk-buster
           with-coverage: true
           requires:
             - build-linux
