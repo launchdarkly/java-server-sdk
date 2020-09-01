@@ -58,6 +58,7 @@ ext.versions = [
     "gson": "2.7",
     "guava": "19.0",
     "jodaTime": "2.9.3",
+    "okhttp": "3.14.9", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
     "okhttpEventsource": "1.11.0",
     "slf4j": "1.7.21",
     "snakeyaml": "1.19",
@@ -71,6 +72,7 @@ libraries.internal = [
     "commons-codec:commons-codec:${versions.commonsCodec}",
     "com.google.guava:guava:${versions.guava}",
     "joda-time:joda-time:${versions.jodaTime}",
+    "com.squareup.okhttp3:okhttp:${versions.okhttp}",
     "com.launchdarkly:okhttp-eventsource:${versions.okhttpEventsource}",
     "org.yaml:snakeyaml:${versions.snakeyaml}",
     "redis.clients:jedis:${versions.jedis}"
@@ -85,8 +87,8 @@ libraries.external = [
 
 // Add dependencies to "libraries.test" that are used only in unit tests.
 libraries.test = [
-    "com.squareup.okhttp3:mockwebserver:3.12.10",
-    "com.squareup.okhttp3:okhttp-tls:3.12.10",
+    "com.squareup.okhttp3:mockwebserver:${versions.okhttp}",
+    "com.squareup.okhttp3:okhttp-tls:${versions.okhttp}",
     "org.hamcrest:hamcrest-all:1.3",
     "org.easymock:easymock:3.4",
     "junit:junit:4.12",
