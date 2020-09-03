@@ -2,6 +2,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.0.5] - 2020-09-03
+### Fixed:
+- Bump SnakeYAML from 1.19 to 1.26 to address CVE-2017-18640. The SDK only parses YAML if the application has configured the SDK with a flag data file, so it&#39;s unlikely this CVE would affect SDK usage as it would require configuration and access to a local file.
+
+
 ## [5.0.4] - 2020-09-01
 ### Fixed:
 - Updated the version of OkHttp contained within the SDK from 4.5.0 to 4.8.1, to address multiple [known issues](https://square.github.io/okhttp/changelog/) including an incompatibility with OpenJDK 8.0.252 under some conditions. ([#204](https://github.com/launchdarkly/java-server-sdk/issues/204))
