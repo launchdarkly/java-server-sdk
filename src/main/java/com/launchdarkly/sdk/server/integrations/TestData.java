@@ -48,12 +48,14 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
  *     
  *     // flags can be updated at any time:
  *     td.update(testData.flag("flag-key-2")
- *       .variationForUser("some-user-key", true)
- *       .fallthroughVariation(false));
+ *         .variationForUser("some-user-key", true)
+ *         .fallthroughVariation(false));
  * </code></pre> 
  * 
  * The above example uses a simple boolean flag, but more complex configurations are possible using
- * the methods of the {@link FlagBuilder} that is returned by {@link #flag(String)}.
+ * the methods of the {@link FlagBuilder} that is returned by {@link #flag(String)}. {@link FlagBuilder}
+ * supports many of the ways a flag can be configured on the LaunchDarkly dashboard, but does not
+ * currently support 1. rule operators other than "in" and "not in", or 2. percentage rollouts.  
  * <p>
  * If the same {@code TestData} instance is used to configure multiple {@code LDClient} instances,
  * any changes made to the data will propagate to all of the {@code LDClient}s.
