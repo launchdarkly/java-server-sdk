@@ -71,8 +71,6 @@ final class StreamProcessor implements DataSource {
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
-  private static final String INDIRECT_PUT = "indirect/put";
-  private static final String INDIRECT_PATCH = "indirect/patch";
   private static final Logger logger = Loggers.DATA_SOURCE;
   private static final Duration DEAD_CONNECTION_INTERVAL = Duration.ofSeconds(300);
   private static final String ERROR_CONTEXT_MESSAGE = "in stream connection";
@@ -83,7 +81,6 @@ final class StreamProcessor implements DataSource {
   private final Headers headers;
   @VisibleForTesting final URI streamUri;
   @VisibleForTesting final Duration initialReconnectDelay;
-  @VisibleForTesting final FeatureRequestor requestor;
   private final DiagnosticAccumulator diagnosticAccumulator;
   private final EventSourceCreator eventSourceCreator;
   private final int threadPriority;
@@ -121,7 +118,6 @@ final class StreamProcessor implements DataSource {
   
   StreamProcessor(
       HttpConfiguration httpConfig,
-      FeatureRequestor requestor,
       DataSourceUpdates dataSourceUpdates,
       EventSourceCreator eventSourceCreator,
       int threadPriority,
@@ -131,7 +127,6 @@ final class StreamProcessor implements DataSource {
       ) {
     this.dataSourceUpdates = dataSourceUpdates;
     this.httpConfig = httpConfig;
-    this.requestor = requestor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : this::defaultEventSourceCreator;
     this.threadPriority = threadPriority;
@@ -232,7 +227,6 @@ final class StreamProcessor implements DataSource {
     if (es != null) {
       es.close();
     }
-    requestor.close();
     dataSourceUpdates.updateStatus(State.OFF, null);
   }
 
@@ -270,14 +264,6 @@ final class StreamProcessor implements DataSource {
             
           case DELETE:
             handleDelete(event.getData()); 
-            break;
-
-          case INDIRECT_PUT:
-            handleIndirectPut();
-            break;
-            
-          case INDIRECT_PATCH:
-            handleIndirectPatch(event.getData());
             break;
             
           default:
@@ -352,41 +338,6 @@ final class StreamProcessor implements DataSource {
       String key = kindAndKey.getValue();
       ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
       if (!dataSourceUpdates.upsert(kind, key, placeholder)) {
-        throw new StreamStoreException();
-      }
-    }
-
-    private void handleIndirectPut() throws StreamInputException, StreamStoreException {
-      FeatureRequestor.AllData putData;
-      try {
-        putData = requestor.getAllData();
-      } catch (Exception e) {
-        throw new StreamInputException(e);
-      }
-      FullDataSet<ItemDescriptor> allData = putData.toFullDataSet();
-      if (!dataSourceUpdates.init(allData)) {
-        throw new StreamStoreException();
-      }
-      if (!initialized.getAndSet(true)) {
-        initFuture.complete(null);
-        logger.info("Initialized LaunchDarkly client.");
-      }
-    }
-
-    private void handleIndirectPatch(String path) throws StreamInputException, StreamStoreException {
-      Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(path);
-      DataKind kind = kindAndKey.getKey();
-      String key = kindAndKey.getValue();
-      VersionedData item;
-      try {
-        item = kind == SEGMENTS ? requestor.getSegment(key) : requestor.getFlag(key);
-      } catch (Exception e) {
-        throw new StreamInputException(e);
-        // In this case, StreamInputException doesn't necessarily represent malformed data from the service - it
-        // could be that the request to the polling endpoint failed in some other way. But either way, we must
-        // assume that we did not get valid data from LD so we have missed an update.
-      }
-      if (!dataSourceUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item))) {
         throw new StreamStoreException();
       }
     }

@@ -26,10 +26,10 @@ import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -52,7 +52,6 @@ import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
 import static com.launchdarkly.sdk.server.TestUtil.shouldTimeOut;
 import static com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY;
-import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -87,7 +86,6 @@ public class StreamProcessorTest extends EasyMockSupport {
   private InMemoryDataStore dataStore;
   private MockDataSourceUpdates dataSourceUpdates;
   private MockDataStoreStatusProvider dataStoreStatusProvider;
-  private FeatureRequestor mockRequestor;
   private EventSource mockEventSource;
   private MockEventSourceCreator mockEventSourceCreator;
 
@@ -96,7 +94,6 @@ public class StreamProcessorTest extends EasyMockSupport {
     dataStore = new InMemoryDataStore();
     dataStoreStatusProvider = new MockDataStoreStatusProvider();
     dataSourceUpdates = TestComponents.dataSourceUpdates(dataStore, dataStoreStatusProvider);
-    mockRequestor = createStrictMock(FeatureRequestor.class);
     mockEventSource = createMock(EventSource.class);
     mockEventSourceCreator = new MockEventSourceCreator(mockEventSource);
   }
@@ -108,23 +105,19 @@ public class StreamProcessorTest extends EasyMockSupport {
         dataSourceUpdates)) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
       assertThat(sp.streamUri, equalTo(LDConfig.DEFAULT_STREAM_URI));
-      assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
     }
   }
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
     URI streamUri = URI.create("http://fake");
-    URI pollUri = URI.create("http://also-fake");
     DataSourceFactory f = Components.streamingDataSource()
         .baseURI(streamUri)
-        .initialReconnectDelay(Duration.ofMillis(5555))
-        .pollingBaseURI(pollUri);
+        .initialReconnectDelay(Duration.ofMillis(5555));
     try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
         dataSourceUpdates(dataStore))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
       assertThat(sp.streamUri, equalTo(streamUri));      
-      assertThat(((DefaultFeatureRequestor)sp.requestor).baseUri, equalTo(pollUri));
     }
   }
   
@@ -278,94 +271,6 @@ public class StreamProcessorTest extends EasyMockSupport {
     handler.onMessage("delete", event);
     
     assertEquals(ItemDescriptor.deletedItem(item.getVersion() + 1), dataStore.get(kind, item.getKey()));
-  }
-  
-  @Test
-  public void indirectPutRequestsAndStoresFeature() throws Exception {
-    setupRequestorToReturnAllDataWithFlag(FEATURE);
-    expectNoStreamRestart();    
-    replayAll();
-    
-    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
-      sp.start();
-
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("indirect/put", new MessageEvent(""));
-    
-      assertFeatureInStore(FEATURE);
-    }
-  }
-
-  @Test
-  public void indirectPutInitializesStore() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
-    setupRequestorToReturnAllDataWithFlag(FEATURE);
-    replayAll();
-    
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("indirect/put", new MessageEvent(""));
-    
-    assertTrue(dataStore.isInitialized());
-  }
-
-  @Test
-  public void indirectPutInitializesProcessor() throws Exception {
-    StreamProcessor sp = createStreamProcessor(STREAM_URI);
-    sp.start();
-    setupRequestorToReturnAllDataWithFlag(FEATURE);
-    replayAll();
-    
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("indirect/put", new MessageEvent(""));
-    
-    assertTrue(dataStore.isInitialized());
-  }
-
-  @Test
-  public void indirectPutSetsFuture() throws Exception {
-    StreamProcessor sp = createStreamProcessor(STREAM_URI);
-    Future<Void> future = sp.start();
-    setupRequestorToReturnAllDataWithFlag(FEATURE);
-    replayAll();
-    
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("indirect/put", new MessageEvent(""));
-    
-    assertTrue(future.isDone());
-  }
-  
-  @Test
-  public void indirectPatchRequestsAndUpdatesFeature() throws Exception {    
-    expect(mockRequestor.getFlag(FEATURE1_KEY)).andReturn(FEATURE);
-    expectNoStreamRestart();
-    replayAll();
-
-    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
-      sp.start();
-
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("put", emptyPutEvent());
-      handler.onMessage("indirect/patch", new MessageEvent("/flags/" + FEATURE1_KEY));
-      
-      assertFeatureInStore(FEATURE);
-    }
-  }
-
-  @Test
-  public void indirectPatchRequestsAndUpdatesSegment() throws Exception {
-    expect(mockRequestor.getSegment(SEGMENT1_KEY)).andReturn(SEGMENT);
-    expectNoStreamRestart();
-    replayAll();
-    
-    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
-      sp.start();
-
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("put", emptyPutEvent());
-      handler.onMessage("indirect/patch", new MessageEvent("/segments/" + SEGMENT1_KEY));
-      
-      assertSegmentInStore(SEGMENT);
-    }
   }
   
   @Test
@@ -532,18 +437,6 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   @Test
-  public void indirectPutWithFailedPollCausesStreamRestart() throws Exception {
-    expect(mockRequestor.getAllData()).andThrow(new IOException("sorry"));
-    verifyEventCausesStreamRestartWithInMemoryStore("indirect/put", "");
-  }
-
-  @Test
-  public void indirectPatchWithFailedPollCausesStreamRestart() throws Exception {
-    expect(mockRequestor.getFlag("flagkey")).andThrow(new IOException("sorry"));
-    verifyEventCausesStreamRestartWithInMemoryStore("indirect/patch", "/flags/flagkey");
-  }
-  
-  @Test
   public void restartsStreamIfStoreNeedsRefresh() throws Exception {
     CompletableFuture<Void> restarted = new CompletableFuture<>();
     mockEventSource.start();
@@ -554,8 +447,6 @@ public class StreamProcessorTest extends EasyMockSupport {
       return null;
     });
     mockEventSource.close();
-    expectLastCall();
-    mockRequestor.close();
     expectLastCall();
     
     replayAll();
@@ -581,8 +472,6 @@ public class StreamProcessorTest extends EasyMockSupport {
       return null;
     });
     mockEventSource.close();
-    expectLastCall();
-    mockRequestor.close();
     expectLastCall();
     
     replayAll();
@@ -641,37 +530,6 @@ public class StreamProcessorTest extends EasyMockSupport {
       EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
       handler.onMessage("delete",
           new MessageEvent("{\"path\":\"/flags/flagkey\",\"version\":1}"));
-    }    
-    verifyAll();
-  }
-
-  @Test
-  public void storeFailureOnIndirectPutCausesStreamRestart() throws Exception {
-    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
-    setupRequestorToReturnAllDataWithFlag(FEATURE);
-    expectStreamRestart();
-    replayAll();
-    
-    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
-      sp.start();
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("indirect/put", new MessageEvent(""));
-    }    
-    verifyAll();
-  }
-
-  @Test
-  public void storeFailureOnIndirectPatchCausesStreamRestart() throws Exception {
-    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
-    expect(mockRequestor.getFlag(FEATURE1_KEY)).andReturn(FEATURE);
-    
-    expectStreamRestart();
-    replayAll();
-    
-    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
-      sp.start();
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("indirect/patch", new MessageEvent("/flags/" + FEATURE1_KEY));
     }    
     verifyAll();
   }
@@ -743,8 +601,6 @@ public class StreamProcessorTest extends EasyMockSupport {
     expectLastCall().times(1);
     mockEventSource.close();
     expectLastCall().times(1);
-    mockRequestor.close();
-    expectLastCall().times(1);
   }
   
   private void expectStreamRestart() throws Exception {
@@ -753,8 +609,6 @@ public class StreamProcessorTest extends EasyMockSupport {
     mockEventSource.restart();
     expectLastCall().times(1);
     mockEventSource.close();
-    expectLastCall().times(1);
-    mockRequestor.close();
     expectLastCall().times(1);
   }
   
@@ -826,7 +680,9 @@ public class StreamProcessorTest extends EasyMockSupport {
     final BlockingQueue<Throwable> errors = new LinkedBlockingQueue<>();
     
     public Action onConnectionError(Throwable t) {
-      errors.add(t);
+      if (!(t instanceof EOFException)) {
+        errors.add(t);
+      }
       return Action.SHUTDOWN;
     }
   }
@@ -905,7 +761,6 @@ public class StreamProcessorTest extends EasyMockSupport {
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
     return new StreamProcessor(
         clientContext(SDK_KEY, config).getHttp(),
-        mockRequestor,
         dataSourceUpdates,
         mockEventSourceCreator,
         Thread.MIN_PRIORITY,
@@ -918,7 +773,6 @@ public class StreamProcessorTest extends EasyMockSupport {
   private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
     return new StreamProcessor(
         clientContext(SDK_KEY, config).getHttp(),
-        mockRequestor,
         dataSourceUpdates,
         null,
         Thread.MIN_PRIORITY,
@@ -931,7 +785,6 @@ public class StreamProcessorTest extends EasyMockSupport {
   private StreamProcessor createStreamProcessorWithStoreUpdates(DataSourceUpdates storeUpdates) {
     return new StreamProcessor(
         clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp(),
-        mockRequestor,
         storeUpdates,
         mockEventSourceCreator,
         Thread.MIN_PRIORITY,
@@ -951,12 +804,6 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   private MessageEvent emptyPutEvent() {
     return new MessageEvent("{\"data\":{\"flags\":{},\"segments\":{}}}");
-  }
-  
-  private void setupRequestorToReturnAllDataWithFlag(DataModel.FeatureFlag feature) throws Exception {
-    FeatureRequestor.AllData data = new FeatureRequestor.AllData(
-        Collections.singletonMap(feature.getKey(), feature), Collections.emptyMap());
-    expect(mockRequestor.getAllData()).andReturn(data);
   }
   
   private void assertFeatureInStore(DataModel.FeatureFlag feature) {
