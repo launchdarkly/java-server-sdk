@@ -6,8 +6,12 @@ package com.launchdarkly.sdk.server.integrations;
  * The file data source allows you to use local files as a source of feature flag state. This would
  * typically be used in a test environment, to operate using a predetermined feature flag state
  * without an actual LaunchDarkly connection. See {@link #dataSource()} for details.
- * 
+ * <p>
+ * This is different from {@link TestData}, which allows you to simulate flag configurations
+ * programmatically rather than using a file.
+ *
  * @since 4.12.0
+ * @see TestData
  */
 public abstract class FileData {
   /**
