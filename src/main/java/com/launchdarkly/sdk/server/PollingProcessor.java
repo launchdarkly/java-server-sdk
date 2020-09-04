@@ -96,9 +96,10 @@ final class PollingProcessor implements DataSource {
       } else {
         if (dataSourceUpdates.init(allData.toFullDataSet())) {
           dataSourceUpdates.updateStatus(State.VALID, null);
-          logger.info("Initialized LaunchDarkly client.");
-          initialized.getAndSet(true);
-          initFuture.complete(null);
+          if (!initialized.getAndSet(true)) {
+            logger.info("Initialized LaunchDarkly client."); 
+            initFuture.complete(null);
+          }
         }
       }
     } catch (HttpErrorException e) {
