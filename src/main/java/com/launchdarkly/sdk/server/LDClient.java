@@ -397,7 +397,7 @@ public final class LDClient implements LDClientInterface {
         return true;
       }
     } catch (Exception e) {
-      Loggers.MAIN.error("Encountered exception while calling isFlagKnown for feature flag \"{}\": {}", e.toString());
+      Loggers.MAIN.error("Encountered exception while calling isFlagKnown for feature flag \"{}\": {}", featureKey, e.toString());
       Loggers.MAIN.debug(e.toString(), e);
     }
 
