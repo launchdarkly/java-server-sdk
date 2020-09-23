@@ -91,7 +91,7 @@ final class DefaultEventSender implements EventSender {
       throw new IllegalArgumentException("kind"); // COVERAGE: unreachable code, those are the only enum values
     }
     
-    URI uri = eventsBaseUri.resolve(eventsBaseUri.getPath().endsWith("/") ? path : ("/" + path));
+    URI uri = appendPathToBaseURI(eventsBaseUri, path);
     Headers headers = headersBuilder.build();
     RequestBody body = RequestBody.create(data, JSON_CONTENT_TYPE);
     boolean mustShutDown = false;
@@ -158,6 +158,10 @@ final class DefaultEventSender implements EventSender {
       }
     }
     return null;
+  }
+
+  protected static URI appendPathToBaseURI(URI baseURI, String path) {
+    return baseURI.resolve(baseURI.getPath().endsWith("/") ? path : (baseURI.getPath() + "/" + path));
   }
   
   static final class Factory implements EventSenderFactory {

@@ -5,9 +5,11 @@ import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Date;
@@ -67,6 +69,8 @@ public class DefaultEventSenderTest {
       assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
     }
   }
+
+
 
   @Test
   public void constructorUsesDefaultRetryDelayIfNotSpecified() throws Exception {
@@ -384,6 +388,46 @@ public class DefaultEventSenderTest {
       req = server.takeRequest(0, TimeUnit.SECONDS);
       assertThat(req, nullValue(RecordedRequest.class)); // only 2 requests total
     }
+  }
+
+  @Test
+  public void appendPathWithoutEndingSlash() throws URISyntaxException {
+    // if uri has a context
+    URI eventsBaseUri = new URI("https://www.example.com/context");
+    String path = "diagnostic";
+    URI uri = DefaultEventSender.appendPathToBaseURI(eventsBaseUri, path);
+    Assert.assertEquals(
+            "https://www.example.com/context/diagnostic",
+            uri.toString()
+    );
+
+    // if uri has no context
+    eventsBaseUri = new URI("https://www.example.com");
+    uri = DefaultEventSender.appendPathToBaseURI(eventsBaseUri, path);
+    Assert.assertEquals(
+            "https://www.example.com/diagnostic",
+            uri.toString()
+    );
+  }
+
+  @Test
+  public void appendPathWithEndingSlash() throws URISyntaxException {
+    // if uri has a context
+    URI eventsBaseUri = new URI("https://www.example.com/context/");
+    String path = "diagnostic";
+    URI uri = DefaultEventSender.appendPathToBaseURI(eventsBaseUri, path);
+    Assert.assertEquals(
+            "https://www.example.com/context/diagnostic",
+            uri.toString()
+    );
+
+    // if uri has no context
+    eventsBaseUri = new URI("https://www.example.com/");
+    uri = DefaultEventSender.appendPathToBaseURI(eventsBaseUri, path);
+    Assert.assertEquals(
+            "https://www.example.com/diagnostic",
+            uri.toString()
+    );
   }
 
   private MockResponse eventsSuccessResponse() {
