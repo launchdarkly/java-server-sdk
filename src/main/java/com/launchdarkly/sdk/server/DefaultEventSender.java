@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
@@ -160,6 +161,7 @@ final class DefaultEventSender implements EventSender {
     return null;
   }
 
+  @VisibleForTesting
   protected static URI appendPathToBaseURI(URI baseURI, String path) {
     return baseURI.resolve(baseURI.getPath().endsWith("/") ? path : (baseURI.getPath() + "/" + path));
   }
