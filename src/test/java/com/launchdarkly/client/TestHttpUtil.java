@@ -72,9 +72,14 @@ class TestHttpUtil {
         .certificateAuthority(1)
         .commonName(hostname)
         .addSubjectAlternativeName(hostname)
+        .rsa2048()
         .build();
 
-      HandshakeCertificates hc = TlsUtil.localhost();
+      HandshakeCertificates hc = new HandshakeCertificates.Builder()
+        .addPlatformTrustedCertificates()
+        .heldCertificate(cert)
+        .addTrustedCertificate(cert.certificate())
+        .build();
       socketFactory = hc.sslSocketFactory();
       trustManager = hc.trustManager();
       

@@ -58,7 +58,7 @@ ext.versions = [
     "gson": "2.7",
     "guava": "19.0",
     "jodaTime": "2.9.3",
-    "okhttp": "3.14.9", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
+    "okhttp": "3.12.2", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
     "okhttpEventsource": "1.11.0",
     "slf4j": "1.7.21",
     "snakeyaml": "1.26",
@@ -445,3 +445,4 @@ gitPublish {
     }
     commitMessage = 'publishing javadocs'
 }
+
