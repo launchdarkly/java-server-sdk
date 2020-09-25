@@ -17,7 +17,6 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.tls.HandshakeCertificates;
 import okhttp3.tls.HeldCertificate;
-import okhttp3.tls.internal.TlsUtil;
 
 class TestHttpUtil {
   static MockWebServer makeStartedServer(MockResponse... responses) throws IOException {
