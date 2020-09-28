@@ -10,6 +10,7 @@ import com.google.gson.JsonPrimitive;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -277,7 +278,7 @@ public class LDValueTest {
     for (String key: LDValue.buildObject().put("1", LDValue.of("x")).put("2", LDValue.of("y")).build().keys()) {
       keys.add(key);
     }
-    keys.sort(null);
+    Collections.sort(keys);
     assertEquals(ImmutableList.of("1", "2"), keys);
   }
 
@@ -287,7 +288,7 @@ public class LDValueTest {
     for (LDValue value: LDValue.buildObject().put("1", LDValue.of("x")).put("2", LDValue.of("y")).build().values()) {
       values.add(value.stringValue());
     }
-    values.sort(null);
+    Collections.sort(values);
     assertEquals(ImmutableList.of("x", "y"), values);
   }
   

@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
 import com.launchdarkly.client.value.LDValue;
 
@@ -29,6 +30,7 @@ import static com.launchdarkly.client.TestUtil.makeEventsConfig;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDUserTest {
@@ -344,8 +346,14 @@ public class LDUserTest {
   @Test
   public void defaultJsonEncodingHasPrivateAttributeNames() {
     LDUser user = new LDUser.Builder("userkey").privateName("x").privateEmail("y").build();
-    String expected = "{\"key\":\"userkey\",\"name\":\"x\",\"email\":\"y\",\"privateAttributeNames\":[\"name\",\"email\"]}";
-    assertEquals(defaultGson.fromJson(expected, JsonElement.class), defaultGson.toJsonTree(user));
+    JsonObject serialized = defaultGson.toJsonTree(user).getAsJsonObject();
+    assertEquals(serialized.get("key").getAsJsonPrimitive().getAsString(), "userkey");
+    assertEquals(serialized.get("name").getAsJsonPrimitive().getAsString(), "x");
+    assertEquals(serialized.get("email").getAsJsonPrimitive().getAsString(), "y");
+    JsonArray privateAttrs = serialized.get("privateAttributeNames").getAsJsonArray();
+    assertEquals(privateAttrs.size(), 2);
+    assertTrue(privateAttrs.contains(new JsonPrimitive("name")));
+    assertTrue(privateAttrs.contains(new JsonPrimitive("email")));
   }
   
   @Test
