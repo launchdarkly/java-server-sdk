@@ -3,6 +3,7 @@ package com.launchdarkly.client.value;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.annotations.JsonAdapter;
@@ -468,7 +469,9 @@ public abstract class LDValue {
       return ah;
     case OBJECT:
       int oh = 0;
-      for (String name: keys()) {
+      // We sort the keys here to guarantee ordering equivalence with LDValueJsonElement
+      // wrapping JsonObjects.
+      for (String name: Ordering.natural().immutableSortedCopy(keys())) {
         oh = (oh * 31 + name.hashCode()) * 31 + get(name).hashCode();
       }
       return oh;
