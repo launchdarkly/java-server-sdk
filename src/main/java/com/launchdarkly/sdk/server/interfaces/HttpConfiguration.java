@@ -59,7 +59,7 @@ public interface HttpConfiguration {
    * The configured socket factory for insecure connections.
    *
    * @return a SocketFactory or null
-  */
+   */
   default SocketFactory getSocketFactory() {
     return null;
   }
