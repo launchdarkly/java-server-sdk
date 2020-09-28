@@ -2,6 +2,12 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [4.14.4] - 2020-09-28
+### Fixed:
+- Restored compatibility with Java 7. A transitive dependency that required Java 8 had accidentally been included, and the CI build did not detect this because the tests were being run in Java 8 even though the compiler target was 7. CI builds now verify that the SDK really can run in Java 7. This fix is only for 4.x; the 5.x SDK still does not support Java 7.
+- Bumped OkHttp version to 3.12.12 to avoid a crash on Java 8u252.
+- Removed an obsolete comment that said the `trackMetric` method was not yet supported by the LaunchDarkly service; it is.
+
 ## [4.14.3] - 2020-09-03
 ### Fixed:
 - Bump SnakeYAML from 1.19 to 1.26 to address CVE-2017-18640. The SDK only parses YAML if the application has configured the SDK with a flag data file, so it&#39;s unlikely this CVE would affect SDK usage as it would require configuration and access to a local file.
