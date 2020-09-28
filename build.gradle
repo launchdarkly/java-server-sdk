@@ -59,7 +59,7 @@ ext.versions = [
     "guava": "19.0",
     "jodaTime": "2.9.3",
     "okhttp": "3.12.2", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
-    "okhttpEventsource": "1.11.0",
+    "okhttpEventsource": "1.11.2",
     "slf4j": "1.7.21",
     "snakeyaml": "1.26",
     "jedis": "2.9.0"
@@ -446,3 +446,33 @@ gitPublish {
     commitMessage = 'publishing javadocs'
 }
 
+// Overriding JAVA_HOME/executable paths allows us to build/test under Java 7 even though
+// Gradle itself has to run in Java 8+.
+
+tasks.withType(AbstractCompile) {
+  options.with {
+    if (overrideJavaHome != "") {
+      System.out.println("Building with JAVA_HOME=" + overrideJavaHome)
+      fork = true
+      forkOptions.javaHome = file(overrideJavaHome)
+    }
+  }
+}
+
+tasks.withType(Javadoc) {
+  if (overrideJavaHome != "") {
+    executable = new File(overrideJavaHome, "bin/javadoc")
+  }
+}
+
+tasks.withType(Test) {
+  if (overrideJavaHome != "") {
+    executable = new File(overrideJavaHome, "bin/java")
+  }
+}
+
+tasks.withType(JavaExec) {
+  if (overrideJavaHome != "") {
+    executable = new File(overrideJavaHome, "bin/java")
+  }
+}

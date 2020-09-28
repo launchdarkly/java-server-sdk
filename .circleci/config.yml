@@ -7,6 +7,8 @@ workflows:
   test:
     jobs:
       - build-linux
+      - test-linux-jdk7:
+          name: Java 7 - Linux - OpenJDK
       - test-linux:
           name: Java 8 - Linux - OpenJDK
           docker-image: circleci/openjdk:8
@@ -69,6 +71,30 @@ jobs:
           name: Save test results
           command: |
             mkdir -p ~/junit/;
+            find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
+          when: always
+      - store_test_results:
+          path: ~/junit
+      - store_artifacts:
+          path: ~/junit
+
+  test-linux-jdk7:
+    # This build uses LaunchDarkly's ld-jdk7-jdk8 image which has both OpenJDK 7 and
+    # OpenJDK 8 installed, with 8 being the default that is used to run Gradle.
+    # See: https://github.com/launchdarkly/sdks-ci-docker
+    docker:
+      - image: ldcircleci/ld-jdk7-jdk8
+      - image: redis
+    steps:
+      - checkout
+      - run: cp gradle.properties.example gradle.properties
+      - run:
+          name: Run tests
+          command: ./gradlew -i -Dorg.gradle.project.overrideJavaHome=$JDK7_HOME test sourcesJar javadocJar
+      - run:
+          name: Save test results
+          command: |
+            mkdir -p ~/junit/
             find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
           when: always
       - store_test_results:
