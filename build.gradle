@@ -613,5 +613,11 @@ gitPublish {
     contents {
         from javadoc
     }
+    preserve {
+        // There's a dummy .circleci/config.yml file on the gh-pages branch so CircleCI won't
+        // complain when it sees a commit there. The git-publish plugin would delete that file if
+        // we didn't protect it here.
+        include '.circleci/config.yml'
+    }
     commitMessage = 'publishing javadocs'
 }
