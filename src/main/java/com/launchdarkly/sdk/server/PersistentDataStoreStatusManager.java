@@ -78,7 +78,8 @@ final class PersistentDataStoreStatusManager {
               updateAvailability(true);
             }
           } catch (Exception e) {
-            logger.error("Unexpected error from data store status function: {0}", e);
+            logger.error("Unexpected error from data store status function: {}", e.toString());
+            logger.debug(e.toString(), e);
           }
         }
       };

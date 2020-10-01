@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.launchdarkly.sdk.server.DataModel.ALL_DATA_KINDS;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
 import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
@@ -68,6 +69,7 @@ import okhttp3.OkHttpClient;
  * if we succeed then the client can detect that we're initialized now by calling our Initialized method.
  */
 final class StreamProcessor implements DataSource {
+  private static final String STREAM_URI_PATH = "all";
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
@@ -202,7 +204,7 @@ final class StreamProcessor implements DataSource {
     EventHandler handler = new StreamEventHandler(initFuture);
     
     es = eventSourceCreator.createEventSource(new EventSourceParams(handler,
-        URI.create(streamUri.toASCIIString() + "/all"),
+        concatenateUriPath(streamUri, STREAM_URI_PATH),
         initialReconnectDelay,
         wrappedConnectionErrorHandler,
         headers,

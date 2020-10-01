@@ -72,7 +72,8 @@ import okhttp3.mockwebserver.MockWebServer;
 public class StreamProcessorTest extends EasyMockSupport {
 
   private static final String SDK_KEY = "sdk_key";
-  private static final URI STREAM_URI = URI.create("http://stream.test.com");
+  private static final URI STREAM_URI = URI.create("http://stream.test.com/");
+  private static final URI STREAM_URI_WITHOUT_SLASH = URI.create("http://stream.test.com");
   private static final String FEATURE1_KEY = "feature1";
   private static final int FEATURE1_VERSION = 11;
   private static final DataModel.FeatureFlag FEATURE = flagBuilder(FEATURE1_KEY).version(FEATURE1_VERSION).build();
@@ -124,7 +125,21 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void streamUriHasCorrectEndpoint() {
     createStreamProcessor(STREAM_URI).start();
-    assertEquals(URI.create(STREAM_URI.toString() + "/all"),
+    assertEquals(URI.create(STREAM_URI.toString() + "all"),
+        mockEventSourceCreator.getNextReceivedParams().streamUri);
+  }
+  
+  @Test
+  public void streamBaseUriDoesNotNeedTrailingSlash() {
+    createStreamProcessor(STREAM_URI_WITHOUT_SLASH).start();
+    assertEquals(URI.create(STREAM_URI_WITHOUT_SLASH.toString() + "/all"),
+        mockEventSourceCreator.getNextReceivedParams().streamUri);
+  }
+
+  @Test
+  public void streamBaseUriCanHaveContextPath() {
+    createStreamProcessor(URI.create(STREAM_URI.toString() + "/context/path")).start();
+    assertEquals(URI.create(STREAM_URI.toString() + "/context/path/all"),
         mockEventSourceCreator.getNextReceivedParams().streamUri);
   }
   

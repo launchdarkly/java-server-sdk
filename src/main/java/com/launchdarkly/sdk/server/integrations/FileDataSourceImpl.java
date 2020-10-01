@@ -70,7 +70,8 @@ final class FileDataSourceImpl implements DataSource {
         fw = FileWatcher.create(dataLoader.getSources());
       } catch (IOException e) {
         // COVERAGE: there is no way to simulate this condition in a unit test
-        logger.error("Unable to watch files for auto-updating: " + e);
+        logger.error("Unable to watch files for auto-updating: {}", e.toString());
+        logger.debug(e.toString(), e);
         fw = null;
       }
     }

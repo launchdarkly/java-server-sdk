@@ -44,7 +44,7 @@ public class DefaultFeatureRequestorTest {
   }
 
   private DefaultFeatureRequestor makeRequestor(MockWebServer server, LDConfig config) {
-    URI uri = server.url("").uri();
+    URI uri = server.url("/").uri();
     return new DefaultFeatureRequestor(makeHttpConfig(config), uri);
   }
 
@@ -183,6 +183,42 @@ public class DefaultFeatureRequestorTest {
         verifyExpectedData(data);
         
         assertEquals(1, server.getRequestCount());
+      }
+    }
+  }
+  
+  @Test
+  public void baseUriDoesNotNeedTrailingSlash() throws Exception {
+    MockResponse resp = jsonResponse(allDataJson);
+    
+    try (MockWebServer server = makeStartedServer(resp)) {
+      URI uri = server.url("").uri();
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri)) {
+        FeatureRequestor.AllData data = r.getAllData(true);
+        
+        RecordedRequest req = server.takeRequest();
+        assertEquals("/sdk/latest-all", req.getPath());
+        verifyHeaders(req);
+        
+        verifyExpectedData(data);
+      }
+    }
+  }
+
+  @Test
+  public void baseUriCanHaveContextPath() throws Exception {
+    MockResponse resp = jsonResponse(allDataJson);
+    
+    try (MockWebServer server = makeStartedServer(resp)) {
+      URI uri = server.url("/context/path").uri();
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri)) {
+        FeatureRequestor.AllData data = r.getAllData(true);
+        
+        RecordedRequest req = server.takeRequest();
+        assertEquals("/context/path/sdk/latest-all", req.getPath());
+        verifyHeaders(req);
+        
+        verifyExpectedData(data);
       }
     }
   }

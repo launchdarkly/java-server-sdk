@@ -90,7 +90,7 @@ final class EventBroadcasterImpl<ListenerT, EventT> {
         try {
           broadcastAction.accept(l, event);
         } catch (Exception e) {
-          Loggers.MAIN.warn("Unexpected error from listener ({0}): {1}", l.getClass(), e.toString());
+          Loggers.MAIN.warn("Unexpected error from listener ({}): {}", l.getClass(), e.toString());
           Loggers.MAIN.debug(e.toString(), e);
         }
       });

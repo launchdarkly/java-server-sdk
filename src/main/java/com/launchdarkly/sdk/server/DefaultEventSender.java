@@ -16,6 +16,7 @@ import java.util.Date;
 import java.util.UUID;
 
 import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.describeDuration;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
@@ -91,7 +92,7 @@ final class DefaultEventSender implements EventSender {
       throw new IllegalArgumentException("kind"); // COVERAGE: unreachable code, those are the only enum values
     }
     
-    URI uri = eventsBaseUri.resolve(eventsBaseUri.getPath().endsWith("/") ? path : ("/" + path));
+    URI uri = concatenateUriPath(eventsBaseUri, path);
     Headers headers = headersBuilder.build();
     RequestBody body = RequestBody.create(data, JSON_CONTENT_TYPE);
     boolean mustShutDown = false;
