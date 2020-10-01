@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -176,5 +177,11 @@ abstract class Util {
         }
       });
     } catch (IOException e) {}
-  }  
+  }
+  
+  static URI concatenateUriPath(URI baseUri, String path) {
+    String uriStr = baseUri.toString();
+    String addPath = path.startsWith("/") ? path.substring(1) : path;
+    return URI.create(uriStr + (uriStr.endsWith("/") ? "" : "/") + addPath);
+  }
 }
