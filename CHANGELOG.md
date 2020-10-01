@@ -2,6 +2,12 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.1.1] - 2020-09-30
+### Fixed:
+- The `com.launchdarkly.sdk.json.LDJackson` class was not usable in the default distribution of the SDK (nor in the `all` distribution) because Jackson class names had been incorrectly modified by the shading step in the build. ([#213](https://github.com/launchdarkly/java-server-sdk/issues/213))
+- Setting custom base URIs for the streaming, polling, or events service could produce incorrect results if the URI had a context path. (Thanks, [msafari](https://github.com/launchdarkly/java-server-sdk/pull/212)!)
+- Corrected format strings in some log messages. ([#211](https://github.com/launchdarkly/java-server-sdk/issues/211))
+
 ## [5.1.0] - 2020-09-04
 ### Added:
 - The `TestData` class in `com.launchdarkly.sdk.server.integrations` is a new way to inject feature flag data programmatically into the SDK for testing—either with fixed values for each flag, or with targets and/or rules that can return different values for different users. Unlike `FileData`, this mechanism does not use any external resources, only the data that your test code has provided.
