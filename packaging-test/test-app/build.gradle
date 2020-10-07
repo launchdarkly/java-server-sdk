@@ -21,14 +21,21 @@ allprojects {
     group = "com.launchdarkly"
     version = "1.0.0"
     archivesBaseName = 'test-app-bundle'
-    sourceCompatibility = 1.7
-    targetCompatibility = 1.7
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
 }
+
+ext.versions = [
+    "gson": "2.7",
+    "jackson": "2.10.0"
+]
 
 dependencies {
     // Note, the SDK build must have already been run before this, since we're using its product as a dependency
     implementation fileTree(dir: "../../build/libs", include: "launchdarkly-java-server-sdk-*-thin.jar")
-    implementation "com.google.code.gson:gson:2.7"
+    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
+    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
+    implementation "com.google.code.gson:gson:${versions.gson}"
     implementation "org.slf4j:slf4j-api:1.7.22"
     implementation "org.osgi:osgi_R4_core:1.0"
     osgiRuntime "org.slf4j:slf4j-simple:1.7.22"
@@ -47,7 +54,8 @@ jar {
         'Import-Package': 'com.launchdarkly.sdk,com.launchdarkly.sdk.json' +
             ',com.launchdarkly.sdk.server,org.slf4j' +
             ',org.osgi.framework' +
-            ',com.google.gson;resolution:=optional'
+            ',com.google.gson;resolution:=optional' +
+            ',com.fasterxml.jackson.*;resolution:=optional'
     )
 }
 

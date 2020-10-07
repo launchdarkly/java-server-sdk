@@ -320,9 +320,9 @@ public class DefaultEventSenderTest {
         assertEquals(1, server.getRequestCount());
     }
   }
-  
+
   @Test
-  public void baseUriDoesNotNeedToEndInSlash() throws Exception {
+  public void baseUriDoesNotNeedTrailingSlash() throws Exception {
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
         URI uriWithoutSlash = URI.create(server.url("/").toString().replaceAll("/$", ""));
@@ -334,6 +334,24 @@ public class DefaultEventSenderTest {
       
       RecordedRequest req = server.takeRequest();   
       assertEquals("/bulk", req.getPath());
+      assertEquals("application/json; charset=utf-8", req.getHeader("content-type"));
+      assertEquals(FAKE_DATA, req.getBody().readUtf8());
+    }
+  }
+
+  @Test
+  public void baseUriCanHaveContextPath() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      try (EventSender es = makeEventSender()) {
+        URI baseUri = URI.create(server.url("/context/path").toString());
+        EventSender.Result result = es.sendEventData(ANALYTICS, FAKE_DATA, 1, baseUri);
+        
+        assertTrue(result.isSuccess());
+        assertFalse(result.isMustShutDown());
+      }
+      
+      RecordedRequest req = server.takeRequest();   
+      assertEquals("/context/path/bulk", req.getPath());
       assertEquals("application/json; charset=utf-8", req.getHeader("content-type"));
       assertEquals(FAKE_DATA, req.getBody().readUtf8());
     }

@@ -11,6 +11,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
 import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
@@ -26,7 +27,7 @@ import okhttp3.Response;
  */
 final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final Logger logger = Loggers.DATA_SOURCE;
-  private static final String GET_LATEST_ALL_PATH = "/sdk/latest-all";
+  private static final String GET_LATEST_ALL_PATH = "sdk/latest-all";
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   
   @VisibleForTesting final URI baseUri;
@@ -37,7 +38,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
 
   DefaultFeatureRequestor(HttpConfiguration httpConfig, URI baseUri) {
     this.baseUri = baseUri;
-    this.pollingUri = baseUri.resolve(GET_LATEST_ALL_PATH);
+    this.pollingUri = concatenateUriPath(baseUri, GET_LATEST_ALL_PATH);
     
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(httpConfig, httpBuilder);

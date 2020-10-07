@@ -36,7 +36,8 @@ export TEMP_BUNDLE_DIR=$(FELIX_DIR)/app-bundles
 # for OSGi, which is currently true; if that weren't true, we would have to do something different
 # to put them on the system classpath in the OSGi test.
 RUN_JARS_test-all-jar=$(TEST_APP_JAR) $(SDK_ALL_JAR) \
-	$(shell ls $(TEMP_DIR)/dependencies-external/gson*.jar 2>/dev/null)
+	$(shell ls $(TEMP_DIR)/dependencies-external/gson*.jar 2>/dev/null) \
+	$(shell ls $(TEMP_DIR)/dependencies-external/jackson*.jar 2>/dev/null)
 RUN_JARS_test-default-jar=$(TEST_APP_JAR) $(SDK_DEFAULT_JAR) \
 	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar 2>/dev/null)
 RUN_JARS_test-thin-jar=$(TEST_APP_JAR) $(SDK_THIN_JAR) \
@@ -44,8 +45,8 @@ RUN_JARS_test-thin-jar=$(TEST_APP_JAR) $(SDK_THIN_JAR) \
 	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar 2>/dev/null)
 
 classes_prepare=echo "  checking $(1)..." && jar tf $(1) | grep '\.class$$' >$(TEMP_OUTPUT)
-classes_should_contain=echo "    should contain $(2)" && grep "^$(1)/[^/]*$$" $(TEMP_OUTPUT) >/dev/null
-classes_should_not_contain=echo "    should not contain $(2)" && ! grep "^$(1)/[^/]*$$" $(TEMP_OUTPUT)
+classes_should_contain=echo "    should contain $(2)" && grep "^$(1)/.*\.class$$" $(TEMP_OUTPUT) >/dev/null
+classes_should_not_contain=echo "    should not contain $(2)" && ! grep "^$(1)/.*\.class$$" $(TEMP_OUTPUT)
 
 verify_sdk_classes= \
 	$(call classes_should_contain,com/launchdarkly/sdk,com.launchdarkly.sdk) && \
@@ -79,6 +80,8 @@ test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/launchdarkly/sdk,shaded SDK classes)
 	@$(call classes_should_contain,com/launchdarkly/shaded/com/google/gson,shaded Gson)
 	@$(call classes_should_not_contain,com/google/gson,unshaded Gson)
+	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
+	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/fasterxml/jackson,shaded Jackson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
 
 test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
@@ -89,6 +92,8 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call classes_should_contain,com/launchdarkly/shaded/com/google/gson,shaded Gson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
 	@$(call classes_should_not_contain,com/google/gson,unshaded Gson)
+	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
+	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/fasterxml/jackson,shaded Jackson)
 	@$(call classes_should_not_contain,org/slf4j,unshaded SLF4j)
 
 test-thin-jar-classes: $(SDK_THIN_JAR) $(TEMP_DIR)
@@ -121,6 +126,7 @@ $(TEMP_DIR)/dependencies-external: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@
 	cp $(TEMP_DIR)/dependencies-all/slf4j*.jar $@
 	cp $(TEMP_DIR)/dependencies-all/gson*.jar $@
+	cp $(TEMP_DIR)/dependencies-all/jackson*.jar $@
 
 $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@

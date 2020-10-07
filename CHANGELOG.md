@@ -2,6 +2,12 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.1.1] - 2020-09-30
+### Fixed:
+- The `com.launchdarkly.sdk.json.LDJackson` class was not usable in the default distribution of the SDK (nor in the `all` distribution) because Jackson class names had been incorrectly modified by the shading step in the build. ([#213](https://github.com/launchdarkly/java-server-sdk/issues/213))
+- Setting custom base URIs for the streaming, polling, or events service could produce incorrect results if the URI had a context path. (Thanks, [msafari](https://github.com/launchdarkly/java-server-sdk/pull/212)!)
+- Corrected format strings in some log messages. ([#211](https://github.com/launchdarkly/java-server-sdk/issues/211))
+
 ## [5.1.0] - 2020-09-04
 ### Added:
 - The `TestData` class in `com.launchdarkly.sdk.server.integrations` is a new way to inject feature flag data programmatically into the SDK for testing—either with fixed values for each flag, or with targets and/or rules that can return different values for different users. Unlike `FileData`, this mechanism does not use any external resources, only the data that your test code has provided.
@@ -86,6 +92,12 @@ This is a major rewrite that introduces a cleaner API design, adds new features,
 - All types and methods that were deprecated as of Java SDK 4.13.0 have been removed. This includes many `LDConfig.Builder()` methods, which have been replaced by the modular configuration syntax that was already added in the 4.12.0 and 4.13.0 releases. See the [migration guide](https://docs.launchdarkly.com/sdk/server-side/java/migration-4-to-5) for details on how to update your configuration code if you were using the older syntax.
 - The Redis integration is no longer built into the main SDK library. See: https://github.com/launchdarkly/java-server-sdk-redis
 - The deprecated New Relic integration has been removed.
+
+## [4.14.4] - 2020-09-28
+### Fixed:
+- Restored compatibility with Java 7. A transitive dependency that required Java 8 had accidentally been included, and the CI build did not detect this because the tests were being run in Java 8 even though the compiler target was 7. CI builds now verify that the SDK really can run in Java 7. This fix is only for 4.x; the 5.x SDK still does not support Java 7.
+- Bumped OkHttp version to 3.12.12 to avoid a crash on Java 8u252.
+- Removed an obsolete comment that said the `trackMetric` method was not yet supported by the LaunchDarkly service; it is.
 
 ## [4.14.3] - 2020-09-03
 ### Fixed:

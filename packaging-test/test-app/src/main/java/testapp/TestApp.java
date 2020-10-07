@@ -48,6 +48,14 @@ public class TestApp {
       addError("unexpected error in LDGson tests", e);
     }
 
+    try {
+      Class.forName("testapp.TestAppJacksonTests"); // see TestAppJacksonTests for why we're loading it in this way
+    } catch (NoClassDefFoundError e) {
+      log("skipping LDJackson tests because Jackson is not in the classpath");
+    } catch (RuntimeException e) {
+      addError("unexpected error in LDJackson tests", e);
+    }
+
     if (errors.isEmpty()) {
       log("PASS");
     } else {
