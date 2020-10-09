@@ -6,6 +6,7 @@ import java.net.Proxy;
 import java.time.Duration;
 import java.util.Map;
 
+import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
 
@@ -53,6 +54,15 @@ public interface HttpConfiguration {
    * @return the socket timeout; must not be null
    */
   Duration getSocketTimeout();
+  
+  /**
+   * The configured socket factory for insecure connections.
+   *
+   * @return a SocketFactory or null
+   */
+  default SocketFactory getSocketFactory() {
+    return null;
+  }
 
   /**
    * The configured socket factory for secure connections.

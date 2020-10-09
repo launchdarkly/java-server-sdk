@@ -17,6 +17,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 
+import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
 
@@ -46,6 +47,7 @@ public class HttpConfigurationBuilderTest {
     assertNull(hc.getProxy());
     assertNull(hc.getProxyAuthentication());
     assertEquals(DEFAULT_SOCKET_TIMEOUT, hc.getSocketTimeout());
+    assertNull(hc.getSocketFactory());
     assertNull(hc.getSslSocketFactory());
     assertNull(hc.getTrustManager());
     assertEquals(buildBasicHeaders().build(), ImmutableMap.copyOf(hc.getDefaultHeaders()));
@@ -100,6 +102,15 @@ public class HttpConfigurationBuilderTest {
   }
   
   @Test
+  public void testSocketFactory() {
+    SocketFactory sf = new StubSocketFactory();
+    HttpConfiguration hc = Components.httpConfiguration()
+        .socketFactory(sf)
+        .createHttpConfiguration(BASIC_CONFIG);
+    assertSame(sf, hc.getSocketFactory());
+  }
+  
+  @Test
   public void testSslOptions() {
     SSLSocketFactory sf = new StubSSLSocketFactory();
     X509TrustManager tm = new StubX509TrustManager();
@@ -124,6 +135,30 @@ public class HttpConfigurationBuilderTest {
         .wrapper("Scala", "0.1.0")
         .createHttpConfiguration(BASIC_CONFIG);
     assertEquals("Scala/0.1.0", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Wrapper"));
+  }
+  
+  public static class StubSocketFactory extends SocketFactory {
+    public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort)
+        throws IOException {
+      return null;
+    }
+    
+    public Socket createSocket(String host, int port, InetAddress localHost, int localPort)
+        throws IOException, UnknownHostException {
+      return null;
+    }
+    
+    public Socket createSocket(InetAddress host, int port) throws IOException {
+      return null;
+    }
+    
+    public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
+      return null;
+    }
+
+    public Socket createSocket(Socket s, String host, int port, boolean autoClose) throws IOException {
+      return null;
+    }
   }
 
   public static class StubSSLSocketFactory extends SSLSocketFactory {

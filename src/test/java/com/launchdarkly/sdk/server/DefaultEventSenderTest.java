@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestUtil.makeSocketFactorySingleHost;
 import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
 import static com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind.ANALYTICS;
@@ -32,6 +33,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import okhttp3.HttpUrl;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -300,6 +302,25 @@ public class DefaultEventSenderTest {
     }
   }
   
+  @Test
+  public void httpClientCanUseCustomSocketFactory() throws Exception {
+    try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {
+      HttpUrl serverUrl = server.url("/");
+      LDConfig config = new LDConfig.Builder()
+        .http(Components.httpConfiguration().socketFactory(makeSocketFactorySingleHost(serverUrl.host(), serverUrl.port())))
+        .build();
+
+        try (EventSender es = makeEventSender(config)) {
+          EventSender.Result result = es.sendEventData(DIAGNOSTICS, FAKE_DATA, 1, URI.create("http://localhost"));
+            
+          assertTrue(result.isSuccess());
+          assertFalse(result.isMustShutDown());
+        }
+        
+        assertEquals(1, server.getRequestCount());
+    }
+  }
+
   @Test
   public void baseUriDoesNotNeedTrailingSlash() throws Exception {
     try (MockWebServer server = makeStartedServer(eventsSuccessResponse())) {

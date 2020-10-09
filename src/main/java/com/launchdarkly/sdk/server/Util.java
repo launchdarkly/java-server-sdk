@@ -43,6 +43,10 @@ abstract class Util {
       .readTimeout(config.getSocketTimeout())
       .writeTimeout(config.getSocketTimeout())
       .retryOnConnectionFailure(false); // we will implement our own retry logic
+      
+    if (config.getSocketFactory() != null) {
+      builder.socketFactory(config.getSocketFactory());
+    }
 
     if (config.getSslSocketFactory() != null) {
       builder.sslSocketFactory(config.getSslSocketFactory(), config.getTrustManager());

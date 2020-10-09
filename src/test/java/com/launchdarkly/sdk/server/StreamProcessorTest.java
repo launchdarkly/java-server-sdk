@@ -48,6 +48,7 @@ import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
 import static com.launchdarkly.sdk.server.TestHttpUtil.eventStreamResponse;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
+import static com.launchdarkly.sdk.server.TestUtil.makeSocketFactorySingleHost;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
 import static com.launchdarkly.sdk.server.TestUtil.shouldTimeOut;
@@ -666,6 +667,27 @@ public class StreamProcessorTest extends EasyMockSupport {
         ready.get();
         
         assertNull(errorSink.errors.peek());
+      }
+    }
+  }
+  
+  @Test
+  public void httpClientCanUseCustomSocketFactory() throws Exception {
+    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
+    URI localhostUri = URI.create("http://localhost");
+    try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
+      HttpUrl serverUrl = server.url("/");
+      LDConfig config = new LDConfig.Builder()
+        .http(Components.httpConfiguration().socketFactory(makeSocketFactorySingleHost(serverUrl.host(), serverUrl.port())))
+        .build();
+
+      try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, localhostUri)) {
+        sp.connectionErrorHandler = errorSink;
+        Future<Void> ready = sp.start();
+        ready.get();
+          
+        assertNull(errorSink.errors.peek());
+        assertEquals(1, server.getRequestCount());
       }
     }
   }
