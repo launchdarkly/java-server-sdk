@@ -311,7 +311,7 @@ public class DefaultEventSenderTest {
         .build();
 
         try (EventSender es = makeEventSender(config)) {
-          EventSender.Result result = es.sendEventData(DIAGNOSTICS, FAKE_DATA, 1, getBaseUri(server));
+          EventSender.Result result = es.sendEventData(DIAGNOSTICS, FAKE_DATA, 1, URI.create("http://localhost"));
             
           assertTrue(result.isSuccess());
           assertFalse(result.isMustShutDown());
