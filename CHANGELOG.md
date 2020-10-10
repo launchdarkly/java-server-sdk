@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.2.0] - 2020-10-09
+### Added:
+- Add support for setting a `socketFactory` in the `HttpConfiguration` builder. This is used to create sockets when initiating HTTP connections. For TLS connections `sslSocketFactory` is used.
+
 ## [5.1.1] - 2020-09-30
 ### Fixed:
 - The `com.launchdarkly.sdk.json.LDJackson` class was not usable in the default distribution of the SDK (nor in the `all` distribution) because Jackson class names had been incorrectly modified by the shading step in the build. ([#213](https://github.com/launchdarkly/java-server-sdk/issues/213))
