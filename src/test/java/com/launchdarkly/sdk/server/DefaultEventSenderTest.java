@@ -310,8 +310,9 @@ public class DefaultEventSenderTest {
         .http(Components.httpConfiguration().socketFactory(makeSocketFactorySingleHost(serverUrl.host(), serverUrl.port())))
         .build();
 
+        URI uriWithWrongPort = URI.create("http://localhost:1");
         try (EventSender es = makeEventSender(config)) {
-          EventSender.Result result = es.sendEventData(DIAGNOSTICS, FAKE_DATA, 1, URI.create("http://localhost"));
+          EventSender.Result result = es.sendEventData(DIAGNOSTICS, FAKE_DATA, 1, uriWithWrongPort);
             
           assertTrue(result.isSuccess());
           assertFalse(result.isMustShutDown());

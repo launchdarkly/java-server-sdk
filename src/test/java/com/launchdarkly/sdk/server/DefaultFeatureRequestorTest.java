@@ -173,14 +173,14 @@ public class DefaultFeatureRequestorTest {
   
   @Test
   public void httpClientCanUseCustomSocketFactory() throws Exception {
-    URI localhostUri = URI.create("http://localhost");
     try (MockWebServer server = makeStartedServer(jsonResponse(allDataJson))) {
       HttpUrl serverUrl = server.url("/");
       LDConfig config = new LDConfig.Builder()
         .http(Components.httpConfiguration().socketFactory(makeSocketFactorySingleHost(serverUrl.host(), serverUrl.port())))
         .build();
 
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), localhostUri)) {
+      URI uriWithWrongPort = URI.create("http://localhost:1");
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), uriWithWrongPort)) {
         FeatureRequestor.AllData data = r.getAllData(false);
         verifyExpectedData(data);
         
