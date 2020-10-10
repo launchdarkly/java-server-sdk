@@ -262,6 +262,7 @@ abstract class ComponentsImpl {
           proxy,
           proxyAuth,
           socketTimeout,
+          socketFactory,
           sslSocketFactory,
           trustManager,
           headers.build()

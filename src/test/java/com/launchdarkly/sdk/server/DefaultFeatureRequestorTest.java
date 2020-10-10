@@ -8,9 +8,11 @@ import org.junit.Test;
 import java.net.URI;
 import java.util.Map;
 
+import javax.net.SocketFactory;
 import javax.net.ssl.SSLHandshakeException;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestUtil.makeSocketFactorySingleHost;
 import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
 import static com.launchdarkly.sdk.server.TestHttpUtil.jsonResponse;
 import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
@@ -165,6 +167,24 @@ public class DefaultFeatureRequestorTest {
       try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server, config)) {
         FeatureRequestor.AllData data = r.getAllData(false);
         verifyExpectedData(data);
+      }
+    }
+  }
+  
+  @Test
+  public void httpClientCanUseCustomSocketFactory() throws Exception {
+    try (MockWebServer server = makeStartedServer(jsonResponse(allDataJson))) {
+      HttpUrl serverUrl = server.url("/");
+      LDConfig config = new LDConfig.Builder()
+        .http(Components.httpConfiguration().socketFactory(makeSocketFactorySingleHost(serverUrl.host(), serverUrl.port())))
+        .build();
+
+      URI uriWithWrongPort = URI.create("http://localhost:1");
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), uriWithWrongPort)) {
+        FeatureRequestor.AllData data = r.getAllData(false);
+        verifyExpectedData(data);
+        
+        assertEquals(1, server.getRequestCount());
       }
     }
   }

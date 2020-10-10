@@ -17,6 +17,10 @@ import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
@@ -28,6 +32,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
+
+import javax.net.SocketFactory;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
@@ -254,5 +260,66 @@ public class TestUtil {
         return true;
       }
     };
+  }
+  
+  // returns a socket factory that creates sockets that only connect to host and port
+  static SocketFactorySingleHost makeSocketFactorySingleHost(String host, int port) {
+    return new SocketFactorySingleHost(host, port);
+  }
+  
+  private static final class SocketSingleHost extends Socket {
+    private final String host;
+    private final int port;
+
+    SocketSingleHost(String host, int port) {
+      this.host = host;
+      this.port = port;
+    }
+
+    @Override public void connect(SocketAddress endpoint) throws IOException {
+      super.connect(new InetSocketAddress(this.host, this.port), 0);
+    }
+
+    @Override public void connect(SocketAddress endpoint, int timeout) throws IOException {
+      super.connect(new InetSocketAddress(this.host, this.port), timeout);
+    }
+  }
+
+  public static final class SocketFactorySingleHost extends SocketFactory {
+    private final String host;
+    private final int port;
+
+    public SocketFactorySingleHost(String host, int port) {
+      this.host = host;
+      this.port = port;
+    }
+
+    @Override public Socket createSocket() throws IOException {
+      return new SocketSingleHost(this.host, this.port);
+    }
+
+    @Override public Socket createSocket(String host, int port) throws IOException {
+      Socket socket = createSocket();
+      socket.connect(new InetSocketAddress(this.host, this.port));
+      return socket;
+    }
+
+    @Override public Socket createSocket(String host, int port, InetAddress localHost, int localPort) throws IOException {
+      Socket socket = createSocket();
+      socket.connect(new InetSocketAddress(this.host, this.port));
+      return socket;
+    }
+
+    @Override public Socket createSocket(InetAddress host, int port) throws IOException {
+      Socket socket = createSocket();
+      socket.connect(new InetSocketAddress(this.host, this.port));
+      return socket;
+    }
+
+    @Override public Socket createSocket(InetAddress host, int port, InetAddress localAddress, int localPort) throws IOException {
+      Socket socket = createSocket();
+      socket.connect(new InetSocketAddress(this.host, this.port));
+      return socket;
+    }
   }
 }

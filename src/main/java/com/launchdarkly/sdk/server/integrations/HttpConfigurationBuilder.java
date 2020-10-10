@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
 
 import java.time.Duration;
 
+import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
 
@@ -45,6 +46,7 @@ public abstract class HttpConfigurationBuilder implements HttpConfigurationFacto
   protected String proxyHost;
   protected int proxyPort;
   protected Duration socketTimeout = DEFAULT_SOCKET_TIMEOUT;
+  protected SocketFactory socketFactory;
   protected SSLSocketFactory sslSocketFactory;
   protected X509TrustManager trustManager;
   protected String wrapperName;
@@ -102,6 +104,19 @@ public abstract class HttpConfigurationBuilder implements HttpConfigurationFacto
    */
   public HttpConfigurationBuilder socketTimeout(Duration socketTimeout) {
     this.socketTimeout = socketTimeout == null ? DEFAULT_SOCKET_TIMEOUT : socketTimeout;
+    return this;
+  }
+  
+  /**
+   * Specifies a custom socket configuration for HTTP connections to LaunchDarkly.
+   * <p>
+   * This uses the standard Java interfaces for configuring socket connections.
+   *
+   * @param socketFactory the socket factory
+   * @return the builder
+   */
+  public HttpConfigurationBuilder socketFactory(SocketFactory socketFactory) {
+    this.socketFactory = socketFactory;
     return this;
   }
   
