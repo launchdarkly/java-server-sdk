@@ -674,14 +674,14 @@ public class StreamProcessorTest extends EasyMockSupport {
   @Test
   public void httpClientCanUseCustomSocketFactory() throws Exception {
     final ConnectionErrorSink errorSink = new ConnectionErrorSink();
-    URI localhostUri = URI.create("http://localhost");
     try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
       HttpUrl serverUrl = server.url("/");
       LDConfig config = new LDConfig.Builder()
         .http(Components.httpConfiguration().socketFactory(makeSocketFactorySingleHost(serverUrl.host(), serverUrl.port())))
         .build();
 
-      try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, localhostUri)) {
+      URI uriWithWrongPort = URI.create("http://localhost:1");
+      try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, uriWithWrongPort)) {
         sp.connectionErrorHandler = errorSink;
         Future<Void> ready = sp.start();
         ready.get();
