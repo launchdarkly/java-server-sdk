@@ -225,6 +225,7 @@ public final class TestData implements DataSourceFactory {
       this.fallthroughVariation = from.fallthroughVariation;
       this.variations = new CopyOnWriteArrayList<>(from.variations);
       this.targets = from.targets == null ? null : new HashMap<>(from.targets); 
+      this.rules = from.rules == null ? null : new ArrayList<>(from.rules);
     }
     
     private boolean isBooleanFlag() {

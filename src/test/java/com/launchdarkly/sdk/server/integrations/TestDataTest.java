@@ -106,7 +106,10 @@ public class TestDataTest {
   @Test
   public void updatesFlag() throws Exception {
     TestData td = TestData.dataSource();
-    td.update(td.flag("flag1").on(false));
+    td.update(td.flag("flag1")
+      .on(false)
+      .variationForUser("a", true)
+      .ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true));
     
     DataSource ds = td.createDataSource(null, updates);
     Future<Void> started = ds.start();
@@ -123,6 +126,14 @@ public class TestDataTest {
     ItemDescriptor flag1 = up.item;
     assertThat(flag1.getVersion(), equalTo(2));
     assertThat(flagJson(flag1).get("on").booleanValue(), is(true));
+
+    String expectedJson = "{\"trackEventsFallthrough\":false,\"deleted\":false,"
+      + "\"variations\":[true,false],\"clientSide\":false,\"rules\":[{\"clauses\":"
+      + "[{\"op\":\"in\",\"negate\":false,\"values\":[\"Lucy\"],\"attribute\":\"name\"}],"
+      + "\"id\":\"rule0\",\"trackEvents\":false,\"variation\":0}],\"trackEvents\":false,"
+      + "\"fallthrough\":{\"variation\":0},\"offVariation\":1,\"version\":2,\"targets\":"
+      + "[{\"values\":[\"a\"],\"variation\":0}],\"key\":\"flag1\",\"on\":true}";
+    assertThat(flagJson(flag1), equalTo(LDValue.parse(expectedJson)));    
   }
   
   @Test
