@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.2.1] - 2020-12-01
+### Fixed:
+- `TestData.FlagBuilder` did not copy flags&#39; targeting rules when applying an update to an existing test flag. ([#220](https://github.com/launchdarkly/java-server-sdk/issues/220))
+
 ## [5.2.0] - 2020-10-09
 ### Added:
 - Add support for setting a `socketFactory` in the `HttpConfiguration` builder. This is used to create sockets when initiating HTTP connections. For TLS connections `sslSocketFactory` is used.
