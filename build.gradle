@@ -70,7 +70,7 @@ ext.libraries = [:]
 ext.versions = [
     "commonsCodec": "1.10",
     "gson": "2.7",
-    "guava": "28.2-jre",
+    "guava": "30.1-jre",
     "jackson": "2.11.2", 
     "launchdarklyJavaSdkCommon": "1.0.0",
     "okhttp": "4.8.1", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
