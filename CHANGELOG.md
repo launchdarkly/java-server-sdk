@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.2.2] - 2021-01-15
+### Fixed:
+- Updated Guava from `28.2-jre` to `30.1-jre` to resolve [CVE-2020-8908](https://nvd.nist.gov/vuln/detail/CVE-2020-8908). This CVE did not affect the SDK as the SDK does not use the vulnerable functionality.
+
 ## [5.2.1] - 2020-12-01
 ### Fixed:
 - `TestData.FlagBuilder` did not copy flags&#39; targeting rules when applying an update to an existing test flag. ([#220](https://github.com/launchdarkly/java-server-sdk/issues/220))
