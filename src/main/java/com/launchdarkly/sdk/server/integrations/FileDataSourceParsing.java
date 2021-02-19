@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceBuilder.SourceInfo;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
@@ -176,21 +177,18 @@ abstract class FileDataSourceParsing {
   static abstract class FlagFactory {
     private FlagFactory() {}
     
-    static ItemDescriptor flagFromJson(String jsonString) {
-      return FEATURES.deserialize(jsonString);
-    }
-    
-    static ItemDescriptor flagFromJson(LDValue jsonTree) {
-      return flagFromJson(jsonTree.toJsonString());
+    static ItemDescriptor flagFromJson(LDValue jsonTree, int version) {
+      return FEATURES.deserialize(replaceVersion(jsonTree, version).toJsonString());
     }
     
     /**
      * Constructs a flag that always returns the same value. This is done by giving it a single
      * variation and setting the fallthrough variation to that.
      */
-    static ItemDescriptor flagWithValue(String key, LDValue jsonValue) {
+    static ItemDescriptor flagWithValue(String key, LDValue jsonValue, int version) {
       LDValue o = LDValue.buildObject()
             .put("key", key)
+            .put("version", version)
             .put("on", true)
             .put("variations", LDValue.buildArray().add(jsonValue).build())
             .put("fallthrough", LDValue.buildObject().put("variation", 0).build())
@@ -200,12 +198,17 @@ abstract class FileDataSourceParsing {
       return FEATURES.deserialize(o.toJsonString());
     }
     
-    static ItemDescriptor segmentFromJson(String jsonString) {
-      return SEGMENTS.deserialize(jsonString);
+    static ItemDescriptor segmentFromJson(LDValue jsonTree, int version) {
+      return SEGMENTS.deserialize(replaceVersion(jsonTree, version).toJsonString());
     }
     
-    static ItemDescriptor segmentFromJson(LDValue jsonTree) {
-      return segmentFromJson(jsonTree.toJsonString());
+    private static LDValue replaceVersion(LDValue objectValue, int version) {
+      ObjectBuilder b = LDValue.buildObject();
+      for (String key: objectValue.keys()) {
+        b.put(key, objectValue.get(key));
+      }
+      b.put("version", version);
+      return b.build();
     }
   }
 }

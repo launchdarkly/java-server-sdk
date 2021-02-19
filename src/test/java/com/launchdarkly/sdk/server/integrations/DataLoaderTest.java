@@ -3,11 +3,14 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceImpl.DataBuilder;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceImpl.DataLoader;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FileDataException;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -74,7 +77,7 @@ public class DataLoaderTest {
     DataLoader ds = new DataLoader(FileData.dataSource().filePaths(resourceFilePath("value-only.json")).sources);
     JsonObject expected = gson.fromJson(
         "{\"key\":\"flag2\",\"on\":true,\"fallthrough\":{\"variation\":0},\"variations\":[\"value2\"]," +
-        "\"trackEvents\":false,\"deleted\":false,\"version\":0}",
+        "\"trackEvents\":false,\"deleted\":false,\"version\":1}",
         JsonObject.class);
     ds.load(builder);
     ItemDescriptor flag = toDataMap(builder.build()).get(FEATURES).get(FLAG_VALUE_1_KEY);
@@ -125,10 +128,40 @@ public class DataLoaderTest {
     }
   }
 
+  @Test
+  public void versionsAreIncrementedForEachLoad() throws Exception {
+    DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
+        resourceFilePath("flag-only.json"),
+        resourceFilePath("segment-only.json"),
+        resourceFilePath("value-only.json")
+        ).sources);
+    
+    DataBuilder data1 = new DataBuilder();
+    ds.load(data1);
+    assertVersionsMatch(data1.build(), 1);
+    
+    DataBuilder data2 = new DataBuilder();
+    ds.load(data2);
+    assertVersionsMatch(data2.build(), 2);
+  }
+  
   private void assertDataHasItemsOfKind(DataKind kind) {
     Map<String, ItemDescriptor> items = toDataMap(builder.build()).get(kind);
     if (items == null || items.size() == 0) {
       Assert.fail("expected at least one item in \"" + kind.getName() + "\", received: " + builder.build());
+    }
+  }
+  
+  private void assertVersionsMatch(FullDataSet<ItemDescriptor> data, int expectedVersion) {
+    for (Map.Entry<DataKind, KeyedItems<ItemDescriptor>> kv1: data.getData()) {
+      DataKind kind = kv1.getKey();
+      for (Map.Entry<String, ItemDescriptor> kv2: kv1.getValue().getItems()) {
+        ItemDescriptor item = kv2.getValue();
+        String jsonData = kind.serialize(item);
+        assertThat("descriptor version of " + kv2.getKey(), item.getVersion(), equalTo(expectedVersion));
+        assertThat("version in data model object of " + kv2.getKey(), LDValue.parse(jsonData).get("version"),
+            equalTo(LDValue.of(expectedVersion)));
+      }
     }
   }
 }

@@ -5,8 +5,6 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDClient;
 import com.launchdarkly.sdk.server.LDConfig;
-import com.launchdarkly.sdk.server.integrations.FileData;
-import com.launchdarkly.sdk.server.integrations.FileDataSourceBuilder;
 
 import org.junit.Test;
 

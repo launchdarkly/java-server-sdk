@@ -25,6 +25,11 @@ public interface FlagTracker {
    * previously returned for some user. If you want to track flag value changes, use
    * {@link #addFlagValueChangeListener(String, LDUser, FlagValueChangeListener)} instead.
    * <p>
+   * If using the file data source ({@link com.launchdarkly.sdk.server.integrations.FileData}), any change in
+   * a data file will be treated as a change to every flag. Again, use
+   * {@link #addFlagValueChangeListener(String, LDUser, FlagValueChangeListener)} (or just re-evaluate the flag
+   * yourself) if you want to know whether this is a change that really affects a flag's value.  
+   * <p>
    * Change events only work if the SDK is actually connecting to LaunchDarkly (or using the file data source).
    * If the SDK is only reading flags from a database ({@link Components#externalUpdatesOnly()}) then it cannot
    * know when there is a change, because flags are read on an as-needed basis.
