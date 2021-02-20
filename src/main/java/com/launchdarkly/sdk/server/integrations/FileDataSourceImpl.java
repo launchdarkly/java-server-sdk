@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
@@ -212,9 +213,11 @@ final class FileDataSourceImpl implements DataSource {
    */
   static final class DataLoader {
     private final List<SourceInfo> sources;
+    private final AtomicInteger lastVersion;
 
     public DataLoader(List<SourceInfo> sources) {
       this.sources = new ArrayList<>(sources);
+      this.lastVersion = new AtomicInteger(0);
     }
     
     public Iterable<SourceInfo> getSources() {
@@ -223,6 +226,7 @@ final class FileDataSourceImpl implements DataSource {
     
     public void load(DataBuilder builder) throws FileDataException
     {
+      int version = lastVersion.incrementAndGet();
       for (SourceInfo s: sources) {
         try {
           byte[] data = s.readData();
@@ -230,17 +234,17 @@ final class FileDataSourceImpl implements DataSource {
           FlagFileRep fileContents = parser.parse(new ByteArrayInputStream(data));
           if (fileContents.flags != null) {
             for (Map.Entry<String, LDValue> e: fileContents.flags.entrySet()) {
-              builder.add(FEATURES, e.getKey(), FlagFactory.flagFromJson(e.getValue()));
+              builder.add(FEATURES, e.getKey(), FlagFactory.flagFromJson(e.getValue(), version));
             }
           }
           if (fileContents.flagValues != null) {
             for (Map.Entry<String, LDValue> e: fileContents.flagValues.entrySet()) {
-              builder.add(FEATURES, e.getKey(), FlagFactory.flagWithValue(e.getKey(), e.getValue()));
+              builder.add(FEATURES, e.getKey(), FlagFactory.flagWithValue(e.getKey(), e.getValue(), version));
             }
           }
           if (fileContents.segments != null) {
             for (Map.Entry<String, LDValue> e: fileContents.segments.entrySet()) {
-              builder.add(SEGMENTS, e.getKey(), FlagFactory.segmentFromJson(e.getValue()));
+              builder.add(SEGMENTS, e.getKey(), FlagFactory.segmentFromJson(e.getValue(), version));
             }
           }
         } catch (FileDataException e) {
