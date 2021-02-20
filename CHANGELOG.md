@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.2.3] - 2021-02-19
+### Fixed:
+- The flag update notification mechanism in `FlagTracker` did not work when the data source was `FileData`. This has been fixed so that whenever `FileData` reloads the data file(s) due to a file being modified, it signals that the flags were updated. The SDK will behave as if every flag was updated in this case, regardless of which part of the file data was actually changed, but it was already the case that a flag change event did not necessarily mean there was any _significant_ change to the flag. You can use `addFlagValueChangeListener` (as opposed to `addFlagChangeListener`) to be notified only of changes that affect a specific flag&#39;s value for a specific user. ([#224](https://github.com/launchdarkly/java-server-sdk/issues/224))
+
 ## [5.2.2] - 2021-01-15
 ### Fixed:
 - Updated Guava from `28.2-jre` to `30.1-jre` to resolve [CVE-2020-8908](https://nvd.nist.gov/vuln/detail/CVE-2020-8908). This CVE did not affect the SDK as the SDK does not use the vulnerable functionality.
