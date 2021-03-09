@@ -2,11 +2,11 @@
   "segments": {
     "another": {
       "key": "another",
-      "include": []
+      "included": []
     },
   	"seg1": {
   	  "key": "seg1",
-  	  "include": ["user1"]
+  	  "included": ["user1a"]
   	}
   }
 }

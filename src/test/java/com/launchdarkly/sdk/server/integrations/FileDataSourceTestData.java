@@ -29,7 +29,7 @@ public class FileDataSourceTestData {
       ImmutableMap.<String, LDValue>of(FLAG_VALUE_1_KEY, FLAG_VALUE_1);
 
   public static final String FULL_SEGMENT_1_KEY = "seg1"; 
-  public static final LDValue FULL_SEGMENT_1 = LDValue.parse("{\"key\":\"seg1\",\"include\":[\"user1\"]}");
+  public static final LDValue FULL_SEGMENT_1 = LDValue.parse("{\"key\":\"seg1\",\"included\":[\"user1\"]}");
   public static final Map<String, LDValue> FULL_SEGMENTS =
       ImmutableMap.<String, LDValue>of(FULL_SEGMENT_1_KEY, FULL_SEGMENT_1);
   

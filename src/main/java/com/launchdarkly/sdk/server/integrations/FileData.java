@@ -15,6 +15,24 @@ package com.launchdarkly.sdk.server.integrations;
  */
 public abstract class FileData {
   /**
+   * Determines how duplicate feature flag or segment keys are handled.
+   *
+   * @see FileDataSourceBuilder#duplicateKeysHandling
+   * @since 5.3.0
+   */
+  public enum DuplicateKeysHandling {
+    /**
+     * Data loading will fail if keys are duplicated across files.
+     */
+    FAIL,
+    
+    /**
+     * Keys that are duplicated across files will be ignored, and the first occurrence will be used.
+     */
+    IGNORE
+  }
+  
+  /**
    * Creates a {@link FileDataSourceBuilder} which you can use to configure the file data source.
    * This allows you to use local files (or classpath resources containing file data) as a source of
    * feature flag state, instead of using an actual LaunchDarkly connection.

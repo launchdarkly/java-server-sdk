@@ -6,7 +6,7 @@
     },
     "flag1": {
       "key": "flag1",
-      "on": true
+      "on": false
     }
   }
 }
