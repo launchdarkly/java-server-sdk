@@ -1,8 +1,5 @@
 package com.launchdarkly.sdk.server.integrations;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceImpl.DataBuilder;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceImpl.DataLoader;
@@ -29,8 +26,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 @SuppressWarnings("javadoc")
 public class DataLoaderTest {
-  private static final Gson gson = new Gson();
-  private DataBuilder builder = new DataBuilder();
+  private DataBuilder builder = new DataBuilder(FileData.DuplicateKeysHandling.FAIL);
 
   @Test
   public void canLoadFromFilePath() throws Exception {
@@ -75,22 +71,20 @@ public class DataLoaderTest {
   @Test
   public void flagValueIsConvertedToFlag() throws Exception {
     DataLoader ds = new DataLoader(FileData.dataSource().filePaths(resourceFilePath("value-only.json")).sources);
-    JsonObject expected = gson.fromJson(
+    LDValue expected = LDValue.parse(
         "{\"key\":\"flag2\",\"on\":true,\"fallthrough\":{\"variation\":0},\"variations\":[\"value2\"]," +
-        "\"trackEvents\":false,\"deleted\":false,\"version\":1}",
-        JsonObject.class);
+        "\"trackEvents\":false,\"deleted\":false,\"version\":1}");
     ds.load(builder);
-    ItemDescriptor flag = toDataMap(builder.build()).get(FEATURES).get(FLAG_VALUE_1_KEY);
-    JsonObject actual = gson.toJsonTree(flag.getItem()).getAsJsonObject();
+    LDValue actual = getItemAsJson(builder, FEATURES, FLAG_VALUE_1_KEY);
     // Note, we're comparing one property at a time here because the version of the Java SDK we're
     // building against may have more properties than it did when the test was written.
-    for (Map.Entry<String, JsonElement> e: expected.entrySet()) {
-      assertThat(actual.get(e.getKey()), equalTo(e.getValue()));
+    for (String key: expected.keys()) {
+      assertThat(actual.get(key), equalTo(expected.get(key)));
     }
   }
   
   @Test
-  public void duplicateFlagKeyInFlagsThrowsException() throws Exception {
+  public void duplicateFlagKeyInFlagsThrowsExceptionByDefault() throws Exception {
     try {
       DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
           resourceFilePath("flag-only.json"),
@@ -103,7 +97,7 @@ public class DataLoaderTest {
   }
 
   @Test
-  public void duplicateFlagKeyInFlagsAndFlagValuesThrowsException() throws Exception {
+  public void duplicateFlagKeyInFlagsAndFlagValuesThrowsExceptionByDefault() throws Exception {
     try {
       DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
           resourceFilePath("flag-only.json"),
@@ -116,7 +110,7 @@ public class DataLoaderTest {
   }
 
   @Test
-  public void duplicateSegmentKeyThrowsException() throws Exception {
+  public void duplicateSegmentKeyThrowsExceptionByDefault() throws Exception {
     try {
       DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
           resourceFilePath("segment-only.json"),
@@ -129,6 +123,35 @@ public class DataLoaderTest {
   }
 
   @Test
+  public void duplicateKeysCanBeAllowed() throws Exception {
+    DataBuilder data1 = new DataBuilder(FileData.DuplicateKeysHandling.IGNORE);
+    DataLoader loader1 = new DataLoader(FileData.dataSource().filePaths(
+        resourceFilePath("flag-only.json"),
+        resourceFilePath("flag-with-duplicate-key.json")
+        ).sources);
+    loader1.load(data1);
+    assertThat(getItemAsJson(data1, FEATURES, "flag1").get("on"), equalTo(LDValue.of(true))); // value from first file
+    
+    DataBuilder data2 = new DataBuilder(FileData.DuplicateKeysHandling.IGNORE);
+    DataLoader loader2 = new DataLoader(FileData.dataSource().filePaths(
+        resourceFilePath("value-with-duplicate-key.json"),
+        resourceFilePath("flag-only.json")
+        ).sources);
+    loader2.load(data2);
+    assertThat(getItemAsJson(data2, FEATURES, "flag2").get("variations"),
+        equalTo(LDValue.buildArray().add(LDValue.of("value2a")).build())); // value from first file
+    
+    DataBuilder data3 = new DataBuilder(FileData.DuplicateKeysHandling.IGNORE);
+    DataLoader loader3 = new DataLoader(FileData.dataSource().filePaths(
+        resourceFilePath("segment-only.json"),
+        resourceFilePath("segment-with-duplicate-key.json")
+        ).sources);
+    loader3.load(data3);
+    assertThat(getItemAsJson(data3, SEGMENTS, "seg1").get("included"),
+        equalTo(LDValue.buildArray().add(LDValue.of("user1")).build())); // value from first file
+  }
+  
+  @Test
   public void versionsAreIncrementedForEachLoad() throws Exception {
     DataLoader ds = new DataLoader(FileData.dataSource().filePaths(
         resourceFilePath("flag-only.json"),
@@ -136,11 +159,11 @@ public class DataLoaderTest {
         resourceFilePath("value-only.json")
         ).sources);
     
-    DataBuilder data1 = new DataBuilder();
+    DataBuilder data1 = new DataBuilder(FileData.DuplicateKeysHandling.FAIL);
     ds.load(data1);
     assertVersionsMatch(data1.build(), 1);
     
-    DataBuilder data2 = new DataBuilder();
+    DataBuilder data2 = new DataBuilder(FileData.DuplicateKeysHandling.FAIL);
     ds.load(data2);
     assertVersionsMatch(data2.build(), 2);
   }
@@ -163,5 +186,10 @@ public class DataLoaderTest {
             equalTo(LDValue.of(expectedVersion)));
       }
     }
+  }
+  
+  private LDValue getItemAsJson(DataBuilder builder, DataKind kind, String key) {
+    ItemDescriptor flag = toDataMap(builder.build()).get(kind).get(key);
+    return LDValue.parse(kind.serialize(flag));
   }
 }

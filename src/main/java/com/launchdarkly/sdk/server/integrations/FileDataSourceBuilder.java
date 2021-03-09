@@ -28,6 +28,7 @@ import java.util.List;
 public final class FileDataSourceBuilder implements DataSourceFactory {
   final List<SourceInfo> sources = new ArrayList<>(); // visible for tests
   private boolean autoUpdate = false;
+  private FileData.DuplicateKeysHandling duplicateKeysHandling = FileData.DuplicateKeysHandling.FAIL;
   
   /**
    * Adds any number of source files for loading flag data, specifying each file path as a string. The files will
@@ -101,13 +102,27 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
     this.autoUpdate = autoUpdate;
     return this;
   }
+
+  /**
+   * Specifies how to handle keys that are duplicated across files.
+   * <p>
+   * By default, data loading will fail if keys are duplicated across files ({@link FileData.DuplicateKeysHandling#FAIL}).
+   * 
+   * @param duplicateKeysHandling specifies how to handle duplicate keys
+   * @return the same factory object
+   * @since 5.3.0
+   */
+  public FileDataSourceBuilder duplicateKeysHandling(FileData.DuplicateKeysHandling duplicateKeysHandling) {
+    this.duplicateKeysHandling = duplicateKeysHandling;
+    return this;
+  }
   
   /**
    * Used internally by the LaunchDarkly client.
    */
   @Override
   public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-    return new FileDataSourceImpl(dataSourceUpdates, sources, autoUpdate);
+    return new FileDataSourceImpl(dataSourceUpdates, sources, autoUpdate, duplicateKeysHandling);
   }
   
   static abstract class SourceInfo {

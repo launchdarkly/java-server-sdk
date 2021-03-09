@@ -58,12 +58,19 @@ final class FileDataSourceImpl implements DataSource {
 
   private final DataSourceUpdates dataSourceUpdates;
   private final DataLoader dataLoader;
+  private final FileData.DuplicateKeysHandling duplicateKeysHandling;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final FileWatcher fileWatcher;
   
-  FileDataSourceImpl(DataSourceUpdates dataSourceUpdates, List<SourceInfo> sources, boolean autoUpdate) {
+  FileDataSourceImpl(
+      DataSourceUpdates dataSourceUpdates,
+      List<SourceInfo> sources,
+      boolean autoUpdate,
+      FileData.DuplicateKeysHandling duplicateKeysHandling
+      ) {
     this.dataSourceUpdates = dataSourceUpdates;
     this.dataLoader = new DataLoader(sources);
+    this.duplicateKeysHandling = duplicateKeysHandling;
 
     FileWatcher fw = null;
     if (autoUpdate) {
@@ -97,7 +104,7 @@ final class FileDataSourceImpl implements DataSource {
   }
 
   private boolean reload() {
-    DataBuilder builder = new DataBuilder(); 
+    DataBuilder builder = new DataBuilder(duplicateKeysHandling); 
     try {
       dataLoader.load(builder); 
     } catch (FileDataException e) {
@@ -262,6 +269,11 @@ final class FileDataSourceImpl implements DataSource {
    */
   static final class DataBuilder {
     private final Map<DataKind, Map<String, ItemDescriptor>> allData = new HashMap<>();
+    private final FileData.DuplicateKeysHandling duplicateKeysHandling;
+    
+    public DataBuilder(FileData.DuplicateKeysHandling duplicateKeysHandling) {
+      this.duplicateKeysHandling = duplicateKeysHandling;
+    }
     
     public FullDataSet<ItemDescriptor> build() {
       ImmutableList.Builder<Map.Entry<DataKind, KeyedItems<ItemDescriptor>>> allBuilder = ImmutableList.builder();
@@ -278,6 +290,9 @@ final class FileDataSourceImpl implements DataSource {
         allData.put(kind, items);
       }
       if (items.containsKey(key)) {
+        if (duplicateKeysHandling == FileData.DuplicateKeysHandling.IGNORE) {
+          return;
+        }
         throw new FileDataException("in " + kind.getName() + ", key \"" + key + "\" was already defined", null, null);
       }
       items.put(key, item);
