@@ -526,6 +526,11 @@ public final class LDClient implements LDClientInterface {
     return null;
   }
 
+  @Override
+  public void alias(LDUser user, LDUser previousUser) {
+    this.eventProcessor.sendEvent(eventFactoryDefault.newAliasEvent(user, previousUser));
+  }
+
   /**
    * Returns the current version string of the client library.
    * @return a version string conforming to Semantic Versioning (http://semver.org)

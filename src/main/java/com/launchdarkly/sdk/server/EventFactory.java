@@ -36,7 +36,9 @@ abstract class EventFactory {
   abstract Event.Custom newCustomEvent(String key, LDUser user, LDValue data, Double metricValue);
   
   abstract Event.Identify newIdentifyEvent(LDUser user);
-  
+
+  abstract Event.AliasEvent newAliasEvent(LDUser user, LDUser previousUser);
+
   final Event.FeatureRequest newFeatureRequestEvent(
       DataModel.FeatureFlag flag,
       LDUser user,
@@ -166,6 +168,11 @@ abstract class EventFactory {
     Event.Identify newIdentifyEvent(LDUser user) {
       return new Event.Identify(timestampFn.get(), user);
     }
+
+    @Override
+    Event.AliasEvent newAliasEvent(LDUser user, LDUser previousUser) {
+      return new Event.AliasEvent(timestampFn.get(), user, previousUser);
+    }
   }
 
   static final class Disabled extends EventFactory {
@@ -189,6 +196,11 @@ abstract class EventFactory {
 
     @Override
     final Identify newIdentifyEvent(LDUser user) {
+      return null;
+    }
+
+    @Override
+    Event.AliasEvent newAliasEvent(LDUser user, LDUser previousUser) {
       return null;
     }
   }

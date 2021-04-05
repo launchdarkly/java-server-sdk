@@ -9,6 +9,7 @@ import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.interfaces.Event.AliasEvent;
 import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
 
 import org.junit.Test;
@@ -166,12 +167,16 @@ public class EventOutputTest {
     assertEquals(o.build(), userJson);
   }
   
-  private ObjectBuilder buildFeatureEventProps(String key) {
+  private ObjectBuilder buildFeatureEventProps(String key, String userKey) {
     return LDValue.buildObject()
         .put("kind", "feature")
         .put("key", key)
         .put("creationDate", 100000)
-        .put("userKey", "userkey");
+        .put("userKey", userKey);
+  }
+
+  private ObjectBuilder buildFeatureEventProps(String key) {
+    return buildFeatureEventProps(key, "userkey");
   }
   
   @Test
@@ -180,6 +185,7 @@ public class EventOutputTest {
     EventFactory factoryWithReason = eventFactoryWithTimestamp(100000, true);
     DataModel.FeatureFlag flag = flagBuilder("flag").version(11).build();
     LDUser user = new LDUser.Builder("userkey").name("me").build();
+    LDUser anon = new LDUser.Builder("anonymouskey").anonymous(true).build();
     EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
     
     FeatureRequest feWithVariation = factory.newFeatureRequestEvent(flag, user,
@@ -266,6 +272,18 @@ public class EventOutputTest {
         .put("prereqOf", "parent")
         .build();
     assertEquals(feJson8, getSingleOutputEvent(f, prereqWithoutResult));
+
+    FeatureRequest anonFeWithVariation = factory.newFeatureRequestEvent(flag, anon,
+        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
+        LDValue.of("defaultvalue"));
+    LDValue anonFeJson1 = buildFeatureEventProps("flag", "anonymouskey")
+        .put("version", 11)
+        .put("variation", 1)
+        .put("value", "flagvalue")
+        .put("default", "defaultvalue")
+        .put("contextKind", "anonymousUser")
+        .build();
+    assertEquals(anonFeJson1, getSingleOutputEvent(f, anonFeWithVariation));
   }
 
   @Test
@@ -288,6 +306,7 @@ public class EventOutputTest {
   public void customEventIsSerialized() throws IOException {
     EventFactory factory = eventFactoryWithTimestamp(100000, false);
     LDUser user = new LDUser.Builder("userkey").name("me").build();
+    LDUser anon = new LDUser.Builder("userkey").name("me").anonymous(true).build();
     EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
 
     Event.Custom ceWithoutData = factory.newCustomEvent("customkey", user, LDValue.ofNull(), null);
@@ -329,6 +348,18 @@ public class EventOutputTest {
         "\"metricValue\":2.5" +
         "}");
     assertEquals(ceJson4, getSingleOutputEvent(f, ceWithDataAndMetric));
+
+    Event.Custom ceWithDataAndMetricAnon = factory.newCustomEvent("customkey", anon, LDValue.of("thing"), 2.5);
+    LDValue ceJson5 = parseValue("{" +
+        "\"kind\":\"custom\"," +
+        "\"creationDate\":100000," +
+        "\"key\":\"customkey\"," +
+        "\"userKey\":\"userkey\"," +
+        "\"data\":\"thing\"," +
+        "\"metricValue\":2.5," +
+        "\"contextKind\":\"anonymousUser\"" +
+        "}");
+    assertEquals(ceJson5, getSingleOutputEvent(f, ceWithDataAndMetricAnon));
   }
 
   @Test
@@ -401,6 +432,65 @@ public class EventOutputTest {
     assertEquals("[]", w.toString());
   }
   
+  @Test
+  public void aliasEventIsSerialized() throws IOException {
+    EventFactory factory = eventFactoryWithTimestamp(1000, false);
+    LDUser user1 = new LDUser.Builder("bob-key").build();
+    LDUser user2 = new LDUser.Builder("jeff-key").build();
+    LDUser anon1 = new LDUser.Builder("bob-key-anon").anonymous(true).build();
+    LDUser anon2 = new LDUser.Builder("jeff-key-anon").anonymous(true).build();
+    AliasEvent userToUser = factory.newAliasEvent(user1, user2);
+    AliasEvent userToAnon = factory.newAliasEvent(anon1, user1);
+    AliasEvent anonToUser = factory.newAliasEvent(user1, anon1);
+    AliasEvent anonToAnon = factory.newAliasEvent(anon1, anon2);
+
+    EventOutputFormatter fmt = new EventOutputFormatter(defaultEventsConfig());
+
+    LDValue userToUserExpected = parseValue("{" +
+      "\"kind\":\"alias\"," +
+      "\"creationDate\":1000," +
+      "\"key\":\"bob-key\"," +
+      "\"contextKind\":\"user\"," +
+      "\"previousKey\":\"jeff-key\"," +
+      "\"previousContextKind\":\"user\"" +
+      "}");
+
+    assertEquals(userToUserExpected, getSingleOutputEvent(fmt, userToUser));
+
+    LDValue userToAnonExpected = parseValue("{" +
+      "\"kind\":\"alias\"," +
+      "\"creationDate\":1000," +
+      "\"key\":\"bob-key-anon\"," +
+      "\"contextKind\":\"anonymousUser\"," +
+      "\"previousKey\":\"bob-key\"," +
+      "\"previousContextKind\":\"user\"" +
+      "}");
+
+    assertEquals(userToAnonExpected, getSingleOutputEvent(fmt, userToAnon));
+
+    LDValue anonToUserExpected = parseValue("{" +
+      "\"kind\":\"alias\"," +
+      "\"creationDate\":1000," +
+      "\"key\":\"bob-key\"," +
+      "\"contextKind\":\"user\"," +
+      "\"previousKey\":\"bob-key-anon\"," +
+      "\"previousContextKind\":\"anonymousUser\"" +
+      "}");
+
+    assertEquals(anonToUserExpected, getSingleOutputEvent(fmt, anonToUser));
+
+    LDValue anonToAnonExpected = parseValue("{" +
+      "\"kind\":\"alias\"," +
+      "\"creationDate\":1000," +
+      "\"key\":\"bob-key-anon\"," +
+      "\"contextKind\":\"anonymousUser\"," +
+      "\"previousKey\":\"jeff-key-anon\"," +
+      "\"previousContextKind\":\"anonymousUser\"" +
+      "}");
+
+    assertEquals(anonToAnonExpected, getSingleOutputEvent(fmt, anonToAnon));
+  }
+
   private static class FakeEventClass extends Event {
     public FakeEventClass(long creationDate, LDUser user) {
       super(creationDate, user);
