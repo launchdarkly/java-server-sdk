@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.3.1] - 2021-04-08
+### Fixed:
+- Updated the `commons-codec` dependency from 1.10 to 1.15. There was a [known vulnerability](https://github.com/apache/commons-codec/commit/48b615756d1d770091ea3322eefc08011ee8b113) in earlier versions of `commons-codec`-- although it did not affect this SDK, since it involved base64 decoding, which is not a thing the SDK ever does.
+
 ## [5.3.0] - 2021-03-09
 ### Added:
 - When using the file data source, `FileDataSourceBuilder.duplicateKeysHandling` allows you to specify that duplicate flag keys should _not_ cause an error as they normally would. [(#226)](https://github.com/launchdarkly/java-server-sdk/issues/226)
