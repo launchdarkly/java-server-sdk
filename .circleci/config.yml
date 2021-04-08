@@ -144,7 +144,7 @@ jobs:
       - run: cat gradle.properties.example >>gradle.properties
       - run:
           name: checkstyle/javadoc
-          command: ./gradlew checkstyleMain
+          command: ./gradlew javadoc checkstyleMain
       - run:
           name: build all SDK jars
           command: ./gradlew publishToMavenLocal -P LD_SKIP_SIGNING=1
