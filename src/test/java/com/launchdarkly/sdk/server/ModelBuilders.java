@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 
 import java.util.ArrayList;
@@ -76,7 +77,7 @@ public abstract class ModelBuilders {
   }
   
   public static DataModel.Rollout emptyRollout() {
-    return new DataModel.Rollout(ImmutableList.<DataModel.WeightedVariation>of(), null);
+    return new DataModel.Rollout(ImmutableList.<DataModel.WeightedVariation>of(), null, RolloutKind.rollout);
   }
   
   public static SegmentBuilder segmentBuilder(String key) {

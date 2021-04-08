@@ -3,6 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 
@@ -36,9 +37,9 @@ public class EvaluatorBucketingTest {
         new WeightedVariation(badVariationA, bucketValue), // end of bucket range is not inclusive, so it will *not* match the target value
         new WeightedVariation(matchedVariation, 1), // size of this bucket is 1, so it only matches that specific value
         new WeightedVariation(badVariationB, 100000 - (bucketValue + 1)));
-    VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null));
+    VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null, RolloutKind.rollout));
     
-    Integer resultVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flagKey, salt);
+    Integer resultVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flagKey, salt).getIndex();
     assertEquals(Integer.valueOf(matchedVariation), resultVariation);
   }
 
@@ -52,9 +53,9 @@ public class EvaluatorBucketingTest {
     int bucketValue = (int)(EvaluatorBucketing.bucketUser(user, flagKey, UserAttribute.KEY, salt) * 100000);
     
     List<WeightedVariation> variations = Arrays.asList(new WeightedVariation(0, bucketValue));
-    VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null));
+    VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null, RolloutKind.rollout));
     
-    Integer resultVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flagKey, salt);
+    Integer resultVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flagKey, salt).getIndex();
     assertEquals(Integer.valueOf(0), resultVariation);
   }
 

@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
@@ -84,7 +85,7 @@ public class DataModelTest {
   
   @Test
   public void rolloutVariationsListCanNeverBeNull() {
-    Rollout r = new Rollout(null, null);
+    Rollout r = new Rollout(null, null, RolloutKind.rollout);
     assertEquals(ImmutableList.of(), r.getVariations());
   }
 }

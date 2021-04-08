@@ -344,12 +344,23 @@ public abstract class DataModel {
   static final class Rollout {
     private List<WeightedVariation> variations;
     private UserAttribute bucketBy;
+    private RolloutKind kind;
+    private Integer seed;
   
     Rollout() {}
   
-    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy) {
+    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy, RolloutKind kind) {
       this.variations = variations;
       this.bucketBy = bucketBy;
+      this.kind = kind;
+      this.seed = null;
+    }
+    
+    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy, RolloutKind kind, Integer seed) {
+      this.variations = variations;
+      this.bucketBy = bucketBy;
+      this.kind = kind;
+      this.seed = seed;
     }
     
     // Guaranteed non-null
@@ -359,6 +370,14 @@ public abstract class DataModel {
     
     UserAttribute getBucketBy() {
       return bucketBy;
+    }
+
+    RolloutKind getKind() {
+      return this.kind;
+    }
+
+    Integer getSeed() {
+      return this.seed;
     }
   }
 
@@ -389,12 +408,20 @@ public abstract class DataModel {
   static final class WeightedVariation {
     private int variation;
     private int weight;
+    private boolean untracked;
   
     WeightedVariation() {}
   
     WeightedVariation(int variation, int weight) {
       this.variation = variation;
       this.weight = weight;
+      this.untracked = true;
+    }
+    
+    WeightedVariation(int variation, int weight, boolean untracked) {
+      this.variation = variation;
+      this.weight = weight;
+      this.untracked = untracked;
     }
     
     int getVariation() {
@@ -403,6 +430,10 @@ public abstract class DataModel {
     
     int getWeight() {
       return weight;
+    }
+
+    boolean isTracked() {
+      return !untracked;
     }
   }
   
@@ -510,5 +541,10 @@ public abstract class DataModel {
     semVerLessThan,
     semVerGreaterThan,
     segmentMatch
+  }
+
+  static enum RolloutKind {
+    rollout,
+    experiment
   }
 }

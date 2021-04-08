@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
+import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
 import org.slf4j.Logger;
@@ -221,13 +222,25 @@ class Evaluator {
   }
   
   private EvalResult getValueForVariationOrRollout(DataModel.FeatureFlag flag, DataModel.VariationOrRollout vr, LDUser user, EvaluationReason reason) {
-    Integer index = EvaluatorBucketing.variationIndexForUser(vr, user, flag.getKey(), flag.getSalt());
-    if (index == null) {
+    EvaluatedVariation evaluatedVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flag.getKey(), flag.getSalt());
+    if (evaluatedVariation == null || evaluatedVariation.getIndex() == null) {
       logger.error("Data inconsistency in feature flag \"{}\": variation/rollout object with no variation or rollout", flag.getKey());
       return EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG); 
     } else {
-      return getVariation(flag, index, reason);
+      if (evaluatedVariation.isInExperiment()) {
+        reason = experimentize(reason);
+      }
+      return getVariation(flag, evaluatedVariation.getIndex(), reason);
     }
+  }
+
+  private EvaluationReason experimentize(EvaluationReason reason) {
+    if (reason.getKind() == Kind.FALLTHROUGH) {
+      return EvaluationReason.fallthrough(true);
+    } else if (reason.getKind() == Kind.RULE_MATCH) {
+     return EvaluationReason.ruleMatch(reason.getRuleIndex(), reason.getRuleId(), true);
+    }
+    return reason;
   }
 
   private boolean ruleMatchesUser(DataModel.FeatureFlag flag, DataModel.Rule rule, LDUser user) {

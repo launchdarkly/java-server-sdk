@@ -3,8 +3,27 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 
 import org.apache.commons.codec.digest.DigestUtils;
+
+final class EvaluatedVariation {
+  private Integer index;
+  private boolean inExperiment;
+  
+  EvaluatedVariation(Integer index, boolean inExperiment) {
+    this.index = index;
+    this.inExperiment = inExperiment;
+  }
+
+  public Integer getIndex() {
+    return index;
+  }
+
+  public boolean isInExperiment() {
+    return inExperiment;
+  }
+}
 
 /**
  * Encapsulates the logic for percentage rollouts.
@@ -16,10 +35,10 @@ abstract class EvaluatorBucketing {
 
   // Attempt to determine the variation index for a given user. Returns null if no index can be computed
   // due to internal inconsistency of the data (i.e. a malformed flag). 
-  static Integer variationIndexForUser(DataModel.VariationOrRollout vr, LDUser user, String key, String salt) {
+  static EvaluatedVariation variationIndexForUser(DataModel.VariationOrRollout vr, LDUser user, String key, String salt) {
     Integer variation = vr.getVariation();
     if (variation != null) {
-      return variation;
+      return new EvaluatedVariation(variation, false);
     } else {
       DataModel.Rollout rollout = vr.getRollout();
       if (rollout != null && !rollout.getVariations().isEmpty()) {
@@ -28,7 +47,7 @@ abstract class EvaluatorBucketing {
         for (DataModel.WeightedVariation wv : rollout.getVariations()) {
           sum += (float) wv.getWeight() / 100000F;
           if (bucket < sum) {
-            return wv.getVariation();
+            return new EvaluatedVariation(wv.getVariation(), wv.isTracked());
           }
         }
         // The user's bucket value was greater than or equal to the end of the last bucket. This could happen due
@@ -36,7 +55,8 @@ abstract class EvaluatorBucketing {
         // data could contain buckets that don't actually add up to 100000. Rather than returning an error in
         // this case (or changing the scaling, which would potentially change the results for *all* users), we
         // will simply put the user in the last bucket.
-        return rollout.getVariations().get(rollout.getVariations().size() - 1).getVariation();
+        WeightedVariation lastVariation = rollout.getVariations().get(rollout.getVariations().size() - 1);
+        return new EvaluatedVariation(lastVariation.getVariation(), lastVariation.isTracked());
       }
     }
     return null;
