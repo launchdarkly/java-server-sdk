@@ -42,12 +42,12 @@ abstract class EvaluatorBucketing {
     } else {
       DataModel.Rollout rollout = vr.getRollout();
       if (rollout != null && !rollout.getVariations().isEmpty()) {
-        float bucket = bucketUser(user, key, rollout.getBucketBy(), salt);
+        float bucket = bucketUser(rollout.getSeed(), user, key, rollout.getBucketBy(), salt);
         float sum = 0F;
         for (DataModel.WeightedVariation wv : rollout.getVariations()) {
           sum += (float) wv.getWeight() / 100000F;
           if (bucket < sum) {
-            return new EvaluatedVariation(wv.getVariation(), wv.isTracked());
+            return new EvaluatedVariation(wv.getVariation(), vr.getRollout().isExperiment() && wv.isTracked());
           }
         }
         // The user's bucket value was greater than or equal to the end of the last bucket. This could happen due
@@ -62,14 +62,20 @@ abstract class EvaluatorBucketing {
     return null;
   }
 
-  static float bucketUser(LDUser user, String key, UserAttribute attr, String salt) {
+  static float bucketUser(Integer seed, LDUser user, String key, UserAttribute attr, String salt) {
     LDValue userValue = user.getAttribute(attr == null ? UserAttribute.KEY : attr);
     String idHash = getBucketableStringValue(userValue);
     if (idHash != null) {
+      String prefix;
+      if (seed != null) {
+        prefix = seed.toString();
+      } else {
+        prefix = key + "." + salt;
+      }
       if (user.getSecondary() != null) {
         idHash = idHash + "." + user.getSecondary();
       }
-      String hash = DigestUtils.sha1Hex(key + "." + salt + "." + idHash).substring(0, 15);
+      String hash = DigestUtils.sha1Hex(prefix + "." + idHash).substring(0, 15);
       long longVal = Long.parseLong(hash, 16);
       return (float) longVal / LONG_SCALE;
     }

@@ -20,6 +20,8 @@ import static org.junit.Assert.assertNotEquals;
 
 @SuppressWarnings("javadoc")
 public class EvaluatorBucketingTest {
+  private Integer noSeed = null;
+
   @Test
   public void variationIndexIsReturnedForBucket() {
     LDUser user = new LDUser.Builder("userkey").build();
@@ -28,7 +30,7 @@ public class EvaluatorBucketingTest {
     
     // First verify that with our test inputs, the bucket value will be greater than zero and less than 100000,
     // so we can construct a rollout whose second bucket just barely contains that value
-    int bucketValue = (int)(EvaluatorBucketing.bucketUser(user, flagKey, UserAttribute.KEY, salt) * 100000);
+    int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt) * 100000);
     assertThat(bucketValue, greaterThanOrEqualTo(1));
     assertThat(bucketValue, Matchers.lessThan(100000));
     
@@ -44,13 +46,52 @@ public class EvaluatorBucketingTest {
   }
 
   @Test
+  public void usingSeedIsDifferentThanSalt() {
+    LDUser user = new LDUser.Builder("userkey").build();
+    String flagKey = "flagkey";
+    String salt = "salt";
+    Integer seed = 123;
+    
+    float bucketValue1 = EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt);
+    float bucketValue2 = EvaluatorBucketing.bucketUser(seed, user, flagKey, UserAttribute.KEY, salt);
+    assert(bucketValue1 != bucketValue2);
+  }
+
+  @Test
+  public void differentSeedsProduceDifferentAssignment() {
+    LDUser user = new LDUser.Builder("userkey").build();
+    String flagKey = "flagkey";
+    String salt = "salt";
+    Integer seed1 = 123;
+    Integer seed2 = 456;
+    
+    float bucketValue1 = EvaluatorBucketing.bucketUser(seed1, user, flagKey, UserAttribute.KEY, salt);
+    float bucketValue2 = EvaluatorBucketing.bucketUser(seed2, user, flagKey, UserAttribute.KEY, salt);
+    assert(bucketValue1 != bucketValue2);
+  }
+
+  @Test
+  public void flagKeyAndSaltDoNotMatterWhenSeedIsUsed() {
+    LDUser user = new LDUser.Builder("userkey").build();
+    String flagKey1 = "flagkey";
+    String flagKey2 = "flagkey2";
+    String salt1 = "salt";
+    String salt2 = "salt2";
+    Integer seed = 123;
+    
+    float bucketValue1 = EvaluatorBucketing.bucketUser(seed, user, flagKey1, UserAttribute.KEY, salt1);
+    float bucketValue2 = EvaluatorBucketing.bucketUser(seed, user, flagKey2, UserAttribute.KEY, salt2);
+    assert(bucketValue1 == bucketValue2);
+  }
+
+  @Test
   public void lastBucketIsUsedIfBucketValueEqualsTotalWeight() {
     LDUser user = new LDUser.Builder("userkey").build();
     String flagKey = "flagkey";
     String salt = "salt";
 
     // We'll construct a list of variations that stops right at the target bucket value
-    int bucketValue = (int)(EvaluatorBucketing.bucketUser(user, flagKey, UserAttribute.KEY, salt) * 100000);
+    int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt) * 100000);
     
     List<WeightedVariation> variations = Arrays.asList(new WeightedVariation(0, bucketValue));
     VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null, RolloutKind.rollout));
@@ -65,8 +106,8 @@ public class EvaluatorBucketingTest {
         .custom("stringattr", "33333")
         .custom("intattr", 33333)
         .build();
-    float resultForString = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("stringattr"), "salt");
-    float resultForInt = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("intattr"), "salt");
+    float resultForString = EvaluatorBucketing.bucketUser(noSeed, user, "key", UserAttribute.forName("stringattr"), "salt");
+    float resultForInt = EvaluatorBucketing.bucketUser(noSeed, user, "key", UserAttribute.forName("intattr"), "salt");
     assertEquals(resultForString, resultForInt, Float.MIN_VALUE);
   }
 
@@ -75,7 +116,7 @@ public class EvaluatorBucketingTest {
     LDUser user = new LDUser.Builder("key")
         .custom("floatattr", 33.5f)
         .build();
-    float result = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("floatattr"), "salt");
+    float result = EvaluatorBucketing.bucketUser(noSeed, user, "key", UserAttribute.forName("floatattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 
@@ -84,7 +125,7 @@ public class EvaluatorBucketingTest {
     LDUser user = new LDUser.Builder("key")
         .custom("boolattr", true)
         .build();
-    float result = EvaluatorBucketing.bucketUser(user, "key", UserAttribute.forName("boolattr"), "salt");
+    float result = EvaluatorBucketing.bucketUser(noSeed, user, "key", UserAttribute.forName("boolattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 
@@ -92,8 +133,8 @@ public class EvaluatorBucketingTest {
   public void userSecondaryKeyAffectsBucketValue() {
     LDUser user1 = new LDUser.Builder("key").build();
     LDUser user2 = new LDUser.Builder("key").secondary("other").build();
-    float result1 = EvaluatorBucketing.bucketUser(user1, "flagkey", UserAttribute.KEY, "salt");
-    float result2 = EvaluatorBucketing.bucketUser(user2, "flagkey", UserAttribute.KEY, "salt");
+    float result1 = EvaluatorBucketing.bucketUser(noSeed, user1, "flagkey", UserAttribute.KEY, "salt");
+    float result2 = EvaluatorBucketing.bucketUser(noSeed, user2, "flagkey", UserAttribute.KEY, "salt");
     assertNotEquals(result1, result2);
   }
 }

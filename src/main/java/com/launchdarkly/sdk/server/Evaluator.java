@@ -357,7 +357,7 @@ class Evaluator {
     }
     
     // All of the clauses are met. See if the user buckets in
-    double bucket = EvaluatorBucketing.bucketUser(user, segmentKey, segmentRule.getBucketBy(), salt);
+    double bucket = EvaluatorBucketing.bucketUser(null, user, segmentKey, segmentRule.getBucketBy(), salt);
     double weight = (double)segmentRule.getWeight() / 100000.0;
     return bucket < weight;
   }

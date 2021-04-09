@@ -379,6 +379,10 @@ public abstract class DataModel {
     Integer getSeed() {
       return this.seed;
     }
+
+    boolean isExperiment() {
+      return kind == RolloutKind.experiment;
+    }
   }
 
   /**
