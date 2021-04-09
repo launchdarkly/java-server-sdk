@@ -56,7 +56,7 @@ abstract class EvaluatorBucketing {
         // this case (or changing the scaling, which would potentially change the results for *all* users), we
         // will simply put the user in the last bucket.
         WeightedVariation lastVariation = rollout.getVariations().get(rollout.getVariations().size() - 1);
-        return new EvaluatedVariation(lastVariation.getVariation(), lastVariation.isTracked());
+        return new EvaluatedVariation(lastVariation.getVariation(), vr.getRollout().isExperiment() && lastVariation.isTracked());
       }
     }
     return null;

@@ -7,6 +7,7 @@ import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
@@ -147,6 +148,8 @@ public class DataModelSerializationTest {
                             .build())
                         .build())
                     .put("bucketBy", "email")
+                    .put("kind", "experiment")
+                    .put("seed", 123)
                     .build())
                 .build())
             .build())
@@ -204,6 +207,9 @@ public class DataModelSerializationTest {
     assertEquals(2, r1.getRollout().getVariations().get(0).getVariation());
     assertEquals(100000, r1.getRollout().getVariations().get(0).getWeight());
     assertEquals(UserAttribute.EMAIL, r1.getRollout().getBucketBy());
+    assertEquals(RolloutKind.experiment, r1.getRollout().getKind());
+    assert(r1.getRollout().isExperiment());
+    assertEquals(new Integer(123), r1.getRollout().getSeed());
     
     assertNotNull(flag.getFallthrough());
     assertEquals(new Integer(1), flag.getFallthrough().getVariation());
