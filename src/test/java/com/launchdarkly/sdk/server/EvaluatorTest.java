@@ -192,7 +192,7 @@ public class EvaluatorTest {
   }
 
   @Test
-  public void flagReturnsRuleMatchAndInExperimentWhenInExperimentVariation() throws Exception {
+  public void flagReturnsInExperimentForRuleMatchWhenInExperimentVariation() throws Exception {
     Rollout rollout = buildRollout(true, false);
 
     DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of(BASE_USER.getKey()));
