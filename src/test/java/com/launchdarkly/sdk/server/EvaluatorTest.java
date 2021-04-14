@@ -150,7 +150,7 @@ public class EvaluatorTest {
   }
   
   @Test
-  public void flagReturnsFallthroughAndInExperimentWhenInExperimentVariation() throws Exception {
+  public void flagReturnsInExperimentForFallthroughWhenInExperimentVariation() throws Exception {
     Rollout rollout = buildRollout(true, false);
     VariationOrRollout vr = new VariationOrRollout(null, rollout);
 
