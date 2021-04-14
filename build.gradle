@@ -68,7 +68,7 @@ ext {
 ext.libraries = [:]
 
 ext.versions = [
-    "commonsCodec": "1.10",
+    "commonsCodec": "1.15",
     "gson": "2.7",
     "guava": "30.1-jre",
     "jackson": "2.11.2", 
