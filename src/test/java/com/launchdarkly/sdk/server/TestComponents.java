@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
@@ -33,16 +34,18 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+
 @SuppressWarnings("javadoc")
 public class TestComponents {
-  static ScheduledExecutorService sharedExecutor = Executors.newSingleThreadScheduledExecutor();
+  static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
+      new ThreadFactoryBuilder().setNameFormat("TestComponents-sharedExecutor-%d").build());
   
   public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
     return new ClientContextImpl(sdkKey, config, sharedExecutor, null);

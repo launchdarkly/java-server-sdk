@@ -284,8 +284,9 @@ public class PollingProcessorTest {
     });
     
     // Now test a scenario where we have a successful startup, but the next poll gets the error
+    dataSourceUpdates = TestComponents.dataSourceUpdates(new InMemoryDataStore(), new MockDataStoreStatusProvider());
     withStatusQueue(statuses -> {
-      requestor.httpException = null;    
+      requestor = new MockFeatureRequestor();    
       requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
 
       try (PollingProcessor pollingProcessor = makeProcessor(BRIEF_INTERVAL)) {
@@ -331,7 +332,7 @@ public class PollingProcessorTest {
         assertEquals(ErrorKind.ERROR_RESPONSE, status0.getLastError().getKind());
         assertEquals(statusCode, status0.getLastError().getStatusCode());
 
-        verifyHttpErrorWasRecoverable(statuses, statusCode);
+        verifyHttpErrorWasRecoverable(statuses, statusCode, false);
         
         shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
         assertTrue(initFuture.isDone());
@@ -340,8 +341,9 @@ public class PollingProcessorTest {
     });
     
     // Now test a scenario where we have a successful startup, but the next poll gets the error
+    dataSourceUpdates = TestComponents.dataSourceUpdates(new InMemoryDataStore(), new MockDataStoreStatusProvider());
     withStatusQueue(statuses -> {
-      requestor.httpException = null;    
+      requestor = new MockFeatureRequestor();
       requestor.allData = new FeatureRequestor.AllData(new HashMap<>(), new HashMap<>());
       
       try (PollingProcessor pollingProcessor = makeProcessor(BRIEF_INTERVAL)) {
@@ -359,12 +361,16 @@ public class PollingProcessorTest {
         assertEquals(ErrorKind.ERROR_RESPONSE, status0.getLastError().getKind());
         assertEquals(statusCode, status0.getLastError().getStatusCode());
         
-        verifyHttpErrorWasRecoverable(statuses, statusCode);
+        verifyHttpErrorWasRecoverable(statuses, statusCode, true);
       }
     });
   }
 
-  private void verifyHttpErrorWasRecoverable(BlockingQueue<DataSourceStatusProvider.Status> statuses, int statusCode) throws Exception {
+  private void verifyHttpErrorWasRecoverable(
+      BlockingQueue<DataSourceStatusProvider.Status> statuses,
+      int statusCode,
+      boolean didAlreadyConnect
+      ) throws Exception {
     long startTime = System.currentTimeMillis();
     
     // first make it so the requestor will succeed after the previous error
@@ -372,7 +378,8 @@ public class PollingProcessorTest {
     requestor.httpException = null;
     
     // status should now be VALID (although there might have been more failed polls before that)
-    Status status1 = requireDataSourceStatusEventually(statuses, State.VALID, State.INITIALIZING);
+    Status status1 = requireDataSourceStatusEventually(statuses, State.VALID,
+        didAlreadyConnect ? State.INTERRUPTED : State.INITIALIZING);
     assertNotNull(status1.getLastError());
     assertEquals(ErrorKind.ERROR_RESPONSE, status1.getLastError().getKind());
     assertEquals(statusCode, status1.getLastError().getStatusCode());
