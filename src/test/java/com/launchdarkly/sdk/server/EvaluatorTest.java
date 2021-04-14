@@ -70,7 +70,7 @@ public class EvaluatorTest {
   }
 
   private static Rollout buildRollout(boolean isExperient, boolean trackedVariations) {
-    List<WeightedVariation> variations = new ArrayList<WeightedVariation>();
+    List<WeightedVariation> variations = new ArrayList<>();
     variations.add(new WeightedVariation(1, 50000, trackedVariations));
     variations.add(new WeightedVariation(2, 50000, trackedVariations));
     UserAttribute bucketBy = UserAttribute.KEY;
