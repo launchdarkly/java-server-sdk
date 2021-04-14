@@ -69,7 +69,7 @@ public class EvaluatorTest {
         .version(versionFromKey(flagKey));
   }
 
-  private static Rollout buildRollout(boolean isExperient, boolean trackedVariations) {
+  private static Rollout buildRollout(boolean isExperiment, boolean trackedVariations) {
     List<WeightedVariation> variations = new ArrayList<>();
     variations.add(new WeightedVariation(1, 50000, trackedVariations));
     variations.add(new WeightedVariation(2, 50000, trackedVariations));
