@@ -142,6 +142,7 @@ final class PersistentDataStoreWrapper implements DataStore {
   
   @Override
   public void close() throws IOException {
+    statusManager.close();
     core.close();
   }
 

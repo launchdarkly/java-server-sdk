@@ -5,6 +5,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
 
 import org.slf4j.Logger;
 
+import java.io.Closeable;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -17,7 +18,7 @@ import java.util.function.Consumer;
  * This is currently only used by PersistentDataStoreWrapper, but encapsulating it in its own class helps with
  * clarity and also lets us reuse this logic in tests.
  */
-final class PersistentDataStoreStatusManager {
+final class PersistentDataStoreStatusManager implements Closeable {
   private static final Logger logger = Loggers.DATA_STORE;
   static final int POLL_INTERVAL_MS = 500; // visible for testing
   
@@ -40,6 +41,15 @@ final class PersistentDataStoreStatusManager {
     this.statusPollFn = statusPollFn;
     this.statusUpdater = statusUpdater;
     this.scheduler = sharedExecutor;
+  }
+  
+  public void close() {
+    synchronized (this) {
+      if (pollerFuture != null) {
+        pollerFuture.cancel(true);
+        pollerFuture = null;
+      }
+    }
   }
   
   void updateAvailability(boolean available) {
