@@ -164,7 +164,7 @@ public class EvaluatorTest {
   }
 
   @Test
-  public void flagReturnsFallthroughAndNotInExperimentWhenNotInExperimentVariation() throws Exception {
+  public void flagReturnsNotInExperimentForFallthroughWhenNotInExperimentVariation() throws Exception {
     Rollout rollout = buildRollout(true, true);
     VariationOrRollout vr = new VariationOrRollout(null, rollout);
 
@@ -178,7 +178,7 @@ public class EvaluatorTest {
   }
 
   @Test
-  public void flagReturnsFallthroughAndNotInExperimentWhenInExperimentVariationButNonExperimentRollout() throws Exception {
+  public void flagReturnsNotInExperimentForFallthrougWhenInExperimentVariationButNonExperimentRollout() throws Exception {
     Rollout rollout = buildRollout(false, false);
     VariationOrRollout vr = new VariationOrRollout(null, rollout);
 
@@ -208,7 +208,7 @@ public class EvaluatorTest {
   }
 
   @Test
-  public void flagReturnsRuleMatchAndNotInExperimentWhenNotInExperimentVariation() throws Exception {
+  public void flagReturnsNotInExperimentForRuleMatchWhenNotInExperimentVariation() throws Exception {
     Rollout rollout = buildRollout(true, true);
     
     DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
