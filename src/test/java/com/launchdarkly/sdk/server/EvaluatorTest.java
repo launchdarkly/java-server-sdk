@@ -69,8 +69,8 @@ public class EvaluatorTest {
         .version(versionFromKey(flagKey));
   }
 
-  private static Rollout buildRollout(boolean isExperient, boolean trackedVariations) {
-    List<WeightedVariation> variations = new ArrayList<WeightedVariation>();
+  private static Rollout buildRollout(boolean isExperiment, boolean trackedVariations) {
+    List<WeightedVariation> variations = new ArrayList<>();
     variations.add(new WeightedVariation(1, 50000, trackedVariations));
     variations.add(new WeightedVariation(2, 50000, trackedVariations));
     UserAttribute bucketBy = UserAttribute.KEY;
@@ -150,7 +150,7 @@ public class EvaluatorTest {
   }
   
   @Test
-  public void flagReturnsFallthroughAndInExperimentWhenInExperimentVariation() throws Exception {
+  public void flagReturnsInExperimentForFallthroughWhenInExperimentVariation() throws Exception {
     Rollout rollout = buildRollout(true, false);
     VariationOrRollout vr = new VariationOrRollout(null, rollout);
 
@@ -192,7 +192,7 @@ public class EvaluatorTest {
   }
 
   @Test
-  public void flagReturnsRuleMatchAndInExperimentWhenInExperimentVariation() throws Exception {
+  public void flagReturnsInExperimentForRuleMatchWhenInExperimentVariation() throws Exception {
     Rollout rollout = buildRollout(true, false);
 
     DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of(BASE_USER.getKey()));
