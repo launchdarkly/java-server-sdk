@@ -40,6 +40,7 @@ public class DataModelSerializationTest {
   @Test
   public void flagIsDeserializedWithMinimalProperties() {
     String json = LDValue.buildObject().put("key", "flag-key").put("version", 99).build().toJsonString();
+
     FeatureFlag flag = (FeatureFlag)FEATURES.deserialize(json).getItem();
     assertEquals("flag-key", flag.getKey());
     assertEquals(99, flag.getVersion());
@@ -49,6 +50,45 @@ public class DataModelSerializationTest {
     assertEquals(0, flag.getTargets().size());
     assertNotNull(flag.getRules());
     assertEquals(0, flag.getRules().size());
+    assertNull(flag.getFallthrough());
+    assertNull(flag.getOffVariation());
+    assertNotNull(flag.getVariations());
+    assertEquals(0, flag.getVariations().size());
+    assertFalse(flag.isClientSide());
+    assertFalse(flag.isTrackEvents());
+    assertFalse(flag.isTrackEventsFallthrough());
+    assertNull(flag.getDebugEventsUntilDate());
+  }
+  
+  @Test
+  public void flagIsDeserializedWithOptionalExperimentProperties() {
+    String json = LDValue.buildObject().put("key", "flag-key").put("version", 99)
+    .put("rules", LDValue.buildArray()
+        .add(LDValue.buildObject()
+            .put("id", "id1")
+            .put("rollout", LDValue.buildObject()
+                .put("variations", LDValue.buildArray()
+                    .add(LDValue.buildObject()
+                        .put("variation", 2)
+                        .put("weight", 100000)
+                        .build())
+                    .build())
+                .put("bucketBy", "email")
+                .build())
+            .build())
+        .build())
+      .build().toJsonString();
+    FeatureFlag flag = (FeatureFlag)FEATURES.deserialize(json).getItem();
+    assertEquals("flag-key", flag.getKey());
+    assertEquals(99, flag.getVersion());
+    assertFalse(flag.isOn());
+    assertNull(flag.getSalt());    
+    assertNotNull(flag.getTargets());
+    assertEquals(0, flag.getTargets().size());
+    assertNotNull(flag.getRules());
+    assertEquals(1, flag.getRules().size());
+    assert(!flag.getRules().get(0).getRollout().isExperiment());
+    assertNull(flag.getRules().get(0).getRollout().getSeed());
     assertNull(flag.getFallthrough());
     assertNull(flag.getOffVariation());
     assertNotNull(flag.getVariations());

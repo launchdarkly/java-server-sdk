@@ -69,12 +69,12 @@ public class EvaluatorTest {
         .version(versionFromKey(flagKey));
   }
 
-  private static Rollout buildRollout(boolean isExperiment, boolean trackedVariations) {
+  private static Rollout buildRollout(boolean isExperiment, boolean untrackedVariations) {
     List<WeightedVariation> variations = new ArrayList<>();
-    variations.add(new WeightedVariation(1, 50000, trackedVariations));
-    variations.add(new WeightedVariation(2, 50000, trackedVariations));
+    variations.add(new WeightedVariation(1, 50000, untrackedVariations));
+    variations.add(new WeightedVariation(2, 50000, untrackedVariations));
     UserAttribute bucketBy = UserAttribute.KEY;
-    RolloutKind kind = isExperient ? RolloutKind.experiment : RolloutKind.rollout;
+    RolloutKind kind = isExperiment ? RolloutKind.experiment : RolloutKind.rollout;
     Integer seed = 123;
     Rollout rollout = new Rollout(variations, bucketBy, kind, seed);
     return rollout;
