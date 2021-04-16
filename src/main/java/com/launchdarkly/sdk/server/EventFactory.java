@@ -237,7 +237,7 @@ abstract class EventFactory {
     // For new-style experiments, as identified by the rollout kind, this is determined from the evaluation reason. Legacy
     // experiments instead use TrackEventsFallthrough or rule.TrackEvents for this purpose.
  
-    if (!vr.getRollout().isExperiment()) {
+    if (vr == null || vr.getRollout() == null || !vr.getRollout().isExperiment()) {
       return trackEventsOverride;
     }
     return reason.isInExperiment();
