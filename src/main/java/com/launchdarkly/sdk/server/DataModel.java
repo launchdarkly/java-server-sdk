@@ -412,7 +412,7 @@ public abstract class DataModel {
   static final class WeightedVariation {
     private int variation;
     private int weight;
-    private boolean untracked = true;
+    private boolean untracked;
   
     WeightedVariation() {}
   
