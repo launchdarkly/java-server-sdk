@@ -36,9 +36,9 @@ public class EvaluatorBucketingTest {
     
     int badVariationA = 0, matchedVariation = 1, badVariationB = 2;
     List<WeightedVariation> variations = Arrays.asList(
-        new WeightedVariation(badVariationA, bucketValue), // end of bucket range is not inclusive, so it will *not* match the target value
-        new WeightedVariation(matchedVariation, 1), // size of this bucket is 1, so it only matches that specific value
-        new WeightedVariation(badVariationB, 100000 - (bucketValue + 1)));
+        new WeightedVariation(badVariationA, bucketValue, true), // end of bucket range is not inclusive, so it will *not* match the target value
+        new WeightedVariation(matchedVariation, 1, true), // size of this bucket is 1, so it only matches that specific value
+        new WeightedVariation(badVariationB, 100000 - (bucketValue + 1), true));
     VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null, RolloutKind.rollout));
     
     Integer resultVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flagKey, salt).getIndex();
@@ -93,7 +93,7 @@ public class EvaluatorBucketingTest {
     // We'll construct a list of variations that stops right at the target bucket value
     int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt) * 100000);
     
-    List<WeightedVariation> variations = Arrays.asList(new WeightedVariation(0, bucketValue));
+    List<WeightedVariation> variations = Arrays.asList(new WeightedVariation(0, bucketValue, true));
     VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null, RolloutKind.rollout));
     
     Integer resultVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flagKey, salt).getIndex();

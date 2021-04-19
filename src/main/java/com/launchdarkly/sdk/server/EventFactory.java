@@ -231,11 +231,11 @@ abstract class EventFactory {
 
   private static boolean shouldEmitFullEvent(VariationOrRollout vr, EvaluationReason reason, boolean trackEventsOverride) {
     // This should return true if a full feature event should be emitted for this evaluation regardless of the value of
-    // f.TrackEvents; a true value also causes the evaluation reason to be included in the event regardless of whether it
+    // f.isTrackEvents(); a true value also causes the evaluation reason to be included in the event regardless of whether it
     // otherwise would have been.
     //
     // For new-style experiments, as identified by the rollout kind, this is determined from the evaluation reason. Legacy
-    // experiments instead use TrackEventsFallthrough or rule.TrackEvents for this purpose.
+    // experiments instead use isTrackEventsFallthrough() or rule.isTrackEvents() for this purpose.
  
     if (vr == null || vr.getRollout() == null || !vr.getRollout().isExperiment()) {
       return trackEventsOverride;

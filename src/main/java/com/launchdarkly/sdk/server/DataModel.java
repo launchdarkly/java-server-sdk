@@ -416,12 +416,6 @@ public abstract class DataModel {
   
     WeightedVariation() {}
   
-    WeightedVariation(int variation, int weight) {
-      this.variation = variation;
-      this.weight = weight;
-      this.untracked = false;
-    }
-    
     WeightedVariation(int variation, int weight, boolean untracked) {
       this.variation = variation;
       this.weight = weight;

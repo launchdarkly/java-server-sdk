@@ -87,7 +87,7 @@ public class DataModelSerializationTest {
     assertEquals(0, flag.getTargets().size());
     assertNotNull(flag.getRules());
     assertEquals(1, flag.getRules().size());
-    assert(!flag.getRules().get(0).getRollout().isExperiment());
+    assertFalse(flag.getRules().get(0).getRollout().isExperiment());
     assertNull(flag.getRules().get(0).getRollout().getSeed());
     assertNull(flag.getFallthrough());
     assertNull(flag.getOffVariation());
@@ -222,7 +222,7 @@ public class DataModelSerializationTest {
     Rule r0 = flag.getRules().get(0);
     assertEquals("id0", r0.getId());
     assertTrue(r0.isTrackEvents());
-    assertEquals(new Integer(2), r0.getVariation());
+    assertEquals(Integer.valueOf(2), r0.getVariation());
     assertNull(r0.getRollout());
   
     assertNotNull(r0.getClauses());
@@ -249,17 +249,17 @@ public class DataModelSerializationTest {
     assertEquals(UserAttribute.EMAIL, r1.getRollout().getBucketBy());
     assertEquals(RolloutKind.experiment, r1.getRollout().getKind());
     assert(r1.getRollout().isExperiment());
-    assertEquals(new Integer(123), r1.getRollout().getSeed());
+    assertEquals(Integer.valueOf(123), r1.getRollout().getSeed());
     
     assertNotNull(flag.getFallthrough());
-    assertEquals(new Integer(1), flag.getFallthrough().getVariation());
+    assertEquals(Integer.valueOf(1), flag.getFallthrough().getVariation());
     assertNull(flag.getFallthrough().getRollout());
-    assertEquals(new Integer(2), flag.getOffVariation());
+    assertEquals(Integer.valueOf(2), flag.getOffVariation());
     assertEquals(ImmutableList.of(LDValue.of("a"), LDValue.of("b"), LDValue.of("c")), flag.getVariations());
     assertTrue(flag.isClientSide());
     assertTrue(flag.isTrackEvents());
     assertTrue(flag.isTrackEventsFallthrough());
-    assertEquals(new Long(1000), flag.getDebugEventsUntilDate());  
+    assertEquals(Long.valueOf(1000), flag.getDebugEventsUntilDate());  
   }
   
   private LDValue segmentWithAllPropertiesJson() {
