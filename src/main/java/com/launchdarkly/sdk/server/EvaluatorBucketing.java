@@ -47,7 +47,7 @@ abstract class EvaluatorBucketing {
         for (DataModel.WeightedVariation wv : rollout.getVariations()) {
           sum += (float) wv.getWeight() / 100000F;
           if (bucket < sum) {
-            return new EvaluatedVariation(wv.getVariation(), vr.getRollout().isExperiment() && wv.isTracked());
+            return new EvaluatedVariation(wv.getVariation(), vr.getRollout().isExperiment() && !wv.isUntracked());
           }
         }
         // The user's bucket value was greater than or equal to the end of the last bucket. This could happen due
@@ -56,7 +56,7 @@ abstract class EvaluatorBucketing {
         // this case (or changing the scaling, which would potentially change the results for *all* users), we
         // will simply put the user in the last bucket.
         WeightedVariation lastVariation = rollout.getVariations().get(rollout.getVariations().size() - 1);
-        return new EvaluatedVariation(lastVariation.getVariation(), vr.getRollout().isExperiment() && lastVariation.isTracked());
+        return new EvaluatedVariation(lastVariation.getVariation(), vr.getRollout().isExperiment() && !lastVariation.isUntracked());
       }
     }
     return null;

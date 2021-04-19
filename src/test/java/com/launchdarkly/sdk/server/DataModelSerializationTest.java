@@ -62,7 +62,9 @@ public class DataModelSerializationTest {
   
   @Test
   public void flagIsDeserializedWithOptionalExperimentProperties() {
-    String json = LDValue.buildObject().put("key", "flag-key").put("version", 99)
+    String json = LDValue.buildObject()
+    .put("key", "flag-key")
+    .put("version", 157)
     .put("rules", LDValue.buildArray()
         .add(LDValue.buildObject()
             .put("id", "id1")
@@ -77,22 +79,27 @@ public class DataModelSerializationTest {
                 .build())
             .build())
         .build())
-      .build().toJsonString();
+    .put("fallthrough", LDValue.buildObject()
+        .put("variation", 1)
+        .build())
+    .put("offVariation", 2)
+    .put("variations", LDValue.buildArray().add("a").add("b").add("c").build())
+    .build().toJsonString();
     FeatureFlag flag = (FeatureFlag)FEATURES.deserialize(json).getItem();
     assertEquals("flag-key", flag.getKey());
-    assertEquals(99, flag.getVersion());
+    assertEquals(157, flag.getVersion());
     assertFalse(flag.isOn());
     assertNull(flag.getSalt());    
     assertNotNull(flag.getTargets());
     assertEquals(0, flag.getTargets().size());
     assertNotNull(flag.getRules());
     assertEquals(1, flag.getRules().size());
+    assertNull(flag.getRules().get(0).getRollout().getKind());
     assertFalse(flag.getRules().get(0).getRollout().isExperiment());
     assertNull(flag.getRules().get(0).getRollout().getSeed());
-    assertNull(flag.getFallthrough());
-    assertNull(flag.getOffVariation());
+    assertTrue(flag.getRules().get(0).getRollout().getVariations().get(0).isUntracked());
     assertNotNull(flag.getVariations());
-    assertEquals(0, flag.getVariations().size());
+    assertEquals(3, flag.getVariations().size());
     assertFalse(flag.isClientSide());
     assertFalse(flag.isTrackEvents());
     assertFalse(flag.isTrackEventsFallthrough());
@@ -285,6 +292,10 @@ public class DataModelSerializationTest {
             .add(LDValue.buildObject()
                 .build())
             .build())
+        .put("fallthrough", LDValue.buildObject()
+            .put("variation", 1)
+            .build())
+        .put("variations", LDValue.buildArray().add("a").add("b").add("c").build())
         .build();
   }
   

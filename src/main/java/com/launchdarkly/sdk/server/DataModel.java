@@ -430,7 +430,7 @@ public abstract class DataModel {
       return weight;
     }
 
-    boolean isTracked() {
+    boolean isUntracked() {
       return !untracked;
     }
   }
