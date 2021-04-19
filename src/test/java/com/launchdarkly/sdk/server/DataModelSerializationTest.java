@@ -97,6 +97,8 @@ public class DataModelSerializationTest {
     assertNull(flag.getRules().get(0).getRollout().getKind());
     assertFalse(flag.getRules().get(0).getRollout().isExperiment());
     assertNull(flag.getRules().get(0).getRollout().getSeed());
+    assertEquals(2, flag.getRules().get(0).getRollout().getVariations().get(0).getVariation());
+    assertEquals(100000, flag.getRules().get(0).getRollout().getVariations().get(0).getWeight());
     assertTrue(flag.getRules().get(0).getRollout().getVariations().get(0).isUntracked());
     assertNotNull(flag.getVariations());
     assertEquals(3, flag.getVariations().size());
