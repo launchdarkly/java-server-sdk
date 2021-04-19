@@ -431,7 +431,7 @@ public abstract class DataModel {
     }
 
     boolean isUntracked() {
-      return !untracked;
+      return untracked;
     }
   }
   
