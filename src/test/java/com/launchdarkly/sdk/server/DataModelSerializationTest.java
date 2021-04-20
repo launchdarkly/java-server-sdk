@@ -40,7 +40,6 @@ public class DataModelSerializationTest {
   @Test
   public void flagIsDeserializedWithMinimalProperties() {
     String json = LDValue.buildObject().put("key", "flag-key").put("version", 99).build().toJsonString();
-
     FeatureFlag flag = (FeatureFlag)FEATURES.deserialize(json).getItem();
     assertEquals("flag-key", flag.getKey());
     assertEquals(99, flag.getVersion());
@@ -219,7 +218,7 @@ public class DataModelSerializationTest {
     assertEquals(99, flag.getVersion());
     assertTrue(flag.isOn());
     assertEquals("123", flag.getSalt());
-    
+      
     assertNotNull(flag.getTargets());
     assertEquals(1, flag.getTargets().size());
     Target t0 = flag.getTargets().get(0);
@@ -311,7 +310,7 @@ public class DataModelSerializationTest {
     assertNotNull(segment.getRules());
     assertEquals(2, segment.getRules().size());
     SegmentRule r0 = segment.getRules().get(0);
-    assertEquals(new Integer(50000), r0.getWeight());
+    assertEquals(Integer.valueOf(50000), r0.getWeight());
     assertNotNull(r0.getClauses());
     
     assertEquals(1, r0.getClauses().size());
