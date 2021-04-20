@@ -344,12 +344,23 @@ public abstract class DataModel {
   static final class Rollout {
     private List<WeightedVariation> variations;
     private UserAttribute bucketBy;
+    private RolloutKind kind;
+    private Integer seed;
   
     Rollout() {}
   
-    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy) {
+    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy, RolloutKind kind) {
       this.variations = variations;
       this.bucketBy = bucketBy;
+      this.kind = kind;
+      this.seed = null;
+    }
+    
+    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy, RolloutKind kind, Integer seed) {
+      this.variations = variations;
+      this.bucketBy = bucketBy;
+      this.kind = kind;
+      this.seed = seed;
     }
     
     // Guaranteed non-null
@@ -359,6 +370,18 @@ public abstract class DataModel {
     
     UserAttribute getBucketBy() {
       return bucketBy;
+    }
+
+    RolloutKind getKind() {
+      return this.kind;
+    }
+
+    Integer getSeed() {
+      return this.seed;
+    }
+
+    boolean isExperiment() {
+      return kind == RolloutKind.experiment;
     }
   }
 
@@ -389,12 +412,14 @@ public abstract class DataModel {
   static final class WeightedVariation {
     private int variation;
     private int weight;
+    private boolean untracked;
   
     WeightedVariation() {}
   
-    WeightedVariation(int variation, int weight) {
+    WeightedVariation(int variation, int weight, boolean untracked) {
       this.variation = variation;
       this.weight = weight;
+      this.untracked = untracked;
     }
     
     int getVariation() {
@@ -403,6 +428,10 @@ public abstract class DataModel {
     
     int getWeight() {
       return weight;
+    }
+
+    boolean isUntracked() {
+      return untracked;
     }
   }
   
@@ -510,5 +539,14 @@ public abstract class DataModel {
     semVerLessThan,
     semVerGreaterThan,
     segmentMatch
+  }
+
+  /**
+   * This enum is all lowercase so that when it is automatically deserialized from JSON, 
+   * the lowercase properties properly map to these enumerations.
+   */
+  static enum RolloutKind {
+    rollout,
+    experiment
   }
 }

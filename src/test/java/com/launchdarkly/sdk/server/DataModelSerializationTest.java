@@ -7,6 +7,7 @@ import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
@@ -52,6 +53,54 @@ public class DataModelSerializationTest {
     assertNull(flag.getOffVariation());
     assertNotNull(flag.getVariations());
     assertEquals(0, flag.getVariations().size());
+    assertFalse(flag.isClientSide());
+    assertFalse(flag.isTrackEvents());
+    assertFalse(flag.isTrackEventsFallthrough());
+    assertNull(flag.getDebugEventsUntilDate());
+  }
+  
+  @Test
+  public void flagIsDeserializedWithOptionalExperimentProperties() {
+    String json = LDValue.buildObject()
+    .put("key", "flag-key")
+    .put("version", 157)
+    .put("rules", LDValue.buildArray()
+        .add(LDValue.buildObject()
+            .put("id", "id1")
+            .put("rollout", LDValue.buildObject()
+                .put("variations", LDValue.buildArray()
+                    .add(LDValue.buildObject()
+                        .put("variation", 2)
+                        .put("weight", 100000)
+                        .build())
+                    .build())
+                .put("bucketBy", "email")
+                .build())
+            .build())
+        .build())
+    .put("fallthrough", LDValue.buildObject()
+        .put("variation", 1)
+        .build())
+    .put("offVariation", 2)
+    .put("variations", LDValue.buildArray().add("a").add("b").add("c").build())
+    .build().toJsonString();
+    FeatureFlag flag = (FeatureFlag)FEATURES.deserialize(json).getItem();
+    assertEquals("flag-key", flag.getKey());
+    assertEquals(157, flag.getVersion());
+    assertFalse(flag.isOn());
+    assertNull(flag.getSalt());    
+    assertNotNull(flag.getTargets());
+    assertEquals(0, flag.getTargets().size());
+    assertNotNull(flag.getRules());
+    assertEquals(1, flag.getRules().size());
+    assertNull(flag.getRules().get(0).getRollout().getKind());
+    assertFalse(flag.getRules().get(0).getRollout().isExperiment());
+    assertNull(flag.getRules().get(0).getRollout().getSeed());
+    assertEquals(2, flag.getRules().get(0).getRollout().getVariations().get(0).getVariation());
+    assertEquals(100000, flag.getRules().get(0).getRollout().getVariations().get(0).getWeight());
+    assertFalse(flag.getRules().get(0).getRollout().getVariations().get(0).isUntracked());
+    assertNotNull(flag.getVariations());
+    assertEquals(3, flag.getVariations().size());
     assertFalse(flag.isClientSide());
     assertFalse(flag.isTrackEvents());
     assertFalse(flag.isTrackEventsFallthrough());
@@ -147,6 +196,8 @@ public class DataModelSerializationTest {
                             .build())
                         .build())
                     .put("bucketBy", "email")
+                    .put("kind", "experiment")
+                    .put("seed", 123)
                     .build())
                 .build())
             .build())
@@ -167,7 +218,7 @@ public class DataModelSerializationTest {
     assertEquals(99, flag.getVersion());
     assertTrue(flag.isOn());
     assertEquals("123", flag.getSalt());
-    
+      
     assertNotNull(flag.getTargets());
     assertEquals(1, flag.getTargets().size());
     Target t0 = flag.getTargets().get(0);
@@ -179,7 +230,7 @@ public class DataModelSerializationTest {
     Rule r0 = flag.getRules().get(0);
     assertEquals("id0", r0.getId());
     assertTrue(r0.isTrackEvents());
-    assertEquals(new Integer(2), r0.getVariation());
+    assertEquals(Integer.valueOf(2), r0.getVariation());
     assertNull(r0.getRollout());
   
     assertNotNull(r0.getClauses());
@@ -204,16 +255,19 @@ public class DataModelSerializationTest {
     assertEquals(2, r1.getRollout().getVariations().get(0).getVariation());
     assertEquals(100000, r1.getRollout().getVariations().get(0).getWeight());
     assertEquals(UserAttribute.EMAIL, r1.getRollout().getBucketBy());
+    assertEquals(RolloutKind.experiment, r1.getRollout().getKind());
+    assert(r1.getRollout().isExperiment());
+    assertEquals(Integer.valueOf(123), r1.getRollout().getSeed());
     
     assertNotNull(flag.getFallthrough());
-    assertEquals(new Integer(1), flag.getFallthrough().getVariation());
+    assertEquals(Integer.valueOf(1), flag.getFallthrough().getVariation());
     assertNull(flag.getFallthrough().getRollout());
-    assertEquals(new Integer(2), flag.getOffVariation());
+    assertEquals(Integer.valueOf(2), flag.getOffVariation());
     assertEquals(ImmutableList.of(LDValue.of("a"), LDValue.of("b"), LDValue.of("c")), flag.getVariations());
     assertTrue(flag.isClientSide());
     assertTrue(flag.isTrackEvents());
     assertTrue(flag.isTrackEventsFallthrough());
-    assertEquals(new Long(1000), flag.getDebugEventsUntilDate());  
+    assertEquals(Long.valueOf(1000), flag.getDebugEventsUntilDate());  
   }
   
   private LDValue segmentWithAllPropertiesJson() {
@@ -239,6 +293,10 @@ public class DataModelSerializationTest {
             .add(LDValue.buildObject()
                 .build())
             .build())
+        .put("fallthrough", LDValue.buildObject()
+            .put("variation", 1)
+            .build())
+        .put("variations", LDValue.buildArray().add("a").add("b").add("c").build())
         .build();
   }
   
@@ -252,7 +310,7 @@ public class DataModelSerializationTest {
     assertNotNull(segment.getRules());
     assertEquals(2, segment.getRules().size());
     SegmentRule r0 = segment.getRules().get(0);
-    assertEquals(new Integer(50000), r0.getWeight());
+    assertEquals(Integer.valueOf(50000), r0.getWeight());
     assertNotNull(r0.getClauses());
     
     assertEquals(1, r0.getClauses().size());

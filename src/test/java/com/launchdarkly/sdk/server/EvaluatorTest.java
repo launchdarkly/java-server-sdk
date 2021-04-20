@@ -6,9 +6,15 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.server.DataModel.Rollout;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
+import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
+import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.ModelBuilders.FlagBuilder;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
@@ -61,6 +67,17 @@ public class EvaluatorTest {
         .offVariation(RED_VARIATION)
         .variations(RED_GREEN_VARIATIONS)
         .version(versionFromKey(flagKey));
+  }
+
+  private static Rollout buildRollout(boolean isExperiment, boolean untrackedVariations) {
+    List<WeightedVariation> variations = new ArrayList<>();
+    variations.add(new WeightedVariation(1, 50000, untrackedVariations));
+    variations.add(new WeightedVariation(2, 50000, untrackedVariations));
+    UserAttribute bucketBy = UserAttribute.KEY;
+    RolloutKind kind = isExperiment ? RolloutKind.experiment : RolloutKind.rollout;
+    Integer seed = 123;
+    Rollout rollout = new Rollout(variations, bucketBy, kind, seed);
+    return rollout;
   }
   
   private static int versionFromKey(String flagKey) {
@@ -132,6 +149,80 @@ public class EvaluatorTest {
     assertThat(result.getPrerequisiteEvents(), emptyIterable());
   }
   
+  @Test
+  public void flagReturnsInExperimentForFallthroughWhenInExperimentVariation() throws Exception {
+    Rollout rollout = buildRollout(true, false);
+    VariationOrRollout vr = new VariationOrRollout(null, rollout);
+
+    DataModel.FeatureFlag f = buildThreeWayFlag("feature")
+        .on(true)
+        .fallthrough(vr)
+        .build();
+    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    
+    assert(result.getReason().isInExperiment());
+  }
+
+  @Test
+  public void flagReturnsNotInExperimentForFallthroughWhenNotInExperimentVariation() throws Exception {
+    Rollout rollout = buildRollout(true, true);
+    VariationOrRollout vr = new VariationOrRollout(null, rollout);
+
+    DataModel.FeatureFlag f = buildThreeWayFlag("feature")
+        .on(true)
+        .fallthrough(vr)
+        .build();
+    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    
+    assert(!result.getReason().isInExperiment());
+  }
+
+  @Test
+  public void flagReturnsNotInExperimentForFallthrougWhenInExperimentVariationButNonExperimentRollout() throws Exception {
+    Rollout rollout = buildRollout(false, false);
+    VariationOrRollout vr = new VariationOrRollout(null, rollout);
+
+    DataModel.FeatureFlag f = buildThreeWayFlag("feature")
+        .on(true)
+        .fallthrough(vr)
+        .build();
+    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    
+    assert(!result.getReason().isInExperiment());
+  }
+
+  @Test
+  public void flagReturnsInExperimentForRuleMatchWhenInExperimentVariation() throws Exception {
+    Rollout rollout = buildRollout(true, false);
+
+    DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of(BASE_USER.getKey()));
+    DataModel.Rule rule = ruleBuilder().id("ruleid0").clauses(clause).rollout(rollout).build();
+
+    DataModel.FeatureFlag f = buildThreeWayFlag("feature")
+        .on(true)
+        .rules(rule)
+        .build();
+    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    
+    assert(result.getReason().isInExperiment());
+  }
+
+  @Test
+  public void flagReturnsNotInExperimentForRuleMatchWhenNotInExperimentVariation() throws Exception {
+    Rollout rollout = buildRollout(true, true);
+    
+    DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Rule rule = ruleBuilder().id("ruleid0").clauses(clause).rollout(rollout).build();
+
+    DataModel.FeatureFlag f = buildThreeWayFlag("feature")
+        .on(true)
+        .rules(rule)
+        .build();
+    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    
+    assert(!result.getReason().isInExperiment());
+  }
+
   @Test
   public void flagReturnsFallthroughIfFlagIsOnAndThereAreNoRules() throws Exception {
     DataModel.FeatureFlag f = buildThreeWayFlag("feature")
