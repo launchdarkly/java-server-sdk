@@ -1,20 +1,26 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
-import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
+import com.launchdarkly.sdk.server.Evaluator.EvalResult;
 
-import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
@@ -32,17 +38,16 @@ public class EvaluatorBucketingTest {
     // so we can construct a rollout whose second bucket just barely contains that value
     int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt) * 100000);
     assertThat(bucketValue, greaterThanOrEqualTo(1));
-    assertThat(bucketValue, Matchers.lessThan(100000));
+    assertThat(bucketValue, lessThan(100000));
     
     int badVariationA = 0, matchedVariation = 1, badVariationB = 2;
     List<WeightedVariation> variations = Arrays.asList(
         new WeightedVariation(badVariationA, bucketValue, true), // end of bucket range is not inclusive, so it will *not* match the target value
         new WeightedVariation(matchedVariation, 1, true), // size of this bucket is 1, so it only matches that specific value
         new WeightedVariation(badVariationB, 100000 - (bucketValue + 1), true));
-    VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null, RolloutKind.rollout));
+    Rollout rollout = new Rollout(variations, null, RolloutKind.rollout);
     
-    Integer resultVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flagKey, salt).getIndex();
-    assertEquals(Integer.valueOf(matchedVariation), resultVariation);
+    assertVariationIndexFromRollout(matchedVariation, rollout, user, flagKey, salt);
   }
 
   @Test
@@ -94,10 +99,9 @@ public class EvaluatorBucketingTest {
     int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt) * 100000);
     
     List<WeightedVariation> variations = Arrays.asList(new WeightedVariation(0, bucketValue, true));
-    VariationOrRollout vr = new VariationOrRollout(null, new Rollout(variations, null, RolloutKind.rollout));
+    Rollout rollout = new Rollout(variations, null, RolloutKind.rollout);
     
-    Integer resultVariation = EvaluatorBucketing.variationIndexForUser(vr, user, flagKey, salt).getIndex();
-    assertEquals(Integer.valueOf(0), resultVariation);
+    assertVariationIndexFromRollout(0, rollout, user, flagKey, salt);
   }
 
   @Test
@@ -136,5 +140,37 @@ public class EvaluatorBucketingTest {
     float result1 = EvaluatorBucketing.bucketUser(noSeed, user1, "flagkey", UserAttribute.KEY, "salt");
     float result2 = EvaluatorBucketing.bucketUser(noSeed, user2, "flagkey", UserAttribute.KEY, "salt");
     assertNotEquals(result1, result2);
+  }
+
+  private static void assertVariationIndexFromRollout(
+      int expectedVariation,
+      Rollout rollout,
+      LDUser user,
+      String flagKey,
+      String salt
+      ) {    
+    FeatureFlag flag1 = ModelBuilders.flagBuilder(flagKey)
+        .on(true)
+        .generatedVariations(3)
+        .fallthrough(rollout)
+        .salt(salt)
+        .build();
+    EvalResult result1 = BASE_EVALUATOR.evaluate(flag1, user, EventFactory.DEFAULT);
+    assertThat(result1.getReason(), equalTo(EvaluationReason.fallthrough()));
+    assertThat(result1.getVariationIndex(), equalTo(expectedVariation));
+    
+    // Make sure we consistently apply the rollout regardless of whether it's in a rule or a fallthrough
+    FeatureFlag flag2 = ModelBuilders.flagBuilder(flagKey)
+        .on(true)
+        .generatedVariations(3)
+        .rules(ModelBuilders.ruleBuilder()
+            .rollout(rollout)
+            .clauses(ModelBuilders.clause(UserAttribute.KEY, Operator.in, LDValue.of(user.getKey())))
+            .build())
+        .salt(salt)
+        .build();
+    EvalResult result2 = BASE_EVALUATOR.evaluate(flag2, user, EventFactory.DEFAULT);
+    assertThat(result2.getReason().getKind(), equalTo(EvaluationReason.Kind.RULE_MATCH));
+    assertThat(result2.getVariationIndex(), equalTo(expectedVariation));
   }
 }

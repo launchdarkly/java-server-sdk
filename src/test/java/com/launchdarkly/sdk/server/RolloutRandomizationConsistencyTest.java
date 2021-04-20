@@ -1,18 +1,23 @@
 package com.launchdarkly.sdk.server;
 
-import static org.junit.Assert.assertEquals;
+import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Rollout;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
+import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
+import com.launchdarkly.sdk.server.Evaluator.EvalResult;
+
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import com.launchdarkly.sdk.LDUser;
-import com.launchdarkly.sdk.UserAttribute;
-import com.launchdarkly.sdk.server.DataModel.Rollout;
-import com.launchdarkly.sdk.server.DataModel.RolloutKind;
-import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
-import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
-
-import org.junit.Test;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertEquals;
 
 /*
  * Note: These tests are meant to be exact duplicates of tests
@@ -40,27 +45,42 @@ public class RolloutRandomizationConsistencyTest {
     public void variationIndexForUserInExperimentTest() {
         // seed here carefully chosen so users fall into different buckets
         Rollout rollout = buildRollout(true, false);
-        VariationOrRollout vr = new VariationOrRollout(null, rollout);
+        String key = "hashKey";
+        String salt = "saltyA";
 
         LDUser user1 = new LDUser("userKeyA");
-        EvaluatedVariation ev1 = EvaluatorBucketing.variationIndexForUser(vr, user1, "hashKey", "saltyA");
         // bucketVal = 0.09801207
-        assertEquals(new Integer(0), ev1.getIndex());
-        assert(ev1.isInExperiment());
+        assertVariationIndexAndExperimentStateForRollout(0, true, rollout, user1, key, salt);
 
         LDUser user2 = new LDUser("userKeyB");
-        EvaluatedVariation ev2 = EvaluatorBucketing.variationIndexForUser(vr, user2, "hashKey", "saltyA");
         // bucketVal = 0.14483777
-        assertEquals(new Integer(1), ev2.getIndex());
-        assert(ev2.isInExperiment());
+        assertVariationIndexAndExperimentStateForRollout(1, true, rollout, user2, key, salt);
 
         LDUser user3 = new LDUser("userKeyC");
-        EvaluatedVariation ev3 = EvaluatorBucketing.variationIndexForUser(vr, user3, "hashKey", "saltyA");
         // bucketVal = 0.9242641
-        assertEquals(new Integer(0), ev3.getIndex());
-        assert(!ev3.isInExperiment());
+        assertVariationIndexAndExperimentStateForRollout(0, false, rollout, user3, key, salt);
     }
 
+    private static void assertVariationIndexAndExperimentStateForRollout(
+        int expectedVariation,
+        boolean expectedInExperiment,
+        Rollout rollout,
+        LDUser user,
+        String flagKey,
+        String salt
+        ) {
+      FeatureFlag flag = ModelBuilders.flagBuilder(flagKey)
+          .on(true)
+          .generatedVariations(3)
+          .fallthrough(rollout)
+          .salt(salt)
+          .build();
+      EvalResult result = BASE_EVALUATOR.evaluate(flag, user, EventFactory.DEFAULT);
+      assertThat(result.getVariationIndex(), equalTo(expectedVariation));
+      assertThat(result.getReason().getKind(), equalTo(EvaluationReason.Kind.FALLTHROUGH));
+      assertThat(result.getReason().isInExperiment(), equalTo(expectedInExperiment));
+    }
+    
     @Test
     public void bucketUserByKeyTest() {
         LDUser user1 = new LDUser("userKeyA");
