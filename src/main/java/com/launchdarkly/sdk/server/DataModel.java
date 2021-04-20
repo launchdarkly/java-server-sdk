@@ -541,6 +541,10 @@ public abstract class DataModel {
     segmentMatch
   }
 
+  /**
+   * This enum is all lowercase so that when it is automatically deserialized from JSON, 
+   * the lowercase properties properly map to these enumerations.
+   */
   static enum RolloutKind {
     rollout,
     experiment
