@@ -64,26 +64,38 @@ final class EventOutputFormatter {
         jw.value(fe.getPrereqOf());
       }
       writeEvaluationReason("reason", fe.getReason(), jw);
-      jw.endObject();
+      if (!fe.getContextKind().equals("user")) {
+        jw.name("contextKind").value(fe.getContextKind());
+      }
     } else if (event instanceof Event.Identify) {
       startEvent(event, "identify", event.getUser() == null ? null : event.getUser().getKey(), jw);
       writeUser(event.getUser(), jw);
-      jw.endObject();
     } else if (event instanceof Event.Custom) {
       Event.Custom ce = (Event.Custom)event;
       startEvent(event, "custom", ce.getKey(), jw);
       writeUserOrKey(ce, false, jw);
       writeLDValue("data", ce.getData(), jw);
+      if (!ce.getContextKind().equals("user")) {
+        jw.name("contextKind").value(ce.getContextKind());
+      }
       if (ce.getMetricValue() != null) {
         jw.name("metricValue");
         jw.value(ce.getMetricValue());
       }
-      jw.endObject();
     } else if (event instanceof Event.Index) {
       startEvent(event, "index", null, jw);
       writeUser(event.getUser(), jw);
-      jw.endObject();
+    } else if (event instanceof Event.AliasEvent) {
+      Event.AliasEvent ae = (Event.AliasEvent)event;
+      startEvent(event, "alias", ae.getKey(), jw);
+      jw.name("contextKind").value(ae.getContextKind());
+      jw.name("previousKey").value(ae.getPreviousKey());
+      jw.name("previousContextKind").value(ae.getPreviousContextKind());
+    } else {
+      return;
     }
+
+    jw.endObject();
   }
   
   private final void writeSummaryEvent(EventSummarizer.EventSummary summary, JsonWriter jw) throws IOException {
