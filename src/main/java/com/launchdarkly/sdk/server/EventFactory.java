@@ -212,6 +212,7 @@ abstract class EventFactory {
       return false;
     }
     if (reason.isInExperiment()) return true;
+    
     switch (reason.getKind()) { 
     case FALLTHROUGH:
       return flag.isTrackEventsFallthrough();
