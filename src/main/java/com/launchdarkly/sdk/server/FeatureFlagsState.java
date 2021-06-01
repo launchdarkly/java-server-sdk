@@ -180,14 +180,48 @@ public final class FeatureFlagsState implements JsonSerializable {
     @Override
     public void write(JsonWriter out, FeatureFlagsState state) throws IOException {
       out.beginObject();
+      
       for (Map.Entry<String, LDValue> entry: state.flagValues.entrySet()) {
         out.name(entry.getKey());
         gsonInstance().toJson(entry.getValue(), LDValue.class, out);
       }
+      
       out.name("$flagsState");
-      gsonInstance().toJson(state.flagMetadata, Map.class, out);
+      out.beginObject();
+      for (Map.Entry<String, FlagMetadata> entry: state.flagMetadata.entrySet()) {
+        out.name(entry.getKey());
+        FlagMetadata meta = entry.getValue();
+        out.beginObject();
+        // Here we're serializing FlagMetadata properties individually because if we rely on
+        // Gson's reflection mechanism, it won't reliably drop null properties (that only works
+        // if the destination really is Gson, not if a Jackson adapter is being used).
+        if (meta.variation != null) {
+          out.name("variation");
+          out.value(meta.variation.intValue());
+        }
+        if (meta.reason != null) {
+          out.name("reason");
+          gsonInstance().toJson(meta.reason, EvaluationReason.class, out);
+        }
+        if (meta.version != null) {
+          out.name("version");
+          out.value(meta.version.intValue());
+        }
+        if (meta.trackEvents != null) {
+          out.name("trackEvents");
+          out.value(meta.trackEvents.booleanValue());
+        }
+        if (meta.debugEventsUntilDate != null) {
+          out.name("debugEventsUntilDate");
+          out.value(meta.debugEventsUntilDate.longValue());
+        }
+        out.endObject();
+      }
+      out.endObject();
+      
       out.name("$valid");
       out.value(state.valid);
+      
       out.endObject();
     }
 
