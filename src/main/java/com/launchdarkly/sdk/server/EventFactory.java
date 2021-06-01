@@ -211,9 +211,10 @@ abstract class EventFactory {
       // doesn't happen in real life, but possible in testing
       return false;
     }
+    if (reason.isInExperiment()) return true;
     switch (reason.getKind()) { 
     case FALLTHROUGH:
-      return shouldEmitFullEvent(flag.getFallthrough(), reason, flag.isTrackEventsFallthrough());
+      return flag.isTrackEventsFallthrough();
     case RULE_MATCH:
       int ruleIndex = reason.getRuleIndex();
       // Note, it is OK to rely on the rule index rather than the unique ID in this context, because the
@@ -221,25 +222,11 @@ abstract class EventFactory {
       // evaluated, so we cannot be out of sync with its rule list.
       if (ruleIndex >= 0 && ruleIndex < flag.getRules().size()) {
         DataModel.Rule rule = flag.getRules().get(ruleIndex);
-        return shouldEmitFullEvent(rule, reason, rule.isTrackEvents());
+        return rule.isTrackEvents();
       }
       return false;
     default:
       return false;
     }
-  }
-
-  private static boolean shouldEmitFullEvent(VariationOrRollout vr, EvaluationReason reason, boolean trackEventsOverride) {
-    // This should return true if a full feature event should be emitted for this evaluation regardless of the value of
-    // f.isTrackEvents(); a true value also causes the evaluation reason to be included in the event regardless of whether it
-    // otherwise would have been.
-    //
-    // For new-style experiments, as identified by the rollout kind, this is determined from the evaluation reason. Legacy
-    // experiments instead use isTrackEventsFallthrough() or rule.isTrackEvents() for this purpose.
- 
-    if (vr == null || vr.getRollout() == null || !vr.getRollout().isExperiment()) {
-      return trackEventsOverride;
-    }
-    return reason.isInExperiment();
   }
 }
