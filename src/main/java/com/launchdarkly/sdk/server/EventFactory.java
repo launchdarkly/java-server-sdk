@@ -211,6 +211,9 @@ abstract class EventFactory {
       // doesn't happen in real life, but possible in testing
       return false;
     }
+
+    // If the reason says we're in an experiment, we are. Otherwise, apply
+    // the legacy rule exclusion logic.
     if (reason.isInExperiment()) return true;
     
     switch (reason.getKind()) { 
