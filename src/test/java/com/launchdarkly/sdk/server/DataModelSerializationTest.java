@@ -3,17 +3,23 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
+import com.launchdarkly.sdk.server.DataModel.Prerequisite;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
 import com.launchdarkly.sdk.server.DataModel.Target;
+import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
 import org.junit.Test;
+
+import java.util.Collections;
+import java.util.function.Consumer;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
@@ -27,35 +33,38 @@ import static org.junit.Assert.assertTrue;
 public class DataModelSerializationTest {
   @Test
   public void flagIsDeserializedWithAllProperties() {
-    String json0 = flagWithAllPropertiesJson().toJsonString();
-    FeatureFlag flag0 = (FeatureFlag)FEATURES.deserialize(json0).getItem();
-    assertFlagHasAllProperties(flag0);
-    
-    String json1 = FEATURES.serialize(new ItemDescriptor(flag0.getVersion(), flag0));
-    FeatureFlag flag1 = (FeatureFlag)FEATURES.deserialize(json1).getItem();
-    assertFlagHasAllProperties(flag1);
+    assertFlagFromJson(
+        flagWithAllPropertiesJson(),
+        flag -> {
+          assertFlagHasAllProperties(flag);
+
+          String json1 = FEATURES.serialize(new ItemDescriptor(flag.getVersion(), flag));
+          assertFlagFromJson(LDValue.parse(json1), flag1 -> assertFlagHasAllProperties(flag1));
+        });
   }
   
   @Test
   public void flagIsDeserializedWithMinimalProperties() {
-    String json = LDValue.buildObject().put("key", "flag-key").put("version", 99).build().toJsonString();
-    FeatureFlag flag = (FeatureFlag)FEATURES.deserialize(json).getItem();
-    assertEquals("flag-key", flag.getKey());
-    assertEquals(99, flag.getVersion());
-    assertFalse(flag.isOn());
-    assertNull(flag.getSalt());    
-    assertNotNull(flag.getTargets());
-    assertEquals(0, flag.getTargets().size());
-    assertNotNull(flag.getRules());
-    assertEquals(0, flag.getRules().size());
-    assertNull(flag.getFallthrough());
-    assertNull(flag.getOffVariation());
-    assertNotNull(flag.getVariations());
-    assertEquals(0, flag.getVariations().size());
-    assertFalse(flag.isClientSide());
-    assertFalse(flag.isTrackEvents());
-    assertFalse(flag.isTrackEventsFallthrough());
-    assertNull(flag.getDebugEventsUntilDate());
+    assertFlagFromJson(
+        LDValue.buildObject().put("key", "flag-key").put("version", 99).build(),
+        flag -> {
+          assertEquals("flag-key", flag.getKey());
+          assertEquals(99, flag.getVersion());
+          assertFalse(flag.isOn());
+          assertNull(flag.getSalt());    
+          assertNotNull(flag.getTargets());
+          assertEquals(0, flag.getTargets().size());
+          assertNotNull(flag.getRules());
+          assertEquals(0, flag.getRules().size());
+          assertNull(flag.getFallthrough());
+          assertNull(flag.getOffVariation());
+          assertNotNull(flag.getVariations());
+          assertEquals(0, flag.getVariations().size());
+          assertFalse(flag.isClientSide());
+          assertFalse(flag.isTrackEvents());
+          assertFalse(flag.isTrackEventsFallthrough());
+          assertNull(flag.getDebugEventsUntilDate());
+        });
   }
   
   @Test
@@ -107,6 +116,147 @@ public class DataModelSerializationTest {
     
     String json1 = SEGMENTS.serialize(item);
     assertEquals(LDValue.parse(json0), LDValue.parse(json1));
+  }
+  
+  @Test
+  public void explicitNullsAreToleratedForNullableValues() {
+    // Nulls are not *always* valid-- it is OK to raise a deserialization error if a null appears
+    // where a non-nullable primitive type like boolean is expected, so for instance "version":null
+    // is invalid. But for anything that is optional, an explicit null is equivalent to omitting
+    // the property. Note: it would be nice to use Optional<T> for things like this, but we can't
+    // do it because Gson does not play well with Optional.
+    assertFlagFromJson(
+        baseBuilder("flag-key").put("offVariation", LDValue.ofNull()).build(),
+        flag -> assertNull(flag.getOffVariation())
+        );
+    assertFlagFromJson(
+        baseBuilder("flag-key")
+          .put("fallthrough", LDValue.buildObject().put("rollout", LDValue.ofNull()).build())
+          .build(),
+        flag -> assertNull(flag.getFallthrough().getRollout())
+        );
+    assertFlagFromJson(
+        baseBuilder("flag-key")
+          .put("fallthrough", LDValue.buildObject().put("variation", LDValue.ofNull()).build())
+          .build(),
+        flag -> assertNull(flag.getFallthrough().getVariation())
+        );
+
+    // Nulls for list values should always be considered equivalent to an empty list, because
+    // that's how Go would serialize a nil slice
+    assertFlagFromJson(
+        baseBuilder("flag-key").put("prerequisites", LDValue.ofNull()).build(),
+        flag -> assertEquals(Collections.<Prerequisite>emptyList(), flag.getPrerequisites())
+        );
+    assertFlagFromJson(
+        baseBuilder("flag-key").put("rules", LDValue.ofNull()).build(),
+        flag -> assertEquals(Collections.<Rule>emptyList(), flag.getRules())
+        );
+    assertFlagFromJson(
+        baseBuilder("flag-key").put("targets", LDValue.ofNull()).build(),
+        flag -> assertEquals(Collections.<Target>emptyList(), flag.getTargets())
+        );
+    assertFlagFromJson(
+        baseBuilder("flag-key")
+          .put("rules", LDValue.arrayOf(
+              LDValue.buildObject().put("clauses", LDValue.ofNull()).build()
+              ))
+          .build(),
+        flag -> assertEquals(Collections.<Clause>emptyList(), flag.getRules().get(0).getClauses())
+        );
+    assertFlagFromJson(
+        baseBuilder("flag-key")
+          .put("rules", LDValue.arrayOf(
+              LDValue.buildObject().put("clauses", LDValue.arrayOf(
+                  LDValue.buildObject().put("values", LDValue.ofNull()).build()
+                  )).build()
+              ))
+          .build(),
+        flag -> assertEquals(Collections.<LDValue>emptyList(),
+            flag.getRules().get(0).getClauses().get(0).getValues())
+        );
+    assertFlagFromJson(
+        baseBuilder("flag-key")
+          .put("targets", LDValue.arrayOf(
+              LDValue.buildObject().put("values", LDValue.ofNull()).build()
+              ))
+          .build(),
+        flag -> assertEquals(Collections.<String>emptySet(), flag.getTargets().get(0).getValues())
+        );
+    assertFlagFromJson(
+        baseBuilder("flag-key")
+          .put("fallthrough", LDValue.buildObject().put("rollout",
+              LDValue.buildObject().put("variations", LDValue.ofNull()).build()
+             ).build())
+          .build(),
+        flag -> assertEquals(Collections.<WeightedVariation>emptyList(),
+            flag.getFallthrough().getRollout().getVariations())
+        );
+    assertSegmentFromJson(
+        baseBuilder("segment-key").put("rules", LDValue.ofNull()).build(),
+        segment -> assertEquals(Collections.<SegmentRule>emptyList(), segment.getRules())
+        );
+    assertSegmentFromJson(
+        baseBuilder("segment-key")
+          .put("rules", LDValue.arrayOf(
+              LDValue.buildObject().put("clauses", LDValue.ofNull()).build()
+              ))
+          .build(),
+        segment -> assertEquals(Collections.<Clause>emptyList(), segment.getRules().get(0).getClauses())
+        );
+    
+    // Nulls in clause values are not useful since the clause can never match, but they're valid JSON;
+    // we should normalize them to LDValue.ofNull() to avoid potential NPEs down the line
+    assertFlagFromJson(
+        baseBuilder("flag-key")
+          .put("rules", LDValue.arrayOf(
+              LDValue.buildObject()
+                .put("clauses", LDValue.arrayOf(
+                    LDValue.buildObject()
+                      .put("values", LDValue.arrayOf(LDValue.ofNull()))
+                      .build()
+                    ))
+                .build()
+              ))
+          .build(),
+        flag -> assertEquals(LDValue.ofNull(),
+            flag.getRules().get(0).getClauses().get(0).getValues().get(0))
+        );
+    assertSegmentFromJson(
+        baseBuilder("segment-key")
+          .put("rules", LDValue.arrayOf(
+              LDValue.buildObject()
+                .put("clauses", LDValue.arrayOf(
+                    LDValue.buildObject()
+                      .put("values", LDValue.arrayOf(LDValue.ofNull()))
+                      .build()
+                    ))
+                .build()
+              ))
+          .build(),
+          segment -> assertEquals(LDValue.ofNull(),
+              segment.getRules().get(0).getClauses().get(0).getValues().get(0))
+          );
+
+    // Similarly, null for a flag variation isn't a useful value but it is valid JSON
+    assertFlagFromJson(
+        baseBuilder("flagKey").put("variations", LDValue.arrayOf(LDValue.ofNull())).build(),
+        flag -> assertEquals(LDValue.ofNull(), flag.getVariations().get(0))
+        );
+  }
+  
+  private void assertFlagFromJson(LDValue flagJson, Consumer<FeatureFlag> action) {
+    FeatureFlag flag = (FeatureFlag)FEATURES.deserialize(flagJson.toJsonString()).getItem();
+    action.accept(flag);
+  }
+
+  private void assertSegmentFromJson(LDValue segmentJson, Consumer<Segment> action) {
+    Segment segment = (Segment)SEGMENTS.deserialize(segmentJson.toJsonString()).getItem();
+    action.accept(segment);
+  }
+  
+  private ObjectBuilder baseBuilder(String key) {
+    return LDValue.buildObject().put("key", key).put("version", 99);
   }
   
   private LDValue flagWithAllPropertiesJson() {
