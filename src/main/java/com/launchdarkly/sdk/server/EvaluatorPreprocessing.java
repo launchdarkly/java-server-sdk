@@ -61,6 +61,7 @@ abstract class EvaluatorPreprocessing {
     for (int i = 0; i < n; i++) {
       preprocessFlagRule(rules.get(i), i);
     }
+    preprocessValueList(f.getVariations());
   }
   
   static void preprocessSegment(Segment s) {
@@ -92,6 +93,13 @@ abstract class EvaluatorPreprocessing {
   }
   
   static void preprocessClause(Clause c) {
+    // If the clause values contain a null (which is valid in terms of the JSON schema, even if it
+    // can't ever produce a true result), Gson will give us an actual null. Change this to
+    // LDValue.ofNull() to avoid NPEs down the line. It's more efficient to do this just once at
+    // deserialization time than to do it in every clause match.
+    List<LDValue> values = c.getValues();
+    preprocessValueList(values);
+    
     Operator op = c.getOp();
     if (op == null) {
       return;
@@ -102,7 +110,6 @@ abstract class EvaluatorPreprocessing {
       // clause values. Converting the value list to a Set allows us to do a fast lookup instead of
       // a linear search. We do not do this for other operators (or if there are fewer than two
       // values) because the slight extra overhead of a Set is not worthwhile in those case.
-      List<LDValue> values = c.getValues();
       if (values.size() > 1) {
         c.setPreprocessed(new ClauseExtra(ImmutableSet.copyOf(values), null));
       }
@@ -127,6 +134,18 @@ abstract class EvaluatorPreprocessing {
       break;
     default:
       break;
+    }
+  }
+  
+  static void preprocessValueList(List<LDValue> values) {
+    // If a list of values contains a null (which is valid in terms of the JSON schema, even if it
+    // isn't useful because the SDK considers this a non-value), Gson will give us an actual null.
+    // Change this to LDValue.ofNull() to avoid NPEs down the line. It's more efficient to do this
+    // just once at deserialization time than to do it in every clause match.
+    for (int i = 0; i < values.size(); i++) {
+      if (values.get(i) == null) {
+        values.set(i, LDValue.ofNull());
+      }
     }
   }
   

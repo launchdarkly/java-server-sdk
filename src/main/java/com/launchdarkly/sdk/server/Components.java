@@ -204,9 +204,6 @@ public abstract class Components {
    *         .dataStore(Components.persistentDataStore(Redis.dataStore())) // assuming the Relay Proxy is using Redis
    *         .build();
    * </code></pre>
-   * <p>
-   * (Note that the interface is still named {@link DataSourceFactory}, but in a future version it
-   * will be renamed to {@code DataSourceFactory}.)
    * 
    * @return a factory object
    * @since 4.12.0
