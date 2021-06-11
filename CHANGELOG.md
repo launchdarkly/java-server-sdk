@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.4.1] - 2021-06-10
+### Fixed:
+- If a rule clause in a feature flag or user segment had a JSON `null` as a match value, the SDK would fail to parse the JSON data, causing an overall inability to receive flag data from LaunchDarkly as long as this condition existed. This is an abnormal condition since it is not possible to match any user attribute against a null value, but it is technically allowed by the JSON schema. The SDK will now correctly parse the data.
+
 ## [5.4.0] - 2021-04-22
 ### Added:
 - Added the `alias` method to `LDClient`. This can be used to associate two user objects for analytics purposes with an alias event.
