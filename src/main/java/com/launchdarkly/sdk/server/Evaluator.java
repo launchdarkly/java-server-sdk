@@ -6,6 +6,8 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
+import com.launchdarkly.sdk.EvaluationReason.Kind;
+import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
 import org.slf4j.Logger;
@@ -15,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
+import static com.launchdarkly.sdk.server.EvaluatorBucketing.bucketUser;
 
 /**
  * Encapsulates the feature flag evaluation logic. The Evaluator has no knowledge of the rest of the SDK environment;
@@ -221,13 +224,52 @@ class Evaluator {
   }
   
   private EvalResult getValueForVariationOrRollout(DataModel.FeatureFlag flag, DataModel.VariationOrRollout vr, LDUser user, EvaluationReason reason) {
-    Integer index = EvaluatorBucketing.variationIndexForUser(vr, user, flag.getKey(), flag.getSalt());
-    if (index == null) {
+    int variation = -1;
+    boolean inExperiment = false;
+    Integer maybeVariation = vr.getVariation();
+    if (maybeVariation != null) {
+      variation = maybeVariation.intValue();
+    } else {
+      DataModel.Rollout rollout = vr.getRollout();
+      if (rollout != null && !rollout.getVariations().isEmpty()) {
+        float bucket = bucketUser(rollout.getSeed(), user, flag.getKey(), rollout.getBucketBy(), flag.getSalt());
+        float sum = 0F;
+        for (DataModel.WeightedVariation wv : rollout.getVariations()) {
+          sum += (float) wv.getWeight() / 100000F;
+          if (bucket < sum) {
+            variation = wv.getVariation();
+            inExperiment = vr.getRollout().isExperiment() && !wv.isUntracked();
+            break;
+          }
+        }
+        if (variation < 0) {
+          // The user's bucket value was greater than or equal to the end of the last bucket. This could happen due
+          // to a rounding error, or due to the fact that we are scaling to 100000 rather than 99999, or the flag
+          // data could contain buckets that don't actually add up to 100000. Rather than returning an error in
+          // this case (or changing the scaling, which would potentially change the results for *all* users), we
+          // will simply put the user in the last bucket.
+          WeightedVariation lastVariation = rollout.getVariations().get(rollout.getVariations().size() - 1);
+          variation = lastVariation.getVariation();
+          inExperiment = vr.getRollout().isExperiment() && !lastVariation.isUntracked();
+        }
+      }
+    }
+    
+    if (variation < 0) {
       logger.error("Data inconsistency in feature flag \"{}\": variation/rollout object with no variation or rollout", flag.getKey());
       return EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG); 
     } else {
-      return getVariation(flag, index, reason);
+      return getVariation(flag, variation, inExperiment ? experimentize(reason) : reason);
     }
+  }
+
+  private EvaluationReason experimentize(EvaluationReason reason) {
+    if (reason.getKind() == Kind.FALLTHROUGH) {
+      return EvaluationReason.fallthrough(true);
+    } else if (reason.getKind() == Kind.RULE_MATCH) {
+     return EvaluationReason.ruleMatch(reason.getRuleIndex(), reason.getRuleId(), true);
+    }
+    return reason;
   }
 
   private boolean ruleMatchesUser(DataModel.FeatureFlag flag, DataModel.Rule rule, LDUser user) {
@@ -344,7 +386,7 @@ class Evaluator {
     }
     
     // All of the clauses are met. See if the user buckets in
-    double bucket = EvaluatorBucketing.bucketUser(user, segmentKey, segmentRule.getBucketBy(), salt);
+    double bucket = EvaluatorBucketing.bucketUser(null, user, segmentKey, segmentRule.getBucketBy(), salt);
     double weight = (double)segmentRule.getWeight() / 100000.0;
     return bucket < weight;
   }
