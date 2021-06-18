@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 
 import java.util.ArrayList;
@@ -76,7 +77,7 @@ public abstract class ModelBuilders {
   }
   
   public static DataModel.Rollout emptyRollout() {
-    return new DataModel.Rollout(ImmutableList.<DataModel.WeightedVariation>of(), null);
+    return new DataModel.Rollout(ImmutableList.<DataModel.WeightedVariation>of(), null, RolloutKind.rollout);
   }
   
   public static SegmentBuilder segmentBuilder(String key) {
@@ -164,6 +165,11 @@ public abstract class ModelBuilders {
       return this;
     }
     
+    FlagBuilder fallthrough(DataModel.Rollout rollout) {
+      this.fallthrough = new DataModel.VariationOrRollout(null, rollout);
+      return this;
+    }
+    
     FlagBuilder fallthrough(DataModel.VariationOrRollout fallthrough) {
       this.fallthrough = fallthrough;
       return this;
@@ -185,6 +191,14 @@ public abstract class ModelBuilders {
         values.add(LDValue.of(v));
       }
       this.variations = values;
+      return this;
+    }
+    
+    FlagBuilder generatedVariations(int numVariations) {
+      variations.clear();
+      for (int i = 0; i < numVariations; i++) {
+        variations.add(LDValue.of(i));
+      }
       return this;
     }
     

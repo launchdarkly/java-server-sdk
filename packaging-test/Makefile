@@ -67,7 +67,7 @@ clean:
 # SECONDEXPANSION is needed so we can use "$@" inside a variable in the prerequisite list of the test targets
 .SECONDEXPANSION:
 
-test-all-jar test-default-jar test-thin-jar: $$@-classes get-sdk-dependencies $$(RUN_JARS_$$@) $(TEST_APP_JAR) $(FELIX_DIR)
+test-all-jar test-default-jar test-thin-jar: $$@-classes $(TEST_APP_JAR) get-sdk-dependencies $$(RUN_JARS_$$@) $(FELIX_DIR)
 	@$(call caption,$@)
 	@./run-non-osgi-test.sh $(RUN_JARS_$@)
 	@./run-osgi-test.sh $(RUN_JARS_$@)
@@ -113,6 +113,7 @@ $(SDK_THIN_JAR):
 	cd .. && ./gradlew jar
 
 $(TEST_APP_JAR): $(SDK_THIN_JAR) $(TEST_APP_SOURCES) | $(TEMP_DIR)
+	mkdir -p $(TEMP_DIR)/dependencies-app
 	cd test-app && ../../gradlew jar
 	cp $(BASE_DIR)/test-app/build/libs/test-app-*.jar $@
 
@@ -121,6 +122,7 @@ get-sdk-dependencies: $(TEMP_DIR)/dependencies-all $(TEMP_DIR)/dependencies-exte
 $(TEMP_DIR)/dependencies-all: | $(TEMP_DIR)
 	[ -d $@ ] || mkdir -p $@
 	cd .. && ./gradlew exportDependencies
+	cp $(TEMP_DIR)/dependencies-app/*.jar $@
 
 $(TEMP_DIR)/dependencies-external: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@
@@ -132,6 +134,7 @@ $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@
 	cp $(TEMP_DIR)/dependencies-all/*.jar $@
 	rm $@/slf4j*.jar
+	rm $@/jackson*.jar
 
 $(FELIX_JAR): $(FELIX_DIR)
 

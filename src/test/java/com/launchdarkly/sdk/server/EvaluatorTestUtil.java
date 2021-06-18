@@ -1,8 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.Evaluator;
-
 @SuppressWarnings("javadoc")
 public abstract class EvaluatorTestUtil {
   public static Evaluator BASE_EVALUATOR = evaluatorBuilder().build();

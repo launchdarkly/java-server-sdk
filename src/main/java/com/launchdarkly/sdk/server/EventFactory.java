@@ -5,6 +5,7 @@ import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.Event.Custom;
 import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
@@ -210,6 +211,11 @@ abstract class EventFactory {
       // doesn't happen in real life, but possible in testing
       return false;
     }
+
+    // If the reason says we're in an experiment, we are. Otherwise, apply
+    // the legacy rule exclusion logic.
+    if (reason.isInExperiment()) return true;
+    
     switch (reason.getKind()) { 
     case FALLTHROUGH:
       return flag.isTrackEventsFallthrough();
