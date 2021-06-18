@@ -83,6 +83,16 @@ ext.versions = [
 // Add dependencies to "libraries.internal" that are not exposed in our public API. These
 // will be completely omitted from the "thin" jar, and will be embedded with shaded names
 // in the other two SDK jars.
+//
+// Note that Gson is included here but Jackson is not, even though there is some Jackson
+// helper code in java-sdk-common. The reason is that the SDK always needs to use Gson for
+// its own usual business, so (except in the "thin" jar) we will be embedding a shaded
+// copy of Gson; but we do not use Jackson normally, we just provide those helpers for use
+// by applications that are already using Jackson. So we do not want to embed it and we do
+// not want it to show up as a dependency at all in our pom (and it's been excluded from
+// the launchdarkly-java-sdk-common pom for the same reason). However, we do include
+// Jackson in "libraries.optional" because we need to generate OSGi optional import
+// headers for it.
 libraries.internal = [
     "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}",
     "commons-codec:commons-codec:${versions.commonsCodec}",
@@ -96,7 +106,15 @@ libraries.internal = [
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have
 // global state that must be shared between the SDK and the caller.
 libraries.external = [
-    "org.slf4j:slf4j-api:${versions.slf4j}",
+    "org.slf4j:slf4j-api:${versions.slf4j}"
+]
+
+// Add dependencies to "libraries.optional" that are not exposed in our public API and are
+// *not* embedded in the SDK jar. These are for optional things that will only work if
+// they are already in the application classpath; we do not want show them as a dependency
+// because that would cause them to be pulled in automatically in all builds. The reason
+// we need to even mention them here at all is for the sake of OSGi optional import headers.
+libraries.optional = [
     "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
     "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
 ]
@@ -114,24 +132,29 @@ libraries.test = [
     "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
 ]
 
+configurations {
+    // We need to define "internal" as a custom configuration that contains the same things as
+    // "implementation", because "implementation" has special behavior in Gradle that prevents us
+    // from referencing it the way we do in shadeDependencies().
+    internal.extendsFrom implementation
+    optional
+    imports
+}
+
 dependencies {
     implementation libraries.internal
     api libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
+    optional libraries.optional
 
     commonClasses "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}"
     commonDoc "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}:sources"
 
     // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
     // should *not* be shaded by the Shadow plugin when we build our shaded jars.
-    shadow libraries.external
-}
+    shadow libraries.external, libraries.optional
 
-configurations {
-    // We need to define "internal" as a custom configuration that contains the same things as
-    // "implementation", because "implementation" has special behavior in Gradle that prevents us
-    // from referencing it the way we do in shadeDependencies().
-    internal.extendsFrom implementation
+    imports libraries.external
 }
 
 checkstyle {
@@ -171,7 +194,6 @@ shadowJar {
 
     dependencies {
         exclude(dependency('org.slf4j:.*:.*'))
-        exclude(dependency('com.fasterxml.jackson.core:.*:.*'))
     }
 
     // Kotlin metadata for shaded classes should not be included - it confuses IDEs
@@ -185,7 +207,7 @@ shadowJar {
         shadeDependencies(project.tasks.shadowJar)
         // Note that "configurations.shadow" is the same as "libraries.external", except it contains
         // objects with detailed information about the resolved dependencies.
-        addOsgiManifest(project.tasks.shadowJar, [ project.configurations.shadow ], [])
+        addOsgiManifest(project.tasks.shadowJar, [ project.configurations.imports ], [])
     }
 
     doLast {
@@ -208,17 +230,17 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     exclude '**/*.kotlin_builtins'
 
     dependencies {
-        exclude(dependency('com.fasterxml.jackson.core:.*:.*'))
+        // Currently we don't need to exclude anything - SLF4J will be embedded, unshaded
     }
 
     // doFirst causes the following steps to be run during Gradle's execution phase rather than the
     // configuration phase; this is necessary because they access the build products
     doFirst {
         shadeDependencies(project.tasks.shadowJarAll)
-        // The "all" jar exposes its bundled Gson and SLF4j dependencies as exports - but, like the
-        // default jar, it *also* imports them ("self-wiring"), which allows the bundle to use a
+        // The "all" jar exposes its bundled SLF4j dependency as an export - but, like the
+        // default jar, it *also* imports it ("self-wiring"), which allows the bundle to use a
         // higher version if one is provided by another bundle.
-        addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.shadow ], [ project.configurations.shadow ])
+        addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.imports ], [ project.configurations.imports ])
     }
 
     doLast {
@@ -370,14 +392,18 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
         // Since we're not currently able to use bnd or the Gradle OSGi plugin, we're not discovering
         // imports by looking at the actual code; instead, we're just importing whatever packages each
         // dependency is exporting (if it has an OSGi manifest) or every package in the dependency (if
-        // it doesn't). We also always add *optional* imports for Gson, so that GsonTypeAdapters will
-        // work *if* Gson is present externally.
+        // it doesn't).
         def imports = forEachArtifactAndVisiblePackage(importConfigs, { a, p ->
             bundleImport(p, a.moduleVersion.id.version, nextMajorVersion(a.moduleVersion.id.version))
         }) + systemPackageImports
-        imports += "com.google.gson;resolution:=optional"	
-        	imports += "com.google.gson.reflect;resolution:=optional"
-        	imports += "com.google.gson.stream;resolution:=optional"
+
+        // We also always add *optional* imports for Gson and Jackson, so that GsonTypeAdapters and
+        // JacksonTypeAdapters will work *if* Gson or Jackson is present externally. Currently we
+        // are hard-coding the Gson packages but there is probably a better way.
+        def optImports = [ "com.google.gson", "com.google.gson.reflect", "com.google.gson.stream" ]
+        forEachArtifactAndVisiblePackage([ configurations.optional ]) { a, p -> optImports += p }
+        imports += (optImports.join(";") + ";resolution:=optional" )
+
         attributes("Import-Package": imports.join(","))
 
         // Similarly, we're adding package exports for every package in whatever libraries we're
@@ -391,9 +417,7 @@ def addOsgiManifest(jarTask, List<Configuration> importConfigs, List<Configurati
 }
 
 def bundleImport(packageName, importVersion, versionLimit) {
-    def optional = packageName.startsWith("com.fasterxml.jackson")
-    packageName + ";version=\"[" + importVersion + "," + versionLimit + ")\"" +
-        (optional ? ";resolution:=optional" : "")
+    packageName + ";version=\"[" + importVersion + "," + versionLimit + ")\""
 }
 
 def bundleExport(packageName, exportVersion) {

@@ -41,6 +41,11 @@ dependencies {
     osgiRuntime "org.slf4j:slf4j-simple:1.7.22"
 }
 
+task exportDependencies(type: Copy, dependsOn: compileJava) {
+    into "../temp/dependencies-app"
+    from configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts.collect { it.file }
+}
+
 jar {
     bnd(
         // This consumer-policy directive completely turns off version checking for the test app's
@@ -57,6 +62,8 @@ jar {
             ',com.google.gson;resolution:=optional' +
             ',com.fasterxml.jackson.*;resolution:=optional'
     )
+
+    finalizedBy(exportDependencies)
 }
 
 runOsgi {
