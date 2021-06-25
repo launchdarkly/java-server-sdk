@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.5.1] - 2021-06-24
+### Fixed:
+- The SDK was attempting to reconnect to the LaunchDarkly streaming service even if it received an HTTP 401 error. It should reconnect for other errors such as 503, but 401 indicates that the SDK key is invalid and a retry cannot succeed; the SDK did have logic to permanently stop the connection in this case, but it was not working.
+
 ## [5.5.0] - 2021-06-17
 ### Added:
 - The SDK now supports the ability to control the proportion of traffic allocation to an experiment. This works in conjunction with a new platform feature now available to early access customers.
