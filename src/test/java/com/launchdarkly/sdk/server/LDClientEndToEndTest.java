@@ -4,10 +4,14 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 
 import org.junit.Test;
 
 import java.net.URI;
+import java.time.Duration;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.launchdarkly.sdk.server.Components.externalUpdatesOnly;
 import static com.launchdarkly.sdk.server.Components.noEvents;
@@ -113,18 +117,53 @@ public class LDClientEndToEndTest {
   }
 
   @Test
-  public void clientFailsInStreamingModeWith401Error() throws Exception {
-    MockResponse resp = new MockResponse().setResponseCode(401);
+  public void clientStartsInStreamingModeAfterRecoverableError() throws Exception {
+    MockResponse errorResp = new MockResponse().setResponseCode(503);
+
+    String streamData = "event: put\n" +
+        "data: {\"data\":" + makeAllDataJson() + "}\n\n";    
+    MockResponse streamResp = TestHttpUtil.eventStreamResponse(streamData);
     
-    try (MockWebServer server = makeStartedServer(resp)) {
+    try (MockWebServer server = makeStartedServer(errorResp, streamResp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(baseStreamingConfig(server))
           .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.isInitialized());
+        assertTrue(client.boolVariation(flagKey, user, false));
+      }
+    }
+  }
+
+  @Test
+  public void clientFailsInStreamingModeWith401Error() throws Exception {
+    MockResponse resp = new MockResponse().setResponseCode(401);
+    
+    try (MockWebServer server = makeStartedServer(resp, resp, resp)) {
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(baseStreamingConfig(server).initialReconnectDelay(Duration.ZERO))
+          .events(noEvents())
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
         assertFalse(client.isInitialized());
         assertFalse(client.boolVariation(flagKey, user, false));
+        
+        BlockingQueue<DataSourceStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+        client.getDataSourceStatusProvider().addStatusListener(statuses::add);
+
+        Thread.sleep(100); // make sure it didn't retry the connection
+        assertThat(client.getDataSourceStatusProvider().getStatus().getState(),
+            equalTo(DataSourceStatusProvider.State.OFF));
+        while (!statuses.isEmpty()) {
+          // The status listener may or may not have been registered early enough to receive
+          // the OFF notification, but we should at least not see any *other* statuses.
+          assertThat(statuses.take().getState(), equalTo(DataSourceStatusProvider.State.OFF)); 
+        }
+        assertThat(statuses.isEmpty(), equalTo(true));
+        assertThat(server.getRequestCount(), equalTo(1)); // no retries
       }
     }
   }
