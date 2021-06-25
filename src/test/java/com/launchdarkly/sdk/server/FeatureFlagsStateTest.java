@@ -29,85 +29,78 @@ import static org.junit.Assert.assertNull;
 public class FeatureFlagsStateTest {
   @Test
   public void canGetFlagValue() {
-    Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value"), 1, EvaluationReason.off());
-    DataModel.FeatureFlag flag = flagBuilder("key").build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
+    FeatureFlagsState state = FeatureFlagsState.builder()
+        .add("key", LDValue.of("value"), 1, null, 10, false, null)
+        .build();
     
     assertEquals(LDValue.of("value"), state.getFlagValue("key"));
   }
   
   @Test
   public void unknownFlagReturnsNullValue() {
-    FeatureFlagsState state = new FeatureFlagsState.Builder().build();
+    FeatureFlagsState state = FeatureFlagsState.builder().build();
     
     assertNull(state.getFlagValue("key"));
   }
 
   @Test
   public void canGetFlagReason() {
-    Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
-    DataModel.FeatureFlag flag = flagBuilder("key").build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
-        .addFlag(flag, eval).build();
+    FeatureFlagsState state = FeatureFlagsState.builder(WITH_REASONS)
+        .add("key", LDValue.of("value"), 1, EvaluationReason.off(), 10, false, null)
+        .build();
     
     assertEquals(EvaluationReason.off(), state.getFlagReason("key"));
   }
 
   @Test
   public void unknownFlagReturnsNullReason() {
-    FeatureFlagsState state = new FeatureFlagsState.Builder().build();
+    FeatureFlagsState state = FeatureFlagsState.builder().build();
     
     assertNull(state.getFlagReason("key"));
   }
 
   @Test
   public void reasonIsNullIfReasonsWereNotRecorded() {
-    Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
-    DataModel.FeatureFlag flag = flagBuilder("key").build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
+    FeatureFlagsState state = FeatureFlagsState.builder()
+        .add("key", LDValue.of("value"), 1, EvaluationReason.off(), 10, false, null)
+        .build();
     
     assertNull(state.getFlagReason("key"));
   }
 
   @Test
   public void flagIsTreatedAsTrackedIfDebugEventsUntilDateIsInFuture() {
-    Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
-    DataModel.FeatureFlag flag = flagBuilder("key").debugEventsUntilDate(System.currentTimeMillis() + 1000000).build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder(
-        FlagsStateOption.WITH_REASONS, DETAILS_ONLY_FOR_TRACKED_FLAGS
-        ).addFlag(flag, eval).build();
+    FeatureFlagsState state = FeatureFlagsState.builder(WITH_REASONS, DETAILS_ONLY_FOR_TRACKED_FLAGS)
+        .add("key", LDValue.of("value"), 1, EvaluationReason.off(), 10, false, System.currentTimeMillis() + 1000000)
+        .build();
     
     assertNotNull(state.getFlagReason("key"));
   }
 
   @Test
   public void flagIsNotTreatedAsTrackedIfDebugEventsUntilDateIsInPast() {
-    Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
-    DataModel.FeatureFlag flag = flagBuilder("key").debugEventsUntilDate(System.currentTimeMillis() - 1000000).build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder(
-        FlagsStateOption.WITH_REASONS, DETAILS_ONLY_FOR_TRACKED_FLAGS
-        ).addFlag(flag, eval).build();
+    FeatureFlagsState state = FeatureFlagsState.builder(WITH_REASONS, DETAILS_ONLY_FOR_TRACKED_FLAGS)
+        .add("key", LDValue.of("value"), 1, EvaluationReason.off(), 10, false, System.currentTimeMillis() - 1000000)
+        .build();
     
     assertNull(state.getFlagReason("key"));
   }
   
   @Test
   public void flagCanHaveNullValue() {
-    Evaluator.EvalResult eval = new Evaluator.EvalResult(LDValue.ofNull(), 1, null);
-    DataModel.FeatureFlag flag = flagBuilder("key").build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder().addFlag(flag, eval).build();
+    FeatureFlagsState state = FeatureFlagsState.builder()
+        .add("key", LDValue.ofNull(), 1, null, 10, false, null)
+        .build();
     
     assertEquals(LDValue.ofNull(), state.getFlagValue("key"));
   }
 
   @Test
   public void canConvertToValuesMap() {
-    Evaluator.EvalResult eval1 = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
-    DataModel.FeatureFlag flag1 = flagBuilder("key1").build();
-    Evaluator.EvalResult eval2 = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
-    DataModel.FeatureFlag flag2 = flagBuilder("key2").build();
-    FeatureFlagsState state = new FeatureFlagsState.Builder()
-        .addFlag(flag1, eval1).addFlag(flag2, eval2).build();
+    FeatureFlagsState state = FeatureFlagsState.builder()
+        .add("key1", LDValue.of("value1"), 0, null, 10, false, null)
+        .add("key2", LDValue.of("value2"), 1, null, 10, false, null)
+        .build();
     
     ImmutableMap<String, LDValue> expected = ImmutableMap.<String, LDValue>of("key1", LDValue.of("value1"), "key2", LDValue.of("value2"));
     assertEquals(expected, state.toValuesMap());
@@ -115,24 +108,23 @@ public class FeatureFlagsStateTest {
   
   @Test
   public void equalInstancesAreEqual() {
-    DataModel.FeatureFlag flag1 = flagBuilder("key1").build();
-    DataModel.FeatureFlag flag2 = flagBuilder("key2").build();
-    Evaluator.EvalResult eval1a = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
-    Evaluator.EvalResult eval1b = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
-    Evaluator.EvalResult eval2a = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
-    Evaluator.EvalResult eval2b = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
-    Evaluator.EvalResult eval3a = new Evaluator.EvalResult(LDValue.of("value1"), 1, EvaluationReason.off());
-    
-    FeatureFlagsState justOneFlag = new FeatureFlagsState.Builder()
-        .addFlag(flag1, eval1a).build();
-    FeatureFlagsState sameFlagsDifferentInstances1 = new FeatureFlagsState.Builder(WITH_REASONS)
-        .addFlag(flag1, eval1a).addFlag(flag2, eval2a).build();
-    FeatureFlagsState sameFlagsDifferentInstances2 = new FeatureFlagsState.Builder(WITH_REASONS)
-        .addFlag(flag2, eval2b).addFlag(flag1, eval1b).build();
-    FeatureFlagsState sameFlagsDifferentMetadata = new FeatureFlagsState.Builder(WITH_REASONS)
-        .addFlag(flag1, eval3a).addFlag(flag2, eval2a).build();
-    FeatureFlagsState noFlagsButValid = new FeatureFlagsState.Builder(WITH_REASONS).build();
-    FeatureFlagsState noFlagsAndNotValid = new FeatureFlagsState.Builder(WITH_REASONS).valid(false).build();
+    FeatureFlagsState justOneFlag = FeatureFlagsState.builder(WITH_REASONS)
+        .add("key1", LDValue.of("value1"), 0, EvaluationReason.off(), 10, false, null)
+        .build();
+    FeatureFlagsState sameFlagsDifferentInstances1 = FeatureFlagsState.builder(WITH_REASONS)
+        .add("key1", LDValue.of("value1"), 0, EvaluationReason.off(), 10, false, null)
+        .add("key2", LDValue.of("value2"), 1, EvaluationReason.fallthrough(), 10, false, null)
+        .build();
+    FeatureFlagsState sameFlagsDifferentInstances2 = FeatureFlagsState.builder(WITH_REASONS)
+        .add("key1", LDValue.of("value1"), 0, EvaluationReason.off(), 10, false, null)
+        .add("key2", LDValue.of("value2"), 1, EvaluationReason.fallthrough(), 10, false, null)
+        .build();
+    FeatureFlagsState sameFlagsDifferentMetadata = FeatureFlagsState.builder(WITH_REASONS)
+        .add("key1", LDValue.of("value1"), 1, EvaluationReason.off(), 10, false, null)
+        .add("key2", LDValue.of("value2"), 1, EvaluationReason.fallthrough(), 10, false, null)
+        .build();
+    FeatureFlagsState noFlagsButValid = FeatureFlagsState.builder(WITH_REASONS).build();
+    FeatureFlagsState noFlagsAndNotValid = FeatureFlagsState.builder(WITH_REASONS).valid(false).build();
     
     assertEquals(sameFlagsDifferentInstances1, sameFlagsDifferentInstances2);
     assertEquals(sameFlagsDifferentInstances1.hashCode(), sameFlagsDifferentInstances2.hashCode());
@@ -148,13 +140,15 @@ public class FeatureFlagsStateTest {
     // Testing this various cases is easier at a low level - equalInstancesAreEqual() above already
     // verifies that we test for metadata equality in general
     List<Supplier<FeatureFlagsState.FlagMetadata>> allPermutations = new ArrayList<>();
-    for (Integer variation: new Integer[] { null, 0, 1 }) {
-      for (EvaluationReason reason: new EvaluationReason[] { null, EvaluationReason.off(), EvaluationReason.fallthrough() }) {
-        for (Integer version: new Integer[] { null, 10, 11 }) {
-          for (boolean trackEvents: new boolean[] { false, true }) {
-            for (Long debugEventsUntilDate: new Long[] { null, 1000L, 1001L }) {
-              allPermutations.add(() -> new FeatureFlagsState.FlagMetadata(
-                  variation, reason, version, trackEvents, debugEventsUntilDate));
+    for (LDValue value: new LDValue[] { LDValue.of(1), LDValue.of(2) }) {
+      for (Integer variation: new Integer[] { null, 0, 1 }) {
+        for (EvaluationReason reason: new EvaluationReason[] { null, EvaluationReason.off(), EvaluationReason.fallthrough() }) {
+          for (Integer version: new Integer[] { null, 10, 11 }) {
+            for (boolean trackEvents: new boolean[] { false, true }) {
+              for (Long debugEventsUntilDate: new Long[] { null, 1000L, 1001L }) {
+                allPermutations.add(() -> new FeatureFlagsState.FlagMetadata(
+                    value, variation, reason, version, trackEvents, debugEventsUntilDate));
+              }
             }
           }
         }
@@ -189,7 +183,7 @@ public class FeatureFlagsStateTest {
     DataModel.FeatureFlag flag2 = flagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
     Evaluator.EvalResult eval3 = new Evaluator.EvalResult(LDValue.of("default"), NO_VARIATION, EvaluationReason.error(MALFORMED_FLAG));
     DataModel.FeatureFlag flag3 = flagBuilder("key3").version(300).build();
-    return new FeatureFlagsState.Builder(FlagsStateOption.WITH_REASONS)
+    return FeatureFlagsState.builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag1, eval1).addFlag(flag2, eval2).addFlag(flag3, eval3).build();
   }
   

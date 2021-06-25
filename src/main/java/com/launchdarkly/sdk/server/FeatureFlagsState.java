@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
@@ -10,7 +12,6 @@ import com.launchdarkly.sdk.json.JsonSerializable;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -36,19 +37,20 @@ import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
  */
 @JsonAdapter(FeatureFlagsState.JsonSerialization.class)
 public final class FeatureFlagsState implements JsonSerializable {
-  private final Map<String, LDValue> flagValues;
-  private final Map<String, FlagMetadata> flagMetadata;
+  private final ImmutableMap<String, FlagMetadata> flagMetadata;
   private final boolean valid;
     
   static class FlagMetadata {
+    final LDValue value;
     final Integer variation;
     final EvaluationReason reason;
     final Integer version;
     final Boolean trackEvents;
     final Long debugEventsUntilDate;
     
-    FlagMetadata(Integer variation, EvaluationReason reason, Integer version, boolean trackEvents,
-        Long debugEventsUntilDate) {
+    FlagMetadata(LDValue value, Integer variation, EvaluationReason reason, Integer version,
+        boolean trackEvents, Long debugEventsUntilDate) {
+      this.value = LDValue.normalize(value);
       this.variation = variation;
       this.reason = reason;
       this.version = version;
@@ -60,7 +62,8 @@ public final class FeatureFlagsState implements JsonSerializable {
     public boolean equals(Object other) {
       if (other instanceof FlagMetadata) {
         FlagMetadata o = (FlagMetadata)other;
-        return Objects.equals(variation, o.variation) &&
+        return value.equals(o.value) &&
+            Objects.equals(variation, o.variation) &&
             Objects.equals(reason, o.reason) &&
             Objects.equals(version, o.version) &&
             Objects.equals(trackEvents, o.trackEvents) &&
@@ -75,11 +78,25 @@ public final class FeatureFlagsState implements JsonSerializable {
     }
   }
   
-  private FeatureFlagsState(Map<String, LDValue> flagValues,
-      Map<String, FlagMetadata> flagMetadata, boolean valid) {
-    this.flagValues = Collections.unmodifiableMap(flagValues);
-    this.flagMetadata = Collections.unmodifiableMap(flagMetadata);
+  private FeatureFlagsState(ImmutableMap<String, FlagMetadata> flagMetadata, boolean valid) {
+    this.flagMetadata = flagMetadata;
     this.valid = valid;
+  }
+  
+  /**
+   * Returns a {@link Builder} for creating instances.
+   * <p>
+   * Application code will not normally use this builder, since the SDK creates its own instances.
+   * However, it may be useful in testing, to simulate values that might be returned by
+   * {@link LDClient#allFlagsState(com.launchdarkly.sdk.LDUser, FlagsStateOption...)}.
+   * 
+   * @param options the same {@link FlagsStateOption}s, if any, that would be passed to
+   *   {@link LDClient#allFlagsState(com.launchdarkly.sdk.LDUser, FlagsStateOption...)}
+   * @return a builder object
+   * @since 5.6.0
+   */
+  public static Builder builder(FlagsStateOption... options) {
+    return new Builder(options);
   }
   
   /**
@@ -98,7 +115,8 @@ public final class FeatureFlagsState implements JsonSerializable {
    *   {@code null} if there was no such flag
    */
   public LDValue getFlagValue(String key) {
-    return flagValues.get(key);
+    FlagMetadata data = flagMetadata.get(key);
+    return data == null ? null : data.value;
   }
 
   /**
@@ -115,20 +133,21 @@ public final class FeatureFlagsState implements JsonSerializable {
    * Returns a map of flag keys to flag values. If a flag would have evaluated to the default value,
    * its value will be null.
    * <p>
+   * The returned map is unmodifiable.
+   * <p>
    * Do not use this method if you are passing data to the front end to "bootstrap" the JavaScript client.
    * Instead, serialize the FeatureFlagsState object to JSON using {@code Gson.toJson()} or {@code Gson.toJsonTree()}.
    * @return an immutable map of flag keys to JSON values
    */
   public Map<String, LDValue> toValuesMap() {
-    return flagValues;
+    return Maps.transformValues(flagMetadata, v -> v.value);
   }
   
   @Override
   public boolean equals(Object other) {
     if (other instanceof FeatureFlagsState) {
       FeatureFlagsState o = (FeatureFlagsState)other;
-      return flagValues.equals(o.flagValues) &&
-          flagMetadata.equals(o.flagMetadata) &&
+      return flagMetadata.equals(o.flagMetadata) &&
           valid == o.valid;
     }
     return false;
@@ -136,43 +155,78 @@ public final class FeatureFlagsState implements JsonSerializable {
   
   @Override
   public int hashCode() {
-    return Objects.hash(flagValues, flagMetadata, valid);
+    return Objects.hash(flagMetadata, valid);
   }
   
-  static class Builder {
-    private Map<String, LDValue> flagValues = new HashMap<>();
-    private Map<String, FlagMetadata> flagMetadata = new HashMap<>();
+  /**
+   * A builder for a {@link FeatureFlagsState} instance.
+   * <p>
+   * Application code will not normally use this builder, since the SDK creates its own instances.
+   * However, it may be useful in testing, to simulate values that might be returned by
+   * {@link LDClient#allFlagsState(com.launchdarkly.sdk.LDUser, FlagsStateOption...)}.
+   *
+   * @since 5.6.0
+   */
+  public static class Builder {
+    private ImmutableMap.Builder<String, FlagMetadata> flagMetadata = ImmutableMap.builder();
     private final boolean saveReasons;
     private final boolean detailsOnlyForTrackedFlags;
     private boolean valid = true;
 
-    Builder(FlagsStateOption... options) {
+    private Builder(FlagsStateOption... options) {
       saveReasons = FlagsStateOption.hasOption(options, FlagsStateOption.WITH_REASONS);
       detailsOnlyForTrackedFlags = FlagsStateOption.hasOption(options, FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS);
     }
     
-    Builder valid(boolean valid) {
+    /**
+     * Sets the {@link FeatureFlagsState#isValid()} property. This is true by default.
+     * 
+     * @param valid the new property value
+     * @return the builder
+     */
+    public Builder valid(boolean valid) {
       this.valid = valid;
       return this;
     }
     
-    Builder addFlag(DataModel.FeatureFlag flag, Evaluator.EvalResult eval) {
-      flagValues.put(flag.getKey(), eval.getValue());
-      final boolean flagIsTracked = flag.isTrackEvents() ||
-          (flag.getDebugEventsUntilDate() != null && flag.getDebugEventsUntilDate() > System.currentTimeMillis());
+    public Builder add(
+        String flagKey,
+        LDValue value,
+        Integer variationIndex,
+        EvaluationReason reason,
+        int flagVersion,
+        boolean trackEvents,
+        Long debugEventsUntilDate
+        ) {
+      final boolean flagIsTracked = trackEvents ||
+          (debugEventsUntilDate != null && debugEventsUntilDate > System.currentTimeMillis());
       final boolean wantDetails = !detailsOnlyForTrackedFlags || flagIsTracked;
       FlagMetadata data = new FlagMetadata(
-          eval.isDefault() ? null : eval.getVariationIndex(),
-          (saveReasons && wantDetails) ? eval.getReason() : null,
-          wantDetails ? flag.getVersion() : null,
-          flag.isTrackEvents(),
-          flag.getDebugEventsUntilDate());
-      flagMetadata.put(flag.getKey(), data);
+          value,
+          variationIndex,
+          (saveReasons && wantDetails) ? reason : null,
+          wantDetails ? Integer.valueOf(flagVersion) : null,
+          trackEvents,
+          debugEventsUntilDate
+          );
+      flagMetadata.put(flagKey, data);
       return this;
     }
     
+    Builder addFlag(DataModel.FeatureFlag flag, Evaluator.EvalResult eval) {
+      return add(
+          flag.getKey(),
+          eval.getValue(),
+          eval.isDefault() ? null : eval.getVariationIndex(),
+          eval.getReason(),
+          flag.getVersion(),
+          flag.isTrackEvents(),
+          flag.getDebugEventsUntilDate()
+          );
+    }
+    
     FeatureFlagsState build() {
-      return new FeatureFlagsState(flagValues, flagMetadata, valid);
+      return new FeatureFlagsState(flagMetadata.build(), valid);
     }
   }
   
@@ -181,9 +235,9 @@ public final class FeatureFlagsState implements JsonSerializable {
     public void write(JsonWriter out, FeatureFlagsState state) throws IOException {
       out.beginObject();
       
-      for (Map.Entry<String, LDValue> entry: state.flagValues.entrySet()) {
+      for (Map.Entry<String, FlagMetadata> entry: state.flagMetadata.entrySet()) {
         out.name(entry.getKey());
-        gsonInstance().toJson(entry.getValue(), LDValue.class, out);
+        gsonInstance().toJson(entry.getValue().value, LDValue.class, out);
       }
       
       out.name("$flagsState");
@@ -229,7 +283,7 @@ public final class FeatureFlagsState implements JsonSerializable {
     @Override
     public FeatureFlagsState read(JsonReader in) throws IOException {
       Map<String, LDValue> flagValues = new HashMap<>();
-      Map<String, FlagMetadata> flagMetadata = new HashMap<>();
+      Map<String, FlagMetadata> flagMetadataWithoutValues = new HashMap<>();
       boolean valid = true;
       in.beginObject();
       while (in.hasNext()) {
@@ -239,7 +293,7 @@ public final class FeatureFlagsState implements JsonSerializable {
           while (in.hasNext()) {
             String metaName = in.nextName();
             FlagMetadata meta = gsonInstance().fromJson(in, FlagMetadata.class);
-            flagMetadata.put(metaName, meta);
+            flagMetadataWithoutValues.put(metaName, meta);
           }
           in.endObject();
         } else if (name.equals("$valid")) {
@@ -250,7 +304,22 @@ public final class FeatureFlagsState implements JsonSerializable {
         }
       }
       in.endObject();
-      return new FeatureFlagsState(flagValues, flagMetadata, valid);
+      ImmutableMap.Builder<String, FlagMetadata> allFlagMetadata = ImmutableMap.builder();
+      for (Map.Entry<String, LDValue> e: flagValues.entrySet()) {
+        FlagMetadata m0 = flagMetadataWithoutValues.get(e.getKey());
+        if (m0 != null) {
+          FlagMetadata m1 = new FlagMetadata(
+              e.getValue(),
+              m0.variation,
+              m0.reason,
+              m0.version,
+              m0.trackEvents != null && m0.trackEvents.booleanValue(),
+              m0.debugEventsUntilDate
+              );
+          allFlagMetadata.put(e.getKey(), m1);
+        }
+      }
+      return new FeatureFlagsState(allFlagMetadata.build(), valid);
     }
   }
 }

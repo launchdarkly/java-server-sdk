@@ -268,7 +268,7 @@ public final class LDClient implements LDClientInterface {
   
   @Override
   public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
-    FeatureFlagsState.Builder builder = new FeatureFlagsState.Builder(options);
+    FeatureFlagsState.Builder builder = FeatureFlagsState.builder(options);
     
     if (isOffline()) {
       Loggers.EVALUATION.debug("allFlagsState() was called when client is in offline mode.");
