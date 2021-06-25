@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import com.launchdarkly.sdk.server.LDConfig;
+
 /**
  * Integration between the LaunchDarkly SDK and file data.
  * <p>
@@ -56,8 +58,10 @@ public abstract class FileData {
    * <p>
    * This will cause the client <i>not</i> to connect to LaunchDarkly to get feature flags. The
    * client may still make network connections to send analytics events, unless you have disabled
-   * this with {@link com.launchdarkly.sdk.server.Components#noEvents()} or
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#offline(boolean)}.
+   * this with {@link com.launchdarkly.sdk.server.Components#noEvents()}. IMPORTANT: Do <i>not</i>
+   * set {@link LDConfig.Builder#offline(boolean)} to {@code true}; doing so would not just put the
+   * SDK "offline" with regard to LaunchDarkly, but will completely turn off all flag data sources
+   * to the SDK <i>including the file data source</i>.
    * <p>
    * Flag data files can be either JSON or YAML. They contain an object with three possible
    * properties:
