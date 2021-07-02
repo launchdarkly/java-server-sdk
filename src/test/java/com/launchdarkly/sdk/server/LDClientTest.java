@@ -37,6 +37,9 @@ import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.isA;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -81,6 +84,32 @@ public class LDClientTest extends EasyMockSupport {
     } catch (NullPointerException e) {
       assertEquals("sdkKey must not be null", e.getMessage());
     }
+  }
+
+  @Test
+  public void constructorThrowsExceptionForSdkKeyWithControlCharacter() throws Exception {
+    try (LDClient client = new LDClient(SDK_KEY + "\n")) {
+      fail("expected exception");
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getMessage(), not(containsString(SDK_KEY)));
+    }
+  }
+
+  @Test
+  public void constructorWithConfigThrowsExceptionForSdkKeyWithControlCharacter() throws Exception {
+    try (LDClient client = new LDClient(SDK_KEY + "\n", LDConfig.DEFAULT)) {
+      fail("expected exception");
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getMessage(), not(containsString(SDK_KEY)));
+    }
+  }
+
+  @Test
+  public void constructorAllowsSdkKeyToBeEmpty() throws Exception {
+    // It may seem counter-intuitive to allow this, but if someone is using the SDK in offline
+    // mode, or with a file data source or a test fixture, they may reasonably assume that it's
+    // OK to pass an empty string since the key won't actually be used.
+    try (LDClient client = new LDClient(SDK_KEY + "")) {}
   }
 
   @Test
