@@ -2,31 +2,23 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.testhelpers.httptest.Handler;
+import com.launchdarkly.testhelpers.httptest.Handlers;
+import com.launchdarkly.testhelpers.httptest.HttpServer;
+import com.launchdarkly.testhelpers.httptest.RequestInfo;
 
 import org.junit.Test;
 
 import java.net.URI;
 import java.util.Map;
 
-import javax.net.SocketFactory;
-import javax.net.ssl.SSLHandshakeException;
-
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestUtil.makeSocketFactorySingleHost;
-import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
-import static com.launchdarkly.sdk.server.TestHttpUtil.jsonResponse;
-import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
-
-import okhttp3.HttpUrl;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
 
 @SuppressWarnings("javadoc")
 public class DefaultFeatureRequestorTest {
@@ -39,15 +31,14 @@ public class DefaultFeatureRequestorTest {
   private static final String segmentsJson = "{\"" + segment1Key + "\":" + segment1Json + "}";
   private static final String allDataJson = "{\"flags\":" + flagsJson + ",\"segments\":" + segmentsJson + "}";
   
-  private DefaultFeatureRequestor makeRequestor(MockWebServer server) {
+  private DefaultFeatureRequestor makeRequestor(HttpServer server) {
     return makeRequestor(server, LDConfig.DEFAULT);
     // We can always use LDConfig.DEFAULT unless we need to modify HTTP properties, since DefaultFeatureRequestor
     // no longer uses the deprecated LDConfig.baseUri property. 
   }
 
-  private DefaultFeatureRequestor makeRequestor(MockWebServer server, LDConfig config) {
-    URI uri = server.url("/").uri();
-    return new DefaultFeatureRequestor(makeHttpConfig(config), uri);
+  private DefaultFeatureRequestor makeRequestor(HttpServer server, LDConfig config) {
+    return new DefaultFeatureRequestor(makeHttpConfig(config), server.getUri());
   }
 
   private HttpConfiguration makeHttpConfig(LDConfig config) {
@@ -66,13 +57,13 @@ public class DefaultFeatureRequestorTest {
   
   @Test
   public void requestAllData() throws Exception {
-    MockResponse resp = jsonResponse(allDataJson);
+    Handler resp = Handlers.bodyJson(allDataJson);
     
-    try (MockWebServer server = makeStartedServer(resp)) {
+    try (HttpServer server = HttpServer.start(resp)) {
       try (DefaultFeatureRequestor r = makeRequestor(server)) {
         FeatureRequestor.AllData data = r.getAllData(true);
         
-        RecordedRequest req = server.takeRequest();
+        RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req.getPath());
         verifyHeaders(req);
         
@@ -83,17 +74,20 @@ public class DefaultFeatureRequestorTest {
   
   @Test
   public void responseIsCached() throws Exception {
-    MockResponse cacheableResp = jsonResponse(allDataJson)
-        .setHeader("ETag", "aaa")
-        .setHeader("Cache-Control", "max-age=0");
-    MockResponse cachedResp = new MockResponse().setResponseCode(304);
+    Handler cacheableResp = Handlers.all(
+        Handlers.header("ETag", "aaa"),
+        Handlers.header("Cache-Control", "max-age=0"),
+        Handlers.bodyJson(allDataJson)
+        );
+    Handler cachedResp = Handlers.status(304);
+    Handler cacheableThenCached = Handlers.sequential(cacheableResp, cachedResp); 
     
-    try (MockWebServer server = makeStartedServer(cacheableResp, cachedResp)) {
+    try (HttpServer server = HttpServer.start(cacheableThenCached)) {
       try (DefaultFeatureRequestor r = makeRequestor(server)) {
         FeatureRequestor.AllData data1 = r.getAllData(true);
         verifyExpectedData(data1);
          
-        RecordedRequest req1 = server.takeRequest();
+        RequestInfo req1 = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req1.getPath());
         verifyHeaders(req1);
         assertNull(req1.getHeader("If-None-Match"));
@@ -101,7 +95,7 @@ public class DefaultFeatureRequestorTest {
         FeatureRequestor.AllData data2 = r.getAllData(false);
         assertNull(data2);
 
-        RecordedRequest req2 = server.takeRequest();
+        RequestInfo req2 = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req2.getPath());
         verifyHeaders(req2);
         assertEquals("aaa", req2.getHeader("If-None-Match"));
@@ -111,17 +105,20 @@ public class DefaultFeatureRequestorTest {
 
   @Test
   public void responseIsCachedButWeWantDataAnyway() throws Exception {
-    MockResponse cacheableResp = jsonResponse(allDataJson)
-        .setHeader("ETag", "aaa")
-        .setHeader("Cache-Control", "max-age=0");
-    MockResponse cachedResp = new MockResponse().setResponseCode(304);
+    Handler cacheableResp = Handlers.all(
+        Handlers.header("ETag", "aaa"),
+        Handlers.header("Cache-Control", "max-age=0"),
+        Handlers.bodyJson(allDataJson)
+        );
+    Handler cachedResp = Handlers.status(304);
+    Handler cacheableThenCached = Handlers.sequential(cacheableResp, cachedResp); 
     
-    try (MockWebServer server = makeStartedServer(cacheableResp, cachedResp)) {
+    try (HttpServer server = HttpServer.start(cacheableThenCached)) {
       try (DefaultFeatureRequestor r = makeRequestor(server)) {
         FeatureRequestor.AllData data1 = r.getAllData(true);
         verifyExpectedData(data1);
          
-        RecordedRequest req1 = server.takeRequest();
+        RequestInfo req1 = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req1.getPath());
         verifyHeaders(req1);
         assertNull(req1.getHeader("If-None-Match"));
@@ -129,94 +126,53 @@ public class DefaultFeatureRequestorTest {
         FeatureRequestor.AllData data2 = r.getAllData(true);
         verifyExpectedData(data2);
 
-        RecordedRequest req2 = server.takeRequest();
+        RequestInfo req2 = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req2.getPath());
         verifyHeaders(req2);
         assertEquals("aaa", req2.getHeader("If-None-Match"));
       }
     }
   }
-  
+
   @Test
-  public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
-    MockResponse resp = jsonResponse(allDataJson);
+  public void testSpecialHttpConfigurations() throws Exception {
+    Handler handler = Handlers.bodyJson(allDataJson);
     
-    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server)) {
-        try {
-          r.getAllData(false);
-          fail("expected exception");
-        } catch (SSLHandshakeException e) {
+    TestHttpUtil.testWithSpecialHttpConfigurations(handler,
+        (targetUri, goodHttpConfig) -> {
+          LDConfig config = new LDConfig.Builder().http(goodHttpConfig).build();
+          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri)) {
+            try {
+              FeatureRequestor.AllData data = r.getAllData(false);
+              verifyExpectedData(data);
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          }
+        },
+        
+        (targetUri, badHttpConfig) -> {
+          LDConfig config = new LDConfig.Builder().http(badHttpConfig).build();
+          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri)) {
+            try {
+              r.getAllData(false);
+              fail("expected exception");
+            } catch (Exception e) {
+            }
+          }
         }
-        
-        assertEquals(0, serverWithCert.server.getRequestCount());
-      }
-    }
-  }
-  
-  @Test
-  public void httpClientCanUseCustomTlsConfig() throws Exception {
-    MockResponse resp = jsonResponse(allDataJson);
-    
-    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      LDConfig config = new LDConfig.Builder()
-          .http(Components.httpConfiguration().sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager))
-          // allows us to trust the self-signed cert
-          .build();
-
-      try (DefaultFeatureRequestor r = makeRequestor(serverWithCert.server, config)) {
-        FeatureRequestor.AllData data = r.getAllData(false);
-        verifyExpectedData(data);
-      }
-    }
-  }
-  
-  @Test
-  public void httpClientCanUseCustomSocketFactory() throws Exception {
-    try (MockWebServer server = makeStartedServer(jsonResponse(allDataJson))) {
-      HttpUrl serverUrl = server.url("/");
-      LDConfig config = new LDConfig.Builder()
-        .http(Components.httpConfiguration().socketFactory(makeSocketFactorySingleHost(serverUrl.host(), serverUrl.port())))
-        .build();
-
-      URI uriWithWrongPort = URI.create("http://localhost:1");
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), uriWithWrongPort)) {
-        FeatureRequestor.AllData data = r.getAllData(false);
-        verifyExpectedData(data);
-        
-        assertEquals(1, server.getRequestCount());
-      }
-    }
-  }
-  
-  @Test
-  public void httpClientCanUseProxyConfig() throws Exception {
-    URI fakeBaseUri = URI.create("http://not-a-real-host");
-    try (MockWebServer server = makeStartedServer(jsonResponse(allDataJson))) {
-      HttpUrl serverUrl = server.url("/");
-      LDConfig config = new LDConfig.Builder()
-          .http(Components.httpConfiguration().proxyHostAndPort(serverUrl.host(), serverUrl.port()))
-          .build();
-      
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), fakeBaseUri)) {
-        FeatureRequestor.AllData data = r.getAllData(false);
-        verifyExpectedData(data);
-        
-        assertEquals(1, server.getRequestCount());
-      }
-    }
+        );
   }
   
   @Test
   public void baseUriDoesNotNeedTrailingSlash() throws Exception {
-    MockResponse resp = jsonResponse(allDataJson);
+    Handler resp = Handlers.bodyJson(allDataJson);
     
-    try (MockWebServer server = makeStartedServer(resp)) {
-      URI uri = server.url("").uri();
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri)) {
+    try (HttpServer server = HttpServer.start(resp)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), server.getUri())) {
         FeatureRequestor.AllData data = r.getAllData(true);
         
-        RecordedRequest req = server.takeRequest();
+        RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req.getPath());
         verifyHeaders(req);
         
@@ -227,14 +183,15 @@ public class DefaultFeatureRequestorTest {
 
   @Test
   public void baseUriCanHaveContextPath() throws Exception {
-    MockResponse resp = jsonResponse(allDataJson);
+    Handler resp = Handlers.bodyJson(allDataJson);
     
-    try (MockWebServer server = makeStartedServer(resp)) {
-      URI uri = server.url("/context/path").uri();
+    try (HttpServer server = HttpServer.start(resp)) {
+      URI uri = server.getUri().resolve("/context/path");
+      
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri)) {
         FeatureRequestor.AllData data = r.getAllData(true);
         
-        RecordedRequest req = server.takeRequest();
+        RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/context/path/sdk/latest-all", req.getPath());
         verifyHeaders(req);
         
@@ -243,7 +200,7 @@ public class DefaultFeatureRequestorTest {
     }
   }
   
-  private void verifyHeaders(RecordedRequest req) {
+  private void verifyHeaders(RequestInfo req) {
     HttpConfiguration httpConfig = clientContext(sdkKey, LDConfig.DEFAULT).getHttp();
     for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
       assertThat(req.getHeader(kv.getKey()), equalTo(kv.getValue()));

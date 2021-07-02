@@ -1,94 +1,157 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
-import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
+import com.launchdarkly.testhelpers.httptest.Handler;
+import com.launchdarkly.testhelpers.httptest.HttpServer;
+import com.launchdarkly.testhelpers.httptest.RequestInfo;
+import com.launchdarkly.testhelpers.httptest.ServerTLSConfiguration;
 
-import java.io.Closeable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
-import java.math.BigInteger;
-import java.net.InetAddress;
 import java.net.URI;
-import java.security.GeneralSecurityException;
 
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.X509TrustManager;
-
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.tls.HandshakeCertificates;
-import okhttp3.tls.HeldCertificate;
-import okhttp3.tls.internal.TlsUtil;
+import static com.launchdarkly.sdk.server.TestUtil.makeSocketFactorySingleHost;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 class TestHttpUtil {
-  static MockWebServer makeStartedServer(MockResponse... responses) throws IOException {
-    MockWebServer server = new MockWebServer();
-    for (MockResponse r: responses) {
-      server.enqueue(r);
-    }
-    server.start();
-    return server;
+  static Logger logger = LoggerFactory.getLogger(TestHttpUtil.class);
+  
+  // Used for testWithSpecialHttpConfigurations
+  static interface HttpConfigurationTestAction {
+    void accept(URI targetUri, HttpConfigurationFactory httpConfig) throws IOException;
   }
   
-  static ServerWithCert httpsServerWithSelfSignedCert(MockResponse... responses) throws IOException, GeneralSecurityException {
-    ServerWithCert ret = new ServerWithCert();
-    for (MockResponse r: responses) {
-      ret.server.enqueue(r);
+  /**
+   * A test suite for all SDK components that support our standard HTTP configuration options.
+   * <p>
+   * Although all of our supported HTTP behaviors are implemented in shared code, there is no
+   * guarantee that all of our components are using that code, or using it correctly. So we
+   * should run this test suite on each component that can be affected by HttpConfigurationBuilder
+   * properties. It works as follows:
+   * <ul>
+   * <li> For each HTTP configuration variant that is expected to work (trusted certificate;
+   * proxy server; etc.), set up a server that will produce whatever expected response was
+   * specified in {@code handler}. Then run {@code testActionShouldSucceed}, which should create
+   * its component with the given configuration and base URI and verify that the component
+   * behaves correctly.
+   * <li> Do the same for each HTTP configuration variant that is expected to fail, but run
+   * {@code testActionShouldFail} instead.
+   * </ul>
+   * 
+   * @param handler the response that the server should provide for all requests
+   * @param testActionShouldSucceed an action that asserts that the component works
+   * @param testActionShouldFail an action that asserts that the component does not work
+   * @throws IOException
+   */
+  static void testWithSpecialHttpConfigurations(
+      Handler handler,
+      HttpConfigurationTestAction testActionShouldSucceed,
+      HttpConfigurationTestAction testActionShouldFail
+      ) throws IOException {
+
+    testHttpClientDoesNotAllowSelfSignedCertByDefault(handler, testActionShouldFail);
+    testHttpClientCanBeConfiguredToAllowSelfSignedCert(handler, testActionShouldSucceed);
+    testHttpClientCanUseCustomSocketFactory(handler, testActionShouldSucceed);
+    testHttpClientCanUseProxy(handler, testActionShouldSucceed);
+    testHttpClientCanUseProxyWithBasicAuth(handler, testActionShouldSucceed);
+  }
+  
+  static void testHttpClientDoesNotAllowSelfSignedCertByDefault(Handler handler,
+      HttpConfigurationTestAction testActionShouldFail) {
+    logger.warn("testHttpClientDoesNotAllowSelfSignedCertByDefault");
+    try {
+      ServerTLSConfiguration tlsConfig = ServerTLSConfiguration.makeSelfSignedCertificate();
+      try (HttpServer secureServer = HttpServer.startSecure(tlsConfig, handler)) {
+        testActionShouldFail.accept(secureServer.getUri(), Components.httpConfiguration());
+        assertThat(secureServer.getRecorder().count(), equalTo(0));
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
-    ret.server.start();
-    return ret;
   }
 
-  static StreamingDataSourceBuilder baseStreamingConfig(MockWebServer server) {
-    return Components.streamingDataSource().baseURI(server.url("").uri());
+  static void testHttpClientCanBeConfiguredToAllowSelfSignedCert(Handler handler,
+      HttpConfigurationTestAction testActionShouldSucceed) {
+    logger.warn("testHttpClientCanBeConfiguredToAllowSelfSignedCert");
+    try {
+      ServerTLSConfiguration tlsConfig = ServerTLSConfiguration.makeSelfSignedCertificate();
+      HttpConfigurationFactory httpConfig = Components.httpConfiguration()
+          .sslSocketFactory(tlsConfig.getSocketFactory(), tlsConfig.getTrustManager());
+      try (HttpServer secureServer = HttpServer.startSecure(tlsConfig, handler)) {
+        testActionShouldSucceed.accept(secureServer.getUri(), httpConfig);
+        assertThat(secureServer.getRecorder().count(), equalTo(1));
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
-  
-  static PollingDataSourceBuilder basePollingConfig(MockWebServer server) {
-    return Components.pollingDataSource().baseURI(server.url("").uri());
-  }
-  
-  static MockResponse jsonResponse(String body) {
-    return new MockResponse()
-        .setHeader("Content-Type", "application/json")
-        .setBody(body);
-  }
-  
-  static MockResponse eventStreamResponse(String data) {
-    return new MockResponse()
-        .setHeader("Content-Type", "text/event-stream")
-        .setChunkedBody(data, 1000);
-  }
-  
-  static class ServerWithCert implements Closeable {
-    final MockWebServer server;
-    final HeldCertificate cert;
-    final SSLSocketFactory socketFactory;
-    final X509TrustManager trustManager;
-    
-    public ServerWithCert() throws IOException, GeneralSecurityException {
-      String hostname = InetAddress.getByName("localhost").getCanonicalHostName();
-      
-      cert = new HeldCertificate.Builder()
-        .serialNumber(BigInteger.ONE)
-        .certificateAuthority(1)
-        .commonName(hostname)
-        .addSubjectAlternativeName(hostname)
-        .build();
 
-      HandshakeCertificates hc = TlsUtil.localhost();
-      socketFactory = hc.sslSocketFactory();
-      trustManager = hc.trustManager();
-      
-      server = new MockWebServer();
-      server.useHttps(socketFactory, false);
+  static void testHttpClientCanUseCustomSocketFactory(Handler handler,
+      HttpConfigurationTestAction testActionShouldSucceed) {     
+    logger.warn("testHttpClientCanUseCustomSocketFactory");
+    try {
+      try (HttpServer server = HttpServer.start(handler)) {
+        HttpConfigurationFactory httpConfig = Components.httpConfiguration()
+            .socketFactory(makeSocketFactorySingleHost(server.getUri().getHost(), server.getPort()));
+
+        URI uriWithWrongPort = URI.create("http://localhost:1");
+        testActionShouldSucceed.accept(uriWithWrongPort, httpConfig);
+        assertThat(server.getRecorder().count(), equalTo(1));
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
-    
-    public URI uri() {
-      return server.url("/").uri();
+  }
+  
+  static void testHttpClientCanUseProxy(Handler handler,
+      HttpConfigurationTestAction testActionShouldSucceed) {
+    logger.warn("testHttpClientCanUseProxy");
+    try {
+      try (HttpServer server = HttpServer.start(handler)) {
+        HttpConfigurationFactory httpConfig = Components.httpConfiguration()
+            .proxyHostAndPort(server.getUri().getHost(), server.getPort());
+        
+        URI fakeBaseUri = URI.create("http://not-a-real-host");
+        testActionShouldSucceed.accept(fakeBaseUri, httpConfig);
+        assertThat(server.getRecorder().count(), equalTo(1));
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
-    
-    public void close() throws IOException {
-      server.close();
+  }
+
+  static void testHttpClientCanUseProxyWithBasicAuth(Handler handler,
+      HttpConfigurationTestAction testActionShouldSucceed) {
+    logger.warn("testHttpClientCanUseProxyWithBasicAuth");
+    Handler proxyHandler = ctx -> {
+      if (ctx.getRequest().getHeader("Proxy-Authorization") == null) {
+        ctx.setStatus(407);
+        ctx.setHeader("Proxy-Authenticate", "Basic realm=x");
+      } else {
+        handler.apply(ctx);
+      }
+    };
+    try {
+      try (HttpServer server = HttpServer.start(proxyHandler)) {
+        HttpConfigurationFactory httpConfig = Components.httpConfiguration()
+            .proxyHostAndPort(server.getUri().getHost(), server.getPort())
+            .proxyAuth(Components.httpBasicAuthentication("user", "pass"));
+        
+        URI fakeBaseUri = URI.create("http://not-a-real-host");
+        testActionShouldSucceed.accept(fakeBaseUri, httpConfig);
+        
+        assertThat(server.getRecorder().count(), equalTo(2));
+        RequestInfo req1 = server.getRecorder().requireRequest();
+        assertThat(req1.getHeader("Proxy-Authorization"), nullValue());
+        RequestInfo req2 = server.getRecorder().requireRequest();
+        assertThat(req2.getHeader("Proxy-Authorization"), equalTo("Basic dXNlcjpwYXNz"));
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 }

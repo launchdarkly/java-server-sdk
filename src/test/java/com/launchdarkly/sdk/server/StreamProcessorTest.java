@@ -1,103 +1,136 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
-import com.launchdarkly.eventsource.EventHandler;
-import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
-import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
-import com.launchdarkly.sdk.server.StreamProcessor.EventSourceParams;
+import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
+import com.launchdarkly.sdk.server.TestComponents.DelegatingDataStore;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
+import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates.UpsertParams;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
-import com.launchdarkly.sdk.server.TestComponents.MockEventSourceCreator;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.testhelpers.httptest.Handler;
+import com.launchdarkly.testhelpers.httptest.Handlers;
+import com.launchdarkly.testhelpers.httptest.HttpServer;
+import com.launchdarkly.testhelpers.httptest.RequestInfo;
 
-import org.easymock.EasyMockSupport;
+import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.EOFException;
-import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
-
-import javax.net.ssl.SSLHandshakeException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
-import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
-import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
-import static com.launchdarkly.sdk.server.TestHttpUtil.eventStreamResponse;
-import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
-import static com.launchdarkly.sdk.server.TestUtil.makeSocketFactorySingleHost;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
-import static com.launchdarkly.sdk.server.TestUtil.shouldTimeOut;
-import static com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY;
-import static org.easymock.EasyMock.expectLastCall;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-import okhttp3.HttpUrl;
-import okhttp3.mockwebserver.MockWebServer;
-
 @SuppressWarnings("javadoc")
-public class StreamProcessorTest extends EasyMockSupport {
+public class StreamProcessorTest {
 
   private static final String SDK_KEY = "sdk_key";
-  private static final URI STREAM_URI = URI.create("http://stream.test.com/");
-  private static final URI STREAM_URI_WITHOUT_SLASH = URI.create("http://stream.test.com");
+  private static final Duration BRIEF_RECONNECT_DELAY = Duration.ofMillis(10);
   private static final String FEATURE1_KEY = "feature1";
   private static final int FEATURE1_VERSION = 11;
   private static final DataModel.FeatureFlag FEATURE = flagBuilder(FEATURE1_KEY).version(FEATURE1_VERSION).build();
   private static final String SEGMENT1_KEY = "segment1";
   private static final int SEGMENT1_VERSION = 22;
   private static final DataModel.Segment SEGMENT = segmentBuilder(SEGMENT1_KEY).version(SEGMENT1_VERSION).build();
-  private static final String STREAM_RESPONSE_WITH_EMPTY_DATA =
-      "event: put\n" +
-      "data: {\"data\":{\"flags\":{},\"segments\":{}}}\n\n";
+  private static final String EMPTY_DATA_EVENT = makePutEvent(new DataBuilder().addAny(FEATURES).addAny(SEGMENTS));
 
   private InMemoryDataStore dataStore;
   private MockDataSourceUpdates dataSourceUpdates;
   private MockDataStoreStatusProvider dataStoreStatusProvider;
-  private EventSource mockEventSource;
-  private MockEventSourceCreator mockEventSourceCreator;
 
+  private static Handler streamResponse(String data) {
+    return Handlers.all(
+        Handlers.SSE.start(),
+        Handlers.SSE.event(data),
+        Handlers.SSE.leaveOpen()
+        );
+  }
+
+  private static Handler closableStreamResponse(String data, Semaphore closeSignal) {
+    return Handlers.all(
+        Handlers.SSE.start(),
+        Handlers.SSE.event(data),
+        Handlers.waitFor(closeSignal)
+        );
+  }
+  
+  private static Handler streamResponseFromQueue(BlockingQueue<String> events) {
+    return Handlers.all(
+        Handlers.SSE.start(),
+        ctx -> {
+          while (true) {
+            try {
+              String event = events.take();
+              Handlers.SSE.event(event).apply(ctx);
+            } catch (InterruptedException e) {
+              break;
+            }
+          }
+        }
+        );
+  }
+  
+  private static String makeEvent(String type, String data) {
+    return "event: " + type + "\ndata: " + data;
+  }
+  
+  private static String makePutEvent(DataBuilder data) {
+    return makeEvent("put", "{\"data\":" + data.buildJson().toJsonString() + "}");
+  }
+  
+  private static String makePatchEvent(String path, DataKind kind, VersionedData item) {
+    String json = kind.serialize(new ItemDescriptor(item.getVersion(), item));
+    return makeEvent("patch", "{\"path\":\"" + path + "\",\"data\":" + json + "}");
+  }
+
+  private static String makeDeleteEvent(String path, int version) {
+    return makeEvent("delete", "{\"path\":\"" + path + "\",\"version\":" + version + "}");
+  }
+  
   @Before
   public void setup() {
     dataStore = new InMemoryDataStore();
     dataStoreStatusProvider = new MockDataStoreStatusProvider();
     dataSourceUpdates = TestComponents.dataSourceUpdates(dataStore, dataStoreStatusProvider);
-    mockEventSource = createMock(EventSource.class);
-    mockEventSourceCreator = new MockEventSourceCreator(mockEventSource);
   }
 
   @Test
@@ -124,118 +157,128 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   @Test
-  public void streamUriHasCorrectEndpoint() {
-    createStreamProcessor(STREAM_URI).start();
-    assertEquals(URI.create(STREAM_URI.toString() + "all"),
-        mockEventSourceCreator.getNextReceivedParams().streamUri);
-  }
-  
-  @Test
-  public void streamBaseUriDoesNotNeedTrailingSlash() {
-    createStreamProcessor(STREAM_URI_WITHOUT_SLASH).start();
-    assertEquals(URI.create(STREAM_URI_WITHOUT_SLASH.toString() + "/all"),
-        mockEventSourceCreator.getNextReceivedParams().streamUri);
-  }
-
-  @Test
-  public void streamBaseUriCanHaveContextPath() {
-    createStreamProcessor(URI.create(STREAM_URI.toString() + "/context/path")).start();
-    assertEquals(URI.create(STREAM_URI.toString() + "/context/path/all"),
-        mockEventSourceCreator.getNextReceivedParams().streamUri);
-  }
-  
-  @Test
-  public void basicHeadersAreSent() {
+  public void verifyStreamRequestProperties() throws Exception {
     HttpConfiguration httpConfig = clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp();
     
-    createStreamProcessor(STREAM_URI).start();
-    EventSourceParams params = mockEventSourceCreator.getNextReceivedParams();
-    
-    for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
-      assertThat(params.headers.get(kv.getKey()), equalTo(kv.getValue()));
+    try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        
+        RequestInfo req = server.getRecorder().requireRequest();
+        assertThat(req.getMethod(), equalTo("GET"));
+        assertThat(req.getPath(), equalTo("/all"));
+        
+        for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
+          assertThat(req.getHeader(kv.getKey()), equalTo(kv.getValue()));
+        }
+        assertThat(req.getHeader("Accept"), equalTo("text/event-stream"));
+      }
     }
   }
   
   @Test
-  public void headersHaveAccept() {
-    createStreamProcessor(STREAM_URI).start();
-    assertEquals("text/event-stream",
-        mockEventSourceCreator.getNextReceivedParams().headers.get("Accept"));
+  public void streamBaseUriDoesNotNeedTrailingSlash() throws Exception {
+    try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
+      URI baseUri = server.getUri();
+      MatcherAssert.assertThat(baseUri.toString(), endsWith("/"));
+      URI trimmedUri = URI.create(server.getUri().toString().substring(0, server.getUri().toString().length() - 1));
+      try (StreamProcessor sp = createStreamProcessor(null, trimmedUri)) {
+        sp.start();
+        
+        RequestInfo req = server.getRecorder().requireRequest();
+        assertThat(req.getPath(), equalTo("/all"));
+      }
+    }
   }
 
   @Test
+  public void streamBaseUriCanHaveContextPath() throws Exception {
+    try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
+      URI baseUri = server.getUri().resolve("/context/path");
+      try (StreamProcessor sp = createStreamProcessor(null, baseUri)) {
+        sp.start();
+        
+        RequestInfo req = server.getRecorder().requireRequest();
+        assertThat(req.getPath(), equalTo("/context/path/all"));
+      }
+    }
+  }
+  
+  @Test
   public void putCausesFeatureToBeStored() throws Exception {
-    expectNoStreamRestart();
+    FeatureFlag flag = flagBuilder(FEATURE1_KEY).version(FEATURE1_VERSION).build();
+    DataBuilder data = new DataBuilder().addAny(FEATURES, flag).addAny(SEGMENTS);
+    Handler streamHandler = streamResponse(makePutEvent(data));
     
-    createStreamProcessor(STREAM_URI).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    
-    MessageEvent event = new MessageEvent("{\"data\":{\"flags\":{\"" +
-        FEATURE1_KEY + "\":" + featureJson(FEATURE1_KEY, FEATURE1_VERSION) + "}," +
-        "\"segments\":{}}}");
-    handler.onMessage("put", event);
-    
-    assertFeatureInStore(FEATURE);
+    try (HttpServer server = HttpServer.start(streamHandler)) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        
+        dataSourceUpdates.awaitInit();
+        assertFeatureInStore(flag);
+      }
+    }
   }
 
   @Test
   public void putCausesSegmentToBeStored() throws Exception {
-    expectNoStreamRestart();
-    
-    createStreamProcessor(STREAM_URI).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    
-    MessageEvent event = new MessageEvent("{\"data\":{\"flags\":{},\"segments\":{\"" +
-        SEGMENT1_KEY + "\":" + segmentJson(SEGMENT1_KEY, SEGMENT1_VERSION) + "}}}");
-    handler.onMessage("put", event);
-    
-    assertSegmentInStore(SEGMENT);
+    Segment segment = ModelBuilders.segmentBuilder(SEGMENT1_KEY).version(SEGMENT1_VERSION).build();
+    DataBuilder data = new DataBuilder().addAny(FEATURES).addAny(SEGMENTS, segment);
+    Handler streamHandler = streamResponse(makePutEvent(data));
+
+    try (HttpServer server = HttpServer.start(streamHandler)) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        
+        dataSourceUpdates.awaitInit();
+        assertSegmentInStore(SEGMENT);
+      }
+    }
   }
   
   @Test
   public void storeNotInitializedByDefault() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
-    assertFalse(dataStore.isInitialized());
-  }
-  
-  @Test
-  public void putCausesStoreToBeInitialized() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("put", emptyPutEvent());
-    assertTrue(dataStore.isInitialized());
+    try (HttpServer server = HttpServer.start(streamResponse(""))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        assertFalse(dataStore.isInitialized());
+      }
+    }
   }
 
   @Test
   public void processorNotInitializedByDefault() throws Exception {
-    StreamProcessor sp = createStreamProcessor(STREAM_URI);
-    sp.start();
-    assertFalse(sp.isInitialized());
-  }
-  
-  @Test
-  public void putCausesProcessorToBeInitialized() throws Exception {
-    StreamProcessor sp = createStreamProcessor(STREAM_URI);
-    sp.start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("put", emptyPutEvent());
-    assertTrue(sp.isInitialized());
+    try (HttpServer server = HttpServer.start(streamResponse(""))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        assertFalse(sp.isInitialized());
+      }
+    }
   }
 
   @Test
   public void futureIsNotSetByDefault() throws Exception {
-    StreamProcessor sp = createStreamProcessor(STREAM_URI);
-    Future<Void> future = sp.start();
-    assertFalse(future.isDone());
+    try (HttpServer server = HttpServer.start(streamResponse(""))) {
+      try (StreamProcessor sp = createStreamProcessor(server.getUri())) {
+        Future<Void> future = sp.start();
+        assertFalse(future.isDone());
+      }
+    }
   }
 
   @Test
-  public void putCausesFutureToBeSet() throws Exception {
-    StreamProcessor sp = createStreamProcessor(STREAM_URI);
-    Future<Void> future = sp.start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("put", emptyPutEvent());
-    assertTrue(future.isDone());
+  public void putCausesStoreAndProcessorToBeInitialized() throws Exception {
+    try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        Future<Void> future = sp.start();
+        
+        dataSourceUpdates.awaitInit();
+        shouldNotTimeOut(future, Duration.ofSeconds(1));
+        assertTrue(dataStore.isInitialized());
+        assertTrue(sp.isInitialized());
+        assertTrue(future.isDone());
+      }
+    }
   }
 
   @Test
@@ -249,19 +292,26 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
 
   private void doPatchSuccessTest(DataKind kind, VersionedData item, String path) throws Exception {
-    expectNoStreamRestart();
+    BlockingQueue<String> events = new LinkedBlockingQueue<>();
+    events.add(EMPTY_DATA_EVENT);
     
-    createStreamProcessor(STREAM_URI).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("put", emptyPutEvent());
-    
-    String json = kind.serialize(new ItemDescriptor(item.getVersion(), item));
-    MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"data\":" + json + "}");
-    handler.onMessage("patch", event);
-    
-    ItemDescriptor result = dataStore.get(kind, item.getKey());
-    assertNotNull(result.getItem());
-    assertEquals(item.getVersion(), result.getVersion());
+    try (HttpServer server = HttpServer.start(streamResponseFromQueue(events))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        dataSourceUpdates.awaitInit();
+        
+        events.add(makePatchEvent(path, kind, item));
+        UpsertParams gotUpsert = dataSourceUpdates.awaitUpsert();
+        
+        assertThat(gotUpsert.kind, equalTo(kind));
+        assertThat(gotUpsert.key, equalTo(item.getKey()));
+        assertThat(gotUpsert.item.getVersion(), equalTo(item.getVersion()));
+        
+        ItemDescriptor result = dataStore.get(kind, item.getKey());
+        assertNotNull(result.getItem());
+        assertEquals(item.getVersion(), result.getVersion());
+      }
+    }
   }
   
   @Test
@@ -275,106 +325,100 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private void doDeleteSuccessTest(DataKind kind, VersionedData item, String path) throws Exception {
-    expectNoStreamRestart();
+    BlockingQueue<String> events = new LinkedBlockingQueue<>();
+    events.add(EMPTY_DATA_EVENT);
     
-    createStreamProcessor(STREAM_URI).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("put", emptyPutEvent());
-    dataStore.upsert(kind, item.getKey(), new ItemDescriptor(item.getVersion(), item));
-    
-    MessageEvent event = new MessageEvent("{\"path\":\"" + path + "\",\"version\":" +
-        (item.getVersion() + 1) + "}");
-    handler.onMessage("delete", event);
-    
-    assertEquals(ItemDescriptor.deletedItem(item.getVersion() + 1), dataStore.get(kind, item.getKey()));
+    try (HttpServer server = HttpServer.start(streamResponseFromQueue(events))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        dataSourceUpdates.awaitInit();
+        
+        dataStore.upsert(kind, item.getKey(), new ItemDescriptor(item.getVersion(), item));
+        
+        events.add(makeDeleteEvent(path, item.getVersion() + 1));
+        UpsertParams gotUpsert = dataSourceUpdates.awaitUpsert();
+        
+        assertThat(gotUpsert.kind, equalTo(kind));
+        assertThat(gotUpsert.key, equalTo(item.getKey()));
+        assertThat(gotUpsert.item.getVersion(), equalTo(item.getVersion() + 1));
+        
+        assertEquals(ItemDescriptor.deletedItem(item.getVersion() + 1), dataStore.get(kind, item.getKey()));
+      }
+    }
   }
   
   @Test
-  public void unknownEventTypeDoesNotThrowException() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("what", new MessageEvent(""));
+  public void unknownEventTypeDoesNotCauseError() throws Exception {
+    verifyEventCausesNoStreamRestart("what", "");
   }
   
   @Test
   public void streamWillReconnectAfterGeneralIOException() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
-    ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
-    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new IOException());
-    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
+    Handler errorHandler = Handlers.malformedResponse();
+    Handler streamHandler = streamResponse(EMPTY_DATA_EVENT);
+    Handler errorThenSuccess = Handlers.sequential(errorHandler, streamHandler);
     
-    assertNotNull(dataSourceUpdates.getLastStatus().getLastError());
-    assertEquals(ErrorKind.NETWORK_ERROR, dataSourceUpdates.getLastStatus().getLastError().getKind());
-  }
+    try (HttpServer server = HttpServer.start(errorThenSuccess)) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        startAndWait(sp);
 
-  @Test
-  public void streamWillReconnectAfterHttpError() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
-    ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
-    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new UnsuccessfulResponseException(500));
-    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
-    
-    assertNotNull(dataSourceUpdates.getLastStatus().getLastError());
-    assertEquals(ErrorKind.ERROR_RESPONSE, dataSourceUpdates.getLastStatus().getLastError().getKind());
-    assertEquals(500, dataSourceUpdates.getLastStatus().getLastError().getStatusCode());
-  }
-
-  @Test
-  public void streamWillReconnectAfterUnknownError() throws Exception {
-    createStreamProcessor(STREAM_URI).start();
-    ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
-    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(new RuntimeException("what?"));
-    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
-    
-    assertNotNull(dataSourceUpdates.getLastStatus().getLastError());
-    assertEquals(ErrorKind.UNKNOWN, dataSourceUpdates.getLastStatus().getLastError().getKind());
+        assertThat(server.getRecorder().count(), equalTo(2));
+        assertThat(dataSourceUpdates.getLastStatus().getLastError(), notNullValue());
+        assertThat(dataSourceUpdates.getLastStatus().getLastError().getKind(), equalTo(ErrorKind.NETWORK_ERROR));
+      }
+    }
   }
 
   @Test
   public void streamInitDiagnosticRecordedOnOpen() throws Exception {
     DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
     long startTime = System.currentTimeMillis();
-    createStreamProcessor(LDConfig.DEFAULT, STREAM_URI, acc).start();
-    EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-    handler.onMessage("put", emptyPutEvent());
-    long timeAfterOpen = System.currentTimeMillis();
-    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
-    assertEquals(1, event.streamInits.size());
-    DiagnosticEvent.StreamInit init = event.streamInits.get(0);
-    assertFalse(init.failed);
-    assertThat(init.timestamp, greaterThanOrEqualTo(startTime));
-    assertThat(init.timestamp, lessThanOrEqualTo(timeAfterOpen));
-    assertThat(init.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
+    
+    try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri(), acc)) {
+        startAndWait(sp);
+        
+        long timeAfterOpen = System.currentTimeMillis();
+        DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
+        assertEquals(1, event.streamInits.size());
+        DiagnosticEvent.StreamInit init = event.streamInits.get(0);
+        assertFalse(init.failed);
+        assertThat(init.timestamp, greaterThanOrEqualTo(startTime));
+        assertThat(init.timestamp, lessThanOrEqualTo(timeAfterOpen));
+        assertThat(init.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
+      }
+    }
   }
 
   @Test
   public void streamInitDiagnosticRecordedOnErrorDuringInit() throws Exception {
     DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
     long startTime = System.currentTimeMillis();
-    createStreamProcessor(LDConfig.DEFAULT, STREAM_URI, acc).start();
-    ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
-    errorHandler.onConnectionError(new IOException());
-    long timeAfterOpen = System.currentTimeMillis();
-    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
-    assertEquals(1, event.streamInits.size());
-    DiagnosticEvent.StreamInit init = event.streamInits.get(0);
-    assertTrue(init.failed);
-    assertThat(init.timestamp, greaterThanOrEqualTo(startTime));
-    assertThat(init.timestamp, lessThanOrEqualTo(timeAfterOpen));
-    assertThat(init.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
-  }
+    
+    Handler errorHandler = Handlers.status(503);
+    Handler streamHandler = streamResponse(EMPTY_DATA_EVENT);
+    Handler errorThenSuccess = Handlers.sequential(errorHandler, streamHandler);
+    
+    try (HttpServer server = HttpServer.start(errorThenSuccess)) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri(), acc)) {
+        startAndWait(sp);
+        
+        long timeAfterOpen = System.currentTimeMillis();
+        DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
+        
+        assertEquals(2, event.streamInits.size());
+        DiagnosticEvent.StreamInit init0 = event.streamInits.get(0);
+        assertTrue(init0.failed);
+        assertThat(init0.timestamp, greaterThanOrEqualTo(startTime));
+        assertThat(init0.timestamp, lessThanOrEqualTo(timeAfterOpen));
+        assertThat(init0.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
 
-  @Test
-  public void streamInitDiagnosticNotRecordedOnErrorAfterInit() throws Exception {
-    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
-    createStreamProcessor(LDConfig.DEFAULT, STREAM_URI, acc).start();
-    StreamProcessor.EventSourceParams params = mockEventSourceCreator.getNextReceivedParams(); 
-    params.handler.onMessage("put", emptyPutEvent());
-    // Drop first stream init from stream open
-    acc.createEventAndReset(0, 0);
-    params.errorHandler.onConnectionError(new IOException());
-    DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
-    assertEquals(0, event.streamInits.size());
+        DiagnosticEvent.StreamInit init1 = event.streamInits.get(1);
+        assertFalse(init1.failed);
+        assertThat(init1.timestamp, greaterThanOrEqualTo(init0.timestamp));
+        assertThat(init1.timestamp, lessThanOrEqualTo(timeAfterOpen));
+      }
+    }
   }
 
   @Test
@@ -409,22 +453,22 @@ public class StreamProcessorTest extends EasyMockSupport {
   
   @Test
   public void putEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyInvalidDataEvent("put", "{sorry");
+    verifyEventCausesStreamRestart("put", "{sorry", ErrorKind.INVALID_DATA);
   }
 
   @Test
   public void putEventWithWellFormedJsonButInvalidDataCausesStreamRestart() throws Exception {
-    verifyInvalidDataEvent("put", "{\"data\":{\"flags\":3}}");
+    verifyEventCausesStreamRestart("put", "{\"data\":{\"flags\":3}}", ErrorKind.INVALID_DATA);
   }
 
   @Test
   public void patchEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyInvalidDataEvent("patch", "{sorry");
+    verifyEventCausesStreamRestart("patch", "{sorry", ErrorKind.INVALID_DATA);
   }
 
   @Test
   public void patchEventWithWellFormedJsonButInvalidDataCausesStreamRestart() throws Exception {
-    verifyInvalidDataEvent("patch", "{\"path\":\"/flags/flagkey\", \"data\":{\"rules\":3}}");
+    verifyEventCausesStreamRestart("patch", "{\"path\":\"/flags/flagkey\", \"data\":{\"rules\":3}}", ErrorKind.INVALID_DATA);
   }
 
   @Test
@@ -434,12 +478,12 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void patchEventWithNullPathCausesStreamRestart() throws Exception {
-    verifyInvalidDataEvent("patch", "{\"path\":null, \"data\":{\"key\":\"flagkey\"}}");
+    verifyEventCausesStreamRestart("patch", "{\"path\":null, \"data\":{\"key\":\"flagkey\"}}", ErrorKind.INVALID_DATA);
   }
 
   @Test
   public void deleteEventWithInvalidJsonCausesStreamRestart() throws Exception {
-    verifyInvalidDataEvent("delete", "{sorry");
+    verifyEventCausesStreamRestart("delete", "{sorry", ErrorKind.INVALID_DATA);
   }
 
   @Test
@@ -454,263 +498,168 @@ public class StreamProcessorTest extends EasyMockSupport {
 
   @Test
   public void restartsStreamIfStoreNeedsRefresh() throws Exception {
-    CompletableFuture<Void> restarted = new CompletableFuture<>();
-    mockEventSource.start();
-    expectLastCall();
-    mockEventSource.restart();
-    expectLastCall().andAnswer(() -> {
-      restarted.complete(null);
-      return null;
-    });
-    mockEventSource.close();
-    expectLastCall();
-    
-    replayAll();
-    
-    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
-      sp.start();
-      
-      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
-      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, true));
+    try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        startAndWait(sp);
+        dataSourceUpdates.awaitInit();
+        server.getRecorder().requireRequest();
+        
+        dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
+        dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, true));
 
-      restarted.get();
+        dataSourceUpdates.awaitInit();
+        server.getRecorder().requireRequest();
+        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+      }
     }
   }
 
   @Test
   public void doesNotRestartStreamIfStoreHadOutageButDoesNotNeedRefresh() throws Exception {
-    CompletableFuture<Void> restarted = new CompletableFuture<>();
-    mockEventSource.start();
-    expectLastCall();
-    mockEventSource.restart();
-    expectLastCall().andAnswer(() -> {
-      restarted.complete(null);
-      return null;
-    });
-    mockEventSource.close();
-    expectLastCall();
-    
-    replayAll();
-    
-    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
-      sp.start();
-      
-      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
-      dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, false));
+    try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        startAndWait(sp);
+        dataSourceUpdates.awaitInit();
+        server.getRecorder().requireRequest();
+        
+        dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
+        dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, false));
 
-      Thread.sleep(500);
-      assertFalse(restarted.isDone());
+        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+      }
     }
   }
 
+  private void verifyStoreErrorCausesStreamRestart(String eventName, String eventData) throws Exception {
+    AtomicInteger updateCount = new AtomicInteger(0);
+    Runnable preUpdateHook = () -> {
+      int count = updateCount.incrementAndGet();
+      if (count == 2) {
+        // only fail on the 2nd update - the first is the one caused by the initial "put" in the test setup
+        throw new RuntimeException("sorry");
+      }
+    };
+    DelegatingDataStore delegatingStore = new DelegatingDataStore(dataStore, preUpdateHook);
+    dataStoreStatusProvider = new MockDataStoreStatusProvider(false); // false = the store does not provide status monitoring
+    dataSourceUpdates = TestComponents.dataSourceUpdates(delegatingStore, dataStoreStatusProvider);
+    
+    verifyEventCausesStreamRestart(eventName, eventData, ErrorKind.STORE_ERROR);
+  }
+  
   @Test
   public void storeFailureOnPutCausesStreamRestart() throws Exception {
-    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
-    expectStreamRestart();
-    replayAll();
-
-    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
-      sp.start();
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("put", emptyPutEvent());
-      
-      assertNotNull(badUpdates.getLastStatus().getLastError());
-      assertEquals(ErrorKind.STORE_ERROR, badUpdates.getLastStatus().getLastError().getKind());
-    }    
-    verifyAll();
+    verifyStoreErrorCausesStreamRestart("put", emptyPutEvent().getData());
   }
 
   @Test
   public void storeFailureOnPatchCausesStreamRestart() throws Exception {
-    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
-    expectStreamRestart();
-    replayAll();
-    
-    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
-      sp.start();
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("patch",
-          new MessageEvent("{\"path\":\"/flags/flagkey\",\"data\":{\"key\":\"flagkey\",\"version\":1}}"));
-    }    
-    verifyAll();
+    String patchData = "{\"path\":\"/flags/flagkey\",\"data\":{\"key\":\"flagkey\",\"version\":1}}";
+    verifyStoreErrorCausesStreamRestart("patch", patchData);
   }
 
   @Test
   public void storeFailureOnDeleteCausesStreamRestart() throws Exception {
-    MockDataSourceUpdates badUpdates = dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring();
-    expectStreamRestart();
-    replayAll();
-    
-    try (StreamProcessor sp = createStreamProcessorWithStoreUpdates(badUpdates)) {
-      sp.start();
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage("delete",
-          new MessageEvent("{\"path\":\"/flags/flagkey\",\"version\":1}"));
-    }    
-    verifyAll();
+    String deleteData = "{\"path\":\"/flags/flagkey\",\"version\":1}";
+    verifyStoreErrorCausesStreamRestart("delete", deleteData);
   }
 
   @Test
-  public void onCommentIsIgnored() throws Exception {
-    // This just verifies that we are not doing anything with comment data, by passing a null instead of a string
-    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
-      sp.start();
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onComment(null);
-    }
-  }
-
-  @Test
-  public void onErrorIsIgnored() throws Exception {
-    expectNoStreamRestart();
-    replayAll();
+  public void sseCommentIsIgnored() throws Exception {
+    BlockingQueue<String> events = new LinkedBlockingQueue<>();
+    events.add(EMPTY_DATA_EVENT);
     
-    // EventSource won't call our onError() method because we are using a ConnectionErrorHandler instead.
-    try (StreamProcessor sp = createStreamProcessor(STREAM_URI)) {
-      sp.start();
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onError(new Exception("sorry"));
+    try (HttpServer server = HttpServer.start(streamResponseFromQueue(events))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        startAndWait(sp);
+        
+        events.add(": this is a comment");
+        
+        // Do something after the comment, just to verify that the stream is still working
+        events.add(makePatchEvent("/flags/" + FEATURE.getKey(), FEATURES, FEATURE));
+        dataSourceUpdates.awaitUpsert();
+      }
+      assertThat(server.getRecorder().count(), equalTo(1)); // did not restart
+      assertThat(dataSourceUpdates.getLastStatus().getLastError(), nullValue());
     }
-  }
-
-  private MockDataSourceUpdates dataSourceUpdatesThatMakesUpdatesFailAndDoesNotSupportStatusMonitoring() {
-    DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
-    DataStoreStatusProvider badStoreStatusProvider = new MockDataStoreStatusProvider(false);
-    return TestComponents.dataSourceUpdates(badStore, badStoreStatusProvider);
   }
   
   private void verifyEventCausesNoStreamRestart(String eventName, String eventData) throws Exception {
-    expectNoStreamRestart();
-    verifyEventBehavior(eventName, eventData);
+    BlockingQueue<String> events = new LinkedBlockingQueue<>();
+    events.add(EMPTY_DATA_EVENT);
+    
+    try (HttpServer server = HttpServer.start(streamResponseFromQueue(events))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        startAndWait(sp);
+        
+        events.add(makeEvent(eventName, eventData));
+        
+        // Do something after the test event, just to verify that the stream is still working
+        events.add(makePatchEvent("/flags/" + FEATURE.getKey(), FEATURES, FEATURE));
+        dataSourceUpdates.awaitUpsert();
+      }
+      assertThat(server.getRecorder().count(), equalTo(1)); // did not restart
+      assertThat(dataSourceUpdates.getLastStatus().getLastError(), nullValue());
+    }
   }
-  
-  private void verifyEventCausesStreamRestartWithInMemoryStore(String eventName, String eventData) throws Exception {
-    expectStreamRestart();
-    verifyEventBehavior(eventName, eventData);
-  }
-  
-  private void verifyEventBehavior(String eventName, String eventData) throws Exception {
-    replayAll();
-    try (StreamProcessor sp = createStreamProcessor(LDConfig.DEFAULT, STREAM_URI, null)) {
-      sp.start();
-      EventHandler handler = mockEventSourceCreator.getNextReceivedParams().handler;
-      handler.onMessage(eventName, new MessageEvent(eventData));
-    }    
-    verifyAll();
-  }
-  
-  private void verifyInvalidDataEvent(String eventName, String eventData) throws Exception {
+
+  private void verifyEventCausesStreamRestart(String eventName, String eventData, ErrorKind expectedError) throws Exception {
     BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
     
-    verifyEventCausesStreamRestartWithInMemoryStore(eventName, eventData);
+    BlockingQueue<String> events = new LinkedBlockingQueue<>();
+    events.add(EMPTY_DATA_EVENT);
     
-    // We did not allow the stream to successfully process an event before causing the error, so the
-    // state will still be INITIALIZING, but we should be able to see that an error happened.
-    Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
-    assertNotNull(status.getLastError());
-    assertEquals(ErrorKind.INVALID_DATA, status.getLastError().getKind());
-  }
-  
-  private void expectNoStreamRestart() throws Exception {
-    mockEventSource.start();
-    expectLastCall().times(1);
-    mockEventSource.close();
-    expectLastCall().times(1);
-  }
-  
-  private void expectStreamRestart() throws Exception {
-    mockEventSource.start();
-    expectLastCall().times(1);
-    mockEventSource.restart();
-    expectLastCall().times(1);
-    mockEventSource.close();
-    expectLastCall().times(1);
-  }
-  
-  // There are already end-to-end tests against an HTTP server in okhttp-eventsource, so we won't retest the
-  // basic stream mechanism in detail. However, we do want to make sure that the LDConfig options are correctly
-  // applied to the EventSource for things like TLS configuration.
-  
-  @Test
-  public void httpClientDoesNotAllowSelfSignedCertByDefault() throws Exception {
-    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
-    try (TestHttpUtil.ServerWithCert server = new TestHttpUtil.ServerWithCert()) {
-      server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
-
-      try (StreamProcessor sp = createStreamProcessorWithRealHttp(LDConfig.DEFAULT, server.uri())) {
-        sp.connectionErrorHandler = errorSink;
-        Future<Void> ready = sp.start();
-        ready.get();
+    try (HttpServer server = HttpServer.start(streamResponseFromQueue(events))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        dataSourceUpdates.awaitInit();
+        server.getRecorder().requireRequest();
+       
+        requireDataSourceStatus(statuses, State.VALID);
+         
+        events.add(makeEvent(eventName, eventData));
+        events.add(EMPTY_DATA_EVENT);
         
-        Throwable error = errorSink.errors.peek();
-        assertNotNull(error);
-        assertEquals(SSLHandshakeException.class, error.getClass());
+        server.getRecorder().requireRequest();
+        dataSourceUpdates.awaitInit();
+        
+        Status status = requireDataSourceStatus(statuses, State.INTERRUPTED);
+        assertThat(status.getLastError(), notNullValue());
+        assertThat(status.getLastError().getKind(), equalTo(expectedError));
+
+        requireDataSourceStatus(statuses, State.VALID);
       }
     }
   }
   
   @Test
-  public void httpClientCanUseCustomTlsConfig() throws Exception {
-    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
-    try (TestHttpUtil.ServerWithCert server = new TestHttpUtil.ServerWithCert()) {
-      server.server.enqueue(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA));
-      
-      LDConfig config = new LDConfig.Builder()
-          .http(Components.httpConfiguration().sslSocketFactory(server.socketFactory, server.trustManager))
-          // allows us to trust the self-signed cert
-          .build();
-      
-      try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, server.uri())) {
-        sp.connectionErrorHandler = errorSink;
-        Future<Void> ready = sp.start();
-        ready.get();
-        
-        assertNull(errorSink.errors.peek());
-      }
-    }
-  }
-  
-  @Test
-  public void httpClientCanUseCustomSocketFactory() throws Exception {
-    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
-    try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
-      HttpUrl serverUrl = server.url("/");
-      LDConfig config = new LDConfig.Builder()
-        .http(Components.httpConfiguration().socketFactory(makeSocketFactorySingleHost(serverUrl.host(), serverUrl.port())))
-        .build();
-
-      URI uriWithWrongPort = URI.create("http://localhost:1");
-      try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, uriWithWrongPort)) {
-        sp.connectionErrorHandler = errorSink;
-        Future<Void> ready = sp.start();
-        ready.get();
+  public void testSpecialHttpConfigurations() throws Exception {
+    Handler handler = streamResponse(EMPTY_DATA_EVENT);
+    
+    TestHttpUtil.testWithSpecialHttpConfigurations(handler,
+        (targetUri, goodHttpConfig) -> {
+          LDConfig config = new LDConfig.Builder().http(goodHttpConfig).build();
+          ConnectionErrorSink errorSink = new ConnectionErrorSink();
           
-        assertNull(errorSink.errors.peek());
-        assertEquals(1, server.getRequestCount());
-      }
-    }
-  }
-
-  @Test
-  public void httpClientCanUseProxyConfig() throws Exception {
-    final ConnectionErrorSink errorSink = new ConnectionErrorSink();
-    URI fakeStreamUri = URI.create("http://not-a-real-host");
-    try (MockWebServer server = makeStartedServer(eventStreamResponse(STREAM_RESPONSE_WITH_EMPTY_DATA))) {
-      HttpUrl serverUrl = server.url("/");
-      LDConfig config = new LDConfig.Builder()
-          .http(Components.httpConfiguration().proxyHostAndPort(serverUrl.host(), serverUrl.port()))
-          .build();
-      
-      try (StreamProcessor sp = createStreamProcessorWithRealHttp(config, fakeStreamUri)) {
-        sp.connectionErrorHandler = errorSink;
-        Future<Void> ready = sp.start();
-        ready.get();
-        
-        assertNull(errorSink.errors.peek());
-        assertEquals(1, server.getRequestCount());
-      }
-    }
+          try (StreamProcessor sp = createStreamProcessor(config, targetUri)) {
+            sp.connectionErrorHandler = errorSink;
+            startAndWait(sp);
+            assertNull(errorSink.errors.peek());
+          }
+        },
+        (targetUri, badHttpConfig) -> {
+          LDConfig config = new LDConfig.Builder().http(badHttpConfig).build();
+          ConnectionErrorSink errorSink = new ConnectionErrorSink();
+          
+          try (StreamProcessor sp = createStreamProcessor(config, targetUri)) {
+            sp.connectionErrorHandler = errorSink;
+            startAndWait(sp);
+            
+            Throwable error = errorSink.errors.peek();
+            assertNotNull(error);
+          }
+        }
+        );
   }
   
   static class ConnectionErrorSink implements ConnectionErrorHandler {
@@ -725,118 +674,100 @@ public class StreamProcessorTest extends EasyMockSupport {
   }
   
   private void testUnrecoverableHttpError(int statusCode) throws Exception {
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(statusCode);
-    long startTime = System.currentTimeMillis();
-    StreamProcessor sp = createStreamProcessor(STREAM_URI);
-    Future<Void> initFuture = sp.start();
+    Handler errorResp = Handlers.status(statusCode);
     
     BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
-    ConnectionErrorHandler errorHandler = mockEventSourceCreator.getNextReceivedParams().errorHandler;
-    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
-    assertEquals(ConnectionErrorHandler.Action.SHUTDOWN, action);
-    
-    shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
-    assertTrue((System.currentTimeMillis() - startTime) < 9000);
-    assertTrue(initFuture.isDone());
-    assertFalse(sp.isInitialized());
-    
-    Status newStatus = requireDataSourceStatus(statuses, State.OFF);
-    assertEquals(ErrorKind.ERROR_RESPONSE, newStatus.getLastError().getKind());
-    assertEquals(statusCode, newStatus.getLastError().getStatusCode());
+    try (HttpServer server = HttpServer.start(errorResp)) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        Future<Void> initFuture = sp.start();       
+        shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+        
+        assertFalse(sp.isInitialized());
+        
+        Status newStatus = requireDataSourceStatus(statuses, State.OFF);
+        assertEquals(ErrorKind.ERROR_RESPONSE, newStatus.getLastError().getKind());
+        assertEquals(statusCode, newStatus.getLastError().getStatusCode());
+        
+        server.getRecorder().requireRequest();
+        server.getRecorder().requireNoRequests(Duration.ofMillis(50));
+      }
+    }
   }
   
   private void testRecoverableHttpError(int statusCode) throws Exception {
-    UnsuccessfulResponseException e = new UnsuccessfulResponseException(statusCode);
-    long startTime = System.currentTimeMillis();
-    StreamProcessor sp = createStreamProcessor(STREAM_URI);
-    Future<Void> initFuture = sp.start();
+    Semaphore closeFirstStreamSignal = new Semaphore(0);
+    Handler errorResp = Handlers.status(statusCode);
+    Handler stream1Resp = closableStreamResponse(EMPTY_DATA_EVENT, closeFirstStreamSignal);
+    Handler stream2Resp = streamResponse(EMPTY_DATA_EVENT);
+    
+    // Set up the sequence of responses that we'll receive below.
+    Handler seriesOfResponses = Handlers.sequential(errorResp, stream1Resp, errorResp, stream2Resp);
     
     BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
-    // simulate error
-    EventSourceParams eventSourceParams = mockEventSourceCreator.getNextReceivedParams();
-    ConnectionErrorHandler errorHandler = eventSourceParams.errorHandler;
-    ConnectionErrorHandler.Action action = errorHandler.onConnectionError(e);
-    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
-    
-    shouldTimeOut(initFuture, Duration.ofMillis(200));
-    assertTrue((System.currentTimeMillis() - startTime) >= 200);
-    assertFalse(initFuture.isDone());
-    assertFalse(sp.isInitialized());
-    
-    Status failureStatus1 = requireDataSourceStatus(statuses, State.INITIALIZING);
-    assertEquals(ErrorKind.ERROR_RESPONSE, failureStatus1.getLastError().getKind());
-    assertEquals(statusCode, failureStatus1.getLastError().getStatusCode());
-    
-    // simulate successful retry
-    eventSourceParams.handler.onMessage("put", emptyPutEvent());
+    try (HttpServer server = HttpServer.start(seriesOfResponses)) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        Future<Void> initFuture = sp.start();       
+        shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+        
+        assertTrue(sp.isInitialized());
+        
+        // The first stream request receives an error response (errorResp).
+        Status failureStatus1 = requireDataSourceStatus(statuses, State.INITIALIZING);
+        assertEquals(ErrorKind.ERROR_RESPONSE, failureStatus1.getLastError().getKind());
+        assertEquals(statusCode, failureStatus1.getLastError().getStatusCode());
 
-    shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
-    assertTrue(initFuture.isDone());
-    assertTrue(sp.isInitialized());
-
-    Status successStatus = requireDataSourceStatus(statuses, State.VALID);
-    assertSame(failureStatus1.getLastError(), successStatus.getLastError());
-    
-    // simulate another error of the same kind - the difference is now the state will be INTERRUPTED
-    action = errorHandler.onConnectionError(e);
-    assertEquals(ConnectionErrorHandler.Action.PROCEED, action);
-
-    Status failureStatus2 = requireDataSourceStatus(statuses, State.INTERRUPTED);
-    assertEquals(ErrorKind.ERROR_RESPONSE, failureStatus2.getLastError().getKind());
-    assertEquals(statusCode, failureStatus2.getLastError().getStatusCode());
-    assertNotSame(failureStatus2.getLastError(), failureStatus1.getLastError()); // a new instance of the same kind of error
+        // It tries to reconnect, and gets a valid response (stream1Resp). Now the stream is active.
+        Status successStatus1 = requireDataSourceStatus(statuses, State.VALID);
+        assertSame(failureStatus1.getLastError(), successStatus1.getLastError());
+       
+        // Now we'll trigger a disconnection of the stream. The SDK detects that as a
+        // NETWORK_ERROR. The state changes to INTERRUPTED because it was previously connected.
+        closeFirstStreamSignal.release();
+        Status failureStatus2 = requireDataSourceStatus(statuses, State.INTERRUPTED);
+        assertEquals(ErrorKind.NETWORK_ERROR, failureStatus2.getLastError().getKind());
+        
+        // It tries to reconnect, and gets another errorResp. The state is still INTERRUPTED.
+        Status failureStatus3 = requireDataSourceStatus(statuses, State.INTERRUPTED);
+        assertEquals(ErrorKind.ERROR_RESPONSE, failureStatus3.getLastError().getKind());
+        assertEquals(statusCode, failureStatus3.getLastError().getStatusCode());
+ 
+        // It tries again, and finally gets a valid response (stream2Resp).
+        Status successStatus2 = requireDataSourceStatus(statuses, State.VALID);
+        assertSame(failureStatus3.getLastError(), successStatus2.getLastError());
+      }
+    }
   }
   
   private StreamProcessor createStreamProcessor(URI streamUri) {
     return createStreamProcessor(LDConfig.DEFAULT, streamUri, null);
   }
 
-  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator diagnosticAccumulator) {
+  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator acc) {
     return new StreamProcessor(
-        clientContext(SDK_KEY, config).getHttp(),
+        clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp(),
         dataSourceUpdates,
-        mockEventSourceCreator,
         Thread.MIN_PRIORITY,
-        diagnosticAccumulator,
+        acc,
         streamUri,
-        DEFAULT_INITIAL_RECONNECT_DELAY
+        BRIEF_RECONNECT_DELAY
         );
   }
 
-  private StreamProcessor createStreamProcessorWithRealHttp(LDConfig config, URI streamUri) {
-    return new StreamProcessor(
-        clientContext(SDK_KEY, config).getHttp(),
-        dataSourceUpdates,
-        null,
-        Thread.MIN_PRIORITY,
-        null,
-        streamUri,
-        DEFAULT_INITIAL_RECONNECT_DELAY
-        );
+  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri) {
+    return createStreamProcessor(config, streamUri, null);
   }
 
-  private StreamProcessor createStreamProcessorWithStoreUpdates(DataSourceUpdates storeUpdates) {
-    return new StreamProcessor(
-        clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp(),
-        storeUpdates,
-        mockEventSourceCreator,
-        Thread.MIN_PRIORITY,
-        null,
-        STREAM_URI,
-        DEFAULT_INITIAL_RECONNECT_DELAY
-        );
-  }
-
-  private String featureJson(String key, int version) {
-    return gsonInstance().toJson(flagBuilder(key).version(version).build());
-  }
-  
-  private String segmentJson(String key, int version) {
-    return gsonInstance().toJson(ModelBuilders.segmentBuilder(key).version(version).build());
+  private static void startAndWait(StreamProcessor sp) {
+    Future<Void> ready = sp.start();
+    try {
+      ready.get();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
   
   private MessageEvent emptyPutEvent() {

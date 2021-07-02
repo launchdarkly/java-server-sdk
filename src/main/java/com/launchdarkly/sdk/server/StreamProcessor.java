@@ -84,7 +84,6 @@ final class StreamProcessor implements DataSource {
   @VisibleForTesting final URI streamUri;
   @VisibleForTesting final Duration initialReconnectDelay;
   private final DiagnosticAccumulator diagnosticAccumulator;
-  private final EventSourceCreator eventSourceCreator;
   private final int threadPriority;
   private final DataStoreStatusProvider.StatusListener statusListener;
   private volatile EventSource es;
@@ -94,34 +93,9 @@ final class StreamProcessor implements DataSource {
 
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
-  static final class EventSourceParams {
-    final EventHandler handler;
-    final URI streamUri;
-    final Duration initialReconnectDelay;
-    final ConnectionErrorHandler errorHandler;
-    final Headers headers;
-    final HttpConfiguration httpConfig;
-    
-    EventSourceParams(EventHandler handler, URI streamUri, Duration initialReconnectDelay,
-        ConnectionErrorHandler errorHandler, Headers headers, HttpConfiguration httpConfig) {
-      this.handler = handler;
-      this.streamUri = streamUri;
-      this.initialReconnectDelay = initialReconnectDelay;
-      this.errorHandler = errorHandler;
-      this.headers = headers;
-      this.httpConfig = httpConfig;
-    }
-  }
-  
-  @FunctionalInterface
-  static interface EventSourceCreator {
-    EventSource createEventSource(EventSourceParams params);
-  }
-  
   StreamProcessor(
       HttpConfiguration httpConfig,
       DataSourceUpdates dataSourceUpdates,
-      EventSourceCreator eventSourceCreator,
       int threadPriority,
       DiagnosticAccumulator diagnosticAccumulator,
       URI streamUri,
@@ -130,7 +104,6 @@ final class StreamProcessor implements DataSource {
     this.dataSourceUpdates = dataSourceUpdates;
     this.httpConfig = httpConfig;
     this.diagnosticAccumulator = diagnosticAccumulator;
-    this.eventSourceCreator = eventSourceCreator != null ? eventSourceCreator : this::defaultEventSourceCreator;
     this.threadPriority = threadPriority;
     this.streamUri = streamUri;
     this.initialReconnectDelay = initialReconnectDelay;
@@ -202,13 +175,26 @@ final class StreamProcessor implements DataSource {
     };
 
     EventHandler handler = new StreamEventHandler(initFuture);
-    
-    es = eventSourceCreator.createEventSource(new EventSourceParams(handler,
-        concatenateUriPath(streamUri, STREAM_URI_PATH),
-        initialReconnectDelay,
-        wrappedConnectionErrorHandler,
-        headers,
-        httpConfig));
+    URI endpointUri = concatenateUriPath(streamUri, STREAM_URI_PATH);
+
+    EventSource.Builder builder = new EventSource.Builder(handler, endpointUri)
+        .threadPriority(threadPriority)
+        .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
+        .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
+          public void configure(OkHttpClient.Builder builder) {
+            configureHttpClientBuilder(httpConfig, builder);
+          }
+        })
+        .connectionErrorHandler(wrappedConnectionErrorHandler)
+        .headers(headers)
+        .reconnectTime(initialReconnectDelay)
+        .readTimeout(DEAD_CONNECTION_INTERVAL);
+    // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
+    // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
+    // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
+    // more than the expected interval between heartbeat signals.
+
+    es = builder.build();
     esStarted = System.currentTimeMillis();
     es.start();
     return initFuture;
@@ -354,27 +340,6 @@ final class StreamProcessor implements DataSource {
       logger.warn("Encountered EventSource error: {}", throwable.toString());
       logger.debug(throwable.toString(), throwable);
     }  
-  }
-
-  private EventSource defaultEventSourceCreator(EventSourceParams params) {
-    EventSource.Builder builder = new EventSource.Builder(params.handler, params.streamUri)
-        .threadPriority(threadPriority)
-        .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
-        .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
-          public void configure(OkHttpClient.Builder builder) {
-            configureHttpClientBuilder(params.httpConfig, builder);
-          }
-        })
-        .connectionErrorHandler(params.errorHandler)
-        .headers(params.headers)
-        .reconnectTime(params.initialReconnectDelay)
-        .readTimeout(DEAD_CONNECTION_INTERVAL);
-    // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
-    // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
-    // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
-    // more than the expected interval between heartbeat signals.
-
-    return builder.build();
   }
 
   private static Map.Entry<DataKind, String> getKindAndKeyFromStreamApiPath(String path) throws StreamInputException {

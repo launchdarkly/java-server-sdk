@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
@@ -25,6 +24,7 @@ import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
+import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
@@ -55,6 +55,10 @@ public class TestComponents {
     return new ClientContextImpl(sdkKey, config, sharedExecutor, diagnosticAccumulator);
   }
 
+  public static HttpConfiguration defaultHttpConfiguration() {
+    return clientContext("", LDConfig.DEFAULT).getHttp();
+  }
+  
   public static DataStore dataStoreThatThrowsException(RuntimeException e) {
     return new DataStoreThatThrowsException(e);
   }
@@ -149,12 +153,26 @@ public class TestComponents {
   };
   
   public static class MockDataSourceUpdates implements DataSourceUpdates {
+    public static class UpsertParams {
+      public final DataKind kind;
+      public final String key;
+      public final ItemDescriptor item;
+      
+      UpsertParams(DataKind kind, String key, ItemDescriptor item) {
+        super();
+        this.kind = kind;
+        this.key = key;
+        this.item = item;
+      }
+    }
+    
     private final DataSourceUpdatesImpl wrappedInstance;
     private final DataStoreStatusProvider dataStoreStatusProvider;
     public final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventBroadcaster;
     public final EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status>
       statusBroadcaster;
     public final BlockingQueue<FullDataSet<ItemDescriptor>> receivedInits = new LinkedBlockingQueue<>();
+    public final BlockingQueue<UpsertParams> receivedUpserts = new LinkedBlockingQueue<>();
     
     public MockDataSourceUpdates(DataStore store, DataStoreStatusProvider dataStoreStatusProvider) {
       this.dataStoreStatusProvider = dataStoreStatusProvider;
@@ -172,13 +190,16 @@ public class TestComponents {
 
     @Override
     public boolean init(FullDataSet<ItemDescriptor> allData) {
+      boolean result = wrappedInstance.init(allData);
       receivedInits.add(allData);
-      return wrappedInstance.init(allData);
+      return result;
     }
 
     @Override
     public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
-      return wrappedInstance.upsert(kind, key, item);
+      boolean result = wrappedInstance.upsert(kind, key, item);
+      receivedUpserts.add(new UpsertParams(kind, key, item));
+      return result;
     }
 
     @Override
@@ -208,6 +229,16 @@ public class TestComponents {
         }
       } catch (InterruptedException e) {}
       throw new RuntimeException("did not receive expected init call");
+    }
+    
+    public UpsertParams awaitUpsert() {
+      try {
+        UpsertParams value = receivedUpserts.poll(5, TimeUnit.SECONDS);
+        if (value != null) {
+          return value;
+        }
+      } catch (InterruptedException e) {}
+      throw new RuntimeException("did not receive expected upsert call");
     }
   }
   
@@ -264,6 +295,62 @@ public class TestComponents {
     }
   }
   
+  public static class DelegatingDataStore implements DataStore {
+    private final DataStore store;
+    private final Runnable preUpdateHook;
+    
+    public DelegatingDataStore(DataStore store, Runnable preUpdateHook) {
+      this.store = store;
+      this.preUpdateHook = preUpdateHook;
+    }
+    
+    @Override
+    public void close() throws IOException {
+      store.close();
+    }
+
+    @Override
+    public void init(FullDataSet<ItemDescriptor> allData) {
+      if (preUpdateHook != null) {
+        preUpdateHook.run();
+      }
+      store.init(allData);
+    }
+
+    @Override
+    public ItemDescriptor get(DataKind kind, String key) {
+      return store.get(kind, key);
+    }
+
+    @Override
+    public KeyedItems<ItemDescriptor> getAll(DataKind kind) {
+      return store.getAll(kind);
+    }
+
+    @Override
+    public boolean upsert(DataKind kind, String key, ItemDescriptor item) {
+      if (preUpdateHook != null) {
+        preUpdateHook.run();
+      }
+      return store.upsert(kind, key, item);
+    }
+
+    @Override
+    public boolean isInitialized() {
+      return store.isInitialized();
+    }
+
+    @Override
+    public boolean isStatusMonitoringEnabled() {
+      return store.isStatusMonitoringEnabled();
+    }
+
+    @Override
+    public CacheStats getCacheStats() {
+      return store.getCacheStats();
+    }
+  }
+  
   public static class MockDataStoreStatusProvider implements DataStoreStatusProvider {
     public final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
     private final AtomicReference<DataStoreStatusProvider.Status> lastStatus;
@@ -312,24 +399,6 @@ public class TestComponents {
     @Override
     public CacheStats getCacheStats() {
       return null;
-    }
-  }
-  
-  public static class MockEventSourceCreator implements StreamProcessor.EventSourceCreator {
-    private final EventSource eventSource;
-    private final BlockingQueue<StreamProcessor.EventSourceParams> receivedParams = new LinkedBlockingQueue<>();
-    
-    MockEventSourceCreator(EventSource eventSource) {
-      this.eventSource = eventSource;
-    }
-    
-    public EventSource createEventSource(StreamProcessor.EventSourceParams params) {
-      receivedParams.add(params);
-      return eventSource;
-    }
-    
-    public StreamProcessor.EventSourceParams getNextReceivedParams() {
-      return receivedParams.poll();
     }
   }
 }

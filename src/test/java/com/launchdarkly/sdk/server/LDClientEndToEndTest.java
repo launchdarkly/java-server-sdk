@@ -5,6 +5,11 @@ import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
+import com.launchdarkly.testhelpers.httptest.Handler;
+import com.launchdarkly.testhelpers.httptest.Handlers;
+import com.launchdarkly.testhelpers.httptest.HttpServer;
+import com.launchdarkly.testhelpers.httptest.RequestInfo;
 
 import org.junit.Test;
 
@@ -12,27 +17,17 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.BiFunction;
 
 import static com.launchdarkly.sdk.server.Components.externalUpdatesOnly;
 import static com.launchdarkly.sdk.server.Components.noEvents;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.TestHttpUtil.basePollingConfig;
-import static com.launchdarkly.sdk.server.TestHttpUtil.baseStreamingConfig;
-import static com.launchdarkly.sdk.server.TestHttpUtil.httpsServerWithSelfSignedCert;
-import static com.launchdarkly.sdk.server.TestHttpUtil.jsonResponse;
-import static com.launchdarkly.sdk.server.TestHttpUtil.makeStartedServer;
+import static com.launchdarkly.testhelpers.httptest.Handlers.bodyJson;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.nullValue;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-
-import okhttp3.HttpUrl;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
 
 @SuppressWarnings("javadoc")
 public class LDClientEndToEndTest {
@@ -44,13 +39,52 @@ public class LDClientEndToEndTest {
       .build();
   private static final LDUser user = new LDUser("user-key");
   
+  private static Handler makePollingSuccessResponse() {
+    return bodyJson(makeAllDataJson());
+  }
+  
+  private static Handler makeStreamingSuccessResponse() {
+    String streamData = "event: put\n" +
+        "data: {\"data\":" + makeAllDataJson() + "}";
+    return Handlers.all(Handlers.SSE.start(),
+        Handlers.SSE.event(streamData), Handlers.SSE.leaveOpen());
+  }
+  
+  private static Handler makeInvalidSdkKeyResponse() {
+    return Handlers.status(401);
+  }
+  
+  private static Handler makeServiceUnavailableResponse() {
+    return Handlers.status(503);
+  }
+  
   @Test
   public void clientStartsInPollingMode() throws Exception {
-    MockResponse resp = jsonResponse(makeAllDataJson());
-    
-    try (MockWebServer server = makeStartedServer(resp)) {
+    try (HttpServer server = HttpServer.start(makePollingSuccessResponse())) {
       LDConfig config = new LDConfig.Builder()
-          .dataSource(basePollingConfig(server))
+          .dataSource(Components.pollingDataSource().baseURI(server.getUri()))
+          .events(noEvents())
+          .build();
+      
+      try (LDClient client = new LDClient(sdkKey, config)) {
+        assertTrue(client.isInitialized());
+        assertTrue(client.boolVariation(flagKey, user, false));
+      }
+    }
+  }
+
+  @Test
+  public void clientStartsInPollingModeAfterRecoverableError() throws Exception {
+    Handler errorThenSuccess = Handlers.sequential(
+        makeServiceUnavailableResponse(),
+        makePollingSuccessResponse()
+        );
+
+    try (HttpServer server = HttpServer.start(errorThenSuccess)) {
+      LDConfig config = new LDConfig.Builder()
+          .dataSource(Components.pollingDataSourceInternal()
+              .pollIntervalWithNoMinimum(Duration.ofMillis(5)) // use small interval because we expect it to retry
+              .baseURI(server.getUri()))
           .events(noEvents())
           .build();
       
@@ -63,49 +97,42 @@ public class LDClientEndToEndTest {
 
   @Test
   public void clientFailsInPollingModeWith401Error() throws Exception {
-    MockResponse resp = new MockResponse().setResponseCode(401);
-    
-    try (MockWebServer server = makeStartedServer(resp)) {
+    try (HttpServer server = HttpServer.start(makeInvalidSdkKeyResponse())) {
       LDConfig config = new LDConfig.Builder()
-          .dataSource(basePollingConfig(server))
+          .dataSource(Components.pollingDataSourceInternal()
+              .pollIntervalWithNoMinimum(Duration.ofMillis(5)) // use small interval so we'll know if it does not stop permanently
+              .baseURI(server.getUri()))
           .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
         assertFalse(client.isInitialized());
         assertFalse(client.boolVariation(flagKey, user, false));
+        
+        server.getRecorder().requireRequest();
+        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
       }
     }
   }
 
   @Test
-  public void clientStartsInPollingModeWithSelfSignedCert() throws Exception {
-    MockResponse resp = jsonResponse(makeAllDataJson());
-    
-    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      LDConfig config = new LDConfig.Builder()
-          .dataSource(basePollingConfig(serverWithCert.server))
-          .events(noEvents())
-          .http(Components.httpConfiguration().sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager))
-          // allows us to trust the self-signed cert
-          .build();
-      
-      try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.isInitialized());
-        assertTrue(client.boolVariation(flagKey, user, false));
-      }
-    }
+  public void testPollingModeSpecialHttpConfigurations() throws Exception {
+    testWithSpecialHttpConfigurations(
+        makePollingSuccessResponse(),
+        (serverUri, httpConfig) ->
+          new LDConfig.Builder()
+            .dataSource(Components.pollingDataSource().baseURI(serverUri))
+            .events(noEvents())
+            .http(httpConfig)
+            .startWait(Duration.ofMillis(100))
+            .build());
   }
-
+  
   @Test
-  public void clientStartsInStreamingMode() throws Exception {
-    String streamData = "event: put\n" +
-        "data: {\"data\":" + makeAllDataJson() + "}\n\n";    
-    MockResponse resp = TestHttpUtil.eventStreamResponse(streamData);
-    
-    try (MockWebServer server = makeStartedServer(resp)) {
+  public void clientStartsInStreamingMode() throws Exception {    
+    try (HttpServer server = HttpServer.start(makeStreamingSuccessResponse())) {
       LDConfig config = new LDConfig.Builder()
-          .dataSource(baseStreamingConfig(server))
+          .dataSource(Components.streamingDataSource().baseURI(server.getUri()))
           .events(noEvents())
           .build();
       
@@ -118,32 +145,35 @@ public class LDClientEndToEndTest {
 
   @Test
   public void clientStartsInStreamingModeAfterRecoverableError() throws Exception {
-    MockResponse errorResp = new MockResponse().setResponseCode(503);
-
-    String streamData = "event: put\n" +
-        "data: {\"data\":" + makeAllDataJson() + "}\n\n";    
-    MockResponse streamResp = TestHttpUtil.eventStreamResponse(streamData);
+    Handler errorThenStream = Handlers.sequential(
+        makeServiceUnavailableResponse(),
+        makeStreamingSuccessResponse()
+        );
     
-    try (MockWebServer server = makeStartedServer(errorResp, streamResp)) {
+    try (HttpServer server = HttpServer.start(errorThenStream)) {
       LDConfig config = new LDConfig.Builder()
-          .dataSource(baseStreamingConfig(server))
+          .dataSource(Components.streamingDataSource().baseURI(server.getUri()).initialReconnectDelay(Duration.ZERO))
+          // use zero reconnect delay so we'll know if it does not stop permanently
           .events(noEvents())
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
         assertTrue(client.isInitialized());
         assertTrue(client.boolVariation(flagKey, user, false));
+        
+        server.getRecorder().requireRequest();
+        server.getRecorder().requireRequest();
+        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
       }
     }
   }
 
   @Test
   public void clientFailsInStreamingModeWith401Error() throws Exception {
-    MockResponse resp = new MockResponse().setResponseCode(401);
-    
-    try (MockWebServer server = makeStartedServer(resp, resp, resp)) {
+    try (HttpServer server = HttpServer.start(makeInvalidSdkKeyResponse())) {
       LDConfig config = new LDConfig.Builder()
-          .dataSource(baseStreamingConfig(server).initialReconnectDelay(Duration.ZERO))
+          .dataSource(Components.streamingDataSource().baseURI(server.getUri()).initialReconnectDelay(Duration.ZERO))
+          // use zero reconnect delay so we'll know if it does not stop permanently
           .events(noEvents())
           .build();
       
@@ -163,94 +193,34 @@ public class LDClientEndToEndTest {
           assertThat(statuses.take().getState(), equalTo(DataSourceStatusProvider.State.OFF)); 
         }
         assertThat(statuses.isEmpty(), equalTo(true));
-        assertThat(server.getRequestCount(), equalTo(1)); // no retries
+        
+        server.getRecorder().requireRequest();
+        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
       }
     }
   }
 
   @Test
-  public void clientStartsInStreamingModeWithSelfSignedCert() throws Exception {
-    String streamData = "event: put\n" +
-        "data: {\"data\":" + makeAllDataJson() + "}\n\n";    
-    MockResponse resp = TestHttpUtil.eventStreamResponse(streamData);
-    
-    try (TestHttpUtil.ServerWithCert serverWithCert = httpsServerWithSelfSignedCert(resp)) {
-      LDConfig config = new LDConfig.Builder()
-          .dataSource(baseStreamingConfig(serverWithCert.server))
-          .events(noEvents())
-          .http(Components.httpConfiguration().sslSocketFactory(serverWithCert.socketFactory, serverWithCert.trustManager))
-          // allows us to trust the self-signed cert
-          .build();
-      
-      try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.isInitialized());
-        assertTrue(client.boolVariation(flagKey, user, false));
-      }
-    }
-  }
-
-  @Test
-  public void clientUsesProxy() throws Exception {
-    URI fakeBaseUri = URI.create("http://not-a-real-host");
-    MockResponse resp = jsonResponse(makeAllDataJson());
-    
-    try (MockWebServer server = makeStartedServer(resp)) {
-      HttpUrl serverUrl = server.url("/");
-      LDConfig config = new LDConfig.Builder()
-          .http(Components.httpConfiguration()
-              .proxyHostAndPort(serverUrl.host(), serverUrl.port()))
-          .dataSource(Components.pollingDataSource().baseURI(fakeBaseUri))
-          .events(Components.noEvents())
-          .build();
-      
-      try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.isInitialized());
-        
-        RecordedRequest req = server.takeRequest();
-        assertThat(req.getRequestLine(), startsWith("GET " + fakeBaseUri + "/sdk/latest-all"));
-        assertThat(req.getHeader("Proxy-Authorization"), nullValue());
-      }
-    }
-  }
-
-  @Test
-  public void clientUsesProxyWithBasicAuth() throws Exception {
-    URI fakeBaseUri = URI.create("http://not-a-real-host");
-    MockResponse challengeResp = new MockResponse().setResponseCode(407).setHeader("Proxy-Authenticate", "Basic realm=x");
-    MockResponse resp = jsonResponse(makeAllDataJson());
-    
-    try (MockWebServer server = makeStartedServer(challengeResp, resp)) {
-      HttpUrl serverUrl = server.url("/");
-      LDConfig config = new LDConfig.Builder()
-          .http(Components.httpConfiguration()
-              .proxyHostAndPort(serverUrl.host(), serverUrl.port())
-              .proxyAuth(Components.httpBasicAuthentication("user", "pass")))
-          .dataSource(Components.pollingDataSource().baseURI(fakeBaseUri))
-          .events(Components.noEvents())
-          .build();
-      
-      try (LDClient client = new LDClient(sdkKey, config)) {
-        assertTrue(client.isInitialized());
-        
-        RecordedRequest req1 = server.takeRequest();
-        assertThat(req1.getRequestLine(), startsWith("GET " + fakeBaseUri + "/sdk/latest-all"));
-        assertThat(req1.getHeader("Proxy-Authorization"), nullValue());
-        
-        RecordedRequest req2 = server.takeRequest();
-        assertThat(req2.getRequestLine(), equalTo(req1.getRequestLine()));
-        assertThat(req2.getHeader("Proxy-Authorization"), equalTo("Basic dXNlcjpwYXNz"));
-      }
-    }
+  public void testStreamingModeSpecialHttpConfigurations() throws Exception {
+    testWithSpecialHttpConfigurations(
+        makeStreamingSuccessResponse(),
+        (serverUri, httpConfig) ->
+          new LDConfig.Builder()
+            .dataSource(Components.streamingDataSource().baseURI(serverUri))
+            .events(noEvents())
+            .http(httpConfig)
+            .startWait(Duration.ofMillis(100))
+            .build());
   }
   
   @Test
   public void clientSendsAnalyticsEvent() throws Exception {
-    MockResponse resp = new MockResponse().setResponseCode(202);
+    Handler resp = Handlers.status(202);
     
-    try (MockWebServer server = makeStartedServer(resp)) {
+    try (HttpServer server = HttpServer.start(resp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(externalUpdatesOnly())
-          .events(Components.sendEvents().baseURI(server.url("/").uri()))
+          .events(Components.sendEvents().baseURI(server.getUri()))
           .diagnosticOptOut(true)
           .build();
       
@@ -259,31 +229,50 @@ public class LDClientEndToEndTest {
         client.identify(new LDUser("userkey"));
       }
       
-      RecordedRequest req = server.takeRequest();
+      RequestInfo req = server.getRecorder().requireRequest();
       assertEquals("/bulk", req.getPath());
     }
   }
 
   @Test
   public void clientSendsDiagnosticEvent() throws Exception {
-    MockResponse resp = new MockResponse().setResponseCode(202);
+    Handler resp = Handlers.status(202);
     
-    try (MockWebServer server = makeStartedServer(resp)) {
+    try (HttpServer server = HttpServer.start(resp)) {
       LDConfig config = new LDConfig.Builder()
           .dataSource(externalUpdatesOnly())
-          .events(Components.sendEvents().baseURI(server.url("/").uri()))
+          .events(Components.sendEvents().baseURI(server.getUri()))
           .build();
       
       try (LDClient client = new LDClient(sdkKey, config)) {
         assertTrue(client.isInitialized());
 
-        RecordedRequest req = server.takeRequest();
+        RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/diagnostic", req.getPath());
       }      
     }
   }
 
-  public String makeAllDataJson() {
+  private static void testWithSpecialHttpConfigurations(Handler handler,
+      BiFunction<URI, HttpConfigurationFactory, LDConfig> makeConfig) throws Exception {
+    TestHttpUtil.testWithSpecialHttpConfigurations(handler,
+        (serverUri, httpConfig) -> {
+          LDConfig config = makeConfig.apply(serverUri, httpConfig);
+          try (LDClient client = new LDClient(sdkKey, config)) {
+            assertTrue(client.isInitialized());
+            assertTrue(client.boolVariation(flagKey, user, false));
+          }
+        },
+        (serverUri, httpConfig) -> {
+          LDConfig config = makeConfig.apply(serverUri, httpConfig);
+          try (LDClient client = new LDClient(sdkKey, config)) {
+            assertFalse(client.isInitialized());
+          }
+        }
+        );
+  }
+
+  private static String makeAllDataJson() {
     JsonObject flagsData = new JsonObject();
     flagsData.add(flagKey, gson.toJsonTree(flag));
     JsonObject allData = new JsonObject();
