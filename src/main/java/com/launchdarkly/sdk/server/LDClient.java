@@ -41,6 +41,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+import static com.launchdarkly.sdk.server.Util.isAsciiHeaderValue;
 
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
@@ -82,8 +83,15 @@ public final class LDClient implements LDClientInterface {
    * values; it will still continue trying to connect in the background. You can detect whether
    * initialization has succeeded by calling {@link #isInitialized()}. If you prefer to customize
    * this behavior, use {@link LDClient#LDClient(String, LDConfig)} instead.
+   * <p>
+   * For rules regarding the throwing of unchecked exceptions for error conditions, see
+   * {@link LDClient#LDClient(String, LDConfig)}.
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
+   * @throws IllegalArgumentException if a parameter contained a grossly malformed value;
+   *   for security reasons, in case of an illegal SDK key, the exception message does
+   *   not include the key
+   * @throws NullPointerException if a non-nullable parameter was null
    * @see LDClient#LDClient(String, LDConfig)
    */
   public LDClient(String sdkKey) {
@@ -136,14 +144,32 @@ public final class LDClient implements LDClientInterface {
    *         // do whatever is appropriate if initialization has timed out
    *     }
    * </code></pre>
+   * <p>
+   * This constructor can throw unchecked exceptions if it is immediately apparent that
+   * the SDK cannot work with these parameters. For instance, if the SDK key contains a
+   * non-printable character that cannot be used in an HTTP header, it will throw an
+   * {@link IllegalArgumentException} since the SDK key is normally sent to LaunchDarkly
+   * in an HTTP header and no such value could possibly be valid. Similarly, a null
+   * value for a non-nullable parameter may throw a {@link NullPointerException}. The
+   * constructor will not throw an exception for any error condition that could only be
+   * detected after making a request to LaunchDarkly (such as an SDK key that is simply
+   * wrong despite being valid ASCII, so it is invalid but not illegal); those are logged
+   * and treated as an unsuccessful initialization, as described above. 
    *
    * @param sdkKey the SDK key for your LaunchDarkly environment
    * @param config a client configuration object
+   * @throws IllegalArgumentException if a parameter contained a grossly malformed value;
+   *   for security reasons, in case of an illegal SDK key, the exception message does
+   *   not include the key
+   * @throws NullPointerException if a non-nullable parameter was null
    * @see LDClient#LDClient(String, LDConfig)
    */
   public LDClient(String sdkKey, LDConfig config) {
     checkNotNull(config, "config must not be null");
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
+    if (!isAsciiHeaderValue(sdkKey) ) {
+      throw new IllegalArgumentException("SDK key contained an invalid character");
+    }
     this.offline = config.offline;
     
     this.sharedExecutor = createSharedExecutor(config);
@@ -268,7 +294,7 @@ public final class LDClient implements LDClientInterface {
   
   @Override
   public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
-    FeatureFlagsState.Builder builder = new FeatureFlagsState.Builder(options);
+    FeatureFlagsState.Builder builder = FeatureFlagsState.builder(options);
     
     if (isOffline()) {
       Loggers.EVALUATION.debug("allFlagsState() was called when client is in offline mode.");
