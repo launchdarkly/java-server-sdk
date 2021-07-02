@@ -2,6 +2,15 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.6.0] - 2021-07-02
+### Added:
+- The `builder()` method in `FeatureFlagsState`, for creating instances of that class (most likely useful in test code). ([#234](https://github.com/launchdarkly/java-server-sdk/issues/234))
+
+### Fixed:
+- If you called the `LDClient` constructor with an SDK key that contained a character less than `0x20` or greater than `0x7e`, it would throw an `IllegalArgumentException` that contained the full SDK key string in its message. Since the string might contain a real key (if for instance the application had read the SDK key from configuration data that included a newline character, and neglected to trim the newline), exposing the value in an exception message that might end up in a log was a security risk. This has been changed so that the exception message only says the key contains an invalid character, but does not include the value. (The underlying exception behavior is part of the OkHttp library, so be aware that if you inject any custom headers with illegal characters into your HTTP configuration, their values might still be exposed in this way.)
+- In polling mode, the SDK would attempt to reconnect to the LaunchDarkly streaming service even if it received an HTTP 401 error. It should reconnect for other errors such as 503, but 401 indicates that the SDK key is invalid and a retry cannot succeed; the SDK did have logic to permanently stop the connection in this case, but it was not working. (This is equivalent to the bug that was fixed in 5.5.1, but for polling mode.)
+- Fixed documentation comments for `FileData` to clarify that you should _not_ use `offline` mode in conjunction with `FileData`; instead, you should just turn off events if you don&#39;t want events to be sent. Turning on `offline` mode will disable `FileData` just as it disables all other data sources. ([#235](https://github.com/launchdarkly/java-server-sdk/issues/235))
+
 ## [5.5.1] - 2021-06-24
 ### Fixed:
 - The SDK was attempting to reconnect to the LaunchDarkly streaming service even if it received an HTTP 401 error. It should reconnect for other errors such as 503, but 401 indicates that the SDK key is invalid and a retry cannot succeed; the SDK did have logic to permanently stop the connection in this case, but it was not working.
