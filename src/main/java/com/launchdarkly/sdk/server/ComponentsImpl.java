@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
@@ -143,7 +144,6 @@ abstract class ComponentsImpl {
       return new StreamProcessor(
           context.getHttp(),
           dataSourceUpdates,
-          null,
           context.getBasic().getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
           streamUri,
@@ -165,6 +165,12 @@ abstract class ComponentsImpl {
   }
   
   static final class PollingDataSourceBuilderImpl extends PollingDataSourceBuilder implements DiagnosticDescription {
+    // for testing only
+    PollingDataSourceBuilderImpl pollIntervalWithNoMinimum(Duration pollInterval) {
+      this.pollInterval = pollInterval;
+      return this;
+    }
+    
     @Override
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
       // Note, we log startup messages under the LDClient class to keep logs more readable

@@ -111,6 +111,10 @@ final class PollingProcessor implements DataSource {
       } else {
         dataSourceUpdates.updateStatus(State.OFF, errorInfo);
         initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
+        if (task != null) {
+          task.cancel(true);
+          task = null;
+        }
       }
     } catch (IOException e) {
       checkIfErrorIsRecoverableAndLog(logger, e.toString(), ERROR_CONTEXT_MESSAGE, 0, WILL_RETRY_MESSAGE);

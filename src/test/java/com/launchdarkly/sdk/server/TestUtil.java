@@ -1,7 +1,10 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
@@ -9,6 +12,8 @@ import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 
@@ -37,6 +42,7 @@ import javax.net.SocketFactory;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
@@ -159,6 +165,26 @@ public class TestUtil {
       assertEquals(possibleStateBeforeThat, status.getState());
       return null;
     });
+  }
+  
+  public static void assertDataSetEquals(FullDataSet<ItemDescriptor> expected, FullDataSet<ItemDescriptor> actual) {
+    JsonElement expectedJson = TEST_GSON_INSTANCE.toJsonTree(toDataMap(expected));
+    JsonElement actualJson = TEST_GSON_INSTANCE.toJsonTree(toDataMap(actual));
+    assertEquals(expectedJson, actualJson);
+  }
+  
+  public static String describeDataSet(FullDataSet<ItemDescriptor> data) {
+    return Joiner.on(", ").join(
+        Iterables.transform(data.getData(), entry -> {
+          DataKind kind = entry.getKey();
+          return "{" + kind + ": [" +
+            Joiner.on(", ").join(
+                Iterables.transform(entry.getValue().getItems(), item ->
+                  kind.serialize(item.getValue())
+                  )
+                ) +
+              "]}";
+        }));
   }
   
   public static interface ActionCanThrowAnyException<T> {

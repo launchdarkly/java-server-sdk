@@ -3,6 +3,8 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
@@ -137,6 +139,15 @@ public class DataStoreTestTypes {
   public static class DataBuilder {
     private Map<DataKind, Map<String, ItemDescriptor>> data = new HashMap<>();
     
+    public static DataBuilder forStandardTypes() {
+      // This just ensures that we use realistic-looking data sets in our tests when simulating
+      // an LD service response, which will always include "flags" and "segments" even if empty.
+      DataBuilder ret = new DataBuilder();
+      ret.add(DataModel.FEATURES);
+      ret.add(DataModel.SEGMENTS);
+      return ret;
+    }
+    
     public DataBuilder add(DataKind kind, TestItem... items) {
       return addAny(kind, items);
     }
@@ -181,6 +192,20 @@ public class DataStoreTestTypes {
                     )
                 )
           ).entrySet());
+    }
+    
+    public LDValue buildJson() {
+      FullDataSet<SerializedItemDescriptor> allData = buildSerialized();
+      ObjectBuilder allBuilder = LDValue.buildObject();
+      for (Map.Entry<DataKind, KeyedItems<SerializedItemDescriptor>> coll: allData.getData()) {
+        String namespace = coll.getKey().getName().equals("features") ? "flags" : coll.getKey().getName();
+        ObjectBuilder itemsBuilder = LDValue.buildObject();
+        for (Map.Entry<String, SerializedItemDescriptor> item: coll.getValue().getItems()) {
+          itemsBuilder.put(item.getKey(), LDValue.parse(item.getValue().getSerializedItem()));
+        }
+        allBuilder.put(namespace, itemsBuilder.build());
+      }
+      return allBuilder.build();
     }
   }
 }

@@ -187,6 +187,11 @@ public abstract class Components {
     return new PollingDataSourceBuilderImpl();
   }
   
+  // For testing only - allows us to override the minimum polling interval
+  static PollingDataSourceBuilderImpl pollingDataSourceInternal() {
+    return new PollingDataSourceBuilderImpl();
+  }
+  
   /**
    * Returns a configuration object that disables a direct connection with LaunchDarkly for feature flag updates.
    * <p>
