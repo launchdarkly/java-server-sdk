@@ -13,12 +13,16 @@ BASE_DIR:=$(shell pwd)
 PROJECT_DIR=$(shell cd .. && pwd)
 SDK_VERSION=$(shell grep "version=" $(PROJECT_DIR)/gradle.properties | cut -d '=' -f 2)
 
-SDK_JARS_DIR=$(PROJECT_DIR)/build/libs
-SDK_DEFAULT_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION).jar
-SDK_ALL_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-all.jar
-SDK_THIN_JAR=$(SDK_JARS_DIR)/launchdarkly-java-server-sdk-$(SDK_VERSION)-thin.jar
-
 export TEMP_DIR=$(BASE_DIR)/temp
+
+LOCAL_VERSION=99.99.99-SNAPSHOT
+MAVEN_LOCAL_REPO=$(HOME)/.m2/repository
+TEMP_MAVEN_OUTPUT_DIR=$(MAVEN_LOCAL_REPO)/com/launchdarkly/launchdarkly-java-server-sdk/$(LOCAL_VERSION)
+SDK_DEFAULT_JAR=$(TEMP_MAVEN_OUTPUT_DIR)/launchdarkly-java-server-sdk-$(LOCAL_VERSION).jar
+SDK_ALL_JAR=$(TEMP_MAVEN_OUTPUT_DIR)/launchdarkly-java-server-sdk-$(LOCAL_VERSION)-all.jar
+SDK_THIN_JAR=$(TEMP_MAVEN_OUTPUT_DIR)/launchdarkly-java-server-sdk-$(LOCAL_VERSION)-thin.jar
+POM_XML=$(TEMP_MAVEN_OUTPUT_DIR)/launchdarkly-java-server-sdk-$(LOCAL_VERSION).pom
+
 export TEMP_OUTPUT=$(TEMP_DIR)/test.out
 
 # Build product of the project in ./test-app; can be run as either a regular app or an OSGi bundle
@@ -56,9 +60,13 @@ verify_sdk_classes= \
 sdk_subpackage_names= \
 	$(shell cd $(PROJECT_DIR)/src/main/java/com/launchdarkly/sdk && find . ! -path . -type d | sed -e 's@^\./@@')
 
+manifest_should_not_have_classpath= \
+	echo "    should not have Class-Path in manifest" && \
+	! (unzip -q -c $(1) META-INF/MANIFEST.MF | grep 'Class-Path')
+
 caption=echo "" && echo "$(1)"
 
-all: test-all-jar test-default-jar test-thin-jar
+all: test-all-jar test-default-jar test-thin-jar test-pom
 
 clean:
 	rm -rf $(TEMP_DIR)/*
@@ -83,6 +91,7 @@ test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/fasterxml/jackson,shaded Jackson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
+	@$(call manifest_should_not_have_classpath,$<)
 
 test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call caption,$@)
@@ -95,6 +104,7 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/fasterxml/jackson,shaded Jackson)
 	@$(call classes_should_not_contain,org/slf4j,unshaded SLF4j)
+	@$(call manifest_should_not_have_classpath,$<)
 
 test-thin-jar-classes: $(SDK_THIN_JAR) $(TEMP_DIR)
 	@$(call caption,$@)
@@ -102,33 +112,39 @@ test-thin-jar-classes: $(SDK_THIN_JAR) $(TEMP_DIR)
 	@$(call verify_sdk_classes)
 	@echo "    should not contain anything other than SDK classes"
 	@! grep -v "^com/launchdarkly/sdk" $(TEMP_OUTPUT)
+	@$(call manifest_should_not_have_classpath,$<)
 
-$(SDK_DEFAULT_JAR):
-	cd .. && ./gradlew shadowJar
+test-pom: $(POM_XML)
+	@$(call caption,$@)
+	@echo "=== contents of $<"
+	@cat $<
+	@echo "==="
+	@echo "  should have SLF4J dependency"
+	@grep 'slf4j-api' >/dev/null $< || (echo "    FAILED" && exit 1)
+	@echo "  should not have any dependencies other than SLF4J"
+	@! grep '<groupId>' $< | grep -v slf4j | grep -v launchdarkly || (echo "    FAILED" && exit 1)
 
-$(SDK_ALL_JAR):
-	cd .. && ./gradlew shadowJarAll
-
-$(SDK_THIN_JAR):
-	cd .. && ./gradlew jar
+$(SDK_DEFAULT_JAR) $(SDK_ALL_JAR) $(SDK_THIN_JAR) $(POM_XML):
+	cd .. && ./gradlew publishToMavenLocal -P version=$(LOCAL_VERSION) -P LD_SKIP_SIGNING=1
+	@# publishToMavenLocal creates not only the jars but also the pom
 
 $(TEST_APP_JAR): $(SDK_THIN_JAR) $(TEST_APP_SOURCES) | $(TEMP_DIR)
-	mkdir -p $(TEMP_DIR)/dependencies-app
-	cd test-app && ../../gradlew jar
-	cp $(BASE_DIR)/test-app/build/libs/test-app-*.jar $@
+	@mkdir -p $(TEMP_DIR)/dependencies-app
+	@cd test-app && ../../gradlew jar
+	@cp $(BASE_DIR)/test-app/build/libs/test-app-*.jar $@
 
 get-sdk-dependencies: $(TEMP_DIR)/dependencies-all $(TEMP_DIR)/dependencies-external $(TEMP_DIR)/dependencies-internal
 
 $(TEMP_DIR)/dependencies-all: | $(TEMP_DIR)
-	[ -d $@ ] || mkdir -p $@
-	cd .. && ./gradlew exportDependencies
-	cp $(TEMP_DIR)/dependencies-app/*.jar $@
+	@[ -d $@ ] || mkdir -p $@
+	@cd .. && ./gradlew exportDependencies
+	@cp $(TEMP_DIR)/dependencies-app/*.jar $@
 
 $(TEMP_DIR)/dependencies-external: $(TEMP_DIR)/dependencies-all
-	[ -d $@ ] || mkdir -p $@
-	cp $(TEMP_DIR)/dependencies-all/slf4j*.jar $@
-	cp $(TEMP_DIR)/dependencies-all/gson*.jar $@
-	cp $(TEMP_DIR)/dependencies-all/jackson*.jar $@
+	@[ -d $@ ] || mkdir -p $@
+	@cp $(TEMP_DIR)/dependencies-all/slf4j*.jar $@
+	@cp $(TEMP_DIR)/dependencies-all/gson*.jar $@
+	@cp $(TEMP_DIR)/dependencies-all/jackson*.jar $@
 
 $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@
