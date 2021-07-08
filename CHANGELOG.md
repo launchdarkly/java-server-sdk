@@ -2,6 +2,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.6.1] - 2021-07-07
+This release fixes two packaging errors that could produce unwanted Java dependency behavior, as described below. There are no changes to the SDK&#39;s functionality in this release, and you do not need to modify your code or your build.
+
+### Fixed:
+- Two Jackson packages (`com.fasterxml.jackson.core:jackson-core`, `com.fasterxml.jackson.core:jackson-databind`) were mistakenly listed as dependencies in the SDK&#39;s metadata, causing those packages to be downloaded and included in the classpath even if you were not using them. The SDK does not require Jackson, even though it can optionally be made to use it. This was meant to be fixed in the 5.5.0 release as previously described in the changelog, but was not.
+- The SDK jar manifest contained a `Class-Path` attribute that referenced SLF4J and Jackson jars at a specific relative file path. This could cause a warning to be printed if those jars did not exist at that file path, even if they were elsewhere in your classpath. The `Class-Path` attribute is mainly useful for independently-deployable application jars and is not useful here; it has been removed. ([#240](https://github.com/launchdarkly/java-server-sdk/issues/240))
+
 ## [5.6.0] - 2021-07-02
 ### Added:
 - The `builder()` method in `FeatureFlagsState`, for creating instances of that class (most likely useful in test code). ([#234](https://github.com/launchdarkly/java-server-sdk/issues/234))
