@@ -80,9 +80,23 @@ ext.versions = [
     "jedis": "2.9.0"
 ]
 
-// Add dependencies to "libraries.internal" that are not exposed in our public API. These
-// will be completely omitted from the "thin" jar, and will be embedded with shaded names
-// in the other two SDK jars.
+// Add dependencies to "libraries.internal" that we use internally but do not expose in
+// our public API. Putting dependencies here has the following effects:
+//
+// 1. Those classes will be embedded in the default uberjar
+// (launchdarkly-java-server-sdk-n.n.n.jar), and also in the "all" jar
+// (launchdarkly-java-server-sdk-n.n.n.jar).
+//
+// 2. The classes are renamed (shaded) within those jars, and all references to them are
+// updated to use the shaded names.
+//
+// 3. The "thin" jar does not contain those classes, and references to them from the code
+// in the "thin" jar are *not* renamed. If an application is using the "thin" jar, it is
+// expected to provide those classes on its classpath.
+//
+// 4. They do not appear as dependences in pom.xml.
+//
+// 5. They are not declared as package imports or package exports in OSGI manifests.
 //
 // Note that Gson is included here but Jackson is not, even though there is some Jackson
 // helper code in java-sdk-common. The reason is that the SDK always needs to use Gson for
@@ -104,7 +118,18 @@ libraries.internal = [
 ]
 
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have
-// global state that must be shared between the SDK and the caller.
+// global state that must be shared between the SDK and the caller. Putting dependencies
+// here has the following effects:
+//
+// 1. They are embedded only in the "all" jar.
+//
+// 2. They are not renamed/shaded, and references to them (in any jar) are not modified.
+//
+// 3. They *do* appear as dependencies in pom.xml.
+//
+// 4. In OSGi manifests, they are declared as package imports-- and, in the "all" jar,
+// also as package exports (i.e. it provides them if a newer version is not available
+// from an import).
 libraries.external = [
     "org.slf4j:slf4j-api:${versions.slf4j}"
 ]
@@ -114,6 +139,15 @@ libraries.external = [
 // they are already in the application classpath; we do not want show them as a dependency
 // because that would cause them to be pulled in automatically in all builds. The reason
 // we need to even mention them here at all is for the sake of OSGi optional import headers.
+// Putting dependencies here has the following effects:
+//
+// 1. They are not embedded in any of our jars.
+//
+// 2. References to them (in any jar) are not modified.
+//
+// 3. They do not appear as dependencies in pom.xml.
+//
+// 4. In OSGi manifests, they are declared as optional package imports.
 libraries.optional = [
     "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
     "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
@@ -135,6 +169,7 @@ configurations {
     // "implementation", because "implementation" has special behavior in Gradle that prevents us
     // from referencing it the way we do in shadeDependencies().
     internal.extendsFrom implementation
+    external.extendsFrom api
     optional
     imports
 }
@@ -145,12 +180,16 @@ dependencies {
     testImplementation libraries.test, libraries.internal, libraries.external
     optional libraries.optional
 
+    internal libraries.internal
+    external libraries.external
+    
     commonClasses "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}"
     commonDoc "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}:sources"
 
-    // Unlike what the name might suggest, the "shadow" configuration specifies dependencies that
-    // should *not* be shaded by the Shadow plugin when we build our shaded jars.
-    shadow libraries.external, libraries.optional
+    // We are *not* using the special "shadow" configuration that the Shadow plugin defines.
+    // It's meant to provide similar behavior to what we've defined for "external", but it
+    // also has other behaviors that we don't want (it would cause dependencies to appear in
+    // pom.xml and also in a Class-Path attribute).
 
     imports libraries.external
 }
@@ -165,6 +204,11 @@ task generateJava(type: Copy) {
     from 'src/templates/java'
     into "src/main/java"
     filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [VERSION: version.toString()])
+}
+
+tasks.compileJava {
+    // See note in build-shared.gradle on the purpose of "privateImplementation"
+    classpath = configurations.internal + configurations.external
 }
 
 compileJava.dependsOn 'generateJava'
@@ -189,6 +233,8 @@ jar {
 shadowJar {
     // No classifier means that the shaded jar becomes the default artifact
     classifier = ''
+
+    configurations = [ project.configurations.internal ]
 
     dependencies {
         exclude(dependency('org.slf4j:.*:.*'))
@@ -220,7 +266,8 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     group = "shadow"
     description = "Builds a Shaded fat jar including SLF4J"
     from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
-    configurations = [project.configurations.runtimeClasspath]
+    
+    configurations = [ project.configurations.internal, project.configurations.external ]
 
     exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
     exclude '**/*.kotlin_metadata'
@@ -228,7 +275,8 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     exclude '**/*.kotlin_builtins'
 
     dependencies {
-        // Currently we don't need to exclude anything - SLF4J will be embedded, unshaded
+        // We don't need to exclude anything here, because we want everything to be
+        // embedded in the "all" jar.
     }
 
     // doFirst causes the following steps to be run during Gradle's execution phase rather than the
@@ -313,15 +361,26 @@ def getPackagesInDependencyJar(jarFile) {
     }
 }
 
-// Used by shadowJar and shadowJarAll to specify which packages should be shaded. We should
-// *not* shade any of the dependencies that are specified in the "shadow" configuration,
-// nor any of the classes from the SDK itself.
+// Used by shadowJar and shadowJarAll to specify which packages should be renamed.
+//
+// The SDK's own packages should not be renamed (even though code in those packages will be
+// modified to update any references to classes that are being renamed).
+//
+// Dependencies that are specified in the "external" configuration should not be renamed.
+// These are things that (in some distributions) might be included in our uberjar, but need
+// to retain their original names so they can be seen by application code.
+//
+// Dependencies that are specified in the "optional" configuration should not be renamed.
+// These are things that we will not be including in our uberjar anyway, but we want to make
+// sure we can reference them by their original names if they are in the application
+// classpath (which they may or may not be, since they are optional).
 //
 // This depends on our build products, so it can't be executed during Gradle's configuration
 // phase; instead we have to run it after configuration, with the "afterEvaluate" block below.
 def shadeDependencies(jarTask) {
     def excludePackages = getAllSdkPackages() +
-        configurations.shadow.collectMany { getPackagesInDependencyJar(it) }
+        configurations.external.collectMany { getPackagesInDependencyJar(it) } +
+        configurations.optional.collectMany { getPackagesInDependencyJar(it) }
     def topLevelPackages =
         configurations.internal.collectMany {
             getPackagesInDependencyJar(it).collect { it.contains(".") ? it.substring(0, it.indexOf(".")) : it }
@@ -558,9 +617,8 @@ def pomConfig = {
 
     developers {
         developer {
-            id 'jkodumal'
-            name 'John Kodumal'
-            email 'john@launchdarkly.com'
+            name 'LaunchDarkly SDK Team'
+            email 'sdks@launchdarkly.com'
         }
     }
 
@@ -586,17 +644,22 @@ publishing {
                 def root = asNode()
                 root.appendNode('description', 'Official LaunchDarkly SDK for Java')
 
-                // The following workaround is for a known issue where the Shadow plugin assumes that all
-                // non-shaded dependencies should have "runtime" scope rather than "compile".
-                //    https://github.com/johnrengelman/shadow/issues/321
-                //    https://github.com/launchdarkly/java-server-sdk/issues/151
-                // Currently there doesn't seem to be any way way around this other than simply hacking the
-                // pom at this point after it has been generated by Shadow. All of the dependencies that
-                // are in the pom at this point should have compile scope.
+                // Here we need to add dependencies explicitly to the pom. The mechanism
+                // that the Shadow plugin provides-- adding dependencies to a configuration
+                // called "shadow"-- is not quite what we want, for the reasons described
+                // in the comments for "libraries.external" etc. (and also because of
+                // the known issue https://github.com/johnrengelman/shadow/issues/321).
+                // So we aren't using that.
+                if (root.getAt('dependencies') == null) {
+                    root.appendNode('dependencies')
+                }
                 def dependenciesNode = root.getAt('dependencies').get(0)
-                dependenciesNode.each { dependencyNode ->
-                    def scopeNode = dependencyNode.getAt('scope').get(0)
-                    scopeNode.setValue('compile')
+                configurations.external.getAllDependencies().each { dep ->
+                    def dependencyNode = dependenciesNode.appendNode('dependency')
+                    dependencyNode.appendNode('groupId', dep.group)
+                    dependencyNode.appendNode('artifactId', dep.name)
+                    dependencyNode.appendNode('version', dep.version)
+                    dependencyNode.appendNode('scope', 'compile')
                 }
 
                 root.children().last() + pomConfig
@@ -635,7 +698,8 @@ def shouldSkipSigning() {
 // dependencies of the SDK, so they can be put on the classpath as needed during tests.
 task exportDependencies(type: Copy, dependsOn: compileJava) {
     into "packaging-test/temp/dependencies-all"
-    from configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts.collect { it.file }
+    from (configurations.internal.resolvedConfiguration.resolvedArtifacts.collect { it.file }
+        + configurations.external.resolvedConfiguration.resolvedArtifacts.collect { it.file })
 }
 
 gitPublish {
