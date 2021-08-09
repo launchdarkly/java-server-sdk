@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.6.2] - 2021-08-09
+### Fixed:
+- `FeatureFlagsStateBuilder.build()` is now public. The other builder methods were made public in v5.6.0, but were not useful because `build()` was still package-private.
+
 ## [5.6.1] - 2021-07-07
 This release fixes two packaging errors that could produce unwanted Java dependency behavior, as described below. There are no changes to the SDK&#39;s functionality in this release, and you do not need to modify your code or your build.
 
