@@ -36,6 +36,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
@@ -45,7 +46,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
-import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompleted;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
@@ -273,7 +274,7 @@ public class StreamProcessorTest {
         Future<Void> future = sp.start();
         
         dataSourceUpdates.awaitInit();
-        shouldNotTimeOut(future, Duration.ofSeconds(1));
+        assertFutureIsCompleted(future, 1, TimeUnit.SECONDS);
         assertTrue(dataStore.isInitialized());
         assertTrue(sp.isInitialized());
         assertTrue(future.isDone());
@@ -682,7 +683,7 @@ public class StreamProcessorTest {
     try (HttpServer server = HttpServer.start(errorResp)) {
       try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
         Future<Void> initFuture = sp.start();       
-        shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+        assertFutureIsCompleted(initFuture, 2, TimeUnit.SECONDS);
         
         assertFalse(sp.isInitialized());
         
@@ -711,7 +712,7 @@ public class StreamProcessorTest {
     try (HttpServer server = HttpServer.start(seriesOfResponses)) {
       try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
         Future<Void> initFuture = sp.start();       
-        shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+        assertFutureIsCompleted(initFuture, 2, TimeUnit.SECONDS);
         
         assertTrue(sp.isInitialized());
         

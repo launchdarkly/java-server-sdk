@@ -7,19 +7,19 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.json.JsonSerialization;
 import com.launchdarkly.sdk.json.LDJackson;
 import com.launchdarkly.sdk.json.SerializationException;
+import com.launchdarkly.testhelpers.TypeBehavior;
 
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.EvaluationReason.ErrorKind.MALFORMED_FLAG;
 import static com.launchdarkly.sdk.server.FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS;
 import static com.launchdarkly.sdk.server.FlagsStateOption.WITH_REASONS;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.TestUtil.verifyEqualityForType;
+import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -139,7 +139,7 @@ public class FeatureFlagsStateTest {
   public void equalMetadataInstancesAreEqual() {
     // Testing this various cases is easier at a low level - equalInstancesAreEqual() above already
     // verifies that we test for metadata equality in general
-    List<Supplier<FeatureFlagsState.FlagMetadata>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<FeatureFlagsState.FlagMetadata>> allPermutations = new ArrayList<>();
     for (LDValue value: new LDValue[] { LDValue.of(1), LDValue.of(2) }) {
       for (Integer variation: new Integer[] { null, 0, 1 }) {
         for (EvaluationReason reason: new EvaluationReason[] { null, EvaluationReason.off(), EvaluationReason.fallthrough() }) {
@@ -154,7 +154,7 @@ public class FeatureFlagsStateTest {
         }
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @Test
@@ -167,7 +167,7 @@ public class FeatureFlagsStateTest {
   @Test
   public void canConvertToJson() {
     String actualJsonString = JsonSerialization.serialize(makeInstanceForSerialization());
-    assertEquals(LDValue.parse(makeExpectedJsonSerialization()), LDValue.parse(actualJsonString));
+    assertJsonEquals(makeExpectedJsonSerialization(), actualJsonString);
   }
   
   @Test
@@ -215,7 +215,7 @@ public class FeatureFlagsStateTest {
     jacksonMapper.registerModule(LDJackson.module());
     
     String actualJsonString = jacksonMapper.writeValueAsString(makeInstanceForSerialization());
-    assertEquals(LDValue.parse(makeExpectedJsonSerialization()), LDValue.parse(actualJsonString));
+    assertJsonEquals(makeExpectedJsonSerialization(), actualJsonString);
     
     FeatureFlagsState state = jacksonMapper.readValue(makeExpectedJsonSerialization(), FeatureFlagsState.class);
     assertEquals(makeInstanceForSerialization(), state);

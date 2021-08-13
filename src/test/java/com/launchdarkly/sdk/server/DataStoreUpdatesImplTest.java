@@ -5,12 +5,13 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
 
 import org.junit.Test;
 
-import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
-import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -27,10 +28,10 @@ public class DataStoreUpdatesImplTest {
 
     updates.updateStatus(new Status(false, false));
     
-    Status newStatus = TestUtil.awaitValue(statuses, Duration.ofMillis(200));
+    Status newStatus = awaitValue(statuses, 200, TimeUnit.MILLISECONDS);
     assertThat(newStatus, equalTo(new Status(false, false)));
     
-    expectNoMoreValues(statuses, Duration.ofMillis(100));
+    assertNoMoreValues(statuses, 100, TimeUnit.MILLISECONDS);
   }
 
   @Test
@@ -40,7 +41,7 @@ public class DataStoreUpdatesImplTest {
 
     updates.updateStatus(new Status(true, false));
     
-    expectNoMoreValues(statuses, Duration.ofMillis(100));
+    assertNoMoreValues(statuses, 100, TimeUnit.MILLISECONDS);
   }
 
   @Test
@@ -50,6 +51,6 @@ public class DataStoreUpdatesImplTest {
 
     updates.updateStatus(null);
     
-    expectNoMoreValues(statuses, Duration.ofMillis(100));
+    assertNoMoreValues(statuses, 100, TimeUnit.MILLISECONDS);
   }
 }

@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -126,7 +127,7 @@ public class DataModelSerializationTest {
     assertEquals(99, item.getVersion());
     
     String json1 = FEATURES.serialize(item);
-    assertEquals(LDValue.parse(json0), LDValue.parse(json1));
+    assertJsonEquals(json0, json1);
   }
   
   @Test
@@ -164,7 +165,7 @@ public class DataModelSerializationTest {
     assertEquals(99, item.getVersion());
     
     String json1 = SEGMENTS.serialize(item);
-    assertEquals(LDValue.parse(json0), LDValue.parse(json1));
+    assertJsonEquals(json0, json1);
   }
   
   @Test

@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
@@ -10,6 +11,7 @@ import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;
 
@@ -23,12 +25,16 @@ import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.Components.sendEvents;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestUtil.hasJsonProperty;
-import static com.launchdarkly.sdk.server.TestUtil.isJsonArray;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
+import static com.launchdarkly.testhelpers.JsonAssertions.isJsonArray;
+import static com.launchdarkly.testhelpers.JsonAssertions.jsonEqualsValue;
+import static com.launchdarkly.testhelpers.JsonAssertions.jsonProperty;
+import static com.launchdarkly.testhelpers.JsonAssertions.jsonUndefined;
+import static com.launchdarkly.testhelpers.JsonTestValue.jsonFromValue;
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
 
 @SuppressWarnings("javadoc")
 public abstract class DefaultEventProcessorTestBase {
@@ -124,108 +130,115 @@ public abstract class DefaultEventProcessorTestBase {
       return result;
     }
     
-    Params awaitRequest() throws InterruptedException {
-      Params p = receivedParams.poll(5, TimeUnit.SECONDS);
-      if (p == null) {
-        fail("did not receive event post within 5 seconds");
-      }
-      return p;
+    Params awaitRequest() {
+      return awaitValue(receivedParams, 5, TimeUnit.SECONDS);
     }
     
-    void expectNoRequests(Duration timeout) throws InterruptedException {
-      Params p = receivedParams.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
-      if (p != null) {
-        fail("received unexpected event payload");
-      }
+    void expectNoRequests(Duration timeout) {
+      assertNoMoreValues(receivedParams, timeout.toMillis(), TimeUnit.MILLISECONDS);
     }
     
-    Iterable<LDValue> getEventsFromLastRequest() throws InterruptedException {
+    Iterable<JsonTestValue> getEventsFromLastRequest() {
       Params p = awaitRequest();
       LDValue a = LDValue.parse(p.data);
       assertEquals(p.eventCount, a.size());
-      return a.values();
+      ImmutableList.Builder<JsonTestValue> ret = ImmutableList.builder();
+      for (LDValue v: a.values()) {
+        ret.add(jsonFromValue(v));
+      }
+      return ret.build();
     }
   }
 
-  public static Matcher<LDValue> isIdentifyEvent(Event sourceEvent, LDValue user) {
+  public static Matcher<JsonTestValue> isIdentifyEvent(Event sourceEvent, LDValue user) {
     return allOf(
-        hasJsonProperty("kind", "identify"),
-        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        hasJsonProperty("user", user)
+        jsonProperty("kind", "identify"),
+        jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
+        jsonProperty("user", (user == null || user.isNull()) ? jsonUndefined() : jsonEqualsValue(user))
     );
   }
 
-  public static Matcher<LDValue> isIndexEvent(Event sourceEvent, LDValue user) {
+  public static Matcher<JsonTestValue> isIndexEvent(Event sourceEvent, LDValue user) {
     return allOf(
-        hasJsonProperty("kind", "index"),
-        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        hasJsonProperty("user", user)
+        jsonProperty("kind", "index"),
+        jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
+        jsonProperty("user", jsonFromValue(user))
     );
   }
 
-  public static Matcher<LDValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser) {
+  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser) {
     return isFeatureEvent(sourceEvent, flag, debug, inlineUser, null);
   }
 
   @SuppressWarnings("unchecked")
-  public static Matcher<LDValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser,
+  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser,
       EvaluationReason reason) {
     return allOf(
-        hasJsonProperty("kind", debug ? "debug" : "feature"),
-        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        hasJsonProperty("key", flag.getKey()),
-        hasJsonProperty("version", (double)flag.getVersion()),
-        hasJsonProperty("variation", sourceEvent.getVariation()),
-        hasJsonProperty("value", sourceEvent.getValue()),
-        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKey()) : LDValue.ofNull()),
-        hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
-        hasJsonProperty("reason", reason == null ? LDValue.ofNull() : LDValue.parse(gson.toJson(reason)))
+        jsonProperty("kind", debug ? "debug" : "feature"),
+        jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
+        jsonProperty("key", flag.getKey()),
+        jsonProperty("version", (double)flag.getVersion()),
+        jsonProperty("variation", sourceEvent.getVariation()),
+        jsonProperty("value", jsonFromValue(sourceEvent.getValue())),
+        hasUserOrUserKey(sourceEvent, inlineUser),
+        jsonProperty("reason", reason == null ? jsonUndefined() : jsonEqualsValue(reason))
     );
   }
 
-  public static Matcher<LDValue> isPrerequisiteOf(String parentFlagKey) {
-    return hasJsonProperty("prereqOf", parentFlagKey);
+  public static Matcher<JsonTestValue> isPrerequisiteOf(String parentFlagKey) {
+    return jsonProperty("prereqOf", parentFlagKey);
   }
 
-  @SuppressWarnings("unchecked")
-  public static Matcher<LDValue> isCustomEvent(Event.Custom sourceEvent, LDValue inlineUser) {
+  public static Matcher<JsonTestValue> isCustomEvent(Event.Custom sourceEvent, LDValue inlineUser) {
+    boolean hasData = sourceEvent.getData() != null && !sourceEvent.getData().isNull();
     return allOf(
-        hasJsonProperty("kind", "custom"),
-        hasJsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        hasJsonProperty("key", sourceEvent.getKey()),
-        hasJsonProperty("userKey", inlineUser == null ? LDValue.of(sourceEvent.getUser().getKey()) : LDValue.ofNull()),
-        hasJsonProperty("user", inlineUser == null ? LDValue.ofNull() : inlineUser),
-        hasJsonProperty("data", sourceEvent.getData()),
-        hasJsonProperty("metricValue", sourceEvent.getMetricValue() == null ? LDValue.ofNull() : LDValue.of(sourceEvent.getMetricValue()))              
+        jsonProperty("kind", "custom"),
+        jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
+        jsonProperty("key", sourceEvent.getKey()),
+        hasUserOrUserKey(sourceEvent, inlineUser),
+        jsonProperty("data", hasData ? jsonEqualsValue(sourceEvent.getData()) : jsonUndefined()),
+        jsonProperty("metricValue", sourceEvent.getMetricValue() == null ? jsonUndefined() : jsonEqualsValue(sourceEvent.getMetricValue()))              
     );
   }
 
-  public static Matcher<LDValue> isSummaryEvent() {
-    return hasJsonProperty("kind", "summary");
+  public static Matcher<JsonTestValue> hasUserOrUserKey(Event sourceEvent, LDValue inlineUser) {
+    if (inlineUser != null && !inlineUser.isNull()) {
+      return allOf(
+          jsonProperty("user", jsonEqualsValue(inlineUser)),
+          jsonProperty("userKey", jsonUndefined()));
+    }
+    return allOf(
+        jsonProperty("user", jsonUndefined()),
+        jsonProperty("userKey", sourceEvent.getUser() == null ? jsonUndefined() :
+          jsonEqualsValue(sourceEvent.getUser().getKey())));
+  }
+  
+  public static Matcher<JsonTestValue> isSummaryEvent() {
+    return jsonProperty("kind", "summary");
   }
 
-  public static Matcher<LDValue> isSummaryEvent(long startDate, long endDate) {
+  public static Matcher<JsonTestValue> isSummaryEvent(long startDate, long endDate) {
     return allOf(
-        hasJsonProperty("kind", "summary"),
-        hasJsonProperty("startDate", (double)startDate),
-        hasJsonProperty("endDate", (double)endDate)
+        jsonProperty("kind", "summary"),
+        jsonProperty("startDate", (double)startDate),
+        jsonProperty("endDate", (double)endDate)
     );
   }
   
-  public static Matcher<LDValue> hasSummaryFlag(String key, LDValue defaultVal, Matcher<Iterable<? extends LDValue>> counters) {
-    return hasJsonProperty("features",
-        hasJsonProperty(key, allOf(
-          hasJsonProperty("default", defaultVal),
-          hasJsonProperty("counters", isJsonArray(counters))
+  public static Matcher<JsonTestValue> hasSummaryFlag(String key, LDValue defaultVal, Matcher<Iterable<? extends JsonTestValue>> counters) {
+    return jsonProperty("features",
+        jsonProperty(key, allOf(
+          jsonProperty("default", jsonFromValue(defaultVal)),
+          jsonProperty("counters", isJsonArray(counters))
     )));
   }
   
-  public static Matcher<LDValue> isSummaryEventCounter(DataModel.FeatureFlag flag, Integer variation, LDValue value, int count) {
+  public static Matcher<JsonTestValue> isSummaryEventCounter(DataModel.FeatureFlag flag, Integer variation, LDValue value, int count) {
     return allOf(
-        hasJsonProperty("variation", variation),
-        hasJsonProperty("version", (double)flag.getVersion()),
-        hasJsonProperty("value", value),
-        hasJsonProperty("count", (double)count)
+        jsonProperty("variation", variation),
+        jsonProperty("version", (double)flag.getVersion()),
+        jsonProperty("value", jsonFromValue(value)),
+        jsonProperty("count", (double)count)
     );
   }
 }

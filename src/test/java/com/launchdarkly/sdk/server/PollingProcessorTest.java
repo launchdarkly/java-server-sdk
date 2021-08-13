@@ -13,6 +13,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.testhelpers.ConcurrentHelpers;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
@@ -27,6 +28,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
@@ -35,7 +37,7 @@ import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.assertDataSetEquals;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatusEventually;
-import static com.launchdarkly.sdk.server.TestUtil.shouldNotTimeOut;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompleted;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
@@ -135,7 +137,7 @@ public class PollingProcessorTest {
     try (HttpServer server = HttpServer.start(pollingHandler)) {
       try (PollingProcessor pollingProcessor = makeProcessor(server.getUri(), Duration.ofMillis(100))) {
         Future<Void> initFuture = pollingProcessor.start();
-        shouldNotTimeOut(initFuture, Duration.ofSeconds(1));
+        assertFutureIsCompleted(initFuture, 1, TimeUnit.SECONDS);
        
         assertTrue(pollingProcessor.isInitialized());
         assertDataSetEquals(datav1.build(), dataSourceUpdates.awaitInit());
@@ -160,7 +162,7 @@ public class PollingProcessorTest {
     try (HttpServer server = HttpServer.start(errorThenSuccess)) {
       try (PollingProcessor pollingProcessor = makeProcessor(server.getUri(), LENGTHY_INTERVAL)) {
         Future<Void> initFuture = pollingProcessor.start();
-        TestUtil.shouldTimeOut(initFuture, Duration.ofMillis(200));
+        ConcurrentHelpers.assertFutureIsNotCompleted(initFuture, 200, TimeUnit.MILLISECONDS);
         assertFalse(initFuture.isDone());
         assertFalse(pollingProcessor.isInitialized());
         assertEquals(0, dataSourceUpdates.receivedInits.size());
@@ -221,7 +223,7 @@ public class PollingProcessorTest {
     try (HttpServer server = HttpServer.start(new TestPollHandler())) {
       try (PollingProcessor pollingProcessor = makeProcessor(server.getUri(), LENGTHY_INTERVAL)) {
         Future<?> initFuture1 = pollingProcessor.start();
-        shouldNotTimeOut(initFuture1, Duration.ofSeconds(1));
+        assertFutureIsCompleted(initFuture1, 1, TimeUnit.SECONDS);
         server.getRecorder().requireRequest();
         
         Future<Void> initFuture2 = pollingProcessor.start();
@@ -272,7 +274,7 @@ public class PollingProcessorTest {
           long startTime = System.currentTimeMillis();
           Future<Void> initFuture = pollingProcessor.start();
            
-          shouldNotTimeOut(initFuture, Duration.ofSeconds(2));
+          assertFutureIsCompleted(initFuture, 2, TimeUnit.SECONDS);
           assertTrue((System.currentTimeMillis() - startTime) < 9000);
           assertTrue(initFuture.isDone());
           assertFalse(pollingProcessor.isInitialized());
@@ -293,7 +295,7 @@ public class PollingProcessorTest {
         try (PollingProcessor pollingProcessor = makeProcessor(server.getUri(), BRIEF_INTERVAL)) {
           Future<Void> initFuture = pollingProcessor.start();
          
-          shouldNotTimeOut(initFuture, Duration.ofSeconds(20000));
+          assertFutureIsCompleted(initFuture, 2, TimeUnit.SECONDS);
           assertTrue(initFuture.isDone());
           assertTrue(pollingProcessor.isInitialized());
           requireDataSourceStatus(statuses, State.VALID);
@@ -335,7 +337,7 @@ public class PollingProcessorTest {
           // now make it so polls will succeed
           handler.setError(0);
        
-          shouldNotTimeOut(initFuture, Duration.ofSeconds(1));
+          assertFutureIsCompleted(initFuture, 1, TimeUnit.SECONDS);
           
           // verify that it got the error
           Status status0 = requireDataSourceStatus(statuses, State.INITIALIZING);
@@ -357,7 +359,7 @@ public class PollingProcessorTest {
       try (HttpServer server = HttpServer.start(handler)) {
         try (PollingProcessor pollingProcessor = makeProcessor(server.getUri(), BRIEF_INTERVAL)) {
           Future<Void> initFuture = pollingProcessor.start();
-          shouldNotTimeOut(initFuture, Duration.ofSeconds(1));
+          assertFutureIsCompleted(initFuture, 1, TimeUnit.SECONDS);
           assertTrue(pollingProcessor.isInitialized());
           
           // first poll succeeded

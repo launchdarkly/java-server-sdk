@@ -9,6 +9,7 @@ import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matchers;
 import org.junit.Test;
@@ -118,7 +119,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       // getEventsFromLastRequest will block until the MockEventSender receives a payload - we expect
       // both events to be in one payload, but if some unusual delay happened in between the two
       // sendEvent calls, they might be in two
-      Iterable<LDValue> payload1 = es.getEventsFromLastRequest();
+      Iterable<JsonTestValue> payload1 = es.getEventsFromLastRequest();
       if (Iterables.size(payload1) == 1) {
         assertThat(payload1, contains(isCustomEvent(event1, userJson)));
         assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event2, userJson)));
@@ -297,7 +298,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       }
       
       ep.flush();
-      Iterable<LDValue> eventsReceived = es.getEventsFromLastRequest(); 
+      Iterable<JsonTestValue> eventsReceived = es.getEventsFromLastRequest(); 
       
       assertThat(eventsReceived, Matchers.iterableWithSize(capacity + 1));
       assertThat(Iterables.get(eventsReceived, capacity), isSummaryEvent());

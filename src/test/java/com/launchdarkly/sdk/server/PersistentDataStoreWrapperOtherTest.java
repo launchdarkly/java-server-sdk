@@ -5,17 +5,16 @@ import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder.StaleValuesPolicy;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.testhelpers.TypeBehavior;
 
 import org.junit.Test;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
-import static com.launchdarkly.sdk.server.TestUtil.verifyEqualityForType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
@@ -47,13 +46,13 @@ public class PersistentDataStoreWrapperOtherTest {
   
   @Test
   public void cacheKeyEquality() {
-    List<Supplier<PersistentDataStoreWrapper.CacheKey>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<PersistentDataStoreWrapper.CacheKey>> allPermutations = new ArrayList<>();
     for (DataKind kind: new DataKind[] { DataModel.FEATURES, DataModel.SEGMENTS }) {
       for (String key: new String[] { "a", "b" }) {
         allPermutations.add(() -> PersistentDataStoreWrapper.CacheKey.forItem(kind, key));
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @Test

@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
@@ -19,6 +17,8 @@ import static com.launchdarkly.sdk.server.ModelBuilders.fallthroughVariation;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.TestUtil.TEST_GSON_INSTANCE;
+import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -163,13 +163,12 @@ public class EvaluatorClauseTest {
     // so we fail as gracefully as possible if a new operator type has been added in the application
     // and the SDK hasn't been upgraded yet.
     String badClauseJson = "{\"attribute\":\"name\",\"operator\":\"doesSomethingUnsupported\",\"values\":[\"x\"]}";
-    Gson gson = new Gson();
-    DataModel.Clause clause = gson.fromJson(badClauseJson, DataModel.Clause.class);
+    DataModel.Clause clause = TEST_GSON_INSTANCE.fromJson(badClauseJson, DataModel.Clause.class);
     assertNotNull(clause);
     
-    JsonElement json = gson.toJsonTree(clause);
+    String json = TEST_GSON_INSTANCE.toJson(clause);
     String expectedJson = "{\"attribute\":\"name\",\"values\":[\"x\"],\"negate\":false}";
-    assertEquals(gson.fromJson(expectedJson, JsonElement.class), json);
+    assertJsonEquals(expectedJson, json);
   }
   
   @Test
