@@ -15,6 +15,8 @@ SDK_VERSION=$(shell grep "version=" $(PROJECT_DIR)/gradle.properties | cut -d '=
 
 export TEMP_DIR=$(BASE_DIR)/temp
 
+JAR=$(if $(shell which jar),jar,$(JAVA_HOME)/bin/jar)
+
 LOCAL_VERSION=99.99.99-SNAPSHOT
 MAVEN_LOCAL_REPO=$(HOME)/.m2/repository
 TEMP_MAVEN_OUTPUT_DIR=$(MAVEN_LOCAL_REPO)/com/launchdarkly/launchdarkly-java-server-sdk/$(LOCAL_VERSION)
@@ -48,7 +50,7 @@ RUN_JARS_test-thin-jar=$(TEST_APP_JAR) $(SDK_THIN_JAR) \
 	$(shell ls $(TEMP_DIR)/dependencies-internal/*.jar 2>/dev/null) \
 	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar 2>/dev/null)
 
-classes_prepare=echo "  checking $(1)..." && jar tf $(1) | grep '\.class$$' >$(TEMP_OUTPUT)
+classes_prepare=echo "  checking $(1)..." && $(JAR) tf $(1) | grep '\.class$$' >$(TEMP_OUTPUT)
 classes_should_contain=echo "    should contain $(2)" && grep "^$(1)/.*\.class$$" $(TEMP_OUTPUT) >/dev/null
 classes_should_not_contain=echo "    should not contain $(2)" && ! grep "^$(1)/.*\.class$$" $(TEMP_OUTPUT)
 
