@@ -74,7 +74,7 @@ public abstract class Components {
    * See {@link PersistentDataStoreBuilder} for more on how this method is used.
    * <p>
    * For more information on the available persistent data store implementations, see the reference
-   * guide on <a href="https://docs.launchdarkly.com/sdk/concepts/feature-store">Using a persistent feature store</a>.
+   * guide on <a href="https://docs.launchdarkly.com/sdk/concepts/data-stores">Using a persistent feature store</a>.
    *  
    * @param storeFactory the factory/builder for the specific kind of persistent data store
    * @return a {@link PersistentDataStoreBuilder}
@@ -197,7 +197,7 @@ public abstract class Components {
    * <p>
    * Passing this to {@link LDConfig.Builder#dataSource(DataSourceFactory)} causes the SDK
    * not to retrieve feature flag data from LaunchDarkly, regardless of any other configuration.
-   * This is normally done if you are using the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">Relay Proxy</a>
+   * This is normally done if you are using the <a href="https://docs.launchdarkly.com/home/relay-proxy">Relay Proxy</a>
    * in "daemon mode", where an external process-- the Relay Proxy-- connects to LaunchDarkly and populates
    * a persistent data store with the feature flag data. The data store could also be populated by
    * another process that is running the LaunchDarkly SDK. If there is no external process updating

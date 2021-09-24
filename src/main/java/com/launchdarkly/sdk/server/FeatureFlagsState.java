@@ -23,7 +23,7 @@ import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
  * calling {@link LDClientInterface#allFlagsState(com.launchdarkly.sdk.LDUser, FlagsStateOption...)}.
  * <p>
  * LaunchDarkly defines a standard JSON encoding for this object, suitable for
- * <a href="https://docs.launchdarkly.com/sdk/client-side/javascript#bootstrapping">bootstrapping</a>
+ * <a href="https://docs.launchdarkly.com/sdk/features/bootstrapping#javascript">bootstrapping</a>
  * the LaunchDarkly JavaScript browser SDK. You can convert it to JSON in any of these ways:
  * <ol>
  * <li> With {@link com.launchdarkly.sdk.json.JsonSerialization}.
