@@ -18,7 +18,7 @@ import java.time.Duration;
  * change its properties with the methods of this class, and pass it to {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(DataSourceFactory)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
- *         .dataSource(Components.pollingDataSource().pollIntervalMillis(45000))
+ *         .dataSource(Components.pollingDataSource().pollInterval(Duration.ofSeconds(45)))
  *         .build();
  * </code></pre>
  * <p>
