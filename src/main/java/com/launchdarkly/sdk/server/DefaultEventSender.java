@@ -13,6 +13,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Date;
+import java.util.Locale;
 import java.util.UUID;
 
 import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
@@ -38,7 +39,8 @@ final class DefaultEventSender implements EventSender {
   private static final String EVENT_SCHEMA_VERSION = "3";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
   private static final MediaType JSON_CONTENT_TYPE = MediaType.parse("application/json; charset=utf-8");
-  private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+  private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz",
+      Locale.US); // server dates as defined by RFC-822/RFC-1123 use English day/month names
   private static final Object HTTP_DATE_FORMAT_LOCK = new Object(); // synchronize on this because DateFormat isn't thread-safe
 
   private final OkHttpClient httpClient;

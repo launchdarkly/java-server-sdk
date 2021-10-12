@@ -15,6 +15,7 @@ import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -37,7 +38,8 @@ import static org.junit.Assert.assertTrue;
 public class DefaultEventSenderTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final String FAKE_DATA = "some data";
-  private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+  private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz",
+      Locale.US);
   private static final Duration BRIEF_RETRY_DELAY = Duration.ofMillis(50);
   
   private static EventSender makeEventSender() {
