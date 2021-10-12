@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.6.3] - 2021-10-12
+### Fixed:
+- If Java's default locale was not US/English, the SDK would fail to parse dates in the standard RFC1123 format in HTTP responses. The symptoms were that the warning `Received invalid Date header from events service` would appear in logs, and event debugging might not stop at the correct time if the system clock was different from the LaunchDarkly services' clock (which is why the SDK checks the Date header).
+
 ## [5.6.2] - 2021-08-09
 ### Fixed:
 - `FeatureFlagsStateBuilder.build()` is now public. The other builder methods were made public in v5.6.0, but were not useful because `build()` was still package-private.
