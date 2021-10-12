@@ -36,7 +36,7 @@ public abstract class StreamingDataSourceBuilder implements DataSourceFactory {
    * <p>
    * You will only need to change this value in the following cases:
    * <ul>
-   * <li> You are using the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">Relay Proxy</a>. Set
+   * <li> You are using the <a href="https://docs.launchdarkly.com/home/relay-proxy">Relay Proxy</a>. Set
    *   {@code baseUri} to the base URI of the Relay Proxy instance.
    * <li> You are connecting to a test server or a nonstandard endpoint for the LaunchDarkly service.
    * </ul>

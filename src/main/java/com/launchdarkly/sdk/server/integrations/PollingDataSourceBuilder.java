@@ -18,7 +18,7 @@ import java.time.Duration;
  * change its properties with the methods of this class, and pass it to {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(DataSourceFactory)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
- *         .dataSource(Components.pollingDataSource().pollIntervalMillis(45000))
+ *         .dataSource(Components.pollingDataSource().pollInterval(Duration.ofSeconds(45)))
  *         .build();
  * </code></pre>
  * <p>
@@ -40,7 +40,7 @@ public abstract class PollingDataSourceBuilder implements DataSourceFactory {
    * <p>
    * You will only need to change this value in the following cases:
    * <ul>
-   * <li> You are using the <a href="https://docs.launchdarkly.com/docs/the-relay-proxy">Relay Proxy</a>. Set
+   * <li> You are using the <a href="https://docs.launchdarkly.com/home/relay-proxy">Relay Proxy</a>. Set
    *   {@code streamUri} to the base URI of the Relay Proxy instance.
    * <li> You are connecting to a test server or anything else other than the standard LaunchDarkly service.
    * </ul>

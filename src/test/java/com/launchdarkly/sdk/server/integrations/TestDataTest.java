@@ -12,6 +12,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.testhelpers.JsonAssertions;
 
 import org.junit.Test;
 
@@ -22,6 +23,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 
 import static com.google.common.collect.Iterables.get;
+import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
+import static com.launchdarkly.testhelpers.JsonAssertions.jsonProperty;
+import static com.launchdarkly.testhelpers.JsonTestValue.jsonOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyIterable;
 import static org.hamcrest.Matchers.equalTo;
@@ -79,8 +83,8 @@ public class TestDataTest {
     assertThat(flag2, not(nullValue()));
     assertThat(flag1.getVersion(), equalTo(1));
     assertThat(flag2.getVersion(), equalTo(1));
-    assertThat(flagJson(flag1).get("on").booleanValue(), is(true));
-    assertThat(flagJson(flag2).get("on").booleanValue(), is(false));
+    assertThat(jsonOf(flagJson(flag1)), jsonProperty("on", true));
+    assertThat(jsonOf(flagJson(flag2)), jsonProperty("on", false));
   }
   
   @Test
@@ -100,7 +104,7 @@ public class TestDataTest {
     assertThat(up.key, equalTo("flag1"));
     ItemDescriptor flag1 = up.item;
     assertThat(flag1.getVersion(), equalTo(1));
-    assertThat(flagJson(flag1).get("on").booleanValue(), is(true));
+    assertThat(jsonOf(flagJson(flag1)), jsonProperty("on", true));
   }
 
   @Test
@@ -125,7 +129,7 @@ public class TestDataTest {
     assertThat(up.key, equalTo("flag1"));
     ItemDescriptor flag1 = up.item;
     assertThat(flag1.getVersion(), equalTo(2));
-    assertThat(flagJson(flag1).get("on").booleanValue(), is(true));
+    assertThat(jsonOf(flagJson(flag1)), jsonProperty("on", true));
 
     String expectedJson = "{\"trackEventsFallthrough\":false,\"deleted\":false,"
       + "\"variations\":[true,false],\"clientSide\":false,\"rules\":[{\"clauses\":"
@@ -133,7 +137,7 @@ public class TestDataTest {
       + "\"id\":\"rule0\",\"trackEvents\":false,\"variation\":0}],\"trackEvents\":false,"
       + "\"fallthrough\":{\"variation\":0},\"offVariation\":1,\"version\":2,\"targets\":"
       + "[{\"values\":[\"a\"],\"variation\":0}],\"key\":\"flag1\",\"on\":true}";
-    assertThat(flagJson(flag1), equalTo(LDValue.parse(expectedJson)));    
+    assertThat(jsonOf(flagJson(flag1)), JsonAssertions.jsonEquals(expectedJson));
   }
   
   @Test
@@ -317,11 +321,11 @@ public class TestDataTest {
     assertThat(updates.upserts.size(), equalTo(1));
     UpsertParams up = updates.upserts.take();
     ItemDescriptor flag = up.item;
-    assertThat(flagJson(flag), equalTo(LDValue.parse(expectedJson)));    
+    assertJsonEquals(expectedJson, flagJson(flag));    
   }
   
-  private static LDValue flagJson(ItemDescriptor flag) {
-    return LDValue.parse(DataModel.FEATURES.serialize(flag));
+  private static String flagJson(ItemDescriptor flag) {
+    return DataModel.FEATURES.serialize(flag);
   }
   
   private static class UpsertParams {

@@ -4,15 +4,14 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.testhelpers.TypeBehavior;
 
 import org.junit.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
-import static com.launchdarkly.sdk.server.TestUtil.verifyEqualityForType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
@@ -33,7 +32,7 @@ public class DataSourceStatusProviderTypesTest {
   
   @Test
   public void statusEquality() {
-    List<Supplier<Status>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<Status>> allPermutations = new ArrayList<>();
     for (State state: State.values()) {
       for (Instant time: new Instant[] { Instant.ofEpochMilli(1000), Instant.ofEpochMilli(2000) }) {
         for (ErrorInfo e: new ErrorInfo[] { null, ErrorInfo.fromHttpError(400), ErrorInfo.fromHttpError(401) }) {
@@ -41,7 +40,7 @@ public class DataSourceStatusProviderTypesTest {
         }
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @Test
@@ -78,7 +77,7 @@ public class DataSourceStatusProviderTypesTest {
   
   @Test
   public void errorInfoEquality() {
-    List<Supplier<ErrorInfo>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<ErrorInfo>> allPermutations = new ArrayList<>();
     for (ErrorKind kind: ErrorKind.values()) {
       for (int statusCode: new int[] { 0, 1 }) {
         for (String message: new String[] { null, "a", "b" }) {
@@ -88,7 +87,7 @@ public class DataSourceStatusProviderTypesTest {
         }
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @Test

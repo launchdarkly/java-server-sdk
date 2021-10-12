@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
@@ -33,9 +34,9 @@ import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.inMemoryDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
-import static com.launchdarkly.sdk.server.TestUtil.awaitValue;
 import static com.launchdarkly.sdk.server.TestUtil.expectEvents;
-import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static org.easymock.EasyMock.replay;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -171,7 +172,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     
     storeUpdates.upsert(FEATURES, flag2.getKey(), new ItemDescriptor(flag2.getVersion(), flag2));
   
-    expectNoMoreValues(eventSink, Duration.ofMillis(100));
+    assertNoMoreValues(eventSink, 100, TimeUnit.MILLISECONDS);
   }
   
   @Test
@@ -360,7 +361,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     ErrorInfo errorInfo = ErrorInfo.fromHttpError(401);
     updates.updateStatus(State.OFF, errorInfo);
     
-    Status status = awaitValue(statuses, Duration.ofMillis(500));
+    Status status = awaitValue(statuses, 500, TimeUnit.MILLISECONDS);
     
     assertThat(status.getState(), is(State.OFF));
     assertThat(status.getStateSince(), greaterThanOrEqualTo(timeBeforeUpdate));
@@ -382,7 +383,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     ErrorInfo errorInfo = ErrorInfo.fromHttpError(401);
     updates.updateStatus(State.INTERRUPTED, errorInfo);
     
-    Status status = awaitValue(statuses, Duration.ofMillis(500));
+    Status status = awaitValue(statuses, 500, TimeUnit.MILLISECONDS);
     
     assertThat(status.getState(), is(State.INITIALIZING));
     assertThat(status.getStateSince(), is(originalTime));
@@ -401,7 +402,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     updates.updateStatus(null, null);
     updates.updateStatus(State.INITIALIZING, null);
 
-    TestUtil.expectNoMoreValues(statuses, Duration.ofMillis(100));
+    assertNoMoreValues(statuses, 100, TimeUnit.MILLISECONDS);
   }
   
   @Test
@@ -426,7 +427,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     updates.updateStatus(State.VALID, null);
     
     // wait till the timeout would have elapsed - no special message should be logged
-    expectNoMoreValues(outageErrors, outageTimeout.plus(Duration.ofMillis(20)));
+    assertNoMoreValues(outageErrors, outageTimeout.plus(Duration.ofMillis(20)).toMillis(), TimeUnit.MILLISECONDS);
     
     // simulate another outage
     updates.updateStatus(State.INTERRUPTED, ErrorInfo.fromHttpError(501));
@@ -434,7 +435,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     updates.updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.NETWORK_ERROR, new IOException("x")));
     updates.updateStatus(State.INTERRUPTED, ErrorInfo.fromHttpError(501));
     
-    String errorsDesc = awaitValue(outageErrors, Duration.ofMillis(250)); // timing is approximate
+    String errorsDesc = awaitValue(outageErrors, 250, TimeUnit.MILLISECONDS); // timing is approximate
     assertThat(errorsDesc, containsString("NETWORK_ERROR (1 time)"));
     assertThat(errorsDesc, containsString("ERROR_RESPONSE(501) (2 times)"));
     assertThat(errorsDesc, containsString("ERROR_RESPONSE(502) (1 time)"));

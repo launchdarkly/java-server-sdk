@@ -1,3 +1,5 @@
+version: 2
+
 repo:
   public: java-server-sdk
   private: java-server-sdk-private
@@ -8,16 +10,19 @@ publications:
   - url: https://javadoc.io/doc/com.launchdarkly/launchdarkly-java-server-sdk
     description: documentation (javadoc.io)
 
-template:
-  name: gradle
+jobs:
+  - docker:
+      image: gradle:6.8.3-jdk11
+    template:
+      name: gradle
 
-releasableBranches:
+branches:
   - name: master
     description: 5.x
   - name: 4.x
 
 documentation:
-  githubPages: true
+  gitHubPages: true
 
 sdk:
   displayName: "Java"

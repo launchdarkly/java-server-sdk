@@ -40,6 +40,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @SuppressWarnings("javadoc")
@@ -222,23 +223,11 @@ public class TestComponents {
     }
     
     public FullDataSet<ItemDescriptor> awaitInit() {
-      try {
-        FullDataSet<ItemDescriptor> value = receivedInits.poll(5, TimeUnit.SECONDS);
-        if (value != null) {
-          return value;
-        }
-      } catch (InterruptedException e) {}
-      throw new RuntimeException("did not receive expected init call");
+      return awaitValue(receivedInits, 5, TimeUnit.SECONDS);
     }
     
     public UpsertParams awaitUpsert() {
-      try {
-        UpsertParams value = receivedUpserts.poll(5, TimeUnit.SECONDS);
-        if (value != null) {
-          return value;
-        }
-      } catch (InterruptedException e) {}
-      throw new RuntimeException("did not receive expected upsert call");
+      return awaitValue(receivedUpserts, 5, TimeUnit.SECONDS);
     }
   }
   

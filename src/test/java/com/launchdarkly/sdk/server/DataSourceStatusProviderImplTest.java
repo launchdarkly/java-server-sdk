@@ -4,6 +4,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.testhelpers.ConcurrentHelpers;
 
 import org.junit.Test;
 
@@ -11,10 +12,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
-import static com.launchdarkly.sdk.server.TestUtil.awaitValue;
-import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.trySleep;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -62,10 +64,10 @@ public class DataSourceStatusProviderImplTest {
     
     updates.updateStatus(State.VALID, null);
 
-    Status newStatus = awaitValue(statuses, Duration.ofMillis(500));
+    Status newStatus = ConcurrentHelpers.awaitValue(statuses, 500, TimeUnit.MILLISECONDS);
     assertThat(newStatus.getState(), equalTo(State.VALID));
     
-    expectNoMoreValues(unwantedStatuses, Duration.ofMillis(100));
+    assertNoMoreValues(unwantedStatuses, 100, TimeUnit.MILLISECONDS);
   }
   
   @Test
@@ -79,9 +81,7 @@ public class DataSourceStatusProviderImplTest {
   @Test
   public void waitForStatusSucceeds() throws Exception {
     new Thread(() -> {
-      try {
-        Thread.sleep(100);
-      } catch (InterruptedException e) {}
+      trySleep(100, TimeUnit.MILLISECONDS);
       updates.updateStatus(State.VALID, null);
     }).start();
 

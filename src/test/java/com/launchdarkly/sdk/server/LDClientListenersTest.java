@@ -15,14 +15,14 @@ import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
 import org.easymock.EasyMockSupport;
 import org.junit.Test;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.specificPersistentDataStore;
-import static com.launchdarkly.sdk.server.TestUtil.awaitValue;
-import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -62,26 +62,26 @@ public class LDClientListenersTest extends EasyMockSupport {
       client.getFlagTracker().addFlagChangeListener(listener1);
       client.getFlagTracker().addFlagChangeListener(listener2);
       
-      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
-      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
+      assertNoMoreValues(eventSink1, 100, TimeUnit.MILLISECONDS);
+      assertNoMoreValues(eventSink2, 100, TimeUnit.MILLISECONDS);
       
       testData.update(testData.flag(flagKey).on(false));
       
-      FlagChangeEvent event1 = awaitValue(eventSink1, Duration.ofSeconds(1));
-      FlagChangeEvent event2 = awaitValue(eventSink2, Duration.ofSeconds(1));
+      FlagChangeEvent event1 = awaitValue(eventSink1, 1, TimeUnit.SECONDS);
+      FlagChangeEvent event2 = awaitValue(eventSink2, 1, TimeUnit.SECONDS);
       assertThat(event1.getKey(), equalTo(flagKey));
       assertThat(event2.getKey(), equalTo(flagKey));
-      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
-      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
+      assertNoMoreValues(eventSink1, 100, TimeUnit.MILLISECONDS);
+      assertNoMoreValues(eventSink2, 100, TimeUnit.MILLISECONDS);
       
       client.getFlagTracker().removeFlagChangeListener(listener1);
       
       testData.update(testData.flag(flagKey).on(true));
   
-      FlagChangeEvent event3 = awaitValue(eventSink2, Duration.ofSeconds(1));
+      FlagChangeEvent event3 = awaitValue(eventSink2, 1, TimeUnit.SECONDS);
       assertThat(event3.getKey(), equalTo(flagKey));
-      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
-      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
+      assertNoMoreValues(eventSink1, 100, TimeUnit.MILLISECONDS);
+      assertNoMoreValues(eventSink2, 100, TimeUnit.MILLISECONDS);
     }
   }
 
@@ -108,9 +108,9 @@ public class LDClientListenersTest extends EasyMockSupport {
       client.getFlagTracker().removeFlagChangeListener(listener2); // just verifying that the remove method works
       client.getFlagTracker().addFlagValueChangeListener(flagKey, otherUser, eventSink3::add);
       
-      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
-      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
-      expectNoMoreValues(eventSink3, Duration.ofMillis(100));
+      assertNoMoreValues(eventSink1, 100, TimeUnit.MILLISECONDS);
+      assertNoMoreValues(eventSink2, 100, TimeUnit.MILLISECONDS);
+      assertNoMoreValues(eventSink3, 100, TimeUnit.MILLISECONDS);
       
       // make the flag true for the first user only, and broadcast a flag change event
       testData.update(testData.flag(flagKey)
@@ -119,17 +119,17 @@ public class LDClientListenersTest extends EasyMockSupport {
           .fallthroughVariation(false));
       
       // eventSink1 receives a value change event
-      FlagValueChangeEvent event1 = awaitValue(eventSink1, Duration.ofSeconds(1));
+      FlagValueChangeEvent event1 = awaitValue(eventSink1, 1, TimeUnit.SECONDS);
       assertThat(event1.getKey(), equalTo(flagKey));
       assertThat(event1.getOldValue(), equalTo(LDValue.of(false)));
       assertThat(event1.getNewValue(), equalTo(LDValue.of(true)));
-      expectNoMoreValues(eventSink1, Duration.ofMillis(100));
+      assertNoMoreValues(eventSink1, 100, TimeUnit.MILLISECONDS);
       
       // eventSink2 doesn't receive one, because it was unregistered
-      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
+      assertNoMoreValues(eventSink2, 100, TimeUnit.MILLISECONDS);
       
       // eventSink3 doesn't receive one, because the flag's value hasn't changed for otherUser
-      expectNoMoreValues(eventSink2, Duration.ofMillis(100));
+      assertNoMoreValues(eventSink2, 100, TimeUnit.MILLISECONDS);
     }
   }
   

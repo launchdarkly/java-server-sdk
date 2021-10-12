@@ -8,6 +8,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -20,6 +21,8 @@ import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.FLAG_VALUE_1_KEY;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.resourceFilePath;
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.resourceLocation;
+import static com.launchdarkly.testhelpers.JsonAssertions.jsonIncludes;
+import static com.launchdarkly.testhelpers.JsonTestValue.jsonOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -71,16 +74,13 @@ public class DataLoaderTest {
   @Test
   public void flagValueIsConvertedToFlag() throws Exception {
     DataLoader ds = new DataLoader(FileData.dataSource().filePaths(resourceFilePath("value-only.json")).sources);
-    LDValue expected = LDValue.parse(
+    String expected =
         "{\"key\":\"flag2\",\"on\":true,\"fallthrough\":{\"variation\":0},\"variations\":[\"value2\"]," +
-        "\"trackEvents\":false,\"deleted\":false,\"version\":1}");
+        "\"trackEvents\":false,\"deleted\":false,\"version\":1}";
     ds.load(builder);
-    LDValue actual = getItemAsJson(builder, FEATURES, FLAG_VALUE_1_KEY);
-    // Note, we're comparing one property at a time here because the version of the Java SDK we're
-    // building against may have more properties than it did when the test was written.
-    for (String key: expected.keys()) {
-      assertThat(actual.get(key), equalTo(expected.get(key)));
-    }
+    assertThat(getItemAsJson(builder, FEATURES, FLAG_VALUE_1_KEY), jsonIncludes(expected));
+    // Note, we're using jsonIncludes instead of jsonEquals because the version of the Java
+    // SDK we're building against may have more properties than it did when the test was written.
   }
   
   @Test
@@ -130,7 +130,7 @@ public class DataLoaderTest {
         resourceFilePath("flag-with-duplicate-key.json")
         ).sources);
     loader1.load(data1);
-    assertThat(getItemAsJson(data1, FEATURES, "flag1").get("on"), equalTo(LDValue.of(true))); // value from first file
+    assertThat(getItemAsJson(data1, FEATURES, "flag1"), jsonIncludes("{\"on\":true}")); // value from first file
     
     DataBuilder data2 = new DataBuilder(FileData.DuplicateKeysHandling.IGNORE);
     DataLoader loader2 = new DataLoader(FileData.dataSource().filePaths(
@@ -138,8 +138,8 @@ public class DataLoaderTest {
         resourceFilePath("flag-only.json")
         ).sources);
     loader2.load(data2);
-    assertThat(getItemAsJson(data2, FEATURES, "flag2").get("variations"),
-        equalTo(LDValue.buildArray().add(LDValue.of("value2a")).build())); // value from first file
+    assertThat(getItemAsJson(data2, FEATURES, "flag2"),
+        jsonIncludes("{\"variations\":[\"value2a\"]}")); // value from first file
     
     DataBuilder data3 = new DataBuilder(FileData.DuplicateKeysHandling.IGNORE);
     DataLoader loader3 = new DataLoader(FileData.dataSource().filePaths(
@@ -147,8 +147,8 @@ public class DataLoaderTest {
         resourceFilePath("segment-with-duplicate-key.json")
         ).sources);
     loader3.load(data3);
-    assertThat(getItemAsJson(data3, SEGMENTS, "seg1").get("included"),
-        equalTo(LDValue.buildArray().add(LDValue.of("user1")).build())); // value from first file
+    assertThat(getItemAsJson(data3, SEGMENTS, "seg1"),
+        jsonIncludes("{\"included\":[\"user1\"]}")); // value from first file
   }
   
   @Test
@@ -188,8 +188,8 @@ public class DataLoaderTest {
     }
   }
   
-  private LDValue getItemAsJson(DataBuilder builder, DataKind kind, String key) {
+  private JsonTestValue getItemAsJson(DataBuilder builder, DataKind kind, String key) {
     ItemDescriptor flag = toDataMap(builder.build()).get(kind).get(key);
-    return LDValue.parse(kind.serialize(flag));
+    return jsonOf(kind.serialize(flag));
   }
 }

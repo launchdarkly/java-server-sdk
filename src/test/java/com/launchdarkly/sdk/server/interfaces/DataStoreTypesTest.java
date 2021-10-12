@@ -8,6 +8,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.testhelpers.TypeBehavior;
 
 import org.junit.Test;
 
@@ -15,9 +16,7 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
-import static com.launchdarkly.sdk.server.TestUtil.verifyEqualityForType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.emptyIterable;
@@ -55,13 +54,13 @@ public class DataStoreTypesTest {
   
   @Test
   public void itemDescriptorEquality() {
-    List<Supplier<ItemDescriptor>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<ItemDescriptor>> allPermutations = new ArrayList<>();
     for (int version: new int[] { 1, 2 }) {
       for (Object item: new Object[] { null, "a", "b" }) {
         allPermutations.add(() -> new ItemDescriptor(version, item));
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @Test
@@ -85,7 +84,7 @@ public class DataStoreTypesTest {
   
   @Test
   public void serializedItemDescriptorEquality() {
-    List<Supplier<SerializedItemDescriptor>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<SerializedItemDescriptor>> allPermutations = new ArrayList<>();
     for (int version: new int[] { 1, 2 }) {
       for (boolean deleted: new boolean[] { true, false }) {
         for (String item: new String[] { null, "a", "b" }) {
@@ -93,7 +92,7 @@ public class DataStoreTypesTest {
         }
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @Test
@@ -122,7 +121,7 @@ public class DataStoreTypesTest {
   
   @Test
   public void keyedItemsEquality() {
-    List<Supplier<KeyedItems<ItemDescriptor>>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<KeyedItems<ItemDescriptor>>> allPermutations = new ArrayList<>();
     for (String key: new String[] { "key1", "key2"}) {
       for (int version: new int[] { 1, 2 }) {
         for (String data: new String[] { null, "a", "b" }) {
@@ -130,7 +129,7 @@ public class DataStoreTypesTest {
         }
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @SuppressWarnings("unchecked")
@@ -151,7 +150,7 @@ public class DataStoreTypesTest {
   
   @Test
   public void fullDataSetEquality() {
-    List<Supplier<FullDataSet<ItemDescriptor>>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<FullDataSet<ItemDescriptor>>> allPermutations = new ArrayList<>();
     for (DataKind kind: new DataKind[] { DataModel.FEATURES, DataModel.SEGMENTS }) {
       for (int version: new int[] { 1, 2 }) {
         allPermutations.add(() -> new FullDataSet<>(
@@ -160,6 +159,6 @@ public class DataStoreTypesTest {
             ).entrySet()));
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
 }

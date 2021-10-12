@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
@@ -34,6 +33,7 @@ import static com.launchdarkly.sdk.server.TestComponents.specificDataSource;
 import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestUtil.upsertSegment;
+import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -401,8 +401,7 @@ public class LDClientEvaluationTest {
         "}," +
         "\"$valid\":true" +
       "}";
-    JsonElement expected = gson.fromJson(json, JsonElement.class);
-    assertEquals(expected, gson.toJsonTree(state));
+    assertJsonEquals(json, gson.toJson(state));
   }
 
   @Test
@@ -458,8 +457,7 @@ public class LDClientEvaluationTest {
         "}," +
         "\"$valid\":true" +
       "}";
-    JsonElement expected = gson.fromJson(json, JsonElement.class);
-    assertEquals(expected, gson.toJsonTree(state));
+    assertJsonEquals(json, gson.toJson(state));
   }
   
   @Test
@@ -506,8 +504,7 @@ public class LDClientEvaluationTest {
         "}," +
         "\"$valid\":true" +
       "}";
-    JsonElement expected = gson.fromJson(json, JsonElement.class);
-    assertEquals(expected, gson.toJsonTree(state));    
+    assertJsonEquals(json, gson.toJson(state));    
   }
   
   @Test

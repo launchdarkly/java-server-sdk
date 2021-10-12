@@ -2,14 +2,13 @@ package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
+import com.launchdarkly.testhelpers.TypeBehavior;
 
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
-import static com.launchdarkly.sdk.server.TestUtil.verifyEqualityForType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -28,12 +27,12 @@ public class DataStoreStatusProviderTypesTest {
   
   @Test
   public void statusEquality() {
-    List<Supplier<Status>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<Status>> allPermutations = new ArrayList<>();
     allPermutations.add(() -> new Status(false, false));
     allPermutations.add(() -> new Status(false, true));
     allPermutations.add(() -> new Status(true, false));
     allPermutations.add(() -> new Status(true, true));
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @Test
@@ -54,7 +53,7 @@ public class DataStoreStatusProviderTypesTest {
   
   @Test
   public void cacheStatsEquality() {
-    List<Supplier<CacheStats>> allPermutations = new ArrayList<>();
+    List<TypeBehavior.ValueFactory<CacheStats>> allPermutations = new ArrayList<>();
     int[] values = new int[] { 0, 1, 2 };
     for (int hit: values) {
       for (int miss: values) {
@@ -69,7 +68,7 @@ public class DataStoreStatusProviderTypesTest {
         }
       }
     }
-    verifyEqualityForType(allPermutations);
+    TypeBehavior.checkEqualsAndHashCode(allPermutations);
   }
   
   @Test

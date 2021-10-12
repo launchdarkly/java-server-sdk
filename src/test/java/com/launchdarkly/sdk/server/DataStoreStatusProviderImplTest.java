@@ -12,13 +12,13 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
-import static com.launchdarkly.sdk.server.TestUtil.awaitValue;
-import static com.launchdarkly.sdk.server.TestUtil.expectNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
@@ -56,10 +56,10 @@ public class DataStoreStatusProviderImplTest {
     
     updates.updateStatus(new Status(false, false));
 
-    Status newStatus = awaitValue(statuses, Duration.ofMillis(500));
+    Status newStatus = awaitValue(statuses, 500, TimeUnit.MILLISECONDS);
     assertThat(newStatus, equalTo(new Status(false, false)));
     
-    expectNoMoreValues(unwantedStatuses, Duration.ofMillis(100));
+    assertNoMoreValues(unwantedStatuses, 100, TimeUnit.MILLISECONDS);
   }
   
   @Test
