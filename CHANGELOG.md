@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.6.4] - 2021-11-30
+### Fixed:
+- Updated Gson to 2.8.9 for a [security bugfix](https://github.com/google/gson/pull/1991).
+
 ## [5.6.3] - 2021-10-12
 ### Fixed:
 - If Java's default locale was not US/English, the SDK would fail to parse dates in the standard RFC1123 format in HTTP responses. The symptoms were that the warning `Received invalid Date header from events service` would appear in logs, and event debugging might not stop at the correct time if the system clock was different from the LaunchDarkly services' clock (which is why the SDK checks the Date header).
