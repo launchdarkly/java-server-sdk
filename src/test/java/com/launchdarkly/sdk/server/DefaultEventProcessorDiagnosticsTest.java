@@ -123,29 +123,15 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
 
   @Test
   public void periodicDiagnosticEventsAreSentAutomatically() throws Exception {
-    // This test overrides the diagnostic recording interval to a small value and verifies that we see
-    // at least one periodic event without having to force a send via ep.postDiagnostic().
     MockEventSender es = new MockEventSender();
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
     DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT,
         context.getBasic(), context.getHttp());
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    Duration briefPeriodicInterval = Duration.ofMillis(50);
     
-    // Can't use the regular config builder for this, because it will enforce a minimum flush interval
-    EventsConfiguration eventsConfig = new EventsConfiguration(
-        false,
-        100,
-        es,
-        FAKE_URI,
-        Duration.ofSeconds(5),
-        true,
-        ImmutableSet.of(),
-        100,
-        Duration.ofSeconds(5),
-        briefPeriodicInterval
-        );
+    EventsConfiguration eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
+    
     try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
         diagnosticAccumulator, initEvent)) {
       // Ignore the initial diagnostic event
@@ -156,6 +142,49 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
       assertNotNull(periodicReq);
       DiagnosticEvent.Statistics statsEvent = gson.fromJson(periodicReq.data, DiagnosticEvent.Statistics.class);
       assertEquals("diagnostic", statsEvent.kind);
+    }
+  }
+
+  private EventsConfiguration makeEventsConfigurationWithBriefDiagnosticInterval(EventSender es) {
+    // Can't use the regular config builder for this, because it will enforce a minimum flush interval
+    return new EventsConfiguration(
+        false,
+        100,
+        es,
+        FAKE_URI,
+        Duration.ofSeconds(5),
+        true,
+        ImmutableSet.of(),
+        100,
+        Duration.ofSeconds(5),
+        Duration.ofMillis(50)
+        );
+  }
+
+  @Test
+  public void diagnosticEventsStopAfter401Error() throws Exception {
+    // This is easier to test with a mock component than it would be in LDClientEndToEndTest, because
+    // we don't have to worry about the latency of a real HTTP request which could allow the periodic
+    // task to fire again before we received a response. In real life, that wouldn't matter because
+    // the minimum diagnostic interval is so long, but in a test we need to be able to use a short
+    // interval.
+    MockEventSender es = new MockEventSender();
+    es.result = new EventSender.Result(false, true, null); // mustShutdown=true; this is what would be returned for a 401 error
+
+    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
+    ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
+    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT,
+        context.getBasic(), context.getHttp());
+    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
+    
+    EventsConfiguration eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
+    
+    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
+        diagnosticAccumulator, initEvent)) {
+      // Ignore the initial diagnostic event
+      es.awaitRequest();
+
+      es.expectNoRequests(Duration.ofMillis(100));
     }
   }
   
