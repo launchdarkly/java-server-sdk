@@ -4,7 +4,7 @@ All notable changes to the LaunchDarkly Java SDK will be documented in this file
 
 ## [5.6.5] - 2021-12-08
 ### Fixed:
-- If it received an HTTP 401 or 403 error from LaunchDarkly, indicating that the SDK key was invalid, the SDK would still continue trying to send diagnostic events. ([#303](https://github.com/launchdarkly/java-server-sdk-private/pull/303))
+- If it received an HTTP 401 or 403 error from LaunchDarkly, indicating that the SDK key was invalid, the SDK would still continue trying to send diagnostic events. ([#250](https://github.com/launchdarkly/java-server-sdk/issues/250))
 
 ## [5.6.4] - 2021-11-30
 ### Fixed:
