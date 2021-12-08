@@ -262,7 +262,7 @@ final class DefaultEventProcessor implements EventProcessor {
 
       if (diagnosticAccumulator != null) {
         // Set up diagnostics
-        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(eventsConfig);
+        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(eventsConfig, this::handleResponse);
         sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
       } else {
         sendDiagnosticTaskFactory = null;
@@ -334,6 +334,9 @@ final class DefaultEventProcessor implements EventProcessor {
     }
 
     private void sendAndResetDiagnostics(EventBuffer outbox) {
+      if (disabled.get()) {
+        return;
+      }
       long droppedEvents = outbox.getAndClearDroppedCount();
       // We pass droppedEvents and deduplicatedUsers as parameters here because they are updated frequently in the main loop so we want to avoid synchronization on them.
       DiagnosticEvent diagnosticEvent = diagnosticAccumulator.createEventAndReset(droppedEvents, deduplicatedUsers);
@@ -597,9 +600,14 @@ final class DefaultEventProcessor implements EventProcessor {
 
   private static final class SendDiagnosticTaskFactory {
     private final EventsConfiguration eventsConfig;
+    private final EventResponseListener eventResponseListener;
 
-    SendDiagnosticTaskFactory(EventsConfiguration eventsConfig) {
+    SendDiagnosticTaskFactory(
+        EventsConfiguration eventsConfig,
+        EventResponseListener eventResponseListener
+        ) {
       this.eventsConfig = eventsConfig;
+      this.eventResponseListener = eventResponseListener;
     }
 
     Runnable createSendDiagnosticTask(final DiagnosticEvent diagnosticEvent) {
@@ -607,7 +615,11 @@ final class DefaultEventProcessor implements EventProcessor {
         @Override
         public void run() {
           String json = JsonHelpers.serialize(diagnosticEvent);
-          eventsConfig.eventSender.sendEventData(EventDataKind.DIAGNOSTICS, json, 1, eventsConfig.eventsUri);
+          EventSender.Result result = eventsConfig.eventSender.sendEventData(EventDataKind.DIAGNOSTICS,
+              json, 1, eventsConfig.eventsUri);
+          if (eventResponseListener != null) {
+            eventResponseListener.handleResponse(result);
+          }
         }
       };
     }
