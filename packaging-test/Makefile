@@ -53,6 +53,7 @@ RUN_JARS_test-thin-jar=$(TEST_APP_JAR) $(SDK_THIN_JAR) \
 classes_prepare=echo "  checking $(1)..." && $(JAR) tf $(1) | grep '\.class$$' >$(TEMP_OUTPUT)
 classes_should_contain=echo "    should contain $(2)" && grep "^$(1)/.*\.class$$" $(TEMP_OUTPUT) >/dev/null
 classes_should_not_contain=echo "    should not contain $(2)" && ! grep "^$(1)/.*\.class$$" $(TEMP_OUTPUT)
+should_not_have_module_info=echo "    should not have module-info.class" && ! grep "module-info\.class$$" $(TEMP_OUTPUT)
 
 verify_sdk_classes= \
 	$(call classes_should_contain,com/launchdarkly/sdk,com.launchdarkly.sdk) && \
@@ -93,6 +94,7 @@ test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/fasterxml/jackson,shaded Jackson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
+	@$(call should_not_have_module_info)
 	@$(call manifest_should_not_have_classpath,$<)
 
 test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
@@ -106,6 +108,7 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/fasterxml/jackson,shaded Jackson)
 	@$(call classes_should_not_contain,org/slf4j,unshaded SLF4j)
+	@$(call should_not_have_module_info)
 	@$(call manifest_should_not_have_classpath,$<)
 
 test-thin-jar-classes: $(SDK_THIN_JAR) $(TEMP_DIR)
@@ -114,6 +117,7 @@ test-thin-jar-classes: $(SDK_THIN_JAR) $(TEMP_DIR)
 	@$(call verify_sdk_classes)
 	@echo "    should not contain anything other than SDK classes"
 	@! grep -v "^com/launchdarkly/sdk" $(TEMP_OUTPUT)
+	@$(call should_not_have_module_info)
 	@$(call manifest_should_not_have_classpath,$<)
 
 test-pom: $(POM_XML)
