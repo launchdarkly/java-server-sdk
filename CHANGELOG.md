@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.6.6] - 2022-01-07
+### Fixed:
+- The SDK build process was accidentally including a `module-info.class` file in the jar that was from a different module (`jdk.zipfs`). This has been removed. The SDK does not currently have Java module metadata. ([#252](https://github.com/launchdarkly/java-server-sdk/issues/252))
+
 ## [5.6.5] - 2021-12-08
 ### Fixed:
 - If it received an HTTP 401 or 403 error from LaunchDarkly, indicating that the SDK key was invalid, the SDK would still continue trying to send diagnostic events. ([#250](https://github.com/launchdarkly/java-server-sdk/issues/250))
