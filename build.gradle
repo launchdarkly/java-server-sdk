@@ -245,6 +245,10 @@ shadowJar {
     exclude '**/*.kotlin_module'
     exclude '**/*.kotlin_builtins'
 
+    // Shadow is not supposed to copy any module-info.class files from dependencies,
+    // but sometimes it does unless we explicitly exclude them here
+    exclude '**/module-info.class'
+
     // doFirst causes the following steps to be run during Gradle's execution phase rather than the
     // configuration phase; this is necessary because they access the build products
     doFirst {
@@ -273,6 +277,8 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     exclude '**/*.kotlin_metadata'
     exclude '**/*.kotlin_module'
     exclude '**/*.kotlin_builtins'
+
+    exclude '**/module-info.class'
 
     dependencies {
         // We don't need to exclude anything here, because we want everything to be
