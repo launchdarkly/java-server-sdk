@@ -20,13 +20,13 @@ ext.versions = [
 ]
 
 dependencies {
-    compile files("lib/launchdarkly-java-server-sdk-all.jar")
-    compile files("lib/launchdarkly-java-server-sdk-test.jar")
-    compile "com.google.code.gson:gson:2.8.9"
-    compile "com.google.guava:guava:${versions.guava}" // required by SDK test code
-    compile "com.squareup.okhttp3:mockwebserver:3.12.10"
-    compile "org.openjdk.jmh:jmh-core:1.21"
-    compile "org.openjdk.jmh:jmh-generator-annprocess:${versions.jmh}"
+    implementation files("lib/launchdarkly-java-server-sdk-all.jar")
+    implementation files("lib/launchdarkly-java-server-sdk-test.jar")
+    implementation "com.google.code.gson:gson:2.8.9"
+    implementation "com.google.guava:guava:${versions.guava}" // required by SDK test code
+    implementation "com.squareup.okhttp3:mockwebserver:3.12.10"
+    implementation "org.openjdk.jmh:jmh-core:1.21"
+    implementation "org.openjdk.jmh:jmh-generator-annprocess:${versions.jmh}"
 }
 
 jmh {
