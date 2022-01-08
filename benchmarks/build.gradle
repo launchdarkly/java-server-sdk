@@ -29,6 +29,10 @@ dependencies {
     implementation "org.openjdk.jmh:jmh-generator-annprocess:${versions.jmh}"
 }
 
+// need to set duplicatesStrategy because otherwise some non-class files with
+// duplicate names in our dependencies will cause an error
+tasks.getByName('jmhJar').doFirst() {duplicatesStrategy(DuplicatesStrategy.EXCLUDE)}
+
 jmh {
     iterations = 10 // Number of measurement iterations to do.
     benchmarkMode = ['avgt'] // "average time" - reports execution time as ns/op and allocations as B/op.
