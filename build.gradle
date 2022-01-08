@@ -19,7 +19,7 @@ plugins {
     id "checkstyle"
     id "jacoco"
     id "signing"
-    id "com.github.johnrengelman.shadow" version "5.2.0"
+    id "com.github.johnrengelman.shadow" version "7.1.2"
     id "maven-publish"
     id "de.marcphilipp.nexus-publish" version "0.3.0"
     id "io.codearte.nexus-staging" version "0.21.2"
@@ -196,7 +196,6 @@ dependencies {
 
 checkstyle {
     configFile file("${project.rootDir}/config/checkstyle/checkstyle.xml")
-    configDir file("${project.rootDir}/config/checkstyle")
 }
 
 task generateJava(type: Copy) {
@@ -224,7 +223,7 @@ jar {
     // configuration phase; this is necessary because it accesses the build products
     doFirst {
         // In OSGi, the "thin" jar has to import all of its dependencies.
-        addOsgiManifest(project.tasks.jar, [ configurations.runtime ], [])
+        addOsgiManifest(project.tasks.jar, [ configurations.runtimeClasspath ], [])
     }
 }
 
@@ -534,9 +533,9 @@ test {
 
 jacocoTestReport { // code coverage report
     reports {
-        xml.enabled
-        csv.enabled true
-        html.enabled true
+        xml.required = true
+        csv.required = true
+        html.required = true
     }
 }
 
