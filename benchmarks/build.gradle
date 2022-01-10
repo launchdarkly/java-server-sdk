@@ -1,7 +1,6 @@
 
 buildscript {
     repositories {
-        jcenter()
         mavenCentral()
     }
 }
@@ -21,14 +20,18 @@ ext.versions = [
 ]
 
 dependencies {
-    compile files("lib/launchdarkly-java-server-sdk-all.jar")
-    compile files("lib/launchdarkly-java-server-sdk-test.jar")
-    compile "com.google.code.gson:gson:2.8.9"
-    compile "com.google.guava:guava:${versions.guava}" // required by SDK test code
-    compile "com.squareup.okhttp3:mockwebserver:3.12.10"
-    compile "org.openjdk.jmh:jmh-core:1.21"
-    compile "org.openjdk.jmh:jmh-generator-annprocess:${versions.jmh}"
+    implementation files("lib/launchdarkly-java-server-sdk-all.jar")
+    implementation files("lib/launchdarkly-java-server-sdk-test.jar")
+    implementation "com.google.code.gson:gson:2.8.9"
+    implementation "com.google.guava:guava:${versions.guava}" // required by SDK test code
+    implementation "com.squareup.okhttp3:mockwebserver:3.12.10"
+    implementation "org.openjdk.jmh:jmh-core:1.21"
+    implementation "org.openjdk.jmh:jmh-generator-annprocess:${versions.jmh}"
 }
+
+// need to set duplicatesStrategy because otherwise some non-class files with
+// duplicate names in our dependencies will cause an error
+tasks.getByName('jmhJar').doFirst() {duplicatesStrategy(DuplicatesStrategy.EXCLUDE)}
 
 jmh {
     iterations = 10 // Number of measurement iterations to do.
