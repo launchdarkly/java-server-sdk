@@ -11,7 +11,7 @@ import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
 
-import java.time.ZonedDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -40,11 +40,11 @@ abstract class EvaluatorPreprocessing {
     }
     
     static final class ValueExtra {
-      final ZonedDateTime parsedDate;
+      final Instant parsedDate;
       final Pattern parsedRegex;
       final SemanticVersion parsedSemVer;
       
-      ValueExtra(ZonedDateTime parsedDate, Pattern parsedRegex, SemanticVersion parsedSemVer) {
+      ValueExtra(Instant parsedDate, Pattern parsedRegex, SemanticVersion parsedSemVer) {
         this.parsedDate = parsedDate;
         this.parsedRegex = parsedRegex;
         this.parsedSemVer = parsedSemVer;
