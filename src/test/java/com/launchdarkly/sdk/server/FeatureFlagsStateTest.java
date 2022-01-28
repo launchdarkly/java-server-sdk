@@ -145,9 +145,11 @@ public class FeatureFlagsStateTest {
         for (EvaluationReason reason: new EvaluationReason[] { null, EvaluationReason.off(), EvaluationReason.fallthrough() }) {
           for (Integer version: new Integer[] { null, 10, 11 }) {
             for (boolean trackEvents: new boolean[] { false, true }) {
-              for (Long debugEventsUntilDate: new Long[] { null, 1000L, 1001L }) {
-                allPermutations.add(() -> new FeatureFlagsState.FlagMetadata(
-                    value, variation, reason, version, trackEvents, debugEventsUntilDate));
+              for (boolean trackReason: new boolean[] { false, true }) {
+                for (Long debugEventsUntilDate: new Long[] { null, 1000L, 1001L }) {
+                  allPermutations.add(() -> new FeatureFlagsState.FlagMetadata(
+                      value, variation, reason, version, trackEvents, trackReason, debugEventsUntilDate));
+                }
               }
             }
           }
