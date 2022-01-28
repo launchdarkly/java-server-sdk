@@ -206,7 +206,7 @@ abstract class EventFactory {
     }
   }
   
-  private static boolean isExperiment(DataModel.FeatureFlag flag, EvaluationReason reason) {
+  static boolean isExperiment(DataModel.FeatureFlag flag, EvaluationReason reason) {
     if (reason == null) {
       // doesn't happen in real life, but possible in testing
       return false;

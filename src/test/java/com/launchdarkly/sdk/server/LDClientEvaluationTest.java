@@ -385,18 +385,29 @@ public class LDClientEvaluationTest {
         .fallthrough(fallthroughVariation(1))
         .variations(LDValue.of("off"), LDValue.of("value2"))
         .build();
+    DataModel.FeatureFlag flag3 = flagBuilder("key3")
+        .version(300)
+        .on(true)
+        .fallthroughVariation(1)
+        .variations(LDValue.of("x"), LDValue.of("value3"))
+        .trackEvents(false)
+        .trackEventsFallthrough(true)
+        .build();
     upsertFlag(dataStore, flag1);
     upsertFlag(dataStore, flag2);
+    upsertFlag(dataStore, flag3);
 
     FeatureFlagsState state = client.allFlagsState(user);
     assertTrue(state.isValid());
     
-    String json = "{\"key1\":\"value1\",\"key2\":\"value2\"," +
+    String json = "{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"value3\"," +
         "\"$flagsState\":{" +
           "\"key1\":{" +
             "\"variation\":0,\"version\":100" +
           "},\"key2\":{" +
             "\"variation\":1,\"version\":200,\"trackEvents\":true,\"debugEventsUntilDate\":1000" +
+          "},\"key3\":{" +
+            "\"variation\":1,\"version\":300,\"trackEvents\":true,\"trackReason\":true,\"reason\":{\"kind\":\"FALLTHROUGH\"}" +
           "}" +
         "}," +
         "\"$valid\":true" +
