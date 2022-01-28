@@ -401,13 +401,18 @@ final class DefaultEventProcessor implements EventProcessor {
       if (!addFullEvent || !eventsConfig.inlineUsersInEvents) {
         LDUser user = e.getUser();
         if (user != null && user.getKey() != null) {
-          boolean isIndexEvent = e instanceof Event.Identify;
-          String key = user.getKey();
-          // Add to the set of users we've noticed
-          boolean alreadySeen = (userKeys.put(key, key) != null);
-          addIndexEvent = !isIndexEvent & !alreadySeen;
-          if (!isIndexEvent & alreadySeen) {
-            deduplicatedUsers++;
+          if (e instanceof Event.FeatureRequest || e instanceof Event.Custom) {
+            String key = user.getKey();
+            // Add to the set of users we've noticed
+            boolean alreadySeen = (userKeys.put(key, key) != null);
+            if (alreadySeen) {
+              deduplicatedUsers++;
+            } else {
+              addIndexEvent = true;
+            }
+          } else if (e instanceof Event.Identify) {
+            String key = user.getKey();
+            userKeys.put(key, key); // just mark that we've seen it
           }
         }
       }

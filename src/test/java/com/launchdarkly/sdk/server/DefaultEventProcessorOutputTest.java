@@ -493,4 +493,20 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
         isCustomEvent(event2, LDValue.ofNull())
     ));
   }
+  
+  @Test
+  public void aliasEventIsQueued() throws Exception {
+    MockEventSender es = new MockEventSender();
+    LDUser user1 = new LDUser.Builder("anon-user").anonymous(true).build();
+    LDUser user2 = new LDUser("non-anon-user");
+    Event.AliasEvent event = EventFactory.DEFAULT.newAliasEvent(user2, user1);
+
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
+      ep.sendEvent(event);
+    }
+    
+    assertThat(es.getEventsFromLastRequest(), contains(
+        isAliasEvent(event)
+    ));
+  }
 }
