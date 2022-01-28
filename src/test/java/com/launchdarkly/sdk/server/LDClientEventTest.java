@@ -30,6 +30,7 @@ import static org.junit.Assert.assertTrue;
 public class LDClientEventTest {
   private static final LDUser user = new LDUser("userkey");
   private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
+  private static final LDUser userWithEmptyKey = new LDUser.Builder("").build();
   
   private DataStore dataStore = initedDataStore();
   private TestComponents.TestEventProcessor eventSink = new TestComponents.TestEventProcessor();
@@ -60,6 +61,12 @@ public class LDClientEventTest {
   @Test
   public void identifyWithUserWithNoKeyDoesNotSendEvent() {
     client.identify(userWithNullKey);
+    assertEquals(0, eventSink.events.size());
+  }
+
+  @Test
+  public void identifyWithUserWithEmptyKeyDoesNotSendEvent() {
+    client.identify(userWithEmptyKey);
     assertEquals(0, eventSink.events.size());
   }
   
@@ -103,7 +110,7 @@ public class LDClientEventTest {
     assertEquals(user.getKey(), ce.getUser().getKey());
     assertEquals("eventkey", ce.getKey());
     assertEquals(data, ce.getData());
-    assertEquals(new Double(metricValue), ce.getMetricValue());
+    assertEquals(Double.valueOf(metricValue), ce.getMetricValue());
   }
 
   @Test
@@ -127,6 +134,18 @@ public class LDClientEventTest {
     assertEquals(0, eventSink.events.size());
 
     client.trackMetric("eventkey", userWithNullKey, LDValue.of(1), 1.5);
+    assertEquals(0, eventSink.events.size());
+  }
+
+  @Test
+  public void trackWithUserWithEmptyKeyDoesNotSendEvent() {
+    client.track("eventkey", userWithEmptyKey);
+    assertEquals(0, eventSink.events.size());
+    
+    client.trackData("eventkey", userWithEmptyKey, LDValue.of(1));
+    assertEquals(0, eventSink.events.size());
+
+    client.trackMetric("eventkey", userWithEmptyKey, LDValue.of(1), 1.5);
     assertEquals(0, eventSink.events.size());
   }
 

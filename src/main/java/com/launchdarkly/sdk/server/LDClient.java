@@ -261,8 +261,8 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public void trackData(String eventName, LDUser user, LDValue data) {
-    if (user == null || user.getKey() == null) {
-      Loggers.MAIN.warn("Track called with null user or null user key!");
+    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
+      Loggers.MAIN.warn("Track called with null user or null/empty user key!");
     } else {
       eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, null));
     }
@@ -270,8 +270,8 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
-    if (user == null || user.getKey() == null) {
-      Loggers.MAIN.warn("Track called with null user or null user key!");
+    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
+      Loggers.MAIN.warn("Track called with null user or null/empty user key!");
     } else {
       eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, metricValue));
     }
@@ -279,8 +279,8 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public void identify(LDUser user) {
-    if (user == null || user.getKey() == null) {
-      Loggers.MAIN.warn("Identify called with null user or null user key!");
+    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
+      Loggers.MAIN.warn("Identify called with null user or null/empty user key!");
     } else {
       eventProcessor.sendEvent(eventFactoryDefault.newIdentifyEvent(user));
     }
