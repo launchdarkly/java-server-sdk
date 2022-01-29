@@ -2,6 +2,12 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.6.7] - 2022-01-28
+### Fixed:
+- When using `allFlagsState` to produce bootstrap data for the JavaScript SDK, the Java SDK was not returning the correct metadata for evaluations that involved an experiment. As a result, the analytics events produced by the JavaScript SDK did not correctly reflect experimentation results.
+- In feature flag rules using the `before` and `after` date operators, if two ISO-8601 string values were compared that represented the exact same absolute date in different time zones (such as `2000-01-01T08:00:00Z` and `2000-01-01T00:00:00-08:00`), the SDK wrongly treated them as unequal. This did not affect strings that represented different absolute dates, which were always compared correctly. The SDK now handles both cases correctly.
+- The `com.launchdarkly.sdk.json` serialization methods were sometimes omitting JSON object properties in cases where it would have been more correct to show the property with a `null` value. This mainly affected JSON data produced by `LDClient.allFlagsState()`, where the presence of a flag key with a `null` value would indicate that the flag existed but could not be evaluated due to an error, as opposed to the flag not existing.
+
 ## [5.6.6] - 2022-01-07
 ### Fixed:
 - The SDK build process was accidentally including a `module-info.class` file in the jar that was from a different module (`jdk.zipfs`). This has been removed. The SDK does not currently have Java module metadata. ([#252](https://github.com/launchdarkly/java-server-sdk/issues/252))
