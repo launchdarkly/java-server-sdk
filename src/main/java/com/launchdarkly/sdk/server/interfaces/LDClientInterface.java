@@ -237,6 +237,18 @@ public interface LDClientInterface extends Closeable {
   FlagTracker getFlagTracker();
   
   /**
+   * Returns an interface for tracking the status of the Big Segment store.
+   * <p>
+   * The returned object has methods for checking whether the Big Segment store is (as far as the
+   * SDK knows) currently operational and tracking changes in this status. See
+   * {@link BigSegmentStoreStatusProvider} for more about this functionality.
+   *
+   * @return a {@link BigSegmentStoreStatusProvider}
+   * @since 5.7.0
+   */
+  BigSegmentStoreStatusProvider getBigSegmentStoreStatusProvider();
+
+  /**
    * Returns an interface for tracking the status of the data source.
    * <p>
    * The data source is the mechanism that the SDK uses to get feature flag configurations, such as a

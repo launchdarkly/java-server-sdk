@@ -12,6 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
+import okhttp3.OkHttpClient;
+
 import sdktest.Representations.CommandParams;
 import sdktest.Representations.CreateInstanceParams;
 import sdktest.Representations.Status;
@@ -23,14 +25,18 @@ public class TestService {
     "strongly-typed",
     "all-flags-client-side-only",
     "all-flags-details-only-for-tracked-flags",
-    "all-flags-with-reasons"
+    "all-flags-with-reasons",
+    "big-segments"
   };
   
   static final Gson gson = new GsonBuilder().serializeNulls().create();
 
+  static final OkHttpClient client = new OkHttpClient();
+  
   private final Map<String, SdkClientEntity> clients = new ConcurrentHashMap<String, SdkClientEntity>();
   private final AtomicInteger clientCounter = new AtomicInteger(0);
   
+  @SuppressWarnings("serial")
   public static class BadRequestException extends Exception {
     public BadRequestException(String message) {
       super(message);

@@ -5,6 +5,11 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.TestComponents.DataStoreFactoryThatExposesUpdater;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.integrations.TestData;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes;
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
@@ -15,20 +20,27 @@ import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
 import org.easymock.EasyMockSupport;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.launchdarkly.sdk.server.TestComponents.specificPersistentDataStore;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.isA;
+import static org.easymock.EasyMock.replay;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /**
  * This file contains tests for all of the event broadcaster/listener functionality in the client, plus
@@ -271,6 +283,57 @@ public class LDClientListenersTest extends EasyMockSupport {
       
       assertEquals(desiredPriority, handlerThread.getPriority());
       assertThat(handlerThread.getName(), containsString("LaunchDarkly-tasks"));
+    }
+  }
+
+  @Test
+  public void bigSegmentStoreStatusReturnsUnavailableStatusWhenNotConfigured() throws Exception {
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.noEvents())
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      BigSegmentStoreStatusProvider.Status status = client.getBigSegmentStoreStatusProvider().getStatus();
+      assertFalse(status.isAvailable());
+      assertFalse(status.isStale());
+    }
+  }
+
+  @Test
+  public void bigSegmentStoreStatusProviderSendsStatusUpdates() throws Exception {
+    AtomicBoolean storeAvailable = new AtomicBoolean(true);
+    BigSegmentStore storeMock = niceMock(BigSegmentStore.class);
+    expect(storeMock.getMetadata()).andAnswer(() -> {
+      if (storeAvailable.get()) {
+        return new BigSegmentStoreTypes.StoreMetadata(System.currentTimeMillis());
+      }
+      throw new RuntimeException("sorry");
+    }).anyTimes();
+
+    BigSegmentStoreFactory storeFactoryMock = strictMock(BigSegmentStoreFactory.class);
+    expect(storeFactoryMock.createBigSegmentStore(isA(ClientContext.class))).andReturn(storeMock);
+
+    replay(storeFactoryMock, storeMock);
+
+    LDConfig config = new LDConfig.Builder()
+        .bigSegments(
+            Components.bigSegments(storeFactoryMock).statusPollInterval(Duration.ofMillis(10))
+        )
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.noEvents())
+        .build();
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      BigSegmentStoreStatusProvider.Status status1 = client.getBigSegmentStoreStatusProvider().getStatus();
+      assertTrue(status1.isAvailable());
+
+      BlockingQueue<BigSegmentStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
+      client.getBigSegmentStoreStatusProvider().addStatusListener(statuses::add);
+
+      storeAvailable.set(false);
+      BigSegmentStoreStatusProvider.Status status = statuses.take();
+      assertFalse(status.isAvailable());
+      assertEquals(status, client.getBigSegmentStoreStatusProvider().getStatus());
     }
   }
 }

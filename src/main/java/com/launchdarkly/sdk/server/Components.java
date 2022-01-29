@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server;
 
+import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FACTORY;
+
 import com.launchdarkly.sdk.server.ComponentsImpl.EventProcessorBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.HttpBasicAuthentication;
 import com.launchdarkly.sdk.server.ComponentsImpl.HttpConfigurationBuilderImpl;
@@ -9,19 +11,19 @@ import com.launchdarkly.sdk.server.ComponentsImpl.NullDataSourceFactory;
 import com.launchdarkly.sdk.server.ComponentsImpl.PersistentDataStoreBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.PollingDataSourceBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.StreamingDataSourceBuilderImpl;
+import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
-
-import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FACTORY;
 
 /**
  * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.
@@ -38,7 +40,41 @@ import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FA
  */
 public abstract class Components {
   private Components() {}
-  
+
+  /**
+   * Returns a configuration builder for the SDK's Big Segments feature.
+   * <p>
+   * Big Segments are a specific type of user segments. For more information, read the
+   * <a href="https://docs.launchdarkly.com/home/users/big-segments">LaunchDarkly documentation</a>.
+   * <p>
+   * After configuring this object, use
+   * {@link LDConfig.Builder#bigSegments(BigSegmentsConfigurationBuilder)} to store it in your SDK
+   * configuration. For example, using the Redis integration:
+   *
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .bigSegments(Components.bigSegments(Redis.dataStore().prefix("app1"))
+   *             .userCacheSize(2000))
+   *         .build();
+   * </code></pre>
+   *
+   * <p>
+   * You must always specify the {@code storeFactory} parameter, to tell the SDK what database you
+   * are using. Several database integrations exist for the LaunchDarkly SDK, each with its own
+   * behavior and options specific to that database; this is described via some implementation of
+   * {@link BigSegmentStoreFactory}. The {@link BigSegmentsConfigurationBuilder} adds configuration
+   * options for aspects of SDK behavior that are independent of the database. In the example above,
+   * {@code prefix} is an option specifically for the Redis integration, whereas
+   * {@code userCacheSize} is an option that can be used for any data store type.
+   *
+   * @param storeFactory the factory for the underlying data store
+   * @return a {@link BigSegmentsConfigurationBuilder}
+   * @since 5.7.0
+   */
+  public static BigSegmentsConfigurationBuilder bigSegments(BigSegmentStoreFactory storeFactory) {
+    return new BigSegmentsConfigurationBuilder(storeFactory);
+  }
+
   /**
    * Returns a configuration object for using the default in-memory implementation of a data store.
    * <p>

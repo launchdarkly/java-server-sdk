@@ -211,7 +211,7 @@ public class EvaluatorPreprocessingTest {
         false
         );    
     SegmentRule rule = new SegmentRule(ImmutableList.of(c), null, null);
-    Segment s = new Segment("key", null, null, null, ImmutableList.of(rule), 0, false);
+    Segment s = new Segment("key", null, null, null, ImmutableList.of(rule), 0, false, false, null);
     
     assertNull(s.getRules().get(0).getClauses().get(0).getPreprocessed());
     

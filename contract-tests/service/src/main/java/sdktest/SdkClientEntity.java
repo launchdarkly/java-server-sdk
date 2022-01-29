@@ -8,8 +8,10 @@ import com.launchdarkly.sdk.server.FeatureFlagsState;
 import com.launchdarkly.sdk.server.FlagsStateOption;
 import com.launchdarkly.sdk.server.LDClient;
 import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +28,7 @@ import sdktest.Representations.EvaluateAllFlagsParams;
 import sdktest.Representations.EvaluateAllFlagsResponse;
 import sdktest.Representations.EvaluateFlagParams;
 import sdktest.Representations.EvaluateFlagResponse;
+import sdktest.Representations.GetBigSegmentsStoreStatusResponse;
 import sdktest.Representations.IdentifyEventParams;
 import sdktest.Representations.SdkConfigParams;
 
@@ -63,6 +66,12 @@ public class SdkClientEntity {
     case "flushEvents":
       client.flush();
       return null;
+    case "getBigSegmentStoreStatus":
+      BigSegmentStoreStatusProvider.Status status = client.getBigSegmentStoreStatusProvider().getStatus();
+      GetBigSegmentsStoreStatusResponse resp = new GetBigSegmentsStoreStatusResponse();
+      resp.available = status.isAvailable();
+      resp.stale = status.isStale();
+      return resp;
     default:
       throw new TestService.BadRequestException("unknown command: " + params.command);
     }
@@ -175,9 +184,11 @@ public class SdkClientEntity {
   
   private LDConfig buildSdkConfig(SdkConfigParams params) {
     LDConfig.Builder builder = new LDConfig.Builder();
+
     if (params.startWaitTimeMs != null) {
       builder.startWait(Duration.ofMillis(params.startWaitTimeMs.longValue()));
     }
+
     if (params.streaming != null) {
       StreamingDataSourceBuilder dataSource = Components.streamingDataSource()
           .baseURI(params.streaming.baseUri);
@@ -186,8 +197,8 @@ public class SdkClientEntity {
       }
       builder.dataSource(dataSource);
     }
-    if (params.events == null)
-    {
+
+    if (params.events == null) {
       builder.events(Components.noEvents());
     } else {
       EventProcessorBuilder eb = Components.sendEvents()
@@ -206,6 +217,25 @@ public class SdkClientEntity {
       builder.events(eb);
       builder.diagnosticOptOut(!params.events.enableDiagnostics);
     }
+    
+    if (params.bigSegments != null) {
+      BigSegmentsConfigurationBuilder bsb = Components.bigSegments(
+          new BigSegmentStoreFixture(new CallbackService(params.bigSegments.callbackUri)));
+      if (params.bigSegments.staleAfterMs != null) {
+        bsb.staleAfter(Duration.ofMillis(params.bigSegments.staleAfterMs));
+      }
+      if (params.bigSegments.statusPollIntervalMs != null) {
+        bsb.statusPollInterval(Duration.ofMillis(params.bigSegments.statusPollIntervalMs));
+      }
+      if (params.bigSegments.userCacheSize != null) {
+        bsb.userCacheSize(params.bigSegments.userCacheSize);
+      }
+      if (params.bigSegments.userCacheTimeMs != null) {
+        bsb.userCacheTime(Duration.ofMillis(params.bigSegments.userCacheTimeMs));
+      }
+      builder.bigSegments(bsb);
+    }
+    
     return builder.build();
   }
 }

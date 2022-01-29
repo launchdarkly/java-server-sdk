@@ -61,19 +61,19 @@ public class DataModelTest {
 
   @Test
   public void segmentIncludedCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, 0, false);
+    Segment s = new Segment("key", null, null, null, null, 0, false, false, null);
     assertEquals(ImmutableSet.of(), s.getIncluded());
   }
 
   @Test
   public void segmentExcludedCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, 0, false);
+    Segment s = new Segment("key", null, null, null, null, 0, false, false, null);
     assertEquals(ImmutableSet.of(), s.getExcluded());
   }
 
   @Test
   public void segmentRulesListCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, 0, false);
+    Segment s = new Segment("key", null, null, null, null, 0, false, false, null);
     assertEquals(ImmutableList.of(), s.getRules());
   }
 

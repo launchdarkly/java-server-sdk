@@ -67,6 +67,10 @@ public abstract class ModelBuilders {
   public static DataModel.Clause clauseNotMatchingUser(LDUser user) {
     return clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("not-" + user.getKey()));
   }
+
+  public static DataModel.Clause clauseMatchingSegment(Segment segment) {
+    return clause(null, DataModel.Operator.segmentMatch, LDValue.of(segment.getKey()));
+  }
   
   public static DataModel.Target target(int variation, String... userKeys) {
     return new DataModel.Target(ImmutableSet.copyOf(userKeys), variation);
@@ -290,6 +294,8 @@ public abstract class ModelBuilders {
     private List<DataModel.SegmentRule> rules = new ArrayList<>();
     private int version = 0;
     private boolean deleted;
+    private boolean unbounded;
+    private Integer generation;
 
     private SegmentBuilder(String key) {
       this.key = key;
@@ -306,7 +312,7 @@ public abstract class ModelBuilders {
     }
     
     public DataModel.Segment build() {
-      Segment s = new DataModel.Segment(key, included, excluded, salt, rules, version, deleted);
+      Segment s = new DataModel.Segment(key, included, excluded, salt, rules, version, deleted, unbounded, generation);
       s.afterDeserialized();
       return s;
     }
@@ -338,6 +344,16 @@ public abstract class ModelBuilders {
     
     public SegmentBuilder deleted(boolean deleted) {
       this.deleted = deleted;
+      return this;
+    }
+
+    public SegmentBuilder unbounded(boolean unbounded) {
+      this.unbounded = unbounded;
+      return this;
+    }
+
+    public SegmentBuilder generation(Integer generation) {
+      this.generation = generation;
       return this;
     }
   }

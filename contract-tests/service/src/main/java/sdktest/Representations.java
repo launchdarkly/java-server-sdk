@@ -24,6 +24,7 @@ public abstract class Representations {
     boolean initCanFail;
     SdkConfigStreamParams streaming;
     SdkConfigEventParams events;
+    SdkConfigBigSegmentsParams bigSegments;
   }
   
   public static class SdkConfigStreamParams {
@@ -39,6 +40,14 @@ public abstract class Representations {
     String[] globalPrivateAttributes;
     Long flushIntervalMs;
     boolean inlineUsers;
+  }
+  
+  public static class SdkConfigBigSegmentsParams {
+    URI callbackUri;
+    Integer userCacheSize;
+    Long userCacheTimeMs;
+    Long statusPollIntervalMs;
+    Long staleAfterMs;
   }
   
   public static class CommandParams {
@@ -91,5 +100,10 @@ public abstract class Representations {
   public static class AliasEventParams {
     LDUser user;
     LDUser previousUser;
+  }
+  
+  public static class GetBigSegmentsStoreStatusResponse {
+    boolean available;
+    boolean stale;
   }
 }

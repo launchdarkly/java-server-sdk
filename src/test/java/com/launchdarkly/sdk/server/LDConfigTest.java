@@ -1,6 +1,9 @@
 package com.launchdarkly.sdk.server;
 
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+
 import com.google.common.collect.ImmutableMap;
+import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
@@ -28,6 +31,8 @@ public class LDConfigTest {
   @Test
   public void defaults() {
     LDConfig config = new LDConfig.Builder().build();
+    assertNotNull(config.bigSegmentsConfigBuilder);
+    assertNull(config.bigSegmentsConfigBuilder.createBigSegmentsConfiguration(clientContext("", config)).getStore());
     assertNotNull(config.dataSourceFactory);
     assertEquals(Components.streamingDataSource().getClass(), config.dataSourceFactory.getClass());
     assertNotNull(config.dataStoreFactory);
@@ -48,6 +53,13 @@ public class LDConfigTest {
     
     assertEquals(LDConfig.DEFAULT_START_WAIT, config.startWait);
     assertEquals(Thread.MIN_PRIORITY, config.threadPriority);
+  }
+
+  @Test
+  public void bigSegmentsConfigFactory() {
+    BigSegmentsConfigurationBuilder f = Components.bigSegments(null);
+    LDConfig config = new LDConfig.Builder().bigSegments(f).build();
+    assertSame(f, config.bigSegmentsConfigBuilder);
   }
   
   @Test

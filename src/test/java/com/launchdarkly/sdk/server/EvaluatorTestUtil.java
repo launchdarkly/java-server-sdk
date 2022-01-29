@@ -1,5 +1,9 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.BigSegmentStoreWrapper.BigSegmentsQueryResult;
+
+import java.util.HashMap;
+
 @SuppressWarnings("javadoc")
 public abstract class EvaluatorTestUtil {
   public static Evaluator BASE_EVALUATOR = evaluatorBuilder().build();
@@ -9,93 +13,61 @@ public abstract class EvaluatorTestUtil {
   }
   
   public static class EvaluatorBuilder {
-    private Evaluator.Getters getters;
-    
-    EvaluatorBuilder() {
-      getters = new Evaluator.Getters() {
+    HashMap<String, DataModel.FeatureFlag> flagMap = new HashMap<>();
+    HashMap<String, DataModel.Segment> segmentMap = new HashMap<>();
+    HashMap<String, BigSegmentsQueryResult> bigSegmentMap = new HashMap<>();
+
+    public Evaluator build() {
+      return new Evaluator(new Evaluator.Getters() {
         public DataModel.FeatureFlag getFlag(String key) {
-          throw new IllegalStateException("Evaluator unexpectedly tried to query flag: " + key);
+          if (!flagMap.containsKey(key)) {
+            throw new IllegalStateException("Evaluator unexpectedly tried to query flag: " + key);
+          }
+          return flagMap.get(key);
         }
 
         public DataModel.Segment getSegment(String key) {
-          throw new IllegalStateException("Evaluator unexpectedly tried to query segment: " + key);
+          if (!segmentMap.containsKey(key)) {
+            throw new IllegalStateException("Evaluator unexpectedly tried to query segment: " + key);
+          }
+          return segmentMap.get(key);
         }
-      };
-    }
-    
-    public Evaluator build() {
-      return new Evaluator(getters);
+
+        public BigSegmentsQueryResult getBigSegments(String key) {
+          if (!bigSegmentMap.containsKey(key)) {
+            throw new IllegalStateException("Evaluator unexpectedly tried to query Big Segment: " + key);
+          }
+          return bigSegmentMap.get(key);
+        }
+      });
     }
     
     public EvaluatorBuilder withStoredFlags(final DataModel.FeatureFlag... flags) {
-      final Evaluator.Getters baseGetters = getters;
-      getters = new Evaluator.Getters() {
-        public DataModel.FeatureFlag getFlag(String key) {
-          for (DataModel.FeatureFlag f: flags) {
-            if (f.getKey().equals(key)) {
-              return f;
-            }
-          }
-          return baseGetters.getFlag(key);
-        }
-        
-        public DataModel.Segment getSegment(String key) {
-          return baseGetters.getSegment(key);
-        }
-      };
+      for (DataModel.FeatureFlag f: flags) {
+        flagMap.put(f.getKey(), f);
+      }
       return this;
     }
     
     public EvaluatorBuilder withNonexistentFlag(final String nonexistentFlagKey) {
-      final Evaluator.Getters baseGetters = getters;
-      getters = new Evaluator.Getters() {
-        public DataModel.FeatureFlag getFlag(String key) {
-          if (key.equals(nonexistentFlagKey)) {
-            return null;
-          }
-          return baseGetters.getFlag(key);
-        }
-        
-        public DataModel.Segment getSegment(String key) {
-          return baseGetters.getSegment(key);
-        }
-      };
+      flagMap.put(nonexistentFlagKey, null);
       return this;
     }
     
     public EvaluatorBuilder withStoredSegments(final DataModel.Segment... segments) {
-      final Evaluator.Getters baseGetters = getters;
-      getters = new Evaluator.Getters() {
-        public DataModel.FeatureFlag getFlag(String key) {
-          return baseGetters.getFlag(key);
-        }
-        
-        public DataModel.Segment getSegment(String key) {
-          for (DataModel.Segment s: segments) {
-            if (s.getKey().equals(key)) {
-              return s;
-            }
-          }
-          return baseGetters.getSegment(key);
-        }
-      };
+      for (DataModel.Segment s: segments) {
+        segmentMap.put(s.getKey(), s);
+      }
       return this;
     }
     
     public EvaluatorBuilder withNonexistentSegment(final String nonexistentSegmentKey) {
-      final Evaluator.Getters baseGetters = getters;
-      getters = new Evaluator.Getters() {
-        public DataModel.FeatureFlag getFlag(String key) {
-          return baseGetters.getFlag(key);
-        }
-        
-        public DataModel.Segment getSegment(String key) {
-          if (key.equals(nonexistentSegmentKey)) {
-            return null;
-          }
-          return baseGetters.getSegment(key);
-        }
-      };
+      segmentMap.put(nonexistentSegmentKey, null);
+      return this;
+    }
+
+    public EvaluatorBuilder withBigSegmentQueryResult(final String userKey, BigSegmentsQueryResult queryResult) {
+      bigSegmentMap.put(userKey, queryResult);
       return this;
     }
   }

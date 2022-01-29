@@ -153,6 +153,8 @@ public class DataModelSerializationTest {
     assertEquals(0, segment.getExcluded().size());
     assertNotNull(segment.getRules());
     assertEquals(0, segment.getRules().size());
+    assertFalse(segment.isUnbounded());
+    assertNull(segment.getGeneration());
   }
 
   @Test
@@ -254,6 +256,10 @@ public class DataModelSerializationTest {
           .build(),
         segment -> assertEquals(Collections.<Clause>emptyList(), segment.getRules().get(0).getClauses())
         );
+    assertSegmentFromJson(
+        baseBuilder("segment-key").put("generation", LDValue.ofNull()).build(),
+        segment -> assertNull(segment.getGeneration())
+    );
     
     // Nulls in clause values are not useful since the clause can never match, but they're valid JSON;
     // we should normalize them to LDValue.ofNull() to avoid potential NPEs down the line
@@ -428,7 +434,7 @@ public class DataModelSerializationTest {
         .put("included", LDValue.buildArray().add("key1").add("key2").build())
         .put("excluded", LDValue.buildArray().add("key3").add("key4").build())
         .put("salt", "123")
-               .put("rules", LDValue.buildArray()
+        .put("rules", LDValue.buildArray()
             .add(LDValue.buildObject()
                 .put("weight", 50000)
                 .put("bucketBy", "email")
@@ -444,6 +450,9 @@ public class DataModelSerializationTest {
             .add(LDValue.buildObject()
                 .build())
             .build())
+        .put("unbounded", true)
+        .put("generation", 10)
+        // Extra fields should be ignored
         .put("fallthrough", LDValue.buildObject()
             .put("variation", 1)
             .build())
@@ -470,6 +479,9 @@ public class DataModelSerializationTest {
     assertEquals(Operator.in, c0.getOp());
     assertEquals(ImmutableList.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.getValues());
     assertTrue(c0.isNegate());
+
+    assertTrue(segment.isUnbounded());
+    assertEquals((Integer)10, segment.getGeneration());
     
     // Check for just one example of preprocessing, to verify that preprocessing has happened in
     // general for this segment - the details are covered in EvaluatorPreprocessingTest.

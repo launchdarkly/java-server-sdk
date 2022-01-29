@@ -8,6 +8,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
 import org.slf4j.Logger;
@@ -45,6 +46,7 @@ class Evaluator {
   static interface Getters {
     DataModel.FeatureFlag getFlag(String key);
     DataModel.Segment getSegment(String key);
+    BigSegmentStoreWrapper.BigSegmentsQueryResult getBigSegments(String key);
   }
 
   /**
@@ -107,6 +109,15 @@ class Evaluator {
     private void setPrerequisiteEvents(List<Event.FeatureRequest> prerequisiteEvents) {
       this.prerequisiteEvents = prerequisiteEvents;
     }
+
+    private void setBigSegmentsStatus(EvaluationReason.BigSegmentsStatus bigSegmentsStatus) {
+      this.reason = this.reason.withBigSegmentsStatus(bigSegmentsStatus);
+    }
+  }
+
+  static class BigSegmentsState {
+    private BigSegmentStoreTypes.Membership bigSegmentsMembership;
+    private EvaluationReason.BigSegmentsStatus bigSegmentsStatus;
   }
   
   Evaluator(Getters getters) {
@@ -132,24 +143,28 @@ class Evaluator {
       return new EvalResult(null, NO_VARIATION, EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
     }
 
+    BigSegmentsState bigSegmentsState = new BigSegmentsState();
     // If the flag doesn't have any prerequisites (which most flags don't) then it cannot generate any feature
     // request events for prerequisites and we can skip allocating a List.
     List<Event.FeatureRequest> prerequisiteEvents = flag.getPrerequisites().isEmpty() ?
          null : new ArrayList<Event.FeatureRequest>(); // note, getPrerequisites() is guaranteed non-null
-    EvalResult result = evaluateInternal(flag, user, eventFactory, prerequisiteEvents);
+    EvalResult result = evaluateInternal(flag, user, eventFactory, prerequisiteEvents, bigSegmentsState);
     if (prerequisiteEvents != null) {
       result.setPrerequisiteEvents(prerequisiteEvents);
+    }
+    if (bigSegmentsState.bigSegmentsStatus != null) {
+      result.setBigSegmentsStatus(bigSegmentsState.bigSegmentsStatus);
     }
     return result;
   }
 
   private EvalResult evaluateInternal(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
-      List<Event.FeatureRequest> eventsOut) {
+      List<Event.FeatureRequest> eventsOut, BigSegmentsState bigSegmentsState) {
     if (!flag.isOn()) {
       return getOffValue(flag, EvaluationReason.off());
     }
     
-    EvaluationReason prereqFailureReason = checkPrerequisites(flag, user, eventFactory, eventsOut);
+    EvaluationReason prereqFailureReason = checkPrerequisites(flag, user, eventFactory, eventsOut, bigSegmentsState);
     if (prereqFailureReason != null) {
       return getOffValue(flag, prereqFailureReason);
     }
@@ -164,7 +179,7 @@ class Evaluator {
     List<DataModel.Rule> rules = flag.getRules(); // guaranteed non-null
     for (int i = 0; i < rules.size(); i++) {
       DataModel.Rule rule = rules.get(i);
-      if (ruleMatchesUser(flag, rule, user)) {
+      if (ruleMatchesUser(flag, rule, user, bigSegmentsState)) {
         EvaluationReason precomputedReason = rule.getRuleMatchReason();
         EvaluationReason reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
         return getValueForVariationOrRollout(flag, rule, user, reason);
@@ -177,7 +192,7 @@ class Evaluator {
   // Checks prerequisites if any; returns null if successful, or an EvaluationReason if we have to
   // short-circuit due to a prerequisite failure.
   private EvaluationReason checkPrerequisites(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
-      List<Event.FeatureRequest> eventsOut) {
+      List<Event.FeatureRequest> eventsOut, BigSegmentsState bigSegmentsState) {
     for (DataModel.Prerequisite prereq: flag.getPrerequisites()) { // getPrerequisites() is guaranteed non-null
       boolean prereqOk = true;
       DataModel.FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
@@ -185,7 +200,7 @@ class Evaluator {
         logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), flag.getKey());
         prereqOk = false;
       } else {
-        EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, user, eventFactory, eventsOut);
+        EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, user, eventFactory, eventsOut, bigSegmentsState);
         // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
         // off variation was. But we still need to evaluate it in order to generate an event.
         if (!prereqFeatureFlag.isOn() || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
@@ -272,16 +287,16 @@ class Evaluator {
     return reason;
   }
 
-  private boolean ruleMatchesUser(DataModel.FeatureFlag flag, DataModel.Rule rule, LDUser user) {
+  private boolean ruleMatchesUser(DataModel.FeatureFlag flag, DataModel.Rule rule, LDUser user, BigSegmentsState bigSegmentsState) {
     for (DataModel.Clause clause: rule.getClauses()) { // getClauses() is guaranteed non-null
-      if (!clauseMatchesUser(clause, user)) {
+      if (!clauseMatchesUser(clause, user, bigSegmentsState)) {
         return false;
       }
     }
     return true;
   }
 
-  private boolean clauseMatchesUser(DataModel.Clause clause, LDUser user) {
+  private boolean clauseMatchesUser(DataModel.Clause clause, LDUser user, BigSegmentsState bigSegmentsState) {
     // In the case of a segment match operator, we check if the user is in any of the segments,
     // and possibly negate
     if (clause.getOp() == DataModel.Operator.segmentMatch) {
@@ -289,7 +304,7 @@ class Evaluator {
         if (j.isString()) {
           DataModel.Segment segment = getters.getSegment(j.stringValue());
           if (segment != null) {
-            if (segmentMatchesUser(segment, user)) {
+            if (segmentMatchesUser(segment, user, bigSegmentsState)) {
               return maybeNegate(clause, true);
             }
           }
@@ -357,13 +372,42 @@ class Evaluator {
     return clause.isNegate() ? !b : b;
   }
   
-  private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
+  private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user, BigSegmentsState bigSegmentsState) {
     String userKey = user.getKey(); // we've already verified that the key is non-null at the top of evaluate()
-    if (segment.getIncluded().contains(userKey)) { // getIncluded(), getExcluded(), and getRules() are guaranteed non-null
-      return true;
-    }
-    if (segment.getExcluded().contains(userKey)) {
-      return false;
+    if (segment.isUnbounded()) {
+      if (segment.getGeneration() == null) {
+        // Big Segment queries can only be done if the generation is known. If it's unset, that
+        // probably means the data store was populated by an older SDK that doesn't know about the
+        // generation property and therefore dropped it from the JSON data. We'll treat that as a
+        // "not configured" condition.
+        bigSegmentsState.bigSegmentsStatus = EvaluationReason.BigSegmentsStatus.NOT_CONFIGURED;
+        return false;
+      }
+
+      // Even if multiple Big Segments are referenced within a single flag evaluation, we only need
+      // to do this query once, since it returns *all* of the user's segment memberships.
+      if (bigSegmentsState.bigSegmentsStatus == null) {
+        BigSegmentStoreWrapper.BigSegmentsQueryResult queryResult = getters.getBigSegments(user.getKey());
+        if (queryResult == null) {
+          // The SDK hasn't been configured to be able to use big segments
+          bigSegmentsState.bigSegmentsStatus = EvaluationReason.BigSegmentsStatus.NOT_CONFIGURED;
+        } else {
+          bigSegmentsState.bigSegmentsStatus = queryResult.status;
+          bigSegmentsState.bigSegmentsMembership = queryResult.membership;
+        }
+      }
+      Boolean membership = bigSegmentsState.bigSegmentsMembership == null ?
+          null : bigSegmentsState.bigSegmentsMembership.checkMembership(makeBigSegmentRef(segment));
+      if (membership != null) {
+        return membership;
+      }
+    } else {
+      if (segment.getIncluded().contains(userKey)) { // getIncluded(), getExcluded(), and getRules() are guaranteed non-null
+        return true;
+      }
+      if (segment.getExcluded().contains(userKey)) {
+        return false;
+      }
     }
     for (DataModel.SegmentRule rule: segment.getRules()) {
       if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
@@ -389,5 +433,9 @@ class Evaluator {
     double bucket = EvaluatorBucketing.bucketUser(null, user, segmentKey, segmentRule.getBucketBy(), salt);
     double weight = (double)segmentRule.getWeight() / 100000.0;
     return bucket < weight;
+  }
+
+  static String makeBigSegmentRef(DataModel.Segment segment) {
+    return String.format("%s.g%d", segment.getKey(), segment.getGeneration());
   }
 }

@@ -1,5 +1,8 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
@@ -22,6 +25,7 @@ public final class LDConfig {
   
   protected static final LDConfig DEFAULT = new Builder().build();
 
+  final BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder;
   final DataSourceFactory dataSourceFactory;
   final DataStoreFactory dataStoreFactory;
   final boolean diagnosticOptOut;
@@ -42,6 +46,8 @@ public final class LDConfig {
       this.eventProcessorFactory = builder.eventProcessorFactory == null ? Components.sendEvents() :
         builder.eventProcessorFactory;
     }
+    this.bigSegmentsConfigBuilder = builder.bigSegmentsConfigBuilder == null ?
+            Components.bigSegments(null) : builder.bigSegmentsConfigBuilder;
     this.dataStoreFactory = builder.dataStoreFactory == null ? Components.inMemoryDataStore() :
       builder.dataStoreFactory;
     this.diagnosticOptOut = builder.diagnosticOptOut;
@@ -66,6 +72,7 @@ public final class LDConfig {
    * </pre>
    */
   public static class Builder {
+    private BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder = null;
     private DataSourceFactory dataSourceFactory = null;
     private DataStoreFactory dataStoreFactory = null;
     private boolean diagnosticOptOut = false;
@@ -80,6 +87,41 @@ public final class LDConfig {
      * Creates a builder with all configuration parameters set to the default
      */
     public Builder() {
+    }
+
+    /**
+     * Sets the configuration of the SDK's Big Segments feature.
+     * <p>
+     * Big Segments are a specific type of user segments. For more information, read the
+     * <a href="https://docs.launchdarkly.com/home/users/big-segments">LaunchDarkly documentation
+     * </a>.
+     * <p>
+     * If you are using this feature, you will normally specify a database implementation that
+     * matches how the LaunchDarkly Relay Proxy is configured, since the Relay Proxy manages the
+     * Big Segment data.
+     * <p>
+     * By default, there is no implementation and Big Segments cannot be evaluated. In this case,
+     * any flag evaluation that references a Big Segment will behave as if no users are included in
+     * any Big Segments, and the {@link EvaluationReason} associated with any such flag evaluation
+     * will have a {@link EvaluationReason.BigSegmentsStatus} of
+     * {@link EvaluationReason.BigSegmentsStatus#NOT_CONFIGURED}.
+     *
+     * <pre><code>
+     *     // This example uses the Redis integration
+     *     LDConfig config = LDConfig.builder()
+     *         .bigSegments(Components.bigSegments(Redis.dataStore().prefix("app1"))
+     *             .userCacheSize(2000))
+     *         .build();
+     * </code></pre>
+     *
+     * @param bigSegmentsConfigBuilder a configuration builder object returned by
+     *  {@link Components#bigSegments(BigSegmentStoreFactory)}.
+     * @return the builder
+     * @since 5.7.0
+     */
+    public Builder bigSegments(BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder) {
+      this.bigSegmentsConfigBuilder = bigSegmentsConfigBuilder;
+      return this;
     }
     
     /**

@@ -21,6 +21,7 @@ abstract class Loggers {
   private Loggers() {}
   
   static final String BASE_LOGGER_NAME = LDClient.class.getName();
+  static final String BIG_SEGMENTS_LOGGER_NAME = BASE_LOGGER_NAME + ".BigSegments";
   static final String DATA_SOURCE_LOGGER_NAME = BASE_LOGGER_NAME + ".DataSource";
   static final String DATA_STORE_LOGGER_NAME = BASE_LOGGER_NAME + ".DataStore";
   static final String EVALUATION_LOGGER_NAME = BASE_LOGGER_NAME + ".Evaluation";
@@ -30,6 +31,11 @@ abstract class Loggers {
    * The default logger instance to use for SDK messages: "com.launchdarkly.sdk.server.LDClient"
    */
   static final Logger MAIN = LoggerFactory.getLogger(BASE_LOGGER_NAME);
+
+  /**
+   * The logger instance to use for messages related to the Big Segments implementation: "com.launchdarkly.sdk.server.LDClient.BigSegments"
+   */
+  static final Logger BIG_SEGMENTS = LoggerFactory.getLogger(BIG_SEGMENTS_LOGGER_NAME);
 
   /**
    * The logger instance to use for messages related to polling, streaming, etc.: "com.launchdarkly.sdk.server.LDClient.DataSource"
