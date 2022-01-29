@@ -1,0 +1,211 @@
+package sdktest;
+
+import com.launchdarkly.sdk.EvaluationDetail;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.json.JsonSerialization;
+import com.launchdarkly.sdk.server.Components;
+import com.launchdarkly.sdk.server.FeatureFlagsState;
+import com.launchdarkly.sdk.server.FlagsStateOption;
+import com.launchdarkly.sdk.server.LDClient;
+import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+
+import sdktest.Representations.AliasEventParams;
+import sdktest.Representations.CommandParams;
+import sdktest.Representations.CreateInstanceParams;
+import sdktest.Representations.CustomEventParams;
+import sdktest.Representations.EvaluateAllFlagsParams;
+import sdktest.Representations.EvaluateAllFlagsResponse;
+import sdktest.Representations.EvaluateFlagParams;
+import sdktest.Representations.EvaluateFlagResponse;
+import sdktest.Representations.IdentifyEventParams;
+import sdktest.Representations.SdkConfigParams;
+
+public class SdkClientEntity {
+  private final LDClient client;
+  final Logger logger;
+  
+  public SdkClientEntity(TestService owner, CreateInstanceParams params) {
+    this.logger = LoggerFactory.getLogger(params.tag);
+    logger.info("Starting SDK client");
+
+    LDConfig config = buildSdkConfig(params.configuration);
+    this.client = new LDClient(params.configuration.credential, config);
+    if (!client.isInitialized() && !params.configuration.initCanFail) {
+      throw new RuntimeException("client initialization failed or timed out");
+    }
+  }
+  
+  public Object doCommand(CommandParams params) throws TestService.BadRequestException {
+    logger.info("Test harness sent command: {}", TestService.gson.toJson(params));
+    switch (params.command) {
+    case "evaluate":
+      return doEvaluateFlag(params.evaluate);
+    case "evaluateAll":
+      return doEvaluateAll(params.evaluateAll);
+    case "identifyEvent":
+      doIdentifyEvent(params.identifyEvent);
+      return null;
+    case "customEvent":
+      doCustomEvent(params.customEvent);
+      return null;
+    case "aliasEvent":
+      doAliasEvent(params.aliasEvent);
+      return null;
+    case "flushEvents":
+      client.flush();
+      return null;
+    default:
+      throw new TestService.BadRequestException("unknown command: " + params.command);
+    }
+  }
+  
+  private EvaluateFlagResponse doEvaluateFlag(EvaluateFlagParams params) {
+    EvaluateFlagResponse resp = new EvaluateFlagResponse();
+    if (params.detail) {
+      EvaluationDetail<?> genericResult;
+      switch (params.valueType) {
+      case "bool":
+        EvaluationDetail<Boolean> boolResult = client.boolVariationDetail(params.flagKey,
+            params.user, params.defaultValue.booleanValue());
+        resp.value = LDValue.of(boolResult.getValue());
+        genericResult = boolResult;
+        break;
+      case "int":
+        EvaluationDetail<Integer> intResult = client.intVariationDetail(params.flagKey,
+            params.user, params.defaultValue.intValue());
+        resp.value = LDValue.of(intResult.getValue());
+        genericResult = intResult;
+        break;
+      case "double":
+        EvaluationDetail<Double> doubleResult = client.doubleVariationDetail(params.flagKey,
+            params.user, params.defaultValue.doubleValue());
+        resp.value = LDValue.of(doubleResult.getValue());
+        genericResult = doubleResult;
+        break;
+      case "string":
+        EvaluationDetail<String> stringResult = client.stringVariationDetail(params.flagKey,
+            params.user, params.defaultValue.stringValue());
+        resp.value = LDValue.of(stringResult.getValue());
+        genericResult = stringResult;
+        break;
+      default:
+        EvaluationDetail<LDValue> anyResult = client.jsonValueVariationDetail(params.flagKey,
+            params.user, params.defaultValue);
+        resp.value = anyResult.getValue();
+        genericResult = anyResult;
+        break;
+      }
+      resp.variationIndex = genericResult.getVariationIndex() == EvaluationDetail.NO_VARIATION ?
+            null : Integer.valueOf(genericResult.getVariationIndex());
+      resp.reason = genericResult.getReason();
+    } else {
+      switch (params.valueType) {
+      case "bool":
+        resp.value = LDValue.of(client.boolVariation(params.flagKey, params.user, params.defaultValue.booleanValue()));
+        break;
+      case "int":
+        resp.value = LDValue.of(client.intVariation(params.flagKey, params.user, params.defaultValue.intValue()));
+        break;
+      case "double":
+        resp.value = LDValue.of(client.doubleVariation(params.flagKey, params.user, params.defaultValue.doubleValue()));
+        break;
+      case "string":
+        resp.value = LDValue.of(client.stringVariation(params.flagKey, params.user, params.defaultValue.stringValue()));
+        break;
+      default:
+        resp.value = client.jsonValueVariation(params.flagKey, params.user, params.defaultValue);
+        break;
+      }
+    }
+    return resp;
+  }
+  
+  private EvaluateAllFlagsResponse doEvaluateAll(EvaluateAllFlagsParams params) {
+    List<FlagsStateOption> options = new ArrayList<>();
+    if (params.clientSideOnly) {
+      options.add(FlagsStateOption.CLIENT_SIDE_ONLY);
+    }
+    if (params.detailsOnlyForTrackedFlags) {
+      options.add(FlagsStateOption.DETAILS_ONLY_FOR_TRACKED_FLAGS);
+    }
+    if (params.withReasons) {
+      options.add(FlagsStateOption.WITH_REASONS);
+    }
+    FeatureFlagsState state = client.allFlagsState(params.user, options.toArray(new FlagsStateOption[0]));
+    EvaluateAllFlagsResponse resp = new EvaluateAllFlagsResponse();
+    resp.state = LDValue.parse(JsonSerialization.serialize(state));
+    return resp;
+  }
+  
+  private void doIdentifyEvent(IdentifyEventParams params) {
+    client.identify(params.user);
+  }
+  
+  private void doCustomEvent(CustomEventParams params) {
+    if ((params.data == null || params.data.isNull()) && params.omitNullData && params.metricValue == null) {
+      client.track(params.eventKey, params.user);
+    } else if (params.metricValue == null) {
+      client.trackData(params.eventKey, params.user, params.data);
+    } else {
+      client.trackMetric(params.eventKey, params.user, params.data, params.metricValue.doubleValue());
+    }
+  }
+  
+  private void doAliasEvent(AliasEventParams params) {
+    client.alias(params.user, params.previousUser);
+  }
+  
+  public void close() {
+    try {
+      client.close();
+    } catch (Exception e) {
+      logger.error("Unexpected error from LDClient.close(): {}", e);
+    }
+    logger.info("Test ended");
+  }
+  
+  private LDConfig buildSdkConfig(SdkConfigParams params) {
+    LDConfig.Builder builder = new LDConfig.Builder();
+    if (params.startWaitTimeMs != null) {
+      builder.startWait(Duration.ofMillis(params.startWaitTimeMs.longValue()));
+    }
+    if (params.streaming != null) {
+      StreamingDataSourceBuilder dataSource = Components.streamingDataSource()
+          .baseURI(params.streaming.baseUri);
+      if (params.streaming.initialRetryDelayMs > 0) {
+        dataSource.initialReconnectDelay(Duration.ofMillis(params.streaming.initialRetryDelayMs));
+      }
+      builder.dataSource(dataSource);
+    }
+    if (params.events == null)
+    {
+      builder.events(Components.noEvents());
+    } else {
+      EventProcessorBuilder eb = Components.sendEvents()
+          .baseURI(params.events.baseUri)
+          .allAttributesPrivate(params.events.allAttributesPrivate)
+          .inlineUsersInEvents(params.events.inlineUsers);
+      if (params.events.capacity > 0) {
+        eb.capacity(params.events.capacity);
+      }
+      if (params.events.flushIntervalMs != null) {
+        eb.flushInterval(Duration.ofMillis(params.events.flushIntervalMs.longValue()));
+      }
+      if (params.events.globalPrivateAttributes != null) {
+        eb.privateAttributeNames(params.events.globalPrivateAttributes);
+      }
+      builder.events(eb);
+      builder.diagnosticOptOut(!params.events.enableDiagnostics);
+    }
+    return builder.build();
+  }
+}

@@ -1,0 +1,3 @@
+include ":service"
+include ":sdk"
+project(":sdk").projectDir = new File("..")
