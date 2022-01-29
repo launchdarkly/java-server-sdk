@@ -145,9 +145,11 @@ public class FeatureFlagsStateTest {
         for (EvaluationReason reason: new EvaluationReason[] { null, EvaluationReason.off(), EvaluationReason.fallthrough() }) {
           for (Integer version: new Integer[] { null, 10, 11 }) {
             for (boolean trackEvents: new boolean[] { false, true }) {
-              for (Long debugEventsUntilDate: new Long[] { null, 1000L, 1001L }) {
-                allPermutations.add(() -> new FeatureFlagsState.FlagMetadata(
-                    value, variation, reason, version, trackEvents, debugEventsUntilDate));
+              for (boolean trackReason: new boolean[] { false, true }) {
+                for (Long debugEventsUntilDate: new Long[] { null, 1000L, 1001L }) {
+                  allPermutations.add(() -> new FeatureFlagsState.FlagMetadata(
+                      value, variation, reason, version, trackEvents, trackReason, debugEventsUntilDate));
+                }
               }
             }
           }
@@ -181,14 +183,14 @@ public class FeatureFlagsStateTest {
     DataModel.FeatureFlag flag1 = flagBuilder("key1").version(100).trackEvents(false).build();
     Evaluator.EvalResult eval2 = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
     DataModel.FeatureFlag flag2 = flagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
-    Evaluator.EvalResult eval3 = new Evaluator.EvalResult(LDValue.of("default"), NO_VARIATION, EvaluationReason.error(MALFORMED_FLAG));
+    Evaluator.EvalResult eval3 = new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.error(MALFORMED_FLAG));
     DataModel.FeatureFlag flag3 = flagBuilder("key3").version(300).build();
     return FeatureFlagsState.builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag1, eval1).addFlag(flag2, eval2).addFlag(flag3, eval3).build();
   }
   
   private static String makeExpectedJsonSerialization() {
-    return "{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":\"default\"," +
+    return "{\"key1\":\"value1\",\"key2\":\"value2\",\"key3\":null," +
         "\"$flagsState\":{" +
         "\"key1\":{" +
           "\"variation\":0,\"version\":100,\"reason\":{\"kind\":\"OFF\"}" +  // note, "trackEvents: false" is omitted

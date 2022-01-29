@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.collect.ImmutableList;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
@@ -18,14 +19,8 @@ import static org.junit.Assert.assertEquals;
 @SuppressWarnings("javadoc")
 @RunWith(Parameterized.class)
 public class EvaluatorOperatorsParameterizedTest {
-  private static final LDValue dateStr1 = LDValue.of("2017-12-06T00:00:00.000-07:00");
-  private static final LDValue dateStr2 = LDValue.of("2017-12-06T00:01:01.000-07:00");
-  private static final LDValue dateStrUtc1 = LDValue.of("2017-12-06T00:00:00.000Z");
-  private static final LDValue dateStrUtc2 = LDValue.of("2017-12-06T00:01:01.000Z");
-  private static final LDValue dateMs1 = LDValue.of(10000000);
-  private static final LDValue dateMs2 = LDValue.of(10000001);
-  private static final LDValue invalidDate = LDValue.of("hey what's this?");
   private static final LDValue invalidVer = LDValue.of("xbad%ver");
+  
   private static final UserAttribute userAttr = UserAttribute.forName("attr");
   
   private final Operator op;
@@ -50,7 +45,9 @@ public class EvaluatorOperatorsParameterizedTest {
   
   @Parameterized.Parameters(name = "{1} {0} {2}+{3} should be {4}")
   public static Iterable<Object[]> data() {
-    return Arrays.asList(new Object[][] {
+    ImmutableList.Builder<Object[]> tests = ImmutableList.builder();
+    
+    tests.add(new Object[][] {
       // numeric comparisons
       { Operator.in, LDValue.of(99), LDValue.of(99), null, true },
       { Operator.in, LDValue.of(99), LDValue.of(99), new LDValue[] { LDValue.of(98), LDValue.of(97), LDValue.of(96) }, true },
@@ -116,28 +113,6 @@ public class EvaluatorOperatorsParameterizedTest {
       { Operator.matches, LDValue.of("hello world"), LDValue.of("***not a regex"), null, false },
       { Operator.matches, LDValue.of(2), LDValue.of("that 2 is not a string"), null, false },
       
-      // dates
-      { Operator.before, dateStr1, dateStr2, null, true },
-      { Operator.before, dateStrUtc1, dateStrUtc2, null, true },
-      { Operator.before, dateMs1, dateMs2, null, true },
-      { Operator.before, dateStr2, dateStr1, null, false },
-      { Operator.before, dateStrUtc2, dateStrUtc1, null, false },
-      { Operator.before, dateMs2, dateMs1, null, false },
-      { Operator.before, dateStr1, dateStr1, null, false },
-      { Operator.before, dateMs1, dateMs1, null, false },
-      { Operator.before, dateStr1, invalidDate, null, false },
-      { Operator.before, invalidDate, dateStr1, null, false },
-      { Operator.after, dateStr1, dateStr2, null, false },
-      { Operator.after, dateStrUtc1, dateStrUtc2, null, false },
-      { Operator.after, dateMs1, dateMs2, null, false },
-      { Operator.after, dateStr2, dateStr1, null, true },
-      { Operator.after, dateStrUtc2, dateStrUtc1, null, true },
-      { Operator.after, dateMs2, dateMs1, null, true },
-      { Operator.after, dateStr1, dateStr1, null, false },
-      { Operator.after, dateMs1, dateMs1, null, false },
-      { Operator.after, dateStr1, invalidDate, null, false },
-      { Operator.after, invalidDate, dateStr1, null, false },
-      
       // semver
       { Operator.semVerEqual, LDValue.of("2.0.1"), LDValue.of("2.0.1"), null, true },
       { Operator.semVerEqual, LDValue.of("2.0.2"), LDValue.of("2.0.1"), null, false },
@@ -167,6 +142,30 @@ public class EvaluatorOperatorsParameterizedTest {
       { null, LDValue.of("x"), LDValue.of("y"), null, false }, // no operator
       { Operator.segmentMatch, LDValue.of("x"), LDValue.of("y"), null, false } // segmentMatch is handled elsewhere
     });
+    
+    // add permutations of date values for before & after operators
+    // dateStr1, dateStrUtc1, and dateMs1 are the same timestamp in different formats; etc.
+    LDValue dateStr1 = LDValue.of("2017-12-06T00:00:00.000-07:00");
+    LDValue dateStrUtc1 = LDValue.of("2017-12-06T07:00:00.000Z");
+    LDValue dateMs1 = LDValue.of(1512543600000L);
+    LDValue dateStr2 = LDValue.of("2017-12-06T00:00:01.000-07:00");
+    LDValue dateStrUtc2 = LDValue.of("2017-12-06T07:00:01.000Z");
+    LDValue dateMs2 = LDValue.of(1512543601000L);
+    LDValue invalidDate = LDValue.of("hey what's this?");
+    for (LDValue lowerValue: new LDValue[] { dateStr1, dateStrUtc1, dateMs1 }) {
+      for (LDValue higherValue: new LDValue[] { dateStr2, dateStrUtc2, dateMs2 }) {
+        tests.add(new Object[] { Operator.before, lowerValue, higherValue, null, true });
+        tests.add(new Object[] { Operator.before, lowerValue, lowerValue, null, false });
+        tests.add(new Object[] { Operator.before, higherValue, lowerValue, null, false });
+        tests.add(new Object[] { Operator.before, lowerValue, invalidDate, null, false });
+        tests.add(new Object[] { Operator.after, higherValue, lowerValue, null, true });
+        tests.add(new Object[] { Operator.after, lowerValue, lowerValue, null, false });
+        tests.add(new Object[] { Operator.after, lowerValue, higherValue, null, false});
+        tests.add(new Object[] { Operator.after, lowerValue, invalidDate, null, false});
+      }
+    }
+    
+    return tests.build();
   }
 
   @Test

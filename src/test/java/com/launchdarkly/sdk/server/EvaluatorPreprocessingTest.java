@@ -14,7 +14,6 @@ import com.launchdarkly.sdk.server.DataModel.SegmentRule;
 import org.junit.Test;
 
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -120,9 +119,9 @@ public class EvaluatorPreprocessingTest {
   @Test
   public void preprocessFlagParsesClauseDate() {
     String time1Str = "2016-04-16T17:09:12-07:00";
-    ZonedDateTime time1 = ZonedDateTime.parse(time1Str);
+    Instant time1 = ZonedDateTime.parse(time1Str).toInstant();
     int time2Num = 1000000;
-    ZonedDateTime time2 = ZonedDateTime.ofInstant(Instant.ofEpochMilli(time2Num), ZoneOffset.UTC);
+    Instant time2 = Instant.ofEpochMilli(time2Num);
 
     for (Operator op: new Operator[] { Operator.after, Operator.before }) {
       Clause c = new Clause(

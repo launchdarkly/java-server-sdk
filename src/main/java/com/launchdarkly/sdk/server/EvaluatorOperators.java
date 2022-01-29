@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
 
-import java.time.ZonedDateTime;
+import java.time.Instant;
 import java.util.regex.Pattern;
 
 import static com.launchdarkly.sdk.server.EvaluatorTypeConversion.valueToDateTime;
@@ -120,11 +120,11 @@ abstract class EvaluatorOperators {
       ) {
     // If preprocessed is non-null, it means we've already tried to parse the clause value as a date/time,
     // in which case if preprocessed.parsedDate is null it was not a valid date/time.
-    ZonedDateTime clauseDate = preprocessed == null ? valueToDateTime(clauseValue) : preprocessed.parsedDate;
+    Instant clauseDate = preprocessed == null ? valueToDateTime(clauseValue) : preprocessed.parsedDate;
     if (clauseDate == null) {
       return false;
     }
-    ZonedDateTime userDate = valueToDateTime(userValue);
+    Instant userDate = valueToDateTime(userValue);
     if (userDate == null) {
       return false;
     }

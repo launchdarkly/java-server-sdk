@@ -24,16 +24,30 @@ import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 abstract class JsonHelpers {
   private JsonHelpers() {}
   
-  private static final Gson gson = new Gson();
+  private static final Gson gsonWithNullsAllowed = new GsonBuilder().serializeNulls().create();
+  private static final Gson gsonWithNullsSuppressed = new GsonBuilder().create();
   
   /**
    * Returns a shared instance of Gson with default configuration. This should not be used for serializing
    * event data, since it does not have any of the configurable behavior related to private attributes.
    * Code in _unit tests_ should _not_ use this method, because the tests can be run from other projects
    * in an environment where the classpath contains a shaded copy of Gson instead of regular Gson.
+   * 
+   * @see #gsonWithNullsAllowed
    */
   static Gson gsonInstance() {
-    return gson;
+    return gsonWithNullsSuppressed;
+  }
+
+  /**
+   * Returns a shared instance of Gson with default configuration except that properties with null values
+   * are <i>not</i> automatically dropped. We use this in contexts where we want to exactly reproduce
+   * whatever the serializer for a type is outputting.
+   * 
+   * @see #gsonInstance()
+   */
+  static Gson gsonInstanceWithNullsAllowed() {
+    return gsonWithNullsAllowed;
   }
   
   /**
@@ -57,7 +71,7 @@ abstract class JsonHelpers {
    */
   static <T> T deserialize(String json, Class<T> objectClass) throws SerializationException {
     try {
-      return gson.fromJson(json, objectClass);
+      return gsonInstance().fromJson(json, objectClass);
     } catch (Exception e) {
       throw new SerializationException(e);
     }
@@ -73,7 +87,7 @@ abstract class JsonHelpers {
    * @return the serialized JSON string
    */
   static String serialize(Object o) {
-    return gson.toJson(o);
+    return gsonInstance().toJson(o);
   }
   
   /**
@@ -93,9 +107,9 @@ abstract class JsonHelpers {
     VersionedData item;
     try {
       if (kind == FEATURES) {
-        item = gson.fromJson(parsedJson, FeatureFlag.class);
+        item = gsonInstance().fromJson(parsedJson, FeatureFlag.class);
       } else if (kind == SEGMENTS) {
-        item = gson.fromJson(parsedJson, Segment.class);
+        item = gsonInstance().fromJson(parsedJson, Segment.class);
       } else {
         // This shouldn't happen since we only use this method internally with our predefined data kinds
         throw new IllegalArgumentException("unknown data kind");
