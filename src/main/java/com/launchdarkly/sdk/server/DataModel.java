@@ -444,10 +444,20 @@ public abstract class DataModel {
     private List<SegmentRule> rules;
     private int version;
     private boolean deleted;
+    private boolean unbounded;
+    private Integer generation;
 
     Segment() {}
 
-    Segment(String key, Set<String> included, Set<String> excluded, String salt, List<SegmentRule> rules, int version, boolean deleted) {
+    Segment(String key,
+            Set<String> included,
+            Set<String> excluded,
+            String salt,
+            List<SegmentRule> rules,
+            int version,
+            boolean deleted,
+            boolean unbounded,
+            Integer generation) {
       this.key = key;
       this.included = included;
       this.excluded = excluded;
@@ -455,6 +465,8 @@ public abstract class DataModel {
       this.rules = rules;
       this.version = version;
       this.deleted = deleted;
+      this.unbounded = unbounded;
+      this.generation = generation;
     }
 
     public String getKey() {
@@ -486,6 +498,14 @@ public abstract class DataModel {
     
     public boolean isDeleted() {
       return deleted;
+    }
+
+    public boolean isUnbounded() {
+      return unbounded;
+    }
+
+    public Integer getGeneration() {
+      return generation;
     }
 
     // Precompute some invariant values for improved efficiency during evaluations - called from JsonHelpers.PostProcessingDeserializableTypeAdapter

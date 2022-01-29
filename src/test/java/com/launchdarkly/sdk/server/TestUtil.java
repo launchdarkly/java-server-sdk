@@ -21,6 +21,9 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -37,6 +40,7 @@ import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 
 @SuppressWarnings("javadoc")
 public class TestUtil {
@@ -182,6 +186,78 @@ public class TestUtil {
       Socket socket = createSocket();
       socket.connect(new InetSocketAddress(this.host, this.port));
       return socket;
+    }
+  }
+
+  public static <T> void assertFullyEqual(T a, T b) {
+    assertEquals(a, b);
+    assertEquals(b, a);
+    assertEquals(a.hashCode(), b.hashCode());
+  }
+
+  public static <T> void assertFullyUnequal(T a, T b) {
+    assertNotEquals(a, b);
+    assertNotEquals(b, a);
+  }
+
+  public interface BuilderPropertyTester<TValue> {
+    void assertDefault(TValue defaultValue);
+    void assertCanSet(TValue newValue);
+    void assertSetIsChangedTo(TValue attempted, TValue resulting);
+  }
+
+  public static class BuilderTestUtil<TBuilder, TBuilt> {
+    private final Supplier<TBuilder> constructor;
+    final Function<TBuilder, TBuilt> buildMethod;
+
+    public BuilderTestUtil(Supplier<TBuilder> constructor,
+                           Function<TBuilder, TBuilt> buildMethod) {
+      this.constructor = constructor;
+      this.buildMethod = buildMethod;
+    }
+
+    public <TValue> BuilderPropertyTester<TValue> property(
+        Function<TBuilt, TValue> getter,
+        BiConsumer<TBuilder, TValue> setter) {
+      return new BuilderPropertyTestImpl<TBuilder, TBuilt, TValue>(this, getter, setter);
+    }
+
+    public TBuilder createBuilder() {
+      return constructor.get();
+    }
+  }
+
+  static class BuilderPropertyTestImpl<TBuilder, TBuilt, TValue>
+      implements BuilderPropertyTester<TValue> {
+    private final BuilderTestUtil<TBuilder, TBuilt> owner;
+    private final Function<TBuilt, TValue> getter;
+    private final BiConsumer<TBuilder, TValue> setter;
+
+    public BuilderPropertyTestImpl(BuilderTestUtil<TBuilder, TBuilt> owner,
+                                   Function<TBuilt, TValue> getter,
+                                   BiConsumer<TBuilder, TValue> setter) {
+      this.owner = owner;
+      this.getter = getter;
+      this.setter = setter;
+    }
+
+    public void assertDefault(TValue defaultValue) {
+      assertValue(owner.createBuilder(), defaultValue);
+    }
+
+    public void assertCanSet(TValue newValue) {
+      assertSetIsChangedTo(newValue, newValue);
+    }
+
+    public void assertSetIsChangedTo(TValue attempted, TValue resulting) {
+      TBuilder builder = owner.createBuilder();
+      setter.accept(builder, attempted);
+      assertValue(builder, resulting);
+    }
+
+    private void assertValue(TBuilder b, TValue expected) {
+      TBuilt built = owner.buildMethod.apply(b);
+      assertEquals(expected, getter.apply(built));
     }
   }
 }

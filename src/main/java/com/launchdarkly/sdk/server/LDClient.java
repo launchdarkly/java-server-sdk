@@ -1,11 +1,19 @@
 package com.launchdarkly.sdk.server;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+import static com.launchdarkly.sdk.server.Util.isAsciiHeaderValue;
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
@@ -37,12 +45,6 @@ import java.util.concurrent.TimeoutException;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
-import static com.launchdarkly.sdk.server.DataModel.FEATURES;
-import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
-import static com.launchdarkly.sdk.server.Util.isAsciiHeaderValue;
-
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
  * a single {@code LDClient} for the lifetime of their application.
@@ -56,6 +58,8 @@ public final class LDClient implements LDClientInterface {
   final EventProcessor eventProcessor;
   final DataSource dataSource;
   final DataStore dataStore;
+  private final BigSegmentStoreStatusProvider bigSegmentStoreStatusProvider;
+  private final BigSegmentStoreWrapper bigSegmentStoreWrapper;
   private final DataSourceUpdates dataSourceUpdates;
   private final DataStoreStatusProviderImpl dataStoreStatusProvider;
   private final DataSourceStatusProviderImpl dataSourceStatusProvider;
@@ -195,6 +199,16 @@ public final class LDClient implements LDClientInterface {
 
     this.eventProcessor = config.eventProcessorFactory.createEventProcessor(context);
 
+    EventBroadcasterImpl<BigSegmentStoreStatusProvider.StatusListener, BigSegmentStoreStatusProvider.Status> bigSegmentStoreStatusNotifier =
+        EventBroadcasterImpl.forBigSegmentStoreStatus(sharedExecutor);
+    BigSegmentsConfiguration bigSegmentsConfig = config.bigSegmentsConfigBuilder.createBigSegmentsConfiguration(context);
+    if (bigSegmentsConfig.getStore() != null) {
+      bigSegmentStoreWrapper = new BigSegmentStoreWrapper(bigSegmentsConfig, bigSegmentStoreStatusNotifier, sharedExecutor);
+    } else {
+      bigSegmentStoreWrapper = null;
+    }
+    bigSegmentStoreStatusProvider = new BigSegmentStoreStatusProviderImpl(bigSegmentStoreStatusNotifier, bigSegmentStoreWrapper);
+
     EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> dataStoreStatusNotifier =
         EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
     DataStoreUpdatesImpl dataStoreUpdates = new DataStoreUpdatesImpl(dataStoreStatusNotifier);
@@ -207,6 +221,11 @@ public final class LDClient implements LDClientInterface {
 
       public DataModel.Segment getSegment(String key) {
         return LDClient.getSegment(LDClient.this.dataStore, key);
+      }
+
+      public BigSegmentStoreWrapper.BigSegmentsQueryResult getBigSegments(String key) {
+        BigSegmentStoreWrapper wrapper = LDClient.this.bigSegmentStoreWrapper;
+        return wrapper == null ? null : wrapper.getUserMembership(key);
       }
     });
 
@@ -504,7 +523,12 @@ public final class LDClient implements LDClientInterface {
   public FlagTracker getFlagTracker() {
     return flagTracker;
   }
-  
+
+  @Override
+  public BigSegmentStoreStatusProvider getBigSegmentStoreStatusProvider() {
+    return bigSegmentStoreStatusProvider;
+  }
+
   @Override
   public DataStoreStatusProvider getDataStoreStatusProvider() {
     return dataStoreStatusProvider;
@@ -522,6 +546,9 @@ public final class LDClient implements LDClientInterface {
     this.eventProcessor.close();
     this.dataSource.close();
     this.dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.OFF, null);
+    if (this.bigSegmentStoreWrapper != null) {
+      this.bigSegmentStoreWrapper.close();
+    }
     this.sharedExecutor.shutdownNow();
   }
 

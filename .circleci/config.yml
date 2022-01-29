@@ -60,6 +60,8 @@ jobs:
         default: false
     docker:
       - image: <<parameters.docker-image>>
+        environment:
+          TEST_HARNESS_PARAMS: -junit /home/circleci/junit/contract-tests-junit.xml
     steps:
       - checkout
       - run: cp gradle.properties.example gradle.properties
@@ -78,12 +80,18 @@ jobs:
                   ./gradlew jacocoTestReport
                   mkdir -p coverage/
                   cp -r build/reports/jacoco/test/* ./coverage
+      - run: mkdir -p ~/junit/
       - run:
           name: Save test results
-          command: |
-            mkdir -p ~/junit/
-            find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
+          command: find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
           when: always
+
+      - run: make build-contract-tests
+      - run:
+          command: make start-contract-test-service
+          background: true
+      - run: make run-contract-tests
+
       - store_test_results:
           path: ~/junit
       - store_artifacts:
