@@ -108,16 +108,13 @@ ext.versions = [
 // Jackson in "libraries.optional" because we need to generate OSGi optional import
 // headers for it.
 libraries.internal = [
+    "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}",
     "commons-codec:commons-codec:${versions.commonsCodec}",
     "com.google.code.gson:gson:${versions.gson}",
     "com.google.guava:guava:${versions.guava}",
     "com.squareup.okhttp3:okhttp:${versions.okhttp}",
     "com.launchdarkly:okhttp-eventsource:${versions.okhttpEventsource}",
     "org.yaml:snakeyaml:${versions.snakeyaml}",
-]
-
-libraries.common = [
-    "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}",
 ]
 
 // Add dependencies to "libraries.external" that are exposed in our public API, or that have
@@ -179,7 +176,7 @@ configurations {
 
 dependencies {
     implementation libraries.internal
-    api libraries.external, libraries.common
+    api libraries.external
     testImplementation libraries.test, libraries.internal, libraries.external
     optional libraries.optional
 
