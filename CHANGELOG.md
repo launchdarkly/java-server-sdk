@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.7.1] - 2022-02-04
+### Fixed:
+- Fixed a packaging issue causing `launchdarkly-java-sdk-common` to be included as a dependency in the SDK's generated `pom` file. This introduces duplicate classes in the application's `jar` file. The duplicate classes can prevent the SDK's custom serialization logic from being used, due to not correctly referencing the shaded class names. ([#258](hhttps://github.com/launchdarkly/java-server-sdk/issues/258))
+
 ## [5.7.0] - 2022-01-28
 ### Added:
 - The SDK now supports evaluation of Big Segments. An Early Access Program for creating and syncing Big Segments from customer data platforms is available to enterprise customers.
