@@ -284,6 +284,9 @@ final class DefaultEventProcessor implements EventProcessor {
       
       logger.error("Event processor thread was terminated by an unrecoverable error. No more analytics events will be sent. {} {}",
           LogValues.exceptionSummary(e), LogValues.exceptionTrace(e));
+      // Note that this is a rare case where we always log the exception stacktrace, instead of only
+      // logging it at debug level. That's because an exception of this kind should never happen and,
+      // if it happens, may be difficult to debug.
       
       // Flip the switch to prevent DefaultEventProcessor from putting any more messages on the queue
       closed.set(true);
