@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import com.launchdarkly.sdk.server.BaseTest;
 import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.TestComponents;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
@@ -32,10 +33,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class FileDataSourceAutoUpdateTest {
+public class FileDataSourceAutoUpdateTest extends BaseTest {
   private final DataStore store;
   private MockDataSourceUpdates dataSourceUpdates;
-  private final LDConfig config = new LDConfig.Builder().build();
+  private final LDConfig config = baseConfig().build();
   
   public FileDataSourceAutoUpdateTest() throws Exception {
     store = inMemoryDataStore();

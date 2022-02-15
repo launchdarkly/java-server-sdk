@@ -1,8 +1,9 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableList;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.LDClient;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceBuilder.SourceInfo;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FileDataException;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactory;
@@ -17,9 +18,6 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -54,28 +52,29 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
  * optionally whenever files change.
  */
 final class FileDataSourceImpl implements DataSource {
-  private static final Logger logger = LoggerFactory.getLogger(LDClient.class.getName() + ".DataSource");
-
   private final DataSourceUpdates dataSourceUpdates;
   private final DataLoader dataLoader;
   private final FileData.DuplicateKeysHandling duplicateKeysHandling;
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final FileWatcher fileWatcher;
+  private final LDLogger logger;
   
   FileDataSourceImpl(
       DataSourceUpdates dataSourceUpdates,
       List<SourceInfo> sources,
       boolean autoUpdate,
-      FileData.DuplicateKeysHandling duplicateKeysHandling
+      FileData.DuplicateKeysHandling duplicateKeysHandling,
+      LDLogger logger
       ) {
     this.dataSourceUpdates = dataSourceUpdates;
     this.dataLoader = new DataLoader(sources);
     this.duplicateKeysHandling = duplicateKeysHandling;
+    this.logger = logger;
 
     FileWatcher fw = null;
     if (autoUpdate) {
       try {
-        fw = FileWatcher.create(dataLoader.getSources());
+        fw = FileWatcher.create(dataLoader.getSources(), logger);
       } catch (IOException e) {
         // COVERAGE: there is no way to simulate this condition in a unit test
         logger.error("Unable to watch files for auto-updating: {}", e.toString());
@@ -139,9 +138,10 @@ final class FileDataSourceImpl implements DataSource {
     private final Set<Path> watchedFilePaths;
     private Runnable fileModifiedAction;
     private final Thread thread;
+    private final LDLogger logger;
     private volatile boolean stopped;
 
-    private static FileWatcher create(Iterable<SourceInfo> sources) throws IOException {
+    private static FileWatcher create(Iterable<SourceInfo> sources, LDLogger logger) throws IOException {
       Set<Path> directoryPaths = new HashSet<>();
       Set<Path> absoluteFilePaths = new HashSet<>();
       FileSystem fs = FileSystems.getDefault();
@@ -159,12 +159,13 @@ final class FileDataSourceImpl implements DataSource {
         d.register(ws, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
       }
       
-      return new FileWatcher(ws, absoluteFilePaths);
+      return new FileWatcher(ws, absoluteFilePaths, logger);
     }
     
-    private FileWatcher(WatchService watchService, Set<Path> watchedFilePaths) {
+    private FileWatcher(WatchService watchService, Set<Path> watchedFilePaths, LDLogger logger) {
       this.watchService = watchService;
       this.watchedFilePaths = watchedFilePaths;
+      this.logger = logger;
       
       thread = new Thread(this, FileDataSourceImpl.class.getName());
       thread.setDaemon(true);
@@ -193,7 +194,7 @@ final class FileDataSourceImpl implements DataSource {
               fileModifiedAction.run();
             } catch (Exception e) {
               // COVERAGE: there is no way to simulate this condition in a unit test
-              logger.warn("Unexpected exception when reloading file data: " + e);
+              logger.warn("Unexpected exception when reloading file data: {}", LogValues.exceptionSummary(e));
             }
           }
           key.reset(); // if we don't do this, the watch on this key stops working

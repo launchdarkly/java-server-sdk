@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
@@ -19,12 +21,13 @@ import java.util.concurrent.ScheduledExecutorService;
  * implementation of {@link ClientContext}, which might have been created for instance in application
  * test code).
  */
-final class ClientContextImpl implements ClientContext {
+final class ClientContextImpl implements ClientContext, ClientContext.WithBaseLogger {
   private static volatile ScheduledExecutorService fallbackSharedExecutor = null;
   
   private final BasicConfiguration basicConfiguration;
   private final HttpConfiguration httpConfiguration;
   private final LoggingConfiguration loggingConfiguration;
+  private final LDLogger baseLogger;
   final ScheduledExecutorService sharedExecutor;
   final DiagnosticAccumulator diagnosticAccumulator;
   final DiagnosticEvent.Init diagnosticInitEvent;
@@ -35,7 +38,8 @@ final class ClientContextImpl implements ClientContext {
       LoggingConfiguration loggingConfiguration,
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator,
-      DiagnosticEvent.Init diagnosticInitEvent
+      DiagnosticEvent.Init diagnosticInitEvent,
+      LDLogger baseLogger
   ) {
     this.basicConfiguration = basicConfiguration;
     this.httpConfiguration = httpConfiguration;
@@ -43,6 +47,7 @@ final class ClientContextImpl implements ClientContext {
     this.sharedExecutor = sharedExecutor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.diagnosticInitEvent = diagnosticInitEvent;
+    this.baseLogger = baseLogger;
   }
 
   ClientContextImpl(
@@ -56,6 +61,19 @@ final class ClientContextImpl implements ClientContext {
     this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
     this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(basicConfiguration);
         
+    if (this.loggingConfiguration instanceof LoggingConfiguration.AdapterOptions) {
+      LoggingConfiguration.AdapterOptions ao = (LoggingConfiguration.AdapterOptions)this.loggingConfiguration;
+      this.baseLogger = LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
+    } else {
+      this.baseLogger = makeDefaultLogger(basicConfiguration);
+    }
+    
+    if (this.httpConfiguration.getProxy() != null) {
+      this.baseLogger.info("Using proxy: {} {} authentication.",
+          this.httpConfiguration.getProxy(),
+          this.httpConfiguration.getProxyAuthentication() == null ? "without" : "with");
+    }
+    
     this.sharedExecutor = sharedExecutor;
     
     if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {
@@ -88,6 +106,20 @@ final class ClientContextImpl implements ClientContext {
     return loggingConfiguration;
   }
   
+  @Override
+  public LDLogger getBaseLogger() {
+    return baseLogger;
+  }
+  
+  private static LDLogger makeDefaultLogger(BasicConfiguration basicConfiguration) {
+    LoggingConfiguration lc = Components.logging().createLoggingConfiguration(basicConfiguration);
+    if (lc instanceof LoggingConfiguration.AdapterOptions) {
+      LoggingConfiguration.AdapterOptions ao = (LoggingConfiguration.AdapterOptions)lc;
+      return LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
+    }
+    return LDLogger.withAdapter(Logs.none(), "");
+  }
+  
   /**
    * This mechanism is a convenience for internal components to access the package-private fields of the
    * context if it is a ClientContextImpl, and to receive null values for those fields if it is not.
@@ -110,7 +142,8 @@ final class ClientContextImpl implements ClientContext {
         context.getLogging(),
         fallbackSharedExecutor,
         null,
-        null
+        null,
+        makeDefaultLogger(context.getBasic())
         );
   }
 }

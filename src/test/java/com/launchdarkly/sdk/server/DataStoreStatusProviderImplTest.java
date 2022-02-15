@@ -24,9 +24,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
 @SuppressWarnings("javadoc")
-public class DataStoreStatusProviderImplTest {
+public class DataStoreStatusProviderImplTest extends BaseTest {
   private EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> broadcaster =
-      EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
+      EventBroadcasterImpl.forDataStoreStatus(sharedExecutor, testLogger);
   private MockDataStore store = new MockDataStore();
   private DataStoreUpdatesImpl updates = new DataStoreUpdatesImpl(broadcaster);
   private DataStoreStatusProviderImpl statusProvider = new DataStoreStatusProviderImpl(store, updates);

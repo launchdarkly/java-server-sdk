@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
+import com.launchdarkly.logging.LDLogger;
+
 /**
  * Interface for a factory that creates some implementation of {@link EventSender}.
  *
@@ -15,4 +17,11 @@ public interface EventSenderFactory {
    * @return an {@link EventSender}
    */
   EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration);
+  
+  public interface WithLogger {
+    EventSender createEventSender(
+        BasicConfiguration basicConfiguration,
+        HttpConfiguration httpConfiguration,
+        LDLogger logger);
+  }
 }

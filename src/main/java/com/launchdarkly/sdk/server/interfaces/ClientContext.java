@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
+import com.launchdarkly.logging.LDLogger;
+
 /**
  * Context information provided by the {@link com.launchdarkly.sdk.server.LDClient} when creating components.
  * <p>
@@ -35,4 +37,7 @@ public interface ClientContext {
    */
   public LoggingConfiguration getLogging();
   
+  public interface WithBaseLogger {
+    public LDLogger getBaseLogger();
+  }
 }

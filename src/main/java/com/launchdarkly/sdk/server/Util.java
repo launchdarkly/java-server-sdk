@@ -1,9 +1,8 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.URI;
@@ -148,7 +147,7 @@ abstract class Util {
    * @return true if the error is recoverable
    */
   static boolean checkIfErrorIsRecoverableAndLog(
-      Logger logger,
+      LDLogger logger,
       String errorDesc,
       String errorContext,
       int statusCode,

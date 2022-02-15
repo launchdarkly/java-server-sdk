@@ -1,7 +1,15 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
+import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.Evaluator.EvalResult;
+
+import org.junit.Test;
+
+import java.util.Collections;
+
 import static com.launchdarkly.sdk.server.Evaluator.makeBigSegmentRef;
-import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingUser;
@@ -15,17 +23,8 @@ import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.strictMock;
 import static org.junit.Assert.assertEquals;
 
-import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
-import com.launchdarkly.sdk.LDUser;
-import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.Evaluator.EvalResult;
-
-import org.junit.Test;
-
-import java.util.Collections;
-
 @SuppressWarnings("javadoc")
-public class EvaluatorBigSegmentTest {
+public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
   private static final LDUser testUser = new LDUser("userkey");
 
   @Test
@@ -141,7 +140,7 @@ public class EvaluatorBigSegmentTest {
     expect(mockGetters.getSegment(segment2.getKey())).andReturn(segment2);
     replay(mockGetters);
 
-    Evaluator evaluator = new Evaluator(mockGetters);
+    Evaluator evaluator = new Evaluator(mockGetters, testLogger);
     EvalResult result = evaluator.evaluate(flag, testUser, EventFactory.DEFAULT);
     assertEquals(LDValue.of(true), result.getValue());
     assertEquals(BigSegmentsStatus.HEALTHY, result.getReason().getBigSegmentsStatus());

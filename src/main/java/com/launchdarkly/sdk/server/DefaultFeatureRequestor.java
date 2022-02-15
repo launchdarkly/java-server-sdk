@@ -1,10 +1,9 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.URI;
@@ -26,7 +25,6 @@ import okhttp3.Response;
  * Implementation of getting flag data via a polling request. Used by both streaming and polling components.
  */
 final class DefaultFeatureRequestor implements FeatureRequestor {
-  private static final Logger logger = Loggers.DATA_SOURCE;
   private static final String GET_LATEST_ALL_PATH = "sdk/latest-all";
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   
@@ -35,10 +33,12 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   private final URI pollingUri;
   private final Headers headers;
   private final Path cacheDir;
+  private final LDLogger logger;
 
-  DefaultFeatureRequestor(HttpConfiguration httpConfig, URI baseUri) {
+  DefaultFeatureRequestor(HttpConfiguration httpConfig, URI baseUri, LDLogger logger) {
     this.baseUri = baseUri;
     this.pollingUri = concatenateUriPath(baseUri, GET_LATEST_ALL_PATH);
+    this.logger = logger;
     
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(httpConfig, httpBuilder);
@@ -73,7 +73,8 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
       boolean wasCached = response.networkResponse() == null || response.networkResponse().code() == 304;
       if (wasCached && !returnDataEvenIfCached) {
         logger.debug("Get flag(s) got cached response, will not parse");
-        logger.debug("Cache hit count: " + httpClient.cache().hitCount() + " Cache network Count: " + httpClient.cache().networkCount());
+        logger.debug("Cache hit count: {} Cache network count: {} ",
+            httpClient.cache().hitCount(), httpClient.cache().networkCount());
         return null;
       }
       
@@ -82,10 +83,11 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
       if (!response.isSuccessful()) {
         throw new HttpErrorException(response.code());
       }
-      logger.debug("Get flag(s) response: " + response.toString() + " with body: " + body);
-      logger.debug("Network response: " + response.networkResponse());
-      logger.debug("Cache hit count: " + httpClient.cache().hitCount() + " Cache network Count: " + httpClient.cache().networkCount());
-      logger.debug("Cache response: " + response.cacheResponse());
+      logger.debug("Get flag(s) response: {} with body: {}", response, body);
+      logger.debug("Network response: {}", response.networkResponse());
+      logger.debug("Cache hit count: {} Cache network count: {}",
+          httpClient.cache().hitCount(), httpClient.cache().networkCount());
+      logger.debug("Cache response: {}", response.cacheResponse());
       
       return JsonHelpers.deserialize(body, AllData.class);
     }

@@ -47,7 +47,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class PollingProcessorTest {
+public class PollingProcessorTest extends BaseTest {
   private static final String SDK_KEY = "sdk-key";
   private static final Duration LENGTHY_INTERVAL = Duration.ofSeconds(60);
   private static final Duration BRIEF_INTERVAL = Duration.ofMillis(20);
@@ -61,8 +61,8 @@ public class PollingProcessorTest {
   }
 
   private PollingProcessor makeProcessor(URI baseUri, Duration pollInterval) {
-    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpConfiguration(), baseUri);
-    return new PollingProcessor(requestor, dataSourceUpdates, sharedExecutor, pollInterval);
+    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpConfiguration(), baseUri, testLogger);
+    return new PollingProcessor(requestor, dataSourceUpdates, sharedExecutor, pollInterval, testLogger);
   }
 
   private static class TestPollHandler implements Handler {
@@ -95,7 +95,7 @@ public class PollingProcessorTest {
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
     DataSourceFactory f = Components.pollingDataSource();
-    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT), null)) {
+    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, baseConfig().build()), null)) {
       assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
       assertThat(pp.pollInterval, equalTo(PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL));
     }
@@ -107,7 +107,7 @@ public class PollingProcessorTest {
     DataSourceFactory f = Components.pollingDataSource()
         .baseURI(uri)
         .pollInterval(LENGTHY_INTERVAL);
-    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT), null)) {
+    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, baseConfig().build()), null)) {
       assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(uri));
       assertThat(pp.pollInterval, equalTo(LENGTHY_INTERVAL));
     }

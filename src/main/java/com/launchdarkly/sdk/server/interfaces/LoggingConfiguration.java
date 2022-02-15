@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server.interfaces;
 
+import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 
 import java.time.Duration;
@@ -20,4 +21,9 @@ public interface LoggingConfiguration {
    * @see LoggingConfigurationBuilder#logDataSourceOutageAsErrorAfter(java.time.Duration)
    */
   Duration getLogDataSourceOutageAsErrorAfter();
+  
+  public interface AdapterOptions {
+    String getBaseLoggerName();
+    LDLogAdapter getLogAdapter();
+  }
 }

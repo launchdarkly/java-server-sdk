@@ -2,6 +2,8 @@ package com.launchdarkly.sdk.server;
 
 import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FACTORY;
 
+import com.launchdarkly.logging.LDLogAdapter;
+import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.ComponentsImpl.EventProcessorBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.HttpBasicAuthentication;
 import com.launchdarkly.sdk.server.ComponentsImpl.HttpConfigurationBuilderImpl;
@@ -313,11 +315,48 @@ public abstract class Components {
    *         .build();
    * </code></pre>
    * 
-   * @return a factory object
+   * @return a configuration builder
    * @since 5.0.0
    * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)
    */
   public static LoggingConfigurationBuilder logging() {
     return new LoggingConfigurationBuilderImpl();
+  }
+
+  /**
+   * Returns a configuration builder for the SDK's logging configuration.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)},
+   * after setting any desired properties on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .logging(
+   *              Components.logging()
+   *                  .logDataSourceOutageAsErrorAfter(Duration.ofSeconds(120))
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * @return a configuration builder
+   * @since 5.8.0
+   * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)
+   */
+  public static LoggingConfigurationBuilder logging(LDLogAdapter logAdapter) {
+    return logging().adapter(logAdapter);
+  }
+  
+  /**
+   * Returns a configuration builder that turns off SDK logging.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)}
+   * applies this configuration to the SDK.
+   * <p>
+   * It is equivalent to <code>Components.logging(com.launchdarkly.logging.Logs.none())</code>.
+   * 
+   * @return a configuration builder
+   * @since 5.8.0
+   */
+  public static LoggingConfigurationBuilder noLogging() {
+    return logging().adapter(Logs.none());
   }
 }

@@ -6,7 +6,6 @@ import com.launchdarkly.sdk.UserAttribute;
 
 import org.junit.Test;
 
-import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
@@ -15,7 +14,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class EvaluatorSegmentMatchTest {
+public class EvaluatorSegmentMatchTest extends EvaluatorTestBase {
 
   private int maxWeight = 100000;
   
@@ -110,7 +109,7 @@ public class EvaluatorSegmentMatchTest {
     assertFalse(segmentMatchesUser(s, u));
   }
   
-  private static boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
+  private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
     DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of(segment.getKey()));
     DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
