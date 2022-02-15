@@ -40,7 +40,7 @@ public abstract class LoggingConfigurationBuilder implements LoggingConfiguratio
   /**
    * Specifies the implementation of logging to use.
    * <p>
-   * The <a href="https://github.com/launchdarkly/java-logging"><code>com.aunchdarkly.logging</code></a>
+   * The <a href="https://github.com/launchdarkly/java-logging"><code>com.launchdarkly.logging</code></a>
    * API defines the {@link LDLogAdapter} interface to specify where log output should be sent. By default,
    * it is set to {@link com.launchdarkly.logging.LDSLF4J#adapter()}, meaning that output will be sent to
    * <a href="https://www.slf4j.org/">SLF4J</a> and controlled by the SLF4J configuration. You may use
@@ -93,7 +93,7 @@ public abstract class LoggingConfigurationBuilder implements LoggingConfiguratio
    * <li> <code>.Evaluation</code>: problems in evaluating a feature flag or flags, which were
    * caused by invalid flag data or incorrect usage of the SDK rather than for instance a
    * database problem. </li>
-   * <li> codec>.Events</code> problems or status messages regarding the SDK's delivery of
+   * <li> <code>.Events</code> problems or status messages regarding the SDK's delivery of
    * analytics event data to LaunchDarkly. </li>
    * </ul>
    * <p>

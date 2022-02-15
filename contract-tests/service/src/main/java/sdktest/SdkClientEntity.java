@@ -1,5 +1,7 @@
 package sdktest;
 
+import com.launchdarkly.logging.LDLogAdapter;
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.json.JsonSerialization;
@@ -34,13 +36,13 @@ import sdktest.Representations.SdkConfigParams;
 
 public class SdkClientEntity {
   private final LDClient client;
-  final Logger logger;
+  final LDLogger logger;
   
   public SdkClientEntity(TestService owner, CreateInstanceParams params) {
-    this.logger = LoggerFactory.getLogger(params.tag);
+    this.logger = LDLogger.withAdapter(owner.logging, params.tag);
     logger.info("Starting SDK client");
 
-    LDConfig config = buildSdkConfig(params.configuration, params.tag);
+    LDConfig config = buildSdkConfig(params.configuration, owner.logging, params.tag);
     this.client = new LDClient(params.configuration.credential, config);
     if (!client.isInitialized() && !params.configuration.initCanFail) {
       throw new RuntimeException("client initialization failed or timed out");
@@ -182,10 +184,10 @@ public class SdkClientEntity {
     logger.info("Test ended");
   }
   
-  private LDConfig buildSdkConfig(SdkConfigParams params, String tag) {
+  private LDConfig buildSdkConfig(SdkConfigParams params, LDLogAdapter logAdapter, String tag) {
     LDConfig.Builder builder = new LDConfig.Builder();
 
-    builder.logging(Components.logging().baseLoggerName(tag + ".sdk"));
+    builder.logging(Components.logging(logAdapter).baseLoggerName(tag + ".sdk"));
     
     if (params.startWaitTimeMs != null) {
       builder.startWait(Duration.ofMillis(params.startWaitTimeMs.longValue()));
