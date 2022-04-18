@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.Components;
+import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
@@ -32,7 +33,7 @@ import static org.junit.Assert.assertSame;
 @SuppressWarnings("javadoc")
 public class HttpConfigurationBuilderTest {
   private static final String SDK_KEY = "sdk-key";
-  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration(SDK_KEY, false, 0);
+  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration(SDK_KEY, false, 0, null);
   
   private static ImmutableMap.Builder<String, String> buildBasicHeaders() {
     return ImmutableMap.<String, String>builder()
@@ -135,6 +136,15 @@ public class HttpConfigurationBuilderTest {
         .wrapper("Scala", "0.1.0")
         .createHttpConfiguration(BASIC_CONFIG);
     assertEquals("Scala/0.1.0", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Wrapper"));
+  }
+
+  @Test
+  public void testApplicationTags() {
+    ApplicationInfo info = new ApplicationInfo("authentication-service", "1.0.0");
+    BasicConfiguration basicConfigWithTags = new BasicConfiguration(SDK_KEY, false, 0, info);
+    HttpConfiguration hc = Components.httpConfiguration()
+        .createHttpConfiguration(basicConfigWithTags);
+    assertEquals("application-id/authentication-service application-version/1.0.0", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Tags"));
   }
   
   public static class StubSocketFactory extends SocketFactory {

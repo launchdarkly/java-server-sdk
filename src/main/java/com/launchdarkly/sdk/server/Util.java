@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.Loggers;
+import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
@@ -13,7 +15,10 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.Iterables.transform;
@@ -206,5 +211,36 @@ abstract class Util {
     String uriStr = baseUri.toString();
     String addPath = path.startsWith("/") ? path.substring(1) : path;
     return URI.create(uriStr + (uriStr.endsWith("/") ? "" : "/") + addPath);
+  }
+
+  // Tag values must not be empty, and only contain letters, numbers, `.`, `_`, or `-`.
+  private static Pattern TAG_VALUE_REGEX = Pattern.compile("^[\\w.-]+$");
+
+  /**
+   * Builds the "X-LaunchDarkly-Tags" HTTP header out of the configured application info.
+   *
+   * @param applicationInfo the application metadata
+   * @return a space-separated string of tags, e.g. "application-id/authentication-service application-version/1.0.0"
+   */
+  static String applicationTagHeader(ApplicationInfo applicationInfo) {
+    String[][] tags = {
+      {"applicationId", "application-id", applicationInfo.getApplicationId()},
+      {"applicationVersion", "application-version", applicationInfo.getApplicationVersion()},
+    };
+    List<String> parts = new ArrayList<>();
+    for (String[] row : tags) {
+      String javaKey = row[0];
+      String tagKey = row[1];
+      String tagVal = row[2];
+      if (tagVal == null) {
+        continue;
+      }
+      if (!TAG_VALUE_REGEX.matcher(tagVal).matches()) {
+        Loggers.MAIN.warn("Value of ApplicationInfo.{} contained invalid characters and was discarded", javaKey);
+        continue;
+      }
+      parts.add(tagKey + "/" + tagVal);
+    }
+    return String.join(" ", parts);
   }
 }

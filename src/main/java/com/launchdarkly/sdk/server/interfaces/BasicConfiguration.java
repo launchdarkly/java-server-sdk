@@ -9,18 +9,33 @@ public final class BasicConfiguration {
   private final String sdkKey;
   private final boolean offline;
   private final int threadPriority;
-  
+  private final ApplicationInfo applicationInfo;
+
   /**
    * Constructs an instance.
-   * 
+   *
+   * @param sdkKey the SDK key
+   * @param offline true if the SDK was configured to be completely offline
+   * @param threadPriority the thread priority that should be used for any worker threads created by SDK components
+   * @param applicationInfo metadata about the application using this SDK
+   */
+  public BasicConfiguration(String sdkKey, boolean offline, int threadPriority, ApplicationInfo applicationInfo) {
+    this.sdkKey = sdkKey;
+    this.offline = offline;
+    this.threadPriority = threadPriority;
+    this.applicationInfo = applicationInfo;
+  }
+
+  /**
+   * Constructs an instance.
+   *
    * @param sdkKey the SDK key
    * @param offline true if the SDK was configured to be completely offline
    * @param threadPriority the thread priority that should be used for any worker threads created by SDK components
    */
+  @Deprecated
   public BasicConfiguration(String sdkKey, boolean offline, int threadPriority) {
-    this.sdkKey = sdkKey;
-    this.offline = offline;
-    this.threadPriority = threadPriority;
+    this(sdkKey, offline, threadPriority, null);
   }
 
   /**
@@ -50,5 +65,15 @@ public final class BasicConfiguration {
    */
   public int getThreadPriority() {
     return threadPriority;
+  }
+
+  /**
+   * The metadata about the application using this SDK.
+   *
+   * @return the application info
+   * @see com.launchdarkly.sdk.server.LDConfig.Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)
+   */
+  public ApplicationInfo getApplicationInfo() {
+    return applicationInfo;
   }
 }

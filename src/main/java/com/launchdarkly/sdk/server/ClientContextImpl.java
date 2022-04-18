@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
@@ -51,7 +52,8 @@ final class ClientContextImpl implements ClientContext {
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator
   ) {
-    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority);
+    ApplicationInfo applicationInfo = configuration.applicationInfoBuilder.createApplicationInfo();
+    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority, applicationInfo);
     
     this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
     this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(basicConfiguration);
