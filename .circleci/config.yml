@@ -80,10 +80,11 @@ jobs:
                   ./gradlew jacocoTestReport
                   mkdir -p coverage/
                   cp -r build/reports/jacoco/test/* ./coverage
-      - run: mkdir -p ~/junit/
       - run:
           name: Save test results
-          command: find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
+          command: |
+            mkdir -p ~/junit/
+            find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
           when: always
 
       - run: make build-contract-tests
@@ -126,7 +127,8 @@ jobs:
           name: save test results
           command: |
             mkdir .\junit
-            cp build/test-results/test/*.xml junit
+            cp build/test-results/test/*.xml junit -ErrorAction SilentlyContinue
+          when: always
       - store_test_results:
           path: .\junit
       - store_artifacts:

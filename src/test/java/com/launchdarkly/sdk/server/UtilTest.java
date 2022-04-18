@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
@@ -89,5 +90,17 @@ public class UtilTest {
     assertEquals("70 seconds", Util.describeDuration(Duration.ofMillis(70000)));
     assertEquals("1 minute", Util.describeDuration(Duration.ofMillis(60000)));
     assertEquals("2 minutes", Util.describeDuration(Duration.ofMillis(120000)));
+  }
+
+  @Test
+  public void applicationTagHeader() {
+    assertEquals("", Util.applicationTagHeader(new ApplicationInfo(null, null)));
+    assertEquals("application-id/foo", Util.applicationTagHeader(new ApplicationInfo("foo", null)));
+    assertEquals("application-version/1.0.0", Util.applicationTagHeader(new ApplicationInfo(null, "1.0.0")));
+    assertEquals("application-id/foo application-version/1.0.0", Util.applicationTagHeader(new ApplicationInfo("foo", "1.0.0")));
+    // Values with invalid characters get discarded
+    assertEquals("", Util.applicationTagHeader(new ApplicationInfo("invalid name", "lol!")));
+    // Empty values get discarded
+    assertEquals("", Util.applicationTagHeader(new ApplicationInfo("", "")));
   }
 }

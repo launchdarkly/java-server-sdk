@@ -253,6 +253,12 @@ abstract class ComponentsImpl {
       ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
       headers.put("Authorization", basicConfiguration.getSdkKey());
       headers.put("User-Agent", "JavaClient/" + Version.SDK_VERSION);
+      if (basicConfiguration.getApplicationInfo() != null) {
+        String tagHeader = Util.applicationTagHeader(basicConfiguration.getApplicationInfo());
+        if (!tagHeader.isEmpty()) {
+          headers.put("X-LaunchDarkly-Tags", tagHeader);
+        }
+      }
       if (wrapperName != null) {
         String wrapperId = wrapperVersion == null ? wrapperName : (wrapperName + "/" + wrapperVersion);
         headers.put("X-LaunchDarkly-Wrapper", wrapperId);        

@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
@@ -25,6 +26,7 @@ public final class LDConfig {
   
   protected static final LDConfig DEFAULT = new Builder().build();
 
+  final ApplicationInfoBuilder applicationInfoBuilder;
   final BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder;
   final DataSourceFactory dataSourceFactory;
   final DataStoreFactory dataStoreFactory;
@@ -46,6 +48,8 @@ public final class LDConfig {
       this.eventProcessorFactory = builder.eventProcessorFactory == null ? Components.sendEvents() :
         builder.eventProcessorFactory;
     }
+    this.applicationInfoBuilder = builder.applicationInfoBuilder == null ? Components.applicationInfo() :
+      builder.applicationInfoBuilder;
     this.bigSegmentsConfigBuilder = builder.bigSegmentsConfigBuilder == null ?
             Components.bigSegments(null) : builder.bigSegmentsConfigBuilder;
     this.dataStoreFactory = builder.dataStoreFactory == null ? Components.inMemoryDataStore() :
@@ -72,6 +76,7 @@ public final class LDConfig {
    * </pre>
    */
   public static class Builder {
+    private ApplicationInfoBuilder applicationInfoBuilder = null;
     private BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder = null;
     private DataSourceFactory dataSourceFactory = null;
     private DataStoreFactory dataStoreFactory = null;
@@ -87,6 +92,22 @@ public final class LDConfig {
      * Creates a builder with all configuration parameters set to the default
      */
     public Builder() {
+    }
+
+    /**
+     * Sets the SDK's application metadata, which may be used in LaunchDarkly analytics or other product features,
+     * but does not affect feature flag evaluations.
+     * <p>
+     * This object is normally a configuration builder obtained from {@link Components#applicationInfo()},
+     * which has methods for setting individual logging-related properties.
+     *
+     * @param applicationInfoBuilder a configuration builder object returned by {@link Components#applicationInfo()}
+     * @return the builder
+     * @since 5.8.0
+     */
+    public Builder applicationInfo(ApplicationInfoBuilder applicationInfoBuilder) {
+      this.applicationInfoBuilder = applicationInfoBuilder;
+      return this;
     }
 
     /**

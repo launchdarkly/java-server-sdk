@@ -11,6 +11,7 @@ import com.launchdarkly.sdk.server.ComponentsImpl.NullDataSourceFactory;
 import com.launchdarkly.sdk.server.ComponentsImpl.PersistentDataStoreBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.PollingDataSourceBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.StreamingDataSourceBuilderImpl;
+import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
@@ -319,5 +320,28 @@ public abstract class Components {
    */
   public static LoggingConfigurationBuilder logging() {
     return new LoggingConfigurationBuilderImpl();
+  }
+
+  /**
+   * Returns a configuration builder for the SDK's application metadata.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)},
+   * after setting any desired properties on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .applicationInfo(
+   *             Components.applicationInfo()
+   *                 .applicationId("authentication-service")
+   *                 .applicationVersion("1.0.0")
+   *         )
+   *         .build();
+   * </code></pre>
+   *
+   * @return a builder object
+   * @since 5.8.0
+   * @see LDConfig.Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)
+   */
+  public static ApplicationInfoBuilder applicationInfo() {
+    return new ApplicationInfoBuilder();
   }
 }
