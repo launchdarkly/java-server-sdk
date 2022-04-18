@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.8.0] - 2022-04-18
+### Added:
+- `LDConfig.Builder.applicationInfo()`, for configuration of application metadata that may be used in LaunchDarkly analytics or other product features. This does not affect feature flag evaluations.
+
 ## [5.7.1] - 2022-02-04
 ### Fixed:
 - Fixed a packaging issue causing `launchdarkly-java-sdk-common` to be included as a dependency in the SDK's generated `pom` file. This introduces duplicate classes in the application's `jar` file. The duplicate classes can prevent the SDK's custom serialization logic from being used, due to not correctly referencing the shaded class names. ([#258](hhttps://github.com/launchdarkly/java-server-sdk/issues/258))
