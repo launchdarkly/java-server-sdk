@@ -239,6 +239,10 @@ abstract class Util {
         Loggers.MAIN.warn("Value of ApplicationInfo.{} contained invalid characters and was discarded", javaKey);
         continue;
       }
+      if (tagVal.length() > 64) {
+        Loggers.MAIN.warn("Value of ApplicationInfo.{} was longer than 64 characters and was discarded", javaKey);
+        continue;
+      }
       parts.add(tagKey + "/" + tagVal);
     }
     return String.join(" ", parts);

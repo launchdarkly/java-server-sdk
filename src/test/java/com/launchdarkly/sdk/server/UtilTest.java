@@ -100,6 +100,8 @@ public class UtilTest {
     assertEquals("application-id/foo application-version/1.0.0", Util.applicationTagHeader(new ApplicationInfo("foo", "1.0.0")));
     // Values with invalid characters get discarded
     assertEquals("", Util.applicationTagHeader(new ApplicationInfo("invalid name", "lol!")));
+    // Values over 64 chars get discarded
+    assertEquals("", Util.applicationTagHeader(new ApplicationInfo("look-at-this-incredibly-long-application-id-like-wow-it-sure-is-verbose", null)));
     // Empty values get discarded
     assertEquals("", Util.applicationTagHeader(new ApplicationInfo("", "")));
   }
