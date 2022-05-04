@@ -2,6 +2,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.8.1] - 2022-05-04
+### Fixed:
+- Calling `stringVariationDetail` with a flag whose variations are _not_ strings, and passing `null` as the default value parameter, would result in an `EvaluationDetail` that had a null value but had a regular evaluation reason and variation index (whatever those would be for a successful evaluation of that flag). It now correctly returns a `WRONG_TYPE` error reason, and `NO_VARIATION` for the variation index.
+- If a field in `Config.ApplicationInfo` is set to a string longer than 64 characters, the SDK will now log a warning and discard it, since the LaunchDarkly services cannot process such strings for these fields.
+
 ## [5.8.0] - 2022-04-18
 ### Added:
 - `LDConfig.Builder.applicationInfo()`, for configuration of application metadata that may be used in LaunchDarkly analytics or other product features. This does not affect feature flag evaluations.
