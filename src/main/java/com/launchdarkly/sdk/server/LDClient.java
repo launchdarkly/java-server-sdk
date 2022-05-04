@@ -11,6 +11,7 @@ import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
@@ -365,64 +366,65 @@ public final class LDClient implements LDClientInterface {
   
   @Override
   public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), true).booleanValue();
+    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.BOOLEAN).booleanValue();
   }
 
   @Override
   public int intVariation(String featureKey, LDUser user, int defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), true).intValue();
+    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.NUMBER).intValue();
   }
 
   @Override
   public double doubleVariation(String featureKey, LDUser user, double defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), true).doubleValue();
+    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.NUMBER).doubleValue();
   }
 
   @Override
   public String stringVariation(String featureKey, LDUser user, String defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), true).stringValue();
+    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.STRING).stringValue();
   }
 
   @Override
   public LDValue jsonValueVariation(String featureKey, LDUser user, LDValue defaultValue) {
-    return evaluate(featureKey, user, LDValue.normalize(defaultValue), false);
+    return evaluate(featureKey, user, LDValue.normalize(defaultValue), null);
   }
 
   @Override
   public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-        eventFactoryWithReasons);
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+        LDValueType.BOOLEAN, eventFactoryWithReasons);
      return EvaluationDetail.fromValue(result.getValue().booleanValue(),
          result.getVariationIndex(), result.getReason());
   }
 
   @Override
   public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-        eventFactoryWithReasons);
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+        LDValueType.NUMBER, eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().intValue(),
         result.getVariationIndex(), result.getReason());
   }
 
   @Override
   public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-        eventFactoryWithReasons);
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+        LDValueType.NUMBER, eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().doubleValue(),
         result.getVariationIndex(), result.getReason());
   }
 
   @Override
   public EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue), true,
-        eventFactoryWithReasons);
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+        LDValueType.STRING, eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue().stringValue(),
         result.getVariationIndex(), result.getReason());
   }
 
   @Override
   public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue), false, eventFactoryWithReasons);
+    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue),
+        null, eventFactoryWithReasons);
     return EvaluationDetail.fromValue(result.getValue(), result.getVariationIndex(), result.getReason());
   }
   
@@ -449,16 +451,16 @@ public final class LDClient implements LDClientInterface {
     return false;
   }
 
-  private LDValue evaluate(String featureKey, LDUser user, LDValue defaultValue, boolean checkType) {
-    return evaluateInternal(featureKey, user, defaultValue, checkType, eventFactoryDefault).getValue();
+  private LDValue evaluate(String featureKey, LDUser user, LDValue defaultValue, LDValueType requireType) {
+    return evaluateInternal(featureKey, user, defaultValue, requireType, eventFactoryDefault).getValue();
   }
   
   private Evaluator.EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {
     return new Evaluator.EvalResult(defaultValue, NO_VARIATION, EvaluationReason.error(errorKind));
   }
   
-  private Evaluator.EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue, boolean checkType,
-      EventFactory eventFactory) {
+  private Evaluator.EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue,
+      LDValueType requireType, EventFactory eventFactory) {
     if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         Loggers.EVALUATION.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
@@ -496,7 +498,9 @@ public final class LDClient implements LDClientInterface {
         evalResult.setValue(defaultValue);
       } else {
         LDValue value = evalResult.getValue(); // guaranteed not to be an actual Java null, but can be LDValue.ofNull()
-        if (checkType && !value.isNull() && !defaultValue.isNull() && defaultValue.getType() != value.getType()) {
+        if (requireType != null &&
+            !value.isNull() &&
+            value.getType() != requireType) {
           Loggers.EVALUATION.error("Feature flag evaluation expected result as {}, but got {}", defaultValue.getType(), value.getType());
           sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
               EvaluationReason.ErrorKind.WRONG_TYPE));
