@@ -86,7 +86,7 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return whether or not the flag should be enabled, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist
    */
   boolean boolVariation(String featureKey, LDUser user, boolean defaultValue);
   
@@ -98,7 +98,7 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist
    */
   int intVariation(String featureKey, LDUser user, int defaultValue);
 
@@ -108,7 +108,7 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist
    */
   double doubleVariation(String featureKey, LDUser user, double defaultValue);
 
@@ -118,7 +118,7 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel
+   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist
    */
   String stringVariation(String featureKey, LDUser user, String defaultValue);
 
@@ -128,7 +128,7 @@ public interface LDClientInterface extends Closeable {
    * @param featureKey   the unique key for the feature flag
    * @param user         the end user requesting the flag
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if the flag is disabled in the LaunchDarkly control panel;
+   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist;
    * will never be a null reference, but may be {@link LDValue#ofNull()}
    * 
    * @since 4.8.0
