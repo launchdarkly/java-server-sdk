@@ -10,6 +10,7 @@ import com.launchdarkly.sdk.server.ComponentsImpl.LoggingConfigurationBuilderImp
 import com.launchdarkly.sdk.server.ComponentsImpl.NullDataSourceFactory;
 import com.launchdarkly.sdk.server.ComponentsImpl.PersistentDataStoreBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.PollingDataSourceBuilderImpl;
+import com.launchdarkly.sdk.server.ComponentsImpl.ServiceEndpointsBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.StreamingDataSourceBuilderImpl;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
@@ -18,6 +19,7 @@ import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
+import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
@@ -343,5 +345,27 @@ public abstract class Components {
    */
   public static ApplicationInfoBuilder applicationInfo() {
     return new ApplicationInfoBuilder();
+  }
+
+  /**
+   * Returns a builder for configuring custom service URIs.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#serviceEndpoints(com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder)},
+   * after setting any desired properties on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .serviceEndpoints(
+   *             Components.serviceEndpoints()
+   *                 .relayProxy("http://my-relay-hostname:80")
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * @return a builder object
+   * @since 5.9.0
+   * @see LDConfig.Builder#serviceEndpoints(com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder)
+   */
+  public static ServiceEndpointsBuilder serviceEndpoints() {
+    return new ServiceEndpointsBuilderImpl();
   }
 }

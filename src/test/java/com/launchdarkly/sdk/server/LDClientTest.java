@@ -156,6 +156,19 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
+  public void canSetCustomEventsEndpoint() throws Exception {
+    URI eu = URI.create("http://fake");
+    LDConfig config = new LDConfig.Builder()
+        .serviceEndpoints(Components.serviceEndpoints().events(eu))
+        .events(Components.sendEvents())
+        .diagnosticOptOut(true)
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(eu, ((DefaultEventProcessor) client.eventProcessor).dispatcher.eventsConfig.eventsUri);
+    }
+  }
+
+  @Test
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.streamingDataSource().baseURI(URI.create("http://fake")))
@@ -168,6 +181,19 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
+  public void canSetCustomStreamingEndpoint() throws Exception {
+    URI su = URI.create("http://fake");
+    LDConfig config = new LDConfig.Builder()
+        .serviceEndpoints(Components.serviceEndpoints().streaming(su))
+        .events(Components.noEvents())
+        .startWait(Duration.ZERO)
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(su, ((StreamProcessor) client.dataSource).streamUri);
+    }
+  }
+
+  @Test
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.pollingDataSource().baseURI(URI.create("http://fake")))
@@ -176,6 +202,20 @@ public class LDClientTest extends EasyMockSupport {
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertEquals(PollingProcessor.class, client.dataSource.getClass());
+    }
+  }
+
+  @Test
+  public void canSetCustomPollingEndpoint() throws Exception {
+    URI pu = URI.create("http://fake");
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.pollingDataSource())
+        .serviceEndpoints(Components.serviceEndpoints().polling(pu))
+        .events(Components.noEvents())
+        .startWait(Duration.ZERO)
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(pu, ((DefaultFeatureRequestor) ((PollingProcessor) client.dataSource).requestor).baseUri);
     }
   }
 

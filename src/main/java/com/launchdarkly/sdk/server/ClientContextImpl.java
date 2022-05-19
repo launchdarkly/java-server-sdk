@@ -52,8 +52,7 @@ final class ClientContextImpl implements ClientContext {
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator
   ) {
-    ApplicationInfo applicationInfo = configuration.applicationInfoBuilder.createApplicationInfo();
-    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority, applicationInfo);
+    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority, configuration.applicationInfo, configuration.serviceEndpoints);
     
     this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
     this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(basicConfiguration);

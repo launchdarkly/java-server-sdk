@@ -133,7 +133,7 @@ public class ClientContextImplTest {
   
   private static final class SomeOtherContextImpl implements ClientContext {
     public BasicConfiguration getBasic() {
-      return new BasicConfiguration(SDK_KEY, false, Thread.MIN_PRIORITY, null);
+      return new BasicConfiguration(SDK_KEY, false, Thread.MIN_PRIORITY, null, null);
     }
 
     public HttpConfiguration getHttp() {

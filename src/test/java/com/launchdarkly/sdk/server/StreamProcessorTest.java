@@ -140,7 +140,7 @@ public class StreamProcessorTest {
     try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
         dataSourceUpdates)) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
-      assertThat(sp.streamUri, equalTo(LDConfig.DEFAULT_STREAM_URI));
+      assertThat(sp.streamUri, equalTo(StandardEndpoints.DEFAULT_STREAMING_BASE_URI));
     }
   }
 

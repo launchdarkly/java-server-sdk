@@ -14,7 +14,7 @@ import static org.junit.Assert.assertNull;
 @SuppressWarnings("javadoc")
 public class LoggingConfigurationBuilderTest {
   private static final String SDK_KEY = "sdk-key";
-  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration(SDK_KEY, false, 0, null);
+  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration(SDK_KEY, false, 0, null, null);
 
   @Test
   public void testDefaults() {
