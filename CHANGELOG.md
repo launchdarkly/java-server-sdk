@@ -2,6 +2,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.9.0] - 2022-05-26
+### Added:
+- `LDConfig.Builder.serviceEndpoints` provides a simpler way of setting custom service base URIs, if you are connecting to a LaunchDarkly Relay Proxy instance, a private LaunchDarkly instance, or a test fixture. Previously, this required setting a BaseURI property for each individual service (streaming, events, etc.). If using the Relay Proxy, simply remove any BaseURI calls in your SDK configuration and call `serviceEndpoints(Components.serviceEndpoints().relayProxy(myRelayProxyUri))` on the configuration builder.
+
+### Fixed:
+- Fixed documentation comments for the variation methods to clarify that `defaultValue` is used if there is an error fetching the variation or the flag doesn't exist, not when the flag is disabled.
+
 ## [5.8.1] - 2022-05-04
 ### Fixed:
 - Calling `stringVariationDetail` with a flag whose variations are _not_ strings, and passing `null` as the default value parameter, would result in an `EvaluationDetail` that had a null value but had a regular evaluation reason and variation index (whatever those would be for a successful evaluation of that flag). It now correctly returns a `WRONG_TYPE` error reason, and `NO_VARIATION` for the variation index.
