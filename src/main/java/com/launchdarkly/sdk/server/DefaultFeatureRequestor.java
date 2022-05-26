@@ -27,7 +27,6 @@ import okhttp3.Response;
  */
 final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final Logger logger = Loggers.DATA_SOURCE;
-  private static final String GET_LATEST_ALL_PATH = "sdk/latest-all";
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   
   @VisibleForTesting final URI baseUri;
@@ -38,7 +37,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
 
   DefaultFeatureRequestor(HttpConfiguration httpConfig, URI baseUri) {
     this.baseUri = baseUri;
-    this.pollingUri = concatenateUriPath(baseUri, GET_LATEST_ALL_PATH);
+    this.pollingUri = concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
     
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(httpConfig, httpBuilder);

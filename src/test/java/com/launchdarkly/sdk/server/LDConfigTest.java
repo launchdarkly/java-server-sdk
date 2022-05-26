@@ -26,7 +26,7 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDConfigTest {
-  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration("", false, 0, null);
+  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration("", false, 0, null, null);
   
   @Test
   public void defaults() {

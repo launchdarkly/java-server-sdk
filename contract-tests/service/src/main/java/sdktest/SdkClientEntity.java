@@ -11,6 +11,7 @@ import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 
@@ -247,7 +248,16 @@ public class SdkClientEntity {
       }
       builder.applicationInfo(ab);
     }
-    
+
+    if (params.serviceEndpoints != null) {
+      builder.serviceEndpoints(
+        Components.serviceEndpoints()
+          .streaming(params.serviceEndpoints.streaming)
+          .polling(params.serviceEndpoints.polling)
+          .events(params.serviceEndpoints.events)
+      );
+    }
+
     return builder.build();
   }
 }

@@ -33,7 +33,7 @@ import static org.junit.Assert.assertSame;
 @SuppressWarnings("javadoc")
 public class HttpConfigurationBuilderTest {
   private static final String SDK_KEY = "sdk-key";
-  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration(SDK_KEY, false, 0, null);
+  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration(SDK_KEY, false, 0, null, null);
   
   private static ImmutableMap.Builder<String, String> buildBasicHeaders() {
     return ImmutableMap.<String, String>builder()
@@ -141,7 +141,7 @@ public class HttpConfigurationBuilderTest {
   @Test
   public void testApplicationTags() {
     ApplicationInfo info = new ApplicationInfo("authentication-service", "1.0.0");
-    BasicConfiguration basicConfigWithTags = new BasicConfiguration(SDK_KEY, false, 0, info);
+    BasicConfiguration basicConfigWithTags = new BasicConfiguration(SDK_KEY, false, 0, info, null);
     HttpConfiguration hc = Components.httpConfiguration()
         .createHttpConfiguration(basicConfigWithTags);
     assertEquals("application-id/authentication-service application-version/1.0.0", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Tags"));

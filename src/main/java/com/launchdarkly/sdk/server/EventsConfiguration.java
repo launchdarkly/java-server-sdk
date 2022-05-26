@@ -37,7 +37,7 @@ final class EventsConfiguration {
     this.allAttributesPrivate = allAttributesPrivate;
     this.capacity = capacity;
     this.eventSender = eventSender;
-    this.eventsUri = eventsUri == null ? LDConfig.DEFAULT_EVENTS_URI : eventsUri;
+    this.eventsUri = eventsUri;
     this.flushInterval = flushInterval;
     this.inlineUsersInEvents = inlineUsersInEvents;
     this.privateAttributes = privateAttributes == null ? ImmutableSet.of() : ImmutableSet.copyOf(privateAttributes);

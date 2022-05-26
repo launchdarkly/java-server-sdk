@@ -42,7 +42,7 @@ public class DefaultFeatureRequestorTest {
   }
 
   private HttpConfiguration makeHttpConfig(LDConfig config) {
-    return config.httpConfigFactory.createHttpConfiguration(new BasicConfiguration(sdkKey, false, 0, null));
+    return config.httpConfigFactory.createHttpConfiguration(new BasicConfiguration(sdkKey, false, 0, null, null));
   }
 
   private void verifyExpectedData(FeatureRequestor.AllData data) {
