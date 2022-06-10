@@ -12,10 +12,10 @@ TEMP_TEST_OUTPUT=/tmp/sdk-test-service.log
 
 # temporary skips for contract tests that can't pass till more U2C work is done
 TEST_HARNESS_PARAMS := $(TEST_HARNESS_PARAMS) \
-	-skip 'events/alias' \
-	-skip 'events/custom' \
-	-skip 'events/disabling/alias' \
-	-skip 'events/user properties/inlineUsers=true'
+    -skip events/alias \
+    -skip events/custom \
+    -skip events/disabling/alias \
+    -skip events/user/inlineUsers=true
 
 build-contract-tests:
 	@cd contract-tests && ../gradlew installDist
