@@ -545,22 +545,6 @@ public class LDClientEventTest {
     }
   }
 
-  @Test
-  public void aliasEventIsCorrectlyGenerated() {
-    LDUser anonymousUser = new LDUser.Builder("anonymous-key").anonymous(true).build();
-
-    client.alias(user, anonymousUser);
-
-    assertEquals(1, eventSink.events.size());
-    Event e = eventSink.events.get(0);
-    assertEquals(Event.AliasEvent.class, e.getClass());
-    Event.AliasEvent evt = (Event.AliasEvent)e;
-    assertEquals(user.getKey(), evt.getKey());
-    assertEquals("user", evt.getContextKind());
-    assertEquals(anonymousUser.getKey(), evt.getPreviousKey());
-    assertEquals("anonymousUser", evt.getPreviousContextKind());
-  }
-
   private void checkFeatureEvent(Event e, DataModel.FeatureFlag flag, LDValue value, LDValue defaultVal,
       String prereqOf, EvaluationReason reason) {
     assertEquals(Event.FeatureRequest.class, e.getClass());

@@ -11,7 +11,6 @@ import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
-import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 
@@ -22,7 +21,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-import sdktest.Representations.AliasEventParams;
 import sdktest.Representations.CommandParams;
 import sdktest.Representations.CreateInstanceParams;
 import sdktest.Representations.CustomEventParams;
@@ -61,9 +59,6 @@ public class SdkClientEntity {
       return null;
     case "customEvent":
       doCustomEvent(params.customEvent);
-      return null;
-    case "aliasEvent":
-      doAliasEvent(params.aliasEvent);
       return null;
     case "flushEvents":
       client.flush();
@@ -169,10 +164,6 @@ public class SdkClientEntity {
     } else {
       client.trackMetric(params.eventKey, params.user, params.data, params.metricValue.doubleValue());
     }
-  }
-  
-  private void doAliasEvent(AliasEventParams params) {
-    client.alias(params.user, params.previousUser);
   }
   
   public void close() {

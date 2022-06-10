@@ -201,17 +201,6 @@ public abstract class DefaultEventProcessorTestBase {
     );
   }
 
-  public static Matcher<JsonTestValue> isAliasEvent(Event.AliasEvent sourceEvent) {
-    return allOf(
-        jsonProperty("kind", "alias"),
-        jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        jsonProperty("key", sourceEvent.getKey()),
-        jsonProperty("previousKey", sourceEvent.getPreviousKey()),
-        jsonProperty("contextKind", sourceEvent.getContextKind()),
-        jsonProperty("previousContextKind", sourceEvent.getPreviousContextKind())
-    );
-  }
-
   public static Matcher<JsonTestValue> hasUserOrUserKey(Event sourceEvent, LDValue inlineUser) {
     if (inlineUser != null && !inlineUser.isNull()) {
       return allOf(
