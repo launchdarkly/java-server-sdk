@@ -2,11 +2,11 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
+import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 
-import java.net.URI;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -128,8 +128,8 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * Specifies a custom implementation for event delivery.
    * <p>
    * The standard event delivery implementation sends event data via HTTP/HTTPS to the LaunchDarkly events
-   * service endpoint (or any other endpoint specified with {@link #baseURI(URI)}. Providing a custom
-   * implementation may be useful in tests, or if the event data needs to be stored and forwarded. 
+   * service endpoint (or any other endpoint specified with {@link LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
+   * Providing a custom implementation may be useful in tests, or if the event data needs to be stored and forwarded. 
    * 
    * @param eventSenderFactory a factory for an {@link EventSender} implementation
    * @return the builder
