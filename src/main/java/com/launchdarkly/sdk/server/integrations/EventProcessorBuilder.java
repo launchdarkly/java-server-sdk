@@ -60,7 +60,6 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   public static final Duration MIN_DIAGNOSTIC_RECORDING_INTERVAL = Duration.ofSeconds(60);
   
   protected boolean allAttributesPrivate = false;
-  protected URI baseURI;
   protected int capacity = DEFAULT_CAPACITY;
   protected Duration diagnosticRecordingInterval = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL;
   protected Duration flushInterval = DEFAULT_FLUSH_INTERVAL;
@@ -83,32 +82,6 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    */
   public EventProcessorBuilder allAttributesPrivate(boolean allAttributesPrivate) {
     this.allAttributesPrivate = allAttributesPrivate;
-    return this;
-  }
-  
-  /**
-   * Deprecated method for setting a custom base URI for the events service.
-   * <p>
-   * The preferred way to set this option is now with
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
-   * If you set this deprecated option, it overrides any value that was set with
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
-   * <p>
-   * You will only need to change this value in the following cases:
-   * <ul>
-   * <li> You are using the <a href="https://docs.launchdarkly.com/home/relay-proxy">Relay Proxy</a> with
-   *   event forwarding enabled. Set {@code streamUri} to the base URI of the Relay Proxy instance.
-   * <li> You are connecting to a test server or a nonstandard endpoint for the LaunchDarkly service.
-   * </ul>
-   * 
-   * @param baseURI the base URI of the events service; null to use the default
-   * @return the builder
-   * @deprecated Use {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)} and
-   * {@link ServiceEndpointsBuilder#events(URI)}.
-   */
-  @Deprecated
-  public EventProcessorBuilder baseURI(URI baseURI) {
-    this.baseURI = baseURI;
     return this;
   }
   

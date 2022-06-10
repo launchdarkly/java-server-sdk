@@ -11,6 +11,7 @@ import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 
@@ -182,9 +183,11 @@ public class SdkClientEntity {
       builder.startWait(Duration.ofMillis(params.startWaitTimeMs.longValue()));
     }
 
+    ServiceEndpointsBuilder endpoints = Components.serviceEndpoints();
+    
     if (params.streaming != null) {
-      StreamingDataSourceBuilder dataSource = Components.streamingDataSource()
-          .baseURI(params.streaming.baseUri);
+      endpoints.streaming(params.streaming.baseUri);
+      StreamingDataSourceBuilder dataSource = Components.streamingDataSource();
       if (params.streaming.initialRetryDelayMs > 0) {
         dataSource.initialReconnectDelay(Duration.ofMillis(params.streaming.initialRetryDelayMs));
       }
@@ -194,8 +197,8 @@ public class SdkClientEntity {
     if (params.events == null) {
       builder.events(Components.noEvents());
     } else {
+      endpoints.events(params.events.baseUri);
       EventProcessorBuilder eb = Components.sendEvents()
-          .baseURI(params.events.baseUri)
           .allAttributesPrivate(params.events.allAttributesPrivate);
       if (params.events.capacity > 0) {
         eb.capacity(params.events.capacity);
@@ -240,13 +243,17 @@ public class SdkClientEntity {
     }
 
     if (params.serviceEndpoints != null) {
-      builder.serviceEndpoints(
-        Components.serviceEndpoints()
-          .streaming(params.serviceEndpoints.streaming)
-          .polling(params.serviceEndpoints.polling)
-          .events(params.serviceEndpoints.events)
-      );
+      if (params.serviceEndpoints.streaming != null) {
+        endpoints.streaming(params.serviceEndpoints.streaming);
+      }
+      if (params.serviceEndpoints.polling != null) {
+        endpoints.polling(params.serviceEndpoints.polling);
+      }
+      if (params.serviceEndpoints.events != null) {
+        endpoints.events(params.serviceEndpoints.events);
+      }
     }
+    builder.serviceEndpoints(endpoints);
 
     return builder.build();
   }

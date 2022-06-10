@@ -171,7 +171,7 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource().baseURI(URI.create("http://fake")))
+        .serviceEndpoints(Components.serviceEndpoints().streaming(URI.create("http://fake")))
         .events(Components.noEvents())
         .startWait(Duration.ZERO)
         .build();
@@ -196,7 +196,8 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.pollingDataSource().baseURI(URI.create("http://fake")))
+        .serviceEndpoints(Components.serviceEndpoints().polling(URI.create("http://fake")))
+        .dataSource(Components.pollingDataSource())
         .events(Components.noEvents())
         .startWait(Duration.ZERO)
         .build();
@@ -224,8 +225,8 @@ public class LDClientTest extends EasyMockSupport {
     DataSourceFactory mockDataSourceFactory = createStrictMock(DataSourceFactory.class);
 
     LDConfig config = new LDConfig.Builder()
+            .serviceEndpoints(Components.serviceEndpoints().events(URI.create("http://fake-host")))
             .dataSource(mockDataSourceFactory)
-            .events(Components.sendEvents().baseURI(URI.create("fake-host"))) // event processor will try to send a diagnostic event here
             .startWait(Duration.ZERO)
             .build();
 

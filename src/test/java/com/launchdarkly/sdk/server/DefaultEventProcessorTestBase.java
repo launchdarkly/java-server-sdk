@@ -63,9 +63,13 @@ public abstract class DefaultEventProcessorTestBase {
     return (DefaultEventProcessor)ec.createEventProcessor(clientContext(SDK_KEY, config));
   }
 
-  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
+  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
     return (DefaultEventProcessor)ec.createEventProcessor(
-        clientContext(SDK_KEY, diagLDConfig, diagnosticAccumulator));
+        clientContext(SDK_KEY, config, diagnosticAccumulator));
+  }
+  
+  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
+    return makeEventProcessor(ec, diagLDConfig, diagnosticAccumulator);
   }
   
   public static EventSenderFactory senderFactory(final MockEventSender es) {

@@ -163,13 +163,10 @@ public class DiagnosticEventTest {
     LDConfig ldConfig1 = new LDConfig.Builder()
             .dataSource(
                 Components.streamingDataSource()
-                  .baseURI(CUSTOM_URI)
                   .initialReconnectDelay(Duration.ofSeconds(2))
                 )
             .build();
     LDValue expected1 = expectedDefaultPropertiesWithoutStreaming()
-        .put("customBaseURI", false)
-        .put("customStreamURI", true)
         .put("reconnectTimeMillis", 2_000)
         .build();
     assertEquals(expected1, makeConfigData(ldConfig1));
@@ -179,21 +176,6 @@ public class DiagnosticEventTest {
         .build();
     LDValue expected2 = expectedDefaultProperties().build();
     assertEquals(expected2, makeConfigData(ldConfig2));
-
-    LDConfig ldConfig3 = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource().baseURI(StandardEndpoints.DEFAULT_STREAMING_BASE_URI)) // set a URI, but not a custom one
-        .build();
-    LDValue expected3 = expectedDefaultProperties().build();
-    assertEquals(expected3, makeConfigData(ldConfig3));
-    
-    LDConfig ldConfig6 = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource().baseURI(CUSTOM_URI))
-        .build();
-    LDValue expected6 = expectedDefaultProperties()
-        .put("customBaseURI", false)
-        .put("customStreamURI", true)
-        .build();
-    assertEquals(expected6, makeConfigData(ldConfig6));
   }
 
   @Test
@@ -201,12 +183,10 @@ public class DiagnosticEventTest {
     LDConfig ldConfig1 = new LDConfig.Builder()
             .dataSource(
                 Components.pollingDataSource()
-                  .baseURI(CUSTOM_URI)
                   .pollInterval(Duration.ofSeconds(60))
                 )
             .build();
     LDValue expected1 = expectedDefaultPropertiesWithoutStreaming()
-        .put("customBaseURI", true)
         .put("pollingIntervalMillis", 60_000)
         .put("streamingDisabled", true)
         .build();
@@ -220,11 +200,6 @@ public class DiagnosticEventTest {
         .put("streamingDisabled", true)
         .build();
     assertEquals(expected2, makeConfigData(ldConfig2));
-
-    LDConfig ldConfig3 = new LDConfig.Builder()
-        .dataSource(Components.pollingDataSource().baseURI(StandardEndpoints.DEFAULT_POLLING_BASE_URI)) // set a URI, but not a custom one
-        .build();
-    assertEquals(expected2, makeConfigData(ldConfig3)); // result is same as previous test case
   }
 
   @Test
@@ -281,7 +256,6 @@ public class DiagnosticEventTest {
           .events(
               Components.sendEvents()
                 .allAttributesPrivate(true)
-                .baseURI(URI.create("http://custom"))
                 .capacity(20_000)
                 .diagnosticRecordingInterval(Duration.ofSeconds(1_800))
                 .flushInterval(Duration.ofSeconds(10))
@@ -293,7 +267,6 @@ public class DiagnosticEventTest {
     LDValue diagnosticJson1 = makeConfigData(ldConfig1);
     LDValue expected1 = expectedDefaultProperties()
         .put("allAttributesPrivate", true)
-        .put("customEventsURI", true)
         .put("diagnosticRecordingIntervalMillis", 1_800_000)
         .put("eventsCapacity", 20_000)
         .put("eventsFlushIntervalMillis", 10_000)
@@ -311,12 +284,6 @@ public class DiagnosticEventTest {
     LDValue expected2 = expectedDefaultProperties().build();
     
     assertEquals(expected2, diagnosticJson2);
-
-    LDConfig ldConfig3 = new LDConfig.Builder()
-        .events(Components.sendEvents().baseURI(StandardEndpoints.DEFAULT_EVENTS_BASE_URI)) // set a base URI, but not a custom one
-        .build();
-    
-    assertEquals(expected2, makeConfigData(ldConfig3)); // result is same as previous test case
 }
 
   @Test

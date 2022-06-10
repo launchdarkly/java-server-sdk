@@ -143,7 +143,6 @@ abstract class ComponentsImpl {
 
       URI streamUri = StandardEndpoints.selectBaseUri(
           context.getBasic().getServiceEndpoints().getStreamingBaseUri(),
-          baseURI,
           StandardEndpoints.DEFAULT_STREAMING_BASE_URI,
           "streaming",
           Loggers.MAIN
@@ -167,7 +166,6 @@ abstract class ComponentsImpl {
           .put(ConfigProperty.CUSTOM_STREAM_URI.name,
               StandardEndpoints.isCustomBaseUri(
                   basicConfiguration.getServiceEndpoints().getStreamingBaseUri(),
-                  baseURI,
                   StandardEndpoints.DEFAULT_STREAMING_BASE_URI))
           .put(ConfigProperty.RECONNECT_TIME_MILLIS.name, initialReconnectDelay.toMillis())
           .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
@@ -191,7 +189,6 @@ abstract class ComponentsImpl {
 
       URI pollUri = StandardEndpoints.selectBaseUri(
           context.getBasic().getServiceEndpoints().getPollingBaseUri(),
-          baseURI,
           StandardEndpoints.DEFAULT_POLLING_BASE_URI,
           "polling",
           Loggers.MAIN
@@ -213,7 +210,6 @@ abstract class ComponentsImpl {
           .put(ConfigProperty.CUSTOM_BASE_URI.name,
               StandardEndpoints.isCustomBaseUri(
                   basicConfiguration.getServiceEndpoints().getPollingBaseUri(),
-                  baseURI,
                   StandardEndpoints.DEFAULT_POLLING_BASE_URI))
           .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
           .put(ConfigProperty.POLLING_INTERVAL_MILLIS.name, pollInterval.toMillis())
@@ -231,7 +227,6 @@ abstract class ComponentsImpl {
           .createEventSender(context.getBasic(), context.getHttp());
       URI eventsUri = StandardEndpoints.selectBaseUri(
           context.getBasic().getServiceEndpoints().getEventsBaseUri(),
-          baseURI,
           StandardEndpoints.DEFAULT_EVENTS_BASE_URI,
           "events",
           Loggers.MAIN
@@ -262,7 +257,6 @@ abstract class ComponentsImpl {
           .put(ConfigProperty.CUSTOM_EVENTS_URI.name,
               StandardEndpoints.isCustomBaseUri(
                   basicConfiguration.getServiceEndpoints().getEventsBaseUri(),
-                  baseURI,
                   StandardEndpoints.DEFAULT_EVENTS_BASE_URI))
           .put(ConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name, diagnosticRecordingInterval.toMillis())
           .put(ConfigProperty.EVENTS_CAPACITY.name, capacity)
