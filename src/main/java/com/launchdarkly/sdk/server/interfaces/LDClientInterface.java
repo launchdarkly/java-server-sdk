@@ -280,20 +280,6 @@ public interface LDClientInterface extends Closeable {
    * @return the hash, or null if the hash could not be calculated
    */
   String secureModeHash(LDUser user);
-  
-  /**
-   * Associates two users for analytics purposes. 
-   * 
-   * This can be helpful in the situation where a person is represented by multiple 
-   * LaunchDarkly users. This may happen, for example, when a person initially logs into 
-   * an application-- the person might be represented by an anonymous user prior to logging
-   * in and a different user after logging in, as denoted by a different user key.
-   * 
-   * @param user the newly identified user.
-   * @param previousUser the previously identified user.
-   * @since 5.4.0
-   */
-  void alias(LDUser user, LDUser previousUser);
 
   /**
    * The current version string of the SDK.

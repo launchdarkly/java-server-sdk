@@ -9,7 +9,6 @@ import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.Event.AliasEvent;
 import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
 
 import org.junit.Test;
@@ -432,65 +431,6 @@ public class EventOutputTest {
     assertEquals("[]", w.toString());
   }
   
-  @Test
-  public void aliasEventIsSerialized() throws IOException {
-    EventFactory factory = eventFactoryWithTimestamp(1000, false);
-    LDUser user1 = new LDUser.Builder("bob-key").build();
-    LDUser user2 = new LDUser.Builder("jeff-key").build();
-    LDUser anon1 = new LDUser.Builder("bob-key-anon").anonymous(true).build();
-    LDUser anon2 = new LDUser.Builder("jeff-key-anon").anonymous(true).build();
-    AliasEvent userToUser = factory.newAliasEvent(user1, user2);
-    AliasEvent userToAnon = factory.newAliasEvent(anon1, user1);
-    AliasEvent anonToUser = factory.newAliasEvent(user1, anon1);
-    AliasEvent anonToAnon = factory.newAliasEvent(anon1, anon2);
-
-    EventOutputFormatter fmt = new EventOutputFormatter(defaultEventsConfig());
-
-    LDValue userToUserExpected = parseValue("{" +
-      "\"kind\":\"alias\"," +
-      "\"creationDate\":1000," +
-      "\"key\":\"bob-key\"," +
-      "\"contextKind\":\"user\"," +
-      "\"previousKey\":\"jeff-key\"," +
-      "\"previousContextKind\":\"user\"" +
-      "}");
-
-    assertEquals(userToUserExpected, getSingleOutputEvent(fmt, userToUser));
-
-    LDValue userToAnonExpected = parseValue("{" +
-      "\"kind\":\"alias\"," +
-      "\"creationDate\":1000," +
-      "\"key\":\"bob-key-anon\"," +
-      "\"contextKind\":\"anonymousUser\"," +
-      "\"previousKey\":\"bob-key\"," +
-      "\"previousContextKind\":\"user\"" +
-      "}");
-
-    assertEquals(userToAnonExpected, getSingleOutputEvent(fmt, userToAnon));
-
-    LDValue anonToUserExpected = parseValue("{" +
-      "\"kind\":\"alias\"," +
-      "\"creationDate\":1000," +
-      "\"key\":\"bob-key\"," +
-      "\"contextKind\":\"user\"," +
-      "\"previousKey\":\"bob-key-anon\"," +
-      "\"previousContextKind\":\"anonymousUser\"" +
-      "}");
-
-    assertEquals(anonToUserExpected, getSingleOutputEvent(fmt, anonToUser));
-
-    LDValue anonToAnonExpected = parseValue("{" +
-      "\"kind\":\"alias\"," +
-      "\"creationDate\":1000," +
-      "\"key\":\"bob-key-anon\"," +
-      "\"contextKind\":\"anonymousUser\"," +
-      "\"previousKey\":\"jeff-key-anon\"," +
-      "\"previousContextKind\":\"anonymousUser\"" +
-      "}");
-
-    assertEquals(anonToAnonExpected, getSingleOutputEvent(fmt, anonToAnon));
-  }
-
   private static class FakeEventClass extends Event {
     public FakeEventClass(long creationDate, LDUser user) {
       super(creationDate, user);

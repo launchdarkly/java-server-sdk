@@ -85,12 +85,6 @@ final class EventOutputFormatter {
     } else if (event instanceof Event.Index) {
       startEvent(event, "index", null, jw);
       writeUser(event.getUser(), jw);
-    } else if (event instanceof Event.AliasEvent) {
-      Event.AliasEvent ae = (Event.AliasEvent)event;
-      startEvent(event, "alias", ae.getKey(), jw);
-      jw.name("contextKind").value(ae.getContextKind());
-      jw.name("previousKey").value(ae.getPreviousKey());
-      jw.name("previousContextKind").value(ae.getPreviousContextKind());
     } else {
       return;
     }
