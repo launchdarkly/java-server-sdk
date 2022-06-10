@@ -81,7 +81,6 @@ public class DiagnosticEventTest {
         .put("diagnosticRecordingIntervalMillis", 900_000)
         .put("eventsCapacity", 10_000)
         .put("eventsFlushIntervalMillis",5_000)
-        .put("inlineUsersInEvents", false)
         .put("samplingInterval", 0)
         .put("socketTimeoutMillis", 10_000)
         .put("startWaitMillis", 5_000)
@@ -286,7 +285,6 @@ public class DiagnosticEventTest {
                 .capacity(20_000)
                 .diagnosticRecordingInterval(Duration.ofSeconds(1_800))
                 .flushInterval(Duration.ofSeconds(10))
-                .inlineUsersInEvents(true)
                 .userKeysCapacity(2_000)
                 .userKeysFlushInterval(Duration.ofSeconds(600))
               )
@@ -299,7 +297,6 @@ public class DiagnosticEventTest {
         .put("diagnosticRecordingIntervalMillis", 1_800_000)
         .put("eventsCapacity", 20_000)
         .put("eventsFlushIntervalMillis", 10_000)
-        .put("inlineUsersInEvents", true)
         .put("userKeysCapacity", 2_000)
         .put("userKeysFlushIntervalMillis", 600_000)
         .build();

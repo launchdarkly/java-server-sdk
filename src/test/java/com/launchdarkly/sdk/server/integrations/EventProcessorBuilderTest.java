@@ -95,19 +95,7 @@ public class EventProcessorBuilderTest {
         .flushInterval(null); // null sets it back to the default
     assertEquals(DEFAULT_FLUSH_INTERVAL, builder3.flushInterval);
   }
-  
-  @Test
-  public void inlineUsersInEvents() {
-    assertEquals(false, sendEvents().inlineUsersInEvents);
-
-    assertEquals(true, sendEvents().inlineUsersInEvents(true).inlineUsersInEvents);
-
-    assertEquals(false, sendEvents()
-        .inlineUsersInEvents(true)
-        .inlineUsersInEvents(false)
-        .inlineUsersInEvents);
-  }
-  
+    
   @Test
   public void privateAttributeNames() {
     assertNull(sendEvents().privateAttributes);

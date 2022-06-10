@@ -153,7 +153,6 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
         es,
         FAKE_URI,
         Duration.ofSeconds(5),
-        true,
         ImmutableSet.of(),
         100,
         Duration.ofSeconds(5),

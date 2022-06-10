@@ -64,7 +64,6 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   protected int capacity = DEFAULT_CAPACITY;
   protected Duration diagnosticRecordingInterval = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL;
   protected Duration flushInterval = DEFAULT_FLUSH_INTERVAL;
-  protected boolean inlineUsersInEvents = false;
   protected Set<UserAttribute> privateAttributes;
   protected int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
   protected Duration userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL;
@@ -179,20 +178,6 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    */
   public EventProcessorBuilder flushInterval(Duration flushInterval) {
     this.flushInterval = flushInterval == null ? DEFAULT_FLUSH_INTERVAL : flushInterval;
-    return this;
-  }
-  
-  /**
-   * Sets whether to include full user details in every analytics event.
-   * <p>
-   * The default is {@code false}: events will only include the user key, except for one "index" event
-   * that provides the full details for the user).
-   * 
-   * @param inlineUsersInEvents true if you want full user details in each event
-   * @return the builder
-   */
-  public EventProcessorBuilder inlineUsersInEvents(boolean inlineUsersInEvents) {
-    this.inlineUsersInEvents = inlineUsersInEvents;
     return this;
   }
 

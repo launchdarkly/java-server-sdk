@@ -106,7 +106,7 @@ public class EventOutputTest {
   @Test
   public void allAttributesPrivateMakesAttributesPrivate() throws Exception {
     LDUser user = userBuilderWithAllAttributes.build();
-    EventsConfiguration config = makeEventsConfig(true, false, null);
+    EventsConfiguration config = makeEventsConfig(true, null);
     testPrivateAttributes(config, user, attributesThatCanBePrivate);
   }
 
@@ -114,7 +114,7 @@ public class EventOutputTest {
   public void globalPrivateAttributeNamesMakeAttributesPrivate() throws Exception {
     LDUser user = userBuilderWithAllAttributes.build();
     for (String attrName: attributesThatCanBePrivate) {
-      EventsConfiguration config = makeEventsConfig(false, false, ImmutableSet.of(UserAttribute.forName(attrName)));
+      EventsConfiguration config = makeEventsConfig(false, ImmutableSet.of(UserAttribute.forName(attrName)));
       testPrivateAttributes(config, user, attrName);
     }
   }
@@ -453,28 +453,14 @@ public class EventOutputTest {
   }
   
   private void testInlineUserSerialization(LDUser user, LDValue expectedJsonValue, EventsConfiguration baseConfig) throws IOException {
-    EventsConfiguration config = makeEventsConfig(baseConfig.allAttributesPrivate, true, baseConfig.privateAttributes);
+    EventsConfiguration config = makeEventsConfig(baseConfig.allAttributesPrivate, baseConfig.privateAttributes);
     EventOutputFormatter f = new EventOutputFormatter(config);
 
-    Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
-        flagBuilder("flag").build(),
-        user,
-        new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()),
-        LDValue.ofNull());
-    LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
-    assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));
-    assertEquals(expectedJsonValue, outputEvent.get("user"));
-
     Event.Identify identifyEvent = EventFactory.DEFAULT.newIdentifyEvent(user);
-    outputEvent = getSingleOutputEvent(f, identifyEvent);
+    LDValue outputEvent = getSingleOutputEvent(f, identifyEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));
     assertEquals(expectedJsonValue, outputEvent.get("user"));
 
-    Event.Custom customEvent = EventFactory.DEFAULT.newCustomEvent("custom", user, LDValue.ofNull(), null);
-    outputEvent = getSingleOutputEvent(f, customEvent);
-    assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));
-    assertEquals(expectedJsonValue, outputEvent.get("user"));
-    
     Event.Index indexEvent = new Event.Index(0, user);
     outputEvent = getSingleOutputEvent(f, indexEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));

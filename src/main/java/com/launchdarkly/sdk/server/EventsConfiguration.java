@@ -15,7 +15,6 @@ final class EventsConfiguration {
   final EventSender eventSender;
   final URI eventsUri;
   final Duration flushInterval;
-  final boolean inlineUsersInEvents;
   final ImmutableSet<UserAttribute> privateAttributes;
   final int userKeysCapacity;
   final Duration userKeysFlushInterval;
@@ -27,7 +26,6 @@ final class EventsConfiguration {
       EventSender eventSender,
       URI eventsUri,
       Duration flushInterval,
-      boolean inlineUsersInEvents,
       Set<UserAttribute> privateAttributes,
       int userKeysCapacity,
       Duration userKeysFlushInterval,
@@ -39,7 +37,6 @@ final class EventsConfiguration {
     this.eventSender = eventSender;
     this.eventsUri = eventsUri;
     this.flushInterval = flushInterval;
-    this.inlineUsersInEvents = inlineUsersInEvents;
     this.privateAttributes = privateAttributes == null ? ImmutableSet.of() : ImmutableSet.copyOf(privateAttributes);
     this.userKeysCapacity = userKeysCapacity;
     this.userKeysFlushInterval = userKeysFlushInterval;

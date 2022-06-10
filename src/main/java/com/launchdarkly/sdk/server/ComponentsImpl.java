@@ -243,7 +243,6 @@ abstract class ComponentsImpl {
               eventSender,
               eventsUri,
               flushInterval,
-              inlineUsersInEvents,
               privateAttributes,
               userKeysCapacity,
               userKeysFlushInterval,
@@ -268,7 +267,6 @@ abstract class ComponentsImpl {
           .put(ConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name, diagnosticRecordingInterval.toMillis())
           .put(ConfigProperty.EVENTS_CAPACITY.name, capacity)
           .put(ConfigProperty.EVENTS_FLUSH_INTERVAL_MILLIS.name, flushInterval.toMillis())
-          .put(ConfigProperty.INLINE_USERS_IN_EVENTS.name, inlineUsersInEvents)
           .put(ConfigProperty.SAMPLING_INTERVAL.name, 0)
           .put(ConfigProperty.USER_KEYS_CAPACITY.name, userKeysCapacity)
           .put(ConfigProperty.USER_KEYS_FLUSH_INTERVAL_MILLIS.name, userKeysFlushInterval.toMillis())

@@ -176,7 +176,7 @@ final class EventOutputFormatter {
   private final void writeUserOrKey(Event event, boolean forceInline, JsonWriter jw) throws IOException {
     LDUser user = event.getUser();
     if (user != null) {
-      if (config.inlineUsersInEvents || forceInline) {
+      if (forceInline) {
         writeUser(user, jw);
       } else {
         jw.name("userKey");

@@ -196,8 +196,7 @@ public class SdkClientEntity {
     } else {
       EventProcessorBuilder eb = Components.sendEvents()
           .baseURI(params.events.baseUri)
-          .allAttributesPrivate(params.events.allAttributesPrivate)
-          .inlineUsersInEvents(params.events.inlineUsers);
+          .allAttributesPrivate(params.events.allAttributesPrivate);
       if (params.events.capacity > 0) {
         eb.capacity(params.events.capacity);
       }
