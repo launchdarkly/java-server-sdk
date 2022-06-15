@@ -21,6 +21,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.time.Duration;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -66,15 +67,27 @@ public class TestUtil {
     store.upsert(SEGMENTS, segment.getKey(), new ItemDescriptor(segment.getVersion(), segment));
   }
 
+  public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses, Duration timeout) {
+    return awaitValue(statuses, timeout.toMillis(), TimeUnit.MILLISECONDS);
+  }
+  
   public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses) {
-    return awaitValue(statuses, 1, TimeUnit.SECONDS);
+    return requireDataSourceStatus(statuses, Duration.ofSeconds(5));
+    // Using a fairly long default timeout here because there can be unpredictable execution delays
+    // in CI. If there's a test where we specifically need to enforce a smaller timeout, we can set
+    // that explicitly on a per-call basis.
   }
   
   public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses,
-      DataSourceStatusProvider.State expectedState) {
-    DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses);
+      DataSourceStatusProvider.State expectedState, Duration timeout) {
+    DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, timeout);
     assertEquals(expectedState, status.getState());
     return status;
+  }
+
+  public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses,
+      DataSourceStatusProvider.State expectedState) {
+    return requireDataSourceStatus(statuses, expectedState, Duration.ofSeconds(5));
   }
 
   public static DataSourceStatusProvider.Status requireDataSourceStatusEventually(BlockingQueue<DataSourceStatusProvider.Status> statuses,
