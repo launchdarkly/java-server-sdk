@@ -6,7 +6,6 @@ import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
@@ -94,7 +93,7 @@ public class DiagnosticEventTest {
   
   private static LDValue makeConfigData(LDConfig config) {
     ClientContext context = clientContext("SDK_KEY", config); // the SDK key doesn't matter for these tests
-    return DiagnosticEvent.Init.getConfigurationData(config, context.getBasic(), context.getHttp());
+    return DiagnosticEvent.Init.getConfigurationData(config, context);
   }
   
   @Test
@@ -371,7 +370,7 @@ public class DiagnosticEventTest {
     }
     
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfig) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       return value;
     }
 
@@ -396,7 +395,7 @@ public class DiagnosticEventTest {
     }
     
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfig) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       return value;
     }
 
@@ -415,7 +414,7 @@ public class DiagnosticEventTest {
   
   private static class PersistentDataStoreFactoryWithComponentName implements PersistentDataStoreFactory, DiagnosticDescription {
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfig) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.of("my-test-store");
     }
 

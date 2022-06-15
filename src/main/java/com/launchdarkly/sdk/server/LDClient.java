@@ -191,7 +191,7 @@ public final class LDClient implements LDClientInterface {
     // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
     // standard event processor
     final boolean useDiagnostics = !config.diagnosticOptOut && config.eventProcessorFactory instanceof EventProcessorBuilder;
-    final ClientContextImpl context = new ClientContextImpl(
+    final ClientContextImpl context = ClientContextImpl.fromConfig(
         sdkKey,
         config,
         sharedExecutor,

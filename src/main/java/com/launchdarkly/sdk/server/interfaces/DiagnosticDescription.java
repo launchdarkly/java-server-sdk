@@ -22,8 +22,8 @@ import com.launchdarkly.sdk.LDValue;
 public interface DiagnosticDescription {
   /**
    * Used internally by the SDK to inspect the configuration.
-   * @param basicConfiguration general SDK configuration properties that are not specific to this component
+   * @param clientContext allows access to the client configuration
    * @return an {@link LDValue} or null
    */
-  LDValue describeConfiguration(BasicConfiguration basicConfiguration);
+  LDValue describeConfiguration(ClientContext clientContext);
 }

@@ -3,7 +3,7 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
 import org.junit.Test;
@@ -33,7 +33,7 @@ import static org.junit.Assert.assertSame;
 @SuppressWarnings("javadoc")
 public class HttpConfigurationBuilderTest {
   private static final String SDK_KEY = "sdk-key";
-  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration(SDK_KEY, false, 0, null, null);
+  private static final ClientContext BASIC_CONTEXT = new ClientContext(SDK_KEY);
   
   private static ImmutableMap.Builder<String, String> buildBasicHeaders() {
     return ImmutableMap.<String, String>builder()
@@ -43,7 +43,7 @@ public class HttpConfigurationBuilderTest {
   
   @Test
   public void testDefaults() {
-    HttpConfiguration hc = Components.httpConfiguration().createHttpConfiguration(BASIC_CONFIG);
+    HttpConfiguration hc = Components.httpConfiguration().createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(DEFAULT_CONNECT_TIMEOUT, hc.getConnectTimeout());
     assertNull(hc.getProxy());
     assertNull(hc.getProxyAuthentication());
@@ -58,13 +58,13 @@ public class HttpConfigurationBuilderTest {
   public void testConnectTimeout() {
     HttpConfiguration hc = Components.httpConfiguration()
         .connectTimeout(Duration.ofMillis(999))
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(999, hc.getConnectTimeout().toMillis());
 
     HttpConfiguration hc2 = Components.httpConfiguration()
         .connectTimeout(Duration.ofMillis(999))
         .connectTimeout(null)
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(DEFAULT_CONNECT_TIMEOUT, hc2.getConnectTimeout());
 }
 
@@ -72,7 +72,7 @@ public class HttpConfigurationBuilderTest {
   public void testProxy() {
     HttpConfiguration hc = Components.httpConfiguration()
         .proxyHostAndPort("my-proxy", 1234)
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("my-proxy", 1234)), hc.getProxy());
     assertNull(hc.getProxyAuthentication());
   }
@@ -82,7 +82,7 @@ public class HttpConfigurationBuilderTest {
     HttpConfiguration hc = Components.httpConfiguration()
         .proxyHostAndPort("my-proxy", 1234)
         .proxyAuth(Components.httpBasicAuthentication("user", "pass"))
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("my-proxy", 1234)), hc.getProxy());
     assertNotNull(hc.getProxyAuthentication());
     assertEquals("Basic dXNlcjpwYXNz", hc.getProxyAuthentication().provideAuthorization(null));
@@ -92,13 +92,13 @@ public class HttpConfigurationBuilderTest {
   public void testSocketTimeout() {
     HttpConfiguration hc1 = Components.httpConfiguration()
         .socketTimeout(Duration.ofMillis(999))
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(999, hc1.getSocketTimeout().toMillis());
 
     HttpConfiguration hc2 = Components.httpConfiguration()
         .socketTimeout(Duration.ofMillis(999))
         .socketTimeout(null)
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(DEFAULT_SOCKET_TIMEOUT, hc2.getSocketTimeout());
   }
   
@@ -107,7 +107,7 @@ public class HttpConfigurationBuilderTest {
     SocketFactory sf = new StubSocketFactory();
     HttpConfiguration hc = Components.httpConfiguration()
         .socketFactory(sf)
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertSame(sf, hc.getSocketFactory());
   }
   
@@ -117,7 +117,7 @@ public class HttpConfigurationBuilderTest {
     X509TrustManager tm = new StubX509TrustManager();
     HttpConfiguration hc = Components.httpConfiguration()
         .sslSocketFactory(sf, tm)
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertSame(sf, hc.getSslSocketFactory());
     assertSame(tm, hc.getTrustManager());
   }
@@ -126,7 +126,7 @@ public class HttpConfigurationBuilderTest {
   public void testWrapperNameOnly() {
     HttpConfiguration hc = Components.httpConfiguration()
         .wrapper("Scala", null)
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertEquals("Scala", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Wrapper"));
   }
 
@@ -134,16 +134,16 @@ public class HttpConfigurationBuilderTest {
   public void testWrapperWithVersion() {
     HttpConfiguration hc = Components.httpConfiguration()
         .wrapper("Scala", "0.1.0")
-        .createHttpConfiguration(BASIC_CONFIG);
+        .createHttpConfiguration(BASIC_CONTEXT);
     assertEquals("Scala/0.1.0", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Wrapper"));
   }
 
   @Test
   public void testApplicationTags() {
     ApplicationInfo info = new ApplicationInfo("authentication-service", "1.0.0");
-    BasicConfiguration basicConfigWithTags = new BasicConfiguration(SDK_KEY, false, 0, info, null);
+    ClientContext contextWithTags = new ClientContext(SDK_KEY, info, null, null, false, null, 0);
     HttpConfiguration hc = Components.httpConfiguration()
-        .createHttpConfiguration(basicConfigWithTags);
+        .createHttpConfiguration(contextWithTags);
     assertEquals("application-id/authentication-service application-version/1.0.0", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Tags"));
   }
   

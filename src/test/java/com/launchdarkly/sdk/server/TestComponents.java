@@ -49,11 +49,11 @@ public class TestComponents {
       new ThreadFactoryBuilder().setNameFormat("TestComponents-sharedExecutor-%d").build());
   
   public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
-    return new ClientContextImpl(sdkKey, config, sharedExecutor, null);
+    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, null);
   }
 
   public static ClientContext clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    return new ClientContextImpl(sdkKey, config, sharedExecutor, diagnosticAccumulator);
+    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, diagnosticAccumulator);
   }
 
   public static HttpConfiguration defaultHttpConfiguration() {

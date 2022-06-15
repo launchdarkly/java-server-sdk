@@ -10,7 +10,6 @@ import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
@@ -56,7 +55,7 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.of("memory");
     }
   }
@@ -89,7 +88,7 @@ abstract class ComponentsImpl {
     
     @Override
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-      if (context.getBasic().isOffline()) {
+      if (context.isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
         Loggers.MAIN.info("Starting LaunchDarkly client in offline mode");
@@ -101,7 +100,7 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       // The difference between "offline" and "using the Relay daemon" is irrelevant from the data source's
       // point of view, but we describe them differently in diagnostic events. This is easy because if we were
       // configured to be completely offline... we wouldn't be sending any diagnostic events. Therefore, if
@@ -142,7 +141,7 @@ abstract class ComponentsImpl {
       Loggers.DATA_SOURCE.info("Enabling streaming API");
 
       URI streamUri = StandardEndpoints.selectBaseUri(
-          context.getBasic().getServiceEndpoints().getStreamingBaseUri(),
+          context.getServiceEndpoints().getStreamingBaseUri(),
           StandardEndpoints.DEFAULT_STREAMING_BASE_URI,
           "streaming",
           Loggers.MAIN
@@ -151,7 +150,7 @@ abstract class ComponentsImpl {
       return new StreamProcessor(
           context.getHttp(),
           dataSourceUpdates,
-          context.getBasic().getThreadPriority(),
+          context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
           streamUri,
           initialReconnectDelay
@@ -159,13 +158,13 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.buildObject()
           .put(ConfigProperty.STREAMING_DISABLED.name, false)
           .put(ConfigProperty.CUSTOM_BASE_URI.name, false)
           .put(ConfigProperty.CUSTOM_STREAM_URI.name,
               StandardEndpoints.isCustomBaseUri(
-                  basicConfiguration.getServiceEndpoints().getStreamingBaseUri(),
+                  clientContext.getServiceEndpoints().getStreamingBaseUri(),
                   StandardEndpoints.DEFAULT_STREAMING_BASE_URI))
           .put(ConfigProperty.RECONNECT_TIME_MILLIS.name, initialReconnectDelay.toMillis())
           .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
@@ -188,7 +187,7 @@ abstract class ComponentsImpl {
       Loggers.DATA_SOURCE.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
 
       URI pollUri = StandardEndpoints.selectBaseUri(
-          context.getBasic().getServiceEndpoints().getPollingBaseUri(),
+          context.getServiceEndpoints().getPollingBaseUri(),
           StandardEndpoints.DEFAULT_POLLING_BASE_URI,
           "polling",
           Loggers.MAIN
@@ -204,12 +203,12 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.buildObject()
           .put(ConfigProperty.STREAMING_DISABLED.name, true)
           .put(ConfigProperty.CUSTOM_BASE_URI.name,
               StandardEndpoints.isCustomBaseUri(
-                  basicConfiguration.getServiceEndpoints().getPollingBaseUri(),
+                  clientContext.getServiceEndpoints().getPollingBaseUri(),
                   StandardEndpoints.DEFAULT_POLLING_BASE_URI))
           .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
           .put(ConfigProperty.POLLING_INTERVAL_MILLIS.name, pollInterval.toMillis())
@@ -224,9 +223,9 @@ abstract class ComponentsImpl {
     public EventProcessor createEventProcessor(ClientContext context) {
       EventSender eventSender =
           (eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory)
-          .createEventSender(context.getBasic(), context.getHttp());
+          .createEventSender(context);
       URI eventsUri = StandardEndpoints.selectBaseUri(
-          context.getBasic().getServiceEndpoints().getEventsBaseUri(),
+          context.getServiceEndpoints().getEventsBaseUri(),
           StandardEndpoints.DEFAULT_EVENTS_BASE_URI,
           "events",
           Loggers.MAIN
@@ -244,19 +243,19 @@ abstract class ComponentsImpl {
               diagnosticRecordingInterval
               ),
           ClientContextImpl.get(context).sharedExecutor,
-          context.getBasic().getThreadPriority(),
+          context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
           ClientContextImpl.get(context).diagnosticInitEvent
           );
     }
     
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.buildObject()
           .put(ConfigProperty.ALL_ATTRIBUTES_PRIVATE.name, allAttributesPrivate)
           .put(ConfigProperty.CUSTOM_EVENTS_URI.name,
               StandardEndpoints.isCustomBaseUri(
-                  basicConfiguration.getServiceEndpoints().getEventsBaseUri(),
+                  clientContext.getServiceEndpoints().getEventsBaseUri(),
                   StandardEndpoints.DEFAULT_EVENTS_BASE_URI))
           .put(ConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name, diagnosticRecordingInterval.toMillis())
           .put(ConfigProperty.EVENTS_CAPACITY.name, capacity)
@@ -270,13 +269,13 @@ abstract class ComponentsImpl {
 
   static final class HttpConfigurationBuilderImpl extends HttpConfigurationBuilder {
     @Override
-    public HttpConfiguration createHttpConfiguration(BasicConfiguration basicConfiguration) {
+    public HttpConfiguration createHttpConfiguration(ClientContext clientContext) {
       // Build the default headers
       ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
-      headers.put("Authorization", basicConfiguration.getSdkKey());
+      headers.put("Authorization", clientContext.getSdkKey());
       headers.put("User-Agent", "JavaClient/" + Version.SDK_VERSION);
-      if (basicConfiguration.getApplicationInfo() != null) {
-        String tagHeader = Util.applicationTagHeader(basicConfiguration.getApplicationInfo());
+      if (clientContext.getApplicationInfo() != null) {
+        String tagHeader = Util.applicationTagHeader(clientContext.getApplicationInfo());
         if (!tagHeader.isEmpty()) {
           headers.put("X-LaunchDarkly-Tags", tagHeader);
         }
@@ -325,9 +324,9 @@ abstract class ComponentsImpl {
     }
 
     @Override
-    public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
+    public LDValue describeConfiguration(ClientContext clientContext) {
       if (persistentDataStoreFactory instanceof DiagnosticDescription) {
-        return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(basicConfiguration);
+        return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(clientContext);
       }
       return LDValue.of("custom");
     }
@@ -351,7 +350,7 @@ abstract class ComponentsImpl {
   
   static final class LoggingConfigurationBuilderImpl extends LoggingConfigurationBuilder {
     @Override
-    public LoggingConfiguration createLoggingConfiguration(BasicConfiguration basicConfiguration) {
+    public LoggingConfiguration createLoggingConfiguration(ClientContext clientContext) {
       return new LoggingConfigurationImpl(logDataSourceOutageAsErrorAfter);
     }
   }

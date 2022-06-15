@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
+import com.launchdarkly.sdk.server.Components;
+
 /**
  * Context information provided by the {@link com.launchdarkly.sdk.server.LDClient} when creating components.
  * <p>
@@ -9,30 +11,110 @@ package com.launchdarkly.sdk.server.interfaces;
  * to access the configurations of unrelated components.
  * <p>
  * The actual implementation class may contain other properties that are only relevant to the built-in
- * SDK components and are therefore not part of the public interface; this allows the SDK to add its own
- * context information as needed without disturbing the public API.
+ * SDK components and are therefore not part of this base class; this allows the SDK to add its own context
+ * information as needed without disturbing the public API.
  * 
  * @since 5.0.0
  */
-public interface ClientContext {
+public class ClientContext {
+  private final String sdkKey;
+  private final ApplicationInfo applicationInfo;
+  private final HttpConfiguration http;
+  private final LoggingConfiguration logging;
+  private final boolean offline;
+  private final ServiceEndpoints serviceEndpoints;
+  private final int threadPriority;
+
   /**
-   * The SDK's basic global properties.
+   * Constructor that sets all properties. All should be non-null.
    * 
-   * @return the basic configuration
+   * @param sdkKey
+   * @param applicationInfo
+   * @param http
+   * @param logging
+   * @param offline
+   * @param serviceEndpoints
+   * @param threadPriority
    */
-  public BasicConfiguration getBasic();
+  public ClientContext(
+      String sdkKey,
+      ApplicationInfo applicationInfo,
+      HttpConfiguration http,
+      LoggingConfiguration logging,
+      boolean offline,
+      ServiceEndpoints serviceEndpoints,
+      int threadPriority
+      ) {
+    this.sdkKey = sdkKey;
+    this.applicationInfo = applicationInfo;
+    this.http = http;
+    this.logging = logging;
+    this.offline = offline;
+    this.serviceEndpoints = serviceEndpoints;
+    this.threadPriority = threadPriority;
+  }
+  
+  /**
+   * Basic constructor for convenience in testing, using defaults for most properties.
+   * 
+   * @param sdkKey the SDK key
+   */
+  public ClientContext(String sdkKey) {
+    this(
+        sdkKey,
+        new ApplicationInfo(null, null),
+        defaultHttp(sdkKey),
+        defaultLogging(),
+        false,
+        Components.serviceEndpoints().createServiceEndpoints(),
+        Thread.MIN_PRIORITY
+        );
+  }
+  
+  private static HttpConfiguration defaultHttp(String sdkKey) {
+    ClientContext minimalContext = new ClientContext(sdkKey, null, null, null, false, null, 0);
+    return Components.httpConfiguration().createHttpConfiguration(minimalContext);
+  }
+  
+  private static LoggingConfiguration defaultLogging() {
+    ClientContext minimalContext = new ClientContext("", null, null, null, false, null, 0);
+    return Components.logging().createLoggingConfiguration(minimalContext);
+  }
+  
+  public String getSdkKey() {
+    return sdkKey;
+  }
+  
+  public ApplicationInfo getApplicationInfo() {
+    return applicationInfo;
+  }
   
   /**
    * The configured networking properties that apply to all components.
    * 
    * @return the HTTP configuration
    */
-  public HttpConfiguration getHttp();
-  
+  public HttpConfiguration getHttp() {
+    return http;
+  }
+
   /**
    * The configured logging properties that apply to all components.
    * @return the logging configuration
    */
-  public LoggingConfiguration getLogging();
+  public LoggingConfiguration getLogging() {
+    return logging;
+  }
   
+  public boolean isOffline() {
+    return offline;
+  }
+  
+  public ServiceEndpoints getServiceEndpoints() {
+    return serviceEndpoints;
+  }
+  
+  public int getThreadPriority() {
+    return threadPriority;
+  }
 }

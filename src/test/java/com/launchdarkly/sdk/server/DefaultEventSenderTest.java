@@ -57,7 +57,7 @@ public class DefaultEventSenderTest {
   public void factoryCreatesDefaultSenderWithDefaultRetryDelay() throws Exception {
     EventSenderFactory f = new DefaultEventSender.Factory();
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT);
-    try (EventSender es = f.createEventSender(context.getBasic(), context.getHttp())) {
+    try (EventSender es = f.createEventSender(context)) {
       assertThat(es, isA(EventSender.class));
       assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
     }
