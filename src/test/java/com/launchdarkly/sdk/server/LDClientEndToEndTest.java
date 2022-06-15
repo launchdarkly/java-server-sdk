@@ -125,9 +125,7 @@ public class LDClientEndToEndTest {
             .serviceEndpoints(Components.serviceEndpoints().polling(serverUri))
             .dataSource(Components.pollingDataSource())
             .events(noEvents())
-            .http(httpConfig)
-            .startWait(Duration.ofMillis(100))
-            .build());
+            .http(httpConfig));
   }
   
   @Test
@@ -212,9 +210,7 @@ public class LDClientEndToEndTest {
           new LDConfig.Builder()
             .serviceEndpoints(Components.serviceEndpoints().streaming(serverUri))
             .events(noEvents())
-            .http(httpConfig)
-            .startWait(Duration.ofMillis(100))
-            .build());
+            .http(httpConfig));
   }
   
   @Test
@@ -258,17 +254,21 @@ public class LDClientEndToEndTest {
   }
 
   private static void testWithSpecialHttpConfigurations(Handler handler,
-      BiFunction<URI, HttpConfigurationFactory, LDConfig> makeConfig) throws Exception {
+      BiFunction<URI, HttpConfigurationFactory, LDConfig.Builder> makeConfig) throws Exception {
     TestHttpUtil.testWithSpecialHttpConfigurations(handler,
         (serverUri, httpConfig) -> {
-          LDConfig config = makeConfig.apply(serverUri, httpConfig);
+          LDConfig config = makeConfig.apply(serverUri, httpConfig)
+              .startWait(Duration.ofSeconds(10)) // allow extra time to be sure it can connect
+              .build();
           try (LDClient client = new LDClient(sdkKey, config)) {
             assertTrue(client.isInitialized());
             assertTrue(client.boolVariation(flagKey, user, false));
           }
         },
         (serverUri, httpConfig) -> {
-          LDConfig config = makeConfig.apply(serverUri, httpConfig);
+          LDConfig config = makeConfig.apply(serverUri, httpConfig)
+              .startWait(Duration.ofMillis(100)) // don't wait terribly long when we don't expect it to succeed
+              .build();
           try (LDClient client = new LDClient(sdkKey, config)) {
             assertFalse(client.isInitialized());
           }
