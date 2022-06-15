@@ -5,7 +5,7 @@ import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
 
 import java.time.Duration;
 
-final class LoggingConfigurationImpl implements LoggingConfiguration, LoggingConfiguration.AdapterOptions {
+final class LoggingConfigurationImpl implements LoggingConfiguration {
   private final String baseLoggerName;
   private final LDLogAdapter logAdapter;
   private final Duration logDataSourceOutageAsErrorAfter;

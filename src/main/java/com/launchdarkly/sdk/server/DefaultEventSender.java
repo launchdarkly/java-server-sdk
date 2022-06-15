@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
@@ -164,11 +163,11 @@ final class DefaultEventSender implements EventSender {
     return null;
   }
   
-  static final class Factory implements EventSenderFactory, EventSenderFactory.WithLogger {
+  static final class Factory implements EventSenderFactory {
     @Override
     public EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration) {
       return new DefaultEventSender(httpConfiguration, DefaultEventSender.DEFAULT_RETRY_DELAY,
-          LDLogger.withAdapter(Logs.none(), ""));
+          LDLogger.none());
     }
     
     @Override

@@ -240,13 +240,11 @@ abstract class ComponentsImpl {
       LDLogger logger = baseLogger.subLogger(Loggers.EVENTS_LOGGER_NAME);
       EventSenderFactory senderFactory =
           eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory;
-      EventSender eventSender =
-          (senderFactory instanceof EventSenderFactory.WithLogger) ?
-              ((EventSenderFactory.WithLogger)senderFactory).createEventSender(
-                  context.getBasic(),
-                  context.getHttp(),
-                  logger) :
-              senderFactory.createEventSender(context.getBasic(), context.getHttp());
+      EventSender eventSender = senderFactory.createEventSender(
+          context.getBasic(),
+          context.getHttp(),
+          logger
+          );
       URI eventsUri = StandardEndpoints.selectBaseUri(
           context.getBasic().getServiceEndpoints().getEventsBaseUri(),
           baseURI,
