@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
@@ -116,18 +115,13 @@ final class ClientContextImpl implements ClientContext {
     return loggingConfiguration;
   }
   
-//  @Override
-//  public LDLogger getBaseLogger() {
-//    return baseLogger;
-//  }
-  
   private static LDLogger makeDefaultLogger(BasicConfiguration basicConfiguration) {
     LoggingConfiguration lc = Components.logging().createLoggingConfiguration(basicConfiguration);
     if (lc instanceof LoggingConfiguration.AdapterOptions) {
       LoggingConfiguration.AdapterOptions ao = (LoggingConfiguration.AdapterOptions)lc;
       return LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
     }
-    return LDLogger.withAdapter(Logs.none(), "");
+    return LDLogger.none();
   }
   
   /**
