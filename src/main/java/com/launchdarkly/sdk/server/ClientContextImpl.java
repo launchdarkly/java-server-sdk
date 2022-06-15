@@ -21,13 +21,12 @@ import java.util.concurrent.ScheduledExecutorService;
  * implementation of {@link ClientContext}, which might have been created for instance in application
  * test code).
  */
-final class ClientContextImpl implements ClientContext, ClientContext.WithBaseLogger {
+final class ClientContextImpl implements ClientContext {
   private static volatile ScheduledExecutorService fallbackSharedExecutor = null;
   
   private final BasicConfiguration basicConfiguration;
   private final HttpConfiguration httpConfiguration;
   private final LoggingConfiguration loggingConfiguration;
-  private final LDLogger baseLogger;
   final ScheduledExecutorService sharedExecutor;
   final DiagnosticAccumulator diagnosticAccumulator;
   final DiagnosticEvent.Init diagnosticInitEvent;
@@ -38,8 +37,7 @@ final class ClientContextImpl implements ClientContext, ClientContext.WithBaseLo
       LoggingConfiguration loggingConfiguration,
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator,
-      DiagnosticEvent.Init diagnosticInitEvent,
-      LDLogger baseLogger
+      DiagnosticEvent.Init diagnosticInitEvent
   ) {
     this.basicConfiguration = basicConfiguration;
     this.httpConfiguration = httpConfiguration;
@@ -47,7 +45,6 @@ final class ClientContextImpl implements ClientContext, ClientContext.WithBaseLo
     this.sharedExecutor = sharedExecutor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.diagnosticInitEvent = diagnosticInitEvent;
-    this.baseLogger = baseLogger;
   }
 
   ClientContextImpl(
@@ -56,20 +53,33 @@ final class ClientContextImpl implements ClientContext, ClientContext.WithBaseLo
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator
   ) {
-    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority);
-    
-    this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
-    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(basicConfiguration);
-        
+    LDLogger baseLogger;
+    // There is some temporarily over-elaborate logic here because the component factory interfaces can't
+    // be updated to make the dependencies more sensible till the next major version.
+    BasicConfiguration tempBasic = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority,
+        configuration.applicationInfo, configuration.serviceEndpoints, LDLogger.none());
+    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(tempBasic);
     if (this.loggingConfiguration instanceof LoggingConfiguration.AdapterOptions) {
       LoggingConfiguration.AdapterOptions ao = (LoggingConfiguration.AdapterOptions)this.loggingConfiguration;
-      this.baseLogger = LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
+      baseLogger = LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
     } else {
-      this.baseLogger = makeDefaultLogger(basicConfiguration);
+      baseLogger = makeDefaultLogger(tempBasic);
     }
     
+    this.basicConfiguration = new BasicConfiguration(
+        sdkKey,
+        configuration.offline,
+        configuration.threadPriority,
+        configuration.applicationInfo,
+        configuration.serviceEndpoints,
+        baseLogger
+        );
+    
+    this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
+ 
+    
     if (this.httpConfiguration.getProxy() != null) {
-      this.baseLogger.info("Using proxy: {} {} authentication.",
+      baseLogger.info("Using proxy: {} {} authentication.",
           this.httpConfiguration.getProxy(),
           this.httpConfiguration.getProxyAuthentication() == null ? "without" : "with");
     }
@@ -106,10 +116,10 @@ final class ClientContextImpl implements ClientContext, ClientContext.WithBaseLo
     return loggingConfiguration;
   }
   
-  @Override
-  public LDLogger getBaseLogger() {
-    return baseLogger;
-  }
+//  @Override
+//  public LDLogger getBaseLogger() {
+//    return baseLogger;
+//  }
   
   private static LDLogger makeDefaultLogger(BasicConfiguration basicConfiguration) {
     LoggingConfiguration lc = Components.logging().createLoggingConfiguration(basicConfiguration);
@@ -142,8 +152,7 @@ final class ClientContextImpl implements ClientContext, ClientContext.WithBaseLo
         context.getLogging(),
         fallbackSharedExecutor,
         null,
-        null,
-        makeDefaultLogger(context.getBasic())
+        null
         );
   }
 }

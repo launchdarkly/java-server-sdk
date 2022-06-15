@@ -160,9 +160,25 @@ public class LDClientTest extends BaseTest {
   }
 
   @Test
+  public void canSetCustomEventsEndpoint() throws Exception {
+    URI eu = URI.create("http://fake");
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
+        .serviceEndpoints(Components.serviceEndpoints().events(eu))
+        .events(Components.sendEvents())
+        .diagnosticOptOut(true)
+        .logging(Components.logging(testLogging))
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(eu, ((DefaultEventProcessor) client.eventProcessor).dispatcher.eventsConfig.eventsUri);
+    }
+  }
+
+  @Test
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource().baseURI(URI.create("http://fake")))
+        .dataSource(Components.streamingDataSource())
+        .serviceEndpoints(Components.serviceEndpoints().streaming("http://fake"))
         .events(Components.noEvents())
         .logging(Components.logging(testLogging))
         .startWait(Duration.ZERO)
@@ -173,9 +189,24 @@ public class LDClientTest extends BaseTest {
   }
 
   @Test
+  public void canSetCustomStreamingEndpoint() throws Exception {
+    URI su = URI.create("http://fake");
+    LDConfig config = new LDConfig.Builder()
+        .serviceEndpoints(Components.serviceEndpoints().streaming(su))
+        .events(Components.noEvents())
+        .logging(Components.logging(testLogging))
+        .startWait(Duration.ZERO)
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(su, ((StreamProcessor) client.dataSource).streamUri);
+    }
+  }
+
+  @Test
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.pollingDataSource().baseURI(URI.create("http://fake")))
+        .dataSource(Components.pollingDataSource())
+        .serviceEndpoints(Components.serviceEndpoints().polling("http://fake"))
         .events(Components.noEvents())
         .logging(Components.logging(testLogging))
         .startWait(Duration.ZERO)
@@ -186,12 +217,28 @@ public class LDClientTest extends BaseTest {
   }
 
   @Test
+  public void canSetCustomPollingEndpoint() throws Exception {
+    URI pu = URI.create("http://fake");
+    LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.pollingDataSource())
+        .serviceEndpoints(Components.serviceEndpoints().polling(pu))
+        .events(Components.noEvents())
+        .logging(Components.logging(testLogging))
+        .startWait(Duration.ZERO)
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertEquals(pu, ((DefaultFeatureRequestor) ((PollingProcessor) client.dataSource).requestor).baseUri);
+    }
+  }
+
+  @Test
   public void sameDiagnosticAccumulatorPassedToFactoriesWhenSupported() throws IOException {
     DataSourceFactory mockDataSourceFactory = mocks.createStrictMock(DataSourceFactory.class);
 
     LDConfig config = new LDConfig.Builder()
             .dataSource(mockDataSourceFactory)
-            .events(Components.sendEvents().baseURI(URI.create("fake-host"))) // event processor will try to send a diagnostic event here
+            .serviceEndpoints(Components.serviceEndpoints().events("fake-host")) // event processor will try to send a diagnostic event here
+            .events(Components.sendEvents())
             .logging(Components.logging(testLogging))
             .startWait(Duration.ZERO)
             .build();

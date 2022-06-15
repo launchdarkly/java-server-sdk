@@ -60,7 +60,7 @@ public abstract class LoggingConfigurationBuilder implements LoggingConfiguratio
    * 
    * @param logAdapter an {@link LDLogAdapter} for the desired logging implementation
    * @return the builder
-   * @since 5.8.0
+   * @since 5.10.0
    */
   public LoggingConfigurationBuilder adapter(LDLogAdapter logAdapter) {
     this.logAdapter = logAdapter;
@@ -103,7 +103,7 @@ public abstract class LoggingConfigurationBuilder implements LoggingConfiguratio
    * 
    * @param name the base logger name
    * @return the builder
-   * @since 5.8.0
+   * @since 5.10.0
    */
   public LoggingConfigurationBuilder baseLoggerName(String name) {
     this.baseName = name;
@@ -125,7 +125,7 @@ public abstract class LoggingConfigurationBuilder implements LoggingConfiguratio
    * 
    * @param minimumLevel the lowest level of logging to enable
    * @return the builder
-   * @since 5.8.0
+   * @since 5.10.0
    */
   public LoggingConfigurationBuilder level(LDLogLevel minimumLevel) {
     this.minimumLevel = minimumLevel;

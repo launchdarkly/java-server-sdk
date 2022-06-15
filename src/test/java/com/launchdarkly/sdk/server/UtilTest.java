@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 
@@ -8,6 +9,7 @@ import org.junit.Test;
 import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.Util.applicationTagHeader;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 import static org.junit.Assert.assertEquals;
@@ -20,7 +22,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 @SuppressWarnings("javadoc")
-public class UtilTest {
+public class UtilTest extends BaseTest {
   @Test
   public void testConnectTimeout() {
     LDConfig config = new LDConfig.Builder().http(Components.httpConfiguration().connectTimeout(Duration.ofSeconds(3))).build();
@@ -89,5 +91,23 @@ public class UtilTest {
     assertEquals("70 seconds", Util.describeDuration(Duration.ofMillis(70000)));
     assertEquals("1 minute", Util.describeDuration(Duration.ofMillis(60000)));
     assertEquals("2 minutes", Util.describeDuration(Duration.ofMillis(120000)));
+  }
+
+  @Test
+  public void testApplicationTagHeader() {
+    assertEquals("", applicationTagHeader(new ApplicationInfo(null, null), testLogger));
+    assertEquals("application-id/foo", applicationTagHeader(new ApplicationInfo("foo", null), testLogger));
+    assertEquals("application-version/1.0.0",
+        applicationTagHeader(new ApplicationInfo(null, "1.0.0"), testLogger));
+    assertEquals("application-id/foo application-version/1.0.0",
+        applicationTagHeader(new ApplicationInfo("foo", "1.0.0"), testLogger));
+    // Values with invalid characters get discarded
+    assertEquals("", applicationTagHeader(new ApplicationInfo("invalid name", "lol!"), testLogger));
+    // Values over 64 chars get discarded
+    assertEquals("", applicationTagHeader(
+        new ApplicationInfo("look-at-this-incredibly-long-application-id-like-wow-it-sure-is-verbose", null),
+        testLogger));
+    // Empty values get discarded
+    assertEquals("", applicationTagHeader(new ApplicationInfo("", ""), testLogger));
   }
 }

@@ -46,7 +46,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
       assertThat(ec.diagnosticRecordingInterval, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL));
       assertThat(ec.eventSender, instanceOf(DefaultEventSender.class));
-      assertThat(ec.eventsUri, equalTo(LDConfig.DEFAULT_EVENTS_URI));
+      assertThat(ec.eventsUri, equalTo(StandardEndpoints.DEFAULT_EVENTS_BASE_URI));
       assertThat(ec.flushInterval, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL));
       assertThat(ec.inlineUsersInEvents, is(false));
       assertThat(ec.privateAttributes, equalTo(ImmutableSet.<UserAttribute>of()));

@@ -88,7 +88,12 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   }
   
   /**
-   * Sets a custom base URI for the events service.
+   * Deprecated method for setting a custom base URI for the events service.
+   * <p>
+   * The preferred way to set this option is now with
+   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
+   * If you set this deprecated option, it overrides any value that was set with
+   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
    * <p>
    * You will only need to change this value in the following cases:
    * <ul>
@@ -99,7 +104,10 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * 
    * @param baseURI the base URI of the events service; null to use the default
    * @return the builder
+   * @deprecated Use {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)} and
+   * {@link ServiceEndpointsBuilder#events(URI)}.
    */
+  @Deprecated
   public EventProcessorBuilder baseURI(URI baseURI) {
     this.baseURI = baseURI;
     return this;

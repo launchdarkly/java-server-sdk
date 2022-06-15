@@ -81,14 +81,14 @@ final class DefaultEventSender implements EventSender {
     
     switch (kind) {
     case ANALYTICS:
-      path = "bulk";
+      path = StandardEndpoints.ANALYTICS_EVENTS_POST_REQUEST_PATH;
       String eventPayloadId = UUID.randomUUID().toString();
       headersBuilder.add(EVENT_PAYLOAD_ID_HEADER, eventPayloadId);
       headersBuilder.add(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION);
       description = String.format("%d event(s)", eventCount);
       break;
     case DIAGNOSTICS:
-      path = "diagnostic";
+      path = StandardEndpoints.DIAGNOSTIC_EVENTS_POST_REQUEST_PATH;
       description = "diagnostic event";
       break;
     default:

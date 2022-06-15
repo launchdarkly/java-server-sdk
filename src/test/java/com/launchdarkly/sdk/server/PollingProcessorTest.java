@@ -96,7 +96,7 @@ public class PollingProcessorTest extends BaseTest {
   public void builderHasDefaultConfiguration() throws Exception {
     DataSourceFactory f = Components.pollingDataSource();
     try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, baseConfig().build()), null)) {
-      assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(LDConfig.DEFAULT_BASE_URI));
+      assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(StandardEndpoints.DEFAULT_POLLING_BASE_URI));
       assertThat(pp.pollInterval, equalTo(PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL));
     }
   }

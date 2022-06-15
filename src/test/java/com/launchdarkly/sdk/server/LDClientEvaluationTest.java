@@ -64,6 +64,10 @@ public class LDClientEvaluationTest extends BaseTest {
   @Test
   public void boolVariationReturnsDefaultValueForUnknownFlag() throws Exception {
     assertFalse(client.boolVariation("key", user, false));
+
+    assertEquals(EvaluationDetail.fromValue(false, NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND)),
+        client.boolVariationDetail("key", user, false));
   }
   
   @Test
@@ -71,6 +75,10 @@ public class LDClientEvaluationTest extends BaseTest {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("wrong")));
 
     assertFalse(client.boolVariation("key", user, false));
+
+    assertEquals(EvaluationDetail.fromValue(false, NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE)),
+        client.boolVariationDetail("key", user, false));
   }
   
   @Test
@@ -103,6 +111,10 @@ public class LDClientEvaluationTest extends BaseTest {
   @Test
   public void intVariationReturnsDefaultValueForUnknownFlag() throws Exception {
     assertEquals(1, client.intVariation("key", user, 1));
+
+    assertEquals(EvaluationDetail.fromValue(1, NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND)),
+        client.intVariationDetail("key", user, 1));
   }
 
   @Test
@@ -110,6 +122,10 @@ public class LDClientEvaluationTest extends BaseTest {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("wrong")));
 
     assertEquals(1, client.intVariation("key", user, 1));
+    
+    assertEquals(EvaluationDetail.fromValue(1, NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE)),
+        client.intVariationDetail("key", user, 1));
   }
   
   @Test
@@ -129,6 +145,10 @@ public class LDClientEvaluationTest extends BaseTest {
   @Test
   public void doubleVariationReturnsDefaultValueForUnknownFlag() throws Exception {
     assertEquals(1.0d, client.doubleVariation("key", user, 1.0d), 0d);
+
+    assertEquals(EvaluationDetail.fromValue(1.0d, NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND)),
+        client.doubleVariationDetail("key", user, 1.0d));
   }
 
   @Test
@@ -136,6 +156,10 @@ public class LDClientEvaluationTest extends BaseTest {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("wrong")));
 
     assertEquals(1.0d, client.doubleVariation("key", user, 1.0d), 0d);
+    
+    assertEquals(EvaluationDetail.fromValue(1.0d, NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE)),
+        client.doubleVariationDetail("key", user, 1.0d));
   }
   
   @Test
@@ -160,6 +184,10 @@ public class LDClientEvaluationTest extends BaseTest {
   @Test
   public void stringVariationWithNullDefaultReturnsDefaultValueForUnknownFlag() throws Exception {
     assertNull(client.stringVariation("key", user, null));
+
+    assertEquals(EvaluationDetail.fromValue((String)null, NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND)),
+        client.stringVariationDetail("key", user, null));
   }
 
   @Test
@@ -167,6 +195,10 @@ public class LDClientEvaluationTest extends BaseTest {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
 
     assertEquals("a", client.stringVariation("key", user, "a"));
+    
+    assertEquals(EvaluationDetail.fromValue("a", NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE)),
+        client.stringVariationDetail("key", user, "a"));
   }
 
   @Test
@@ -174,6 +206,10 @@ public class LDClientEvaluationTest extends BaseTest {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
 
     assertNull(client.stringVariation("key", user, null));
+  
+    assertEquals(EvaluationDetail.fromValue((String)null, NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE)),
+        client.stringVariationDetail("key", user, null));
   }
   
   @Test

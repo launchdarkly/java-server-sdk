@@ -26,7 +26,9 @@ public class TestService {
     "all-flags-client-side-only",
     "all-flags-details-only-for-tracked-flags",
     "all-flags-with-reasons",
-    "big-segments"
+    "big-segments",
+    "tags",
+    "service-endpoints"
   };
   
   static final Gson gson = new GsonBuilder().serializeNulls().create();

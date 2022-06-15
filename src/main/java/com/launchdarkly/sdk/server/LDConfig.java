@@ -1,7 +1,10 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
+import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
+import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
@@ -9,6 +12,7 @@ import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
+import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
 
 import java.net.URI;
 import java.time.Duration;
@@ -17,14 +21,11 @@ import java.time.Duration;
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.sdk.server.LDConfig.Builder}.
  */
 public final class LDConfig {
-  static final URI DEFAULT_BASE_URI = URI.create("https://app.launchdarkly.com");
-  static final URI DEFAULT_EVENTS_URI = URI.create("https://events.launchdarkly.com");
-  static final URI DEFAULT_STREAM_URI = URI.create("https://stream.launchdarkly.com");
-
   static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
   
   protected static final LDConfig DEFAULT = new Builder().build();
 
+  final ApplicationInfo applicationInfo;
   final BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder;
   final DataSourceFactory dataSourceFactory;
   final DataStoreFactory dataStoreFactory;
@@ -32,6 +33,7 @@ public final class LDConfig {
   final EventProcessorFactory eventProcessorFactory;
   final HttpConfigurationFactory httpConfigFactory;
   final LoggingConfigurationFactory loggingConfigFactory;
+  final ServiceEndpoints serviceEndpoints;
   final boolean offline;
   final Duration startWait;
   final int threadPriority;
@@ -46,6 +48,9 @@ public final class LDConfig {
       this.eventProcessorFactory = builder.eventProcessorFactory == null ? Components.sendEvents() :
         builder.eventProcessorFactory;
     }
+    this.applicationInfo = (builder.applicationInfoBuilder == null ? Components.applicationInfo() :
+      builder.applicationInfoBuilder)
+      .createApplicationInfo();
     this.bigSegmentsConfigBuilder = builder.bigSegmentsConfigBuilder == null ?
             Components.bigSegments(null) : builder.bigSegmentsConfigBuilder;
     this.dataStoreFactory = builder.dataStoreFactory == null ? Components.inMemoryDataStore() :
@@ -56,6 +61,9 @@ public final class LDConfig {
     this.loggingConfigFactory = builder.loggingConfigFactory == null ? Components.logging() :
       builder.loggingConfigFactory;
     this.offline = builder.offline;
+    this.serviceEndpoints = (builder.serviceEndpointsBuilder == null ? Components.serviceEndpoints() :
+      builder.serviceEndpointsBuilder)
+      .createServiceEndpoints();
     this.startWait = builder.startWait;
     this.threadPriority = builder.threadPriority;
   }
@@ -72,6 +80,7 @@ public final class LDConfig {
    * </pre>
    */
   public static class Builder {
+    private ApplicationInfoBuilder applicationInfoBuilder = null;
     private BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder = null;
     private DataSourceFactory dataSourceFactory = null;
     private DataStoreFactory dataStoreFactory = null;
@@ -79,6 +88,7 @@ public final class LDConfig {
     private EventProcessorFactory eventProcessorFactory = null;
     private HttpConfigurationFactory httpConfigFactory = null;
     private LoggingConfigurationFactory loggingConfigFactory = null;
+    private ServiceEndpointsBuilder serviceEndpointsBuilder = null;
     private boolean offline = false;
     private Duration startWait = DEFAULT_START_WAIT;
     private int threadPriority = Thread.MIN_PRIORITY;
@@ -87,6 +97,22 @@ public final class LDConfig {
      * Creates a builder with all configuration parameters set to the default
      */
     public Builder() {
+    }
+
+    /**
+     * Sets the SDK's application metadata, which may be used in LaunchDarkly analytics or other product features,
+     * but does not affect feature flag evaluations.
+     * <p>
+     * This object is normally a configuration builder obtained from {@link Components#applicationInfo()},
+     * which has methods for setting individual logging-related properties.
+     *
+     * @param applicationInfoBuilder a configuration builder object returned by {@link Components#applicationInfo()}
+     * @return the builder
+     * @since 5.8.0
+     */
+    public Builder applicationInfo(ApplicationInfoBuilder applicationInfoBuilder) {
+      this.applicationInfoBuilder = applicationInfoBuilder;
+      return this;
     }
 
     /**
@@ -239,6 +265,21 @@ public final class LDConfig {
      */
     public Builder offline(boolean offline) {
       this.offline = offline;
+      return this;
+    }
+
+    /** 
+     * Sets the base service URIs used by SDK components.
+     * <p>
+     * This object is normally a configuration builder obtained from {@link Components#serviceEndpoints()},
+     * which has methods for setting each external endpoint to a custom URI.
+     *
+     * @param serviceEndpointsBuilder a configuration builder object returned by {@link Components#applicationInfo()}
+     * @return the builder
+     * @since 5.9.0
+     */
+    public Builder serviceEndpoints(ServiceEndpointsBuilder serviceEndpointsBuilder) {
+      this.serviceEndpointsBuilder = serviceEndpointsBuilder;
       return this;
     }
 

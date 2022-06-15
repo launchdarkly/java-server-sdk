@@ -25,6 +25,8 @@ public abstract class Representations {
     SdkConfigStreamParams streaming;
     SdkConfigEventParams events;
     SdkConfigBigSegmentsParams bigSegments;
+    SdkConfigTagParams tags;
+    SdkConfigServiceEndpointParams serviceEndpoints;
   }
   
   public static class SdkConfigStreamParams {
@@ -48,6 +50,17 @@ public abstract class Representations {
     Long userCacheTimeMs;
     Long statusPollIntervalMs;
     Long staleAfterMs;
+  }
+
+  public static class SdkConfigTagParams {
+    String applicationId;
+    String applicationVersion;
+  }
+
+  public static class SdkConfigServiceEndpointParams {
+    String streaming;
+    String polling;
+    String events;
   }
   
   public static class CommandParams {

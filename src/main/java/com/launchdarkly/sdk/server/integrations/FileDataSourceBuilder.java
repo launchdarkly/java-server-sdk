@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.io.ByteStreams;
 import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
@@ -124,12 +123,7 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
    */
   @Override
   public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-    LDLogger logger;
-    if (context instanceof ClientContext.WithBaseLogger) {
-      logger = ((ClientContext.WithBaseLogger)context).getBaseLogger().subLogger("DataSource");
-    } else {
-      logger = LDLogger.withAdapter(Logs.none(), "");
-    }
+    LDLogger logger = context.getBasic().getBaseLogger().subLogger("DataSource");
     return new FileDataSourceImpl(dataSourceUpdates, sources, autoUpdate, duplicateKeysHandling, logger);
   }
   

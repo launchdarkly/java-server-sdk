@@ -69,7 +69,6 @@ import okhttp3.OkHttpClient;
  * if we succeed then the client can detect that we're initialized now by calling our Initialized method.
  */
 final class StreamProcessor implements DataSource {
-  private static final String STREAM_URI_PATH = "all";
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
@@ -177,7 +176,7 @@ final class StreamProcessor implements DataSource {
     };
 
     EventHandler handler = new StreamEventHandler(initFuture);
-    URI endpointUri = concatenateUriPath(streamUri, STREAM_URI_PATH);
+    URI endpointUri = concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
 
     EventSource.Builder builder = new EventSource.Builder(handler, endpointUri)
         .threadPriority(threadPriority)

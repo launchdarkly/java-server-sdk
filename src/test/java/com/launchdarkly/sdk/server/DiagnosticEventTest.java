@@ -120,6 +120,44 @@ public class DiagnosticEventTest {
 
     assertEquals(expected, diagnosticJson);
   }
+
+  @Test
+  public void testCustomDiagnosticConfigurationForServiceEndpoints() {
+    LDConfig ldConfig1 = new LDConfig.Builder()
+        .serviceEndpoints(
+            Components.serviceEndpoints()
+              .streaming(CUSTOM_URI)
+              .events(CUSTOM_URI)
+              // this shouldn't show up in diagnostics because we don't use the polling component
+              .polling(CUSTOM_URI)
+        )
+        .build();
+    LDValue expected1 = expectedDefaultProperties()
+        .put("customStreamURI", true)
+        .put("customEventsURI", true)
+        .build();
+    assertEquals(expected1, makeConfigData(ldConfig1));
+
+    LDConfig ldConfig2 = new LDConfig.Builder()
+        .serviceEndpoints(
+            Components.serviceEndpoints()
+              .events(CUSTOM_URI)
+              .polling(CUSTOM_URI)
+        )
+        .dataSource(
+            Components.pollingDataSource()
+        )
+        .events(Components.sendEvents())
+        .build();
+    LDValue expected2 = expectedDefaultPropertiesWithoutStreaming()
+        .put("customBaseURI", true)
+        .put("customEventsURI", true)
+        .put("customStreamURI", false)
+        .put("pollingIntervalMillis", PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL.toMillis())
+        .put("streamingDisabled", true)
+        .build();
+    assertEquals(expected2, makeConfigData(ldConfig2));
+  }
   
   @Test
   public void testCustomDiagnosticConfigurationForStreaming() {
@@ -144,7 +182,7 @@ public class DiagnosticEventTest {
     assertEquals(expected2, makeConfigData(ldConfig2));
 
     LDConfig ldConfig3 = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource().baseURI(LDConfig.DEFAULT_STREAM_URI)) // set a URI, but not a custom one
+        .dataSource(Components.streamingDataSource().baseURI(StandardEndpoints.DEFAULT_STREAMING_BASE_URI)) // set a URI, but not a custom one
         .build();
     LDValue expected3 = expectedDefaultProperties().build();
     assertEquals(expected3, makeConfigData(ldConfig3));
@@ -185,7 +223,7 @@ public class DiagnosticEventTest {
     assertEquals(expected2, makeConfigData(ldConfig2));
 
     LDConfig ldConfig3 = new LDConfig.Builder()
-        .dataSource(Components.pollingDataSource().baseURI(LDConfig.DEFAULT_BASE_URI)) // set a URI, but not a custom one
+        .dataSource(Components.pollingDataSource().baseURI(StandardEndpoints.DEFAULT_POLLING_BASE_URI)) // set a URI, but not a custom one
         .build();
     assertEquals(expected2, makeConfigData(ldConfig3)); // result is same as previous test case
   }
@@ -278,7 +316,7 @@ public class DiagnosticEventTest {
     assertEquals(expected2, diagnosticJson2);
 
     LDConfig ldConfig3 = new LDConfig.Builder()
-        .events(Components.sendEvents().baseURI(LDConfig.DEFAULT_EVENTS_URI)) // set a base URI, but not a custom one
+        .events(Components.sendEvents().baseURI(StandardEndpoints.DEFAULT_EVENTS_BASE_URI)) // set a base URI, but not a custom one
         .build();
     
     assertEquals(expected2, makeConfigData(ldConfig3)); // result is same as previous test case

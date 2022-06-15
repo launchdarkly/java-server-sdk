@@ -12,13 +12,16 @@ import com.launchdarkly.sdk.server.ComponentsImpl.LoggingConfigurationBuilderImp
 import com.launchdarkly.sdk.server.ComponentsImpl.NullDataSourceFactory;
 import com.launchdarkly.sdk.server.ComponentsImpl.PersistentDataStoreBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.PollingDataSourceBuilderImpl;
+import com.launchdarkly.sdk.server.ComponentsImpl.ServiceEndpointsBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.StreamingDataSourceBuilderImpl;
+import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
+import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
@@ -349,7 +352,7 @@ public abstract class Components {
    * 
    * @param logAdapter the log adapter
    * @return a configuration builder
-   * @since 5.8.0
+   * @since 5.10.0
    * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)
    * @see LoggingConfigurationBuilder#adapter(LDLogAdapter)
    */
@@ -366,9 +369,54 @@ public abstract class Components {
    * It is equivalent to <code>Components.logging(com.launchdarkly.logging.Logs.none())</code>.
    * 
    * @return a configuration builder
-   * @since 5.8.0
+   * @since 5.10.0
    */
   public static LoggingConfigurationBuilder noLogging() {
     return logging().adapter(Logs.none());
+  }
+  
+  /**
+   * Returns a configuration builder for the SDK's application metadata.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)},
+   * after setting any desired properties on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .applicationInfo(
+   *             Components.applicationInfo()
+   *                 .applicationId("authentication-service")
+   *                 .applicationVersion("1.0.0")
+   *         )
+   *         .build();
+   * </code></pre>
+   *
+   * @return a builder object
+   * @since 5.8.0
+   * @see LDConfig.Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)
+   */
+  public static ApplicationInfoBuilder applicationInfo() {
+    return new ApplicationInfoBuilder();
+  }
+
+  /**
+   * Returns a builder for configuring custom service URIs.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#serviceEndpoints(com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder)},
+   * after setting any desired properties on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .serviceEndpoints(
+   *             Components.serviceEndpoints()
+   *                 .relayProxy("http://my-relay-hostname:80")
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * @return a builder object
+   * @since 5.9.0
+   * @see LDConfig.Builder#serviceEndpoints(com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder)
+   */
+  public static ServiceEndpointsBuilder serviceEndpoints() {
+    return new ServiceEndpointsBuilderImpl();
   }
 }

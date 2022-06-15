@@ -13,6 +13,7 @@ import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
+import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
@@ -34,6 +35,7 @@ import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -93,7 +95,7 @@ abstract class ComponentsImpl {
     
     @Override
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-      LDLogger logger = ClientContextImpl.get(context).getBaseLogger();
+      LDLogger logger = context.getBasic().getBaseLogger();
       if (context.getBasic().isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
@@ -142,10 +144,17 @@ abstract class ComponentsImpl {
       implements DiagnosticDescription {
     @Override
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-      LDLogger logger = ClientContextImpl.get(context).getBaseLogger().subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
+      LDLogger baseLogger = context.getBasic().getBaseLogger();
+      LDLogger logger = baseLogger.subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
       logger.info("Enabling streaming API");
 
-      URI streamUri = baseURI == null ? LDConfig.DEFAULT_STREAM_URI : baseURI;
+      URI streamUri = StandardEndpoints.selectBaseUri(
+          context.getBasic().getServiceEndpoints().getStreamingBaseUri(),
+          baseURI,
+          StandardEndpoints.DEFAULT_STREAMING_BASE_URI,
+          "streaming",
+          baseLogger
+          );
       
       return new StreamProcessor(
           context.getHttp(),
@@ -164,7 +173,10 @@ abstract class ComponentsImpl {
           .put(ConfigProperty.STREAMING_DISABLED.name, false)
           .put(ConfigProperty.CUSTOM_BASE_URI.name, false)
           .put(ConfigProperty.CUSTOM_STREAM_URI.name,
-              baseURI != null && !baseURI.equals(LDConfig.DEFAULT_STREAM_URI))
+              StandardEndpoints.isCustomBaseUri(
+                  basicConfiguration.getServiceEndpoints().getStreamingBaseUri(),
+                  baseURI,
+                  StandardEndpoints.DEFAULT_STREAMING_BASE_URI))
           .put(ConfigProperty.RECONNECT_TIME_MILLIS.name, initialReconnectDelay.toMillis())
           .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
           .build();
@@ -180,16 +192,21 @@ abstract class ComponentsImpl {
     
     @Override
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-      LDLogger logger = ClientContextImpl.get(context).getBaseLogger().subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
+      LDLogger baseLogger = context.getBasic().getBaseLogger();
+      LDLogger logger = baseLogger.subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
       
       logger.info("Disabling streaming API");
       logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
       
-      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
-          context.getHttp(),
-          baseURI == null ? LDConfig.DEFAULT_BASE_URI : baseURI,
-          logger
+      URI pollUri = StandardEndpoints.selectBaseUri(
+          context.getBasic().getServiceEndpoints().getPollingBaseUri(),
+          baseURI,
+          StandardEndpoints.DEFAULT_POLLING_BASE_URI,
+          "polling",
+          baseLogger
           );
+
+      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(context.getHttp(), pollUri, logger);
       return new PollingProcessor(
           requestor,
           dataSourceUpdates,
@@ -204,7 +221,10 @@ abstract class ComponentsImpl {
       return LDValue.buildObject()
           .put(ConfigProperty.STREAMING_DISABLED.name, true)
           .put(ConfigProperty.CUSTOM_BASE_URI.name,
-              baseURI != null && !baseURI.equals(LDConfig.DEFAULT_BASE_URI))
+              StandardEndpoints.isCustomBaseUri(
+                  basicConfiguration.getServiceEndpoints().getPollingBaseUri(),
+                  baseURI,
+                  StandardEndpoints.DEFAULT_POLLING_BASE_URI))
           .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
           .put(ConfigProperty.POLLING_INTERVAL_MILLIS.name, pollInterval.toMillis())
           .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
@@ -216,7 +236,8 @@ abstract class ComponentsImpl {
       implements DiagnosticDescription {
     @Override
     public EventProcessor createEventProcessor(ClientContext context) {
-      LDLogger logger = ClientContextImpl.get(context).getBaseLogger();
+      LDLogger baseLogger = context.getBasic().getBaseLogger();
+      LDLogger logger = baseLogger.subLogger(Loggers.EVENTS_LOGGER_NAME);
       EventSenderFactory senderFactory =
           eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory;
       EventSender eventSender =
@@ -226,12 +247,19 @@ abstract class ComponentsImpl {
                   context.getHttp(),
                   logger) :
               senderFactory.createEventSender(context.getBasic(), context.getHttp());
+      URI eventsUri = StandardEndpoints.selectBaseUri(
+          context.getBasic().getServiceEndpoints().getEventsBaseUri(),
+          baseURI,
+          StandardEndpoints.DEFAULT_EVENTS_BASE_URI,
+          "events",
+          baseLogger
+          );
       return new DefaultEventProcessor(
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
               eventSender,
-              baseURI == null ? LDConfig.DEFAULT_EVENTS_URI : baseURI,
+              eventsUri,
               flushInterval,
               inlineUsersInEvents,
               privateAttributes,
@@ -251,7 +279,11 @@ abstract class ComponentsImpl {
     public LDValue describeConfiguration(BasicConfiguration basicConfiguration) {
       return LDValue.buildObject()
           .put(ConfigProperty.ALL_ATTRIBUTES_PRIVATE.name, allAttributesPrivate)
-          .put(ConfigProperty.CUSTOM_EVENTS_URI.name, baseURI != null && !baseURI.equals(LDConfig.DEFAULT_EVENTS_URI))
+          .put(ConfigProperty.CUSTOM_EVENTS_URI.name,
+              StandardEndpoints.isCustomBaseUri(
+                  basicConfiguration.getServiceEndpoints().getEventsBaseUri(),
+                  baseURI,
+                  StandardEndpoints.DEFAULT_EVENTS_BASE_URI))
           .put(ConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name, diagnosticRecordingInterval.toMillis())
           .put(ConfigProperty.EVENTS_CAPACITY.name, capacity)
           .put(ConfigProperty.EVENTS_FLUSH_INTERVAL_MILLIS.name, flushInterval.toMillis())
@@ -266,10 +298,17 @@ abstract class ComponentsImpl {
   static final class HttpConfigurationBuilderImpl extends HttpConfigurationBuilder {
     @Override
     public HttpConfiguration createHttpConfiguration(BasicConfiguration basicConfiguration) {
+      LDLogger logger = basicConfiguration.getBaseLogger();
       // Build the default headers
       ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
       headers.put("Authorization", basicConfiguration.getSdkKey());
       headers.put("User-Agent", "JavaClient/" + Version.SDK_VERSION);
+      if (basicConfiguration.getApplicationInfo() != null) {
+        String tagHeader = Util.applicationTagHeader(basicConfiguration.getApplicationInfo(), logger);
+        if (!tagHeader.isEmpty()) {
+          headers.put("X-LaunchDarkly-Tags", tagHeader);
+        }
+      }
       if (wrapperName != null) {
         String wrapperId = wrapperVersion == null ? wrapperName : (wrapperName + "/" + wrapperVersion);
         headers.put("X-LaunchDarkly-Wrapper", wrapperId);        
@@ -331,7 +370,7 @@ abstract class ComponentsImpl {
           recordCacheStats,
           dataStoreUpdates,
           ClientContextImpl.get(context).sharedExecutor,
-          ClientContextImpl.get(context).getBaseLogger().subLogger(Loggers.DATA_STORE_LOGGER_NAME)
+          context.getBasic().getBaseLogger().subLogger(Loggers.DATA_STORE_LOGGER_NAME)
           );
     }
   }
@@ -349,6 +388,25 @@ abstract class ComponentsImpl {
       }
       String name = baseName == null ? Loggers.BASE_LOGGER_NAME : baseName;
       return new LoggingConfigurationImpl(name, filteredAdapter, logDataSourceOutageAsErrorAfter);
+    }
+  }
+
+  static final class ServiceEndpointsBuilderImpl extends ServiceEndpointsBuilder {
+    @Override
+    public ServiceEndpoints createServiceEndpoints() {
+      // If *any* custom URIs have been set, then we do not want to use default values for any that were not set,
+      // so we will leave those null. That way, if we decide later on (in other component factories, such as
+      // EventProcessorBuilder) that we are actually interested in one of these values, and we
+      // see that it is null, we can assume that there was a configuration mistake and log an
+      // error.
+      if (streamingBaseUri == null && pollingBaseUri == null && eventsBaseUri == null) {
+        return new ServiceEndpoints(
+          StandardEndpoints.DEFAULT_STREAMING_BASE_URI,
+          StandardEndpoints.DEFAULT_POLLING_BASE_URI,
+          StandardEndpoints.DEFAULT_EVENTS_BASE_URI
+        );
+      }
+      return new ServiceEndpoints(streamingBaseUri, pollingBaseUri, eventsBaseUri);
     }
   }
 }

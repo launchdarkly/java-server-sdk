@@ -2,6 +2,22 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.9.0] - 2022-05-26
+### Added:
+- `LDConfig.Builder.serviceEndpoints` provides a simpler way of setting custom service base URIs, if you are connecting to a LaunchDarkly Relay Proxy instance, a private LaunchDarkly instance, or a test fixture. Previously, this required setting a BaseURI property for each individual service (streaming, events, etc.). If using the Relay Proxy, simply remove any BaseURI calls in your SDK configuration and call `serviceEndpoints(Components.serviceEndpoints().relayProxy(myRelayProxyUri))` on the configuration builder.
+
+### Fixed:
+- Fixed documentation comments for the variation methods to clarify that `defaultValue` is used if there is an error fetching the variation or the flag doesn't exist, not when the flag is disabled.
+
+## [5.8.1] - 2022-05-04
+### Fixed:
+- Calling `stringVariationDetail` with a flag whose variations are _not_ strings, and passing `null` as the default value parameter, would result in an `EvaluationDetail` that had a null value but had a regular evaluation reason and variation index (whatever those would be for a successful evaluation of that flag). It now correctly returns a `WRONG_TYPE` error reason, and `NO_VARIATION` for the variation index.
+- If a field in `Config.ApplicationInfo` is set to a string longer than 64 characters, the SDK will now log a warning and discard it, since the LaunchDarkly services cannot process such strings for these fields.
+
+## [5.8.0] - 2022-04-18
+### Added:
+- `LDConfig.Builder.applicationInfo()`, for configuration of application metadata that may be used in LaunchDarkly analytics or other product features. This does not affect feature flag evaluations.
+
 ## [5.7.1] - 2022-02-04
 ### Fixed:
 - Fixed a packaging issue causing `launchdarkly-java-sdk-common` to be included as a dependency in the SDK's generated `pom` file. This introduces duplicate classes in the application's `jar` file. The duplicate classes can prevent the SDK's custom serialization logic from being used, due to not correctly referencing the shaded class names. ([#258](hhttps://github.com/launchdarkly/java-server-sdk/issues/258))
