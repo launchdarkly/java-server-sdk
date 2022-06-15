@@ -235,7 +235,7 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
   public void pollingDetectsStaleStatus() throws Exception {
     replayAll();
 
-    storeMetadata.set(new StoreMetadata(System.currentTimeMillis() + 5000));
+    storeMetadata.set(new StoreMetadata(System.currentTimeMillis() + 10000));
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .statusPollInterval(Duration.ofMillis(10))
         .staleAfter(Duration.ofMillis(200))
@@ -246,12 +246,12 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
       BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
       eventBroadcaster.register(statuses::add);
 
-      storeMetadata.set(new StoreMetadata(System.currentTimeMillis() - 200));
+      storeMetadata.set(new StoreMetadata(System.currentTimeMillis() - 1000));
       Status status1 = statuses.take();
       assertTrue(status1.isStale());
       assertEquals(status1, wrapper.getStatus());
 
-      storeMetadata.set(new StoreMetadata(System.currentTimeMillis() + 5000));
+      storeMetadata.set(new StoreMetadata(System.currentTimeMillis() + 10000));
       Status status2 = statuses.take();
       assertFalse(status2.isStale());
       assertEquals(status2, wrapper.getStatus());
