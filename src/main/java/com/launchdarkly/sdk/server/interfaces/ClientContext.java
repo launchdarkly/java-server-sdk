@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.server.Components;
+import com.launchdarkly.sdk.server.LDConfig;
 
 /**
  * Context information provided by the {@link com.launchdarkly.sdk.server.LDClient} when creating components.
@@ -28,13 +29,18 @@ public class ClientContext {
   /**
    * Constructor that sets all properties. All should be non-null.
    * 
-   * @param sdkKey
-   * @param applicationInfo
-   * @param http
-   * @param logging
-   * @param offline
-   * @param serviceEndpoints
-   * @param threadPriority
+   * @param sdkKey the SDK key
+   * @param applicationInfo application metadata properties from
+   *   {@link LDConfig.Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)}
+   * @param http HTTP configuration properties from
+   *   {@link LDConfig.Builder#http(HttpConfigurationFactory)}
+   * @param logging logging configuration properties from
+   *   {@link LDConfig.Builder#logging(LoggingConfigurationFactory)}
+   * @param offline true if the SDK should be entirely offline
+   * @param serviceEndpoints service endpoint URI properties from
+   *   {@link LDConfig.Builder#serviceEndpoints(com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder)}
+   * @param threadPriority worker thread priority from
+   *   {@link LDConfig.Builder#threadPriority(int)}
    */
   public ClientContext(
       String sdkKey,
