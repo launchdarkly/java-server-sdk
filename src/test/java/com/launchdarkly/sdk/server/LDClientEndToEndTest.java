@@ -30,7 +30,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class LDClientEndToEndTest {
+public class LDClientEndToEndTest extends BaseTest {
   private static final Gson gson = new Gson();
   private static final String sdkKey = "sdk-key";
   private static final String flagKey = "flag1";
@@ -61,7 +61,7 @@ public class LDClientEndToEndTest {
   @Test
   public void clientStartsInPollingMode() throws Exception {
     try (HttpServer server = HttpServer.start(makePollingSuccessResponse())) {
-      LDConfig config = new LDConfig.Builder()
+      LDConfig config = baseConfig()
           .dataSource(Components.pollingDataSource().baseURI(server.getUri()))
           .events(noEvents())
           .build();
@@ -81,7 +81,7 @@ public class LDClientEndToEndTest {
         );
 
     try (HttpServer server = HttpServer.start(errorThenSuccess)) {
-      LDConfig config = new LDConfig.Builder()
+      LDConfig config = baseConfig()
           .dataSource(Components.pollingDataSourceInternal()
               .pollIntervalWithNoMinimum(Duration.ofMillis(5)) // use small interval because we expect it to retry
               .baseURI(server.getUri()))
@@ -98,7 +98,7 @@ public class LDClientEndToEndTest {
   @Test
   public void clientFailsInPollingModeWith401Error() throws Exception {
     try (HttpServer server = HttpServer.start(makeInvalidSdkKeyResponse())) {
-      LDConfig config = new LDConfig.Builder()
+      LDConfig config = baseConfig()
           .dataSource(Components.pollingDataSourceInternal()
               .pollIntervalWithNoMinimum(Duration.ofMillis(5)) // use small interval so we'll know if it does not stop permanently
               .baseURI(server.getUri()))
@@ -120,7 +120,7 @@ public class LDClientEndToEndTest {
     testWithSpecialHttpConfigurations(
         makePollingSuccessResponse(),
         (serverUri, httpConfig) ->
-          new LDConfig.Builder()
+          baseConfig()
             .dataSource(Components.pollingDataSource().baseURI(serverUri))
             .events(noEvents())
             .http(httpConfig)
@@ -131,7 +131,7 @@ public class LDClientEndToEndTest {
   @Test
   public void clientStartsInStreamingMode() throws Exception {    
     try (HttpServer server = HttpServer.start(makeStreamingSuccessResponse())) {
-      LDConfig config = new LDConfig.Builder()
+      LDConfig config = baseConfig()
           .dataSource(Components.streamingDataSource().baseURI(server.getUri()))
           .events(noEvents())
           .build();
@@ -151,7 +151,7 @@ public class LDClientEndToEndTest {
         );
     
     try (HttpServer server = HttpServer.start(errorThenStream)) {
-      LDConfig config = new LDConfig.Builder()
+      LDConfig config = baseConfig()
           .dataSource(Components.streamingDataSource().baseURI(server.getUri()).initialReconnectDelay(Duration.ZERO))
           // use zero reconnect delay so we'll know if it does not stop permanently
           .events(noEvents())
@@ -171,7 +171,7 @@ public class LDClientEndToEndTest {
   @Test
   public void clientFailsInStreamingModeWith401Error() throws Exception {
     try (HttpServer server = HttpServer.start(makeInvalidSdkKeyResponse())) {
-      LDConfig config = new LDConfig.Builder()
+      LDConfig config = baseConfig()
           .dataSource(Components.streamingDataSource().baseURI(server.getUri()).initialReconnectDelay(Duration.ZERO))
           // use zero reconnect delay so we'll know if it does not stop permanently
           .events(noEvents())
@@ -205,7 +205,7 @@ public class LDClientEndToEndTest {
     testWithSpecialHttpConfigurations(
         makeStreamingSuccessResponse(),
         (serverUri, httpConfig) ->
-          new LDConfig.Builder()
+          baseConfig()
             .dataSource(Components.streamingDataSource().baseURI(serverUri))
             .events(noEvents())
             .http(httpConfig)
@@ -218,7 +218,7 @@ public class LDClientEndToEndTest {
     Handler resp = Handlers.status(202);
     
     try (HttpServer server = HttpServer.start(resp)) {
-      LDConfig config = new LDConfig.Builder()
+      LDConfig config = baseConfig()
           .dataSource(externalUpdatesOnly())
           .events(Components.sendEvents().baseURI(server.getUri()))
           .diagnosticOptOut(true)
@@ -239,7 +239,7 @@ public class LDClientEndToEndTest {
     Handler resp = Handlers.status(202);
     
     try (HttpServer server = HttpServer.start(resp)) {
-      LDConfig config = new LDConfig.Builder()
+      LDConfig config = baseConfig()
           .dataSource(externalUpdatesOnly())
           .events(Components.sendEvents().baseURI(server.getUri()))
           .build();

@@ -27,7 +27,11 @@ Refer to the [SDK reference guide](https://docs.launchdarkly.com/sdk/server-side
 
 ## Logging
 
-The LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). All loggers are namespaced under `com.launchdarkly`. For an example configuration check out the [hello-java](https://github.com/launchdarkly/hello-java) project.
+By default, the LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). SLF4J has its own configuration mechanisms for determining where output will go, and filtering by level and/or logger name. For an example of using SLF4J with a simple console logging configuration, check out the [hello-java](https://github.com/launchdarkly/hello-java) project.
+
+The SDK can also be configured to use other adapters from the [com.launchdarkly.logging](https://github.com/launchdarkly/java-logging) facade instead of SLF4J. See `LoggingConfigurationBuilder`. This allows the logging behavior to be completely determined by the application, rather than by external SLF4J configuration.
+
+All loggers are namespaced under `com.launchdarkly`, if you are using name-based filtering.
 
 Be aware of two considerations when enabling the DEBUG log level:
 1. Debug-level logs can be very verbose. It is not recommended that you turn on debug logging in high-volume environments.

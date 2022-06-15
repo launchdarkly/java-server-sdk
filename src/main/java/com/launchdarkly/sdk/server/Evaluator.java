@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
@@ -10,8 +11,6 @@ import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes;
 import com.launchdarkly.sdk.server.interfaces.Event;
-
-import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,8 +26,6 @@ import static com.launchdarkly.sdk.server.EvaluatorBucketing.bucketUser;
  * flags, but does not send them.
  */
 class Evaluator {
-  private final static Logger logger = Loggers.EVALUATION;
-
   /**
    * This key cannot exist in LaunchDarkly because it contains invalid characters. We use it in tests as a way to
    * simulate an unexpected RuntimeException during flag evaluations. We check for it by reference equality, so
@@ -38,6 +35,7 @@ class Evaluator {
   static final RuntimeException EXPECTED_EXCEPTION_FROM_INVALID_FLAG = new RuntimeException("deliberate test error");
   
   private final Getters getters;
+  private final LDLogger logger;
   
   /**
    * An abstraction of getting flags or segments by key. This ensures that Evaluator cannot modify the data store,
@@ -120,8 +118,9 @@ class Evaluator {
     private EvaluationReason.BigSegmentsStatus bigSegmentsStatus;
   }
   
-  Evaluator(Getters getters) {
+  Evaluator(Getters getters, LDLogger logger) {
     this.getters = getters;
+    this.logger = logger;
   }
 
   /**

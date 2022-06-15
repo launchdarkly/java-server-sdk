@@ -21,13 +21,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 @SuppressWarnings("javadoc")
-public class FlagTrackerImplTest {
+public class FlagTrackerImplTest extends BaseTest {
 
   @Test
   public void flagChangeListeners() throws Exception {
     String flagKey = "flagkey";
     EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> broadcaster =
-        EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor);
+        EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor, testLogger);
     
     FlagTrackerImpl tracker = new FlagTrackerImpl(broadcaster, null);
     
@@ -66,7 +66,7 @@ public class FlagTrackerImplTest {
     LDUser user = new LDUser("important-user");
     LDUser otherUser = new LDUser("unimportant-user");
     EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> broadcaster =
-        EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor);
+        EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor, testLogger);
     Map<Map.Entry<String, LDUser>, LDValue> resultMap = new HashMap<>();
     
     FlagTrackerImpl tracker = new FlagTrackerImpl(broadcaster,

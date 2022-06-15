@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
@@ -52,11 +52,37 @@ final class ClientContextImpl implements ClientContext {
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator
   ) {
-    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority, configuration.applicationInfo, configuration.serviceEndpoints);
+    LDLogger baseLogger;
+    // There is some temporarily over-elaborate logic here because the component factory interfaces can't
+    // be updated to make the dependencies more sensible till the next major version.
+    BasicConfiguration tempBasic = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority,
+        configuration.applicationInfo, configuration.serviceEndpoints, LDLogger.none());
+    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(tempBasic);
+    if (this.loggingConfiguration instanceof LoggingConfiguration.AdapterOptions) {
+      LoggingConfiguration.AdapterOptions ao = (LoggingConfiguration.AdapterOptions)this.loggingConfiguration;
+      baseLogger = LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
+    } else {
+      baseLogger = makeDefaultLogger(tempBasic);
+    }
+    
+    this.basicConfiguration = new BasicConfiguration(
+        sdkKey,
+        configuration.offline,
+        configuration.threadPriority,
+        configuration.applicationInfo,
+        configuration.serviceEndpoints,
+        baseLogger
+        );
     
     this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
-    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(basicConfiguration);
-        
+ 
+    
+    if (this.httpConfiguration.getProxy() != null) {
+      baseLogger.info("Using proxy: {} {} authentication.",
+          this.httpConfiguration.getProxy(),
+          this.httpConfiguration.getProxyAuthentication() == null ? "without" : "with");
+    }
+    
     this.sharedExecutor = sharedExecutor;
     
     if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {
@@ -87,6 +113,15 @@ final class ClientContextImpl implements ClientContext {
   @Override
   public LoggingConfiguration getLogging() {
     return loggingConfiguration;
+  }
+  
+  private static LDLogger makeDefaultLogger(BasicConfiguration basicConfiguration) {
+    LoggingConfiguration lc = Components.logging().createLoggingConfiguration(basicConfiguration);
+    if (lc instanceof LoggingConfiguration.AdapterOptions) {
+      LoggingConfiguration.AdapterOptions ao = (LoggingConfiguration.AdapterOptions)lc;
+      return LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
+    }
+    return LDLogger.none();
   }
   
   /**

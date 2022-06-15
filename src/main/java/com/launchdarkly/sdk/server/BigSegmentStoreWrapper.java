@@ -5,6 +5,7 @@ import static com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.create
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider.Status;
@@ -15,7 +16,6 @@ import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.checkerframework.checker.nullness.qual.NonNull;
-import org.slf4j.Logger;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -27,23 +27,23 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 class BigSegmentStoreWrapper implements Closeable {
-  private static final Logger logger = Loggers.BIG_SEGMENTS;
-
   private final BigSegmentStore store;
   private final Duration staleAfter;
   private final ScheduledFuture<?> pollFuture;
   private final LoadingCache<String, Membership> cache;
   private final EventBroadcasterImpl<StatusListener, Status> statusProvider;
-
+  private final LDLogger logger;
   private final Object statusLock = new Object();
   private Status lastStatus;
 
   BigSegmentStoreWrapper(BigSegmentsConfiguration config,
                          EventBroadcasterImpl<StatusListener, Status> statusProvider,
-                         ScheduledExecutorService sharedExecutor) {
+                         ScheduledExecutorService sharedExecutor,
+                         LDLogger logger) {
     this.store = config.getStore();
     this.staleAfter = config.getStaleAfter();
     this.statusProvider = statusProvider;
+    this.logger = logger;
 
     CacheLoader<String, Membership> loader = new CacheLoader<String, Membership>() {
       @Override

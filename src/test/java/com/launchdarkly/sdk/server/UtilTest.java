@@ -9,6 +9,7 @@ import org.junit.Test;
 import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.Util.applicationTagHeader;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 import static org.junit.Assert.assertEquals;
@@ -21,7 +22,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 @SuppressWarnings("javadoc")
-public class UtilTest {
+public class UtilTest extends BaseTest {
   @Test
   public void testConnectTimeout() {
     LDConfig config = new LDConfig.Builder().http(Components.httpConfiguration().connectTimeout(Duration.ofSeconds(3))).build();
@@ -93,16 +94,20 @@ public class UtilTest {
   }
 
   @Test
-  public void applicationTagHeader() {
-    assertEquals("", Util.applicationTagHeader(new ApplicationInfo(null, null)));
-    assertEquals("application-id/foo", Util.applicationTagHeader(new ApplicationInfo("foo", null)));
-    assertEquals("application-version/1.0.0", Util.applicationTagHeader(new ApplicationInfo(null, "1.0.0")));
-    assertEquals("application-id/foo application-version/1.0.0", Util.applicationTagHeader(new ApplicationInfo("foo", "1.0.0")));
+  public void testApplicationTagHeader() {
+    assertEquals("", applicationTagHeader(new ApplicationInfo(null, null), testLogger));
+    assertEquals("application-id/foo", applicationTagHeader(new ApplicationInfo("foo", null), testLogger));
+    assertEquals("application-version/1.0.0",
+        applicationTagHeader(new ApplicationInfo(null, "1.0.0"), testLogger));
+    assertEquals("application-id/foo application-version/1.0.0",
+        applicationTagHeader(new ApplicationInfo("foo", "1.0.0"), testLogger));
     // Values with invalid characters get discarded
-    assertEquals("", Util.applicationTagHeader(new ApplicationInfo("invalid name", "lol!")));
+    assertEquals("", applicationTagHeader(new ApplicationInfo("invalid name", "lol!"), testLogger));
     // Values over 64 chars get discarded
-    assertEquals("", Util.applicationTagHeader(new ApplicationInfo("look-at-this-incredibly-long-application-id-like-wow-it-sure-is-verbose", null)));
+    assertEquals("", applicationTagHeader(
+        new ApplicationInfo("look-at-this-incredibly-long-application-id-like-wow-it-sure-is-verbose", null),
+        testLogger));
     // Empty values get discarded
-    assertEquals("", Util.applicationTagHeader(new ApplicationInfo("", "")));
+    assertEquals("", applicationTagHeader(new ApplicationInfo("", ""), testLogger));
   }
 }
