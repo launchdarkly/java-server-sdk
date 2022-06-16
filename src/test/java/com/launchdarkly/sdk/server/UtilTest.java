@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import org.junit.Test;
 

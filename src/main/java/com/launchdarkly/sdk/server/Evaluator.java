@@ -8,8 +8,8 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes;
-import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes;
+import com.launchdarkly.sdk.server.subsystems.Event;
 
 import org.slf4j.Logger;
 

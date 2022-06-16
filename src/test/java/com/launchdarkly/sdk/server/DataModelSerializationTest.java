@@ -15,7 +15,7 @@ import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
 import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 
 import org.junit.Test;
 

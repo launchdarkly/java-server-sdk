@@ -3,9 +3,9 @@ package com.launchdarkly.sdk.server.integrations;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
 import java.time.Duration;
 import java.util.Arrays;

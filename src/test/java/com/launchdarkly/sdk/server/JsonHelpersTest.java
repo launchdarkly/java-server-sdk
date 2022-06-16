@@ -5,8 +5,8 @@ import com.google.gson.annotations.JsonAdapter;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 
 import org.junit.Test;
 

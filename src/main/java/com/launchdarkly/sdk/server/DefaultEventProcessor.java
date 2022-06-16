@@ -4,10 +4,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventProcessor;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSender.EventDataKind;
 
 import org.slf4j.Logger;
 

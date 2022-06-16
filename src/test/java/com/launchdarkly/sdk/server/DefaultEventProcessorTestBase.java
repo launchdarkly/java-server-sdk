@@ -6,10 +6,10 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;

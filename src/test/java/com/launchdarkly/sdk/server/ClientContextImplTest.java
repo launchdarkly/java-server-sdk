@@ -2,9 +2,9 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
 import org.junit.Test;
 

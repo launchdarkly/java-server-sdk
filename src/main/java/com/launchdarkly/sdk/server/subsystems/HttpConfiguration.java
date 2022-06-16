@@ -1,6 +1,7 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
 
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
+import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 
 import java.net.Proxy;
 import java.time.Duration;

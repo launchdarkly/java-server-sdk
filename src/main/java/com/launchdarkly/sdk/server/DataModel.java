@@ -5,8 +5,8 @@ import com.google.gson.annotations.JsonAdapter;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 
 import java.util.Collection;
 import java.util.List;

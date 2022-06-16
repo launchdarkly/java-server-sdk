@@ -3,10 +3,10 @@ package com.launchdarkly.sdk.server.integrations;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
 
 import java.time.Duration;
 

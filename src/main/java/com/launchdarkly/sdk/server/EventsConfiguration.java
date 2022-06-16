@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.UserAttribute;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import java.net.URI;
 import java.time.Duration;

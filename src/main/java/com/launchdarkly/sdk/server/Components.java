@@ -21,12 +21,12 @@ import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
 
 /**
  * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.

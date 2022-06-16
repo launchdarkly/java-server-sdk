@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
 import java.time.Duration;
 

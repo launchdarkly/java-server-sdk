@@ -4,7 +4,7 @@ import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
-import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
+import com.launchdarkly.sdk.server.subsystems.Event.FeatureRequest;
 
 import org.junit.Test;
 

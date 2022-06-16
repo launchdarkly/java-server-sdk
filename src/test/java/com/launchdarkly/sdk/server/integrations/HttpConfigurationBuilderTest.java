@@ -3,8 +3,8 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import org.junit.Test;
 

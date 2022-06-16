@@ -11,7 +11,7 @@ import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.ModelBuilders.FlagBuilder;
-import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.subsystems.Event;
 
 import java.util.ArrayList;
 import java.util.List;

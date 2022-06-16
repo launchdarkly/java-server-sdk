@@ -3,9 +3,9 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import java.util.List;
 import java.util.Map;

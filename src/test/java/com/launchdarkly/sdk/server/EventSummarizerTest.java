@@ -6,7 +6,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.EventSummarizer.CounterKey;
 import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.subsystems.Event;
 
 import org.junit.Test;
 

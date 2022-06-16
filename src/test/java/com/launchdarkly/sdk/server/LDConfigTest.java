@@ -4,12 +4,12 @@ import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
 import org.junit.Test;
 
