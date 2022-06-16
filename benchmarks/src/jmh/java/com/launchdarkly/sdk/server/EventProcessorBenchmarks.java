@@ -141,7 +141,7 @@ public class EventProcessorBenchmarks {
     }
     
     @Override
-    public EventSender createEventSender(BasicConfiguration arg0, HttpConfiguration arg1) {
+    public EventSender createEventSender(ClientContext clientContext) {
       return instance;
     }
   }
