@@ -7,7 +7,6 @@ import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 
 import org.junit.Test;
 
-import java.net.URI;
 import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.Components.sendEvents;
@@ -35,18 +34,6 @@ public class EventProcessorBuilderTest {
         .allAttributesPrivate);
   }
   
-  @Test
-  public void baseURI() {
-    assertNull(sendEvents().baseURI);
-
-    assertEquals(URI.create("x"), sendEvents().baseURI(URI.create("x")).baseURI);
-
-    assertNull(sendEvents()
-        .baseURI(URI.create("x"))
-        .baseURI(null)
-        .baseURI);
-  }
-
   @Test
   public void capacity() {
     assertEquals(DEFAULT_CAPACITY, sendEvents().capacity);

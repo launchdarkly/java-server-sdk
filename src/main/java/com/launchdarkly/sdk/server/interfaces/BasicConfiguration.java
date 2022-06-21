@@ -32,33 +32,6 @@ public final class BasicConfiguration {
   }
 
   /**
-   * Constructs an instance.
-   *
-   * @param sdkKey the SDK key
-   * @param offline true if the SDK was configured to be completely offline
-   * @param threadPriority the thread priority that should be used for any worker threads created by SDK components
-   * @param applicationInfo metadata about the application using this SDK
-   * @deprecated Use {@link BasicConfiguration#BasicConfiguration(String, boolean, int, ApplicationInfo, ServiceEndpoints)}
-   */
-  @Deprecated
-  public BasicConfiguration(String sdkKey, boolean offline, int threadPriority, ApplicationInfo applicationInfo) {
-    this(sdkKey, offline, threadPriority, applicationInfo, null);
-  }
-
-  /**
-   * Constructs an instance.
-   *
-   * @param sdkKey the SDK key
-   * @param offline true if the SDK was configured to be completely offline
-   * @param threadPriority the thread priority that should be used for any worker threads created by SDK components
-   * @deprecated Use {@link BasicConfiguration#BasicConfiguration(String, boolean, int, ApplicationInfo, ServiceEndpoints)}
-   */
-  @Deprecated
-  public BasicConfiguration(String sdkKey, boolean offline, int threadPriority) {
-    this(sdkKey, offline, threadPriority, null, null);
-  }
-
-  /**
    * Returns the configured SDK key.
    * 
    * @return the SDK key

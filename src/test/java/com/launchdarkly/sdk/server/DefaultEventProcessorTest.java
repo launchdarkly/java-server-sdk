@@ -59,7 +59,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     MockEventSender es = new MockEventSender();
     EventProcessorFactory epf = Components.sendEvents()
         .allAttributesPrivate(true)
-        .baseURI(FAKE_URI)
         .capacity(3333)
         .diagnosticRecordingInterval(Duration.ofSeconds(480))
         .eventSender(senderFactory(es))
@@ -73,7 +72,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       assertThat(ec.capacity, equalTo(3333));
       assertThat(ec.diagnosticRecordingInterval, equalTo(Duration.ofSeconds(480)));
       assertThat(ec.eventSender, sameInstance((EventSender)es));
-      assertThat(ec.eventsUri, equalTo(FAKE_URI));
       assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
       assertThat(ec.privateAttributes, equalTo(ImmutableSet.of(UserAttribute.NAME, UserAttribute.forName("dogs"))));
       assertThat(ec.userKeysCapacity, equalTo(555));
@@ -231,7 +229,10 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     URI uri = URI.create("fake-uri");
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).baseURI(uri))) {
+    LDConfig config = new LDConfig.Builder()
+        .serviceEndpoints(Components.serviceEndpoints().events(uri))
+        .build();
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), config)) {
       ep.sendEvent(e);
     }
 

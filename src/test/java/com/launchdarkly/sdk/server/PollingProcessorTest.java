@@ -103,12 +103,9 @@ public class PollingProcessorTest {
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    URI uri = URI.create("http://fake");
     DataSourceFactory f = Components.pollingDataSource()
-        .baseURI(uri)
         .pollInterval(LENGTHY_INTERVAL);
     try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT), null)) {
-      assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(uri));
       assertThat(pp.pollInterval, equalTo(LENGTHY_INTERVAL));
     }
   }

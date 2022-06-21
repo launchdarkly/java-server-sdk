@@ -146,14 +146,11 @@ public class StreamProcessorTest {
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    URI streamUri = URI.create("http://fake");
     DataSourceFactory f = Components.streamingDataSource()
-        .baseURI(streamUri)
         .initialReconnectDelay(Duration.ofMillis(5555));
     try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
         dataSourceUpdates(dataStore))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
-      assertThat(sp.streamUri, equalTo(streamUri));      
     }
   }
   

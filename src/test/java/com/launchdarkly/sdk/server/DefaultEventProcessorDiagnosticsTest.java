@@ -194,7 +194,11 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).baseURI(uri), diagnosticAccumulator)) {
+    LDConfig config = new LDConfig.Builder()
+        .diagnosticOptOut(false)
+        .serviceEndpoints(Components.serviceEndpoints().events(uri))
+        .build();
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), config, diagnosticAccumulator)) {
     }
 
     MockEventSender.Params p = es.awaitRequest();
