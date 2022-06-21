@@ -3,7 +3,7 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
 import org.junit.Test;
 

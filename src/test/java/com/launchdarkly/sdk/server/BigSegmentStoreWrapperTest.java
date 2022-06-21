@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
-import static com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
+import static com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.isA;
 import static org.junit.Assert.assertEquals;
@@ -11,15 +11,15 @@ import static org.junit.Assert.assertTrue;
 
 import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
 import com.launchdarkly.sdk.server.BigSegmentStoreWrapper.BigSegmentsQueryResult;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider.StatusListener;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.Membership;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.StoreMetadata;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
 
 import org.easymock.EasyMockSupport;
 import org.junit.Before;

@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
 
 import java.time.Duration;
 

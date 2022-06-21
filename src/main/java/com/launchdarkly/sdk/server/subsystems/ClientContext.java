@@ -1,7 +1,9 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
 
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
+import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
 
 /**
  * Context information provided by the {@link com.launchdarkly.sdk.server.LDClient} when creating components.

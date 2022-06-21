@@ -1,16 +1,16 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
+import static com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 import com.launchdarkly.sdk.server.LDConfig;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.Membership;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.StoreMetadata;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
 
 import org.junit.Assert;
 import org.junit.Test;
