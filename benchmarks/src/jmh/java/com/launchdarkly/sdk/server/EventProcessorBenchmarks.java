@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
@@ -141,7 +141,7 @@ public class EventProcessorBenchmarks {
     }
     
     @Override
-    public EventSender createEventSender(BasicConfiguration arg0, HttpConfiguration arg1) {
+    public EventSender createEventSender(ClientContext clientContext) {
       return instance;
     }
   }

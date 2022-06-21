@@ -63,7 +63,7 @@ public class EventProcessorBuilderTest {
   public void eventSender() {
     assertNull(sendEvents().eventSenderFactory);
     
-    EventSenderFactory f = (ec, hc) -> null;
+    EventSenderFactory f = (ctx) -> null;
     assertSame(f, sendEvents().eventSender(f).eventSenderFactory);
     
     assertNull(sendEvents().eventSender(f).eventSender(null).eventSenderFactory);

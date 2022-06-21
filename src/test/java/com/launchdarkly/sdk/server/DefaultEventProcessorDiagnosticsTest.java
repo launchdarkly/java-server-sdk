@@ -126,8 +126,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     MockEventSender es = new MockEventSender();
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
-    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT,
-        context.getBasic(), context.getHttp());
+    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT, context);
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
     
     EventsConfiguration eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
@@ -172,8 +171,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
 
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
-    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT,
-        context.getBasic(), context.getHttp());
+    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT, context);
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
     
     EventsConfiguration eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);

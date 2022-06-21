@@ -6,11 +6,10 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
 import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;
@@ -75,7 +74,7 @@ public abstract class DefaultEventProcessorTestBase {
   public static EventSenderFactory senderFactory(final MockEventSender es) {
     return new EventSenderFactory() {
       @Override
-      public EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration) {
+      public EventSender createEventSender(ClientContext clientContext) {
         return es;
       }
     };

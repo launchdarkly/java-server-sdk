@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
@@ -20,73 +18,60 @@ import java.util.concurrent.ScheduledExecutorService;
  * implementation of {@link ClientContext}, which might have been created for instance in application
  * test code).
  */
-final class ClientContextImpl implements ClientContext {
+final class ClientContextImpl extends ClientContext {
   private static volatile ScheduledExecutorService fallbackSharedExecutor = null;
   
-  private final BasicConfiguration basicConfiguration;
-  private final HttpConfiguration httpConfiguration;
-  private final LoggingConfiguration loggingConfiguration;
   final ScheduledExecutorService sharedExecutor;
   final DiagnosticAccumulator diagnosticAccumulator;
   final DiagnosticEvent.Init diagnosticInitEvent;
 
   private ClientContextImpl(
-      BasicConfiguration basicConfiguration,
-      HttpConfiguration httpConfiguration,
-      LoggingConfiguration loggingConfiguration,
+      ClientContext baseContext,
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator,
       DiagnosticEvent.Init diagnosticInitEvent
   ) {
-    this.basicConfiguration = basicConfiguration;
-    this.httpConfiguration = httpConfiguration;
-    this.loggingConfiguration = loggingConfiguration;
+    super(baseContext.getSdkKey(), baseContext.getApplicationInfo(), baseContext.getHttp(),
+        baseContext.getLogging(), baseContext.isOffline(), baseContext.getServiceEndpoints(),
+        baseContext.getThreadPriority());
     this.sharedExecutor = sharedExecutor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.diagnosticInitEvent = diagnosticInitEvent;
   }
 
-  ClientContextImpl(
+  static ClientContextImpl fromConfig(
       String sdkKey,
-      LDConfig configuration,
+      LDConfig config,
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator
-  ) {
-    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority, configuration.applicationInfo, configuration.serviceEndpoints);
+      ) {
+    ClientContext minimalContext = new ClientContext(sdkKey, config.applicationInfo, null,
+        null, config.offline, config.serviceEndpoints, config.threadPriority);
+    LoggingConfiguration loggingConfig = config.loggingConfigFactory.createLoggingConfiguration(minimalContext);
     
-    this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
-    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(basicConfiguration);
-        
-    this.sharedExecutor = sharedExecutor;
+    ClientContext contextWithLogging = new ClientContext(sdkKey, config.applicationInfo, null,
+        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
+    HttpConfiguration httpConfig = config.httpConfigFactory.createHttpConfiguration(contextWithLogging);
     
-    if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {
-      this.diagnosticAccumulator = diagnosticAccumulator;
-      this.diagnosticInitEvent = new DiagnosticEvent.Init(
+    ClientContext contextWithHttpAndLogging = new ClientContext(sdkKey, config.applicationInfo, httpConfig,
+        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
+    
+    DiagnosticEvent.Init diagnosticInitEvent = null;
+    if (!config.diagnosticOptOut && diagnosticAccumulator != null) {
+      diagnosticInitEvent = new DiagnosticEvent.Init(
           diagnosticAccumulator.dataSinceDate,
           diagnosticAccumulator.diagnosticId,
-          configuration,
-          basicConfiguration,
-          httpConfiguration
+          config,
+          contextWithHttpAndLogging
           );
-    } else {
-      this.diagnosticAccumulator = null;
-      this.diagnosticInitEvent = null;
     }
-  }
-
-  @Override
-  public BasicConfiguration getBasic() {
-    return basicConfiguration;
-  }
-  
-  @Override
-  public HttpConfiguration getHttp() {
-    return httpConfiguration;
-  }
-
-  @Override
-  public LoggingConfiguration getLogging() {
-    return loggingConfiguration;
+    
+    return new ClientContextImpl(
+        contextWithHttpAndLogging,
+        sharedExecutor,
+        config.diagnosticOptOut ? null : diagnosticAccumulator,
+        diagnosticInitEvent
+        );
   }
   
   /**
@@ -105,13 +90,6 @@ final class ClientContextImpl implements ClientContext {
         fallbackSharedExecutor = Executors.newSingleThreadScheduledExecutor();
       }
     }
-    return new ClientContextImpl(
-        context.getBasic(),
-        context.getHttp(),
-        context.getLogging(),
-        fallbackSharedExecutor,
-        null,
-        null
-        );
+    return new ClientContextImpl(context, fallbackSharedExecutor, null, null);
   }
 }
