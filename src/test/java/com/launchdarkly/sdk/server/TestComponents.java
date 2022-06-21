@@ -73,7 +73,7 @@ public class TestComponents {
   }
   
   static EventsConfiguration defaultEventsConfig() {
-    return makeEventsConfig(false, false, null);
+    return makeEventsConfig(false, null);
   }
 
   public static DataSource failedDataSource() {
@@ -90,7 +90,7 @@ public class TestComponents {
     return store;
   }
 
-  static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate, boolean inlineUsersInEvents,
+  static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate,
       Set<UserAttribute> privateAttributes) {
     return new EventsConfiguration(
         allAttributesPrivate,
@@ -98,7 +98,6 @@ public class TestComponents {
         null,
         null,
         EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
-        inlineUsersInEvents,
         privateAttributes,
         0,
         EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL,

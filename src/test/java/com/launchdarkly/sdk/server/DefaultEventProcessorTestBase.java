@@ -158,6 +158,10 @@ public abstract class DefaultEventProcessorTestBase {
     );
   }
 
+  public static Matcher<JsonTestValue> isIndexEvent() {
+    return jsonProperty("kind", "index");
+  }
+
   public static Matcher<JsonTestValue> isIndexEvent(Event sourceEvent, LDValue user) {
     return allOf(
         jsonProperty("kind", "index"),
@@ -189,13 +193,13 @@ public abstract class DefaultEventProcessorTestBase {
     return jsonProperty("prereqOf", parentFlagKey);
   }
 
-  public static Matcher<JsonTestValue> isCustomEvent(Event.Custom sourceEvent, LDValue inlineUser) {
+  public static Matcher<JsonTestValue> isCustomEvent(Event.Custom sourceEvent) {
     boolean hasData = sourceEvent.getData() != null && !sourceEvent.getData().isNull();
     return allOf(
         jsonProperty("kind", "custom"),
         jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         jsonProperty("key", sourceEvent.getKey()),
-        hasUserOrUserKey(sourceEvent, inlineUser),
+        hasUserOrUserKey(sourceEvent, null),
         jsonProperty("data", hasData ? jsonEqualsValue(sourceEvent.getData()) : jsonUndefined()),
         jsonProperty("metricValue", sourceEvent.getMetricValue() == null ? jsonUndefined() : jsonEqualsValue(sourceEvent.getMetricValue()))              
     );
@@ -207,10 +211,12 @@ public abstract class DefaultEventProcessorTestBase {
           jsonProperty("user", jsonEqualsValue(inlineUser)),
           jsonProperty("userKey", jsonUndefined()));
     }
+    if (sourceEvent.getUser() == null || sourceEvent.getUser().getKey() == null) {
+      return jsonProperty("user", jsonUndefined());
+    }
     return allOf(
         jsonProperty("user", jsonUndefined()),
-        jsonProperty("userKey", sourceEvent.getUser() == null ? jsonUndefined() :
-          jsonEqualsValue(sourceEvent.getUser().getKey())));
+        jsonProperty("userKey", jsonEqualsValue(sourceEvent.getUser().getKey())));
   }
   
   public static Matcher<JsonTestValue> isSummaryEvent() {

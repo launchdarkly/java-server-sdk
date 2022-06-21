@@ -19,7 +19,6 @@ class DiagnosticEvent {
     DIAGNOSTIC_RECORDING_INTERVAL_MILLIS("diagnosticRecordingIntervalMillis", LDValueType.NUMBER),
     EVENTS_CAPACITY("eventsCapacity", LDValueType.NUMBER),
     EVENTS_FLUSH_INTERVAL_MILLIS("eventsFlushIntervalMillis", LDValueType.NUMBER),
-    INLINE_USERS_IN_EVENTS("inlineUsersInEvents", LDValueType.BOOLEAN),
     POLLING_INTERVAL_MILLIS("pollingIntervalMillis", LDValueType.NUMBER),
     RECONNECT_TIME_MILLIS("reconnectTimeMillis", LDValueType.NUMBER),
     SAMPLING_INTERVAL("samplingInterval", LDValueType.NUMBER),
