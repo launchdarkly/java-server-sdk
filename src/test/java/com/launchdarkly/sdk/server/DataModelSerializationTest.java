@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.gson.JsonElement;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.UserAttribute;
@@ -14,7 +15,12 @@ import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
 import com.launchdarkly.sdk.server.DataModel.Target;
+import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
+import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
 import org.junit.Test;
@@ -24,6 +30,13 @@ import java.util.function.Consumer;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+import static com.launchdarkly.sdk.server.DataModelSerialization.deserializeFromParsedJson;
+import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
+import static com.launchdarkly.sdk.server.JsonHelpers.serialize;
+import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.TestUtil.assertDataSetEquals;
+import static com.launchdarkly.sdk.server.TestUtil.jsonReaderFrom;
 import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -33,6 +46,49 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class DataModelSerializationTest {
+
+  @Test
+  public void deserializeFlagFromParsedJson() {
+    String json = "{\"key\":\"flagkey\",\"version\":1}";
+    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
+    VersionedData flag = deserializeFromParsedJson(DataModel.FEATURES, element);
+    assertEquals(FeatureFlag.class, flag.getClass());
+    assertEquals("flagkey", flag.getKey());
+    assertEquals(1, flag.getVersion());
+  }
+
+  @Test(expected=SerializationException.class)
+  public void deserializeInvalidFlagFromParsedJson() {
+    String json = "{\"key\":[3]}";
+    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
+    deserializeFromParsedJson(DataModel.FEATURES, element);
+  }
+
+  @Test
+  public void deserializeSegmentFromParsedJson() {
+    String json = "{\"key\":\"segkey\",\"version\":1}";
+    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
+    VersionedData segment = deserializeFromParsedJson(DataModel.SEGMENTS, element);
+    assertEquals(Segment.class, segment.getClass());
+    assertEquals("segkey", segment.getKey());
+    assertEquals(1, segment.getVersion());
+  }
+
+  @Test(expected=SerializationException.class)
+  public void deserializeInvalidSegmentFromParsedJson() {
+    String json = "{\"key\":[3]}";
+    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
+    deserializeFromParsedJson(DataModel.SEGMENTS, element);
+  }
+
+  @Test(expected=IllegalArgumentException.class)
+  public void deserializeInvalidDataKindFromParsedJson() {
+    String json = "{\"key\":\"something\",\"version\":1}";
+    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
+    DataKind mysteryKind = new DataKind("incorrect", null, null);
+    deserializeFromParsedJson(mysteryKind, element);
+  }
+
   @Test
   public void flagIsDeserializedWithAllProperties() {
     assertFlagFromJson(
@@ -299,6 +355,42 @@ public class DataModelSerializationTest {
         baseBuilder("flagKey").put("variations", LDValue.arrayOf(LDValue.ofNull())).build(),
         flag -> assertEquals(LDValue.ofNull(), flag.getVariations().get(0))
         );
+  }
+  
+  @Test
+  public void parsingFullDataSetEmptyObject() throws Exception {
+    String json = "{}";
+    FullDataSet<ItemDescriptor> allData = parseFullDataSet(jsonReaderFrom(json));
+    assertDataSetEquals(DataBuilder.forStandardTypes().build(), allData);
+  }
+  
+  @Test
+  public void parsingFullDataSetFlagsOnly() throws Exception {
+    FeatureFlag flag = flagBuilder("flag1").version(1000).build();
+    String json = "{\"flags\":{\"flag1\":" + serialize(flag) + "}}";
+    FullDataSet<ItemDescriptor> allData = parseFullDataSet(jsonReaderFrom(json));
+    assertDataSetEquals(DataBuilder.forStandardTypes().addAny(FEATURES, flag).build(), allData);
+  }
+  
+  @Test
+  public void parsingFullDataSetSegmentsOnly() throws Exception {
+    Segment segment = segmentBuilder("segment1").version(1000).build();
+    String json = "{\"segments\":{\"segment1\":" + serialize(segment) + "}}";
+    FullDataSet<ItemDescriptor> allData = parseFullDataSet(jsonReaderFrom(json));
+    assertDataSetEquals(DataBuilder.forStandardTypes().addAny(SEGMENTS, segment).build(), allData);
+  }
+  
+  @Test
+  public void parsingFullDataSetFlagsAndSegments() throws Exception {
+    FeatureFlag flag1 = flagBuilder("flag1").version(1000).build();
+    FeatureFlag flag2 = flagBuilder("flag2").version(1001).build();
+    Segment segment1 = segmentBuilder("segment1").version(1000).build();
+    Segment segment2 = segmentBuilder("segment2").version(1001).build();
+    String json = "{\"flags\":{\"flag1\":" + serialize(flag1) + ",\"flag2\":" + serialize(flag2) + "}" +
+        ",\"segments\":{\"segment1\":" + serialize(segment1) + ",\"segment2\":" + serialize(segment2) + "}}";
+    FullDataSet<ItemDescriptor> allData = parseFullDataSet(jsonReaderFrom(json));
+    assertDataSetEquals(DataBuilder.forStandardTypes()
+        .addAny(FEATURES, flag1, flag2).addAny(SEGMENTS, segment1, segment2).build(), allData);
   }
   
   private void assertFlagFromJson(LDValue flagJson, Consumer<FeatureFlag> action) {
