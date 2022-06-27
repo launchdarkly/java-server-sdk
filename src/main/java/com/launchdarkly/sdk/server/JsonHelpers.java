@@ -11,7 +11,6 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import java.io.IOException;
-import java.io.Reader;
 
 abstract class JsonHelpers {
   private JsonHelpers() {}
@@ -69,14 +68,14 @@ abstract class JsonHelpers {
     }
   }
   
-  static <T> T deserialize(Reader reader, Class<T> objectClass) throws SerializationException {
-    try {
-      return gsonInstance().fromJson(reader, objectClass);
-    } catch (Exception e) {
-      throw new SerializationException(e);
-    }
-  }
-
+  /**
+   * Deserializes an object from a JSON stream.
+   * 
+   * @param reader the JSON reader
+   * @param objectClass class of object to create
+   * @return the deserialized object
+   * @throws SerializationException if Gson throws an exception
+   */
   static <T> T deserialize(JsonReader reader, Class<T> objectClass) throws SerializationException {
     try {
       return gsonInstance().fromJson(reader, objectClass);
