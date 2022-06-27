@@ -81,7 +81,7 @@ public class DataModelSerializationTest {
     deserializeFromParsedJson(DataModel.SEGMENTS, element);
   }
 
-  @Test(expected=IllegalArgumentException.class)
+  @Test(expected=SerializationException.class)
   public void deserializeInvalidDataKindFromParsedJson() {
     String json = "{\"key\":\"something\",\"version\":1}";
     JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);

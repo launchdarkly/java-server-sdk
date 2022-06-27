@@ -9,6 +9,7 @@ import com.launchdarkly.sdk.server.StreamProcessorEvents.PatchData;
 import com.launchdarkly.sdk.server.StreamProcessorEvents.PutData;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.junit.Test;
 
@@ -51,7 +52,7 @@ public class StreamProcessorEventsTest {
     assertDataSetEquals(expectedAllData, validResult.data);
     
     String inputWithoutData = "{\"path\":\"/\"}";
-    assertThrows(JsonParseException.class,
+    assertThrows(SerializationException.class,
       () -> parsePutData(jsonReaderFrom(inputWithoutData)));
   }
 
@@ -93,11 +94,11 @@ public class StreamProcessorEventsTest {
     assertThat(resultWithUnrecognizedPath.kind, nullValue());
     
     String inputWithMissingPath = "{\"data\":" + flagJson + "}";
-    assertThrows(JsonParseException.class,
+    assertThrows(SerializationException.class,
         () -> parsePatchData(jsonReaderFrom(inputWithMissingPath)));
     
     String inputWithMissingData = "{\"path\":\"/flags/flag1\"}";
-    assertThrows(JsonParseException.class,
+    assertThrows(SerializationException.class,
         () -> parsePatchData(jsonReaderFrom(inputWithMissingData)));
   }
   
@@ -120,11 +121,11 @@ public class StreamProcessorEventsTest {
     assertThat(resultWithUnrecognizedPath.kind, nullValue());
     
     String inputWithMissingPath = "{\"version\": 1}";
-    assertThrows(JsonParseException.class,
+    assertThrows(SerializationException.class,
         () -> parseDeleteData(jsonReaderFrom(inputWithMissingPath)));
 
     String inputWithMissingVersion = "{\"path\": \"/flags/flag1\"}";
-    assertThrows(JsonParseException.class,
+    assertThrows(SerializationException.class,
         () -> parseDeleteData(jsonReaderFrom(inputWithMissingVersion)));    
   }
 }
