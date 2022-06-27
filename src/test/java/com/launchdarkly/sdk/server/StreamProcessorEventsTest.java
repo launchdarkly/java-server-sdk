@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.gson.JsonParseException;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
