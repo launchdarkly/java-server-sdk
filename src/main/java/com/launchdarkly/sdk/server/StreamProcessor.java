@@ -191,6 +191,7 @@ final class StreamProcessor implements DataSource {
         .threadPriority(threadPriority)
         .readBufferSize(5000)
         .streamEventData(true)
+        .expectFields("event")
         .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
           public void configure(OkHttpClient.Builder builder) {
