@@ -1,6 +1,11 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Segment;
+import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
@@ -12,7 +17,11 @@ import org.junit.Test;
 import java.net.URI;
 import java.util.Map;
 
+import static com.launchdarkly.sdk.server.JsonHelpers.serialize;
+import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestUtil.assertDataSetEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
@@ -24,10 +33,12 @@ import static org.junit.Assert.fail;
 public class DefaultFeatureRequestorTest {
   private static final String sdkKey = "sdk-key";
   private static final String flag1Key = "flag1";
-  private static final String flag1Json = "{\"key\":\"" + flag1Key + "\"}";
+  private static final FeatureFlag flag1 = flagBuilder(flag1Key).version(1000).build();
+  private static final String flag1Json = serialize(flag1);
   private static final String flagsJson = "{\"" + flag1Key + "\":" + flag1Json + "}";
   private static final String segment1Key = "segment1";
-  private static final String segment1Json = "{\"key\":\"" + segment1Key + "\"}";
+  private static final Segment segment1 = segmentBuilder(segment1Key).version(2000).build();
+  private static final String segment1Json = serialize(segment1);
   private static final String segmentsJson = "{\"" + segment1Key + "\":" + segment1Json + "}";
   private static final String allDataJson = "{\"flags\":" + flagsJson + ",\"segments\":" + segmentsJson + "}";
   
@@ -45,14 +56,11 @@ public class DefaultFeatureRequestorTest {
     return config.httpConfigFactory.createHttpConfiguration(new BasicConfiguration(sdkKey, false, 0, null, null));
   }
 
-  private void verifyExpectedData(FeatureRequestor.AllData data) {
+  private void verifyExpectedData(FullDataSet<ItemDescriptor> data) {
     assertNotNull(data);
-    assertNotNull(data.flags);
-    assertNotNull(data.segments);
-    assertEquals(1, data.flags.size());
-    assertEquals(1, data.flags.size());
-    verifyFlag(data.flags.get(flag1Key), flag1Key);
-    verifySegment(data.segments.get(segment1Key), segment1Key);
+    assertDataSetEquals(DataBuilder.forStandardTypes()
+        .addAny(DataModel.FEATURES, flag1).addAny(DataModel.SEGMENTS, segment1).build(),
+        data);
   }
   
   @Test
@@ -61,7 +69,7 @@ public class DefaultFeatureRequestorTest {
     
     try (HttpServer server = HttpServer.start(resp)) {
       try (DefaultFeatureRequestor r = makeRequestor(server)) {
-        FeatureRequestor.AllData data = r.getAllData(true);
+        FullDataSet<ItemDescriptor> data = r.getAllData(true);
         
         RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req.getPath());
@@ -84,7 +92,7 @@ public class DefaultFeatureRequestorTest {
     
     try (HttpServer server = HttpServer.start(cacheableThenCached)) {
       try (DefaultFeatureRequestor r = makeRequestor(server)) {
-        FeatureRequestor.AllData data1 = r.getAllData(true);
+        FullDataSet<ItemDescriptor> data1 = r.getAllData(true);
         verifyExpectedData(data1);
          
         RequestInfo req1 = server.getRecorder().requireRequest();
@@ -92,7 +100,7 @@ public class DefaultFeatureRequestorTest {
         verifyHeaders(req1);
         assertNull(req1.getHeader("If-None-Match"));
          
-        FeatureRequestor.AllData data2 = r.getAllData(false);
+        FullDataSet<ItemDescriptor> data2 = r.getAllData(false);
         assertNull(data2);
 
         RequestInfo req2 = server.getRecorder().requireRequest();
@@ -115,7 +123,7 @@ public class DefaultFeatureRequestorTest {
     
     try (HttpServer server = HttpServer.start(cacheableThenCached)) {
       try (DefaultFeatureRequestor r = makeRequestor(server)) {
-        FeatureRequestor.AllData data1 = r.getAllData(true);
+        FullDataSet<ItemDescriptor> data1 = r.getAllData(true);
         verifyExpectedData(data1);
          
         RequestInfo req1 = server.getRecorder().requireRequest();
@@ -123,7 +131,7 @@ public class DefaultFeatureRequestorTest {
         verifyHeaders(req1);
         assertNull(req1.getHeader("If-None-Match"));
          
-        FeatureRequestor.AllData data2 = r.getAllData(true);
+        FullDataSet<ItemDescriptor> data2 = r.getAllData(true);
         verifyExpectedData(data2);
 
         RequestInfo req2 = server.getRecorder().requireRequest();
@@ -143,7 +151,7 @@ public class DefaultFeatureRequestorTest {
           LDConfig config = new LDConfig.Builder().http(goodHttpConfig).build();
           try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri)) {
             try {
-              FeatureRequestor.AllData data = r.getAllData(false);
+              FullDataSet<ItemDescriptor> data = r.getAllData(false);
               verifyExpectedData(data);
             } catch (Exception e) {
               throw new RuntimeException(e);
@@ -170,7 +178,7 @@ public class DefaultFeatureRequestorTest {
     
     try (HttpServer server = HttpServer.start(resp)) {
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), server.getUri())) {
-        FeatureRequestor.AllData data = r.getAllData(true);
+        FullDataSet<ItemDescriptor> data = r.getAllData(true);
         
         RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req.getPath());
@@ -189,7 +197,7 @@ public class DefaultFeatureRequestorTest {
       URI uri = server.getUri().resolve("/context/path");
       
       try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri)) {
-        FeatureRequestor.AllData data = r.getAllData(true);
+        FullDataSet<ItemDescriptor> data = r.getAllData(true);
         
         RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/context/path/sdk/latest-all", req.getPath());
@@ -205,15 +213,5 @@ public class DefaultFeatureRequestorTest {
     for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {
       assertThat(req.getHeader(kv.getKey()), equalTo(kv.getValue()));
     }
-  }
-  
-  private void verifyFlag(DataModel.FeatureFlag flag, String key) {
-    assertNotNull(flag);
-    assertEquals(key, flag.getKey());
-  }
-  
-  private void verifySegment(DataModel.Segment segment, String key) {
-    assertNotNull(segment);
-    assertEquals(key, segment.getKey());
   }
 }

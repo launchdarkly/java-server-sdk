@@ -1,22 +1,23 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.stream.JsonReader;
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.ConnectionErrorHandler.Action;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
-import com.launchdarkly.sdk.server.DataModel.VersionedData;
+import com.launchdarkly.sdk.server.StreamProcessorEvents.DeleteData;
+import com.launchdarkly.sdk.server.StreamProcessorEvents.PatchData;
+import com.launchdarkly.sdk.server.StreamProcessorEvents.PutData;
 import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
@@ -24,17 +25,15 @@ import com.launchdarkly.sdk.server.interfaces.SerializationException;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.AbstractMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
-import static com.launchdarkly.sdk.server.DataModel.ALL_DATA_KINDS;
-import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
 import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
@@ -176,8 +175,23 @@ final class StreamProcessor implements DataSource {
     EventHandler handler = new StreamEventHandler(initFuture);
     URI endpointUri = concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
 
+    // Notes about the configuration of the EventSource below:
+    //
+    // 1. Setting streamEventData(true) is an optimization to let us read the event's data field directly
+    // from HTTP response stream, rather than waiting for the whole event to be buffered in memory. See
+    // the Javadoc for EventSource.Builder.streamEventData for more details. This relies on an assumption
+    // that the LD streaming endpoints will always send the "event:" field before the "data:" field.
+    //
+    // 2. The readTimeout here is not the same read timeout that can be set in LDConfig.  We default to a
+    // smaller one there because we don't expect long delays within any *non*-streaming response that the
+    // LD client gets. A read timeout on the stream will result in the connection being cycled, so we set
+    // this to be slightly more than the expected interval between heartbeat signals.
+    
     EventSource.Builder builder = new EventSource.Builder(handler, endpointUri)
         .threadPriority(threadPriority)
+        .readBufferSize(5000)
+        .streamEventData(true)
+        .expectFields("event")
         .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
           public void configure(OkHttpClient.Builder builder) {
@@ -188,10 +202,6 @@ final class StreamProcessor implements DataSource {
         .headers(headers)
         .reconnectTime(initialReconnectDelay)
         .readTimeout(DEAD_CONNECTION_INTERVAL);
-    // Note that this is not the same read timeout that can be set in LDConfig.  We default to a smaller one
-    // there because we don't expect long delays within any *non*-streaming response that the LD client gets.
-    // A read timeout on the stream will result in the connection being cycled, so we set this to be slightly
-    // more than the expected interval between heartbeat signals.
 
     es = builder.build();
     esStarted = System.currentTimeMillis();
@@ -238,23 +248,23 @@ final class StreamProcessor implements DataSource {
     }
 
     @Override
-    public void onMessage(String name, MessageEvent event) throws Exception {
+    public void onMessage(String eventName, MessageEvent event) throws Exception {
       try {
-        switch (name) {
+        switch (eventName) {
           case PUT:
-            handlePut(event.getData());
+            handlePut(event.getDataReader());
             break;
          
           case PATCH:
-            handlePatch(event.getData());
+            handlePatch(event.getDataReader());
             break;
             
           case DELETE:
-            handleDelete(event.getData()); 
+            handleDelete(event.getDataReader()); 
             break;
             
           default:
-            logger.warn("Unexpected event found in stream: " + name);
+            logger.warn("Unexpected event found in stream: " + eventName);
             break;
         }
         lastStoreUpdateFailed = false;
@@ -287,12 +297,11 @@ final class StreamProcessor implements DataSource {
       }
     }
 
-    private void handlePut(String eventData) throws StreamInputException, StreamStoreException {
+    private void handlePut(Reader eventData) throws StreamInputException, StreamStoreException {
       recordStreamInit(false);
       esStarted = 0;
-      PutData putData = parseStreamJson(PutData.class, eventData);
-      FullDataSet<ItemDescriptor> allData = putData.data.toFullDataSet();
-      if (!dataSourceUpdates.init(allData)) {
+      PutData putData = parseStreamJson(StreamProcessorEvents::parsePutData, eventData);
+      if (!dataSourceUpdates.init(putData.data)) {
         throw new StreamStoreException();
       }
       if (!initialized.getAndSet(true)) {
@@ -301,30 +310,23 @@ final class StreamProcessor implements DataSource {
       }
     }
 
-    private void handlePatch(String eventData) throws StreamInputException, StreamStoreException {
-      PatchData data = parseStreamJson(PatchData.class, eventData);
-      Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(data.path);
-      if (kindAndKey == null) {
+    private void handlePatch(Reader eventData) throws StreamInputException, StreamStoreException {
+      PatchData data = parseStreamJson(StreamProcessorEvents::parsePatchData, eventData);
+      if (data.kind == null) {
         return;
       }
-      DataKind kind = kindAndKey.getKey();
-      String key = kindAndKey.getValue();
-      VersionedData item = deserializeFromParsedJson(kind, data.data);
-      if (!dataSourceUpdates.upsert(kind, key, new ItemDescriptor(item.getVersion(), item))) {
+      if (!dataSourceUpdates.upsert(data.kind, data.key, data.item)) {
         throw new StreamStoreException();
       }
     }
 
-    private void handleDelete(String eventData) throws StreamInputException, StreamStoreException {
-      DeleteData data = parseStreamJson(DeleteData.class, eventData);
-      Map.Entry<DataKind, String> kindAndKey = getKindAndKeyFromStreamApiPath(data.path);
-      if (kindAndKey == null) {
+    private void handleDelete(Reader eventData) throws StreamInputException, StreamStoreException {
+      DeleteData data = parseStreamJson(StreamProcessorEvents::parseDeleteData, eventData);
+      if (data.kind == null) {
         return;
       }
-      DataKind kind = kindAndKey.getKey();
-      String key = kindAndKey.getValue();
       ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
-      if (!dataSourceUpdates.upsert(kind, key, placeholder)) {
+      if (!dataSourceUpdates.upsert(data.kind, data.key, placeholder)) {
         throw new StreamStoreException();
       }
     }
@@ -341,32 +343,16 @@ final class StreamProcessor implements DataSource {
     }  
   }
 
-  private static Map.Entry<DataKind, String> getKindAndKeyFromStreamApiPath(String path) throws StreamInputException {
-    if (path == null) {
-      throw new StreamInputException("missing item path");
-    }
-    for (DataKind kind: ALL_DATA_KINDS) {
-      String prefix = (kind == SEGMENTS) ? "/segments/" : "/flags/";
-      if (path.startsWith(prefix)) {
-        return new AbstractMap.SimpleEntry<DataKind, String>(kind, path.substring(prefix.length()));
-      }
-    }
-    return null; // we don't recognize the path - the caller should ignore this event, just as we ignore unknown event types
-  }
-
-  private static <T> T parseStreamJson(Class<T> c, String json) throws StreamInputException {
+  private static <T> T parseStreamJson(Function<JsonReader, T> parser, Reader r) throws StreamInputException {
     try {
-      return JsonHelpers.deserialize(json, c);
+      try (JsonReader jr = new JsonReader(r)) {
+        return parser.apply(jr);
+      }
+    } catch (JsonParseException e) {
+      throw new StreamInputException(e);
     } catch (SerializationException e) {
       throw new StreamInputException(e);
-    }
-  }
-
-  private static VersionedData deserializeFromParsedJson(DataKind kind, JsonElement parsedJson)
-      throws StreamInputException {
-    try {
-      return JsonHelpers.deserializeFromParsedJson(kind, parsedJson);
-    } catch (SerializationException e) {
+    } catch (IOException e) {
       throw new StreamInputException(e);
     }
   }
@@ -375,10 +361,6 @@ final class StreamProcessor implements DataSource {
   // (for indirect/put or indirect/patch); either way, it implies that we were unable to get valid data from LD services.
   @SuppressWarnings("serial")
   private static final class StreamInputException extends Exception {
-    public StreamInputException(String message) {
-      super(message);
-    }
-    
     public StreamInputException(Throwable cause) {
       super(cause);
     }
@@ -387,27 +369,4 @@ final class StreamProcessor implements DataSource {
   // This exception class indicates that the data store failed to persist an update.
   @SuppressWarnings("serial")
   private static final class StreamStoreException extends Exception {}
-
-  private static final class PutData {
-    FeatureRequestor.AllData data;
-    
-    @SuppressWarnings("unused") // used by Gson
-    public PutData() { }
-  }
-  
-  private static final class PatchData {
-    String path;
-    JsonElement data;
-
-    @SuppressWarnings("unused") // used by Gson
-    public PatchData() { }
-  }
-
-  private static final class DeleteData {
-    String path;
-    int version;
-
-    @SuppressWarnings("unused") // used by Gson
-    public DeleteData() { }
-  }
 }
