@@ -460,6 +460,7 @@ final class DefaultEventProcessor implements EventProcessor {
       } else {
         logger.debug("Skipped flushing because all workers are busy");
         // All the workers are busy so we can't flush now; keep the events in our state
+        outbox.summarizer.restoreTo(payload.summary);
         synchronized(busyFlushWorkersCount) {
           busyFlushWorkersCount.decrementAndGet();
           busyFlushWorkersCount.notify();
@@ -506,7 +507,7 @@ final class DefaultEventProcessor implements EventProcessor {
     }
 
     boolean isEmpty() {
-      return events.isEmpty() && summarizer.snapshot().isEmpty();
+      return events.isEmpty() && summarizer.isEmpty();
     }
 
     long getAndClearDroppedCount() {
@@ -517,7 +518,7 @@ final class DefaultEventProcessor implements EventProcessor {
 
     FlushPayload getPayload() {
       Event[] eventsOut = events.toArray(new Event[events.size()]);
-      EventSummarizer.EventSummary summary = summarizer.snapshot();
+      EventSummarizer.EventSummary summary = summarizer.getSummaryAndReset();
       return new FlushPayload(eventsOut, summary);
     }
 
