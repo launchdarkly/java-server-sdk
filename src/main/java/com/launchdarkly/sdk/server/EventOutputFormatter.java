@@ -5,12 +5,14 @@ import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.EventSummarizer.CounterKey;
 import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
+import com.launchdarkly.sdk.server.EventSummarizer.FlagInfo;
+import com.launchdarkly.sdk.server.EventSummarizer.SimpleIntKeyedMap;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Map;
 
 /**
  * Transforms analytics events and summary data into the JSON format that we send to LaunchDarkly.
@@ -28,6 +30,7 @@ final class EventOutputFormatter {
     this.gson = JsonHelpers.gsonInstanceForEventsSerialization(config);
   }
   
+  @SuppressWarnings("resource")
   final int writeOutputEvents(Event[] events, EventSummarizer.EventSummary summary, Writer writer) throws IOException {
     int count = events.length;    
     try (JsonWriter jsonWriter = new JsonWriter(writer)) {
@@ -112,59 +115,48 @@ final class EventOutputFormatter {
     jw.name("features");
     jw.beginObject();
     
-    CounterKey[] unprocessedKeys = summary.counters.keySet().toArray(new CounterKey[summary.counters.size()]);
-    for (int i = 0; i < unprocessedKeys.length; i++) {
-      if (unprocessedKeys[i] == null) {
-        continue;
-      }
-      CounterKey key = unprocessedKeys[i];
-      String flagKey = key.key;
-      CounterValue firstValue = summary.counters.get(key);
+    for (Map.Entry<String, FlagInfo> flag: summary.counters.entrySet()) {
+      String flagKey = flag.getKey();
+      FlagInfo flagInfo = flag.getValue();
       
       jw.name(flagKey);
       jw.beginObject();
       
-      writeLDValue("default", firstValue.defaultVal, jw);
+      writeLDValue("default", flagInfo.defaultVal, jw);
       
       jw.name("counters");
       jw.beginArray();
       
-      for (int j = i; j < unprocessedKeys.length; j++) {
-        CounterKey keyForThisFlag = unprocessedKeys[j];
-        if (j != i && (keyForThisFlag == null || !keyForThisFlag.key.equals(flagKey))) {
-          continue;
+      for (int i = 0; i < flagInfo.versionsAndVariations.size(); i++) {
+        int version = flagInfo.versionsAndVariations.keyAt(i);
+        SimpleIntKeyedMap<CounterValue> variations = flagInfo.versionsAndVariations.valueAt(i);
+        for (int j = 0; j < variations.size(); j++) {
+          int variation = variations.keyAt(j);
+          CounterValue counter = variations.valueAt(j);
+ 
+          jw.beginObject();
+          
+          if (variation >= 0) {
+            jw.name("variation").value(variation);
+          }
+          if (version >= 0) {
+            jw.name("version").value(version);
+          } else {
+            jw.name("unknown").value(true);
+          }
+          writeLDValue("value", counter.flagValue, jw);
+          jw.name("count").value(counter.count);
+          
+          jw.endObject();
         }
-        CounterValue value = keyForThisFlag == key ? firstValue : summary.counters.get(keyForThisFlag);
-        unprocessedKeys[j] = null;
-           
-        jw.beginObject();
-        
-        if (keyForThisFlag.variation >= 0) {
-          jw.name("variation");
-          jw.value(keyForThisFlag.variation);
-        }
-        if (keyForThisFlag.version >= 0) {
-          jw.name("version");
-          jw.value(keyForThisFlag.version);
-        } else {
-          jw.name("unknown");
-          jw.value(true);
-        }
-        writeLDValue("value", value.flagValue, jw);
-        jw.name("count");
-        jw.value(value.count);
-        
-        jw.endObject(); // end of this counter
       }
-      
+
       jw.endArray(); // end of "counters" array
-      
       jw.endObject(); // end of this flag
     }
     
     jw.endObject(); // end of "features"
-    
-    jw.endObject();
+    jw.endObject(); // end of summary event object
   }
   
   private final void startEvent(Event event, String kind, String key, JsonWriter jw) throws IOException {

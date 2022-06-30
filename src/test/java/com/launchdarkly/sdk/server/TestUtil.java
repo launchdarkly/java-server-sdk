@@ -4,10 +4,12 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
+import com.google.gson.stream.JsonReader;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
+import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
@@ -17,10 +19,12 @@ import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.testhelpers.Assertions;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.time.Duration;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -34,6 +38,7 @@ import javax.net.SocketFactory;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
+import static com.launchdarkly.sdk.server.JsonHelpers.serialize;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
@@ -41,6 +46,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.fail;
 
 @SuppressWarnings("javadoc")
 public class TestUtil {
@@ -66,15 +72,27 @@ public class TestUtil {
     store.upsert(SEGMENTS, segment.getKey(), new ItemDescriptor(segment.getVersion(), segment));
   }
 
+  public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses, Duration timeout) {
+    return awaitValue(statuses, timeout.toMillis(), TimeUnit.MILLISECONDS);
+  }
+  
   public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses) {
-    return awaitValue(statuses, 1, TimeUnit.SECONDS);
+    return requireDataSourceStatus(statuses, Duration.ofSeconds(5));
+    // Using a fairly long default timeout here because there can be unpredictable execution delays
+    // in CI. If there's a test where we specifically need to enforce a smaller timeout, we can set
+    // that explicitly on a per-call basis.
   }
   
   public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses,
-      DataSourceStatusProvider.State expectedState) {
-    DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses);
+      DataSourceStatusProvider.State expectedState, Duration timeout) {
+    DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, timeout);
     assertEquals(expectedState, status.getState());
     return status;
+  }
+
+  public static DataSourceStatusProvider.Status requireDataSourceStatus(BlockingQueue<DataSourceStatusProvider.Status> statuses,
+      DataSourceStatusProvider.State expectedState) {
+    return requireDataSourceStatus(statuses, expectedState, Duration.ofSeconds(5));
   }
 
   public static DataSourceStatusProvider.Status requireDataSourceStatusEventually(BlockingQueue<DataSourceStatusProvider.Status> statuses,
@@ -95,6 +113,12 @@ public class TestUtil {
     assertJsonEquals(expectedJson, actualJson);
   }
   
+  public static void assertItemEquals(VersionedData expected, ItemDescriptor item) {
+    assertEquals(expected.getVersion(), item.getVersion());
+    assertEquals(expected.getClass(), item.getItem().getClass());
+    assertJsonEquals(serialize(expected), serialize(item.getItem()));
+  }
+  
   public static String describeDataSet(FullDataSet<ItemDescriptor> data) {
     return Joiner.on(", ").join(
         Iterables.transform(data.getData(), entry -> {
@@ -107,6 +131,10 @@ public class TestUtil {
                 ) +
               "]}";
         }));
+  }
+  
+  public static JsonReader jsonReaderFrom(String data) {
+    return new JsonReader(new StringReader(data));
   }
   
   public static interface ActionCanThrowAnyException<T> {
@@ -200,6 +228,15 @@ public class TestUtil {
     assertNotEquals(b, a);
   }
 
+  public static void assertThrows(Class<?> exceptionClass, Runnable r) {
+    try {
+      r.run();
+      fail("expected exception");
+    } catch (RuntimeException e) {
+      assertThat(e.getClass(), equalTo(exceptionClass));
+    }
+  }
+  
   public interface BuilderPropertyTester<TValue> {
     void assertDefault(TValue defaultValue);
     void assertCanSet(TValue newValue);
