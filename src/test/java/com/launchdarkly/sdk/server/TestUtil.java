@@ -25,13 +25,13 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.time.Duration;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import javax.net.SocketFactory;
 
@@ -152,8 +152,8 @@ public class TestUtil {
     assertNoMoreValues(events, 100, TimeUnit.MILLISECONDS);
   }
   
-  public static Evaluator.EvalResult simpleEvaluation(int variation, LDValue value) {
-    return new Evaluator.EvalResult(value, variation, EvaluationReason.fallthrough());
+  public static EvalResult simpleEvaluation(int variation, LDValue value) {
+    return EvalResult.of(value, variation, EvaluationReason.fallthrough());
   }
   
   // returns a socket factory that creates sockets that only connect to host and port

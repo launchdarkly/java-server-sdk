@@ -82,7 +82,7 @@ public class EventOutputTest {
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
         flagBuilder("flag").build(),
         user,
-        new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()),
+        EvalResult.of(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("user"));
@@ -189,7 +189,7 @@ public class EventOutputTest {
     EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
     
     FeatureRequest feWithVariation = factory.newFeatureRequestEvent(flag, user,
-        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
+        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
         LDValue.of("defaultvalue"));
     LDValue feJson1 = buildFeatureEventProps("flag")
         .put("version", 11)
@@ -200,7 +200,7 @@ public class EventOutputTest {
     assertEquals(feJson1, getSingleOutputEvent(f, feWithVariation));
 
     FeatureRequest feWithoutVariationOrDefault = factory.newFeatureRequestEvent(flag, user,
-        new Evaluator.EvalResult(LDValue.of("flagvalue"), NO_VARIATION, EvaluationReason.off()),
+        EvalResult.of(LDValue.of("flagvalue"), NO_VARIATION, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue feJson2 = buildFeatureEventProps("flag")
         .put("version", 11)
@@ -209,7 +209,7 @@ public class EventOutputTest {
     assertEquals(feJson2, getSingleOutputEvent(f, feWithoutVariationOrDefault));
 
     FeatureRequest feWithReason = factoryWithReason.newFeatureRequestEvent(flag, user,
-        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()),
+        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()),
         LDValue.of("defaultvalue"));
     LDValue feJson3 = buildFeatureEventProps("flag")
         .put("version", 11)
@@ -245,7 +245,7 @@ public class EventOutputTest {
     
     DataModel.FeatureFlag parentFlag = flagBuilder("parent").build();
     Event.FeatureRequest prereqEvent = factory.newPrerequisiteFeatureRequestEvent(flag, user,
-        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()), parentFlag);
+        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()), parentFlag);
     LDValue feJson6 = buildFeatureEventProps("flag")
         .put("version", 11)
         .put("variation", 1)
@@ -255,7 +255,7 @@ public class EventOutputTest {
     assertEquals(feJson6, getSingleOutputEvent(f, prereqEvent));
 
     Event.FeatureRequest prereqWithReason = factoryWithReason.newPrerequisiteFeatureRequestEvent(flag, user,
-        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()), parentFlag);
+        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()), parentFlag);
     LDValue feJson7 = buildFeatureEventProps("flag")
         .put("version", 11)
         .put("variation", 1)
@@ -274,7 +274,7 @@ public class EventOutputTest {
     assertEquals(feJson8, getSingleOutputEvent(f, prereqWithoutResult));
 
     FeatureRequest anonFeWithVariation = factory.newFeatureRequestEvent(flag, anon,
-        new Evaluator.EvalResult(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
+        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
         LDValue.of("defaultvalue"));
     LDValue anonFeJson1 = buildFeatureEventProps("flag", "anonymouskey")
         .put("version", 11)
@@ -519,7 +519,7 @@ public class EventOutputTest {
     Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
         flagBuilder("flag").build(),
         user,
-        new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()),
+        EvalResult.of(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()),
         LDValue.ofNull());
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));

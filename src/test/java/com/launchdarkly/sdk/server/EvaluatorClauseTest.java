@@ -11,6 +11,7 @@ import org.junit.Test;
 import static com.launchdarkly.sdk.EvaluationDetail.fromValue;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.fallthroughVariation;
@@ -25,7 +26,7 @@ import static org.junit.Assert.assertNotNull;
 @SuppressWarnings("javadoc")
 public class EvaluatorClauseTest {
   private static void assertMatch(Evaluator eval, DataModel.FeatureFlag flag, LDUser user, boolean expectMatch) {
-    assertEquals(LDValue.of(expectMatch), eval.evaluate(flag, user, EventFactory.DEFAULT).getDetails().getValue());
+    assertEquals(LDValue.of(expectMatch), eval.evaluate(flag, user, expectNoPrerequisiteEvals()).getValue());
   }
   
   private static DataModel.Segment makeSegmentThatMatchesUser(String segmentKey, String userKey) {
@@ -195,7 +196,7 @@ public class EvaluatorClauseTest {
         .build();
     LDUser user = new LDUser.Builder("key").name("Bob").build();
     
-    EvaluationDetail<LDValue> details = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT).getDetails();
+    EvaluationDetail<LDValue> details = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals()).getAnyType();
     assertEquals(fromValue(LDValue.of(true), 1, EvaluationReason.ruleMatch(1, "rule2")), details);
   }
   

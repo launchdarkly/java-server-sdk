@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
@@ -11,12 +10,11 @@ import com.launchdarkly.sdk.server.ModelBuilders.RuleBuilder;
 import org.junit.Test;
 
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.emptyRollout;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.emptyIterable;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
@@ -51,14 +49,14 @@ public class EvaluatorRuleTest {
     LDUser user = new LDUser.Builder("userkey").build();
     LDUser otherUser = new LDUser.Builder("wrongkey").build();
 
-    Evaluator.EvalResult sameResult0 = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
-    Evaluator.EvalResult sameResult1 = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
-    Evaluator.EvalResult otherResult = BASE_EVALUATOR.evaluate(f, otherUser, EventFactory.DEFAULT);
+    EvalResult sameResult0 = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
+    EvalResult sameResult1 = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
+    EvalResult otherResult = BASE_EVALUATOR.evaluate(f, otherUser, expectNoPrerequisiteEvals());
 
-    assertEquals(EvaluationReason.ruleMatch(1, "ruleid1"), sameResult0.getDetails().getReason());
-    assertSame(sameResult0.getDetails(), sameResult1.getDetails());
+    assertEquals(EvaluationReason.ruleMatch(1, "ruleid1"), sameResult0.getReason());
+    assertSame(sameResult0, sameResult1);
 
-    assertEquals(EvaluationReason.ruleMatch(0, "ruleid0"), otherResult.getDetails().getReason());
+    assertEquals(EvaluationReason.ruleMatch(0, "ruleid0"), otherResult.getReason());
   }
   
   @Test
@@ -74,12 +72,12 @@ public class EvaluatorRuleTest {
         .build();
     assertNull(f.getRules().get(0).preprocessed);
     
-    Evaluator.EvalResult result1 = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
-    Evaluator.EvalResult result2 = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
+    EvalResult result1 = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
+    EvalResult result2 = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
 
-    assertEquals(EvaluationReason.ruleMatch(0, "ruleid"), result1.getDetails().getReason());
-    assertNotSame(result1.getDetails(), result2.getDetails()); // they were created individually
-    assertEquals(result1.getDetails(), result2.getDetails()); // but they're equal
+    assertEquals(EvaluationReason.ruleMatch(0, "ruleid"), result1.getReason());
+    assertNotSame(result1, result2); // they were created individually
+    assertEquals(result1, result2); // but they're equal
   }
   
   @Test
@@ -88,10 +86,9 @@ public class EvaluatorRuleTest {
     DataModel.Rule rule = buildTestRule("ruleid", clause).variation(999).build();
     DataModel.FeatureFlag f = buildBooleanFlagWithRules("feature", rule).build();
     LDUser user = new LDUser.Builder("userkey").build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
 
   @Test
@@ -100,10 +97,9 @@ public class EvaluatorRuleTest {
     DataModel.Rule rule = buildTestRule("ruleid", clause).variation(-1).build();
     DataModel.FeatureFlag f = buildBooleanFlagWithRules("feature", rule).build();
     LDUser user = new LDUser.Builder("userkey").build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
   
   @Test
@@ -112,10 +108,9 @@ public class EvaluatorRuleTest {
     DataModel.Rule rule = buildTestRule("ruleid", clause).variation(null).build();
     DataModel.FeatureFlag f = buildBooleanFlagWithRules("feature", rule).build();
     LDUser user = new LDUser.Builder("userkey").build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
 
   @Test
@@ -124,9 +119,8 @@ public class EvaluatorRuleTest {
     DataModel.Rule rule = buildTestRule("ruleid", clause).variation(null).rollout(emptyRollout()).build();
     DataModel.FeatureFlag f = buildBooleanFlagWithRules("feature", rule).build();
     LDUser user = new LDUser.Builder("userkey").build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
 }
