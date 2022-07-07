@@ -3,11 +3,17 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableList;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
-import com.launchdarkly.sdk.EvaluationReason.Kind;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Rule;
+import com.launchdarkly.sdk.server.DataModel.Target;
+import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.EvaluationDetailFactoryMultiVariations;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes;
 import com.launchdarkly.sdk.server.interfaces.Event;
 
@@ -19,6 +25,7 @@ import java.util.Set;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.EvaluatorBucketing.bucketUser;
+import static com.launchdarkly.sdk.server.EvaluatorHelpers.resultForVariation;
 
 /**
  * Encapsulates the feature flag evaluation logic. The Evaluator has no knowledge of the rest of the SDK environment;
@@ -63,43 +70,39 @@ class Evaluator {
    * replace null values with default values,
    */
   static class EvalResult {
-    private LDValue value = LDValue.ofNull();
-    private int variationIndex = NO_VARIATION;
-    private EvaluationReason reason = null;
+    private EvaluationDetail<LDValue> detail;
     private List<Event.FeatureRequest> prerequisiteEvents;
-    
+
+    public EvalResult(EvaluationDetail<LDValue> detail) {
+      this.detail = detail;
+    }
+
     public EvalResult(LDValue value, int variationIndex, EvaluationReason reason) {
-      this.value = value;
-      this.variationIndex = variationIndex;
-      this.reason = reason;
+      this.detail = EvaluationDetail.fromValue(LDValue.normalize(value), variationIndex, reason);
     }
     
     public static EvalResult error(EvaluationReason.ErrorKind errorKind) {
       return new EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.error(errorKind));
     }
     
-    LDValue getValue() {
-      return LDValue.normalize(value);
+    EvaluationDetail<LDValue> getDetails() {
+      return detail;
     }
     
-    void setValue(LDValue value) {
-      this.value = value;
+    void setDetails(EvaluationDetail<LDValue> detail) {
+      this.detail = detail;
+    }
+    
+    LDValue getValue() {
+      return detail.getValue();
     }
     
     int getVariationIndex() {
-      return variationIndex;
-    }
-    
-    boolean isDefault() {
-      return variationIndex < 0;
+      return detail.getVariationIndex();
     }
     
     EvaluationReason getReason() {
-      return reason;
-    }
-    
-    EvaluationDetail<LDValue> getDetails() {
-      return EvaluationDetail.fromValue(LDValue.normalize(value), variationIndex, reason);
+      return detail.getReason();
     }
     
     Iterable<Event.FeatureRequest> getPrerequisiteEvents() {
@@ -108,10 +111,6 @@ class Evaluator {
     
     private void setPrerequisiteEvents(List<Event.FeatureRequest> prerequisiteEvents) {
       this.prerequisiteEvents = prerequisiteEvents;
-    }
-
-    private void setBigSegmentsStatus(EvaluationReason.BigSegmentsStatus bigSegmentsStatus) {
-      this.reason = this.reason.withBigSegmentsStatus(bigSegmentsStatus);
     }
   }
 
@@ -153,7 +152,10 @@ class Evaluator {
       result.setPrerequisiteEvents(prerequisiteEvents);
     }
     if (bigSegmentsState.bigSegmentsStatus != null) {
-      result.setBigSegmentsStatus(bigSegmentsState.bigSegmentsStatus);
+      result.setDetails(
+          EvaluationDetail.fromValue(result.getDetails().getValue(), result.getDetails().getVariationIndex(),
+              result.getDetails().getReason().withBigSegmentsStatus(bigSegmentsState.bigSegmentsStatus))
+          );
     }
     return result;
   }
@@ -164,15 +166,15 @@ class Evaluator {
       return getOffValue(flag, EvaluationReason.off());
     }
     
-    EvaluationReason prereqFailureReason = checkPrerequisites(flag, user, eventFactory, eventsOut, bigSegmentsState);
-    if (prereqFailureReason != null) {
-      return getOffValue(flag, prereqFailureReason);
+    EvalResult prereqFailureResult = checkPrerequisites(flag, user, eventFactory, eventsOut, bigSegmentsState);
+    if (prereqFailureResult != null) {
+      return prereqFailureResult;
     }
     
     // Check to see if targets match
     for (DataModel.Target target: flag.getTargets()) { // getTargets() and getValues() are guaranteed non-null
       if (target.getValues().contains(user.getKey())) {
-        return getVariation(flag, target.getVariation(), EvaluationReason.targetMatch());
+        return targetMatchResult(flag, target);
       }
     }
     // Now walk through the rules and see if any match
@@ -180,18 +182,18 @@ class Evaluator {
     for (int i = 0; i < rules.size(); i++) {
       DataModel.Rule rule = rules.get(i);
       if (ruleMatchesUser(flag, rule, user, bigSegmentsState)) {
-        EvaluationReason precomputedReason = rule.getRuleMatchReason();
-        EvaluationReason reason = precomputedReason != null ? precomputedReason : EvaluationReason.ruleMatch(i, rule.getId());
-        return getValueForVariationOrRollout(flag, rule, user, reason);
+        return ruleMatchResult(flag, user, rule, i);
       }
     }
     // Walk through the fallthrough and see if it matches
-    return getValueForVariationOrRollout(flag, flag.getFallthrough(), user, EvaluationReason.fallthrough());
+    return getValueForVariationOrRollout(flag, flag.getFallthrough(), user,
+        flag.preprocessed == null ? null : flag.preprocessed.fallthroughResults,
+        EvaluationReason.fallthrough());
   }
 
-  // Checks prerequisites if any; returns null if successful, or an EvaluationReason if we have to
+  // Checks prerequisites if any; returns null if successful, or an EvalResult if we have to
   // short-circuit due to a prerequisite failure.
-  private EvaluationReason checkPrerequisites(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
+  private EvalResult checkPrerequisites(DataModel.FeatureFlag flag, LDUser user, EventFactory eventFactory,
       List<Event.FeatureRequest> eventsOut, BigSegmentsState bigSegmentsState) {
     for (DataModel.Prerequisite prereq: flag.getPrerequisites()) { // getPrerequisites() is guaranteed non-null
       boolean prereqOk = true;
@@ -203,7 +205,7 @@ class Evaluator {
         EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, user, eventFactory, eventsOut, bigSegmentsState);
         // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
         // off variation was. But we still need to evaluate it in order to generate an event.
-        if (!prereqFeatureFlag.isOn() || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
+        if (!prereqFeatureFlag.isOn() || prereqEvalResult.getDetails().getVariationIndex() != prereq.getVariation()) {
           prereqOk = false;
         }
         // COVERAGE: currently eventsOut is never null because we preallocate the list in evaluate() if there are any prereqs
@@ -212,14 +214,17 @@ class Evaluator {
         }
       }
       if (!prereqOk) {
-        EvaluationReason precomputedReason = prereq.getPrerequisiteFailedReason();
-        return precomputedReason != null ? precomputedReason : EvaluationReason.prerequisiteFailed(prereq.getKey());
+        if (prereq.preprocessed != null) {
+          return new EvalResult(prereq.preprocessed.prerequisiteFailedResult);
+        }
+        EvaluationReason reason = EvaluationReason.prerequisiteFailed(prereq.getKey());
+        return getOffValue(flag, reason);
       }
     }
     return null;
   }
 
-  private EvalResult getVariation(DataModel.FeatureFlag flag, int variation, EvaluationReason reason) {
+  private static EvalResult getVariation(DataModel.FeatureFlag flag, int variation, EvaluationReason reason) {
     List<LDValue> variations = flag.getVariations();
     if (variation < 0 || variation >= variations.size()) {
       logger.error("Data inconsistency in feature flag \"{}\": invalid variation index", flag.getKey());
@@ -230,6 +235,9 @@ class Evaluator {
   }
 
   private EvalResult getOffValue(DataModel.FeatureFlag flag, EvaluationReason reason) {
+    if (flag.preprocessed != null) {
+      return new EvalResult(flag.preprocessed.offResult);
+    }
     Integer offVariation = flag.getOffVariation();
     if (offVariation == null) { // off variation unspecified - return default value
       return new EvalResult(null, NO_VARIATION, reason);
@@ -238,7 +246,13 @@ class Evaluator {
     }
   }
   
-  private EvalResult getValueForVariationOrRollout(DataModel.FeatureFlag flag, DataModel.VariationOrRollout vr, LDUser user, EvaluationReason reason) {
+  private static EvalResult getValueForVariationOrRollout(
+      FeatureFlag flag,
+      VariationOrRollout vr,
+      LDUser user,
+      EvaluationDetailFactoryMultiVariations precomputedResults,
+      EvaluationReason reason
+      ) {
     int variation = -1;
     boolean inExperiment = false;
     Integer maybeVariation = vr.getVariation();
@@ -273,12 +287,14 @@ class Evaluator {
     if (variation < 0) {
       logger.error("Data inconsistency in feature flag \"{}\": variation/rollout object with no variation or rollout", flag.getKey());
       return EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG); 
-    } else {
-      return getVariation(flag, variation, inExperiment ? experimentize(reason) : reason);
     }
+    if (precomputedResults != null) {
+      return new EvalResult(precomputedResults.forVariation(variation, inExperiment));
+    }    
+    return getVariation(flag, variation, inExperiment ? experimentize(reason) : reason);
   }
 
-  private EvaluationReason experimentize(EvaluationReason reason) {
+  private static EvaluationReason experimentize(EvaluationReason reason) {
     if (reason.getKind() == Kind.FALLTHROUGH) {
       return EvaluationReason.fallthrough(true);
     } else if (reason.getKind() == Kind.RULE_MATCH) {
@@ -344,7 +360,7 @@ class Evaluator {
   static boolean clauseMatchAny(DataModel.Clause clause, LDValue userValue) {
     DataModel.Operator op = clause.getOp();
     if (op != null) {
-      EvaluatorPreprocessing.ClauseExtra preprocessed = clause.getPreprocessed();
+      ClausePreprocessed preprocessed = clause.preprocessed;
       if (op == DataModel.Operator.in) {
         // see if we have precomputed a Set for fast equality matching
         Set<LDValue> vs = preprocessed == null ? null : preprocessed.valuesSet;
@@ -353,12 +369,12 @@ class Evaluator {
         }
       }
       List<LDValue> values = clause.getValues();
-      List<EvaluatorPreprocessing.ClauseExtra.ValueExtra> preprocessedValues =
+      List<ClausePreprocessed.ValueData> preprocessedValues =
           preprocessed == null ? null : preprocessed.valuesExtra;
       int n = values.size();
       for (int i = 0; i < n; i++) {
         // the preprocessed list, if present, will always have the same size as the values list
-        EvaluatorPreprocessing.ClauseExtra.ValueExtra p = preprocessedValues == null ? null : preprocessedValues.get(i);
+        ClausePreprocessed.ValueData p = preprocessedValues == null ? null : preprocessedValues.get(i);
         LDValue v = values.get(i);
         if (EvaluatorOperators.apply(op, userValue, v, p)) {
           return true;
@@ -435,6 +451,21 @@ class Evaluator {
     return bucket < weight;
   }
 
+  private static EvalResult targetMatchResult(FeatureFlag flag, Target target) {
+    if (target.preprocessed != null) {
+      return new EvalResult(target.preprocessed.targetMatchResult);
+    }
+    return new EvalResult(resultForVariation(target.getVariation(), flag, EvaluationReason.targetMatch()));
+  }
+  
+  private static EvalResult ruleMatchResult(FeatureFlag flag, LDUser user, Rule rule, int ruleIndex) {
+    if (rule.preprocessed != null) {
+      return getValueForVariationOrRollout(flag, rule, user, rule.preprocessed.allPossibleResults, null);
+    }
+    EvaluationReason reason = EvaluationReason.ruleMatch(ruleIndex, rule.getId());
+    return getValueForVariationOrRollout(flag, rule, user, null, reason);
+  }
+  
   static String makeBigSegmentRef(DataModel.Segment segment) {
     return String.format("%s.g%d", segment.getKey(), segment.getGeneration());
   }

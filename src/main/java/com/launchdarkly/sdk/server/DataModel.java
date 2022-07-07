@@ -2,9 +2,13 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.annotations.JsonAdapter;
-import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.FlagPreprocessed;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.FlagRulePreprocessed;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.PrerequisitePreprocessed;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.TargetPreprocessed;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 
@@ -14,6 +18,35 @@ import java.util.Set;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
+
+// IMPLEMENTATION NOTES:
+//
+// - FeatureFlag, Segment, and all other data model classes contained within them, must be package-private.
+// We don't want application code to see these types, because we need to be free to change their details without
+// breaking the application.
+//
+// - We expose our DataKind instances publicly because application code may need to reference them if it is
+// implementing a custom component such as a data store. But beyond the mere fact of there being these kinds of
+// data, applications should not be considered with their structure.
+//
+// - For all classes that can be deserialized from JSON, there must be an empty constructor, and the fields
+// cannot be final. This is because of how Gson works: it creates an instance first, then sets the fields. If
+// we are able to move away from using Gson reflective deserialization in the future, we can make them final.
+//
+// - There should also be a constructor that takes all the fields; we should use that whenever we need to
+// create these objects programmatically (so that if we are able at some point to make the fields final, that
+// won't break anything).
+//
+// - For properties that have a collection type such as List, the getter method should always include a null
+// guard and return an empty collection if the field is null (so that we don't have to worry about null guards
+// every time we might want to iterate over these collections). Semantically there is no difference in the data
+// model between an empty list and a null list, and in some languages (particularly Go) it is easy for an
+// uninitialized list to be serialized to JSON as null.
+//
+// - Some classes have a "preprocessed" field containing types defined in DataModelPreprocessing. These fields
+// must always be marked transient, so Gson will not serialize them. They are populated when we deserialize a
+// FeatureFlag or Segment, because those types implement JsonHelpers.PostProcessingDeserializable (the
+// afterDeserialized() method).
 
 /**
  * Contains information about the internal data model for feature flags and user segments.
@@ -104,6 +137,8 @@ public abstract class DataModel {
     private Long debugEventsUntilDate;
     private boolean deleted;
 
+    transient FlagPreprocessed preprocessed;
+    
     // We need this so Gson doesn't complain in certain java environments that restrict unsafe allocation
     FeatureFlag() {}
 
@@ -191,9 +226,8 @@ public abstract class DataModel {
       return clientSide;
     }
 
-    // Precompute some invariant values for improved efficiency during evaluations - called from JsonHelpers.PostProcessingDeserializableTypeAdapter
     public void afterDeserialized() {
-      EvaluatorPreprocessing.preprocessFlag(this);
+      DataModelPreprocessing.preprocessFlag(this);
     }
   }
 
@@ -201,7 +235,7 @@ public abstract class DataModel {
     private String key;
     private int variation;
 
-    private transient EvaluationReason prerequisiteFailedReason;
+    transient PrerequisitePreprocessed preprocessed;
 
     Prerequisite() {}
   
@@ -217,21 +251,14 @@ public abstract class DataModel {
     int getVariation() {
       return variation;
     }
-
-    // This value is precomputed when we deserialize a FeatureFlag from JSON
-    EvaluationReason getPrerequisiteFailedReason() {
-      return prerequisiteFailedReason;
-    }
-
-    void setPrerequisiteFailedReason(EvaluationReason prerequisiteFailedReason) {
-      this.prerequisiteFailedReason = prerequisiteFailedReason;
-    }
   }
 
   static final class Target {
     private Set<String> values;
     private int variation;
   
+    transient TargetPreprocessed preprocessed;
+    
     Target() {}
   
     Target(Set<String> values, int variation) {
@@ -259,7 +286,7 @@ public abstract class DataModel {
     private List<Clause> clauses;
     private boolean trackEvents;
     
-    private transient EvaluationReason ruleMatchReason;
+    transient FlagRulePreprocessed preprocessed;
   
     Rule() {
       super();
@@ -284,15 +311,6 @@ public abstract class DataModel {
     boolean isTrackEvents() {
       return trackEvents;
     }
-    
-    // This value is precomputed when we deserialize a FeatureFlag from JSON
-    EvaluationReason getRuleMatchReason() {
-      return ruleMatchReason;
-    }
-
-    void setRuleMatchReason(EvaluationReason ruleMatchReason) {
-      this.ruleMatchReason = ruleMatchReason;
-    }
   }
   
   static final class Clause {
@@ -301,9 +319,7 @@ public abstract class DataModel {
     private List<LDValue> values; //interpreted as an OR of values
     private boolean negate;
     
-    // The following property is marked transient because it is not to be serialized or deserialized;
-    // it is (if necessary) precomputed in FeatureFlag.afterDeserialized() to speed up evaluations. 
-    transient EvaluatorPreprocessing.ClauseExtra preprocessed;
+    transient ClausePreprocessed preprocessed;
     
     Clause() {
     }
@@ -330,14 +346,6 @@ public abstract class DataModel {
     
     boolean isNegate() {
       return negate;
-    }
-    
-    EvaluatorPreprocessing.ClauseExtra getPreprocessed() {
-      return preprocessed;
-    }
-    
-    void setPreprocessed(EvaluatorPreprocessing.ClauseExtra preprocessed) {
-      this.preprocessed = preprocessed;
     }
   }
 
@@ -508,9 +516,8 @@ public abstract class DataModel {
       return generation;
     }
 
-    // Precompute some invariant values for improved efficiency during evaluations - called from JsonHelpers.PostProcessingDeserializableTypeAdapter
     public void afterDeserialized() {
-      EvaluatorPreprocessing.preprocessSegment(this);
+      DataModelPreprocessing.preprocessSegment(this);
     }
   }
   

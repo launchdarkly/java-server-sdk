@@ -371,7 +371,7 @@ public class EvaluatorTest {
         .prerequisites(prerequisite("feature1", GREEN_VARIATION))
         .disablePreprocessing(true)
         .build();
-    assertNull(f0.getPrerequisites().get(0).getPrerequisiteFailedReason());
+    assertNull(f0.getPrerequisites().get(0).preprocessed);
     
     Evaluator e = evaluatorBuilder().withNonexistentFlag("feature1").build();
     Evaluator.EvalResult result0 = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);

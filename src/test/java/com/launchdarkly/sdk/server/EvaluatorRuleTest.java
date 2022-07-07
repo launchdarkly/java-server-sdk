@@ -41,7 +41,7 @@ public class EvaluatorRuleTest {
   }
   
   @Test
-  public void ruleMatchReasonInstanceIsReusedForSameRule() {
+  public void ruleMatchResultInstanceIsReusedForSameRule() {
     DataModel.Clause clause0 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("wrongkey"));
     DataModel.Clause clause1 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule0 = buildTestRule("ruleid0", clause0).build();
@@ -56,14 +56,14 @@ public class EvaluatorRuleTest {
     Evaluator.EvalResult otherResult = BASE_EVALUATOR.evaluate(f, otherUser, EventFactory.DEFAULT);
 
     assertEquals(EvaluationReason.ruleMatch(1, "ruleid1"), sameResult0.getDetails().getReason());
-    assertSame(sameResult0.getDetails().getReason(), sameResult1.getDetails().getReason());
+    assertSame(sameResult0.getDetails(), sameResult1.getDetails());
 
     assertEquals(EvaluationReason.ruleMatch(0, "ruleid0"), otherResult.getDetails().getReason());
   }
   
   @Test
-  public void ruleMatchReasonInstanceCanBeCreatedFromScratch() {
-    // Normally we will always do the preprocessing step that creates the reason instances ahead of time,
+  public void ruleMatchResultInstanceCanBeCreatedFromScratch() {
+    // Normally we will always do the preprocessing step that creates the result instances ahead of time,
     // but if somehow we didn't, it should create them as needed
     DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule = buildTestRule("ruleid", clause).build();
@@ -72,14 +72,14 @@ public class EvaluatorRuleTest {
     DataModel.FeatureFlag f = buildBooleanFlagWithRules("feature", rule)
         .disablePreprocessing(true)
         .build();
-    assertNull(f.getRules().get(0).getRuleMatchReason());
+    assertNull(f.getRules().get(0).preprocessed);
     
     Evaluator.EvalResult result1 = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
     Evaluator.EvalResult result2 = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
 
     assertEquals(EvaluationReason.ruleMatch(0, "ruleid"), result1.getDetails().getReason());
-    assertNotSame(result1.getDetails().getReason(), result2.getDetails().getReason()); // they were created individually
-    assertEquals(result1.getDetails().getReason(), result2.getDetails().getReason()); // but they're equal
+    assertNotSame(result1.getDetails(), result2.getDetails()); // they were created individually
+    assertEquals(result1.getDetails(), result2.getDetails()); // but they're equal
   }
   
   @Test

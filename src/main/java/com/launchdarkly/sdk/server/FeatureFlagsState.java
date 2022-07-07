@@ -270,7 +270,7 @@ public final class FeatureFlagsState implements JsonSerializable {
       return add(
           flag.getKey(),
           eval.getValue(),
-          eval.isDefault() ? null : eval.getVariationIndex(),
+          eval.getDetails().isDefaultValue() ? null : eval.getVariationIndex(),
           eval.getReason(),
           flag.getVersion(),
           flag.isTrackEvents() || requireExperimentData,

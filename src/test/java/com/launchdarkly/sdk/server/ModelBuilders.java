@@ -197,6 +197,15 @@ public abstract class ModelBuilders {
       this.variations = values;
       return this;
     }
+
+    FlagBuilder variations(String... variations) {
+      List<LDValue> values = new ArrayList<>();
+      for (String v: variations) {
+        values.add(LDValue.of(v));
+      }
+      this.variations = values;
+      return this;
+    }
     
     FlagBuilder generatedVariations(int numVariations) {
       variations.clear();

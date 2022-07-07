@@ -494,8 +494,10 @@ public final class LDClient implements LDClientInterface {
       for (Event.FeatureRequest event : evalResult.getPrerequisiteEvents()) {
         eventProcessor.sendEvent(event);
       }
-      if (evalResult.isDefault()) {
-        evalResult.setValue(defaultValue);
+      if (evalResult.getDetails().isDefaultValue()) {
+        evalResult.setDetails(
+            EvaluationDetail.fromValue(defaultValue,
+                evalResult.getDetails().getVariationIndex(), evalResult.getDetails().getReason()));
       } else {
         LDValue value = evalResult.getValue(); // guaranteed not to be an actual Java null, but can be LDValue.ofNull()
         if (requireType != null &&

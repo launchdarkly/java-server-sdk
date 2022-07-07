@@ -2,14 +2,19 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.launchdarkly.sdk.EvaluationDetail;
+import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
+import com.launchdarkly.sdk.server.DataModel.Prerequisite;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
+import com.launchdarkly.sdk.server.DataModel.Target;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
 
 import org.junit.Test;
 
@@ -17,15 +22,20 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 @SuppressWarnings("javadoc")
-public class EvaluatorPreprocessingTest {
+public class DataModelPreprocessingTest {
   // We deliberately use the data model constructors here instead of the more convenient ModelBuilders
   // equivalents, to make sure we're testing the afterDeserialization() behavior and not just the builder.
 
+  private static final LDValue aValue = LDValue.of("a"), bValue = LDValue.of("b");
+  
   private FeatureFlag flagFromClause(Clause c) {
     return new FeatureFlag("key", 0, false, null, null, null, rulesFromClause(c),
         null, null, null, false, false, false, null, false);
@@ -33,6 +43,121 @@ public class EvaluatorPreprocessingTest {
   
   private List<Rule> rulesFromClause(Clause c) {
     return ImmutableList.of(new Rule("", ImmutableList.of(c), null, null, false));
+  }
+
+  @Test
+  public void preprocessFlagAddsPrecomputedOffResult() {
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+        ImmutableList.of(), null,
+        0,
+        ImmutableList.of(aValue, bValue),
+        false, false, false, null, false);
+    
+    f.afterDeserialized();
+    
+    assertThat(f.preprocessed, notNullValue());
+    assertThat(f.preprocessed.offResult,
+        equalTo(EvaluationDetail.fromValue(aValue, 0, EvaluationReason.off())));
+  }
+
+  @Test
+  public void preprocessFlagAddsPrecomputedOffResultForNullOffVariation() {
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+        ImmutableList.of(), null,
+        null,
+        ImmutableList.of(aValue, bValue),
+        false, false, false, null, false);
+    
+    f.afterDeserialized();
+    
+    assertThat(f.preprocessed, notNullValue());
+    assertThat(f.preprocessed.offResult,
+        equalTo(EvaluationDetail.fromValue(LDValue.ofNull(), EvaluationDetail.NO_VARIATION, EvaluationReason.off())));
+  }
+
+  @Test
+  public void preprocessFlagAddsPrecomputedFallthroughResults() {
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+        ImmutableList.of(), null, 0,
+        ImmutableList.of(aValue, bValue),
+        false, false, false, null, false);
+    
+    f.afterDeserialized();
+    
+    assertThat(f.preprocessed, notNullValue());
+    assertThat(f.preprocessed.fallthroughResults, notNullValue());
+    EvaluationReason regularReason = EvaluationReason.fallthrough(false);
+    EvaluationReason inExperimentReason = EvaluationReason.fallthrough(true);
+
+    assertThat(f.preprocessed.fallthroughResults.forVariation(0, false),
+        equalTo(EvaluationDetail.fromValue(aValue, 0, regularReason)));
+    assertThat(f.preprocessed.fallthroughResults.forVariation(0, true),
+        equalTo(EvaluationDetail.fromValue(aValue, 0, inExperimentReason)));
+    
+    assertThat(f.preprocessed.fallthroughResults.forVariation(1, false),
+        equalTo(EvaluationDetail.fromValue(bValue, 1, regularReason)));
+    assertThat(f.preprocessed.fallthroughResults.forVariation(1, true),
+        equalTo(EvaluationDetail.fromValue(bValue, 1, inExperimentReason)));
+  }
+
+  @Test
+  public void preprocessFlagAddsPrecomputedTargetMatchResults() {
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null,
+        ImmutableList.of(new Target(ImmutableSet.of(), 1)),
+        ImmutableList.of(), null, 0,
+        ImmutableList.of(aValue, bValue),
+        false, false, false, null, false);
+    
+    f.afterDeserialized();
+    
+    Target t = f.getTargets().get(0);
+    assertThat(t.preprocessed, notNullValue());
+    assertThat(t.preprocessed.targetMatchResult,
+        equalTo(EvaluationDetail.fromValue(bValue, 1, EvaluationReason.targetMatch())));
+  }
+
+  @Test
+  public void preprocessFlagAddsPrecomputedPrerequisiteFailedResults() {
+    FeatureFlag f = new FeatureFlag("key", 0, false,
+        ImmutableList.of(new Prerequisite("abc", 1)),
+        null, null,
+        ImmutableList.of(), null, 0,
+        ImmutableList.of(aValue, bValue),
+        false, false, false, null, false);
+    
+    f.afterDeserialized();
+    
+    Prerequisite p = f.getPrerequisites().get(0);
+    assertThat(p.preprocessed, notNullValue());
+    assertThat(p.preprocessed.prerequisiteFailedResult,
+        equalTo(EvaluationDetail.fromValue(aValue, 0, EvaluationReason.prerequisiteFailed("abc"))));
+  }
+
+  @Test
+  public void preprocessFlagAddsPrecomputedResultsToFlagRules() {
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+        ImmutableList.of(new Rule("ruleid0", ImmutableList.of(), null, null, false)),
+        null, null,
+        ImmutableList.of(aValue, bValue),
+        false, false, false, null, false);
+    
+    f.afterDeserialized();
+    
+    Rule rule = f.getRules().get(0);
+    assertThat(rule.preprocessed, notNullValue());
+    assertThat(rule.preprocessed.allPossibleResults, notNullValue());
+    EvaluationReason regularReason = EvaluationReason.ruleMatch(0, "ruleid0", false);
+    EvaluationReason inExperimentReason = EvaluationReason.ruleMatch(0, "ruleid0", true);
+    
+    assertThat(rule.preprocessed.allPossibleResults.forVariation(0, false),
+        equalTo(EvaluationDetail.fromValue(aValue, 0, regularReason)));
+    assertThat(rule.preprocessed.allPossibleResults.forVariation(0, true),
+        equalTo(EvaluationDetail.fromValue(aValue, 0, inExperimentReason)));
+    
+    assertThat(rule.preprocessed.allPossibleResults.forVariation(1, false),
+        equalTo(EvaluationDetail.fromValue(bValue, 1, regularReason)));
+    assertThat(rule.preprocessed.allPossibleResults.forVariation(1, true),
+        equalTo(EvaluationDetail.fromValue(bValue, 1, inExperimentReason)));
   }
   
   @Test
@@ -45,11 +170,11 @@ public class EvaluatorPreprocessingTest {
         );
  
     FeatureFlag f = flagFromClause(c);
-    assertNull(f.getRules().get(0).getClauses().get(0).getPreprocessed());
+    assertNull(f.getRules().get(0).getClauses().get(0).preprocessed);
     
     f.afterDeserialized();
     
-    EvaluatorPreprocessing.ClauseExtra ce = f.getRules().get(0).getClauses().get(0).getPreprocessed();
+    ClausePreprocessed ce = f.getRules().get(0).getClauses().get(0).preprocessed;
     assertNotNull(ce);
     assertEquals(ImmutableSet.of(LDValue.of("a"), LDValue.of(0)), ce.valuesSet);
   }
@@ -64,11 +189,11 @@ public class EvaluatorPreprocessingTest {
         );
     
     FeatureFlag f = flagFromClause(c);
-    assertNull(f.getRules().get(0).getClauses().get(0).getPreprocessed());
+    assertNull(f.getRules().get(0).getClauses().get(0).preprocessed);
     
     f.afterDeserialized();
     
-    assertNull(f.getRules().get(0).getClauses().get(0).getPreprocessed());
+    assertNull(f.getRules().get(0).getClauses().get(0).preprocessed);
   }
   
   @Test
@@ -81,11 +206,11 @@ public class EvaluatorPreprocessingTest {
         );
     
     FeatureFlag f = flagFromClause(c);
-    assertNull(f.getRules().get(0).getClauses().get(0).getPreprocessed());
+    assertNull(f.getRules().get(0).getClauses().get(0).preprocessed);
     
     f.afterDeserialized();
     
-    assertNull(f.getRules().get(0).getClauses().get(0).getPreprocessed());
+    assertNull(f.getRules().get(0).getClauses().get(0).preprocessed);
   }
   
   @Test
@@ -104,11 +229,11 @@ public class EvaluatorPreprocessingTest {
       // matters is that there's more than one of them, so that it *would* build a map if the operator were "in"
       
       FeatureFlag f = flagFromClause(c);
-      assertNull(op.name(), f.getRules().get(0).getClauses().get(0).getPreprocessed());
+      assertNull(op.name(), f.getRules().get(0).getClauses().get(0).preprocessed);
       
       f.afterDeserialized();
       
-      EvaluatorPreprocessing.ClauseExtra ce = f.getRules().get(0).getClauses().get(0).getPreprocessed();
+      ClausePreprocessed ce = f.getRules().get(0).getClauses().get(0).preprocessed;
       // this might be non-null if we preprocessed the values list, but there should still not be a valuesSet
       if (ce != null) {
         assertNull(ce.valuesSet);
@@ -132,11 +257,11 @@ public class EvaluatorPreprocessingTest {
           );
       
       FeatureFlag f = flagFromClause(c);
-      assertNull(f.getRules().get(0).getClauses().get(0).getPreprocessed());
+      assertNull(f.getRules().get(0).getClauses().get(0).preprocessed);
       
       f.afterDeserialized();
       
-      EvaluatorPreprocessing.ClauseExtra ce = f.getRules().get(0).getClauses().get(0).getPreprocessed();
+      ClausePreprocessed ce = f.getRules().get(0).getClauses().get(0).preprocessed;
       assertNotNull(op.name(), ce);
       assertNotNull(op.name(), ce.valuesExtra);
       assertEquals(op.name(), 4, ce.valuesExtra.size());
@@ -157,11 +282,11 @@ public class EvaluatorPreprocessingTest {
         );
     
     FeatureFlag f = flagFromClause(c);
-    assertNull(f.getRules().get(0).getClauses().get(0).getPreprocessed());
+    assertNull(f.getRules().get(0).getClauses().get(0).preprocessed);
     
     f.afterDeserialized();
     
-    EvaluatorPreprocessing.ClauseExtra ce = f.getRules().get(0).getClauses().get(0).getPreprocessed();
+    ClausePreprocessed ce = f.getRules().get(0).getClauses().get(0).preprocessed;
     assertNotNull(ce);
     assertNotNull(ce.valuesExtra);
     assertEquals(3, ce.valuesExtra.size());
@@ -186,11 +311,11 @@ public class EvaluatorPreprocessingTest {
           );
       
       FeatureFlag f = flagFromClause(c);
-      assertNull(f.getRules().get(0).getClauses().get(0).getPreprocessed());
+      assertNull(f.getRules().get(0).getClauses().get(0).preprocessed);
       
       f.afterDeserialized();
       
-      EvaluatorPreprocessing.ClauseExtra ce = f.getRules().get(0).getClauses().get(0).getPreprocessed();
+      ClausePreprocessed ce = f.getRules().get(0).getClauses().get(0).preprocessed;
       assertNotNull(op.name(), ce);
       assertNotNull(op.name(), ce.valuesExtra);
       assertEquals(op.name(), 3, ce.valuesExtra.size());
@@ -213,11 +338,11 @@ public class EvaluatorPreprocessingTest {
     SegmentRule rule = new SegmentRule(ImmutableList.of(c), null, null);
     Segment s = new Segment("key", null, null, null, ImmutableList.of(rule), 0, false, false, null);
     
-    assertNull(s.getRules().get(0).getClauses().get(0).getPreprocessed());
+    assertNull(s.getRules().get(0).getClauses().get(0).preprocessed);
     
     s.afterDeserialized();
     
-    EvaluatorPreprocessing.ClauseExtra ce = s.getRules().get(0).getClauses().get(0).getPreprocessed();
+    ClausePreprocessed ce = s.getRules().get(0).getClauses().get(0).preprocessed;
     assertNotNull(ce.valuesExtra);
     assertEquals(1, ce.valuesExtra.size());
     assertNotNull(ce.valuesExtra.get(0).parsedRegex);
