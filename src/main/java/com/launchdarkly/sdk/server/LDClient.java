@@ -255,6 +255,8 @@ public final class LDClient implements LDClientInterface {
     
     this.prereqEvalsDefault = makePrerequisiteEventSender(false);
     this.prereqEvalsWithReasons = makePrerequisiteEventSender(true);
+    // We pre-create those two callback objects, rather than using inline lambdas when we call the Evaluator,
+    // because using lambdas would cause a new closure object to be allocated every time. 
     
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {
