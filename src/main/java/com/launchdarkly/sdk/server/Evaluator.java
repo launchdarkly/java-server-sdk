@@ -5,8 +5,15 @@ import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
+import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Operator;
+import com.launchdarkly.sdk.server.DataModel.Prerequisite;
+import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.Rule;
+import com.launchdarkly.sdk.server.DataModel.Segment;
+import com.launchdarkly.sdk.server.DataModel.SegmentRule;
+import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
@@ -22,10 +29,34 @@ import static com.launchdarkly.sdk.server.EvaluatorBucketing.bucketUser;
 /**
  * Encapsulates the feature flag evaluation logic. The Evaluator has no knowledge of the rest of the SDK environment;
  * if it needs to retrieve flags or segments that are referenced by a flag, it does so through a read-only interface
- * that is provided in the constructor. It also produces feature requests as appropriate for any referenced prerequisite
- * flags, but does not send them.
+ * that is provided in the constructor. It also produces evaluation records (to be used in event data) as appropriate
+ * for any referenced prerequisite flags.
  */
 class Evaluator {
+  //
+  // IMPLEMENTATION NOTES ABOUT THIS FILE
+  //
+  // Flag evaluation is the hottest code path in the SDK; large applications may evaluate flags at a VERY high
+  // volume, so every little bit of optimization we can achieve here could add up to quite a bit of overhead we
+  // are not making the customer incur. Strategies that are used here for that purpose include:
+  //
+  // 1. Whenever possible, we are reusing precomputed instances of EvalResult; see DataModelPreprocessing and
+  // EvaluatorHelpers.
+  //
+  // 2. If prerequisite evaluations happen as a side effect of an evaluation, rather than building and returning
+  // a list of these, we deliver them one at a time via the PrerequisiteEvaluationSink callback mechanism.
+  //
+  // 3. If there's a piece of state that needs to be tracked across multiple methods during an evaluation, and
+  // it's not feasible to just pass it as a method parameter, consider adding it as a field in the mutable
+  // EvaluatorState object (which we will always have one of) rather than creating a new object to contain it.
+  //
+  // 4. Whenever possible, avoid using "for (variable: list)" here because it always creates an iterator object.
+  // Instead, use the tedious old "get the size, iterate with a counter" approach.
+  //
+  // 5. Avoid using lambdas/closures here, because these generally cause a heap object to be allocated for
+  // variables captured in the closure each time they are used.
+  //
+  
   private final static Logger logger = Loggers.EVALUATION;
 
   /**
@@ -43,8 +74,8 @@ class Evaluator {
    * and simplifies testing.
    */
   static interface Getters {
-    DataModel.FeatureFlag getFlag(String key);
-    DataModel.Segment getSegment(String key);
+    FeatureFlag getFlag(String key);
+    Segment getSegment(String key);
     BigSegmentStoreWrapper.BigSegmentsQueryResult getBigSegments(String key);
   }
 
@@ -82,7 +113,7 @@ class Evaluator {
    * @param eventFactory produces feature request events
    * @return an {@link EvalResult} - guaranteed non-null
    */
-  EvalResult evaluate(DataModel.FeatureFlag flag, LDUser user, PrerequisiteEvaluationSink prereqEvals) {
+  EvalResult evaluate(FeatureFlag flag, LDUser user, PrerequisiteEvaluationSink prereqEvals) {
     if (flag.getKey() == INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION) {
       throw EXPECTED_EXCEPTION_FROM_INVALID_FLAG;
     }
@@ -105,7 +136,7 @@ class Evaluator {
     return result;
   }
 
-  private EvalResult evaluateInternal(DataModel.FeatureFlag flag, LDUser user,
+  private EvalResult evaluateInternal(FeatureFlag flag, LDUser user,
       PrerequisiteEvaluationSink prereqEvals, EvaluatorState state) {
     if (!flag.isOn()) {
       return EvaluatorHelpers.offResult(flag);
@@ -117,15 +148,20 @@ class Evaluator {
     }
     
     // Check to see if targets match
-    for (DataModel.Target target: flag.getTargets()) { // getTargets() and getValues() are guaranteed non-null
-      if (target.getValues().contains(user.getKey())) {
+    List<Target> targets = flag.getTargets(); // guaranteed non-null
+    int nTargets = targets.size();
+    for (int i = 0; i < nTargets; i++) {
+      Target target = targets.get(i);
+      if (target.getValues().contains(user.getKey())) { // getValues() is guaranteed non-null
         return EvaluatorHelpers.targetMatchResult(flag, target);
       }
     }
+    
     // Now walk through the rules and see if any match
-    List<DataModel.Rule> rules = flag.getRules(); // guaranteed non-null
-    for (int i = 0; i < rules.size(); i++) {
-      DataModel.Rule rule = rules.get(i);
+    List<Rule> rules = flag.getRules(); // guaranteed non-null
+    int nRules = rules.size();
+    for (int i = 0; i < nRules; i++) {
+      Rule rule = rules.get(i);
       if (ruleMatchesUser(flag, rule, user, state)) {
         return computeRuleMatch(flag, user, rule, i);
       }
@@ -138,11 +174,14 @@ class Evaluator {
 
   // Checks prerequisites if any; returns null if successful, or an EvalResult if we have to
   // short-circuit due to a prerequisite failure.
-  private EvalResult checkPrerequisites(DataModel.FeatureFlag flag, LDUser user,
+  private EvalResult checkPrerequisites(FeatureFlag flag, LDUser user,
       PrerequisiteEvaluationSink prereqEvals, EvaluatorState state) {
-    for (DataModel.Prerequisite prereq: flag.getPrerequisites()) { // getPrerequisites() is guaranteed non-null
+    List<Prerequisite> prerequisites = flag.getPrerequisites(); // guaranteed non-null
+    int nPrerequisites = prerequisites.size();
+    for (int i = 0; i < nPrerequisites; i++) {
+      Prerequisite prereq = prerequisites.get(i);
       boolean prereqOk = true;
-      DataModel.FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
+      FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
       if (prereqFeatureFlag == null) {
         logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), flag.getKey());
         prereqOk = false;
@@ -177,11 +216,14 @@ class Evaluator {
     if (maybeVariation != null) {
       variation = maybeVariation.intValue();
     } else {
-      DataModel.Rollout rollout = vr.getRollout();
+      Rollout rollout = vr.getRollout();
       if (rollout != null && !rollout.getVariations().isEmpty()) {
         float bucket = bucketUser(rollout.getSeed(), user, flag.getKey(), rollout.getBucketBy(), flag.getSalt());
         float sum = 0F;
-        for (DataModel.WeightedVariation wv : rollout.getVariations()) {
+        List<WeightedVariation> variations = rollout.getVariations(); // guaranteed non-null
+        int nVariations = variations.size();
+        for (int i = 0; i < nVariations; i++) {
+          WeightedVariation wv = variations.get(i);
           sum += (float) wv.getWeight() / 100000F;
           if (bucket < sum) {
             variation = wv.getVariation();
@@ -224,8 +266,11 @@ class Evaluator {
     return reason;
   }
 
-  private boolean ruleMatchesUser(DataModel.FeatureFlag flag, DataModel.Rule rule, LDUser user, EvaluatorState state) {
-    for (DataModel.Clause clause: rule.getClauses()) { // getClauses() is guaranteed non-null
+  private boolean ruleMatchesUser(FeatureFlag flag, Rule rule, LDUser user, EvaluatorState state) {
+    List<Clause> clauses = rule.getClauses(); // guaranteed non-null
+    int nClauses = clauses.size();
+    for (int i = 0; i < nClauses; i++) {
+      Clause clause = clauses.get(i);
       if (!clauseMatchesUser(clause, user, state)) {
         return false;
       }
@@ -233,13 +278,16 @@ class Evaluator {
     return true;
   }
 
-  private boolean clauseMatchesUser(DataModel.Clause clause, LDUser user, EvaluatorState state) {
+  private boolean clauseMatchesUser(Clause clause, LDUser user, EvaluatorState state) {
     // In the case of a segment match operator, we check if the user is in any of the segments,
     // and possibly negate
-    if (clause.getOp() == DataModel.Operator.segmentMatch) {
-      for (LDValue j: clause.getValues()) {
-        if (j.isString()) {
-          DataModel.Segment segment = getters.getSegment(j.stringValue());
+    if (clause.getOp() == Operator.segmentMatch) {
+      List<LDValue> values = clause.getValues(); // guaranteed non-null
+      int nValues = values.size();
+      for (int i = 0; i < nValues; i++) {
+        LDValue clauseValue = values.get(i); 
+        if (clauseValue.isString()) {
+          Segment segment = getters.getSegment(clauseValue.stringValue());
           if (segment != null) {
             if (segmentMatchesUser(segment, user, state)) {
               return maybeNegate(clause, true);
@@ -253,14 +301,16 @@ class Evaluator {
     return clauseMatchesUserNoSegments(clause, user);
   }
   
-  private boolean clauseMatchesUserNoSegments(DataModel.Clause clause, LDUser user) {
+  private boolean clauseMatchesUserNoSegments(Clause clause, LDUser user) {
     LDValue userValue = user.getAttribute(clause.getAttribute());
     if (userValue.isNull()) {
       return false;
     }
 
     if (userValue.getType() == LDValueType.ARRAY) {
-      for (LDValue value: userValue.values()) {
+      int nValues = userValue.size();
+      for (int i = 0; i < nValues; i++) {
+        LDValue value = userValue.get(i);
         if (value.getType() == LDValueType.ARRAY || value.getType() == LDValueType.OBJECT) {
           logger.error("Invalid custom attribute value in user object for user key \"{}\": {}", user.getKey(), value);
           return false;
@@ -278,11 +328,11 @@ class Evaluator {
     return false;
   }
   
-  static boolean clauseMatchAny(DataModel.Clause clause, LDValue userValue) {
-    DataModel.Operator op = clause.getOp();
+  static boolean clauseMatchAny(Clause clause, LDValue userValue) {
+    Operator op = clause.getOp();
     if (op != null) {
       ClausePreprocessed preprocessed = clause.preprocessed;
-      if (op == DataModel.Operator.in) {
+      if (op == Operator.in) {
         // see if we have precomputed a Set for fast equality matching
         Set<LDValue> vs = preprocessed == null ? null : preprocessed.valuesSet;
         if (vs != null) {
@@ -305,11 +355,11 @@ class Evaluator {
     return false;
   }
 
-  private boolean maybeNegate(DataModel.Clause clause, boolean b) {
+  private boolean maybeNegate(Clause clause, boolean b) {
     return clause.isNegate() ? !b : b;
   }
   
-  private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user, EvaluatorState state) {
+  private boolean segmentMatchesUser(Segment segment, LDUser user, EvaluatorState state) {
     String userKey = user.getKey(); // we've already verified that the key is non-null at the top of evaluate()
     if (segment.isUnbounded()) {
       if (segment.getGeneration() == null) {
@@ -346,7 +396,10 @@ class Evaluator {
         return false;
       }
     }
-    for (DataModel.SegmentRule rule: segment.getRules()) {
+    List<SegmentRule> rules = segment.getRules(); // guaranteed non-null
+    int nRules = rules.size();
+    for (int i = 0; i < nRules; i++) {
+      SegmentRule rule = rules.get(i);
       if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
         return true;
       }
@@ -354,8 +407,11 @@ class Evaluator {
     return false;
   }
 
-  private boolean segmentRuleMatchesUser(DataModel.SegmentRule segmentRule, LDUser user, String segmentKey, String salt) {
-    for (DataModel.Clause c: segmentRule.getClauses()) {
+  private boolean segmentRuleMatchesUser(SegmentRule segmentRule, LDUser user, String segmentKey, String salt) {
+    List<Clause> clauses = segmentRule.getClauses(); // guaranteed non-null
+    int nClauses = clauses.size();
+    for (int i = 0; i < nClauses; i++) {
+      Clause c = clauses.get(i);
       if (!clauseMatchesUserNoSegments(c, user)) {
         return false;
       }
@@ -380,7 +436,7 @@ class Evaluator {
     return getValueForVariationOrRollout(flag, rule, user, null, reason);
   }
   
-  static String makeBigSegmentRef(DataModel.Segment segment) {
+  static String makeBigSegmentRef(Segment segment) {
     return String.format("%s.g%d", segment.getKey(), segment.getGeneration());
   }
 }
