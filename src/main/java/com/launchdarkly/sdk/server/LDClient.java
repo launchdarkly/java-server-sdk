@@ -429,7 +429,7 @@ public final class LDClient implements LDClientInterface {
   public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
     EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue),
         null, true);
-    return EvaluationDetail.fromValue(result.getValue(), result.getVariationIndex(), result.getReason());
+    return result.getAnyType();
   }
   
   @Override
