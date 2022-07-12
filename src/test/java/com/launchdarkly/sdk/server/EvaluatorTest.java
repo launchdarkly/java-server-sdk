@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.Iterables;
-import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
@@ -10,24 +9,24 @@ import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
+import com.launchdarkly.sdk.server.EvaluatorTestUtil.PrereqEval;
+import com.launchdarkly.sdk.server.EvaluatorTestUtil.PrereqRecorder;
 import com.launchdarkly.sdk.server.ModelBuilders.FlagBuilder;
-import com.launchdarkly.sdk.server.interfaces.Event;
+
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.Test;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
-import static com.launchdarkly.sdk.EvaluationDetail.fromValue;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.target;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.emptyIterable;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
@@ -87,19 +86,17 @@ public class EvaluatorTest {
   @Test
   public void evaluationReturnsErrorIfUserIsNull() throws Exception {
     DataModel.FeatureFlag f = flagBuilder("feature").build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, null, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, null, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED), result);
   }
 
   @Test
   public void evaluationReturnsErrorIfUserKeyIsNull() throws Exception {
     DataModel.FeatureFlag f = flagBuilder("feature").build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, new LDUser(null), EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, new LDUser(null), expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED), result);
   }
 
   @Test
@@ -107,10 +104,9 @@ public class EvaluatorTest {
     DataModel.FeatureFlag f = buildThreeWayFlag("feature")
         .on(false)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(fromValue(OFF_VALUE, OFF_VARIATION, EvaluationReason.off()), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.of(OFF_VALUE, OFF_VARIATION, EvaluationReason.off()), result);
   }
 
   @Test
@@ -119,10 +115,9 @@ public class EvaluatorTest {
         .on(false)
         .offVariation(null)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(fromValue(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.of(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()), result);
   }
   
   @Test
@@ -131,10 +126,9 @@ public class EvaluatorTest {
         .on(false)
         .offVariation(999)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
 
   @Test
@@ -143,10 +137,9 @@ public class EvaluatorTest {
         .on(false)
         .offVariation(-1)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
   
   @Test
@@ -158,7 +151,7 @@ public class EvaluatorTest {
         .on(true)
         .fallthrough(vr)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
     assert(result.getReason().isInExperiment());
   }
@@ -172,7 +165,7 @@ public class EvaluatorTest {
         .on(true)
         .fallthrough(vr)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
     assert(!result.getReason().isInExperiment());
   }
@@ -186,7 +179,7 @@ public class EvaluatorTest {
         .on(true)
         .fallthrough(vr)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
     assert(!result.getReason().isInExperiment());
   }
@@ -202,7 +195,7 @@ public class EvaluatorTest {
         .on(true)
         .rules(rule)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
     assert(result.getReason().isInExperiment());
   }
@@ -218,7 +211,7 @@ public class EvaluatorTest {
         .on(true)
         .rules(rule)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
     assert(!result.getReason().isInExperiment());
   }
@@ -228,10 +221,23 @@ public class EvaluatorTest {
     DataModel.FeatureFlag f = buildThreeWayFlag("feature")
         .on(true)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(fromValue(FALLTHROUGH_VALUE, FALLTHROUGH_VARIATION, EvaluationReason.fallthrough()), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.of(FALLTHROUGH_VALUE, FALLTHROUGH_VARIATION, EvaluationReason.fallthrough()), result);
+  }
+
+  @Test
+  public void fallthroughResultHasForceReasonTrackingTrueIfTrackEventsFallthroughIstrue() throws Exception {
+    DataModel.FeatureFlag f = buildThreeWayFlag("feature")
+        .on(true)
+        .trackEventsFallthrough(true)
+        .build();
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
+    
+    assertEquals(
+        EvalResult.of(FALLTHROUGH_VALUE, FALLTHROUGH_VARIATION, EvaluationReason.fallthrough())
+          .withForceReasonTracking(true),
+        result);
   }
 
   @Test
@@ -240,10 +246,9 @@ public class EvaluatorTest {
         .on(true)
         .fallthroughVariation(999)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
 
   @Test
@@ -252,10 +257,9 @@ public class EvaluatorTest {
         .on(true)
         .fallthroughVariation(-1)
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
 
   @Test
@@ -264,10 +268,9 @@ public class EvaluatorTest {
         .on(true)
         .fallthrough(new DataModel.VariationOrRollout(null, null))
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
   
   @Test
@@ -276,10 +279,9 @@ public class EvaluatorTest {
         .on(true)
         .fallthrough(new DataModel.VariationOrRollout(null, ModelBuilders.emptyRollout()))
         .build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, BASE_USER, expectNoPrerequisiteEvals());
     
-    assertEquals(EvaluationDetail.error(EvaluationReason.ErrorKind.MALFORMED_FLAG, null), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
   
   @Test
@@ -289,11 +291,10 @@ public class EvaluatorTest {
         .prerequisites(prerequisite("feature1", 1))
         .build();
     Evaluator e = evaluatorBuilder().withNonexistentFlag("feature1").build();
-    Evaluator.EvalResult result = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result = e.evaluate(f0, BASE_USER, expectNoPrerequisiteEvals());
     
     EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
-    assertEquals(fromValue(OFF_VALUE, OFF_VARIATION, expectedReason), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.of(OFF_VALUE, OFF_VARIATION, expectedReason), result);
   }
 
   @Test
@@ -308,18 +309,18 @@ public class EvaluatorTest {
         // note that even though it returns the desired variation, it is still off and therefore not a match
         .build();
     Evaluator e = evaluatorBuilder().withStoredFlags(f1).build();
-    Evaluator.EvalResult result = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    PrereqRecorder recordPrereqs = new PrereqRecorder();
+    EvalResult result = e.evaluate(f0, BASE_USER, recordPrereqs);
     
     EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
-    assertEquals(fromValue(OFF_VALUE, OFF_VARIATION, expectedReason), result.getDetails());
+    assertEquals(EvalResult.of(OFF_VALUE, OFF_VARIATION, expectedReason), result);
     
-    assertEquals(1, Iterables.size(result.getPrerequisiteEvents()));
-    Event.FeatureRequest event = Iterables.get(result.getPrerequisiteEvents(), 0);
-    assertEquals(f1.getKey(), event.getKey());
-    assertEquals(GREEN_VARIATION, event.getVariation());
-    assertEquals(GREEN_VALUE, event.getValue());
-    assertEquals(f1.getVersion(), event.getVersion());
-    assertEquals(f0.getKey(), event.getPrereqOf());
+    assertEquals(1, Iterables.size(recordPrereqs.evals));
+    PrereqEval eval = recordPrereqs.evals.get(0);
+    assertEquals(f1, eval.flag);
+    assertEquals(f0, eval.prereqOfFlag);
+    assertEquals(GREEN_VARIATION, eval.result.getVariationIndex());
+    assertEquals(GREEN_VALUE, eval.result.getValue());
   }
 
   @Test
@@ -333,33 +334,33 @@ public class EvaluatorTest {
         .fallthroughVariation(RED_VARIATION)
         .build();
     Evaluator e = evaluatorBuilder().withStoredFlags(f1).build();
-    Evaluator.EvalResult result = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    PrereqRecorder recordPrereqs = new PrereqRecorder();
+    EvalResult result = e.evaluate(f0, BASE_USER, recordPrereqs);
     
     EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
-    assertEquals(fromValue(OFF_VALUE, OFF_VARIATION, expectedReason), result.getDetails());
+    assertEquals(EvalResult.of(OFF_VALUE, OFF_VARIATION, expectedReason), result);
     
-    assertEquals(1, Iterables.size(result.getPrerequisiteEvents()));
-    Event.FeatureRequest event = Iterables.get(result.getPrerequisiteEvents(), 0);
-    assertEquals(f1.getKey(), event.getKey());
-    assertEquals(RED_VARIATION, event.getVariation());
-    assertEquals(RED_VALUE, event.getValue());
-    assertEquals(f1.getVersion(), event.getVersion());
-    assertEquals(f0.getKey(), event.getPrereqOf());
+    assertEquals(1, Iterables.size(recordPrereqs.evals));
+    PrereqEval eval = recordPrereqs.evals.get(0);
+    assertEquals(f1, eval.flag);
+    assertEquals(f0, eval.prereqOfFlag);
+    assertEquals(RED_VARIATION, eval.result.getVariationIndex());
+    assertEquals(RED_VALUE, eval.result.getValue());
   }
 
   @Test
-  public void prerequisiteFailedReasonInstanceIsReusedForSamePrerequisite() throws Exception {
+  public void prerequisiteFailedResultInstanceIsReusedForSamePrerequisite() throws Exception {
     DataModel.FeatureFlag f0 = buildThreeWayFlag("feature")
         .on(true)
         .prerequisites(prerequisite("feature1", GREEN_VARIATION))
         .build();
     Evaluator e = evaluatorBuilder().withNonexistentFlag("feature1").build();
-    Evaluator.EvalResult result0 = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
-    Evaluator.EvalResult result1 = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result0 = e.evaluate(f0, BASE_USER, expectNoPrerequisiteEvals());
+    EvalResult result1 = e.evaluate(f0, BASE_USER, expectNoPrerequisiteEvals());
     
     EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
-    assertEquals(expectedReason, result0.getDetails().getReason());
-    assertSame(result0.getDetails().getReason(), result1.getDetails().getReason());
+    assertEquals(expectedReason, result0.getReason());
+    assertSame(result0, result1);
   }
 
   @Test
@@ -374,13 +375,13 @@ public class EvaluatorTest {
     assertNull(f0.getPrerequisites().get(0).preprocessed);
     
     Evaluator e = evaluatorBuilder().withNonexistentFlag("feature1").build();
-    Evaluator.EvalResult result0 = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
-    Evaluator.EvalResult result1 = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    EvalResult result0 = e.evaluate(f0, BASE_USER, expectNoPrerequisiteEvals());
+    EvalResult result1 = e.evaluate(f0, BASE_USER, expectNoPrerequisiteEvals());
     
     EvaluationReason expectedReason = EvaluationReason.prerequisiteFailed("feature1");
-    assertEquals(expectedReason, result0.getDetails().getReason());
-    assertNotSame(result0.getDetails().getReason(), result1.getDetails().getReason()); // they were created individually
-    assertEquals(result0.getDetails().getReason(), result1.getDetails().getReason()); // but they're equal
+    assertEquals(expectedReason, result0.getReason());
+    assertNotSame(result0.getReason(), result1.getReason()); // they were created individually
+    assertEquals(result0.getReason(), result1.getReason()); // but they're equal
   }
 
   @Test
@@ -395,17 +396,17 @@ public class EvaluatorTest {
         .version(2)
         .build();
     Evaluator e = evaluatorBuilder().withStoredFlags(f1).build();
-    Evaluator.EvalResult result = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    PrereqRecorder recordPrereqs = new PrereqRecorder();
+    EvalResult result = e.evaluate(f0, BASE_USER, recordPrereqs);
     
-    assertEquals(fromValue(FALLTHROUGH_VALUE, FALLTHROUGH_VARIATION, EvaluationReason.fallthrough()), result.getDetails());
+    assertEquals(EvalResult.of(FALLTHROUGH_VALUE, FALLTHROUGH_VARIATION, EvaluationReason.fallthrough()), result);
 
-    assertEquals(1, Iterables.size(result.getPrerequisiteEvents()));
-    Event.FeatureRequest event = Iterables.get(result.getPrerequisiteEvents(), 0);
-    assertEquals(f1.getKey(), event.getKey());
-    assertEquals(GREEN_VARIATION, event.getVariation());
-    assertEquals(GREEN_VALUE, event.getValue());
-    assertEquals(f1.getVersion(), event.getVersion());
-    assertEquals(f0.getKey(), event.getPrereqOf());
+    assertEquals(1, Iterables.size(recordPrereqs.evals));
+    PrereqEval eval = recordPrereqs.evals.get(0);
+    assertEquals(f1, eval.flag);
+    assertEquals(f0, eval.prereqOfFlag);
+    assertEquals(GREEN_VARIATION, eval.result.getVariationIndex());
+    assertEquals(GREEN_VALUE, eval.result.getValue());
   }
 
   @Test
@@ -424,24 +425,24 @@ public class EvaluatorTest {
         .fallthroughVariation(GREEN_VARIATION)
         .build();
     Evaluator e = evaluatorBuilder().withStoredFlags(f1, f2).build();
-    Evaluator.EvalResult result = e.evaluate(f0, BASE_USER, EventFactory.DEFAULT);
+    PrereqRecorder recordPrereqs = new PrereqRecorder();
+    EvalResult result = e.evaluate(f0, BASE_USER, recordPrereqs);
     
-    assertEquals(fromValue(FALLTHROUGH_VALUE, FALLTHROUGH_VARIATION, EvaluationReason.fallthrough()), result.getDetails());
-    assertEquals(2, Iterables.size(result.getPrerequisiteEvents()));
-    
-    Event.FeatureRequest event0 = Iterables.get(result.getPrerequisiteEvents(), 0);
-    assertEquals(f2.getKey(), event0.getKey());
-    assertEquals(GREEN_VARIATION, event0.getVariation());
-    assertEquals(GREEN_VALUE, event0.getValue());
-    assertEquals(f2.getVersion(), event0.getVersion());
-    assertEquals(f1.getKey(), event0.getPrereqOf());
+    assertEquals(EvalResult.of(FALLTHROUGH_VALUE, FALLTHROUGH_VARIATION, EvaluationReason.fallthrough()), result);
 
-    Event.FeatureRequest event1 = Iterables.get(result.getPrerequisiteEvents(), 1);
-    assertEquals(f1.getKey(), event1.getKey());
-    assertEquals(GREEN_VARIATION, event1.getVariation());
-    assertEquals(GREEN_VALUE, event1.getValue());
-    assertEquals(f1.getVersion(), event1.getVersion());
-    assertEquals(f0.getKey(), event1.getPrereqOf());
+    assertEquals(2, Iterables.size(recordPrereqs.evals));
+    
+    PrereqEval eval0 = recordPrereqs.evals.get(0);
+    assertEquals(f2, eval0.flag);
+    assertEquals(f1, eval0.prereqOfFlag);
+    assertEquals(GREEN_VARIATION, eval0.result.getVariationIndex());
+    assertEquals(GREEN_VALUE, eval0.result.getValue());
+
+    PrereqEval eval1 = recordPrereqs.evals.get(1);
+    assertEquals(f1, eval1.flag);
+    assertEquals(f0, eval1.prereqOfFlag);
+    assertEquals(GREEN_VARIATION, eval1.result.getVariationIndex());
+    assertEquals(GREEN_VALUE, eval1.result.getValue());
   }
   
   @Test
@@ -451,10 +452,9 @@ public class EvaluatorTest {
         .targets(target(2, "whoever", "userkey"))
         .build();
     LDUser user = new LDUser.Builder("userkey").build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
     
-    assertEquals(fromValue(MATCH_VALUE, MATCH_VARIATION, EvaluationReason.targetMatch()), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.of(MATCH_VALUE, MATCH_VARIATION, EvaluationReason.targetMatch()), result);
   }
   
   @Test
@@ -470,16 +470,37 @@ public class EvaluatorTest {
         .build();
     
     LDUser user = new LDUser.Builder("userkey").build();
-    Evaluator.EvalResult result = BASE_EVALUATOR.evaluate(f, user, EventFactory.DEFAULT);
+    EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
     
-    assertEquals(fromValue(MATCH_VALUE, MATCH_VARIATION, EvaluationReason.ruleMatch(1, "ruleid1")), result.getDetails());
-    assertThat(result.getPrerequisiteEvents(), emptyIterable());
+    assertEquals(EvalResult.of(MATCH_VALUE, MATCH_VARIATION, EvaluationReason.ruleMatch(1, "ruleid1")), result);
+  }
+
+  @Test
+  public void ruleMatchReasonHasTrackReasonTrueIfRuleLevelTrackEventsIsTrue() {
+    DataModel.Clause clause0 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("wrongkey"));
+    DataModel.Clause clause1 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
+    DataModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2)
+        .trackEvents(true).build();
+    
+    DataModel.FeatureFlag f = buildThreeWayFlag("feature")
+        .on(true)
+        .rules(rule0, rule1)
+        .build();
+    
+    LDUser user = new LDUser.Builder("userkey").build();
+    EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
+    
+    assertEquals(
+        EvalResult.of(MATCH_VALUE, MATCH_VARIATION, EvaluationReason.ruleMatch(1, "ruleid1"))
+          .withForceReasonTracking(true),
+        result);
   }
   
   @Test(expected=RuntimeException.class)
   public void canSimulateErrorUsingTestInstrumentationFlagKey() {
     // Other tests rely on the ability to simulate an exception in this way
     DataModel.FeatureFlag badFlag = flagBuilder(Evaluator.INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION).build();
-    BASE_EVALUATOR.evaluate(badFlag, BASE_USER, EventFactory.DEFAULT);
+    BASE_EVALUATOR.evaluate(badFlag, BASE_USER, expectNoPrerequisiteEvals());
   }
 }

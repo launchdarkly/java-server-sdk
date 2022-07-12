@@ -1,80 +1,113 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.DataModel.Rollout;
-import com.launchdarkly.sdk.server.DataModel.RolloutKind;
-import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
-import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
+import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
 
 import org.junit.Test;
 
-import static com.launchdarkly.sdk.server.ModelBuilders.*;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
-import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
+import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class EventFactoryTest {
     private static final LDUser BASE_USER = new LDUser.Builder("x").build();
-    private static Rollout buildRollout(boolean isExperiment, boolean untrackedVariations) {
-        List<WeightedVariation> variations = new ArrayList<>();
-        variations.add(new WeightedVariation(1, 50000, untrackedVariations));
-        variations.add(new WeightedVariation(2, 50000, untrackedVariations));
-        UserAttribute bucketBy = UserAttribute.KEY;
-        RolloutKind kind = isExperiment ? RolloutKind.experiment : RolloutKind.rollout;
-        Integer seed = 123;
-        Rollout rollout = new Rollout(variations, bucketBy, kind, seed);
-        return rollout;
+    private static final LDValue SOME_VALUE = LDValue.of("value");
+    private static final int SOME_VARIATION = 11;
+    private static final EvaluationReason SOME_REASON = EvaluationReason.fallthrough();
+    private static final EvalResult SOME_RESULT = EvalResult.of(SOME_VALUE, SOME_VARIATION, SOME_REASON); 
+    private static final LDValue DEFAULT_VALUE = LDValue.of("default");
+    
+    @Test
+    public void flagKeyIsSetInFeatureEvent() {
+      FeatureFlag flag = flagBuilder("flagkey").build();
+      FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
+
+      assertEquals(flag.getKey(), fr.getKey());
     }
 
     @Test
-    public void trackEventFalseTest() {
-        DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(false).build();
-        LDUser user = new LDUser("moniker");
-        FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user, null, null);
+    public void flagVersionIsSetInFeatureEvent() {
+      FeatureFlag flag = flagBuilder("flagkey").build();
+      FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
+
+      assertEquals(flag.getVersion(), fr.getVersion());
+    }
+    
+    @Test
+    public void userIsSetInFeatureEvent() {
+      FeatureFlag flag = flagBuilder("flagkey").build();
+      FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
+
+      assertEquals(BASE_USER, fr.getUser());
+    }
+    
+    @Test
+    public void valueIsSetInFeatureEvent() {
+      FeatureFlag flag = flagBuilder("flagkey").build();
+      FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
+
+      assertEquals(SOME_VALUE, fr.getValue());
+    }
+    
+    @Test
+    public void variationIsSetInFeatureEvent() {
+      FeatureFlag flag = flagBuilder("flagkey").build();
+      FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
+
+      assertEquals(SOME_VARIATION, fr.getVariation());
+    }
+    
+    @Test
+    public void reasonIsNormallyNotIncludedWithDefaultEventFactory() {
+      FeatureFlag flag = flagBuilder("flagkey").build();
+      FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
+
+      assertNull(fr.getReason());
+    }
+
+    @Test
+    public void reasonIsIncludedWithEventFactoryThatIsConfiguredToIncludedReasons() {
+      FeatureFlag flag = flagBuilder("flagkey").build();
+      FeatureRequest fr = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(
+          flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
+
+      assertEquals(SOME_REASON, fr.getReason());
+    }
+
+    @Test
+    public void reasonIsIncludedIfForceReasonTrackingIsTrue() {
+        FeatureFlag flag = flagBuilder("flagkey").build();
+        FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER,
+            SOME_RESULT.withForceReasonTracking(true), DEFAULT_VALUE);
+
+        assertEquals(SOME_REASON, fr.getReason());
+    }
+    @Test
+    public void trackEventsIsNormallyFalse() {
+        FeatureFlag flag = flagBuilder("flagkey").build();
+        FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
 
         assert(!fr.isTrackEvents());
     }
 
     @Test
-    public void trackEventTrueTest() {
-        DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-        LDUser user = new LDUser("moniker");
-        FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user, null, null);
+    public void trackEventsIsTrueIfItIsTrueInFlag() {
+        FeatureFlag flag = flagBuilder("flagkey")
+            .trackEvents(true)
+            .build();
+        FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER, SOME_RESULT, DEFAULT_VALUE);
 
         assert(fr.isTrackEvents());
     }
 
     @Test
-    public void trackEventTrueWhenTrackEventsFalseButExperimentFallthroughReasonTest() {
-        Rollout rollout = buildRollout(true, false);
-        VariationOrRollout vr = new VariationOrRollout(null, rollout);
-
-        DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(false)
-            .fallthrough(vr).build();
-        LDUser user = new LDUser("moniker");
-        FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user, null, 0, 
-            EvaluationReason.fallthrough(true), null, null);
-
-        assert(fr.isTrackEvents());
-    }
-
-    @Test
-    public void trackEventTrueWhenTrackEventsFalseButExperimentRuleMatchReasonTest() {
-        Rollout rollout = buildRollout(true, false);
-        
-        DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of(BASE_USER.getKey()));
-        DataModel.Rule rule = ruleBuilder().id("ruleid0").clauses(clause).rollout(rollout).build();
-    
-        DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(false)
-            .rules(rule).build();
-        LDUser user = new LDUser("moniker");
-        FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user, null, 0, 
-            EvaluationReason.ruleMatch(0, "something", true), null, null);
+    public void trackEventsIsTrueIfForceReasonTrackingIsTrue() {
+        FeatureFlag flag = flagBuilder("flagkey").build();
+        FeatureRequest fr = EventFactory.DEFAULT.newFeatureRequestEvent(flag, BASE_USER,
+            SOME_RESULT.withForceReasonTracking(true), DEFAULT_VALUE);
 
         assert(fr.isTrackEvents());
     }

@@ -9,7 +9,6 @@ import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
-import com.launchdarkly.sdk.server.Evaluator.EvalResult;
 
 import org.junit.Test;
 
@@ -17,6 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -155,7 +155,7 @@ public class EvaluatorBucketingTest {
         .fallthrough(rollout)
         .salt(salt)
         .build();
-    EvalResult result1 = BASE_EVALUATOR.evaluate(flag1, user, EventFactory.DEFAULT);
+    EvalResult result1 = BASE_EVALUATOR.evaluate(flag1, user, expectNoPrerequisiteEvals());
     assertThat(result1.getReason(), equalTo(EvaluationReason.fallthrough()));
     assertThat(result1.getVariationIndex(), equalTo(expectedVariation));
     
@@ -169,7 +169,7 @@ public class EvaluatorBucketingTest {
             .build())
         .salt(salt)
         .build();
-    EvalResult result2 = BASE_EVALUATOR.evaluate(flag2, user, EventFactory.DEFAULT);
+    EvalResult result2 = BASE_EVALUATOR.evaluate(flag2, user, expectNoPrerequisiteEvals());
     assertThat(result2.getReason().getKind(), equalTo(EvaluationReason.Kind.RULE_MATCH));
     assertThat(result2.getVariationIndex(), equalTo(expectedVariation));
   }

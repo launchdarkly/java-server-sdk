@@ -2,10 +2,9 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
+import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
@@ -22,9 +21,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
-import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
-import static com.launchdarkly.sdk.server.EvaluatorHelpers.resultForVariation;
-
 /**
  * Additional information that we attach to our data model to reduce the overhead of feature flag
  * evaluations. The methods that create these objects are called by the afterDeserialized() methods
@@ -36,75 +32,76 @@ import static com.launchdarkly.sdk.server.EvaluatorHelpers.resultForVariation;
  */
 abstract class DataModelPreprocessing {
   private DataModelPreprocessing() {}
-
-  static final class EvaluationDetailsForSingleVariation {
-    private final EvaluationDetail<LDValue> regularResult;
-    private final EvaluationDetail<LDValue> inExperimentResult;
+  
+  static final class EvalResultsForSingleVariation {
+    private final EvalResult regularResult;
+    private final EvalResult inExperimentResult;
     
-    EvaluationDetailsForSingleVariation(
+    EvalResultsForSingleVariation(
         LDValue value,
         int variationIndex,
         EvaluationReason regularReason,
-        EvaluationReason inExperimentReason
+        EvaluationReason inExperimentReason,
+        boolean alwaysInExperiment
         ) {
-      this.regularResult = EvaluationDetail.fromValue(value, variationIndex, regularReason);
-      this.inExperimentResult = EvaluationDetail.fromValue(value, variationIndex, inExperimentReason);
+      this.regularResult = EvalResult.of(value, variationIndex, regularReason).withForceReasonTracking(alwaysInExperiment);
+      this.inExperimentResult = EvalResult.of(value, variationIndex, inExperimentReason).withForceReasonTracking(true);
     }
     
-    EvaluationDetail<LDValue> getResult(boolean inExperiment) {
+    EvalResult getResult(boolean inExperiment) {
       return inExperiment ? inExperimentResult : regularResult;
     }
   }
   
-  static final class EvaluationDetailFactoryMultiVariations {
-    private final ImmutableList<EvaluationDetailsForSingleVariation> variations;
+  static final class EvalResultFactoryMultiVariations {
+    private final ImmutableList<EvalResultsForSingleVariation> variations;
     
-    EvaluationDetailFactoryMultiVariations(
-        ImmutableList<EvaluationDetailsForSingleVariation> variations
+    EvalResultFactoryMultiVariations(
+        ImmutableList<EvalResultsForSingleVariation> variations
         ) {
       this.variations = variations;
     }
     
-    EvaluationDetail<LDValue> forVariation(int index, boolean inExperiment) {
+    EvalResult forVariation(int index, boolean inExperiment) {
       if (index < 0 || index >= variations.size()) {
-        return EvaluationDetail.error(ErrorKind.MALFORMED_FLAG, LDValue.ofNull());
+        return EvalResult.error(ErrorKind.MALFORMED_FLAG);
       }
       return variations.get(index).getResult(inExperiment);
     }
   }
   
   static final class FlagPreprocessed {
-    EvaluationDetail<LDValue> offResult;
-    EvaluationDetailFactoryMultiVariations fallthroughResults;
+    EvalResult offResult;
+    EvalResultFactoryMultiVariations fallthroughResults;
     
-    FlagPreprocessed(EvaluationDetail<LDValue> offResult,
-        EvaluationDetailFactoryMultiVariations fallthroughResults) {
+    FlagPreprocessed(EvalResult offResult,
+        EvalResultFactoryMultiVariations fallthroughResults) {
       this.offResult = offResult;
       this.fallthroughResults = fallthroughResults;
     }
   }
   
   static final class PrerequisitePreprocessed {
-    final EvaluationDetail<LDValue> prerequisiteFailedResult;
+    final EvalResult prerequisiteFailedResult;
     
-    PrerequisitePreprocessed(EvaluationDetail<LDValue> prerequisiteFailedResult) {
+    PrerequisitePreprocessed(EvalResult prerequisiteFailedResult) {
       this.prerequisiteFailedResult = prerequisiteFailedResult;
     }
   }
   
   static final class TargetPreprocessed {
-    final EvaluationDetail<LDValue> targetMatchResult;
+    final EvalResult targetMatchResult;
     
-    TargetPreprocessed(EvaluationDetail<LDValue> targetMatchResult) {
+    TargetPreprocessed(EvalResult targetMatchResult) {
       this.targetMatchResult = targetMatchResult;
     }
   }
   
   static final class FlagRulePreprocessed {
-    final EvaluationDetailFactoryMultiVariations allPossibleResults;
+    final EvalResultFactoryMultiVariations allPossibleResults;
     
     FlagRulePreprocessed(
-        EvaluationDetailFactoryMultiVariations allPossibleResults
+        EvalResultFactoryMultiVariations allPossibleResults
         ) {
       this.allPossibleResults = allPossibleResults;
     }
@@ -134,9 +131,9 @@ abstract class DataModelPreprocessing {
 
   static void preprocessFlag(FeatureFlag f) {
     f.preprocessed = new FlagPreprocessed(
-        precomputeSingleVariationResult(f, f.getOffVariation(), EvaluationReason.off()),
+        EvaluatorHelpers.offResult(f),
         precomputeMultiVariationResults(f, EvaluationReason.fallthrough(false),
-            EvaluationReason.fallthrough(true))
+            EvaluationReason.fallthrough(true), f.isTrackEventsFallthrough())
         );
     
     for (Prerequisite p: f.getPrerequisites()) {
@@ -164,23 +161,19 @@ abstract class DataModelPreprocessing {
   static void preprocessPrerequisite(Prerequisite p, FeatureFlag f) {
     // Precompute an immutable EvaluationDetail instance that will be used if the prerequisite fails.
     // This behaves the same as an "off" result except for the reason.
-    EvaluationDetail<LDValue> failureResult = precomputeSingleVariationResult(f,
-        f.getOffVariation(), EvaluationReason.prerequisiteFailed(p.getKey()));
-    p.preprocessed = new PrerequisitePreprocessed(failureResult);
+    p.preprocessed = new PrerequisitePreprocessed(EvaluatorHelpers.prerequisiteFailedResult(f, p));
   }
   
   static void preprocessTarget(Target t, FeatureFlag f) {
-    // Precompute an immutable EvaluationDetail instance that will be used if this target matches.
-    t.preprocessed = new TargetPreprocessed(
-        resultForVariation(t.getVariation(), f, EvaluationReason.targetMatch())
-        );
+    // Precompute an immutable EvalResult instance that will be used if this target matches.
+    t.preprocessed = new TargetPreprocessed(EvaluatorHelpers.targetMatchResult(f, t));
   }
   
   static void preprocessFlagRule(Rule r, int ruleIndex, FeatureFlag f) {
     EvaluationReason ruleMatchReason = EvaluationReason.ruleMatch(ruleIndex, r.getId(), false);
     EvaluationReason ruleMatchReasonInExperiment = EvaluationReason.ruleMatch(ruleIndex, r.getId(), true);
     r.preprocessed = new FlagRulePreprocessed(precomputeMultiVariationResults(f,
-        ruleMatchReason, ruleMatchReasonInExperiment));
+        ruleMatchReason, ruleMatchReasonInExperiment, r.isTrackEvents()));
     
     for (Clause c: r.getClauses()) {
       preprocessClause(c);
@@ -261,33 +254,18 @@ abstract class DataModelPreprocessing {
     return new ClausePreprocessed(null, valuesExtra);
   }
   
-  private static EvaluationDetail<LDValue> precomputeSingleVariationResult(
-      FeatureFlag f,
-      Integer index,
-      EvaluationReason reason
-      ) {
-    if (index == null) {
-      return EvaluationDetail.fromValue(LDValue.ofNull(), NO_VARIATION, reason);
-    }
-    int i = index.intValue();
-    if (i < 0 || i >= f.getVariations().size()) {
-      return EvaluationDetail.fromValue(LDValue.ofNull(), NO_VARIATION,
-          EvaluationReason.error(ErrorKind.MALFORMED_FLAG));
-    }
-    return EvaluationDetail.fromValue(f.getVariations().get(i), index, reason);
-  }
-  
-  private static EvaluationDetailFactoryMultiVariations precomputeMultiVariationResults(
+  private static EvalResultFactoryMultiVariations precomputeMultiVariationResults(
       FeatureFlag f,
       EvaluationReason regularReason,
-      EvaluationReason inExperimentReason
+      EvaluationReason inExperimentReason,
+      boolean alwaysInExperiment
       ) {
-    ImmutableList.Builder<EvaluationDetailsForSingleVariation> builder =
+    ImmutableList.Builder<EvalResultsForSingleVariation> builder =
         ImmutableList.builderWithExpectedSize(f.getVariations().size());
     for (int i = 0; i < f.getVariations().size(); i++) {
-      builder.add(new EvaluationDetailsForSingleVariation(f.getVariations().get(i), i,
-          regularReason, inExperimentReason));
+      builder.add(new EvalResultsForSingleVariation(f.getVariations().get(i), i,
+          regularReason, inExperimentReason, alwaysInExperiment));
     }
-    return new EvaluationDetailFactoryMultiVariations(builder.build());
+    return new EvalResultFactoryMultiVariations(builder.build());
   }
 }

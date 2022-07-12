@@ -57,7 +57,7 @@ public class DataModelPreprocessingTest {
     
     assertThat(f.preprocessed, notNullValue());
     assertThat(f.preprocessed.offResult,
-        equalTo(EvaluationDetail.fromValue(aValue, 0, EvaluationReason.off())));
+        equalTo(EvalResult.of(aValue, 0, EvaluationReason.off())));
   }
 
   @Test
@@ -72,7 +72,7 @@ public class DataModelPreprocessingTest {
     
     assertThat(f.preprocessed, notNullValue());
     assertThat(f.preprocessed.offResult,
-        equalTo(EvaluationDetail.fromValue(LDValue.ofNull(), EvaluationDetail.NO_VARIATION, EvaluationReason.off())));
+        equalTo(EvalResult.of(LDValue.ofNull(), EvaluationDetail.NO_VARIATION, EvaluationReason.off())));
   }
 
   @Test
@@ -90,14 +90,14 @@ public class DataModelPreprocessingTest {
     EvaluationReason inExperimentReason = EvaluationReason.fallthrough(true);
 
     assertThat(f.preprocessed.fallthroughResults.forVariation(0, false),
-        equalTo(EvaluationDetail.fromValue(aValue, 0, regularReason)));
+        equalTo(EvalResult.of(aValue, 0, regularReason)));
     assertThat(f.preprocessed.fallthroughResults.forVariation(0, true),
-        equalTo(EvaluationDetail.fromValue(aValue, 0, inExperimentReason)));
+        equalTo(EvalResult.of(aValue, 0, inExperimentReason)));
     
     assertThat(f.preprocessed.fallthroughResults.forVariation(1, false),
-        equalTo(EvaluationDetail.fromValue(bValue, 1, regularReason)));
+        equalTo(EvalResult.of(bValue, 1, regularReason)));
     assertThat(f.preprocessed.fallthroughResults.forVariation(1, true),
-        equalTo(EvaluationDetail.fromValue(bValue, 1, inExperimentReason)));
+        equalTo(EvalResult.of(bValue, 1, inExperimentReason)));
   }
 
   @Test
@@ -113,7 +113,7 @@ public class DataModelPreprocessingTest {
     Target t = f.getTargets().get(0);
     assertThat(t.preprocessed, notNullValue());
     assertThat(t.preprocessed.targetMatchResult,
-        equalTo(EvaluationDetail.fromValue(bValue, 1, EvaluationReason.targetMatch())));
+        equalTo(EvalResult.of(bValue, 1, EvaluationReason.targetMatch())));
   }
 
   @Test
@@ -130,7 +130,7 @@ public class DataModelPreprocessingTest {
     Prerequisite p = f.getPrerequisites().get(0);
     assertThat(p.preprocessed, notNullValue());
     assertThat(p.preprocessed.prerequisiteFailedResult,
-        equalTo(EvaluationDetail.fromValue(aValue, 0, EvaluationReason.prerequisiteFailed("abc"))));
+        equalTo(EvalResult.of(aValue, 0, EvaluationReason.prerequisiteFailed("abc"))));
   }
 
   @Test
@@ -150,14 +150,14 @@ public class DataModelPreprocessingTest {
     EvaluationReason inExperimentReason = EvaluationReason.ruleMatch(0, "ruleid0", true);
     
     assertThat(rule.preprocessed.allPossibleResults.forVariation(0, false),
-        equalTo(EvaluationDetail.fromValue(aValue, 0, regularReason)));
+        equalTo(EvalResult.of(aValue, 0, regularReason)));
     assertThat(rule.preprocessed.allPossibleResults.forVariation(0, true),
-        equalTo(EvaluationDetail.fromValue(aValue, 0, inExperimentReason)));
+        equalTo(EvalResult.of(aValue, 0, inExperimentReason)));
     
     assertThat(rule.preprocessed.allPossibleResults.forVariation(1, false),
-        equalTo(EvaluationDetail.fromValue(bValue, 1, regularReason)));
+        equalTo(EvalResult.of(bValue, 1, regularReason)));
     assertThat(rule.preprocessed.allPossibleResults.forVariation(1, true),
-        equalTo(EvaluationDetail.fromValue(bValue, 1, inExperimentReason)));
+        equalTo(EvalResult.of(bValue, 1, inExperimentReason)));
   }
   
   @Test

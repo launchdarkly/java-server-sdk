@@ -197,7 +197,7 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
     EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
     Event.FeatureRequest fe = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(flag, user,
-          new Evaluator.EvalResult(LDValue.of("value"), 1, reason), LDValue.ofNull());
+          EvalResult.of(LDValue.of("value"), 1, reason), LDValue.ofNull());
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(fe);
