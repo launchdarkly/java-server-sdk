@@ -280,7 +280,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
             flagBuilder("flag1").version(1).build(),
             flagBuilder("flag2").version(1).rules(
                 ruleBuilder().clauses(
-                    ModelBuilders.clause(null, Operator.segmentMatch, LDValue.of("segment1"))
+                    ModelBuilders.clause(null, null, Operator.segmentMatch, false, LDValue.of("segment1"))
                     ).build()
                 ).build(),
             flagBuilder("flag3").version(1).build(),
@@ -309,7 +309,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
             flagBuilder("flag1").version(1).build(),
             flagBuilder("flag2").version(1).rules(
                 ruleBuilder().clauses(
-                    ModelBuilders.clause(null, Operator.segmentMatch, LDValue.of("segment1"))
+                    ModelBuilders.clause(null, null, Operator.segmentMatch, false, LDValue.of("segment1"))
                     ).build()
                 ).build(),
             flagBuilder("flag3").version(1).build(),

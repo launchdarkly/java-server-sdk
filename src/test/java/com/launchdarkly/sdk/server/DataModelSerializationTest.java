@@ -3,9 +3,9 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonElement;
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
@@ -18,10 +18,10 @@ import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.SerializationException;
 
 import org.junit.Test;
 
@@ -159,7 +159,7 @@ public class DataModelSerializationTest {
     assertEquals(0, flag.getTargets().size());
     assertNotNull(flag.getRules());
     assertEquals(1, flag.getRules().size());
-    assertNull(flag.getRules().get(0).getRollout().getKind());
+    assertEquals(RolloutKind.rollout, flag.getRules().get(0).getRollout().getKind());
     assertFalse(flag.getRules().get(0).getRollout().isExperiment());
     assertNull(flag.getRules().get(0).getRollout().getSeed());
     assertEquals(2, flag.getRules().get(0).getRollout().getVariations().get(0).getVariation());
@@ -484,7 +484,7 @@ public class DataModelSerializationTest {
   
     assertNotNull(r0.getClauses());
     Clause c0 = r0.getClauses().get(0);
-    assertEquals(UserAttribute.NAME, c0.getAttribute());
+    assertEquals(AttributeRef.fromLiteral("name"), c0.getAttribute());
     assertEquals(Operator.in, c0.getOp());
     assertEquals(ImmutableList.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.getValues());
     assertTrue(c0.isNegate());
@@ -503,7 +503,7 @@ public class DataModelSerializationTest {
     assertEquals(1, r1.getRollout().getVariations().size());
     assertEquals(2, r1.getRollout().getVariations().get(0).getVariation());
     assertEquals(100000, r1.getRollout().getVariations().get(0).getWeight());
-    assertEquals(UserAttribute.EMAIL, r1.getRollout().getBucketBy());
+    assertEquals(AttributeRef.fromLiteral("email"), r1.getRollout().getBucketBy());
     assertEquals(RolloutKind.experiment, r1.getRollout().getKind());
     assert(r1.getRollout().isExperiment());
     assertEquals(Integer.valueOf(123), r1.getRollout().getSeed());
@@ -567,7 +567,7 @@ public class DataModelSerializationTest {
     
     assertEquals(1, r0.getClauses().size());
     Clause c0 = r0.getClauses().get(0);
-    assertEquals(UserAttribute.NAME, c0.getAttribute());
+    assertEquals(AttributeRef.fromLiteral("name"), c0.getAttribute());
     assertEquals(Operator.in, c0.getOp());
     assertEquals(ImmutableList.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.getValues());
     assertTrue(c0.isNegate());

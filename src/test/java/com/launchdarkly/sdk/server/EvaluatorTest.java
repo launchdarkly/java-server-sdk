@@ -72,10 +72,9 @@ public class EvaluatorTest {
     List<WeightedVariation> variations = new ArrayList<>();
     variations.add(new WeightedVariation(1, 50000, untrackedVariations));
     variations.add(new WeightedVariation(2, 50000, untrackedVariations));
-    UserAttribute bucketBy = UserAttribute.KEY;
     RolloutKind kind = isExperiment ? RolloutKind.experiment : RolloutKind.rollout;
     Integer seed = 123;
-    Rollout rollout = new Rollout(variations, bucketBy, kind, seed);
+    Rollout rollout = new Rollout(null, variations, null, kind, seed);
     return rollout;
   }
   

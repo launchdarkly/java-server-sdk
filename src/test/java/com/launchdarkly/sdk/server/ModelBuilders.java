@@ -2,12 +2,16 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.Segment;
+import com.launchdarkly.sdk.server.DataModel.SegmentRule;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,8 +56,26 @@ public abstract class ModelBuilders {
     return new RuleBuilder();
   }
 
+  public static DataModel.Clause clause(
+      ContextKind contextKind,
+      AttributeRef attribute,
+      Operator op,
+      boolean negate,
+      LDValue... values
+      ) {
+    return new DataModel.Clause(contextKind, attribute, op, Arrays.asList(values), negate);
+  }
+
+  public static DataModel.Clause clause(String attributeName, DataModel.Operator op, boolean negate, LDValue... values) {
+    return clause(null, AttributeRef.fromLiteral(attributeName), op, negate, values);
+  }
+
+  public static DataModel.Clause clause(String attributeName, DataModel.Operator op, LDValue... values) {
+    return clause(attributeName, op, false, values);
+  }
+
   public static DataModel.Clause clause(UserAttribute attribute, DataModel.Operator op, boolean negate, LDValue... values) {
-    return new DataModel.Clause(attribute, op, Arrays.asList(values), negate);
+    return clause(attribute.getName(), op, negate, values);
   }
 
   public static DataModel.Clause clause(UserAttribute attribute, DataModel.Operator op, LDValue... values) {
@@ -68,12 +90,20 @@ public abstract class ModelBuilders {
     return clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("not-" + user.getKey()));
   }
 
+  public static DataModel.Clause clauseMatchingSegment(String... segmentKeys) {
+    LDValue[] values = new LDValue[segmentKeys.length];
+    for (int i = 0; i < segmentKeys.length; i++) {
+      values[i] = LDValue.of(segmentKeys[i]);
+    }
+    return clause(null, null, DataModel.Operator.segmentMatch, false, values);
+  }
+  
   public static DataModel.Clause clauseMatchingSegment(Segment segment) {
-    return clause(null, DataModel.Operator.segmentMatch, LDValue.of(segment.getKey()));
+    return clauseMatchingSegment(segment.getKey());
   }
   
   public static DataModel.Target target(int variation, String... userKeys) {
-    return new DataModel.Target(ImmutableSet.copyOf(userKeys), variation);
+    return new DataModel.Target(null, ImmutableSet.copyOf(userKeys), variation);
   }
   
   public static DataModel.Prerequisite prerequisite(String key, int variation) {
@@ -81,7 +111,7 @@ public abstract class ModelBuilders {
   }
   
   public static DataModel.Rollout emptyRollout() {
-    return new DataModel.Rollout(ImmutableList.<DataModel.WeightedVariation>of(), null, RolloutKind.rollout);
+    return new DataModel.Rollout(null, ImmutableList.<DataModel.WeightedVariation>of(), null, RolloutKind.rollout, null);
   }
   
   public static SegmentBuilder segmentBuilder(String key) {
@@ -370,13 +400,14 @@ public abstract class ModelBuilders {
   public static class SegmentRuleBuilder {
     private List<DataModel.Clause> clauses = new ArrayList<>();
     private Integer weight;
-    private UserAttribute bucketBy;
+    private ContextKind rolloutContextKind;
+    private AttributeRef bucketBy;
 
     private SegmentRuleBuilder() {
     }
     
-    public DataModel.SegmentRule build() {
-      return new DataModel.SegmentRule(clauses, weight, bucketBy);
+    public SegmentRule build() {
+      return new SegmentRule(clauses, weight, rolloutContextKind, bucketBy);
     }
     
     public SegmentRuleBuilder clauses(DataModel.Clause... clauses) {
@@ -389,7 +420,12 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    public SegmentRuleBuilder bucketBy(UserAttribute bucketBy) {
+    public SegmentRuleBuilder rolloutContextKind(ContextKind rolloutContextKind) {
+      this.rolloutContextKind = rolloutContextKind;
+      return this;
+    }
+    
+    public SegmentRuleBuilder bucketBy(AttributeRef bucketBy) {
       this.bucketBy = bucketBy;
       return this;
     }

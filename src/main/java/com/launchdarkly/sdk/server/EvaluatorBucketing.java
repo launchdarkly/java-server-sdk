@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
@@ -14,8 +15,8 @@ abstract class EvaluatorBucketing {
   
   private static final float LONG_SCALE = (float) 0xFFFFFFFFFFFFFFFL;
 
-  static float bucketUser(Integer seed, LDUser user, String key, UserAttribute attr, String salt) {
-    LDValue userValue = user.getAttribute(attr == null ? UserAttribute.KEY : attr);
+  static float bucketUser(Integer seed, LDUser user, String key, AttributeRef attr, String salt) {
+    LDValue userValue = user.getAttribute(attr == null ? UserAttribute.KEY : UserAttribute.forName(attr.toString()));
     String idHash = getBucketableStringValue(userValue);
     if (idHash != null) {
       String prefix;

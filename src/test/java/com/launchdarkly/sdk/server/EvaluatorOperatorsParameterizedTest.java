@@ -1,8 +1,8 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.Operator;
 
@@ -21,7 +21,7 @@ import static org.junit.Assert.assertEquals;
 public class EvaluatorOperatorsParameterizedTest {
   private static final LDValue invalidVer = LDValue.of("xbad%ver");
   
-  private static final UserAttribute userAttr = UserAttribute.forName("attr");
+  private static final AttributeRef userAttr = AttributeRef.fromLiteral("attr");
   
   private final Operator op;
   private final LDValue userValue;
@@ -176,10 +176,10 @@ public class EvaluatorOperatorsParameterizedTest {
     }
     values.add(clauseValue);
     
-    Clause clause1 = new Clause(userAttr, op, values, false);
+    Clause clause1 = new Clause(null, userAttr, op, values, false);
     assertEquals("without preprocessing", shouldBe, Evaluator.clauseMatchAny(clause1, userValue));
     
-    Clause clause2 = new Clause(userAttr, op, values, false);
+    Clause clause2 = new Clause(null, userAttr, op, values, false);
     DataModelPreprocessing.preprocessClause(clause2);
     assertEquals("without preprocessing", shouldBe, Evaluator.clauseMatchAny(clause2, userValue));
   }

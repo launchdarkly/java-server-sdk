@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
@@ -36,7 +37,7 @@ public class EvaluatorBucketingTest {
     
     // First verify that with our test inputs, the bucket value will be greater than zero and less than 100000,
     // so we can construct a rollout whose second bucket just barely contains that value
-    int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt) * 100000);
+    int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, null, salt) * 100000);
     assertThat(bucketValue, greaterThanOrEqualTo(1));
     assertThat(bucketValue, lessThan(100000));
     
@@ -45,7 +46,7 @@ public class EvaluatorBucketingTest {
         new WeightedVariation(badVariationA, bucketValue, true), // end of bucket range is not inclusive, so it will *not* match the target value
         new WeightedVariation(matchedVariation, 1, true), // size of this bucket is 1, so it only matches that specific value
         new WeightedVariation(badVariationB, 100000 - (bucketValue + 1), true));
-    Rollout rollout = new Rollout(variations, null, RolloutKind.rollout);
+    Rollout rollout = new Rollout(null, variations, null, RolloutKind.rollout, null);
     
     assertVariationIndexFromRollout(matchedVariation, rollout, user, flagKey, salt);
   }
@@ -57,8 +58,8 @@ public class EvaluatorBucketingTest {
     String salt = "salt";
     Integer seed = 123;
     
-    float bucketValue1 = EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt);
-    float bucketValue2 = EvaluatorBucketing.bucketUser(seed, user, flagKey, UserAttribute.KEY, salt);
+    float bucketValue1 = EvaluatorBucketing.bucketUser(noSeed, user, flagKey, null, salt);
+    float bucketValue2 = EvaluatorBucketing.bucketUser(seed, user, flagKey, null, salt);
     assert(bucketValue1 != bucketValue2);
   }
 
@@ -70,8 +71,8 @@ public class EvaluatorBucketingTest {
     Integer seed1 = 123;
     Integer seed2 = 456;
     
-    float bucketValue1 = EvaluatorBucketing.bucketUser(seed1, user, flagKey, UserAttribute.KEY, salt);
-    float bucketValue2 = EvaluatorBucketing.bucketUser(seed2, user, flagKey, UserAttribute.KEY, salt);
+    float bucketValue1 = EvaluatorBucketing.bucketUser(seed1, user, flagKey, null, salt);
+    float bucketValue2 = EvaluatorBucketing.bucketUser(seed2, user, flagKey, null, salt);
     assert(bucketValue1 != bucketValue2);
   }
 
@@ -84,8 +85,8 @@ public class EvaluatorBucketingTest {
     String salt2 = "salt2";
     Integer seed = 123;
     
-    float bucketValue1 = EvaluatorBucketing.bucketUser(seed, user, flagKey1, UserAttribute.KEY, salt1);
-    float bucketValue2 = EvaluatorBucketing.bucketUser(seed, user, flagKey2, UserAttribute.KEY, salt2);
+    float bucketValue1 = EvaluatorBucketing.bucketUser(seed, user, flagKey1, null, salt1);
+    float bucketValue2 = EvaluatorBucketing.bucketUser(seed, user, flagKey2, null, salt2);
     assert(bucketValue1 == bucketValue2);
   }
 
@@ -96,10 +97,10 @@ public class EvaluatorBucketingTest {
     String salt = "salt";
 
     // We'll construct a list of variations that stops right at the target bucket value
-    int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, UserAttribute.KEY, salt) * 100000);
+    int bucketValue = (int)(EvaluatorBucketing.bucketUser(noSeed, user, flagKey, null, salt) * 100000);
     
     List<WeightedVariation> variations = Arrays.asList(new WeightedVariation(0, bucketValue, true));
-    Rollout rollout = new Rollout(variations, null, RolloutKind.rollout);
+    Rollout rollout = new Rollout(null, variations, null, RolloutKind.rollout, null);
     
     assertVariationIndexFromRollout(0, rollout, user, flagKey, salt);
   }
@@ -110,8 +111,8 @@ public class EvaluatorBucketingTest {
         .custom("stringattr", "33333")
         .custom("intattr", 33333)
         .build();
-    float resultForString = EvaluatorBucketing.bucketUser(noSeed, user, "key", UserAttribute.forName("stringattr"), "salt");
-    float resultForInt = EvaluatorBucketing.bucketUser(noSeed, user, "key", UserAttribute.forName("intattr"), "salt");
+    float resultForString = EvaluatorBucketing.bucketUser(noSeed, user, "key", AttributeRef.fromLiteral("stringattr"), "salt");
+    float resultForInt = EvaluatorBucketing.bucketUser(noSeed, user, "key", AttributeRef.fromLiteral("intattr"), "salt");
     assertEquals(resultForString, resultForInt, Float.MIN_VALUE);
   }
 
@@ -120,7 +121,7 @@ public class EvaluatorBucketingTest {
     LDUser user = new LDUser.Builder("key")
         .custom("floatattr", 33.5f)
         .build();
-    float result = EvaluatorBucketing.bucketUser(noSeed, user, "key", UserAttribute.forName("floatattr"), "salt");
+    float result = EvaluatorBucketing.bucketUser(noSeed, user, "key", AttributeRef.fromLiteral("floatattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 
@@ -129,7 +130,7 @@ public class EvaluatorBucketingTest {
     LDUser user = new LDUser.Builder("key")
         .custom("boolattr", true)
         .build();
-    float result = EvaluatorBucketing.bucketUser(noSeed, user, "key", UserAttribute.forName("boolattr"), "salt");
+    float result = EvaluatorBucketing.bucketUser(noSeed, user, "key", AttributeRef.fromLiteral("boolattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 
@@ -137,8 +138,8 @@ public class EvaluatorBucketingTest {
   public void userSecondaryKeyAffectsBucketValue() {
     LDUser user1 = new LDUser.Builder("key").build();
     LDUser user2 = new LDUser.Builder("key").secondary("other").build();
-    float result1 = EvaluatorBucketing.bucketUser(noSeed, user1, "flagkey", UserAttribute.KEY, "salt");
-    float result2 = EvaluatorBucketing.bucketUser(noSeed, user2, "flagkey", UserAttribute.KEY, "salt");
+    float result1 = EvaluatorBucketing.bucketUser(noSeed, user1, "flagkey", null, "salt");
+    float result2 = EvaluatorBucketing.bucketUser(noSeed, user2, "flagkey", null, "salt");
     assertNotEquals(result1, result2);
   }
 

@@ -21,7 +21,7 @@ import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.Evaluator.EXPECTED_EXCEPTION_FROM_INVALID_FLAG;
 import static com.launchdarkly.sdk.server.Evaluator.INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
-import static com.launchdarkly.sdk.server.ModelBuilders.clause;
+import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
 import static com.launchdarkly.sdk.server.ModelBuilders.fallthroughVariation;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
@@ -236,7 +236,7 @@ public class LDClientEvaluationTest {
         .build();
     upsertSegment(dataStore, segment);
     
-    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of("segment1"));
+    DataModel.Clause clause = clauseMatchingSegment("segment1");
     DataModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     upsertFlag(dataStore, feature);
     
@@ -248,7 +248,7 @@ public class LDClientEvaluationTest {
     // This is similar to EvaluatorSegmentMatchTest, but more end-to-end - we're verifying that
     // the client is forwarding the Evaluator's segment queries to the data store, and that we
     // don't blow up if the segment is missing.
-    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of("segment1"));
+    DataModel.Clause clause = clauseMatchingSegment("segment1");
     DataModel.FeatureFlag feature = booleanFlagWithClauses("feature", clause);
     upsertFlag(dataStore, feature);
     

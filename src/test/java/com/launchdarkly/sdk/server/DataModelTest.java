@@ -43,7 +43,7 @@ public class DataModelTest {
   
   @Test
   public void targetKeysSetCanNeverBeNull() {
-    Target t = new Target(null, 0);
+    Target t = new Target(null, null, 0);
     assertEquals(ImmutableSet.of(), t.getValues());
   }
   
@@ -55,7 +55,7 @@ public class DataModelTest {
   
   @Test
   public void clauseValuesListCanNeverBeNull() {
-    Clause c = new Clause(null, null, null, false);
+    Clause c = new Clause(null, null, null, null, false);
     assertEquals(ImmutableList.of(), c.getValues());
   }
 
@@ -79,13 +79,13 @@ public class DataModelTest {
 
   @Test
   public void segmentRuleClausesListCanNeverBeNull() {
-    SegmentRule r = new SegmentRule(null, null, null);
+    SegmentRule r = new SegmentRule(null, null, null, null);
     assertEquals(ImmutableList.of(), r.getClauses());
   }
   
   @Test
   public void rolloutVariationsListCanNeverBeNull() {
-    Rollout r = new Rollout(null, null, RolloutKind.rollout);
+    Rollout r = new Rollout(null, null, null, RolloutKind.rollout, null);
     assertEquals(ImmutableList.of(), r.getVariations());
   }
 }
