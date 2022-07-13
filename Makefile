@@ -10,6 +10,13 @@ test:
 
 TEMP_TEST_OUTPUT=/tmp/sdk-test-service.log
 
+# Temporary contract test skips - these non-U2C tests won't work now that we are using
+# LDContext, because they describe conditions that aren't applicable to contexts. When
+# we migrate to using the v2 U2C-aware contract tests, we can remove these.
+TEST_HARNESS_PARAMS= \
+    -skip evaluation/parameterized/secondary \
+    -skip evaluation/parameterized/key/empty
+
 build-contract-tests:
 	@cd contract-tests && ../gradlew installDist
 
