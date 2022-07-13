@@ -474,6 +474,7 @@ public abstract class DataModel {
     private int version;
     private boolean deleted;
     private boolean unbounded;
+    private ContextKind unboundedContextKind;
     private Integer generation;
 
     Segment() {}
@@ -488,6 +489,7 @@ public abstract class DataModel {
             int version,
             boolean deleted,
             boolean unbounded,
+            ContextKind unboundedContextKind,
             Integer generation) {
       this.key = key;
       this.included = included;
@@ -497,6 +499,7 @@ public abstract class DataModel {
       this.version = version;
       this.deleted = deleted;
       this.unbounded = unbounded;
+      this.unboundedContextKind = unboundedContextKind;
       this.generation = generation;
     }
 
@@ -545,6 +548,10 @@ public abstract class DataModel {
       return unbounded;
     }
 
+    public ContextKind getUnboundedContextKind() {
+      return unboundedContextKind;
+    }
+    
     public Integer getGeneration() {
       return generation;
     }

@@ -19,33 +19,27 @@ import static org.junit.Assert.assertEquals;
 public class DataModelTest {
   @Test
   public void flagPrerequisitesListCanNeverBeNull() {
-    // deliberately using the constructor for tests like this, so we're not getting any help from ModelBuilders
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
-    assertEquals(ImmutableList.of(), f.getPrerequisites());
+    assertEquals(ImmutableList.of(), flagWithAllZeroValuedFields().getPrerequisites());
   }
 
   @Test
   public void flagTargetsListCanNeverBeNull() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
-    assertEquals(ImmutableList.of(), f.getTargets());
+    assertEquals(ImmutableList.of(), flagWithAllZeroValuedFields().getTargets());
   }
 
   @Test
   public void flagContextTargetsListCanNeverBeNull() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
-    assertEquals(ImmutableList.of(), f.getContextTargets());
+    assertEquals(ImmutableList.of(), flagWithAllZeroValuedFields().getContextTargets());
   }
   
   @Test
   public void flagRulesListCanNeverBeNull() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
-    assertEquals(ImmutableList.of(), f.getRules());
+    assertEquals(ImmutableList.of(), flagWithAllZeroValuedFields().getRules());
   }
 
   @Test
   public void flagVariationsListCanNeverBeNull() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
-    assertEquals(ImmutableList.of(), f.getVariations());
+    assertEquals(ImmutableList.of(), flagWithAllZeroValuedFields().getVariations());
   }
   
   @Test
@@ -68,32 +62,27 @@ public class DataModelTest {
 
   @Test
   public void segmentIncludedCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
-    assertEquals(ImmutableSet.of(), s.getIncluded());
+    assertEquals(ImmutableSet.of(), segmentWithAllZeroValuedFields().getIncluded());
   }
 
   @Test
   public void segmentExcludedCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
-    assertEquals(ImmutableSet.of(), s.getExcluded());
+    assertEquals(ImmutableSet.of(), segmentWithAllZeroValuedFields().getExcluded());
   }
 
   @Test
   public void segmentIncludedContextsCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
-    assertEquals(ImmutableList.of(), s.getIncludedContexts());
+    assertEquals(ImmutableList.of(), segmentWithAllZeroValuedFields().getIncludedContexts());
   }
 
   @Test
   public void segmentExcludedContextsCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
-    assertEquals(ImmutableList.of(), s.getExcludedContexts());
+    assertEquals(ImmutableList.of(), segmentWithAllZeroValuedFields().getExcludedContexts());
   }
 
   @Test
   public void segmentRulesListCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
-    assertEquals(ImmutableList.of(), s.getRules());
+    assertEquals(ImmutableList.of(), segmentWithAllZeroValuedFields().getRules());
   }
 
   @Test
@@ -106,5 +95,17 @@ public class DataModelTest {
   public void rolloutVariationsListCanNeverBeNull() {
     Rollout r = new Rollout(null, null, null, RolloutKind.rollout, null);
     assertEquals(ImmutableList.of(), r.getVariations());
+  }
+  
+  private FeatureFlag flagWithAllZeroValuedFields() {
+    // This calls the empty constructor directly to simulate a condition where Gson did not set any fields
+    // and no preprocessing has happened.
+    return new FeatureFlag();
+  }
+  
+  private Segment segmentWithAllZeroValuedFields() {
+    // This calls the empty constructor directly to simulate a condition where Gson did not set any fields
+    // and no preprocessing has happened.
+    return new Segment();
   }
 }

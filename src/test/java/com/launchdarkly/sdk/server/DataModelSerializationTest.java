@@ -363,6 +363,28 @@ public class DataModelSerializationTest {
   }
 
   @Test
+  public void segmentUnboundedWithoutContextKind() {
+    LDValue segmentJson = LDValue.buildObject().put("key", "segmentkey").put("version", 1)
+        .put("unbounded", true).put("generation", 10).build();
+    assertSegmentFromJson(segmentJson, s -> {
+      assertTrue(s.isUnbounded());
+      assertNull(s.getUnboundedContextKind());
+      assertEquals(Integer.valueOf(10), s.getGeneration());
+    });
+  }
+
+  @Test
+  public void segmentUnboundedWithContextKind() {
+    LDValue segmentJson = LDValue.buildObject().put("key", "segmentkey").put("version", 1)
+        .put("unbounded", true).put("unboundedContextKind", "org").put("generation", 10).build();
+    assertSegmentFromJson(segmentJson, s -> {
+      assertTrue(s.isUnbounded());
+      assertEquals(ContextKind.of("org"), s.getUnboundedContextKind());
+      assertEquals(Integer.valueOf(10), s.getGeneration());
+    });
+  }
+  
+  @Test
   public void segmentRuleByWithoutRollout() {
     LDValue ruleJson = LDValue.buildObject()
         .put("clauses", LDValue.arrayOf(
@@ -704,8 +726,6 @@ public class DataModelSerializationTest {
             LDValue.buildObject().put("contextKind", "kind2").put("values", LDValue.arrayOf(LDValue.of("key6"))).build()))
         .put("salt", "123")
         .put("rules", LDValue.arrayOf())
-        .put("unbounded", true)
-        .put("generation", 10)
         // Extra fields should be ignored
         .put("fallthrough", LDValue.buildObject()
             .put("variation", 1)
@@ -731,7 +751,8 @@ public class DataModelSerializationTest {
     assertNotNull(segment.getRules());
     assertEquals(0, segment.getRules().size());
 
-    assertTrue(segment.isUnbounded());
-    assertEquals((Integer)10, segment.getGeneration());
+    assertFalse(segment.isUnbounded());
+    assertNull(segment.getUnboundedContextKind());
+    assertNull(segment.getGeneration());
   }
 }

@@ -22,6 +22,8 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentRuleBuilder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
@@ -334,8 +336,8 @@ public class DataModelPreprocessingTest {
         false,
         LDValue.of("x*")
         );    
-    SegmentRule rule = new SegmentRule(ImmutableList.of(c), null, null, null);
-    Segment s = new Segment("key", null, null, null, null, null, ImmutableList.of(rule), 0, false, false, null);
+    SegmentRule rule = segmentRuleBuilder().clauses(c).build();
+    Segment s = segmentBuilder("key").disablePreprocessing(true).rules(rule).build();
     
     assertNull(s.getRules().get(0).getClauses().get(0).preprocessed);
     
