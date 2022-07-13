@@ -37,7 +37,7 @@ public class DataModelPreprocessingTest {
   private static final LDValue aValue = LDValue.of("a"), bValue = LDValue.of("b");
   
   private FeatureFlag flagFromClause(Clause c) {
-    return new FeatureFlag("key", 0, false, null, null, null, rulesFromClause(c),
+    return new FeatureFlag("key", 0, false, null, null, null, null, rulesFromClause(c),
         null, null, null, false, false, false, null, false);
   }
   
@@ -47,7 +47,7 @@ public class DataModelPreprocessingTest {
 
   @Test
   public void preprocessFlagAddsPrecomputedOffResult() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
         ImmutableList.of(), null,
         0,
         ImmutableList.of(aValue, bValue),
@@ -62,7 +62,7 @@ public class DataModelPreprocessingTest {
 
   @Test
   public void preprocessFlagAddsPrecomputedOffResultForNullOffVariation() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
         ImmutableList.of(), null,
         null,
         ImmutableList.of(aValue, bValue),
@@ -77,7 +77,7 @@ public class DataModelPreprocessingTest {
 
   @Test
   public void preprocessFlagAddsPrecomputedFallthroughResults() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
         ImmutableList.of(), null, 0,
         ImmutableList.of(aValue, bValue),
         false, false, false, null, false);
@@ -104,7 +104,7 @@ public class DataModelPreprocessingTest {
   public void preprocessFlagAddsPrecomputedTargetMatchResults() {
     FeatureFlag f = new FeatureFlag("key", 0, false, null, null,
         ImmutableList.of(new Target(null, ImmutableSet.of(), 1)),
-        ImmutableList.of(), null, 0,
+        null, ImmutableList.of(), null, 0,
         ImmutableList.of(aValue, bValue),
         false, false, false, null, false);
     
@@ -120,7 +120,7 @@ public class DataModelPreprocessingTest {
   public void preprocessFlagAddsPrecomputedPrerequisiteFailedResults() {
     FeatureFlag f = new FeatureFlag("key", 0, false,
         ImmutableList.of(new Prerequisite("abc", 1)),
-        null, null,
+        null, null, null,
         ImmutableList.of(), null, 0,
         ImmutableList.of(aValue, bValue),
         false, false, false, null, false);
@@ -135,7 +135,7 @@ public class DataModelPreprocessingTest {
 
   @Test
   public void preprocessFlagAddsPrecomputedResultsToFlagRules() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
         ImmutableList.of(new Rule("ruleid0", ImmutableList.of(), null, null, false)),
         null, null,
         ImmutableList.of(aValue, bValue),
@@ -335,7 +335,7 @@ public class DataModelPreprocessingTest {
         LDValue.of("x*")
         );    
     SegmentRule rule = new SegmentRule(ImmutableList.of(c), null, null, null);
-    Segment s = new Segment("key", null, null, null, ImmutableList.of(rule), 0, false, false, null);
+    Segment s = new Segment("key", null, null, null, null, null, ImmutableList.of(rule), 0, false, false, null);
     
     assertNull(s.getRules().get(0).getClauses().get(0).preprocessed);
     

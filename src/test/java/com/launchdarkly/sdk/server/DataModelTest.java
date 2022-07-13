@@ -19,25 +19,32 @@ import static org.junit.Assert.assertEquals;
 public class DataModelTest {
   @Test
   public void flagPrerequisitesListCanNeverBeNull() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, false, false, false, null, false);
+    // deliberately using the constructor for tests like this, so we're not getting any help from ModelBuilders
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
     assertEquals(ImmutableList.of(), f.getPrerequisites());
   }
 
   @Test
   public void flagTargetsListCanNeverBeNull() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, false, false, false, null, false);
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
     assertEquals(ImmutableList.of(), f.getTargets());
+  }
+
+  @Test
+  public void flagContextTargetsListCanNeverBeNull() {
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
+    assertEquals(ImmutableList.of(), f.getContextTargets());
   }
   
   @Test
   public void flagRulesListCanNeverBeNull() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, false, false, false, null, false);
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
     assertEquals(ImmutableList.of(), f.getRules());
   }
 
   @Test
   public void flagVariationsListCanNeverBeNull() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, false, false, false, null, false);
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null, null, null, null, null, false, false, false, null, false);
     assertEquals(ImmutableList.of(), f.getVariations());
   }
   
@@ -61,19 +68,31 @@ public class DataModelTest {
 
   @Test
   public void segmentIncludedCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, 0, false, false, null);
+    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
     assertEquals(ImmutableSet.of(), s.getIncluded());
   }
 
   @Test
   public void segmentExcludedCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, 0, false, false, null);
+    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
     assertEquals(ImmutableSet.of(), s.getExcluded());
   }
 
   @Test
+  public void segmentIncludedContextsCanNeverBeNull() {
+    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
+    assertEquals(ImmutableList.of(), s.getIncludedContexts());
+  }
+
+  @Test
+  public void segmentExcludedContextsCanNeverBeNull() {
+    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
+    assertEquals(ImmutableList.of(), s.getExcludedContexts());
+  }
+
+  @Test
   public void segmentRulesListCanNeverBeNull() {
-    Segment s = new Segment("key", null, null, null, null, 0, false, false, null);
+    Segment s = new Segment("key", null, null, null, null, null, null, 0, false, false, null);
     assertEquals(ImmutableList.of(), s.getRules());
   }
 

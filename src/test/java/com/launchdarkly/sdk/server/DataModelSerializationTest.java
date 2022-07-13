@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonElement;
 import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.DataModel.Clause;
@@ -174,6 +175,154 @@ public class DataModelSerializationTest {
   }
   
   @Test
+  public void flagRuleBasicProperties() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("id", "id0")
+        .put("variation", 2)
+        .put("clauses", LDValue.arrayOf())
+        .build();
+    assertFlagRuleFromJson(ruleJson, r -> {
+      assertEquals("id0", r.getId());
+      assertEquals(Integer.valueOf(2), r.getVariation());
+      assertNull(r.getRollout());
+      assertFalse(r.isTrackEvents());
+    });
+  }
+
+  @Test
+  public void flagRuleTrackEvents() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("id", "id0")
+        .put("variation", 2)
+        .put("clauses", LDValue.arrayOf())
+        .put("trackEvents", true)
+        .build();
+    assertFlagRuleFromJson(ruleJson, r -> {
+      assertTrue(r.isTrackEvents());
+    });
+  }
+
+  @Test
+  public void flagRuleRollout() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("id", "id0")
+        .put("rollout", LDValue.buildObject()
+            .put("variations", LDValue.arrayOf(
+                LDValue.buildObject()
+                    .put("variation", 2)
+                    .put("weight", 100000)
+                    .build()))
+            .build())
+        .put("clauses", LDValue.arrayOf())
+        .build();
+    assertFlagRuleFromJson(ruleJson, r -> {
+      assertNull(r.getVariation());
+      assertNotNull(r.getRollout());
+      assertEquals(RolloutKind.rollout, r.getRollout().getKind());
+      assertNull(r.getRollout().getSeed());
+      assertNull(r.getRollout().getContextKind());
+      assertNull(r.getRollout().getBucketBy());
+      assertEquals(1, r.getRollout().getVariations().size());
+      assertEquals(2, r.getRollout().getVariations().get(0).getVariation());
+      assertEquals(100000, r.getRollout().getVariations().get(0).getWeight());
+    });
+  }
+
+  @Test
+  public void flagRuleRolloutBucketByWithoutContextKind() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("id", "id0")
+        .put("rollout", LDValue.buildObject()
+            .put("bucketBy", "/attr1")
+            .put("variations", LDValue.arrayOf(
+                LDValue.buildObject()
+                    .put("variation", 2)
+                    .put("weight", 100000)
+                    .build()))
+            .build())
+        .put("clauses", LDValue.arrayOf())
+        .build();
+    assertFlagRuleFromJson(ruleJson, r -> {
+      assertNotNull(r.getRollout());
+      assertEquals(AttributeRef.fromLiteral("/attr1"), r.getRollout().getBucketBy());
+    });
+  }
+
+  @Test
+  public void flagRuleRolloutContextKind() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("id", "id0")
+        .put("rollout", LDValue.buildObject()
+            .put("contextKind", "org")
+            .put("bucketBy", "/address/street")
+            .put("variations", LDValue.arrayOf(
+                LDValue.buildObject()
+                    .put("variation", 2)
+                    .put("weight", 100000)
+                    .build()))
+            .build())
+        .put("clauses", LDValue.arrayOf())
+        .build();
+    assertFlagRuleFromJson(ruleJson, r -> {
+      assertNotNull(r.getRollout());
+      assertEquals(ContextKind.of("org"), r.getRollout().getContextKind());
+      assertEquals(AttributeRef.fromPath("/address/street"), r.getRollout().getBucketBy());
+    });
+  }
+  
+  @Test
+  public void flagRuleExperiment() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("id", "id0")
+        .put("rollout", LDValue.buildObject()
+            .put("kind", "experiment")
+            .put("variations", LDValue.arrayOf(
+                LDValue.buildObject()
+                    .put("variation", 2)
+                    .put("weight", 100000)
+                    .build()))
+            .put("seed", 123)
+            .build())
+        .put("clauses", LDValue.arrayOf())
+        .build();
+    assertFlagRuleFromJson(ruleJson, r -> {
+      assertNotNull(r.getRollout());
+      assertEquals(RolloutKind.experiment, r.getRollout().getKind());
+      assertEquals(Integer.valueOf(123), r.getRollout().getSeed());
+    });
+  }
+  
+  @Test
+  public void flagClauseWithContextKind() {
+    LDValue clauseJson = LDValue.buildObject().put("contextKind", "org")
+        .put("attribute", "/address/street").put("op", "in").put("values", LDValue.arrayOf()).build();
+    assertClauseFromJson(clauseJson, c -> {
+      assertEquals(ContextKind.of("org"), c.getContextKind());
+      assertEquals(AttributeRef.fromPath("/address/street"), c.getAttribute());
+    });
+  }
+
+  @Test
+  public void flagClauseWithoutContextKind() {
+    // When there's no context kind, the attribute is interpreted as a literal name even if it has a slash 
+    LDValue clauseJson = LDValue.buildObject()
+        .put("attribute", "/attr1").put("op", "in").put("values", LDValue.arrayOf()).build();
+    assertClauseFromJson(clauseJson, c -> {
+      assertNull(c.getContextKind());
+      assertEquals(AttributeRef.fromLiteral("/attr1"), c.getAttribute());
+    });
+  }
+
+  @Test
+  public void flagClauseNegated() {
+    LDValue clauseJson = LDValue.buildObject().put("negate", true)
+        .put("attribute", "attr1").put("op", "in").put("values", LDValue.arrayOf()).build();
+    assertClauseFromJson(clauseJson, c -> {
+      assertTrue(c.isNegate());
+    });
+  }
+
+  @Test
   public void deletedFlagIsConvertedToAndFromJsonPlaceholder() {
     String json0 = LDValue.buildObject().put("version", 99)
         .put("deleted", true).build().toJsonString();
@@ -213,6 +362,53 @@ public class DataModelSerializationTest {
     assertNull(segment.getGeneration());
   }
 
+  @Test
+  public void segmentRuleByWithoutRollout() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("clauses", LDValue.arrayOf(
+            LDValue.buildObject().put("attribute", "attr1").put("op", "in").put("values", LDValue.arrayOf(LDValue.of(3))).build()
+            ))
+        .build();
+    assertSegmentRuleFromJson(ruleJson, r -> {
+      assertNull(r.getWeight());
+      assertNull(r.getRolloutContextKind());
+      assertNull(r.getBucketBy());
+      assertEquals(1, r.getClauses().size());
+      assertEquals(AttributeRef.fromLiteral("attr1"), r.getClauses().get(0).getAttribute());
+      assertEquals(Operator.in, r.getClauses().get(0).getOp());
+      assertEquals(ImmutableList.of(LDValue.of(3)), r.getClauses().get(0).getValues());
+    });
+  }
+  
+  @Test
+  public void segmentRuleRolloutBucketByWithoutContextKind() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("weight", 50000)
+        .put("bucketBy", "/attr1")
+        .put("clauses", LDValue.arrayOf())
+        .build();
+    assertSegmentRuleFromJson(ruleJson, r -> {
+      assertEquals(Integer.valueOf(50000), r.getWeight());
+      assertNull(r.getRolloutContextKind());
+      assertEquals(AttributeRef.fromLiteral("/attr1"), r.getBucketBy());
+    });
+  }
+
+  @Test
+  public void segmentRuleRolloutWithContextKind() {
+    LDValue ruleJson = LDValue.buildObject()
+        .put("weight", 50000)
+        .put("rolloutContextKind", "org")
+        .put("bucketBy", "/address/street")
+        .put("clauses", LDValue.arrayOf())
+        .build();
+    assertSegmentRuleFromJson(ruleJson, r -> {
+      assertEquals(Integer.valueOf(50000), r.getWeight());
+      assertEquals(ContextKind.of("org"), r.getRolloutContextKind());
+      assertEquals(AttributeRef.fromPath("/address/street"), r.getBucketBy());
+    });
+  }
+  
   @Test
   public void deletedSegmentIsConvertedToAndFromJsonPlaceholder() {
     String json0 = LDValue.buildObject().put("version", 99)
@@ -398,9 +594,30 @@ public class DataModelSerializationTest {
     action.accept(flag);
   }
 
+  private void assertFlagRuleFromJson(LDValue ruleJson, Consumer<Rule> action) {
+    LDValue flagJson = LDValue.buildObject().put("rules", LDValue.arrayOf(ruleJson)).build();
+    assertFlagFromJson(flagJson, f -> {
+      action.accept(f.getRules().get(0));
+    });
+  }
+  
+  private void assertClauseFromJson(LDValue clauseJson, Consumer<Clause> action) {
+    LDValue ruleJson = LDValue.buildObject().put("clauses", LDValue.arrayOf(clauseJson)).build();
+    assertFlagRuleFromJson(ruleJson, r -> {
+      action.accept(r.getClauses().get(0));
+    });
+  }
+  
   private void assertSegmentFromJson(LDValue segmentJson, Consumer<Segment> action) {
     Segment segment = (Segment)SEGMENTS.deserialize(segmentJson.toJsonString()).getItem();
     action.accept(segment);
+  }
+
+  private void assertSegmentRuleFromJson(LDValue ruleJson, Consumer<SegmentRule> action) {
+    LDValue segmentJson = LDValue.buildObject().put("rules", LDValue.arrayOf(ruleJson)).build();
+    assertSegmentFromJson(segmentJson, s -> {
+      action.accept(s.getRules().get(0));
+    });
   }
   
   private ObjectBuilder baseBuilder(String key) {
@@ -421,35 +638,14 @@ public class DataModelSerializationTest {
                 .put("values", LDValue.buildArray().add("key1").add("key2").build())
                 .build())
             .build())
-        .put("rules", LDValue.buildArray()
+        .put("contextTargets", LDValue.buildArray()
             .add(LDValue.buildObject()
-                .put("id", "id0")
-                .put("trackEvents", true)
-                .put("variation", 2)
-                .put("clauses", LDValue.buildArray()
-                    .add(LDValue.buildObject()
-                        .put("attribute", "name")
-                        .put("op", "in")
-                        .put("values", LDValue.buildArray().add("Lucy").add("Mina").build())
-                        .put("negate", true)
-                        .build())
-                    .build())
-                .build())
-            .add(LDValue.buildObject()
-                .put("id", "id1")
-                .put("rollout", LDValue.buildObject()
-                    .put("variations", LDValue.buildArray()
-                        .add(LDValue.buildObject()
-                            .put("variation", 2)
-                            .put("weight", 100000)
-                            .build())
-                        .build())
-                    .put("bucketBy", "email")
-                    .put("kind", "experiment")
-                    .put("seed", 123)
-                    .build())
+                .put("contextKind", "org")
+                .put("variation", 1)
+                .put("values", LDValue.buildArray().add("key3").add("key4").build())
                 .build())
             .build())
+        .put("rules", LDValue.arrayOf())
         .put("fallthrough", LDValue.buildObject()
             .put("variation", 1)
             .build())
@@ -467,47 +663,24 @@ public class DataModelSerializationTest {
     assertEquals(99, flag.getVersion());
     assertTrue(flag.isOn());
     assertEquals("123", flag.getSalt());
-      
+    
     assertNotNull(flag.getTargets());
     assertEquals(1, flag.getTargets().size());
     Target t0 = flag.getTargets().get(0);
+    assertNull(t0.getContextKind());
     assertEquals(1, t0.getVariation());
     assertEquals(ImmutableSet.of("key1", "key2"), t0.getValues());
+
+    assertNotNull(flag.getContextTargets());
+    assertEquals(1, flag.getContextTargets().size());
+    Target ct0 = flag.getContextTargets().get(0);
+    assertEquals(ContextKind.of("org"), ct0.getContextKind());
+    assertEquals(1, ct0.getVariation());
+    assertEquals(ImmutableSet.of("key3", "key4"), ct0.getValues());
     
     assertNotNull(flag.getRules());
-    assertEquals(2, flag.getRules().size());
-    Rule r0 = flag.getRules().get(0);
-    assertEquals("id0", r0.getId());
-    assertTrue(r0.isTrackEvents());
-    assertEquals(Integer.valueOf(2), r0.getVariation());
-    assertNull(r0.getRollout());
-  
-    assertNotNull(r0.getClauses());
-    Clause c0 = r0.getClauses().get(0);
-    assertEquals(AttributeRef.fromLiteral("name"), c0.getAttribute());
-    assertEquals(Operator.in, c0.getOp());
-    assertEquals(ImmutableList.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.getValues());
-    assertTrue(c0.isNegate());
-    
-    // Check for just one example of preprocessing, to verify that preprocessing has happened in
-    // general for this flag - the details are covered in EvaluatorPreprocessingTest.
-    assertNotNull(c0.preprocessed);
-    assertEquals(ImmutableSet.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.preprocessed.valuesSet);
-    
-    Rule r1 = flag.getRules().get(1);
-    assertEquals("id1", r1.getId());
-    assertFalse(r1.isTrackEvents());
-    assertNull(r1.getVariation());
-    assertNotNull(r1.getRollout());
-    assertNotNull(r1.getRollout().getVariations());
-    assertEquals(1, r1.getRollout().getVariations().size());
-    assertEquals(2, r1.getRollout().getVariations().get(0).getVariation());
-    assertEquals(100000, r1.getRollout().getVariations().get(0).getWeight());
-    assertEquals(AttributeRef.fromLiteral("email"), r1.getRollout().getBucketBy());
-    assertEquals(RolloutKind.experiment, r1.getRollout().getKind());
-    assert(r1.getRollout().isExperiment());
-    assertEquals(Integer.valueOf(123), r1.getRollout().getSeed());
-    
+    assertEquals(0, flag.getRules().size());
+
     assertNotNull(flag.getFallthrough());
     assertEquals(Integer.valueOf(1), flag.getFallthrough().getVariation());
     assertNull(flag.getFallthrough().getRollout());
@@ -525,23 +698,12 @@ public class DataModelSerializationTest {
         .put("version", 99)
         .put("included", LDValue.buildArray().add("key1").add("key2").build())
         .put("excluded", LDValue.buildArray().add("key3").add("key4").build())
+        .put("includedContexts", LDValue.arrayOf(
+            LDValue.buildObject().put("contextKind", "kind1").put("values", LDValue.arrayOf(LDValue.of("key5"))).build()))
+        .put("excludedContexts", LDValue.arrayOf(
+            LDValue.buildObject().put("contextKind", "kind2").put("values", LDValue.arrayOf(LDValue.of("key6"))).build()))
         .put("salt", "123")
-        .put("rules", LDValue.buildArray()
-            .add(LDValue.buildObject()
-                .put("weight", 50000)
-                .put("bucketBy", "email")
-                .put("clauses", LDValue.buildArray()
-                    .add(LDValue.buildObject()
-                        .put("attribute", "name")
-                        .put("op", "in")
-                        .put("values", LDValue.buildArray().add("Lucy").add("Mina").build())
-                        .put("negate", true)
-                        .build())
-                    .build())
-                .build())
-            .add(LDValue.buildObject()
-                .build())
-            .build())
+        .put("rules", LDValue.arrayOf())
         .put("unbounded", true)
         .put("generation", 10)
         // Extra fields should be ignored
@@ -558,30 +720,18 @@ public class DataModelSerializationTest {
     assertEquals("123", segment.getSalt());
     assertEquals(ImmutableSet.of("key1", "key2"), segment.getIncluded());
     assertEquals(ImmutableSet.of("key3", "key4"), segment.getExcluded());
-    
+
+    assertEquals(1, segment.getIncludedContexts().size());
+    assertEquals(ContextKind.of("kind1"), segment.getIncludedContexts().get(0).getContextKind());
+    assertEquals(ImmutableSet.of("key5"), segment.getIncludedContexts().get(0).getValues());
+    assertEquals(1, segment.getExcludedContexts().size());
+    assertEquals(ContextKind.of("kind2"), segment.getExcludedContexts().get(0).getContextKind());
+    assertEquals(ImmutableSet.of("key6"), segment.getExcludedContexts().get(0).getValues());
+
     assertNotNull(segment.getRules());
-    assertEquals(2, segment.getRules().size());
-    SegmentRule r0 = segment.getRules().get(0);
-    assertEquals(Integer.valueOf(50000), r0.getWeight());
-    assertNotNull(r0.getClauses());
-    
-    assertEquals(1, r0.getClauses().size());
-    Clause c0 = r0.getClauses().get(0);
-    assertEquals(AttributeRef.fromLiteral("name"), c0.getAttribute());
-    assertEquals(Operator.in, c0.getOp());
-    assertEquals(ImmutableList.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.getValues());
-    assertTrue(c0.isNegate());
+    assertEquals(0, segment.getRules().size());
 
     assertTrue(segment.isUnbounded());
     assertEquals((Integer)10, segment.getGeneration());
-    
-    // Check for just one example of preprocessing, to verify that preprocessing has happened in
-    // general for this segment - the details are covered in EvaluatorPreprocessingTest.
-    assertNotNull(c0.preprocessed);
-    assertEquals(ImmutableSet.of(LDValue.of("Lucy"), LDValue.of("Mina")), c0.preprocessed.valuesSet);
-    
-    SegmentRule r1 = segment.getRules().get(1);
-    assertNull(r1.getWeight());
-    assertNull(r1.getBucketBy());
   }
 }

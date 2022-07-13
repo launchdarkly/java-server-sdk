@@ -9,9 +9,15 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
+import com.launchdarkly.sdk.server.DataModel.Prerequisite;
+import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
+import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
+import com.launchdarkly.sdk.server.DataModel.SegmentTarget;
+import com.launchdarkly.sdk.server.DataModel.Target;
+import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -126,11 +132,12 @@ public abstract class ModelBuilders {
     private String key;
     private int version;
     private boolean on;
-    private List<DataModel.Prerequisite> prerequisites = new ArrayList<>();
+    private List<Prerequisite> prerequisites = new ArrayList<>();
     private String salt;
-    private List<DataModel.Target> targets = new ArrayList<>();
-    private List<DataModel.Rule> rules = new ArrayList<>();
-    private DataModel.VariationOrRollout fallthrough;
+    private List<Target> targets = new ArrayList<>();
+    private List<Target> contextTargets = new ArrayList<>();
+    private List<Rule> rules = new ArrayList<>();
+    private VariationOrRollout fallthrough;
     private Integer offVariation;
     private List<LDValue> variations = new ArrayList<>();
     private boolean clientSide;
@@ -152,6 +159,7 @@ public abstract class ModelBuilders {
         this.prerequisites = f.getPrerequisites();
         this.salt = f.getSalt();
         this.targets = f.getTargets();
+        this.contextTargets = f.getContextTargets();
         this.rules = f.getRules();
         this.fallthrough = f.getFallthrough();
         this.offVariation = f.getOffVariation();
@@ -174,7 +182,7 @@ public abstract class ModelBuilders {
       return this;
     }
   
-    FlagBuilder prerequisites(DataModel.Prerequisite... prerequisites) {
+    FlagBuilder prerequisites(Prerequisite... prerequisites) {
       this.prerequisites = Arrays.asList(prerequisites);
       return this;
     }
@@ -184,12 +192,17 @@ public abstract class ModelBuilders {
       return this;
     }
   
-    FlagBuilder targets(DataModel.Target... targets) {
+    FlagBuilder targets(Target... targets) {
       this.targets = Arrays.asList(targets);
       return this;
     }
 
-    FlagBuilder rules(DataModel.Rule... rules) {
+    FlagBuilder contextTargets(Target... contextTargets) {
+      this.contextTargets = Arrays.asList(contextTargets);
+      return this;
+    }
+
+    FlagBuilder rules(Rule... rules) {
       this.rules = Arrays.asList(rules);
       return this;
     }
@@ -199,12 +212,12 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    FlagBuilder fallthrough(DataModel.Rollout rollout) {
+    FlagBuilder fallthrough(Rollout rollout) {
       this.fallthrough = new DataModel.VariationOrRollout(null, rollout);
       return this;
     }
     
-    FlagBuilder fallthrough(DataModel.VariationOrRollout fallthrough) {
+    FlagBuilder fallthrough(VariationOrRollout fallthrough) {
       this.fallthrough = fallthrough;
       return this;
     }
@@ -276,7 +289,8 @@ public abstract class ModelBuilders {
     }
     
     DataModel.FeatureFlag build() {
-      FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
+      FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets,
+          contextTargets, rules, fallthrough, offVariation, variations,
           clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);
       if (!disablePreprocessing) {
         flag.afterDeserialized();
@@ -329,8 +343,10 @@ public abstract class ModelBuilders {
     private String key;
     private Set<String> included = new HashSet<>();
     private Set<String> excluded = new HashSet<>();
+    private List<SegmentTarget> includedContexts = new ArrayList<>();
+    private List<SegmentTarget> excludedContexts = new ArrayList<>();
     private String salt = "";
-    private List<DataModel.SegmentRule> rules = new ArrayList<>();
+    private List<SegmentRule> rules = new ArrayList<>();
     private int version = 0;
     private boolean deleted;
     private boolean unbounded;
@@ -350,8 +366,9 @@ public abstract class ModelBuilders {
       this.deleted = from.isDeleted();
     }
     
-    public DataModel.Segment build() {
-      Segment s = new DataModel.Segment(key, included, excluded, salt, rules, version, deleted, unbounded, generation);
+    public Segment build() {
+      Segment s = new Segment(key, included, excluded, includedContexts, excludedContexts,
+          salt, rules, version, deleted, unbounded, generation);
       s.afterDeserialized();
       return s;
     }
@@ -366,6 +383,16 @@ public abstract class ModelBuilders {
       return this;
     }
     
+    public SegmentBuilder includedContexts(ContextKind contextKind, String... keys) {
+      this.includedContexts.add(new SegmentTarget(contextKind, ImmutableSet.copyOf(keys)));
+      return this;
+    }
+
+    public SegmentBuilder excludedContexts(ContextKind contextKind, String... keys) {
+      this.excludedContexts.add(new SegmentTarget(contextKind, ImmutableSet.copyOf(keys)));
+      return this;
+    }
+
     public SegmentBuilder salt(String salt) {
       this.salt = salt;
       return this;

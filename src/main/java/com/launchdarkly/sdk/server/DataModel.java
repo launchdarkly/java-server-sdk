@@ -131,6 +131,7 @@ public abstract class DataModel {
     private List<Prerequisite> prerequisites;
     private String salt;
     private List<Target> targets;
+    private List<Target> contextTargets;
     private List<Rule> rules;
     private VariationOrRollout fallthrough;
     private Integer offVariation; //optional
@@ -147,8 +148,8 @@ public abstract class DataModel {
     FeatureFlag() {}
 
     FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
-        List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<LDValue> variations,
-        boolean clientSide, boolean trackEvents, boolean trackEventsFallthrough,
+        List<Target> contextTargets, List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation,
+        List<LDValue> variations, boolean clientSide, boolean trackEvents, boolean trackEventsFallthrough,
         Long debugEventsUntilDate, boolean deleted) {
       this.key = key;
       this.version = version;
@@ -156,6 +157,7 @@ public abstract class DataModel {
       this.prerequisites = prerequisites;
       this.salt = salt;
       this.targets = targets;
+      this.contextTargets = contextTargets;
       this.rules = rules;
       this.fallthrough = fallthrough;
       this.offVariation = offVariation;
@@ -206,6 +208,11 @@ public abstract class DataModel {
     // Guaranteed non-null
     List<Target> getTargets() {
       return targets == null ? emptyList() : targets;
+    }
+
+    // Guaranteed non-null
+    List<Target> getContextTargets() {
+      return contextTargets == null ? emptyList() : contextTargets;
     }
 
     // Guaranteed non-null
@@ -460,6 +467,8 @@ public abstract class DataModel {
     private String key;
     private Set<String> included;
     private Set<String> excluded;
+    private List<SegmentTarget> includedContexts;
+    private List<SegmentTarget> excludedContexts;
     private String salt;
     private List<SegmentRule> rules;
     private int version;
@@ -472,6 +481,8 @@ public abstract class DataModel {
     Segment(String key,
             Set<String> included,
             Set<String> excluded,
+            List<SegmentTarget> includedContexts,
+            List<SegmentTarget> excludedContexts,
             String salt,
             List<SegmentRule> rules,
             int version,
@@ -503,6 +514,16 @@ public abstract class DataModel {
       return excluded == null ? emptySet() : excluded;
     }
     
+    // Guaranteed non-null
+    List<SegmentTarget> getIncludedContexts() {
+      return includedContexts == null ? emptyList() : includedContexts;
+    }
+
+    // Guaranteed non-null
+    List<SegmentTarget> getExcludedContexts() {
+      return excludedContexts == null ? emptyList() : excludedContexts;
+    }
+
     String getSalt() {
       return salt;
     }
@@ -565,6 +586,24 @@ public abstract class DataModel {
     }
   }
 
+  static class SegmentTarget {
+    private ContextKind contextKind;
+    private Set<String> values;
+    
+    SegmentTarget(ContextKind contextKind, Set<String> values) {
+      this.contextKind = contextKind;
+      this.values = values;
+    }
+    
+    ContextKind getContextKind() {
+      return contextKind;
+    }
+    
+    Set<String> getValues() { // guaranteed non-null
+      return values == null ? emptySet() : values;
+    }
+  }
+  
   /**
    * This is an enum-like type rather than an enum because we don't want unrecognized operators to
    * cause parsing of the whole JSON environment to fail. The implementation of each operator is in
