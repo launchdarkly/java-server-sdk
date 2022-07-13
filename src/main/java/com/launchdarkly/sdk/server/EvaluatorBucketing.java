@@ -25,9 +25,6 @@ abstract class EvaluatorBucketing {
     if (attr == null) {
       contextValue = LDValue.of(context.getKey());
     } else {
-      if (!attr.isValid()) {
-        return 0;
-      }
       contextValue = context.getValue(attr);
       if (contextValue.isNull()) {
         return 0;
