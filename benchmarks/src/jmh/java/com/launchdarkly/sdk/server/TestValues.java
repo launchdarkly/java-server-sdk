@@ -1,8 +1,8 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.interfaces.Event;
@@ -72,7 +72,7 @@ public abstract class TestValues {
 
     FeatureFlag targetsFlag = flagBuilder(FLAG_WITH_TARGET_LIST_KEY)
       .on(true)
-      .targets(new Target(new HashSet<String>(TARGETED_USER_KEYS), 1))
+      .targets(new Target(null, new HashSet<String>(TARGETED_USER_KEYS), 1))
       .fallthroughVariation(0)
       .offVariation(0)
       .variations(LDValue.of(false), LDValue.of(true))
@@ -95,7 +95,7 @@ public abstract class TestValues {
       .build();
     flags.add(flagWithPrereq);
 
-    UserAttribute matchAttr = UserAttribute.forName(CLAUSE_MATCH_ATTRIBUTE);
+    AttributeRef matchAttr = AttributeRef.fromLiteral(CLAUSE_MATCH_ATTRIBUTE);
     FeatureFlag flagWithMultiValueClause = flagBuilder(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY)
       .on(true)
       .fallthroughVariation(0)
@@ -103,7 +103,7 @@ public abstract class TestValues {
       .variations(LDValue.of(false), LDValue.of(true))
       .rules(
           ruleBuilder()
-            .clauses(new DataModel.Clause(matchAttr, DataModel.Operator.in, CLAUSE_MATCH_VALUES, false))
+            .clauses(new DataModel.Clause(null, matchAttr, DataModel.Operator.in, CLAUSE_MATCH_VALUES, false))
             .build()
           )
       .build();
