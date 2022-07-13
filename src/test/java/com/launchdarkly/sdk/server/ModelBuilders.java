@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextKind;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
@@ -67,34 +68,37 @@ public abstract class ModelBuilders {
       ContextKind contextKind,
       AttributeRef attribute,
       Operator op,
-      boolean negate,
       LDValue... values
       ) {
-    return new Clause(contextKind, attribute, op, Arrays.asList(values), negate);
+    return new Clause(contextKind, attribute, op, Arrays.asList(values), false);
   }
 
-  public static Clause clause(String attributeName, DataModel.Operator op, boolean negate, LDValue... values) {
-    return clause(null, AttributeRef.fromLiteral(attributeName), op, negate, values);
+  public static Clause clause(ContextKind contextKind, String attributeName, DataModel.Operator op, LDValue... values) {
+    return clause(contextKind, AttributeRef.fromLiteral(attributeName), op, values);
   }
 
   public static Clause clause(String attributeName, DataModel.Operator op, LDValue... values) {
-    return clause(attributeName, op, false, values);
-  }
-
-  public static Clause clause(UserAttribute attribute, DataModel.Operator op, boolean negate, LDValue... values) {
-    return clause(attribute.getName(), op, negate, values);
+    return clause(null, attributeName, op, values);
   }
 
   public static Clause clause(UserAttribute attribute, DataModel.Operator op, LDValue... values) {
-    return clause(attribute, op, false, values);
+    return clause(attribute.getName(), op, values);
   }
   
   public static Clause clauseMatchingUser(LDUser user) {
     return clause(UserAttribute.KEY, DataModel.Operator.in, user.getAttribute(UserAttribute.KEY));
   }
 
+  public static Clause clauseMatchingContext(LDContext context) {
+    return clause(context.getKind(), AttributeRef.fromLiteral("key"), DataModel.Operator.in, LDValue.of(context.getKey()));
+  }
+
   public static Clause clauseNotMatchingUser(LDUser user) {
     return clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("not-" + user.getKey()));
+  }
+
+  public static Clause clauseNotMatchingContext(LDContext context) {
+    return clause(context.getKind(), AttributeRef.fromLiteral("key"), DataModel.Operator.in, LDValue.of(context.getKey()));
   }
 
   public static Clause clauseMatchingSegment(String... segmentKeys) {
@@ -102,15 +106,23 @@ public abstract class ModelBuilders {
     for (int i = 0; i < segmentKeys.length; i++) {
       values[i] = LDValue.of(segmentKeys[i]);
     }
-    return clause(null, null, DataModel.Operator.segmentMatch, false, values);
+    return clause(null, (AttributeRef)null, DataModel.Operator.segmentMatch, values);
   }
   
   public static Clause clauseMatchingSegment(Segment segment) {
     return clauseMatchingSegment(segment.getKey());
   }
   
+  public static Clause negateClause(Clause clause) {
+    return new Clause(clause.getContextKind(), clause.getAttribute(), clause.getOp(), clause.getValues(), !clause.isNegate());
+  }
+
+  public static Target target(ContextKind contextKind, int variation, String... userKeys) {
+    return new Target(contextKind, ImmutableSet.copyOf(userKeys), variation);
+  }
+  
   public static Target target(int variation, String... userKeys) {
-    return new DataModel.Target(null, ImmutableSet.copyOf(userKeys), variation);
+    return target(null, variation, userKeys);
   }
   
   public static Prerequisite prerequisite(String key, int variation) {

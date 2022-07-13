@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
@@ -280,7 +278,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
             flagBuilder("flag1").version(1).build(),
             flagBuilder("flag2").version(1).rules(
                 ruleBuilder().clauses(
-                    ModelBuilders.clause(null, null, Operator.segmentMatch, false, LDValue.of("segment1"))
+                    ModelBuilders.clauseMatchingSegment("segment1")
                     ).build()
                 ).build(),
             flagBuilder("flag3").version(1).build(),
@@ -309,7 +307,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
             flagBuilder("flag1").version(1).build(),
             flagBuilder("flag2").version(1).rules(
                 ruleBuilder().clauses(
-                    ModelBuilders.clause(null, null, Operator.segmentMatch, false, LDValue.of("segment1"))
+                    ModelBuilders.clauseMatchingSegment("segment1")
                     ).build()
                 ).build(),
             flagBuilder("flag3").version(1).build(),

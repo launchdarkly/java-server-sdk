@@ -380,14 +380,6 @@ public class LDClientEvaluationTest {
   }
   
   @Test
-  public void canEvaluateWithNonNullButEmptyUserKey() throws Exception {
-    LDUser userWithEmptyKey = new LDUser("");
-    upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
-    
-    assertEquals(true, client.boolVariation("key", userWithEmptyKey, false));
-  }
-
-  @Test
   public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
     LDConfig customConfig = new LDConfig.Builder()

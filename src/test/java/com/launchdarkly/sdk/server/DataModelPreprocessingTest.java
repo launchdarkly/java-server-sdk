@@ -167,7 +167,6 @@ public class DataModelPreprocessingTest {
     Clause c = clause(
         "x",
         Operator.in,
-        false,
         LDValue.of("a"), LDValue.of(0) 
         );
  
@@ -186,7 +185,6 @@ public class DataModelPreprocessingTest {
     Clause c = clause(
         "x",
         Operator.in,
-        false,
         LDValue.of("a")
         );
     
@@ -202,8 +200,7 @@ public class DataModelPreprocessingTest {
   public void preprocessFlagDoesNotCreateClauseValuesMapForEmptyEqualityTest() {
     Clause c = clause(
         "x",
-        Operator.in,
-        false
+        Operator.in
         );
     
     FeatureFlag f = flagFromClause(c);
@@ -223,7 +220,6 @@ public class DataModelPreprocessingTest {
       Clause c = clause(
           "x",
           op,
-          false,
           LDValue.of("a"), LDValue.of("b")
           );
       // The values & types aren't very important here because we won't actually evaluate the clause; all that
@@ -253,7 +249,6 @@ public class DataModelPreprocessingTest {
       Clause c = clause(
           "x",
           op,
-          false,
           LDValue.of(time1Str), LDValue.of(time2Num), LDValue.of("x"), LDValue.of(false)
           );
       
@@ -278,7 +273,6 @@ public class DataModelPreprocessingTest {
     Clause c = clause(
         "x",
         Operator.matches,
-        false,
         LDValue.of("x*"), LDValue.of("***not a regex"), LDValue.of(3)
         );
     
@@ -307,7 +301,6 @@ public class DataModelPreprocessingTest {
       Clause c = clause(
           "x",
           op,
-          false,
           LDValue.of("1.2.3"), LDValue.of("x"), LDValue.of(false)
           );
       
@@ -333,7 +326,6 @@ public class DataModelPreprocessingTest {
     Clause c = clause(
         "x",
         Operator.matches,
-        false,
         LDValue.of("x*")
         );    
     SegmentRule rule = segmentRuleBuilder().clauses(c).build();
