@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
@@ -8,6 +9,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 
@@ -42,7 +44,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanMatchBuiltInAttribute() throws Exception {
-    Clause clause = clause("name", DataModel.Operator.in, LDValue.of("Bob"));
+    Clause clause = clause("name", Operator.in, LDValue.of("Bob"));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").name("Bob").build();
   
@@ -51,7 +53,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanMatchCustomAttribute() throws Exception {
-    Clause clause = clause("legs", DataModel.Operator.in, LDValue.of(4));
+    Clause clause = clause("legs", Operator.in, LDValue.of(4));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("legs", 4).build();
     
@@ -60,7 +62,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseReturnsFalseForMissingAttribute() throws Exception {
-    Clause clause = clause("legs", DataModel.Operator.in, LDValue.of(4));
+    Clause clause = clause("legs", Operator.in, LDValue.of(4));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").name("Bob").build();
     
@@ -68,8 +70,8 @@ public class EvaluatorClauseTest {
   }
 
   @Test
-  public void clauseMatchesUserValueToAnyOfMultipleValues() throws Exception {
-    Clause clause = clause("name", DataModel.Operator.in, LDValue.of("Bob"), LDValue.of("Carol"));
+  public void clauseMatchesContextValueToAnyOfMultipleValues() throws Exception {
+    Clause clause = clause("name", Operator.in, LDValue.of("Bob"), LDValue.of("Carol"));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").name("Carol").build();
     
@@ -77,9 +79,9 @@ public class EvaluatorClauseTest {
   }
 
   @Test
-  public void clauseMatchesUserValueToAnyOfMultipleValuesWithNonEqualityOperator() throws Exception {
+  public void clauseMatchesContextValueToAnyOfMultipleValuesWithNonEqualityOperator() throws Exception {
     // We check this separately because of the special preprocessing logic for equality matches.
-    Clause clause = clause("name", DataModel.Operator.contains, LDValue.of("Bob"), LDValue.of("Carol"));
+    Clause clause = clause("name", Operator.contains, LDValue.of("Bob"), LDValue.of("Carol"));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").name("Caroline").build();
     
@@ -87,8 +89,8 @@ public class EvaluatorClauseTest {
   }
 
   @Test
-  public void clauseMatchesArrayOfUserValuesToClauseValue() throws Exception {
-    Clause clause = clause("alias", DataModel.Operator.in, LDValue.of("Maurice"));
+  public void clauseMatchesArrayOfContextValuesToClauseValue() throws Exception {
+    Clause clause = clause("alias", Operator.in, LDValue.of("Maurice"));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("alias",
         LDValue.buildArray().add("Space Cowboy").add("Maurice").build()).build();
@@ -97,8 +99,8 @@ public class EvaluatorClauseTest {
   }
 
   @Test
-  public void clauseFindsNoMatchInArrayOfUserValues() throws Exception {
-    Clause clause = clause("alias", DataModel.Operator.in, LDValue.of("Ma"));
+  public void clauseFindsNoMatchInArrayOfContextValues() throws Exception {
+    Clause clause = clause("alias", Operator.in, LDValue.of("Ma"));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("alias",
         LDValue.buildArray().add("Mary").add("May").build()).build();
@@ -107,10 +109,10 @@ public class EvaluatorClauseTest {
   }
 
   @Test
-  public void userValueMustNotBeAnArrayOfArrays() throws Exception {
+  public void matchFailsIfContextValueIsAnArrayOfArrays() throws Exception {
     LDValue arrayValue = LDValue.buildArray().add("thing").build();
     LDValue arrayOfArrays = LDValue.buildArray().add(arrayValue).build();
-    Clause clause = clause(UserAttribute.forName("data"), DataModel.Operator.in, arrayOfArrays);
+    Clause clause = clause(UserAttribute.forName("data"), Operator.in, arrayOfArrays);
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("data", arrayOfArrays).build();
     
@@ -118,9 +120,9 @@ public class EvaluatorClauseTest {
   }
 
   @Test
-  public void userValueMustNotBeAnObject() throws Exception {
+  public void matchFailsIfContextValueIsAnObject() throws Exception {
     LDValue objectValue = LDValue.buildObject().put("thing", LDValue.of(true)).build();
-    Clause clause = clause(UserAttribute.forName("data"), DataModel.Operator.in, objectValue);
+    Clause clause = clause(UserAttribute.forName("data"), Operator.in, objectValue);
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("data", objectValue).build();
     
@@ -128,10 +130,10 @@ public class EvaluatorClauseTest {
   }
 
   @Test
-  public void userValueMustNotBeAnArrayOfObjects() throws Exception {
+  public void matchFailsIfContextValueIsAnArrayOfObjects() throws Exception {
     LDValue objectValue = LDValue.buildObject().put("thing", LDValue.of(true)).build();
     LDValue arrayOfObjects = LDValue.buildArray().add(objectValue).build();
-    Clause clause = clause(UserAttribute.forName("data"), DataModel.Operator.in, arrayOfObjects);
+    Clause clause = clause(UserAttribute.forName("data"), Operator.in, arrayOfObjects);
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("data", arrayOfObjects).build();
     
@@ -149,7 +151,7 @@ public class EvaluatorClauseTest {
   
   @Test
   public void clauseCanBeNegatedToReturnFalse() throws Exception {
-    Clause clause = negateClause(clause("key", DataModel.Operator.in, LDValue.of("key")));
+    Clause clause = negateClause(clause("key", Operator.in, LDValue.of("key")));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").name("Bob").build();
     
@@ -158,7 +160,7 @@ public class EvaluatorClauseTest {
 
   @Test
   public void clauseCanBeNegatedToReturnTrue() throws Exception {
-    Clause clause = negateClause(clause("key", DataModel.Operator.in, LDValue.of("other")));
+    Clause clause = negateClause(clause("key", Operator.in, LDValue.of("other")));
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").name("Bob").build();
     
@@ -192,7 +194,7 @@ public class EvaluatorClauseTest {
   public void clauseWithNullOperatorDoesNotStopSubsequentRuleFromMatching() throws Exception {
     Clause badClause = clause("name", null, LDValue.of("Bob"));
     Rule badRule = ruleBuilder().id("rule1").clauses(badClause).variation(1).build();
-    Clause goodClause = clause("name", DataModel.Operator.in, LDValue.of("Bob"));
+    Clause goodClause = clause("name", Operator.in, LDValue.of("Bob"));
     Rule goodRule = ruleBuilder().id("rule2").clauses(goodClause).variation(1).build();
     FeatureFlag f = flagBuilder("feature")
         .on(true)
@@ -205,6 +207,45 @@ public class EvaluatorClauseTest {
     
     EvaluationDetail<LDValue> details = BASE_EVALUATOR.evaluate(f, context, expectNoPrerequisiteEvals()).getAnyType();
     assertEquals(fromValue(LDValue.of(true), 1, EvaluationReason.ruleMatch(1, "rule2")), details);
+  }
+
+  @Test
+  public void clauseCanGetValueWithAttributeReference() throws Exception {
+    Clause clause = clause(null, AttributeRef.fromPath("/address/city"), Operator.in, LDValue.of("Oakland"));
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDContext context = LDContext.builder("key")
+        .set("address", LDValue.parse("{\"city\":\"Oakland\",\"state\":\"CA\"}"))
+        .build();
+    
+    assertMatch(BASE_EVALUATOR, f, context, true);
+  }
+  
+  @Test
+  public void clauseMatchUsesContextKind() throws Exception {
+    Clause clause = clause(ContextKind.of("company"), "name", Operator.in, LDValue.of("Catco"));
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDContext context1 = LDContext.builder("cc").kind("company").name("Catco").build();
+    LDContext context2 = LDContext.builder("l").name("Lucy").build();
+    LDContext context3 = LDContext.createMulti(context1, context2);
+
+    assertMatch(BASE_EVALUATOR, f, context1, true);
+    assertMatch(BASE_EVALUATOR, f, context2, false);
+    assertMatch(BASE_EVALUATOR, f, context3, true);
+  }
+
+  @Test
+  public void clauseMatchByKindAttribute() throws Exception {
+    Clause clause = clause(null, "kind", Operator.startsWith, LDValue.of("a"));
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDContext context1 = LDContext.create("key");
+    LDContext context2 = LDContext.create(ContextKind.of("ab"), "key");
+    LDContext context3 = LDContext.createMulti(
+        LDContext.create(ContextKind.of("cd"), "key"),
+        LDContext.create(ContextKind.of("ab"), "key"));
+    
+    assertMatch(BASE_EVALUATOR, f, context1, false);
+    assertMatch(BASE_EVALUATOR, f, context2, true);
+    assertMatch(BASE_EVALUATOR, f, context3, true);
   }
   
   @Test
@@ -233,7 +274,7 @@ public class EvaluatorClauseTest {
   @Test
   public void testSegmentMatchClauseIgnoresNonStringValues() throws Exception {
     String segmentKey = "segkey";
-    Clause clause = clause(null, (AttributeRef)null, DataModel.Operator.segmentMatch,
+    Clause clause = clause(null, (AttributeRef)null, Operator.segmentMatch,
         LDValue.of(123), LDValue.of(segmentKey));
     FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     Segment segment = makeSegmentThatMatchesUser(segmentKey, "foo");
