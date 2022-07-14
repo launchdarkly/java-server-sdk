@@ -136,6 +136,11 @@ final class EventOutputFormatter {
       jw.beginObject();
       
       writeLDValue("default", flagInfo.defaultVal, jw);
+      jw.name("contextKinds").beginArray();
+      for (String kind: flagInfo.contextKinds) {
+        jw.value(kind);
+      }
+      jw.endArray();
       
       jw.name("counters");
       jw.beginArray();

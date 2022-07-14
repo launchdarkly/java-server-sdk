@@ -382,9 +382,6 @@ final class DefaultEventProcessor implements EventProcessor {
         return; // LDClient should never give us an event with no context
       }
       
-      // Always record the event in the summarizer.
-      outbox.addToSummary(e);
-
       // Decide whether to add the event to the payload. Feature events may be added twice, once for
       // the event (if tracked) and once for debugging.
       boolean addIndexEvent = false,
@@ -393,6 +390,7 @@ final class DefaultEventProcessor implements EventProcessor {
 
       if (e instanceof Event.FeatureRequest) {
         Event.FeatureRequest fe = (Event.FeatureRequest)e;
+        outbox.addToSummary(fe);
         addFullEvent = fe.isTrackEvents();
         if (shouldDebugEvent(fe)) {
           debugEvent = EventFactory.newDebugEvent(fe);
@@ -504,8 +502,16 @@ final class DefaultEventProcessor implements EventProcessor {
       }
     }
 
-    void addToSummary(Event e) {
-      summarizer.summarizeEvent(e);
+    void addToSummary(Event.FeatureRequest e) {
+      summarizer.summarizeEvent(
+          e.getCreationDate(),
+          e.getKey(),
+          e.getVersion(),
+          e.getVariation(),
+          e.getValue(),
+          e.getDefaultVal(),
+          e.getContext()
+          );
     }
 
     boolean isEmpty() {

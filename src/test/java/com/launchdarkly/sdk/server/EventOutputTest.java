@@ -13,13 +13,11 @@ import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.Event.FeatureRequest;
-import com.launchdarkly.testhelpers.JsonAssertions;
 
 import org.junit.Test;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.Set;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
@@ -146,10 +144,6 @@ public class EventOutputTest {
     EventFactory factoryWithReason = eventFactoryWithTimestamp(100000, true);
     FeatureFlag flag = flagBuilder("flag").version(11).build();
     LDContext context = LDContext.builder("userkey").name("me").build();
-    LDContext multiKindContext = LDContext.createMulti(
-        context,
-        LDContext.create(ContextKind.of("kind2"), "key2")
-        );
     EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
     
     FeatureRequest feWithVariation = factory.newFeatureRequestEvent(flag, context,
@@ -303,26 +297,26 @@ public class EventOutputTest {
 
   @Test
   public void summaryEventIsSerialized() throws Exception {
-    EventSummary summary = new EventSummary();
-    summary.noteTimestamp(1001);
-
-    // Note use of "new String()" to ensure that these flag keys are not interned, as string literals normally are -
-    // we found a bug where strings were being compared by reference equality.
+    LDValue value1a = LDValue.of("value1a"), value2a = LDValue.of("value2a"), value2b = LDValue.of("value2b"),
+        default1 = LDValue.of("default1"), default2 = LDValue.of("default2"), default3 = LDValue.of("default3");
+    LDContext context1 = LDContext.create("key1");
+    LDContext context2 = LDContext.createMulti(context1, LDContext.create(ContextKind.of("kind2"), "key2"));
     
-    summary.incrementCounter(new String("first"), 1, 11, LDValue.of("value1a"), LDValue.of("default1"));
+    EventSummarizer es = new EventSummarizer();
+    
+    es.summarizeEvent(1000, "first", 11, 1, value1a, default1, context1); // context1 has kind "user"
+    
+    es.summarizeEvent(1000, "second", 21, 1, value2a, default2, context1);
 
-    summary.incrementCounter(new String("second"), 1, 21, LDValue.of("value2a"), LDValue.of("default2"));
+    es.summarizeEvent(1001, "first", 11, 1, value1a, default1, context1);
+    es.summarizeEvent(1001, "first", 12, 1, value1a, default1, context2); // context2 has kind "user" and kind "kind2"
 
-    summary.incrementCounter(new String("first"), 1, 11, LDValue.of("value1a"), LDValue.of("default1"));
-    summary.incrementCounter(new String("first"), 1, 12, LDValue.of("value1a"), LDValue.of("default1"));
+    es.summarizeEvent(1001, "second", 21, 2, value2b, default2, context1);
+    es.summarizeEvent(1002, "second", 21, -1, default2, default2, context1);
 
-    summary.incrementCounter(new String("second"), 2, 21, LDValue.of("value2b"), LDValue.of("default2"));
-    summary.incrementCounter(new String("second"), -1, 21, LDValue.of("default2"), LDValue.of("default2")); // flag exists (has version), but eval failed (no variation)
+    es.summarizeEvent(1002, "third", -1, -1, default3, default3, context1);
 
-    summary.incrementCounter(new String("third"), -1, -1, LDValue.of("default3"), LDValue.of("default3")); // flag doesn't exist (no version)
-
-    summary.noteTimestamp(1000);
-    summary.noteTimestamp(1002);
+    EventSummary summary = es.getSummaryAndReset();
 
     EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
     StringWriter w = new StringWriter();
@@ -339,6 +333,8 @@ public class EventOutputTest {
 
     LDValue firstJson = featuresJson.get("first");
     assertEquals("default1", firstJson.get("default").stringValue());
+    assertThat(firstJson.get("contextKinds").values(), containsInAnyOrder(
+        LDValue.of("user"), LDValue.of("kind2")));
     assertThat(firstJson.get("counters").values(), containsInAnyOrder(
         parseValue("{\"value\":\"value1a\",\"variation\":1,\"version\":11,\"count\":2}"),
         parseValue("{\"value\":\"value1a\",\"variation\":1,\"version\":12,\"count\":1}")
@@ -346,6 +342,7 @@ public class EventOutputTest {
 
     LDValue secondJson = featuresJson.get("second");
     assertEquals("default2", secondJson.get("default").stringValue());
+    assertThat(secondJson.get("contextKinds").values(), contains(LDValue.of("user")));
     assertThat(secondJson.get("counters").values(), containsInAnyOrder(
             parseValue("{\"value\":\"value2a\",\"variation\":1,\"version\":21,\"count\":1}"),
             parseValue("{\"value\":\"value2b\",\"variation\":2,\"version\":21,\"count\":1}"),
@@ -354,6 +351,7 @@ public class EventOutputTest {
         
     LDValue thirdJson = featuresJson.get("third");
     assertEquals("default3", thirdJson.get("default").stringValue());
+    assertThat(thirdJson.get("contextKinds").values(), contains(LDValue.of("user")));
     assertThat(thirdJson.get("counters").values(), contains(
         parseValue("{\"unknown\":true,\"value\":\"default3\",\"count\":1}")
     ));

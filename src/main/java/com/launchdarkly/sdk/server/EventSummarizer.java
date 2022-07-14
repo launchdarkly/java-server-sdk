@@ -1,11 +1,13 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.Event;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Manages the state of summarizable information for the EventProcessor. Note that the
@@ -20,16 +22,27 @@ final class EventSummarizer {
   }
   
   /**
-   * Adds this event to our counters, if it is a type of event we need to count.
-   * @param event an event
+   * Adds information about an evaluation to our counters.
+   *
+   * @param timestamp the millisecond timestamp
+   * @param flagKey the flag key
+   * @param flagVersion the flag version, or -1 if the flag is unknown
+   * @param variation the result variation, or -1 if none
+   * @param value the result value
+   * @param defaultValue the application default value
+   * @param context the evaluation context
    */
-  void summarizeEvent(Event event) {
-    if (!(event instanceof Event.FeatureRequest)) {
-      return;
-    }
-    Event.FeatureRequest fe = (Event.FeatureRequest)event;
-    eventsState.incrementCounter(fe.getKey(), fe.getVariation(), fe.getVersion(), fe.getValue(), fe.getDefaultVal());
-    eventsState.noteTimestamp(fe.getCreationDate());
+  void summarizeEvent(
+      long timestamp,
+      String flagKey,
+      int flagVersion,
+      int variation,
+      LDValue value,
+      LDValue defaultValue,
+      LDContext context
+      ) {
+    eventsState.incrementCounter(flagKey, flagVersion, variation, value, defaultValue, context);
+    eventsState.noteTimestamp(timestamp);
   }
   
   /**
@@ -85,17 +98,27 @@ final class EventSummarizer {
       return counters.isEmpty();
     }
     
-    void incrementCounter(String flagKey, int variation, int version, LDValue flagValue, LDValue defaultVal) {
+    void incrementCounter(
+        String flagKey,
+        int flagVersion,
+        int variation,
+        LDValue flagValue,
+        LDValue defaultVal,
+        LDContext context
+        ) {
       FlagInfo flagInfo = counters.get(flagKey);
       if (flagInfo == null) {
-        flagInfo = new FlagInfo(defaultVal, new SimpleIntKeyedMap<>());
+        flagInfo = new FlagInfo(defaultVal, new SimpleIntKeyedMap<>(), new HashSet<>());
         counters.put(flagKey, flagInfo);
       }
+      for (int i = 0; i < context.getIndividualContextCount(); i++) {
+        flagInfo.contextKinds.add(context.getIndividualContext(i).getKind().toString());
+      }
       
-      SimpleIntKeyedMap<CounterValue> variations = flagInfo.versionsAndVariations.get(version);
+      SimpleIntKeyedMap<CounterValue> variations = flagInfo.versionsAndVariations.get(flagVersion);
       if (variations == null) {
         variations = new SimpleIntKeyedMap<>();
-        flagInfo.versionsAndVariations.put(version, variations);
+        flagInfo.versionsAndVariations.put(flagVersion, variations);
       }
       
       CounterValue value = variations.get(variation);
@@ -136,29 +159,34 @@ final class EventSummarizer {
   static final class FlagInfo {
     final LDValue defaultVal;
     final SimpleIntKeyedMap<SimpleIntKeyedMap<CounterValue>> versionsAndVariations;
+    final Set<String> contextKinds;
     
-    FlagInfo(LDValue defaultVal, SimpleIntKeyedMap<SimpleIntKeyedMap<CounterValue>>  versionsAndVariations) {
+    FlagInfo(LDValue defaultVal, SimpleIntKeyedMap<SimpleIntKeyedMap<CounterValue>>  versionsAndVariations,
+        Set<String> contextKinds) {
       this.defaultVal = defaultVal;
       this.versionsAndVariations = versionsAndVariations;
+      this.contextKinds = contextKinds;
     }
     
     @Override
-    public boolean equals(Object other) {
+    public boolean equals(Object other) { // used only in tests
       if (other instanceof FlagInfo) {
         FlagInfo o = (FlagInfo)other;
-        return o.defaultVal.equals(this.defaultVal) && o.versionsAndVariations.equals(this.versionsAndVariations);
+        return o.defaultVal.equals(this.defaultVal) && o.versionsAndVariations.equals(this.versionsAndVariations) &&
+            o.contextKinds.equals(this.contextKinds);
       }
       return false;
     }
     
     @Override
-    public int hashCode() {
+    public int hashCode() { // used only in tests
       return this.defaultVal.hashCode() + 31 * versionsAndVariations.hashCode();
     }
     
     @Override
     public String toString() { // used only in tests
-      return "(default=" + defaultVal + ", counters=" + versionsAndVariations + ")";
+      return "(default=" + defaultVal + ", counters=" + versionsAndVariations + ", contextKinds=" +
+        String.join(",", contextKinds) + ")";
     }
   }
   
@@ -176,8 +204,7 @@ final class EventSummarizer {
     }
     
     @Override
-    public boolean equals(Object other)
-    {
+    public boolean equals(Object other) { // used only in tests
       if (other instanceof CounterValue) {
         CounterValue o = (CounterValue)other;
         return count == o.count && Objects.equals(flagValue, o.flagValue);
