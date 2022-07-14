@@ -9,8 +9,8 @@ import com.launchdarkly.sdk.server.DataModelPreprocessing.FlagPreprocessed;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.FlagRulePreprocessed;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.PrerequisitePreprocessed;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.TargetPreprocessed;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 
 import java.util.Collection;
 import java.util.List;
