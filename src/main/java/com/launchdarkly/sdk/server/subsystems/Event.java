@@ -20,7 +20,7 @@ public class Event {
   /**
    * Base event constructor.
    * @param creationDate the timestamp in milliseconds
-   * @param user the user associated with the event
+   * @param context the context associated with the event
    */
   public Event(long creationDate, LDContext context) {
     this.creationDate = creationDate;

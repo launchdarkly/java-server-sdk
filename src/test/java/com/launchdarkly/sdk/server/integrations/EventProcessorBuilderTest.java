@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.AttributeRef;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
@@ -89,10 +88,7 @@ public class EventProcessorBuilderTest {
     assertNull(sendEvents().privateAttributes);
     
     assertEquals(ImmutableSet.of(AttributeRef.fromLiteral("email"), AttributeRef.fromPath("/address/street")),
-        sendEvents().privateAttributes(AttributeRef.fromLiteral("email"), AttributeRef.fromPath("/address/street")).privateAttributes);
-
-    assertEquals(ImmutableSet.of(AttributeRef.fromLiteral("a"), AttributeRef.fromLiteral("b")),
-        sendEvents().privateAttributes("email", "name").privateAttributes);
+        sendEvents().privateAttributes("email", "/address/street").privateAttributes);
   }
   
   @Test

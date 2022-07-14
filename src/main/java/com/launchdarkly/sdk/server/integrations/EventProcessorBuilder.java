@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.AttributeRef;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
@@ -9,7 +8,6 @@ import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -73,13 +71,13 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * Sets whether or not all optional user attributes should be hidden from LaunchDarkly.
    * <p>
    * If this is {@code true}, all user attribute values (other than the key) will be private, not just
-   * the attributes specified in {@link #privateAttributeNames(String...)} or on a per-user basis with
-   * {@link com.launchdarkly.sdk.LDUser.Builder} methods. By default, it is {@code false}. 
+   * the attributes specified in {@link #privateAttributes(String...)} or on a per-user basis with
+   * {@link com.launchdarkly.sdk.ContextBuilder} methods. By default, it is {@code false}. 
    * 
    * @param allAttributesPrivate true if all user attributes should be private
    * @return the builder
-   * @see #privateAttributeNames(String...)
-   * @see com.launchdarkly.sdk.LDUser.Builder
+   * @see #privateAttributes(String...)
+   * @see com.launchdarkly.sdk.ContextBuilder
    */
   public EventProcessorBuilder allAttributesPrivate(boolean allAttributesPrivate) {
     this.allAttributesPrivate = allAttributesPrivate;
@@ -156,43 +154,32 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   }
 
   /**
-   * Marks a set of attribute names as private.
+   * Marks a set of attribute names or subproperties as private.
    * <p>
-   * Any users sent to LaunchDarkly with this configuration active will have attributes with these
+   * Any contexts sent to LaunchDarkly with this configuration active will have attributes with these
    * names removed. This is in addition to any attributes that were marked as private for an
-   * individual user with {@link com.launchdarkly.sdk.LDUser.Builder} methods.
+   * individual context with {@link com.launchdarkly.sdk.ContextBuilder} methods.
    * <p>
-   * Using {@link #privateAttributes(UserAttribute...)} is preferable to avoid the possibility of
-   * misspelling a built-in attribute.
-   *
-   * @param attributeNames a set of names that will be removed from user data set to LaunchDarkly
+   * If and only if a parameter starts with a slash, it is interpreted as a slash-delimited path that
+   * can denote a nested property within a JSON object. For instance, "/address/street" means that if
+   * there is an attribute called "address" that is a JSON object, and one of the object's properties
+   * is "street", the "street" property will be redacted from the analytics data but other properties
+   * within "address" will still be sent. This syntax also uses the JSON Pointer convention of escaping
+   * a literal slash character as "~1" and a tilde as "~0".
+   * <p>
+   * This method replaces any previous private attributes that were set on the same builder, rather
+   * than adding to them.
+   * 
+   * @param attributeNames a set of names or paths that will be removed from context data set to LaunchDarkly
    * @return the builder
    * @see #allAttributesPrivate(boolean)
-   * @see com.launchdarkly.sdk.LDUser.Builder
+   * @see com.launchdarkly.sdk.ContextBuilder#privateAttributes(String...)
    */
   public EventProcessorBuilder privateAttributes(String... attributeNames) {
     privateAttributes = new HashSet<>();
     for (String a: attributeNames) {
       privateAttributes.add(AttributeRef.fromPath(a));
     }
-    return this;
-  }
-
-  /**
-   * Marks a set of attribute names as private.
-   * <p>
-   * Any users sent to LaunchDarkly with this configuration active will have attributes with these
-   * names removed. This is in addition to any attributes that were marked as private for an
-   * individual user with {@link com.launchdarkly.sdk.LDUser.Builder} methods.
-   *
-   * @param attributes a set of attributes that will be removed from user data set to LaunchDarkly
-   * @return the builder
-   * @see #allAttributesPrivate(boolean)
-   * @see com.launchdarkly.sdk.LDUser.Builder
-   * @see #privateAttributes(String...)
-   */
-  public EventProcessorBuilder privateAttributes(AttributeRef... attributes) {
-    privateAttributes = new HashSet<>(Arrays.asList(attributes));
     return this;
   }
 
