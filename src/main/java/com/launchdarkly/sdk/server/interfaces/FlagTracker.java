@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server.interfaces;
 
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.Components;
 
@@ -20,10 +21,10 @@ public interface FlagTracker {
    * for other flags, the SDK assumes that those flags may now behave differently and sends flag change events
    * for them as well.
    * <p>
-   * Note that this does not necessarily mean the flag's value has changed for any particular user, only that
-   * some part of the flag configuration was changed so that it <i>may</i> return a different value than it
-   * previously returned for some user. If you want to track flag value changes, use
-   * {@link #addFlagValueChangeListener(String, LDUser, FlagValueChangeListener)} instead.
+   * Note that this does not necessarily mean the flag's value has changed for any particular evaluation
+   * context, only that some part of the flag configuration was changed so that it <i>may</i> return a
+   * different value than it previously returned for some context. If you want to track flag value changes,
+   * use {@link #addFlagValueChangeListener(String, LDContext, FlagValueChangeListener)} instead.
    * <p>
    * If using the file data source ({@link com.launchdarkly.sdk.server.integrations.FileData}), any change in
    * a data file will be treated as a change to every flag. Again, use
@@ -41,7 +42,7 @@ public interface FlagTracker {
    * @param listener the event listener to register
    * @see #removeFlagChangeListener(FlagChangeListener)
    * @see FlagChangeListener
-   * @see #addFlagValueChangeListener(String, LDUser, FlagValueChangeListener)
+   * @see #addFlagValueChangeListener(String, LDContext, FlagValueChangeListener)
    */
   public void addFlagChangeListener(FlagChangeListener listener);
   
@@ -58,27 +59,27 @@ public interface FlagTracker {
   public void removeFlagChangeListener(FlagChangeListener listener);
   
   /**
-   * Registers a listener to be notified of a change in a specific feature flag's value for a specific set of
-   * user properties.
+   * Registers a listener to be notified of a change in a specific feature flag's value for a specific
+   * evaluation context.
    * <p>
    * When you call this method, it first immediately evaluates the feature flag. It then uses
    * {@link #addFlagChangeListener(FlagChangeListener)} to start listening for feature flag configuration
-   * changes, and whenever the specified feature flag changes, it re-evaluates the flag for the same user.
+   * changes, and whenever the specified feature flag changes, it re-evaluates the flag for the same context.
    * It then calls your {@link FlagValueChangeListener} if and only if the resulting value has changed.
    * <p>
-   * All feature flag evaluations require an instance of {@link LDUser}. If the feature flag you are
-   * tracking does not have any user targeting rules, you must still pass a dummy user such as
-   * {@code new LDUser("for-global-flags")}. If you do not want the user to appear on your dashboard, use
-   * the {@code anonymous} property: {@code new LDUserBuilder("for-global-flags").anonymous(true).build()}.
+   * All feature flag evaluations require an instance of {@link LDContext}. If the feature flag you are
+   * tracking does not have any user targeting rules, you must still pass a dummy context such as
+   * {@code LDContext.create("for-global-flags")}. If you do not want the user to appear on your dashboard,
+   * use the {@code anonymous} property: {@code LDContext.builder("for-global-flags").anonymous(true).build()}.
    * <p>
    * The returned {@link FlagChangeListener} represents the subscription that was created by this method
    * call; to unsubscribe, pass that object (not your {@code FlagValueChangeListener}) to
    * {@link #removeFlagChangeListener(FlagChangeListener)}.
    * 
    * @param flagKey the flag key to be evaluated
-   * @param user the user properties for evaluation
+   * @param context the evaluation context
    * @param listener an object that you provide which will be notified of changes
    * @return a {@link FlagChangeListener} that can be used to unregister the listener
    */
-  public FlagChangeListener addFlagValueChangeListener(String flagKey, LDUser user, FlagValueChangeListener listener);
+  public FlagChangeListener addFlagValueChangeListener(String flagKey, LDContext context, FlagValueChangeListener listener);
 }

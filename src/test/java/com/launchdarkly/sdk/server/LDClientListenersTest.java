@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.TestComponents.DataStoreFactoryThatExposesUpdater;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
@@ -100,8 +100,8 @@ public class LDClientListenersTest extends EasyMockSupport {
   @Test
   public void clientSendsFlagValueChangeEvents() throws Exception {
     String flagKey = "important-flag";
-    LDUser user = new LDUser("important-user");
-    LDUser otherUser = new LDUser("unimportant-user");
+    LDContext user = LDContext.create("important-user");
+    LDContext otherUser = LDContext.create("unimportant-user");
 
     TestData testData = TestData.dataSource();
     testData.update(testData.flag(flagKey).on(false));

@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
@@ -63,11 +63,11 @@ public class FlagTrackerImplTest {
   @Test
   public void flagValueChangeListener() throws Exception {
     String flagKey = "important-flag";
-    LDUser user = new LDUser("important-user");
-    LDUser otherUser = new LDUser("unimportant-user");
+    LDContext user = LDContext.create("important-user");
+    LDContext otherUser = LDContext.create("unimportant-user");
     EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> broadcaster =
         EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor);
-    Map<Map.Entry<String, LDUser>, LDValue> resultMap = new HashMap<>();
+    Map<Map.Entry<String, LDContext>, LDValue> resultMap = new HashMap<>();
     
     FlagTrackerImpl tracker = new FlagTrackerImpl(broadcaster,
         (k, u) -> LDValue.normalize(resultMap.get(new AbstractMap.SimpleEntry<>(k, u))));

@@ -103,7 +103,7 @@ public abstract class ModelBuilders {
   }
 
   public static Clause clauseNotMatchingContext(LDContext context) {
-    return clause(context.getKind(), AttributeRef.fromLiteral("key"), DataModel.Operator.in, LDValue.of(context.getKey()));
+    return negateClause(clauseMatchingContext(context));
   }
 
   public static Clause clauseMatchingSegment(String... segmentKeys) {

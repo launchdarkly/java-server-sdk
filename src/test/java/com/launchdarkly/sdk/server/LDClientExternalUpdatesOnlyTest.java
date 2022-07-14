@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
@@ -60,7 +60,7 @@ public class LDClientExternalUpdatesOnlyTest {
     DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of(true));
     upsertFlag(testDataStore, flag);
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertTrue(client.boolVariation("key", new LDUser("user"), false));
+      assertTrue(client.boolVariation("key", LDContext.create("user"), false));
     }
   }
 }

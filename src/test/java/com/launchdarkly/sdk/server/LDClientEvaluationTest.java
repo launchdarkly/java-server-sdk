@@ -4,7 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
@@ -41,8 +41,8 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDClientEvaluationTest {
-  private static final LDUser user = new LDUser("userkey");
-  private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
+  private static final LDContext user = LDContext.create("userkey");
+  private static final LDContext invalidContext = LDContext.create(null);
   private static final Gson gson = new Gson();
   
   private DataStore dataStore = initedDataStore();
@@ -327,7 +327,7 @@ public class LDClientEvaluationTest {
   }
   
   @Test
-  public void appropriateErrorIfUserNotSpecified() throws Exception {
+  public void appropriateErrorIfContextNotSpecified() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
 
     EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", NO_VARIATION,
@@ -336,13 +336,12 @@ public class LDClientEvaluationTest {
   }
 
   @Test
-  public void appropriateErrorIfUserHasNullKey() throws Exception {
-    LDUser userWithNullKey = new LDUser(null);
+  public void appropriateErrorIfContextIsInvalid() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
 
     EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", NO_VARIATION,
         EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
-    assertEquals(expectedResult, client.stringVariationDetail("key", userWithNullKey, "default"));
+    assertEquals(expectedResult, client.stringVariationDetail("key", invalidContext, "default"));
   }
   
   @Test
@@ -563,7 +562,7 @@ public class LDClientEvaluationTest {
   }
   
   @Test
-  public void allFlagsStateReturnsEmptyStateForNullUser() throws Exception {
+  public void allFlagsStateReturnsEmptyStateForNullContext() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
 
     FeatureFlagsState state = client.allFlagsState(null);
@@ -572,10 +571,10 @@ public class LDClientEvaluationTest {
   }
   
   @Test
-  public void allFlagsStateReturnsEmptyStateForNullUserKey() throws Exception {
+  public void allFlagsStateReturnsEmptyStateForInvalidContext() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
 
-    FeatureFlagsState state = client.allFlagsState(userWithNullKey);
+    FeatureFlagsState state = client.allFlagsState(invalidContext);
     assertFalse(state.isValid());
     assertEquals(0, state.toValuesMap().size());
   }

@@ -2,16 +2,19 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.DataModel.Clause;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.Event;
 
 import org.junit.Test;
 
-import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingUser;
-import static com.launchdarkly.sdk.server.ModelBuilders.clauseNotMatchingUser;
+import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingContext;
+import static com.launchdarkly.sdk.server.ModelBuilders.clauseNotMatchingContext;
 import static com.launchdarkly.sdk.server.ModelBuilders.fallthroughVariation;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
@@ -28,9 +31,8 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDClientEventTest {
-  private static final LDUser user = new LDUser("userkey");
-  private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
-  private static final LDUser userWithEmptyKey = new LDUser.Builder("").build();
+  private static final LDContext user = LDContext.create("userkey");
+  private static final LDContext invalidContext = LDContext.create(null);
   
   private DataStore dataStore = initedDataStore();
   private TestComponents.TestEventProcessor eventSink = new TestComponents.TestEventProcessor();
@@ -53,20 +55,14 @@ public class LDClientEventTest {
   }
 
   @Test
-  public void identifyWithNullUserDoesNotSendEvent() {
+  public void identifyWithNullContextDoesNotSendEvent() {
     client.identify(null);
     assertEquals(0, eventSink.events.size());
   }
 
   @Test
-  public void identifyWithUserWithNoKeyDoesNotSendEvent() {
-    client.identify(userWithNullKey);
-    assertEquals(0, eventSink.events.size());
-  }
-
-  @Test
-  public void identifyWithUserWithEmptyKeyDoesNotSendEvent() {
-    client.identify(userWithEmptyKey);
+  public void identifyWithInvalidContextDoesNotSendEvent() {
+    client.identify(invalidContext);
     assertEquals(0, eventSink.events.size());
   }
   
@@ -114,7 +110,7 @@ public class LDClientEventTest {
   }
 
   @Test
-  public void trackWithNullUserDoesNotSendEvent() {
+  public void trackWithNullContextDoesNotSendEvent() {
     client.track("eventkey", null);
     assertEquals(0, eventSink.events.size());
     
@@ -126,26 +122,14 @@ public class LDClientEventTest {
   }
 
   @Test
-  public void trackWithUserWithNoKeyDoesNotSendEvent() {
-    client.track("eventkey", userWithNullKey);
+  public void trackWithInvalidContextDoesNotSendEvent() {
+    client.track("eventkey", invalidContext);
     assertEquals(0, eventSink.events.size());
     
-    client.trackData("eventkey", userWithNullKey, LDValue.of(1));
+    client.trackData("eventkey", invalidContext, LDValue.of(1));
     assertEquals(0, eventSink.events.size());
 
-    client.trackMetric("eventkey", userWithNullKey, LDValue.of(1), 1.5);
-    assertEquals(0, eventSink.events.size());
-  }
-
-  @Test
-  public void trackWithUserWithEmptyKeyDoesNotSendEvent() {
-    client.track("eventkey", userWithEmptyKey);
-    assertEquals(0, eventSink.events.size());
-    
-    client.trackData("eventkey", userWithEmptyKey, LDValue.of(1));
-    assertEquals(0, eventSink.events.size());
-
-    client.trackMetric("eventkey", userWithEmptyKey, LDValue.of(1), 1.5);
+    client.trackMetric("eventkey", invalidContext, LDValue.of(1), 1.5);
     assertEquals(0, eventSink.events.size());
   }
 
@@ -313,9 +297,9 @@ public class LDClientEventTest {
 
   @Test
   public void eventTrackingAndReasonCanBeForcedForRule() throws Exception {
-    DataModel.Clause clause = clauseMatchingUser(user);
-    DataModel.Rule rule = ruleBuilder().id("id").clauses(clause).variation(1).trackEvents(true).build();
-    DataModel.FeatureFlag flag = flagBuilder("flag")
+    Clause clause = clauseMatchingContext(user);
+    Rule rule = ruleBuilder().id("id").clauses(clause).variation(1).trackEvents(true).build();
+    FeatureFlag flag = flagBuilder("flag")
         .on(true)
         .rules(rule)
         .offVariation(0)
@@ -336,11 +320,11 @@ public class LDClientEventTest {
 
   @Test
   public void eventTrackingAndReasonAreNotForcedIfFlagIsNotSetForMatchingRule() throws Exception {
-    DataModel.Clause clause0 = clauseNotMatchingUser(user);
-    DataModel.Clause clause1 = clauseMatchingUser(user);
-    DataModel.Rule rule0 = ruleBuilder().id("id0").clauses(clause0).variation(1).trackEvents(true).build();
-    DataModel.Rule rule1 = ruleBuilder().id("id1").clauses(clause1).variation(1).trackEvents(false).build();
-    DataModel.FeatureFlag flag = flagBuilder("flag")
+    Clause clause0 = clauseNotMatchingContext(user);
+    Clause clause1 = clauseMatchingContext(user);
+    Rule rule0 = ruleBuilder().id("id0").clauses(clause0).variation(1).trackEvents(true).build();
+    Rule rule1 = ruleBuilder().id("id1").clauses(clause1).variation(1).trackEvents(false).build();
+    FeatureFlag flag = flagBuilder("flag")
         .on(true)
         .rules(rule0, rule1)
         .offVariation(0)

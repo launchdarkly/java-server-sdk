@@ -1,10 +1,12 @@
 package sdktest;
 
+import com.google.gson.annotations.SerializedName;
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 
 import java.net.URI;
+import java.util.Map;
 
 public abstract class Representations {
   public static class Status {
@@ -68,11 +70,13 @@ public abstract class Representations {
     EvaluateAllFlagsParams evaluateAll;
     IdentifyEventParams identifyEvent;
     CustomEventParams customEvent;
+    ContextBuildParams contextBuild;
+    ContextConvertParams contextConvert;
   }
 
   public static class EvaluateFlagParams {
     String flagKey;
-    LDUser user;
+    LDContext context;
     String valueType;
     LDValue value;
     LDValue defaultValue;
@@ -86,7 +90,7 @@ public abstract class Representations {
   }
 
   public static class EvaluateAllFlagsParams {
-    LDUser user;
+    LDContext context;
     boolean clientSideOnly;
     boolean detailsOnlyForTrackedFlags;
     boolean withReasons;
@@ -97,12 +101,12 @@ public abstract class Representations {
   }
   
   public static class IdentifyEventParams {
-    LDUser user;
+    LDContext context;
   }
 
   public static class CustomEventParams {
     String eventKey;
-    LDUser user;
+    LDContext context;
     LDValue data;
     boolean omitNullData;
     Double metricValue;
@@ -111,5 +115,29 @@ public abstract class Representations {
   public static class GetBigSegmentsStoreStatusResponse {
     boolean available;
     boolean stale;
+  }
+
+  public static class ContextBuildParams {
+    ContextBuildSingleParams single;
+    ContextBuildSingleParams[] multi;
+  }
+
+  public static class ContextBuildSingleParams {
+    public String kind;
+    public String key;
+    public String name;
+    public Boolean anonymous;
+    public String secondary;
+    @SerializedName("private") public String[] privateAttrs;
+    public Map<String, LDValue> custom;
+  }
+  
+  public static class ContextBuildResponse {
+    String output;
+    String error;
+  }
+  
+  public static class ContextConvertParams {
+    String input;
   }
 }

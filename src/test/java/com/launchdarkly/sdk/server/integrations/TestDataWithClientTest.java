@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server.integrations;
 
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
@@ -37,7 +37,7 @@ public class TestDataWithClientTest {
     td.update(td.flag("flag").on(true));
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      assertThat(client.boolVariation("flag", new LDUser("user"), false), is(true));
+      assertThat(client.boolVariation("flag", LDContext.create("user"), false), is(true));
     }
   }
   
@@ -46,11 +46,11 @@ public class TestDataWithClientTest {
     td.update(td.flag("flag").on(false));
     
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      assertThat(client.boolVariation("flag", new LDUser("user"), false), is(false));
+      assertThat(client.boolVariation("flag", LDContext.create("user"), false), is(false));
       
       td.update(td.flag("flag").on(true));
       
-      assertThat(client.boolVariation("flag", new LDUser("user"), false), is(true));
+      assertThat(client.boolVariation("flag", LDContext.create("user"), false), is(true));
     }
   }
   
@@ -59,8 +59,8 @@ public class TestDataWithClientTest {
     td.update(td.flag("flag").fallthroughVariation(false).variationForUser("user1", true));
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      assertThat(client.boolVariation("flag", new LDUser("user1"), false), is(true));
-      assertThat(client.boolVariation("flag", new LDUser("user2"), false), is(false));
+      assertThat(client.boolVariation("flag", LDContext.create("user1"), false), is(true));
+      assertThat(client.boolVariation("flag", LDContext.create("user2"), false), is(false));
     }
   }
 
@@ -71,9 +71,9 @@ public class TestDataWithClientTest {
         .ifMatch(UserAttribute.NAME, LDValue.of("Mina")).thenReturn(true));
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      assertThat(client.boolVariation("flag", new LDUser.Builder("user1").name("Lucy").build(), false), is(true));
-      assertThat(client.boolVariation("flag", new LDUser.Builder("user2").name("Mina").build(), false), is(true));
-      assertThat(client.boolVariation("flag", new LDUser.Builder("user3").name("Quincy").build(), false), is(false));
+      assertThat(client.boolVariation("flag", LDContext.builder("user1").name("Lucy").build(), false), is(true));
+      assertThat(client.boolVariation("flag", LDContext.builder("user2").name("Mina").build(), false), is(true));
+      assertThat(client.boolVariation("flag", LDContext.builder("user3").name("Quincy").build(), false), is(false));
     }
   }
 
@@ -85,13 +85,13 @@ public class TestDataWithClientTest {
         .ifMatch(UserAttribute.NAME, LDValue.of("Mina")).thenReturn(1));
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      assertThat(client.stringVariation("flag", new LDUser.Builder("user1").name("Lucy").build(), ""), equalTo("green"));
-      assertThat(client.stringVariation("flag", new LDUser.Builder("user2").name("Mina").build(), ""), equalTo("green"));
-      assertThat(client.stringVariation("flag", new LDUser.Builder("user3").name("Quincy").build(), ""), equalTo("blue"));
+      assertThat(client.stringVariation("flag", LDContext.builder("user1").name("Lucy").build(), ""), equalTo("green"));
+      assertThat(client.stringVariation("flag", LDContext.builder("user2").name("Mina").build(), ""), equalTo("green"));
+      assertThat(client.stringVariation("flag", LDContext.builder("user3").name("Quincy").build(), ""), equalTo("blue"));
       
       td.update(td.flag("flag").on(false));
 
-      assertThat(client.stringVariation("flag", new LDUser.Builder("user1").name("Lucy").build(), ""), equalTo("red"));
+      assertThat(client.stringVariation("flag", LDContext.builder("user1").name("Lucy").build(), ""), equalTo("red"));
     }
   }
   
@@ -114,13 +114,13 @@ public class TestDataWithClientTest {
 
     try (LDClient client1 = new LDClient(SDK_KEY, config)) {
       try (LDClient client2 = new LDClient(SDK_KEY, config)) {
-        assertThat(client1.boolVariation("flag", new LDUser("user"), false), is(true));
-        assertThat(client2.boolVariation("flag", new LDUser("user"), false), is(true));
+        assertThat(client1.boolVariation("flag", LDContext.create("user"), false), is(true));
+        assertThat(client2.boolVariation("flag", LDContext.create("user"), false), is(true));
         
         td.update(td.flag("flag").on(false));
 
-        assertThat(client1.boolVariation("flag", new LDUser("user"), false), is(false));
-        assertThat(client2.boolVariation("flag", new LDUser("user"), false), is(false));
+        assertThat(client1.boolVariation("flag", LDContext.create("user"), false), is(false));
+        assertThat(client2.boolVariation("flag", LDContext.create("user"), false), is(false));
       }
     }
   }
