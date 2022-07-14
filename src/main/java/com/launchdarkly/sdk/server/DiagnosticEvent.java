@@ -3,9 +3,9 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.DiagnosticDescription;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import java.util.List;
 import java.util.Map;
@@ -19,7 +19,6 @@ class DiagnosticEvent {
     DIAGNOSTIC_RECORDING_INTERVAL_MILLIS("diagnosticRecordingIntervalMillis", LDValueType.NUMBER),
     EVENTS_CAPACITY("eventsCapacity", LDValueType.NUMBER),
     EVENTS_FLUSH_INTERVAL_MILLIS("eventsFlushIntervalMillis", LDValueType.NUMBER),
-    INLINE_USERS_IN_EVENTS("inlineUsersInEvents", LDValueType.BOOLEAN),
     POLLING_INTERVAL_MILLIS("pollingIntervalMillis", LDValueType.NUMBER),
     RECONNECT_TIME_MILLIS("reconnectTimeMillis", LDValueType.NUMBER),
     SAMPLING_INTERVAL("samplingInterval", LDValueType.NUMBER),
@@ -87,18 +86,18 @@ class DiagnosticEvent {
         long creationDate,
         DiagnosticId diagnosticId,
         LDConfig config,
-        BasicConfiguration basicConfig,
-        HttpConfiguration httpConfig
+        ClientContext clientContext
         ) {
       super("diagnostic-init", creationDate, diagnosticId);
-      this.sdk = new DiagnosticSdk(httpConfig);
-      this.configuration = getConfigurationData(config, basicConfig, httpConfig);
+      this.sdk = new DiagnosticSdk(clientContext.getHttp());
+      this.configuration = getConfigurationData(config, clientContext);
     }
 
-    static LDValue getConfigurationData(LDConfig config, BasicConfiguration basicConfig, HttpConfiguration httpConfig) {
+    static LDValue getConfigurationData(LDConfig config, ClientContext clientContext) {
       ObjectBuilder builder = LDValue.buildObject();
-      
+            
       // Add the top-level properties that are not specific to a particular component type.
+      HttpConfiguration httpConfig = clientContext.getHttp();
       builder.put("connectTimeoutMillis", httpConfig.getConnectTimeout().toMillis());
       builder.put("socketTimeoutMillis", httpConfig.getSocketTimeout().toMillis());
       builder.put("usingProxy", httpConfig.getProxy() != null);
@@ -106,9 +105,9 @@ class DiagnosticEvent {
       builder.put("startWaitMillis", config.startWait.toMillis());
       
       // Allow each pluggable component to describe its own relevant properties. 
-      mergeComponentProperties(builder, config.dataStoreFactory, basicConfig, "dataStoreType");
-      mergeComponentProperties(builder, config.dataSourceFactory, basicConfig, null);
-      mergeComponentProperties(builder, config.eventProcessorFactory, basicConfig, null);
+      mergeComponentProperties(builder, config.dataStoreFactory, clientContext, "dataStoreType");
+      mergeComponentProperties(builder, config.dataSourceFactory, clientContext, null);
+      mergeComponentProperties(builder, config.eventProcessorFactory, clientContext, null);
       return builder.build();
     }
     
@@ -121,7 +120,7 @@ class DiagnosticEvent {
     private static void mergeComponentProperties(
         ObjectBuilder builder,
         Object component,
-        BasicConfiguration basicConfig,
+        ClientContext clientContext,
         String defaultPropertyName
         ) {
       if (!(component instanceof DiagnosticDescription)) {
@@ -130,7 +129,7 @@ class DiagnosticEvent {
         }
         return;
       }
-      LDValue componentDesc = LDValue.normalize(((DiagnosticDescription)component).describeConfiguration(basicConfig));
+      LDValue componentDesc = LDValue.normalize(((DiagnosticDescription)component).describeConfiguration(clientContext));
       if (defaultPropertyName != null) {
         builder.put(defaultPropertyName, componentDesc.isString() ? componentDesc.stringValue() : "custom");
       } else if (componentDesc.getType() == LDValueType.OBJECT) {

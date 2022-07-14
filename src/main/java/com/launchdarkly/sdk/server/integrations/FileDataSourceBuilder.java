@@ -1,10 +1,10 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.io.ByteStreams;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
 
 import java.io.IOException;
 import java.io.InputStream;

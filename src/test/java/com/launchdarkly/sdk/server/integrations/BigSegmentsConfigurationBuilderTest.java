@@ -7,10 +7,10 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.junit.Assert.assertSame;
 
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
 
 import org.easymock.IMocksControl;
 import org.junit.Test;

@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
 
 /**
  * Interface for a factory that creates some implementation of {@link BigSegmentStore}.

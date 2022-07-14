@@ -1,9 +1,9 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
@@ -20,8 +20,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind.ANALYTICS;
-import static com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind.DIAGNOSTICS;
+import static com.launchdarkly.sdk.server.subsystems.EventSender.EventDataKind.ANALYTICS;
+import static com.launchdarkly.sdk.server.subsystems.EventSender.EventDataKind.DIAGNOSTICS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.equalToIgnoringCase;
@@ -57,7 +57,7 @@ public class DefaultEventSenderTest {
   public void factoryCreatesDefaultSenderWithDefaultRetryDelay() throws Exception {
     EventSenderFactory f = new DefaultEventSender.Factory();
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT);
-    try (EventSender es = f.createEventSender(context.getBasic(), context.getHttp())) {
+    try (EventSender es = f.createEventSender(context)) {
       assertThat(es, isA(EventSender.class));
       assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
     }

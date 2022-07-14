@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.subsystems.Event;
 
 import java.util.HashMap;
 import java.util.Map;

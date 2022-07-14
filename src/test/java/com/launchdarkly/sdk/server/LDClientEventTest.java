@@ -4,9 +4,9 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.Event;
 
 import org.junit.Test;
 
@@ -543,22 +543,6 @@ public class LDClientEventTest {
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       client.flush();
     }
-  }
-
-  @Test
-  public void aliasEventIsCorrectlyGenerated() {
-    LDUser anonymousUser = new LDUser.Builder("anonymous-key").anonymous(true).build();
-
-    client.alias(user, anonymousUser);
-
-    assertEquals(1, eventSink.events.size());
-    Event e = eventSink.events.get(0);
-    assertEquals(Event.AliasEvent.class, e.getClass());
-    Event.AliasEvent evt = (Event.AliasEvent)e;
-    assertEquals(user.getKey(), evt.getKey());
-    assertEquals("user", evt.getContextKind());
-    assertEquals(anonymousUser.getKey(), evt.getPreviousKey());
-    assertEquals("anonymousUser", evt.getPreviousContextKind());
   }
 
   private void checkFeatureEvent(Event e, DataModel.FeatureFlag flag, LDValue value, LDValue defaultVal,
