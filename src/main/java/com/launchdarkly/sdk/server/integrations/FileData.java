@@ -39,7 +39,7 @@ public abstract class FileData {
    * <p>
    * This object can be modified with {@link FileDataSourceBuilder} methods for any desired
    * custom settings, before including it in the SDK configuration with
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(com.launchdarkly.sdk.server.interfaces.DataSourceFactory)}.
+   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(com.launchdarkly.sdk.server.subsystems.DataSourceFactory)}.
    * <p>
    * At a minimum, you will want to call {@link FileDataSourceBuilder#filePaths(String...)} to specify
    * your data file(s); you can also use {@link FileDataSourceBuilder#autoUpdate(boolean)} to

@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
 
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 

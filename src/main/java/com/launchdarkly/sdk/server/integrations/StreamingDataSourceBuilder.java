@@ -1,9 +1,8 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
 
-import java.net.URI;
 import java.time.Duration;
 
 /**
@@ -28,35 +27,8 @@ public abstract class StreamingDataSourceBuilder implements DataSourceFactory {
    */
   public static final Duration DEFAULT_INITIAL_RECONNECT_DELAY = Duration.ofMillis(1000);
   
-  protected URI baseURI;
   protected Duration initialReconnectDelay = DEFAULT_INITIAL_RECONNECT_DELAY;
 
-  /**
-   * Deprecated method for setting a custom base URI for the streaming service.
-   * <p>
-   * The preferred way to set this option is now with
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
-   * If you set this deprecated option, it overrides any value that was set with
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
-   * <p>
-   * You will only need to change this value in the following cases:
-   * <ul>
-   * <li> You are using the <a href="https://docs.launchdarkly.com/home/relay-proxy">Relay Proxy</a>. Set
-   *   {@code baseUri} to the base URI of the Relay Proxy instance.
-   * <li> You are connecting to a test server or a nonstandard endpoint for the LaunchDarkly service.
-   * </ul>
-   * 
-   * @param baseURI the base URI of the streaming service; null to use the default
-   * @return the builder
-   * @deprecated Use {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)} and
-   * {@link ServiceEndpointsBuilder#streaming(URI)}.
-   */
-  @Deprecated
-  public StreamingDataSourceBuilder baseURI(URI baseURI) {
-    this.baseURI = baseURI;
-    return this;
-  }
-  
   /**
    * Sets the initial reconnect delay for the streaming connection.
    * <p>
@@ -72,21 +44,6 @@ public abstract class StreamingDataSourceBuilder implements DataSourceFactory {
   
   public StreamingDataSourceBuilder initialReconnectDelay(Duration initialReconnectDelay) {
     this.initialReconnectDelay = initialReconnectDelay == null ? DEFAULT_INITIAL_RECONNECT_DELAY : initialReconnectDelay;
-    return this;
-  }
-  
-  /**
-   * Obsolete method for setting a different custom base URI for special polling requests.
-   * <p>
-   * Previously, LaunchDarkly sometimes required the SDK to temporarily do a polling request even in
-   * streaming mode (based on the size of the updated data item); this property specified the base URI
-   * for such requests. However, the system no longer has this behavior so this property is ignored.
-   * It will be deprecated and then removed in a future release.
-   *  
-   * @param pollingBaseURI the polling endpoint URI; null to use the default
-   * @return the builder
-   */
-  public StreamingDataSourceBuilder pollingBaseURI(URI pollingBaseURI) {
     return this;
   }
 }

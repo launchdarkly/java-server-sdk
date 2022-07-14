@@ -24,19 +24,19 @@ import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagTracker;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
 
 import org.apache.commons.codec.binary.Hex;
 
@@ -202,7 +202,7 @@ public final class LDClient implements LDClientInterface {
     // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
     // standard event processor
     final boolean useDiagnostics = !config.diagnosticOptOut && config.eventProcessorFactory instanceof EventProcessorBuilder;
-    final ClientContextImpl context = new ClientContextImpl(
+    final ClientContextImpl context = ClientContextImpl.fromConfig(
         sdkKey,
         config,
         sharedExecutor,
@@ -594,11 +594,6 @@ public final class LDClient implements LDClientInterface {
       Loggers.MAIN.debug(e.toString(), e);
     }
     return null;
-  }
-
-  @Override
-  public void alias(LDUser user, LDUser previousUser) {
-    this.eventProcessor.sendEvent(eventFactoryDefault.newAliasEvent(user, previousUser));
   }
 
   /**

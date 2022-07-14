@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
 
 import java.io.Closeable;
 import java.net.URI;

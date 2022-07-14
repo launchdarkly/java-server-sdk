@@ -4,7 +4,7 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
+import com.launchdarkly.sdk.server.subsystems.Event.FeatureRequest;
 
 import org.junit.Test;
 

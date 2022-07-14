@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import java.net.Proxy;
 import java.time.Duration;

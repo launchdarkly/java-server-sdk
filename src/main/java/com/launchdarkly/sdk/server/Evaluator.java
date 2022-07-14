@@ -19,7 +19,7 @@ import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes;
 
 import org.slf4j.Logger;
 
