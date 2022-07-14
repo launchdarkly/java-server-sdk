@@ -270,8 +270,10 @@ class Evaluator {
       Rollout rollout = vr.getRollout();
       if (rollout != null && !rollout.getVariations().isEmpty()) {
         float bucket = computeBucketValue(
+            rollout.isExperiment(),
             rollout.getSeed(),
             context,
+            rollout.getContextKind(),
             flag.getKey(),
             rollout.getBucketBy(),
             flag.getSalt()
@@ -501,8 +503,16 @@ class Evaluator {
       return true;
     }
     
-    // All of the clauses are met. See if the user buckets in
-    double bucket = computeBucketValue(null, context, segmentKey, segmentRule.getBucketBy(), salt);
+    // All of the clauses are met. See if the context buckets in
+    double bucket = computeBucketValue(
+        false,
+        null,
+        context,
+        segmentRule.getRolloutContextKind(),
+        segmentKey,
+        segmentRule.getBucketBy(),
+        salt
+        );
     double weight = (double)segmentRule.getWeight() / 100000.0;
     return bucket < weight;
   }

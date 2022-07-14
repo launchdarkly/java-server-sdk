@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 
@@ -15,17 +16,26 @@ abstract class EvaluatorBucketing {
   private static final float LONG_SCALE = (float) 0xFFFFFFFFFFFFFFFL;
 
   static float computeBucketValue(
+      boolean isExperiment,
       Integer seed,
       LDContext context,
+      ContextKind contextKind,
       String flagOrSegmentKey,
       AttributeRef attr,
       String salt
       ) {
+    LDContext matchContext = context.getIndividualContext(contextKind);
+    if (matchContext == null) {
+      return 0;
+    }
     LDValue contextValue;
-    if (attr == null) {
-      contextValue = LDValue.of(context.getKey());
+    if (isExperiment || attr == null) {
+      contextValue = LDValue.of(matchContext.getKey());
     } else {
-      contextValue = context.getValue(attr);
+      if (!attr.isValid()) {
+        return 0;
+      }
+      contextValue = matchContext.getValue(attr);
       if (contextValue.isNull()) {
         return 0;
       }
@@ -42,9 +52,11 @@ abstract class EvaluatorBucketing {
     } else {
       prefix = flagOrSegmentKey + "." + salt;
     }
-    String secondary = context.getSecondary();
-    if (secondary != null) {
-      idHash = idHash + "." + secondary;
+    if (!isExperiment) { // secondary key is not supported in experiments
+      String secondary = context.getSecondary();
+      if (secondary != null) {
+        idHash = idHash + "." + secondary;
+      }
     }
     String hash = DigestUtils.sha1Hex(prefix + "." + idHash).substring(0, 15);
     long longVal = Long.parseLong(hash, 16);
