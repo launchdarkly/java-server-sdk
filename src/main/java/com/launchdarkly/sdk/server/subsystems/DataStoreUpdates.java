@@ -1,4 +1,6 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
+
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 
 /**
  * Interface that a data store implementation can use to report information back to the SDK.

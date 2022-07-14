@@ -2,14 +2,14 @@ package com.launchdarkly.sdk.server.interfaces;
 
 import static com.launchdarkly.sdk.server.TestUtil.assertFullyEqual;
 import static com.launchdarkly.sdk.server.TestUtil.assertFullyUnequal;
-import static com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
+import static com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.Membership;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
 
 import org.junit.Test;
 

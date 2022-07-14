@@ -6,9 +6,9 @@ import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matchers;
@@ -48,7 +48,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       assertThat(ec.eventSender, instanceOf(DefaultEventSender.class));
       assertThat(ec.eventsUri, equalTo(StandardEndpoints.DEFAULT_EVENTS_BASE_URI));
       assertThat(ec.flushInterval, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL));
-      assertThat(ec.inlineUsersInEvents, is(false));
       assertThat(ec.privateAttributes, equalTo(ImmutableSet.<UserAttribute>of()));
       assertThat(ec.userKeysCapacity, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_CAPACITY));
       assertThat(ec.userKeysFlushInterval, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL));
@@ -60,7 +59,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     MockEventSender es = new MockEventSender();
     EventProcessorFactory epf = Components.sendEvents()
         .allAttributesPrivate(true)
-        .baseURI(FAKE_URI)
         .capacity(3333)
         .diagnosticRecordingInterval(Duration.ofSeconds(480))
         .eventSender(senderFactory(es))
@@ -74,20 +72,10 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       assertThat(ec.capacity, equalTo(3333));
       assertThat(ec.diagnosticRecordingInterval, equalTo(Duration.ofSeconds(480)));
       assertThat(ec.eventSender, sameInstance((EventSender)es));
-      assertThat(ec.eventsUri, equalTo(FAKE_URI));
       assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
-      assertThat(ec.inlineUsersInEvents, is(false)); // will test this separately below
       assertThat(ec.privateAttributes, equalTo(ImmutableSet.of(UserAttribute.NAME, UserAttribute.forName("dogs"))));
       assertThat(ec.userKeysCapacity, equalTo(555));
       assertThat(ec.userKeysFlushInterval, equalTo(Duration.ofSeconds(101)));
-    }
-    // Test inlineUsersInEvents separately to make sure it and the other boolean property (allAttributesPrivate)
-    // are really independently settable, since there's no way to distinguish between two true values
-    EventProcessorFactory epf1 = Components.sendEvents().inlineUsersInEvents(true);
-    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf1.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
-      EventsConfiguration ec = ep.dispatcher.eventsConfig;
-      assertThat(ec.allAttributesPrivate, is(false));
-      assertThat(ec.inlineUsersInEvents, is(true));
     }
   }
 
@@ -104,7 +92,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         es,
         FAKE_URI,
         briefFlushInterval,
-        true,
         ImmutableSet.of(),
         100,
         Duration.ofSeconds(5),
@@ -120,16 +107,16 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       // both events to be in one payload, but if some unusual delay happened in between the two
       // sendEvent calls, they might be in two
       Iterable<JsonTestValue> payload1 = es.getEventsFromLastRequest();
-      if (Iterables.size(payload1) == 1) {
-        assertThat(payload1, contains(isCustomEvent(event1, userJson)));
-        assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event2, userJson)));
+      if (Iterables.size(payload1) == 2) {
+        assertThat(payload1, contains(isIndexEvent(event1, userJson), isCustomEvent(event1)));
+        assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event2)));
       } else {
-        assertThat(payload1, contains(isCustomEvent(event1, userJson), isCustomEvent(event2, userJson)));
+        assertThat(payload1, contains(isIndexEvent(event1, userJson), isCustomEvent(event1), isCustomEvent(event2)));
       }
       
       Event.Custom event3 = EventFactory.DEFAULT.newCustomEvent("event3", user, null, null);
       ep.sendEvent(event3);
-      assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event3, userJson)));
+      assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event3)));
     }
     
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
@@ -142,7 +129,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     
     assertThat(es.getEventsFromLastRequest(), contains(
         isIndexEvent(ce, userJson),
-        isCustomEvent(ce, null)
+        isCustomEvent(ce)
     ));
   }
 
@@ -182,7 +169,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         es,
         FAKE_URI,
         Duration.ofSeconds(5),
-        false, // do not inline users in events
         ImmutableSet.of(),
         100,
         briefUserKeyFlushInterval,
@@ -200,8 +186,8 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       ep.flush();
       assertThat(es.getEventsFromLastRequest(), contains(
           isIndexEvent(event1, userJson),
-          isCustomEvent(event1, null),
-          isCustomEvent(event2, null)
+          isCustomEvent(event1),
+          isCustomEvent(event2)
       ));
 
       // Now wait long enough for the user key cache to be flushed
@@ -213,7 +199,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       ep.flush();
       assertThat(es.getEventsFromLastRequest(), contains(
           isIndexEvent(event3, userJson),
-          isCustomEvent(event3, null)
+          isCustomEvent(event3)
       ));
     }
   }
@@ -243,7 +229,10 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     URI uri = URI.create("fake-uri");
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).baseURI(uri))) {
+    LDConfig config = new LDConfig.Builder()
+        .serviceEndpoints(Components.serviceEndpoints().events(uri))
+        .build();
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), config)) {
       ep.sendEvent(e);
     }
 
@@ -278,7 +267,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   public void eventCapacityDoesNotPreventSummaryEventFromBeingSent() throws Exception {
     int capacity = 10;
     MockEventSender es = new MockEventSender();
-    EventProcessorBuilder config = baseConfig(es).capacity(capacity).inlineUsersInEvents(true)
+    EventProcessorBuilder config = baseConfig(es).capacity(capacity)
         .flushInterval(Duration.ofSeconds(1));
     // The flush interval setting is a failsafe in case we do get a queue overflow due to the tiny buffer size -
     // that might cause the special message that's generated by ep.flush() to be missed, so we just want to make
@@ -287,10 +276,13 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(config)) {
+      Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+          simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+      ep.sendEvent(fe);
+     
       for (int i = 0; i < capacity; i++) {
-        Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-            simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-        ep.sendEvent(fe);
+        Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("event-key", user, LDValue.ofNull(), null);
+        ep.sendEvent(ce);
         
         // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
         // delay to keep EventDispatcher from being overwhelmed

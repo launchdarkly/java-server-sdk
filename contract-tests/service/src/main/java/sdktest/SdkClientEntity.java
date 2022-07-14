@@ -22,7 +22,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-import sdktest.Representations.AliasEventParams;
 import sdktest.Representations.CommandParams;
 import sdktest.Representations.CreateInstanceParams;
 import sdktest.Representations.CustomEventParams;
@@ -61,9 +60,6 @@ public class SdkClientEntity {
       return null;
     case "customEvent":
       doCustomEvent(params.customEvent);
-      return null;
-    case "aliasEvent":
-      doAliasEvent(params.aliasEvent);
       return null;
     case "flushEvents":
       client.flush();
@@ -171,10 +167,6 @@ public class SdkClientEntity {
     }
   }
   
-  private void doAliasEvent(AliasEventParams params) {
-    client.alias(params.user, params.previousUser);
-  }
-  
   public void close() {
     try {
       client.close();
@@ -191,9 +183,11 @@ public class SdkClientEntity {
       builder.startWait(Duration.ofMillis(params.startWaitTimeMs.longValue()));
     }
 
+    ServiceEndpointsBuilder endpoints = Components.serviceEndpoints();
+    
     if (params.streaming != null) {
-      StreamingDataSourceBuilder dataSource = Components.streamingDataSource()
-          .baseURI(params.streaming.baseUri);
+      endpoints.streaming(params.streaming.baseUri);
+      StreamingDataSourceBuilder dataSource = Components.streamingDataSource();
       if (params.streaming.initialRetryDelayMs > 0) {
         dataSource.initialReconnectDelay(Duration.ofMillis(params.streaming.initialRetryDelayMs));
       }
@@ -203,10 +197,9 @@ public class SdkClientEntity {
     if (params.events == null) {
       builder.events(Components.noEvents());
     } else {
+      endpoints.events(params.events.baseUri);
       EventProcessorBuilder eb = Components.sendEvents()
-          .baseURI(params.events.baseUri)
-          .allAttributesPrivate(params.events.allAttributesPrivate)
-          .inlineUsersInEvents(params.events.inlineUsers);
+          .allAttributesPrivate(params.events.allAttributesPrivate);
       if (params.events.capacity > 0) {
         eb.capacity(params.events.capacity);
       }
@@ -250,13 +243,17 @@ public class SdkClientEntity {
     }
 
     if (params.serviceEndpoints != null) {
-      builder.serviceEndpoints(
-        Components.serviceEndpoints()
-          .streaming(params.serviceEndpoints.streaming)
-          .polling(params.serviceEndpoints.polling)
-          .events(params.serviceEndpoints.events)
-      );
+      if (params.serviceEndpoints.streaming != null) {
+        endpoints.streaming(params.serviceEndpoints.streaming);
+      }
+      if (params.serviceEndpoints.polling != null) {
+        endpoints.polling(params.serviceEndpoints.polling);
+      }
+      if (params.serviceEndpoints.events != null) {
+        endpoints.events(params.serviceEndpoints.events);
+      }
     }
+    builder.serviceEndpoints(endpoints);
 
     return builder.build();
   }

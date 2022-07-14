@@ -8,7 +8,7 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.sdk.LDUser;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import java.io.IOException;
 
