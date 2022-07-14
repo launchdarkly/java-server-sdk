@@ -14,6 +14,7 @@ import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
+import com.launchdarkly.sdk.server.DataModel.SegmentTarget;
 import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
@@ -23,7 +24,9 @@ import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes;
 import org.slf4j.Logger;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.launchdarkly.sdk.server.EvaluatorBucketing.computeBucketValue;
@@ -99,7 +102,7 @@ class Evaluator {
    * This object holds mutable state that Evaluator may need during an evaluation.
    */
   private static class EvaluatorState {
-    private BigSegmentStoreTypes.Membership bigSegmentsMembership = null;
+    private Map<String, BigSegmentStoreTypes.Membership> bigSegmentsMembership = null;
     private EvaluationReason.BigSegmentsStatus bigSegmentsStatus = null;
   }
   
@@ -433,7 +436,6 @@ class Evaluator {
   }
   
   private boolean segmentMatchesContext(Segment segment, LDContext context, EvaluatorState state) {
-    String userKey = context.getKey();
     if (segment.isUnbounded()) {
       if (segment.getGeneration() == null) {
         // Big Segment queries can only be done if the generation is known. If it's unset, that
@@ -443,29 +445,43 @@ class Evaluator {
         state.bigSegmentsStatus = EvaluationReason.BigSegmentsStatus.NOT_CONFIGURED;
         return false;
       }
-
-      // Even if multiple Big Segments are referenced within a single flag evaluation, we only need
-      // to do this query once, since it returns *all* of the user's segment memberships.
-      if (state.bigSegmentsStatus == null) {
-        BigSegmentStoreWrapper.BigSegmentsQueryResult queryResult = getters.getBigSegments(userKey);
+      LDContext matchContext = context.getIndividualContext(segment.getUnboundedContextKind());
+      if (matchContext == null) {
+        return false;
+      }
+      String key = matchContext.getKey();
+      BigSegmentStoreTypes.Membership membershipData =
+          state.bigSegmentsMembership == null ? null : state.bigSegmentsMembership.get(key);
+      if (membershipData == null) {
+        BigSegmentStoreWrapper.BigSegmentsQueryResult queryResult = getters.getBigSegments(key);
         if (queryResult == null) {
           // The SDK hasn't been configured to be able to use big segments
           state.bigSegmentsStatus = EvaluationReason.BigSegmentsStatus.NOT_CONFIGURED;
         } else {
+          membershipData = queryResult.membership;
           state.bigSegmentsStatus = queryResult.status;
-          state.bigSegmentsMembership = queryResult.membership;
+          if (state.bigSegmentsMembership == null) {
+            state.bigSegmentsMembership = new HashMap<>();
+          }
+          state.bigSegmentsMembership.put(key, membershipData);
         }
       }
-      Boolean membership = state.bigSegmentsMembership == null ?
-          null : state.bigSegmentsMembership.checkMembership(makeBigSegmentRef(segment));
-      if (membership != null) {
-        return membership;
+      Boolean membershipResult = membershipData == null ? null :
+          membershipData.checkMembership(makeBigSegmentRef(segment));
+      if (membershipResult != null) {
+        return membershipResult.booleanValue();
       }
     } else {
-      if (segment.getIncluded().contains(userKey)) { // getIncluded(), getExcluded(), and getRules() are guaranteed non-null
+      if (contextKeyIsInTargetList(context, ContextKind.DEFAULT, segment.getIncluded())) {
         return true;
       }
-      if (segment.getExcluded().contains(userKey)) {
+      if (contextKeyIsInTargetLists(context, segment.getIncludedContexts())) {
+        return true;
+      }
+      if (contextKeyIsInTargetList(context, ContextKind.DEFAULT, segment.getExcluded())) {
+        return false;
+      }
+      if (contextKeyIsInTargetLists(context, segment.getExcludedContexts())) {
         return false;
       }
     }
@@ -488,6 +504,17 @@ class Evaluator {
     return matchContext != null && keys.contains(matchContext.getKey());
   }
 
+  private boolean contextKeyIsInTargetLists(LDContext context, List<SegmentTarget> targets) {
+    int nTargets = targets.size();
+    for (int i = 0; i < nTargets; i++) {
+      SegmentTarget t = targets.get(i);
+      if (contextKeyIsInTargetList(context, t.getContextKind(), t.getValues())) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
   private boolean segmentRuleMatchesContext(SegmentRule segmentRule, LDContext context, String segmentKey, String salt) {
     List<Clause> clauses = segmentRule.getClauses(); // guaranteed non-null
     int nClauses = clauses.size();

@@ -494,6 +494,8 @@ public abstract class DataModel {
       this.key = key;
       this.included = included;
       this.excluded = excluded;
+      this.includedContexts = includedContexts;
+      this.excludedContexts = excludedContexts;
       this.salt = salt;
       this.rules = rules;
       this.version = version;
