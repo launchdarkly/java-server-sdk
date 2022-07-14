@@ -11,7 +11,6 @@ import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.EvaluatorTestUtil.PrereqEval;
 import com.launchdarkly.sdk.server.EvaluatorTestUtil.PrereqRecorder;
-import com.launchdarkly.sdk.server.ModelBuilders.FlagBuilder;
 
 import org.junit.Test;
 
@@ -20,6 +19,19 @@ import java.util.List;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_USER;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.FALLTHROUGH_VALUE;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.FALLTHROUGH_VARIATION;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.GREEN_VALUE;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.GREEN_VARIATION;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.MATCH_VALUE;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.MATCH_VARIATION;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.OFF_VALUE;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.OFF_VARIATION;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.RED_VALUE;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.RED_VARIATION;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.buildRedGreenFlag;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.buildThreeWayFlag;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
@@ -33,40 +45,6 @@ import static org.junit.Assert.assertSame;
 
 @SuppressWarnings("javadoc")
 public class EvaluatorTest {
-  private static final LDContext BASE_USER = LDContext.create("x");
-
-  // These constants and flag builders define two kinds of flag: one with three variations-- allowing us to
-  // distinguish between match, fallthrough, and off results--  and one with two.
-  private static final int OFF_VARIATION = 0;
-  private static final LDValue OFF_VALUE = LDValue.of("off");
-  private static final int FALLTHROUGH_VARIATION = 1;
-  private static final LDValue FALLTHROUGH_VALUE = LDValue.of("fall");
-  private static final int MATCH_VARIATION = 2;
-  private static final LDValue MATCH_VALUE = LDValue.of("match");
-  private static final LDValue[] THREE_VARIATIONS = new LDValue[] { OFF_VALUE, FALLTHROUGH_VALUE, MATCH_VALUE };
-
-  private static final int RED_VARIATION = 0;
-  private static final LDValue RED_VALUE = LDValue.of("red");
-  private static final int GREEN_VARIATION = 1;
-  private static final LDValue GREEN_VALUE = LDValue.of("green");
-  private static final LDValue[] RED_GREEN_VARIATIONS = new LDValue[] { RED_VALUE, GREEN_VALUE };
-  
-  private static FlagBuilder buildThreeWayFlag(String flagKey) {
-    return flagBuilder(flagKey)
-        .fallthroughVariation(FALLTHROUGH_VARIATION)
-        .offVariation(OFF_VARIATION)
-        .variations(THREE_VARIATIONS)
-        .version(versionFromKey(flagKey));
-  }
-  
-  private static FlagBuilder buildRedGreenFlag(String flagKey) {
-    return flagBuilder(flagKey)
-        .fallthroughVariation(GREEN_VARIATION)
-        .offVariation(RED_VARIATION)
-        .variations(RED_GREEN_VARIATIONS)
-        .version(versionFromKey(flagKey));
-  }
-
   private static Rollout buildRollout(boolean isExperiment, boolean untrackedVariations) {
     List<WeightedVariation> variations = new ArrayList<>();
     variations.add(new WeightedVariation(1, 50000, untrackedVariations));
@@ -75,10 +53,6 @@ public class EvaluatorTest {
     Integer seed = 123;
     Rollout rollout = new Rollout(null, variations, null, kind, seed);
     return rollout;
-  }
-  
-  private static int versionFromKey(String flagKey) {
-    return Math.abs(flagKey.hashCode());
   }
   
   @Test

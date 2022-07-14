@@ -120,6 +120,8 @@ class Evaluator {
   private static class EvaluatorState {
     private Map<String, BigSegmentStoreTypes.Membership> bigSegmentsMembership = null;
     private EvaluationReason.BigSegmentsStatus bigSegmentsStatus = null;
+    private FeatureFlag originalFlag = null;
+    private List<String> prerequisiteStack = null;
     private List<String> segmentStack = null;
   }
   
@@ -149,6 +151,7 @@ class Evaluator {
     }
 
     EvaluatorState state = new EvaluatorState();
+    state.originalFlag = flag;
     
     try {
       EvalResult result = evaluateInternal(flag, context, prereqEvals, state);
@@ -203,29 +206,61 @@ class Evaluator {
       PrerequisiteEvaluationSink prereqEvals, EvaluatorState state) {
     List<Prerequisite> prerequisites = flag.getPrerequisites(); // guaranteed non-null
     int nPrerequisites = prerequisites.size();
-    for (int i = 0; i < nPrerequisites; i++) {
-      Prerequisite prereq = prerequisites.get(i);
-      boolean prereqOk = true;
-      FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
-      if (prereqFeatureFlag == null) {
-        logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), flag.getKey());
-        prereqOk = false;
-      } else {
-        EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, context, prereqEvals, state);
-        // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
-        // off variation was. But we still need to evaluate it in order to generate an event.
-        if (!prereqFeatureFlag.isOn() || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
-          prereqOk = false;
+    if (nPrerequisites == 0) {
+      return null;
+    }
+    
+    try {
+      // We use the state object to guard against circular references in prerequisites. To avoid
+      // the overhead of creating the state.prerequisiteStack list in the most common case where
+      // there's only a single level prerequisites, we treat state.originalFlag as the first
+      // element in the stack.
+      if (flag != state.originalFlag) {
+        if (state.prerequisiteStack == null) {
+          state.prerequisiteStack = new ArrayList<>();
         }
-        if (prereqEvals != null) {
-          prereqEvals.recordPrerequisiteEvaluation(prereqFeatureFlag, flag, context, prereqEvalResult);
+        state.prerequisiteStack.add(flag.getKey());
+      }
+      
+      for (int i = 0; i < nPrerequisites; i++) {
+        Prerequisite prereq = prerequisites.get(i);
+        String prereqKey = prereq.getKey();
+        
+        if (prereqKey.equals(state.originalFlag.getKey()) ||
+            (flag != state.originalFlag && prereqKey.equals(flag.getKey())) ||
+            (state.prerequisiteStack != null && state.prerequisiteStack.contains(prereqKey))) {
+          throw new EvaluationException(ErrorKind.MALFORMED_FLAG,
+              "prerequisite relationship to \"" + prereqKey + "\" caused a circular reference;" +
+              " this is probably a temporary condition due to an incomplete update");
+        }
+        
+        boolean prereqOk = true;
+        FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
+        if (prereqFeatureFlag == null) {
+          logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), flag.getKey());
+          prereqOk = false;
+        } else {
+          EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, context, prereqEvals, state);
+          // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
+          // off variation was. But we still need to evaluate it in order to generate an event.
+          if (!prereqFeatureFlag.isOn() || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
+            prereqOk = false;
+          }
+          if (prereqEvals != null) {
+            prereqEvals.recordPrerequisiteEvaluation(prereqFeatureFlag, flag, context, prereqEvalResult);
+          }
+        }
+        if (!prereqOk) {
+          return EvaluatorHelpers.prerequisiteFailedResult(flag, prereq);
         }
       }
-      if (!prereqOk) {
-        return EvaluatorHelpers.prerequisiteFailedResult(flag, prereq);
+      return null; // all prerequisites were satisfied
+    }
+    finally {
+      if (state.prerequisiteStack != null && !state.prerequisiteStack.isEmpty()) {
+        state.prerequisiteStack.remove(state.prerequisiteStack.size() - 1);
       }
     }
-    return null;
   }
 
   private static EvalResult checkTargets(

@@ -216,35 +216,30 @@ public class EvaluatorSegmentMatchTest {
   }
   
   @Test
-  public void segmentCycleDetectionAtFirstLevel() {
-    Segment segment = segmentBuilder("segmentkey0")
-        .rules(segmentRuleBuilder().clauses(clauseMatchingSegment("segmentkey0")).build())
-        .build();
-    testSegmentCycleDetection(segment);
-  }
-  
-  @Test
-  public void segmentCycleDetectionPastFirstLevel() {
-    Segment segment0 = segmentBuilder("segmentkey0")
-        .rules(segmentRuleBuilder().clauses(clauseMatchingSegment("segmentkey1")).build())
-        .build();
-    Segment segment1 = segmentBuilder("segmentkey1")
-        .rules(segmentRuleBuilder().clauses(clauseMatchingSegment("segmentkey2")).build())
-        .build();
-    Segment segment2 = segmentBuilder("segmentkey2")
-        .rules(segmentRuleBuilder().clauses(clauseMatchingSegment("segmentkey0")).build())
-        .build();
+  public void segmentCycleDetection() {
+    for (int depth = 1; depth <= 4; depth++) {
+      String[] segmentKeys = new String[depth];
+      for (int i = 0; i < depth; i++) {
+        segmentKeys[i] = "segmentkey" + i;
+      }
+      Segment[] segments = new Segment[depth];
+      for (int i = 0; i < depth; i++) {
+        segments[i] = segmentBuilder(segmentKeys[i])
+            .rules(
+                segmentRuleBuilder().clauses(
+                    clauseMatchingSegment(segmentKeys[(i + 1) % depth])
+                    ).build()
+                )
+            .build();
+      }
 
-    testSegmentCycleDetection(segment0, segment1, segment2);
-  }
-  
-  private static void testSegmentCycleDetection(Segment... segments) {
-    FeatureFlag flag = booleanFlagWithClauses("flag", clauseMatchingSegment(segments[0]));
-    Evaluator e = evaluatorBuilder().withStoredSegments(segments).build();
+      FeatureFlag flag = booleanFlagWithClauses("flag", clauseMatchingSegment(segments[0]));
+      Evaluator e = evaluatorBuilder().withStoredSegments(segments).build();
 
-    LDContext context = LDContext.create("foo");
-    EvalResult result = e.evaluate(flag, context, expectNoPrerequisiteEvals());
-    assertEquals(EvalResult.error(ErrorKind.MALFORMED_FLAG), result);
+      LDContext context = LDContext.create("foo");
+      EvalResult result = e.evaluate(flag, context, expectNoPrerequisiteEvals());
+      assertEquals(EvalResult.error(ErrorKind.MALFORMED_FLAG), result);
+    }
   }
   
   private static SegmentBuilder baseSegmentBuilder() {
