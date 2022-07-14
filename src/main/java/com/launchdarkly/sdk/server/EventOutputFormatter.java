@@ -8,7 +8,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
 import com.launchdarkly.sdk.server.EventSummarizer.FlagInfo;
 import com.launchdarkly.sdk.server.EventSummarizer.SimpleIntKeyedMap;
-import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.subsystems.Event;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -22,11 +22,9 @@ import java.util.Map;
  * Test coverage for this logic is in EventOutputTest and DefaultEventProcessorOutputTest.
  */
 final class EventOutputFormatter {
-  private final EventsConfiguration config;
   private final Gson gson;
   
   EventOutputFormatter(EventsConfiguration config) {
-    this.config = config;
     this.gson = JsonHelpers.gsonInstanceForEventsSerialization(config);
   }
   
@@ -88,12 +86,6 @@ final class EventOutputFormatter {
     } else if (event instanceof Event.Index) {
       startEvent(event, "index", null, jw);
       writeUser(event.getUser(), jw);
-    } else if (event instanceof Event.AliasEvent) {
-      Event.AliasEvent ae = (Event.AliasEvent)event;
-      startEvent(event, "alias", ae.getKey(), jw);
-      jw.name("contextKind").value(ae.getContextKind());
-      jw.name("previousKey").value(ae.getPreviousKey());
-      jw.name("previousContextKind").value(ae.getPreviousContextKind());
     } else {
       return;
     }
@@ -174,7 +166,7 @@ final class EventOutputFormatter {
   private final void writeUserOrKey(Event event, boolean forceInline, JsonWriter jw) throws IOException {
     LDUser user = event.getUser();
     if (user != null) {
-      if (config.inlineUsersInEvents || forceInline) {
+      if (forceInline) {
         writeUser(user, jw);
       } else {
         jw.name("userKey");

@@ -69,7 +69,7 @@ public class EventUserSerializationTest {
   
   @Test
   public void privateAttributeEncodingRedactsAllPrivateAttributes() {
-    EventsConfiguration config = makeEventsConfig(true, false, null);
+    EventsConfiguration config = makeEventsConfig(true, null);
     LDUser user = new LDUser.Builder("userkey")
         .secondary("s")
         .ip("i")
@@ -113,7 +113,7 @@ public class EventUserSerializationTest {
 
   @Test
   public void privateAttributeEncodingRedactsSpecificGlobalPrivateAttributes() {
-    EventsConfiguration config = makeEventsConfig(false, false,
+    EventsConfiguration config = makeEventsConfig(false,
         ImmutableSet.of(UserAttribute.NAME, UserAttribute.forName("foo")));
     LDUser user = new LDUser.Builder("userkey")
         .email("e")
@@ -132,7 +132,7 @@ public class EventUserSerializationTest {
   
   @Test
   public void privateAttributeEncodingWorksForMinimalUser() {
-    EventsConfiguration config = makeEventsConfig(true, false, null);
+    EventsConfiguration config = makeEventsConfig(true, null);
     LDUser user = new LDUser("userkey");
     
     JsonObject o = gsonInstanceForEventsSerialization(config).toJsonTree(user).getAsJsonObject();

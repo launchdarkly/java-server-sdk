@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
 
 /**
  * Interface for a factory that creates an {@link HttpConfiguration}.
@@ -11,8 +11,8 @@ public interface HttpConfigurationFactory {
   /**
    * Creates the configuration object.
    * 
-   * @param basicConfiguration provides the basic SDK configuration properties
+   * @param clientContext allows access to the client configuration
    * @return an {@link HttpConfiguration}
    */
-  public HttpConfiguration createHttpConfiguration(BasicConfiguration basicConfiguration);
+  public HttpConfiguration createHttpConfiguration(ClientContext clientContext);
 }
