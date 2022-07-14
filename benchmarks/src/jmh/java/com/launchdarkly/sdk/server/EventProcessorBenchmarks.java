@@ -6,7 +6,6 @@ import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
-import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
@@ -19,7 +18,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
-import static com.launchdarkly.sdk.server.TestValues.BASIC_USER;
+import static com.launchdarkly.sdk.server.TestValues.BASIC_CONTEXT;
 import static com.launchdarkly.sdk.server.TestValues.CUSTOM_EVENT;
 import static com.launchdarkly.sdk.server.TestValues.TEST_EVENTS_COUNT;
 
@@ -59,7 +58,7 @@ public class EventProcessorBenchmarks {
           Event.FeatureRequest event = new Event.FeatureRequest(
               System.currentTimeMillis(),
               flagKey,
-              BASIC_USER,
+              BASIC_CONTEXT,
               version,
               variation,
               LDValue.of(variation),
