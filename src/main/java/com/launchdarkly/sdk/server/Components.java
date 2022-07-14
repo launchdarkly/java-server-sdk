@@ -21,12 +21,12 @@ import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
 
 /**
  * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.
@@ -260,7 +260,7 @@ public abstract class Components {
   /**
    * Returns a configuration builder for the SDK's networking configuration.
    * <p>
-   * Passing this to {@link LDConfig.Builder#http(com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory)}
+   * Passing this to {@link LDConfig.Builder#http(com.launchdarkly.sdk.server.subsystems.HttpConfigurationFactory)}
    * applies this configuration to all HTTP/HTTPS requests made by the SDK.
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
@@ -274,7 +274,7 @@ public abstract class Components {
    * 
    * @return a factory object
    * @since 4.13.0
-   * @see LDConfig.Builder#http(com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory)
+   * @see LDConfig.Builder#http(com.launchdarkly.sdk.server.subsystems.HttpConfigurationFactory)
    */
   public static HttpConfigurationBuilder httpConfiguration() {
     return new HttpConfigurationBuilderImpl();
@@ -305,7 +305,7 @@ public abstract class Components {
   /**
    * Returns a configuration builder for the SDK's logging configuration.
    * <p>
-   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)},
+   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.subsystems.LoggingConfigurationFactory)},
    * after setting any desired properties on the builder, applies this configuration to the SDK.
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
@@ -318,7 +318,7 @@ public abstract class Components {
    * 
    * @return a factory object
    * @since 5.0.0
-   * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)
+   * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.subsystems.LoggingConfigurationFactory)
    */
   public static LoggingConfigurationBuilder logging() {
     return new LoggingConfigurationBuilderImpl();

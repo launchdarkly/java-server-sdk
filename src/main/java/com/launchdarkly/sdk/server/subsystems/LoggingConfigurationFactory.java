@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
 
 /**
  * Interface for a factory that creates a {@link LoggingConfiguration}.
@@ -11,8 +11,8 @@ public interface LoggingConfigurationFactory {
   /**
    * Creates the configuration object.
    * 
-   * @param basicConfiguration provides the basic SDK configuration properties
+   * @param clientContext allows access to the client configuration
    * @return a {@link LoggingConfiguration}
    */
-  public LoggingConfiguration createLoggingConfiguration(BasicConfiguration basicConfiguration);
+  public LoggingConfiguration createLoggingConfiguration(ClientContext clientContext);
 }

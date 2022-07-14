@@ -41,7 +41,6 @@ public abstract class Representations {
     boolean enableDiagnostics;
     String[] globalPrivateAttributes;
     Long flushIntervalMs;
-    boolean inlineUsers;
   }
   
   public static class SdkConfigBigSegmentsParams {
@@ -69,7 +68,6 @@ public abstract class Representations {
     EvaluateAllFlagsParams evaluateAll;
     IdentifyEventParams identifyEvent;
     CustomEventParams customEvent;
-    AliasEventParams aliasEvent;
   }
 
   public static class EvaluateFlagParams {
@@ -108,11 +106,6 @@ public abstract class Representations {
     LDValue data;
     boolean omitNullData;
     Double metricValue;
-  }
-  
-  public static class AliasEventParams {
-    LDUser user;
-    LDUser previousUser;
   }
   
   public static class GetBigSegmentsStoreStatusResponse {

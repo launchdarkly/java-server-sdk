@@ -3,11 +3,10 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
 import org.junit.Test;
 
-import java.net.URI;
 import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.Components.sendEvents;
@@ -35,18 +34,6 @@ public class EventProcessorBuilderTest {
         .allAttributesPrivate);
   }
   
-  @Test
-  public void baseURI() {
-    assertNull(sendEvents().baseURI);
-
-    assertEquals(URI.create("x"), sendEvents().baseURI(URI.create("x")).baseURI);
-
-    assertNull(sendEvents()
-        .baseURI(URI.create("x"))
-        .baseURI(null)
-        .baseURI);
-  }
-
   @Test
   public void capacity() {
     assertEquals(DEFAULT_CAPACITY, sendEvents().capacity);
@@ -76,7 +63,7 @@ public class EventProcessorBuilderTest {
   public void eventSender() {
     assertNull(sendEvents().eventSenderFactory);
     
-    EventSenderFactory f = (ec, hc) -> null;
+    EventSenderFactory f = (ctx) -> null;
     assertSame(f, sendEvents().eventSender(f).eventSenderFactory);
     
     assertNull(sendEvents().eventSender(f).eventSender(null).eventSenderFactory);
@@ -95,19 +82,7 @@ public class EventProcessorBuilderTest {
         .flushInterval(null); // null sets it back to the default
     assertEquals(DEFAULT_FLUSH_INTERVAL, builder3.flushInterval);
   }
-  
-  @Test
-  public void inlineUsersInEvents() {
-    assertEquals(false, sendEvents().inlineUsersInEvents);
-
-    assertEquals(true, sendEvents().inlineUsersInEvents(true).inlineUsersInEvents);
-
-    assertEquals(false, sendEvents()
-        .inlineUsersInEvents(true)
-        .inlineUsersInEvents(false)
-        .inlineUsersInEvents);
-  }
-  
+    
   @Test
   public void privateAttributeNames() {
     assertNull(sendEvents().privateAttributes);

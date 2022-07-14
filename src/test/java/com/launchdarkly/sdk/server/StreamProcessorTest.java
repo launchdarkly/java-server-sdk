@@ -11,14 +11,14 @@ import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates.UpsertParams;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
@@ -146,14 +146,11 @@ public class StreamProcessorTest {
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    URI streamUri = URI.create("http://fake");
     DataSourceFactory f = Components.streamingDataSource()
-        .baseURI(streamUri)
         .initialReconnectDelay(Duration.ofMillis(5555));
     try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
         dataSourceUpdates(dataStore))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
-      assertThat(sp.streamUri, equalTo(streamUri));      
     }
   }
   

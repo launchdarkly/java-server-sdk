@@ -3,11 +3,11 @@ package com.launchdarkly.sdk.server.interfaces;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.SerializedItemDescriptor;
 import com.launchdarkly.testhelpers.TypeBehavior;
 
 import org.junit.Test;

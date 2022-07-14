@@ -2,9 +2,9 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.junit.Test;
 
@@ -126,8 +126,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     MockEventSender es = new MockEventSender();
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
-    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT,
-        context.getBasic(), context.getHttp());
+    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT, context);
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
     
     EventsConfiguration eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
@@ -153,7 +152,6 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
         es,
         FAKE_URI,
         Duration.ofSeconds(5),
-        true,
         ImmutableSet.of(),
         100,
         Duration.ofSeconds(5),
@@ -173,8 +171,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
 
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
-    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT,
-        context.getBasic(), context.getHttp());
+    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT, context);
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
     
     EventsConfiguration eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
@@ -195,7 +192,11 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
     DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).baseURI(uri), diagnosticAccumulator)) {
+    LDConfig config = new LDConfig.Builder()
+        .diagnosticOptOut(false)
+        .serviceEndpoints(Components.serviceEndpoints().events(uri))
+        .build();
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), config, diagnosticAccumulator)) {
     }
 
     MockEventSender.Params p = es.awaitRequest();

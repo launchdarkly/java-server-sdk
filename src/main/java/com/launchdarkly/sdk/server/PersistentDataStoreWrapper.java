@@ -9,15 +9,15 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.SerializedItemDescriptor;
 
 import org.slf4j.Logger;
 

@@ -2,10 +2,10 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.SerializedItemDescriptor;
 
 import org.junit.After;
 import org.junit.Assume;

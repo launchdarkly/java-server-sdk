@@ -3,8 +3,8 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder.StaleValuesPolicy;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.testhelpers.TypeBehavior;
 
 import org.junit.Test;

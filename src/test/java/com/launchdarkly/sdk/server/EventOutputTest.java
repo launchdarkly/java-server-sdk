@@ -8,9 +8,8 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.Event.AliasEvent;
-import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.Event.FeatureRequest;
 
 import org.junit.Test;
 
@@ -107,7 +106,7 @@ public class EventOutputTest {
   @Test
   public void allAttributesPrivateMakesAttributesPrivate() throws Exception {
     LDUser user = userBuilderWithAllAttributes.build();
-    EventsConfiguration config = makeEventsConfig(true, false, null);
+    EventsConfiguration config = makeEventsConfig(true, null);
     testPrivateAttributes(config, user, attributesThatCanBePrivate);
   }
 
@@ -115,7 +114,7 @@ public class EventOutputTest {
   public void globalPrivateAttributeNamesMakeAttributesPrivate() throws Exception {
     LDUser user = userBuilderWithAllAttributes.build();
     for (String attrName: attributesThatCanBePrivate) {
-      EventsConfiguration config = makeEventsConfig(false, false, ImmutableSet.of(UserAttribute.forName(attrName)));
+      EventsConfiguration config = makeEventsConfig(false, ImmutableSet.of(UserAttribute.forName(attrName)));
       testPrivateAttributes(config, user, attrName);
     }
   }
@@ -432,65 +431,6 @@ public class EventOutputTest {
     assertEquals("[]", w.toString());
   }
   
-  @Test
-  public void aliasEventIsSerialized() throws IOException {
-    EventFactory factory = eventFactoryWithTimestamp(1000, false);
-    LDUser user1 = new LDUser.Builder("bob-key").build();
-    LDUser user2 = new LDUser.Builder("jeff-key").build();
-    LDUser anon1 = new LDUser.Builder("bob-key-anon").anonymous(true).build();
-    LDUser anon2 = new LDUser.Builder("jeff-key-anon").anonymous(true).build();
-    AliasEvent userToUser = factory.newAliasEvent(user1, user2);
-    AliasEvent userToAnon = factory.newAliasEvent(anon1, user1);
-    AliasEvent anonToUser = factory.newAliasEvent(user1, anon1);
-    AliasEvent anonToAnon = factory.newAliasEvent(anon1, anon2);
-
-    EventOutputFormatter fmt = new EventOutputFormatter(defaultEventsConfig());
-
-    LDValue userToUserExpected = parseValue("{" +
-      "\"kind\":\"alias\"," +
-      "\"creationDate\":1000," +
-      "\"key\":\"bob-key\"," +
-      "\"contextKind\":\"user\"," +
-      "\"previousKey\":\"jeff-key\"," +
-      "\"previousContextKind\":\"user\"" +
-      "}");
-
-    assertEquals(userToUserExpected, getSingleOutputEvent(fmt, userToUser));
-
-    LDValue userToAnonExpected = parseValue("{" +
-      "\"kind\":\"alias\"," +
-      "\"creationDate\":1000," +
-      "\"key\":\"bob-key-anon\"," +
-      "\"contextKind\":\"anonymousUser\"," +
-      "\"previousKey\":\"bob-key\"," +
-      "\"previousContextKind\":\"user\"" +
-      "}");
-
-    assertEquals(userToAnonExpected, getSingleOutputEvent(fmt, userToAnon));
-
-    LDValue anonToUserExpected = parseValue("{" +
-      "\"kind\":\"alias\"," +
-      "\"creationDate\":1000," +
-      "\"key\":\"bob-key\"," +
-      "\"contextKind\":\"user\"," +
-      "\"previousKey\":\"bob-key-anon\"," +
-      "\"previousContextKind\":\"anonymousUser\"" +
-      "}");
-
-    assertEquals(anonToUserExpected, getSingleOutputEvent(fmt, anonToUser));
-
-    LDValue anonToAnonExpected = parseValue("{" +
-      "\"kind\":\"alias\"," +
-      "\"creationDate\":1000," +
-      "\"key\":\"bob-key-anon\"," +
-      "\"contextKind\":\"anonymousUser\"," +
-      "\"previousKey\":\"jeff-key-anon\"," +
-      "\"previousContextKind\":\"anonymousUser\"" +
-      "}");
-
-    assertEquals(anonToAnonExpected, getSingleOutputEvent(fmt, anonToAnon));
-  }
-
   private static class FakeEventClass extends Event {
     public FakeEventClass(long creationDate, LDUser user) {
       super(creationDate, user);
@@ -513,28 +453,14 @@ public class EventOutputTest {
   }
   
   private void testInlineUserSerialization(LDUser user, LDValue expectedJsonValue, EventsConfiguration baseConfig) throws IOException {
-    EventsConfiguration config = makeEventsConfig(baseConfig.allAttributesPrivate, true, baseConfig.privateAttributes);
+    EventsConfiguration config = makeEventsConfig(baseConfig.allAttributesPrivate, baseConfig.privateAttributes);
     EventOutputFormatter f = new EventOutputFormatter(config);
 
-    Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(
-        flagBuilder("flag").build(),
-        user,
-        EvalResult.of(LDValue.ofNull(), NO_VARIATION, EvaluationReason.off()),
-        LDValue.ofNull());
-    LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
-    assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));
-    assertEquals(expectedJsonValue, outputEvent.get("user"));
-
     Event.Identify identifyEvent = EventFactory.DEFAULT.newIdentifyEvent(user);
-    outputEvent = getSingleOutputEvent(f, identifyEvent);
+    LDValue outputEvent = getSingleOutputEvent(f, identifyEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));
     assertEquals(expectedJsonValue, outputEvent.get("user"));
 
-    Event.Custom customEvent = EventFactory.DEFAULT.newCustomEvent("custom", user, LDValue.ofNull(), null);
-    outputEvent = getSingleOutputEvent(f, customEvent);
-    assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));
-    assertEquals(expectedJsonValue, outputEvent.get("user"));
-    
     Event.Index indexEvent = new Event.Index(0, user);
     outputEvent = getSingleOutputEvent(f, indexEvent);
     assertEquals(LDValue.ofNull(), outputEvent.get("userKey"));

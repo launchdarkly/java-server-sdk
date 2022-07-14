@@ -5,10 +5,10 @@ import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.Event.Custom;
-import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
-import com.launchdarkly.sdk.server.interfaces.Event.Identify;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.Event.Custom;
+import com.launchdarkly.sdk.server.subsystems.Event.FeatureRequest;
+import com.launchdarkly.sdk.server.subsystems.Event.Identify;
 
 import java.util.function.Supplier;
 
@@ -37,8 +37,6 @@ abstract class EventFactory {
   abstract Event.Custom newCustomEvent(String key, LDUser user, LDValue data, Double metricValue);
   
   abstract Event.Identify newIdentifyEvent(LDUser user);
-
-  abstract Event.AliasEvent newAliasEvent(LDUser user, LDUser previousUser);
 
   final Event.FeatureRequest newFeatureRequestEvent(
       DataModel.FeatureFlag flag,
@@ -172,11 +170,6 @@ abstract class EventFactory {
     Event.Identify newIdentifyEvent(LDUser user) {
       return new Event.Identify(timestampFn.get(), user);
     }
-
-    @Override
-    Event.AliasEvent newAliasEvent(LDUser user, LDUser previousUser) {
-      return new Event.AliasEvent(timestampFn.get(), user, previousUser);
-    }
   }
 
   static final class Disabled extends EventFactory {
@@ -200,11 +193,6 @@ abstract class EventFactory {
 
     @Override
     final Identify newIdentifyEvent(LDUser user) {
-      return null;
-    }
-
-    @Override
-    Event.AliasEvent newAliasEvent(LDUser user, LDUser previousUser) {
       return null;
     }
   }
