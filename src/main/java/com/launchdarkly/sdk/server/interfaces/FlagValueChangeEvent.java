@@ -9,7 +9,7 @@ import com.launchdarkly.sdk.LDValue;
  * 
  * @since 5.0.0
  * @see FlagValueChangeListener
- * @see FlagTracker#addFlagValueChangeListener(String, com.launchdarkly.sdk.LDUser, FlagValueChangeListener)
+ * @see FlagTracker#addFlagValueChangeListener(String, com.launchdarkly.sdk.LDContext, FlagValueChangeListener)
  */
 public class FlagValueChangeEvent extends FlagChangeEvent {
   private final LDValue oldValue;

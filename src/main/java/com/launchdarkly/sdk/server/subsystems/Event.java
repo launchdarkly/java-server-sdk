@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server.subsystems;
 
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
@@ -44,7 +43,7 @@ public class Event {
   }
 
   /**
-   * A custom event created with {@link LDClientInterface#track(String, LDUser)} or one of its overloads.
+   * A custom event created with {@link LDClientInterface#track(String, LDContext)} or one of its overloads.
    */
   public static final class Custom extends Event {
     private final String key;
@@ -93,7 +92,7 @@ public class Event {
   }
 
   /**
-   * An event created with {@link LDClientInterface#identify(LDUser)}.
+   * An event created with {@link LDClientInterface#identify(LDContext)}.
    */
   public static final class Identify extends Event {
     /**

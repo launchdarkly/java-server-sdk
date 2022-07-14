@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.LDContext;
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.Components;
 
 /**
@@ -28,7 +27,7 @@ public interface FlagTracker {
    * <p>
    * If using the file data source ({@link com.launchdarkly.sdk.server.integrations.FileData}), any change in
    * a data file will be treated as a change to every flag. Again, use
-   * {@link #addFlagValueChangeListener(String, LDUser, FlagValueChangeListener)} (or just re-evaluate the flag
+   * {@link #addFlagValueChangeListener(String, LDContext, FlagValueChangeListener)} (or just re-evaluate the flag
    * yourself) if you want to know whether this is a change that really affects a flag's value.  
    * <p>
    * Change events only work if the SDK is actually connecting to LaunchDarkly (or using the file data source).
@@ -53,7 +52,7 @@ public interface FlagTracker {
    * 
    * @param listener the event listener to unregister
    * @see #addFlagChangeListener(FlagChangeListener)
-   * @see #addFlagValueChangeListener(String, LDUser, FlagValueChangeListener)
+   * @see #addFlagValueChangeListener(String, LDContext, FlagValueChangeListener)
    * @see FlagChangeListener
    */
   public void removeFlagChangeListener(FlagChangeListener listener);
