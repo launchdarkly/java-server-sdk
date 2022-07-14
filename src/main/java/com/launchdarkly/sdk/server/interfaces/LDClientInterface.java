@@ -29,7 +29,7 @@ public interface LDClientInterface extends Closeable {
    * <p>
    * This method creates a "custom" analytics event containing the specified event name (key)
    * and context properties. You may attach arbitrary data or a metric value to the event by calling
-   * {@link #trackData(String, LDContext, LDValue) or {@link #trackMetric(String, LDContext, LDValue, double)}
+   * {@link #trackData(String, LDContext, LDValue)} or {@link #trackMetric(String, LDContext, LDValue, double)}
    * instead.
    * <p>
    * Note that event delivery is asynchronous, so the event may not actually be sent until
