@@ -1,22 +1,21 @@
 package com.launchdarkly.sdk.server;
 
-import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
 import org.junit.Test;
 
 import java.time.Duration;
 
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -26,7 +25,7 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDConfigTest {
-  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration("", false, 0, null, null);
+  private static final ClientContext BASIC_CONTEXT = new ClientContext("");
   
   @Test
   public void defaults() {
@@ -43,11 +42,11 @@ public class LDConfigTest {
     assertFalse(config.offline);
     
     assertNotNull(config.httpConfigFactory);
-    HttpConfiguration httpConfig = config.httpConfigFactory.createHttpConfiguration(BASIC_CONFIG);
+    HttpConfiguration httpConfig = config.httpConfigFactory.createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT, httpConfig.getConnectTimeout());
     
     assertNotNull(config.loggingConfigFactory);
-    LoggingConfiguration loggingConfig = config.loggingConfigFactory.createLoggingConfiguration(BASIC_CONFIG);
+    LoggingConfiguration loggingConfig = config.loggingConfigFactory.createLoggingConfiguration(BASIC_CONTEXT);
     assertEquals(LoggingConfigurationBuilder.DEFAULT_LOG_DATA_SOURCE_OUTAGE_AS_ERROR_AFTER,
         loggingConfig.getLogDataSourceOutageAsErrorAfter());
     
@@ -113,7 +112,7 @@ public class LDConfigTest {
     HttpConfigurationBuilder b = Components.httpConfiguration().connectTimeout(Duration.ofSeconds(9));
     LDConfig config = new LDConfig.Builder().http(b).build();
     assertEquals(Duration.ofSeconds(9),
-        config.httpConfigFactory.createHttpConfiguration(BASIC_CONFIG).getConnectTimeout());
+        config.httpConfigFactory.createHttpConfiguration(BASIC_CONTEXT).getConnectTimeout());
   }
 
   @Test
@@ -121,7 +120,7 @@ public class LDConfigTest {
     LoggingConfigurationBuilder b = Components.logging().logDataSourceOutageAsErrorAfter(Duration.ofSeconds(9));
     LDConfig config = new LDConfig.Builder().logging(b).build();
     assertEquals(Duration.ofSeconds(9),
-        config.loggingConfigFactory.createLoggingConfiguration(BASIC_CONFIG).getLogDataSourceOutageAsErrorAfter());
+        config.loggingConfigFactory.createLoggingConfiguration(BASIC_CONTEXT).getLogDataSourceOutageAsErrorAfter());
   }
 
   @Test
@@ -142,8 +141,8 @@ public class LDConfigTest {
   @Test
   public void testHttpDefaults() {
     LDConfig config = new LDConfig.Builder().build();
-    HttpConfiguration hc = config.httpConfigFactory.createHttpConfiguration(BASIC_CONFIG);
-    HttpConfiguration defaults = Components.httpConfiguration().createHttpConfiguration(BASIC_CONFIG);
+    HttpConfiguration hc = config.httpConfigFactory.createHttpConfiguration(BASIC_CONTEXT);
+    HttpConfiguration defaults = Components.httpConfiguration().createHttpConfiguration(BASIC_CONTEXT);
     assertEquals(defaults.getConnectTimeout(), hc.getConnectTimeout());
     assertNull(hc.getProxy());
     assertNull(hc.getProxyAuthentication());

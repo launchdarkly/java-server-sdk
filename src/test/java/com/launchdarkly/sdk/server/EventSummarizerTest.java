@@ -8,7 +8,7 @@ import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.server.EventSummarizer.FlagInfo;
 import com.launchdarkly.sdk.server.EventSummarizer.SimpleIntKeyedMap;
-import com.launchdarkly.sdk.server.interfaces.Event;
+import com.launchdarkly.sdk.server.subsystems.Event;
 
 import org.junit.Test;
 

@@ -2,11 +2,11 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
+import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
-import java.net.URI;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -60,11 +60,9 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   public static final Duration MIN_DIAGNOSTIC_RECORDING_INTERVAL = Duration.ofSeconds(60);
   
   protected boolean allAttributesPrivate = false;
-  protected URI baseURI;
   protected int capacity = DEFAULT_CAPACITY;
   protected Duration diagnosticRecordingInterval = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL;
   protected Duration flushInterval = DEFAULT_FLUSH_INTERVAL;
-  protected boolean inlineUsersInEvents = false;
   protected Set<UserAttribute> privateAttributes;
   protected int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
   protected Duration userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL;
@@ -84,32 +82,6 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    */
   public EventProcessorBuilder allAttributesPrivate(boolean allAttributesPrivate) {
     this.allAttributesPrivate = allAttributesPrivate;
-    return this;
-  }
-  
-  /**
-   * Deprecated method for setting a custom base URI for the events service.
-   * <p>
-   * The preferred way to set this option is now with
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
-   * If you set this deprecated option, it overrides any value that was set with
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
-   * <p>
-   * You will only need to change this value in the following cases:
-   * <ul>
-   * <li> You are using the <a href="https://docs.launchdarkly.com/home/relay-proxy">Relay Proxy</a> with
-   *   event forwarding enabled. Set {@code streamUri} to the base URI of the Relay Proxy instance.
-   * <li> You are connecting to a test server or a nonstandard endpoint for the LaunchDarkly service.
-   * </ul>
-   * 
-   * @param baseURI the base URI of the events service; null to use the default
-   * @return the builder
-   * @deprecated Use {@link com.launchdarkly.sdk.server.LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)} and
-   * {@link ServiceEndpointsBuilder#events(URI)}.
-   */
-  @Deprecated
-  public EventProcessorBuilder baseURI(URI baseURI) {
-    this.baseURI = baseURI;
     return this;
   }
   
@@ -156,8 +128,8 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * Specifies a custom implementation for event delivery.
    * <p>
    * The standard event delivery implementation sends event data via HTTP/HTTPS to the LaunchDarkly events
-   * service endpoint (or any other endpoint specified with {@link #baseURI(URI)}. Providing a custom
-   * implementation may be useful in tests, or if the event data needs to be stored and forwarded. 
+   * service endpoint (or any other endpoint specified with {@link LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
+   * Providing a custom implementation may be useful in tests, or if the event data needs to be stored and forwarded. 
    * 
    * @param eventSenderFactory a factory for an {@link EventSender} implementation
    * @return the builder
@@ -179,20 +151,6 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    */
   public EventProcessorBuilder flushInterval(Duration flushInterval) {
     this.flushInterval = flushInterval == null ? DEFAULT_FLUSH_INTERVAL : flushInterval;
-    return this;
-  }
-  
-  /**
-   * Sets whether to include full user details in every analytics event.
-   * <p>
-   * The default is {@code false}: events will only include the user key, except for one "index" event
-   * that provides the full details for the user).
-   * 
-   * @param inlineUsersInEvents true if you want full user details in each event
-   * @return the builder
-   */
-  public EventProcessorBuilder inlineUsersInEvents(boolean inlineUsersInEvents) {
-    this.inlineUsersInEvents = inlineUsersInEvents;
     return this;
   }
 

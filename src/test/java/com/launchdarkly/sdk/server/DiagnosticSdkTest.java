@@ -3,7 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.server.DiagnosticEvent.Init.DiagnosticSdk;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import org.junit.Test;
 

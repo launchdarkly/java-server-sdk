@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder.StaleValuesPolicy;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
 
 import org.junit.Test;
 

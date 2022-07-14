@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
 
 import java.util.concurrent.atomic.AtomicReference;
 

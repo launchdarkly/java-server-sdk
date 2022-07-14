@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
 
 final class DataStoreStatusProviderImpl implements DataStoreStatusProvider {
   private final DataStore store;

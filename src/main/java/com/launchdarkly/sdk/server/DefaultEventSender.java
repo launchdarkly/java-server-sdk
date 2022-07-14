@@ -1,9 +1,9 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import org.slf4j.Logger;
 
@@ -165,8 +165,8 @@ final class DefaultEventSender implements EventSender {
   
   static final class Factory implements EventSenderFactory {
     @Override
-    public EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration) {
-      return new DefaultEventSender(httpConfiguration, DefaultEventSender.DEFAULT_RETRY_DELAY);
+    public EventSender createEventSender(ClientContext clientContext) {
+      return new DefaultEventSender(clientContext.getHttp(), DefaultEventSender.DEFAULT_RETRY_DELAY);
     }
   }
 }

@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server.interfaces;
+package com.launchdarkly.sdk.server.subsystems;
 
 /**
  * Interface for a factory that creates some implementation of {@link EventSender}.
@@ -10,9 +10,8 @@ public interface EventSenderFactory {
   /**
    * Called by the SDK to create the implementation object.
    * 
-   * @param basicConfiguration the basic global SDK configuration properties
-   * @param httpConfiguration HTTP configuration properties
+   * @param clientContext allows access to the client configuration
    * @return an {@link EventSender}
    */
-  EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration);
+  EventSender createEventSender(ClientContext clientContext);
 }

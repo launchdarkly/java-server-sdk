@@ -1,10 +1,10 @@
 package sdktest;
 
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.Membership;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.StoreMetadata;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
 
 import java.io.IOException;
 

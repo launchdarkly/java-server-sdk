@@ -3,10 +3,10 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
@@ -53,7 +53,7 @@ public class DefaultFeatureRequestorTest {
   }
 
   private HttpConfiguration makeHttpConfig(LDConfig config) {
-    return config.httpConfigFactory.createHttpConfiguration(new BasicConfiguration(sdkKey, false, 0, null, null));
+    return config.httpConfigFactory.createHttpConfiguration(new ClientContext(sdkKey));
   }
 
   private void verifyExpectedData(FullDataSet<ItemDescriptor> data) {
