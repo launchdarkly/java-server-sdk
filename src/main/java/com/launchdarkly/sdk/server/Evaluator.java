@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
@@ -18,18 +19,20 @@ import com.launchdarkly.sdk.server.DataModel.SegmentTarget;
 import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
-import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes;
 
 import org.slf4j.Logger;
 
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.launchdarkly.sdk.server.EvaluatorBucketing.computeBucketValue;
+import static com.launchdarkly.sdk.server.EvaluatorHelpers.contextKeyIsInTargetList;
+import static com.launchdarkly.sdk.server.EvaluatorHelpers.matchClauseByKind;
+import static com.launchdarkly.sdk.server.EvaluatorHelpers.matchClauseWithoutSegments;
+import static com.launchdarkly.sdk.server.EvaluatorHelpers.maybeNegate;
 
 /**
  * Encapsulates the feature flag evaluation logic. The Evaluator has no knowledge of the rest of the SDK environment;
@@ -99,11 +102,25 @@ class Evaluator {
   }
   
   /**
+   * Represents errors that should terminate evaluation, for situations where it's simpler to use throw/catch
+   * than to return an error result back up a call chain.
+   */
+  @SuppressWarnings("serial")
+  static class EvaluationException extends RuntimeException {
+    final ErrorKind errorKind;
+    
+    EvaluationException(ErrorKind errorKind, String message) {
+      this.errorKind = errorKind;
+    }
+  }
+  
+  /**
    * This object holds mutable state that Evaluator may need during an evaluation.
    */
   private static class EvaluatorState {
     private Map<String, BigSegmentStoreTypes.Membership> bigSegmentsMembership = null;
     private EvaluationReason.BigSegmentsStatus bigSegmentsStatus = null;
+    private List<String> segmentStack = null;
   }
   
   Evaluator(Getters getters) {
@@ -133,14 +150,19 @@ class Evaluator {
 
     EvaluatorState state = new EvaluatorState();
     
-    EvalResult result = evaluateInternal(flag, context, prereqEvals, state);
-
-    if (state.bigSegmentsStatus != null) {
-      return result.withReason(
-          result.getReason().withBigSegmentsStatus(state.bigSegmentsStatus)
-          );
+    try {
+      EvalResult result = evaluateInternal(flag, context, prereqEvals, state);
+  
+      if (state.bigSegmentsStatus != null) {
+        return result.withReason(
+            result.getReason().withBigSegmentsStatus(state.bigSegmentsStatus)
+            );
+      }
+      return result;
+    } catch (EvaluationException e) {
+      logger.error("Could not evaluate flag \"{}\": {}", flag.getKey(), e.getMessage());
+      return EvalResult.error(e.errorKind);
     }
-    return result;
   }
 
   private EvalResult evaluateInternal(FeatureFlag flag, LDContext context,
@@ -341,31 +363,12 @@ class Evaluator {
   }
 
   private boolean clauseMatchesContext(Clause clause, LDContext context, EvaluatorState state) {
-    // In the case of a segment match operator, we check if the user is in any of the segments,
-    // and possibly negate
     if (clause.getOp() == Operator.segmentMatch) {
-      List<LDValue> values = clause.getValues(); // guaranteed non-null
-      int nValues = values.size();
-      for (int i = 0; i < nValues; i++) {
-        LDValue clauseValue = values.get(i); 
-        if (clauseValue.isString()) {
-          Segment segment = getters.getSegment(clauseValue.stringValue());
-          if (segment != null) {
-            if (segmentMatchesContext(segment, context, state)) {
-              return maybeNegate(clause, true);
-            }
-          }
-        }
-      }
-      return maybeNegate(clause, false);
+      return maybeNegate(clause, matchAnySegment(clause.getValues(), context, state));
     }
     
-    return clauseMatchesContextNoSegments(clause, context);
-  }
-  
-  private boolean clauseMatchesContextNoSegments(Clause clause, LDContext context) {
     if (clause.getAttribute().getDepth() == 1 && clause.getAttribute().getComponent(0).equals("kind")) {
-      return maybeNegate(clause, clauseMatchByKind(clause, context));
+      return maybeNegate(clause, matchClauseByKind(clause, context));
     }
     LDContext actualContext = context.getIndividualContext(clause.getContextKind());
     if (actualContext == null) {
@@ -380,59 +383,43 @@ class Evaluator {
       int nValues = contextValue.size();
       for (int i = 0; i < nValues; i++) {
         LDValue value = contextValue.get(i);
-        if (clauseMatchAny(clause, value)) {
+        if (matchClauseWithoutSegments(clause, value)) {
           return maybeNegate(clause, true);
         }
       }
       return maybeNegate(clause, false);
     } else if (contextValue.getType() != LDValueType.OBJECT) {
-      return maybeNegate(clause, clauseMatchAny(clause, contextValue));
+      return maybeNegate(clause, matchClauseWithoutSegments(clause, contextValue));
     }
     return false;
   }
   
-  static boolean clauseMatchByKind(Clause clause, LDContext context) {
-    // If attribute is "kind", then we treat operator and values as a match expression against a list
-    // of all individual kinds in the context. That is, for a multi-kind context with kinds of "org"
-    // and "user", it is a match if either of those strings is a match with Operator and Values.
-    for (int i = 0; i < context.getIndividualContextCount(); i++) {
-      if (clauseMatchAny(clause, LDValue.of(
-          context.getIndividualContext(i).getKind().toString()))) {
-        return true;
+  private boolean matchAnySegment(List<LDValue> values, LDContext context, EvaluatorState state) {
+    // For the segmentMatch operator, the values list is really a list of segment keys. We
+    // return a match if any of these segments matches the context.    
+    int nValues = values.size();
+    for (int i = 0; i < nValues; i++) {
+      LDValue clauseValue = values.get(i);
+      if (!clauseValue.isString()) {
+        continue;
       }
-    }
-    return false;
-  }
-  
-  static boolean clauseMatchAny(Clause clause, LDValue contextValue) {
-    Operator op = clause.getOp();
-    if (op != null) {
-      ClausePreprocessed preprocessed = clause.preprocessed;
-      if (op == Operator.in) {
-        // see if we have precomputed a Set for fast equality matching
-        Set<LDValue> vs = preprocessed == null ? null : preprocessed.valuesSet;
-        if (vs != null) {
-          return vs.contains(contextValue);
+      String segmentKey = clauseValue.stringValue();
+      if (state.segmentStack != null) {
+        // Clauses within a segment can reference other segments, so we don't want to get stuck in a cycle.
+        if (state.segmentStack.contains(segmentKey)) {
+          throw new EvaluationException(ErrorKind.MALFORMED_FLAG,
+              "segment rule referencing segment \"" + segmentKey + "\" caused a circular reference;" +
+              " this is probably a temporary condition due to an incomplete update");
         }
       }
-      List<LDValue> values = clause.getValues();
-      List<ClausePreprocessed.ValueData> preprocessedValues =
-          preprocessed == null ? null : preprocessed.valuesExtra;
-      int n = values.size();
-      for (int i = 0; i < n; i++) {
-        // the preprocessed list, if present, will always have the same size as the values list
-        ClausePreprocessed.ValueData p = preprocessedValues == null ? null : preprocessedValues.get(i);
-        LDValue v = values.get(i);
-        if (EvaluatorOperators.apply(op, contextValue, v, p)) {
+      Segment segment = getters.getSegment(segmentKey);
+      if (segment != null) {
+        if (segmentMatchesContext(segment, context, state)) {
           return true;
         }
       }
     }
     return false;
-  }
-
-  private boolean maybeNegate(Clause clause, boolean b) {
-    return clause.isNegate() ? !b : b;
   }
   
   private boolean segmentMatchesContext(Segment segment, LDContext context, EvaluatorState state) {
@@ -486,22 +473,23 @@ class Evaluator {
       }
     }
     List<SegmentRule> rules = segment.getRules(); // guaranteed non-null
-    int nRules = rules.size();
-    for (int i = 0; i < nRules; i++) {
-      SegmentRule rule = rules.get(i);
-      if (segmentRuleMatchesContext(rule, context, segment.getKey(), segment.getSalt())) {
-        return true;
+    if (!rules.isEmpty()) {
+      // Evaluating rules means we might be doing recursive segment matches, so we'll push the current
+      // segment key onto the stack for cycle detection.
+      if (state.segmentStack == null) {
+        state.segmentStack = new ArrayList<>();
       }
+      state.segmentStack.add(segment.getKey());
+      int nRules = rules.size();
+      for (int i = 0; i < nRules; i++) {
+        SegmentRule rule = rules.get(i);
+        if (segmentRuleMatchesContext(rule, context, state, segment.getKey(), segment.getSalt())) {
+          return true;
+        }
+      }
+      state.segmentStack.remove(state.segmentStack.size() - 1);
     }
     return false;
-  }
-
-  private static boolean contextKeyIsInTargetList(LDContext context, ContextKind contextKind, Collection<String> keys) {
-    if (keys.isEmpty()) {
-      return false;
-    }
-    LDContext matchContext = context.getIndividualContext(contextKind);
-    return matchContext != null && keys.contains(matchContext.getKey());
   }
 
   private boolean contextKeyIsInTargetLists(LDContext context, List<SegmentTarget> targets) {
@@ -515,12 +503,18 @@ class Evaluator {
     return false;
   }
   
-  private boolean segmentRuleMatchesContext(SegmentRule segmentRule, LDContext context, String segmentKey, String salt) {
+  private boolean segmentRuleMatchesContext(
+      SegmentRule segmentRule,
+      LDContext context,
+      EvaluatorState state,
+      String segmentKey,
+      String salt
+      ) {
     List<Clause> clauses = segmentRule.getClauses(); // guaranteed non-null
     int nClauses = clauses.size();
     for (int i = 0; i < nClauses; i++) {
       Clause c = clauses.get(i);
-      if (!clauseMatchesContextNoSegments(c, context)) {
+      if (!clauseMatchesContext(c, context, state)) {
         return false;
       }
     }
