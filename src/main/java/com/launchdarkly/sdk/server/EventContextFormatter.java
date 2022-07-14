@@ -96,20 +96,8 @@ class EventContextFormatter {
     if (allAttributesPrivate) {
       return true;
     }
-    if (globalPrivateAttributes.length != 0) { // minor optimization to avoid creating an iterator if it's empty
-      for (AttributeRef a: globalPrivateAttributes) {
-        if (a.getDepth() == 1 && a.getComponent(0).equals(attrName)) {
-          return true;
-        }
-      }
-    }
-    for (int i = 0; i < c.getPrivateAttributeCount(); i++) {
-      AttributeRef a = c.getPrivateAttribute(i);
-      if (a.getDepth() == 1 && a.getComponent(0).equals(attrName)) {
-        return true;
-      }
-    }
-    return false;
+    AttributeRef privateRef = findPrivateRef(c, 1, attrName, null);
+    return privateRef != null && privateRef.getDepth() == 1;
   }
   
   private List<String> writeOrRedactAttribute(
@@ -119,14 +107,10 @@ class EventContextFormatter {
       LDValue value,
       List<String> redacted
       ) throws IOException {
-    if (isAttributeEntirelyPrivate(c, attrName)) {
+    if (allAttributesPrivate) {
       return addOrCreate(redacted, attrName);
     }
-    if (value.getType() == LDValueType.OBJECT) {
-      return writeRedactedValue(w, c, 0, attrName, value, null, redacted);
-    }
-    writeNameAndValue(w, attrName, value);
-    return redacted;
+    return writeRedactedValue(w, c, 0, attrName, value, null, redacted);
   }
   
   // This method implements the context-aware attribute redaction logic, in which an attribute
@@ -164,7 +148,7 @@ class EventContextFormatter {
     // At this point we know it is an object and we are redacting subproperties.
     w.name(attrName).beginObject();
     for (String name: value.keys()) {
-      redacted = writeRedactedValue(w, c, depth + 1, name, value.get(name), privateRef, redacted);
+      redacted = writeRedactedValue(w, c, depth, name, value.get(name), privateRef, redacted);
     }
     w.endObject();
     return redacted;
@@ -186,7 +170,7 @@ class EventContextFormatter {
   // have bothered to recurse if we hadn't found one.
   private AttributeRef findPrivateRef(LDContext c, int depth, String attrName, AttributeRef previousMatchRef) {
     AttributeRef nonExactMatch = null;
-    if (globalPrivateAttributes.length != 0) {
+    if (globalPrivateAttributes.length != 0) { // minor optimization to avoid creating an iterator if it's empty
       for (AttributeRef globalPrivate: globalPrivateAttributes) {
         if (matchPrivateRef(globalPrivate, depth, attrName, previousMatchRef)) {
           if (globalPrivate.getDepth() == depth) {
