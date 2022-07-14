@@ -15,7 +15,9 @@ TEMP_TEST_OUTPUT=/tmp/sdk-test-service.log
 # we migrate to using the v2 U2C-aware contract tests, we can remove these.
 TEST_HARNESS_PARAMS= \
     -skip evaluation/parameterized/secondary \
-    -skip evaluation/parameterized/key/empty
+    -skip evaluation/parameterized/key/empty \
+    -skip evaluation/bucketing/secondary/secondary/experiment \
+    -skip evaluation/bucketing/non-key/experiments
 
 build-contract-tests:
 	@cd contract-tests && ../gradlew installDist
