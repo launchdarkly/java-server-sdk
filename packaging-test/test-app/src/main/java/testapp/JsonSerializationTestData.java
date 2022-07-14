@@ -28,7 +28,7 @@ public class JsonSerializationTestData {
       "{\"kind\":\"OFF\"}"
     ),
     new TestItem(
-      new LDUser.Builder("userkey").build(),
+      LDContext.create("userkey"),
       "{\"key\":\"userkey\"}"
     )
   };
