@@ -36,7 +36,7 @@ final class DefaultEventSender implements EventSender {
   
   static final Duration DEFAULT_RETRY_DELAY = Duration.ofSeconds(1);
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
-  private static final String EVENT_SCHEMA_VERSION = "3";
+  private static final String EVENT_SCHEMA_VERSION = "4";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
   private static final MediaType JSON_CONTENT_TYPE = MediaType.parse("application/json; charset=utf-8");
   private static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz",

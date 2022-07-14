@@ -145,7 +145,7 @@ public class DefaultEventSenderTest {
       }
 
       RequestInfo req = server.getRecorder().requireRequest();
-      assertThat(req.getHeader("X-LaunchDarkly-Event-Schema"), equalTo("3"));
+      assertThat(req.getHeader("X-LaunchDarkly-Event-Schema"), equalTo("4"));
     }
   }
 
