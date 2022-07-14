@@ -7,7 +7,6 @@ import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import java.io.IOException;
@@ -41,15 +40,6 @@ abstract class JsonHelpers {
     return gsonWithNullsAllowed;
   }
   
-  /**
-   * Creates a Gson instance that will correctly serialize users for the given configuration (private attributes, etc.).
-   */
-  static Gson gsonInstanceForEventsSerialization(EventsConfiguration config) {
-    return new GsonBuilder()
-        .registerTypeAdapter(LDUser.class, new EventUserSerialization.UserAdapterWithPrivateAttributeBehavior(config))
-        .create();    
-  }
-
   /**
    * Deserializes an object from JSON. We should use this helper method instead of directly calling
    * gson.fromJson() to minimize reliance on details of the framework we're using, and to ensure that we

@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
@@ -24,7 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class EventSummarizerTest {
-  private static final LDUser user = new LDUser.Builder("key").build();
+  private static final LDContext user = LDContext.create("key");
   
   private long eventTimestamp;
   private EventFactory eventFactory = new EventFactory.Default(false, () -> eventTimestamp);

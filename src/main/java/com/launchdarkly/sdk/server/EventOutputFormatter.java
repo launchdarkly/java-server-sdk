@@ -2,8 +2,9 @@ package com.launchdarkly.sdk.server;
 
 import com.google.gson.Gson;
 import com.google.gson.stream.JsonWriter;
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
 import com.launchdarkly.sdk.server.EventSummarizer.FlagInfo;
@@ -19,22 +20,30 @@ import java.util.Map;
  * Rather than creating intermediate objects to represent this schema, we use the Gson streaming
  * output API to construct JSON directly.
  * 
- * Test coverage for this logic is in EventOutputTest and DefaultEventProcessorOutputTest.
+ * Test coverage for this logic is in EventOutputTest and DefaultEventProcessorOutputTest. The
+ * handling of context data and private attribute redaction is implemented in EventContextFormatter
+ * and tested in more detail in EventContextFormatterTest. 
  */
 final class EventOutputFormatter {
+  private final EventContextFormatter contextFormatter;
   private final Gson gson;
   
   EventOutputFormatter(EventsConfiguration config) {
-    this.gson = JsonHelpers.gsonInstanceForEventsSerialization(config);
+    this.contextFormatter = new EventContextFormatter(
+        config.allAttributesPrivate,
+        config.privateAttributes.toArray(new AttributeRef[config.privateAttributes.size()]));
+    this.gson = JsonHelpers.gsonInstance();
   }
   
   @SuppressWarnings("resource")
   final int writeOutputEvents(Event[] events, EventSummarizer.EventSummary summary, Writer writer) throws IOException {
-    int count = events.length;    
+    int count = 0;    
     try (JsonWriter jsonWriter = new JsonWriter(writer)) {
       jsonWriter.beginArray();
       for (Event event: events) {
-        writeOutputEvent(event, jsonWriter);
+        if (writeOutputEvent(event, jsonWriter)) {
+          count++;
+        }
       }
       if (!summary.isEmpty()) {
         writeSummaryEvent(summary, jsonWriter);
@@ -45,11 +54,22 @@ final class EventOutputFormatter {
     return count;
   }
   
-  private final void writeOutputEvent(Event event, JsonWriter jw) throws IOException {
+  private final boolean writeOutputEvent(Event event, JsonWriter jw) throws IOException {
+    if (event.getContext() == null || !event.getContext().isValid()) {
+      // The SDK should never send us an event without a valid context, but if we somehow get one,
+      // just skip the event since there's no way to serialize it.
+      return false;
+    }
     if (event instanceof Event.FeatureRequest) {
       Event.FeatureRequest fe = (Event.FeatureRequest)event;
-      startEvent(fe, fe.isDebug() ? "debug" : "feature", fe.getKey(), jw);
-      writeUserOrKey(fe, fe.isDebug(), jw);
+      jw.beginObject();
+      writeKindAndCreationDate(jw, fe.isDebug() ? "debug" : "feature", event.getCreationDate());
+      jw.name("key").value(fe.getKey());
+      if (fe.isDebug()) {
+        writeContext(fe.getContext(), jw);
+      } else {
+        writeContextKeys(fe.getContext(), jw);
+      }
       if (fe.getVersion() >= 0) {
         jw.name("version");
         jw.value(fe.getVersion());
@@ -65,32 +85,33 @@ final class EventOutputFormatter {
         jw.value(fe.getPrereqOf());
       }
       writeEvaluationReason("reason", fe.getReason(), jw);
-      if (!fe.getContextKind().equals("user")) {
-        jw.name("contextKind").value(fe.getContextKind());
-      }
+      jw.endObject();
     } else if (event instanceof Event.Identify) {
-      startEvent(event, "identify", event.getUser() == null ? null : event.getUser().getKey(), jw);
-      writeUser(event.getUser(), jw);
+      jw.beginObject();
+      writeKindAndCreationDate(jw, "identify", event.getCreationDate());
+      writeContext(event.getContext(), jw);
+      jw.endObject();
     } else if (event instanceof Event.Custom) {
       Event.Custom ce = (Event.Custom)event;
-      startEvent(event, "custom", ce.getKey(), jw);
-      writeUserOrKey(ce, false, jw);
+      jw.beginObject();
+      writeKindAndCreationDate(jw, "custom", event.getCreationDate());
+      jw.name("key").value(ce.getKey());
+      writeContextKeys(ce.getContext(), jw);
       writeLDValue("data", ce.getData(), jw);
-      if (!ce.getContextKind().equals("user")) {
-        jw.name("contextKind").value(ce.getContextKind());
-      }
       if (ce.getMetricValue() != null) {
         jw.name("metricValue");
         jw.value(ce.getMetricValue());
       }
+      jw.endObject();
     } else if (event instanceof Event.Index) {
-      startEvent(event, "index", null, jw);
-      writeUser(event.getUser(), jw);
+      jw.beginObject();
+      writeKindAndCreationDate(jw, "index", event.getCreationDate());
+      writeContext(event.getContext(), jw);
+      jw.endObject();
     } else {
-      return;
+      return false;
     }
-
-    jw.endObject();
+    return true;
   }
   
   private final void writeSummaryEvent(EventSummarizer.EventSummary summary, JsonWriter jw) throws IOException {
@@ -151,35 +172,25 @@ final class EventOutputFormatter {
     jw.endObject(); // end of summary event object
   }
   
-  private final void startEvent(Event event, String kind, String key, JsonWriter jw) throws IOException {
-    jw.beginObject();
-    jw.name("kind");
-    jw.value(kind);
-    jw.name("creationDate");
-    jw.value(event.getCreationDate());
-    if (key != null) {
-      jw.name("key");
-      jw.value(key);
-    }
+  private final void writeKindAndCreationDate(JsonWriter jw, String kind, long creationDate) throws IOException {
+    jw.name("kind").value(kind);
+    jw.name("creationDate").value(creationDate);
   }
   
-  private final void writeUserOrKey(Event event, boolean forceInline, JsonWriter jw) throws IOException {
-    LDUser user = event.getUser();
-    if (user != null) {
-      if (forceInline) {
-        writeUser(user, jw);
-      } else {
-        jw.name("userKey");
-        jw.value(user.getKey());
+  private final void writeContext(LDContext context, JsonWriter jw) throws IOException {
+    jw.name("context");
+    contextFormatter.write(context, jw);
+  }
+  
+  private final void writeContextKeys(LDContext context, JsonWriter jw) throws IOException {
+    jw.name("contextKeys").beginObject();
+    for (int i = 0; i < context.getIndividualContextCount(); i++) {
+      LDContext c = context.getIndividualContext(i);
+      if (c != null) {
+        jw.name(c.getKind().toString()).value(c.getKey());
       }
     }
-  }
-  
-  private final void writeUser(LDUser user, JsonWriter jw) throws IOException {
-    jw.name("user");
-    // config.gson is already set up to use our custom serializer, which knows about private attributes
-    // and already uses the streaming approach
-    gson.toJson(user, LDUser.class, jw);
+    jw.endObject();
   }
   
   private final void writeLDValue(String key, LDValue value, JsonWriter jw) throws IOException {
@@ -190,7 +201,6 @@ final class EventOutputFormatter {
     gson.toJson(value, LDValue.class, jw); // LDValue defines its own custom serializer
   }
   
-  // This logic is so that we don't have to define multiple custom serializers for the various reason subclasses.
   private final void writeEvaluationReason(String key, EvaluationReason er, JsonWriter jw) throws IOException {
     if (er == null) {
       return;

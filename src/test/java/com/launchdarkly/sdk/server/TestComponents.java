@@ -1,19 +1,25 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
+import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
 import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
@@ -21,17 +27,10 @@ import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
-import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
-import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -91,7 +90,7 @@ public class TestComponents {
   }
 
   static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate,
-      Set<UserAttribute> privateAttributes) {
+      Iterable<AttributeRef> privateAttributes) {
     return new EventsConfiguration(
         allAttributesPrivate,
         0,

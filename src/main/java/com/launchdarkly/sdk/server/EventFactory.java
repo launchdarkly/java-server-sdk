@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.subsystems.Event;
@@ -17,8 +17,8 @@ abstract class EventFactory {
   public static final EventFactory DEFAULT_WITH_REASONS = new Default(true, null);
   
   abstract Event.FeatureRequest newFeatureRequestEvent(
-      DataModel.FeatureFlag flag,
-      LDUser user,
+      FeatureFlag flag,
+      LDContext context,
       LDValue value,
       int variationIndex,
       EvaluationReason reason,
@@ -29,24 +29,24 @@ abstract class EventFactory {
 
   abstract Event.FeatureRequest newUnknownFeatureRequestEvent(
       String key,
-      LDUser user,
+      LDContext context,
       LDValue defaultValue,
       EvaluationReason.ErrorKind errorKind
       );
   
-  abstract Event.Custom newCustomEvent(String key, LDUser user, LDValue data, Double metricValue);
+  abstract Event.Custom newCustomEvent(String key, LDContext context, LDValue data, Double metricValue);
   
-  abstract Event.Identify newIdentifyEvent(LDUser user);
+  abstract Event.Identify newIdentifyEvent(LDContext context);
 
   final Event.FeatureRequest newFeatureRequestEvent(
-      DataModel.FeatureFlag flag,
-      LDUser user,
+      FeatureFlag flag,
+      LDContext context,
       EvalResult result,
       LDValue defaultValue
       ) {
     return newFeatureRequestEvent(
         flag,
-        user,
+        context,
         result == null ? null : result.getValue(),
         result == null ? -1 : result.getVariationIndex(),
         result == null ? null : result.getReason(),
@@ -57,14 +57,14 @@ abstract class EventFactory {
   }
 
   final Event.FeatureRequest newDefaultFeatureRequestEvent(
-      DataModel.FeatureFlag flag,
-      LDUser user,
+      FeatureFlag flag,
+      LDContext context,
       LDValue defaultVal,
       EvaluationReason.ErrorKind errorKind
       ) {
     return newFeatureRequestEvent(
         flag,
-        user,
+        context,
         defaultVal,
         -1,
         EvaluationReason.error(errorKind),
@@ -76,13 +76,13 @@ abstract class EventFactory {
   
   final Event.FeatureRequest newPrerequisiteFeatureRequestEvent(
       DataModel.FeatureFlag prereqFlag,
-      LDUser user,
+      LDContext context,
       EvalResult result,
       DataModel.FeatureFlag prereqOf
       ) {
     return newFeatureRequestEvent(
         prereqFlag,
-        user,
+        context,
         result == null ? null : result.getValue(),
         result == null ? -1 : result.getVariationIndex(),
         result == null ? null : result.getReason(),
@@ -96,7 +96,7 @@ abstract class EventFactory {
     return new Event.FeatureRequest(
         from.getCreationDate(),
         from.getKey(),
-        from.getUser(),
+        from.getContext(),
         from.getVersion(),
         from.getVariation(),
         from.getValue(),
@@ -119,13 +119,13 @@ abstract class EventFactory {
     }
   
     @Override
-    final Event.FeatureRequest newFeatureRequestEvent(DataModel.FeatureFlag flag, LDUser user,
+    final Event.FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDContext context,
         LDValue value, int variationIndex, EvaluationReason reason, boolean forceReasonTracking,
         LDValue defaultValue, String prereqOf){
       return new Event.FeatureRequest(
           timestampFn.get(),
           flag.getKey(),
-          user,
+          context,
           flag.getVersion(),
           variationIndex,
           value,
@@ -141,14 +141,14 @@ abstract class EventFactory {
     @Override
     final Event.FeatureRequest newUnknownFeatureRequestEvent(
         String key,
-        LDUser user,
+        LDContext context,
         LDValue defaultValue,
         EvaluationReason.ErrorKind errorKind
         ) {
       return new Event.FeatureRequest(
           timestampFn.get(),
           key,
-          user,
+          context,
           -1,
           -1,
           defaultValue,
@@ -162,13 +162,13 @@ abstract class EventFactory {
     }
     
     @Override
-    Event.Custom newCustomEvent(String key, LDUser user, LDValue data, Double metricValue) {
-      return new Event.Custom(timestampFn.get(), key, user, data, metricValue);
+    Event.Custom newCustomEvent(String key, LDContext context, LDValue data, Double metricValue) {
+      return new Event.Custom(timestampFn.get(), key, context, data, metricValue);
     }
     
     @Override
-    Event.Identify newIdentifyEvent(LDUser user) {
-      return new Event.Identify(timestampFn.get(), user);
+    Event.Identify newIdentifyEvent(LDContext context) {
+      return new Event.Identify(timestampFn.get(), context);
     }
   }
 
@@ -176,23 +176,23 @@ abstract class EventFactory {
     static final Disabled INSTANCE = new Disabled();
 
     @Override
-    final FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, LDValue value, int variationIndex,
+    final FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDContext context, LDValue value, int variationIndex,
         EvaluationReason reason, boolean inExperiment, LDValue defaultValue, String prereqOf) {
       return null;
     }
 
     @Override
-    final FeatureRequest newUnknownFeatureRequestEvent(String key, LDUser user, LDValue defaultValue, ErrorKind errorKind) {
+    final FeatureRequest newUnknownFeatureRequestEvent(String key, LDContext context, LDValue defaultValue, ErrorKind errorKind) {
       return null;
     }
 
     @Override
-    final Custom newCustomEvent(String key, LDUser user, LDValue data, Double metricValue) {
+    final Custom newCustomEvent(String key, LDContext context, LDValue data, Double metricValue) {
       return null;
     }
 
     @Override
-    final Identify newIdentifyEvent(LDUser user) {
+    final Identify newIdentifyEvent(LDContext context) {
       return null;
     }
   }

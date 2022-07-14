@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig;
@@ -63,7 +64,7 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   protected int capacity = DEFAULT_CAPACITY;
   protected Duration diagnosticRecordingInterval = DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL;
   protected Duration flushInterval = DEFAULT_FLUSH_INTERVAL;
-  protected Set<UserAttribute> privateAttributes;
+  protected Set<AttributeRef> privateAttributes;
   protected int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
   protected Duration userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL;
   protected EventSenderFactory eventSenderFactory = null;
@@ -169,10 +170,10 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * @see #allAttributesPrivate(boolean)
    * @see com.launchdarkly.sdk.LDUser.Builder
    */
-  public EventProcessorBuilder privateAttributeNames(String... attributeNames) {
+  public EventProcessorBuilder privateAttributes(String... attributeNames) {
     privateAttributes = new HashSet<>();
     for (String a: attributeNames) {
-      privateAttributes.add(UserAttribute.forName(a));
+      privateAttributes.add(AttributeRef.fromPath(a));
     }
     return this;
   }
@@ -188,9 +189,9 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * @return the builder
    * @see #allAttributesPrivate(boolean)
    * @see com.launchdarkly.sdk.LDUser.Builder
-   * @see #privateAttributeNames
+   * @see #privateAttributes(String...)
    */
-  public EventProcessorBuilder privateAttributes(UserAttribute... attributes) {
+  public EventProcessorBuilder privateAttributes(AttributeRef... attributes) {
     privateAttributes = new HashSet<>(Arrays.asList(attributes));
     return this;
   }

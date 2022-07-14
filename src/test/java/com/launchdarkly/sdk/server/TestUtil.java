@@ -17,6 +17,7 @@ import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.testhelpers.Assertions;
+import com.launchdarkly.testhelpers.JsonAssertions;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -41,7 +42,6 @@ import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.JsonHelpers.serialize;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
-import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
@@ -62,6 +62,11 @@ public class TestUtil {
 
   public static String getSdkVersion() {
     return Version.SDK_VERSION;
+  }
+  
+  public static void assertJsonEquals(LDValue expected, LDValue actual) {
+    // Gives a better failure diff than assertEquals
+    JsonAssertions.assertJsonEquals(expected.toJsonString(), actual.toJsonString());
   }
   
   public static void upsertFlag(DataStore store, FeatureFlag flag) {
@@ -110,13 +115,13 @@ public class TestUtil {
   public static void assertDataSetEquals(FullDataSet<ItemDescriptor> expected, FullDataSet<ItemDescriptor> actual) {
     String expectedJson = TEST_GSON_INSTANCE.toJson(toDataMap(expected));
     String actualJson = TEST_GSON_INSTANCE.toJson(toDataMap(actual));
-    assertJsonEquals(expectedJson, actualJson);
+    JsonAssertions.assertJsonEquals(expectedJson, actualJson);
   }
   
   public static void assertItemEquals(VersionedData expected, ItemDescriptor item) {
     assertEquals(expected.getVersion(), item.getVersion());
     assertEquals(expected.getClass(), item.getItem().getClass());
-    assertJsonEquals(serialize(expected), serialize(item.getItem()));
+    JsonAssertions.assertJsonEquals(serialize(expected), serialize(item.getItem()));
   }
   
   public static String describeDataSet(FullDataSet<ItemDescriptor> data) {

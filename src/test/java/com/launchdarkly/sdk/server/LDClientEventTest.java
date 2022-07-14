@@ -49,7 +49,7 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Identify.class, e.getClass());
     Event.Identify ie = (Event.Identify)e;
-    assertEquals(user.getKey(), ie.getUser().getKey());
+    assertEquals(user.getKey(), ie.getContext().getKey());
   }
 
   @Test
@@ -78,7 +78,7 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.getUser().getKey());
+    assertEquals(user.getKey(), ce.getContext().getKey());
     assertEquals("eventkey", ce.getKey());
     assertEquals(LDValue.ofNull(), ce.getData());
   }
@@ -92,7 +92,7 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.getUser().getKey());
+    assertEquals(user.getKey(), ce.getContext().getKey());
     assertEquals("eventkey", ce.getKey());
     assertEquals(data, ce.getData());
   }
@@ -107,7 +107,7 @@ public class LDClientEventTest {
     Event e = eventSink.events.get(0);
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
-    assertEquals(user.getKey(), ce.getUser().getKey());
+    assertEquals(user.getKey(), ce.getContext().getKey());
     assertEquals("eventkey", ce.getKey());
     assertEquals(data, ce.getData());
     assertEquals(Double.valueOf(metricValue), ce.getMetricValue());
@@ -550,7 +550,7 @@ public class LDClientEventTest {
     assertEquals(Event.FeatureRequest.class, e.getClass());
     Event.FeatureRequest fe = (Event.FeatureRequest)e;
     assertEquals(flag.getKey(), fe.getKey());
-    assertEquals(user.getKey(), fe.getUser().getKey());
+    assertEquals(user.getKey(), fe.getContext().getKey());
     assertEquals(flag.getVersion(), fe.getVersion());
     assertEquals(value, fe.getValue());
     assertEquals(defaultVal, fe.getDefaultVal());
@@ -565,7 +565,7 @@ public class LDClientEventTest {
     assertEquals(Event.FeatureRequest.class, e.getClass());
     Event.FeatureRequest fe = (Event.FeatureRequest)e;
     assertEquals(key, fe.getKey());
-    assertEquals(user.getKey(), fe.getUser().getKey());
+    assertEquals(user.getKey(), fe.getContext().getKey());
     assertEquals(-1, fe.getVersion());
     assertEquals(-1, fe.getVariation());
     assertEquals(defaultVal, fe.getValue());

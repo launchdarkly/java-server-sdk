@@ -1,10 +1,11 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
@@ -48,7 +49,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       assertThat(ec.eventSender, instanceOf(DefaultEventSender.class));
       assertThat(ec.eventsUri, equalTo(StandardEndpoints.DEFAULT_EVENTS_BASE_URI));
       assertThat(ec.flushInterval, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL));
-      assertThat(ec.privateAttributes, equalTo(ImmutableSet.<UserAttribute>of()));
+      assertThat(ec.privateAttributes, equalTo(ImmutableList.of()));
       assertThat(ec.userKeysCapacity, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_CAPACITY));
       assertThat(ec.userKeysFlushInterval, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL));
     }
@@ -63,7 +64,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         .diagnosticRecordingInterval(Duration.ofSeconds(480))
         .eventSender(senderFactory(es))
         .flushInterval(Duration.ofSeconds(99))
-        .privateAttributeNames("name", "dogs")
+        .privateAttributes("name", "dogs")
         .userKeysCapacity(555)
         .userKeysFlushInterval(Duration.ofSeconds(101));
     try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
@@ -73,7 +74,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       assertThat(ec.diagnosticRecordingInterval, equalTo(Duration.ofSeconds(480)));
       assertThat(ec.eventSender, sameInstance((EventSender)es));
       assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
-      assertThat(ec.privateAttributes, equalTo(ImmutableSet.of(UserAttribute.NAME, UserAttribute.forName("dogs"))));
+      assertThat(ec.privateAttributes, equalTo(ImmutableList.of(AttributeRef.fromLiteral("name"), AttributeRef.fromLiteral("dogs"))));
       assertThat(ec.userKeysCapacity, equalTo(555));
       assertThat(ec.userKeysFlushInterval, equalTo(Duration.ofSeconds(101)));
     }
@@ -360,12 +361,12 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     // the current behavior.
     
     int numWorkers = 5; // must equal EventDispatcher.MAX_FLUSH_THREADS
-    LDUser testUser1 = new LDUser("me");
-    LDValue testUserJson1 = LDValue.buildObject().put("key", "me").build();
-    LDUser testUser2 = new LDUser("you");
-    LDValue testUserJson2 = LDValue.buildObject().put("key", "you").build();
-    LDUser testUser3 = new LDUser("everyone we know");
-    LDValue testUserJson3 = LDValue.buildObject().put("key", "everyone we know").build();
+    LDContext testUser1 = LDContext.create("me");
+    LDValue testUserJson1 = LDValue.buildObject().put("kind", "user").put("key", "me").build();
+    LDContext testUser2 = LDContext.create("you");
+    LDValue testUserJson2 = LDValue.buildObject().put("kind", "user").put("key", "you").build();
+    LDContext testUser3 = LDContext.create("everyone we know");
+    LDValue testUserJson3 = LDValue.buildObject().put("kind", "user").put("key", "everyone we know").build();
     
     Object sendersWaitOnThis = new Object();
     CountDownLatch sendersSignalThisWhenWaiting = new CountDownLatch(numWorkers);

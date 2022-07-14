@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server.subsystems;
 
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
@@ -14,16 +15,16 @@ import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
  */
 public class Event {
   private final long creationDate;
-  private final LDUser user;
+  private final LDContext context;
 
   /**
    * Base event constructor.
    * @param creationDate the timestamp in milliseconds
    * @param user the user associated with the event
    */
-  public Event(long creationDate, LDUser user) {
+  public Event(long creationDate, LDContext context) {
     this.creationDate = creationDate;
-    this.user = user;
+    this.context = context;
   }
   
   /**
@@ -35,22 +36,13 @@ public class Event {
   }
   
   /**
-   * The user associated with the event.
-   * @return the user object
+   * The context associated with the event.
+   * @return the context object
    */
-  public LDUser getUser() {
-    return user;
+  public LDContext getContext() {
+    return context;
   }
 
-  /**
-   * Convert a user into a context kind string
-   * @param user the user to get the context kind from
-   * @return the context kind string
-   */
-  private static final String computeContextKind(LDUser user) {
-    return user != null && user.isAnonymous() ? "anonymousUser" : "user";
-  }
-  
   /**
    * A custom event created with {@link LDClientInterface#track(String, LDUser)} or one of its overloads.
    */
@@ -58,23 +50,21 @@ public class Event {
     private final String key;
     private final LDValue data;
     private final Double metricValue;
-    private final String contextKind;
 
     /**
      * Constructs a custom event.
      * @param timestamp the timestamp in milliseconds
      * @param key the event key
-     * @param user the user associated with the event
+     * @param context the context associated with the event
      * @param data custom data if any (null is the same as {@link LDValue#ofNull()})
      * @param metricValue custom metric value if any
      * @since 4.8.0
      */
-    public Custom(long timestamp, String key, LDUser user, LDValue data, Double metricValue) {
-      super(timestamp, user);
+    public Custom(long timestamp, String key, LDContext context, LDValue data, Double metricValue) {
+      super(timestamp, context);
       this.key = key;
       this.data = LDValue.normalize(data);
       this.metricValue = metricValue;
-      this.contextKind = computeContextKind(user);
     }
 
     /**
@@ -100,14 +90,6 @@ public class Event {
     public Double getMetricValue() {
       return metricValue;
     }
-
-    /**
-     * The context kind of the user that generated this event
-     * @return the context kind
-     */
-    public String getContextKind() {
-      return contextKind;
-    }
   }
 
   /**
@@ -117,10 +99,10 @@ public class Event {
     /**
      * Constructs an identify event.
      * @param timestamp the timestamp in milliseconds
-     * @param user the user associated with the event
+     * @param context the context associated with the event
      */
-    public Identify(long timestamp, LDUser user) {
-      super(timestamp, user);
+    public Identify(long timestamp, LDContext context) {
+      super(timestamp, context);
     }
   }
 
@@ -131,10 +113,10 @@ public class Event {
     /**
      * Constructs an index event.
      * @param timestamp the timestamp in milliseconds
-     * @param user the user associated with the event
+     * @param context the context associated with the event
      */
-    public Index(long timestamp, LDUser user) {
-      super(timestamp, user);
+    public Index(long timestamp, LDContext context) {
+      super(timestamp, context);
     }
   }
   
@@ -152,13 +134,12 @@ public class Event {
     private final long debugEventsUntilDate;
     private final EvaluationReason reason;
     private final boolean debug;
-    private final String contextKind;
 
     /**
      * Constructs a feature request event.
      * @param timestamp the timestamp in milliseconds
      * @param key the flag key
-     * @param user the user associated with the event
+     * @param context the context associated with the event
      * @param version the flag version, or -1 if the flag was not found
      * @param variation the result variation, or -1 if there was an error
      * @param value the result value
@@ -170,9 +151,9 @@ public class Event {
      * @param debug true if this is a debugging event
      * @since 4.8.0
      */
-    public FeatureRequest(long timestamp, String key, LDUser user, int version, int variation, LDValue value,
+    public FeatureRequest(long timestamp, String key, LDContext context, int version, int variation, LDValue value,
         LDValue defaultVal, EvaluationReason reason, String prereqOf, boolean trackEvents, long debugEventsUntilDate, boolean debug) {
-      super(timestamp, user);
+      super(timestamp, context);
       this.key = key;
       this.version = version;
       this.variation = variation;
@@ -183,7 +164,6 @@ public class Event {
       this.debugEventsUntilDate = debugEventsUntilDate;
       this.reason = reason;
       this.debug = debug;
-      this.contextKind = computeContextKind(user);
     }
 
     /**
@@ -264,14 +244,6 @@ public class Event {
      */
     public boolean isDebug() {
       return debug;
-    }
-
-    /**
-     * The context kind of the user that generated this event
-     * @return the context kind
-     */
-    public String getContextKind() {
-      return contextKind;
     }
   }
 }
