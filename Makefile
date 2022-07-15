@@ -11,10 +11,8 @@ test:
 TEMP_TEST_OUTPUT=/tmp/sdk-test-service.log
 
 # Add any extra sdk-test-harness parameters here, such as -skip for tests that are
-# temporary not working. Current known test issues are:
-# - evaluation doesn't report an error for a malformed attribute reference
-TEST_HARNESS_PARAMS= \
-    -skip 'evaluation/parameterized/bad attribute reference errors' \
+# temporarily not working.
+TEST_HARNESS_PARAMS=
 
 build-contract-tests:
 	@cd contract-tests && ../gradlew installDist
