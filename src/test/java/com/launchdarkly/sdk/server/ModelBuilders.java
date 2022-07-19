@@ -181,67 +181,90 @@ public abstract class ModelBuilders {
       }
     }
   
-    FlagBuilder version(int version) {
+    public FlagBuilder version(int version) {
       this.version = version;
       return this;
     }
   
-    FlagBuilder on(boolean on) {
+    public FlagBuilder on(boolean on) {
       this.on = on;
       return this;
     }
   
-    FlagBuilder prerequisites(Prerequisite... prerequisites) {
+    public FlagBuilder prerequisites(Prerequisite... prerequisites) {
       this.prerequisites = Arrays.asList(prerequisites);
       return this;
     }
   
-    FlagBuilder salt(String salt) {
+    public FlagBuilder salt(String salt) {
       this.salt = salt;
       return this;
     }
   
-    FlagBuilder targets(Target... targets) {
+    public FlagBuilder targets(Target... targets) {
       this.targets = Arrays.asList(targets);
       return this;
     }
 
-    FlagBuilder contextTargets(Target... contextTargets) {
+    public FlagBuilder addTarget(int variation, String... values) {
+      targets.add(target(variation, values));
+      return this;
+    }
+
+    public FlagBuilder contextTargets(Target... contextTargets) {
       this.contextTargets = Arrays.asList(contextTargets);
       return this;
     }
 
-    FlagBuilder rules(Rule... rules) {
+    public FlagBuilder addContextTarget(ContextKind contextKind, int variation, String... values) {
+      contextTargets.add(target(contextKind, variation, values));
+      return this;
+    }
+    
+    public FlagBuilder rules(Rule... rules) {
       this.rules = Arrays.asList(rules);
       return this;
     }
   
-    FlagBuilder fallthroughVariation(int fallthroughVariation) {
+    public FlagBuilder addRule(Rule rule) {
+      rules.add(rule);
+      return this;
+    }
+    
+    public FlagBuilder addRule(String id, int variation, String... clausesAsJson) {
+      Clause[] clauses = new Clause[clausesAsJson.length];
+      for (int i = 0; i < clausesAsJson.length; i++) {
+        clauses[i] = JsonHelpers.deserialize(clausesAsJson[i], Clause.class);
+      }
+      return addRule(ruleBuilder().id(id).variation(variation).clauses(clauses).build());
+    }
+    
+    public FlagBuilder fallthroughVariation(int fallthroughVariation) {
       this.fallthrough = new DataModel.VariationOrRollout(fallthroughVariation, null);
       return this;
     }
     
-    FlagBuilder fallthrough(Rollout rollout) {
+    public FlagBuilder fallthrough(Rollout rollout) {
       this.fallthrough = new DataModel.VariationOrRollout(null, rollout);
       return this;
     }
     
-    FlagBuilder fallthrough(VariationOrRollout fallthrough) {
+    public FlagBuilder fallthrough(VariationOrRollout fallthrough) {
       this.fallthrough = fallthrough;
       return this;
     }
   
-    FlagBuilder offVariation(Integer offVariation) {
+    public FlagBuilder offVariation(Integer offVariation) {
       this.offVariation = offVariation;
       return this;
     }
     
-    FlagBuilder variations(LDValue... variations) {
+    public FlagBuilder variations(LDValue... variations) {
       this.variations = Arrays.asList(variations);
       return this;
     }
   
-    FlagBuilder variations(boolean... variations) {
+    public FlagBuilder variations(boolean... variations) {
       List<LDValue> values = new ArrayList<>();
       for (boolean v: variations) {
         values.add(LDValue.of(v));
@@ -250,7 +273,7 @@ public abstract class ModelBuilders {
       return this;
     }
 
-    FlagBuilder variations(String... variations) {
+    public FlagBuilder variations(String... variations) {
       List<LDValue> values = new ArrayList<>();
       for (String v: variations) {
         values.add(LDValue.of(v));
@@ -259,7 +282,7 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    FlagBuilder generatedVariations(int numVariations) {
+    public FlagBuilder generatedVariations(int numVariations) {
       variations.clear();
       for (int i = 0; i < numVariations; i++) {
         variations.add(LDValue.of(i));
@@ -267,37 +290,37 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    FlagBuilder clientSide(boolean clientSide) {
+    public FlagBuilder clientSide(boolean clientSide) {
       this.clientSide = clientSide;
       return this;
     }
     
-    FlagBuilder trackEvents(boolean trackEvents) {
+    public FlagBuilder trackEvents(boolean trackEvents) {
       this.trackEvents = trackEvents;
       return this;
     }
   
-    FlagBuilder trackEventsFallthrough(boolean trackEventsFallthrough) {
+    public FlagBuilder trackEventsFallthrough(boolean trackEventsFallthrough) {
       this.trackEventsFallthrough = trackEventsFallthrough;
       return this;
     }
     
-    FlagBuilder debugEventsUntilDate(Long debugEventsUntilDate) {
+    public FlagBuilder debugEventsUntilDate(Long debugEventsUntilDate) {
       this.debugEventsUntilDate = debugEventsUntilDate;
       return this;
     }
     
-    FlagBuilder deleted(boolean deleted) {
+    public FlagBuilder deleted(boolean deleted) {
       this.deleted = deleted;
       return this;
     }
   
-    FlagBuilder disablePreprocessing(boolean disable) {
+    public FlagBuilder disablePreprocessing(boolean disable) {
       this.disablePreprocessing = disable;
       return this;
     }
     
-    FeatureFlag build() {
+    public FeatureFlag build() {
       FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets,
           contextTargets, rules, fallthrough, offVariation, variations,
           clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);

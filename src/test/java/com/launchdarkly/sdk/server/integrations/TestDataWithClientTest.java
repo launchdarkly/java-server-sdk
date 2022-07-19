@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDClient;
 import com.launchdarkly.sdk.server.LDConfig;
@@ -67,8 +66,8 @@ public class TestDataWithClientTest {
   @Test
   public void usesRules() throws Exception {
     td.update(td.flag("flag").fallthroughVariation(false)
-        .ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true)
-        .ifMatch(UserAttribute.NAME, LDValue.of("Mina")).thenReturn(true));
+        .ifMatch("name", LDValue.of("Lucy")).thenReturn(true)
+        .ifMatch("name", LDValue.of("Mina")).thenReturn(true));
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertThat(client.boolVariation("flag", LDContext.builder("user1").name("Lucy").build(), false), is(true));
@@ -82,7 +81,7 @@ public class TestDataWithClientTest {
     td.update(td.flag("flag").variations(LDValue.of("red"), LDValue.of("green"), LDValue.of("blue"))
         .offVariation(0).fallthroughVariation(2)
         .variationForUser("user1", 1)
-        .ifMatch(UserAttribute.NAME, LDValue.of("Mina")).thenReturn(1));
+        .ifMatch("name", LDValue.of("Mina")).thenReturn(1));
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertThat(client.stringVariation("flag", LDContext.builder("user1").name("Lucy").build(), ""), equalTo("green"));
