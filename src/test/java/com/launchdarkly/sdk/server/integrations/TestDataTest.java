@@ -3,7 +3,6 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel;
 import com.launchdarkly.sdk.server.ModelBuilders;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
@@ -354,7 +353,7 @@ public class TestDataTest {
         );
     verifyFlag(
         f -> f.ifMatch("name", LDValue.of("Lucy"))
-          .andMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
+          .andMatch("country", LDValue.of("gb"))
           .thenReturn(true),
         fb -> expectedBooleanFlag.apply(fb).addRule("rule0", 0, 
             "{\"contextKind\":\"user\",\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"]}",

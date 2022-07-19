@@ -9,7 +9,6 @@ import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
@@ -447,8 +446,8 @@ public final class TestData implements DataSourceFactory {
      * 
      * @param contextKind the context kind
      * @param key the context key
-     * @param variation the desired true/false variation to be returned for this context when
-     *   targeting is on
+     * @param variationIndex the desired variation to be returned for this context when targeting is on:
+     *   0 for the first, 1 for the second, etc.
      * @return the builder
      * @see #variationForKey(ContextKind, String, boolean)
      * @see #variationForUser(String, int)
@@ -518,7 +517,7 @@ public final class TestData implements DataSourceFactory {
      * @param values values to compare to
      * @return a {@link FlagRuleBuilder}; call {@link FlagRuleBuilder#thenReturn(boolean)} or
      *   {@link FlagRuleBuilder#thenReturn(int)} to finish the rule, or add more tests with another
-     *   method like {@link FlagRuleBuilder#andMatch(UserAttribute, LDValue...)}
+     *   method like {@link FlagRuleBuilder#andMatch(ContextKind, String, LDValue...)}
      * @see #ifMatch(String, LDValue...)
      * @see #ifNotMatch(ContextKind, String, LDValue...)
      * @since 6.0.0
@@ -544,7 +543,7 @@ public final class TestData implements DataSourceFactory {
      * @param values values to compare to
      * @return a {@link FlagRuleBuilder}; call {@link FlagRuleBuilder#thenReturn(boolean)} or
      *   {@link FlagRuleBuilder#thenReturn(int)} to finish the rule, or add more tests with another
-     *   method like {@link FlagRuleBuilder#andMatch(UserAttribute, LDValue...)}
+     *   method like {@link FlagRuleBuilder#andMatch(String, LDValue...)}
      * @see #ifMatch(ContextKind, String, LDValue...)
      * @see #ifNotMatch(String, LDValue...)
      */
@@ -571,13 +570,13 @@ public final class TestData implements DataSourceFactory {
      * @param values values to compare to
      * @return a {@link FlagRuleBuilder}; call {@link FlagRuleBuilder#thenReturn(boolean)} or
      *   {@link FlagRuleBuilder#thenReturn(int)} to finish the rule, or add more tests with another
-     *   method like {@link FlagRuleBuilder#andMatch(UserAttribute, LDValue...)}
+     *   method like {@link FlagRuleBuilder#andMatch(ContextKind, String, LDValue...)}
      * @see #ifMatch(ContextKind, String, LDValue...)
      * @see #ifNotMatch(String, LDValue...)
      * @since 6.0.0
      */
-    public FlagRuleBuilder ifNotMatch(ContextKind kind, String attribute, LDValue... values) {
-      return new FlagRuleBuilder().andNotMatch(kind, attribute, values);
+    public FlagRuleBuilder ifNotMatch(ContextKind contextKind, String attribute, LDValue... values) {
+      return new FlagRuleBuilder().andNotMatch(contextKind, attribute, values);
     }
     
     /**
@@ -597,7 +596,7 @@ public final class TestData implements DataSourceFactory {
      * @param values values to compare to
      * @return a {@link FlagRuleBuilder}; call {@link FlagRuleBuilder#thenReturn(boolean)} or
      *   {@link FlagRuleBuilder#thenReturn(int)} to finish the rule, or add more tests with another
-     *   method like {@link FlagRuleBuilder#andMatch(UserAttribute, LDValue...)}
+     *   method like {@link FlagRuleBuilder#andMatch(String, LDValue...)}
      * @see #ifNotMatch(ContextKind, String, LDValue...)
      * @see #ifMatch(String, LDValue...)
      */
@@ -607,7 +606,7 @@ public final class TestData implements DataSourceFactory {
 
     /**
      * Removes any existing rules from the flag. This undoes the effect of methods like
-     * {@link #ifMatch(UserAttribute, LDValue...)}.
+     * {@link #ifMatch(String, LDValue...)}.
      * 
      * @return the same builder
      */
@@ -719,9 +718,9 @@ public final class TestData implements DataSourceFactory {
      * rule's clauses match the user.
      * <p>
      * To start defining a rule, use one of the flag builder's matching methods such as
-     * {@link FlagBuilder#ifMatch(UserAttribute, LDValue...)}. This defines the first clause for the rule.
+     * {@link FlagBuilder#ifMatch(String, LDValue...)}. This defines the first clause for the rule.
      * Optionally, you may add more clauses with the rule builder's methods such as
-     * {@link #andMatch(UserAttribute, LDValue...)}. Finally, call {@link #thenReturn(boolean)} or
+     * {@link #andMatch(String, LDValue...)}. Finally, call {@link #thenReturn(boolean)} or
      * {@link #thenReturn(int)} to finish defining the rule.
      */
     public final class FlagRuleBuilder {
@@ -729,21 +728,26 @@ public final class TestData implements DataSourceFactory {
       int variation;
 
       /**
-       * Adds another clause, using the "is one of" operator.
+       * Adds another clause, using the "is one of" operator. This matching expression only
+       * applies to contexts of a specific kind.
        * <p>
-       * For example, this creates a rule that returns {@code true} if the name is "Patsy" and the
-       * country is "gb":
+       * For example, this creates a rule that returns {@code true} if the name attribute for the
+       * "company" context is "Ella" and the country is "gb":
        * 
        * <pre><code>
        *     testData.flag("flag")
-       *         .ifMatch(UserAttribute.NAME, LDValue.of("Patsy"))
-       *         .andMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
+       *         .ifMatch(ContextKind.of("company"), "name", LDValue.of("Ella"))
+       *         .andMatch(ContextKind.of("company"), "country", LDValue.of("gb"))
        *         .thenReturn(true));
        * </code></pre>
        * 
-       * @param attribute the user attribute to match against
+       * @param contextKind the context kind to match
+       * @param attribute the attribute to match against
        * @param values values to compare to
        * @return the rule builder
+       * @see #andNotMatch(ContextKind, String, LDValue...)
+       * @see #andMatch(String, LDValue...)
+       * @since 6.0.0
        */
       public FlagRuleBuilder andMatch(ContextKind contextKind, String attribute, LDValue... values) {
         if (attribute != null) {
@@ -753,63 +757,50 @@ public final class TestData implements DataSourceFactory {
       }
 
       /**
-       * Adds another clause, using the "is one of" operator.
+       * Adds another clause, using the "is one of" operator. This is a shortcut for calling
+       * {@link #andMatch(ContextKind, String, LDValue...)} with {@link ContextKind#DEFAULT} as the context kind.
        * <p>
        * For example, this creates a rule that returns {@code true} if the name is "Patsy" and the
        * country is "gb":
        * 
        * <pre><code>
        *     testData.flag("flag")
-       *         .ifMatch(UserAttribute.NAME, LDValue.of("Patsy"))
-       *         .andMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
+       *         .ifMatch("name", LDValue.of("Patsy"))
+       *         .andMatch("country", LDValue.of("gb"))
        *         .thenReturn(true));
        * </code></pre>
        * 
        * @param attribute the user attribute to match against
        * @param values values to compare to
        * @return the rule builder
+       * @see #andNotMatch(String, LDValue...)
+       * @see #andMatch(ContextKind, String, LDValue...)
        */
       public FlagRuleBuilder andMatch(String attribute, LDValue... values) {
         return andMatch(ContextKind.DEFAULT, attribute, values);
       }
 
       /**
-       * Adds another clause, using the "is one of" operator.
+       * Adds another clause, using the "is not one of" operator. This matching expression only
+       * applies to contexts of a specific kind.
        * <p>
-       * For example, this creates a rule that returns {@code true} if the name is "Patsy" and the
-       * country is "gb":
+       * For example, this creates a rule that returns {@code true} if the name attribute for the
+       * "company" context is "Ella" and the country is not "gb":
        * 
        * <pre><code>
        *     testData.flag("flag")
-       *         .ifMatch(UserAttribute.NAME, LDValue.of("Patsy"))
-       *         .andMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
+       *         .ifMatch(ContextKind.of("company"), "name", LDValue.of("Ella"))
+       *         .andNotMatch(ContextKind.of("company"), "country", LDValue.of("gb"))
        *         .thenReturn(true));
        * </code></pre>
        * 
+       * @param contextKind the context kind to match
        * @param attribute the user attribute to match against
        * @param values values to compare to
        * @return the rule builder
-       */
-      public FlagRuleBuilder andMatch(UserAttribute attribute, LDValue... values) {
-        return andMatch(attribute == null ? null : attribute.getName(), values);
-      }
-
-      /**
-       * Adds another clause, using the "is not one of" operator.
-       * <p>
-       * For example, this creates a rule that returns {@code true} if the name is "Patsy" and the
-       * country is not "gb":
-       * 
-       * <pre><code>
-       *     testData.flag("flag")
-       *         .ifMatch(UserAttribute.NAME, LDValue.of("Patsy"))
-       *         .andNotMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
-       *         .thenReturn(true));
-       * </code></pre>
-       * 
-       * @param attribute the user attribute to match against
-       * @param values values to compare to
-       * @return the rule builder
+       * @see #andMatch(ContextKind, String, LDValue...)
+       * @see #andNotMatch(String, LDValue...)
+       * @since 6.0.0
        */
       public FlagRuleBuilder andNotMatch(ContextKind contextKind, String attribute, LDValue... values) {
         if (attribute != null) {
@@ -834,32 +825,13 @@ public final class TestData implements DataSourceFactory {
        * @param attribute the user attribute to match against
        * @param values values to compare to
        * @return the rule builder
+       * @see #andMatch(String, LDValue...)
+       * @see #andNotMatch(ContextKind, String, LDValue...)
        */
       public FlagRuleBuilder andNotMatch(String attribute, LDValue... values) {
         return andNotMatch(ContextKind.DEFAULT, attribute, values);
       }
 
-      /**
-       * Adds another clause, using the "is not one of" operator.
-       * <p>
-       * For example, this creates a rule that returns {@code true} if the name is "Patsy" and the
-       * country is not "gb":
-       * 
-       * <pre><code>
-       *     testData.flag("flag")
-       *         .ifMatch(UserAttribute.NAME, LDValue.of("Patsy"))
-       *         .andNotMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
-       *         .thenReturn(true));
-       * </code></pre>
-       * 
-       * @param attribute the user attribute to match against
-       * @param values values to compare to
-       * @return the rule builder
-       */
-      public FlagRuleBuilder andNotMatch(UserAttribute attribute, LDValue... values) {
-        return andNotMatch(attribute == null ? null : attribute.getName(), values);
-      }
-      
       /**
        * Finishes defining the rule, specifying the result value as a boolean.
        * 
