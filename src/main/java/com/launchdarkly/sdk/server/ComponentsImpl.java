@@ -234,12 +234,11 @@ abstract class ComponentsImpl {
           new EventsConfiguration(
               allAttributesPrivate,
               capacity,
+              new ServerSideEventContextDeduplicator(userKeysCapacity, userKeysFlushInterval),
               eventSender,
               eventsUri,
               flushInterval,
               privateAttributes,
-              userKeysCapacity,
-              userKeysFlushInterval,
               diagnosticRecordingInterval
               ),
           ClientContextImpl.get(context).sharedExecutor,

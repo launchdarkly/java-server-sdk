@@ -2,11 +2,11 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
@@ -18,13 +18,13 @@ import org.hamcrest.Matcher;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static com.launchdarkly.sdk.server.Components.sendEvents;
-import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static com.launchdarkly.testhelpers.JsonAssertions.isJsonArray;
@@ -52,28 +52,29 @@ public abstract class DefaultEventProcessorTestBase {
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
 
-  public static EventProcessorBuilder baseConfig(MockEventSender es) {
-    return sendEvents().eventSender(senderFactory(es));
+  public static EventsConfigurationBuilder baseConfig(EventSender es) {
+    return new EventsConfigurationBuilder().eventSender(es);
   }
 
-  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec) {
-    return makeEventProcessor(ec, baseLDConfig);
-  }
-  
-  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
-    return (DefaultEventProcessor)ec.createEventProcessor(clientContext(SDK_KEY, config));
+  public static DefaultEventProcessor makeEventProcessor(EventsConfigurationBuilder ec) {
+    return makeEventProcessor(ec, null, null);
   }
 
-  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    return (DefaultEventProcessor)ec.createEventProcessor(
-        clientContext(SDK_KEY, config, diagnosticAccumulator));
+  public static DefaultEventProcessor makeEventProcessor(
+      EventsConfigurationBuilder ec,
+      DiagnosticAccumulator diagnosticAccumulator,
+      DiagnosticEvent.Init diagnosticInitEvent
+      ) {
+    return new DefaultEventProcessor(
+        ec.build(),
+        TestComponents.sharedExecutor,
+        Thread.MAX_PRIORITY,
+        diagnosticAccumulator,
+        diagnosticInitEvent
+        );
   }
-  
-  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
-    return makeEventProcessor(ec, diagLDConfig, diagnosticAccumulator);
-  }
-  
-  public static EventSenderFactory senderFactory(final MockEventSender es) {
+
+  public static EventSenderFactory senderFactory(final EventSender es) {
     return new EventSenderFactory() {
       @Override
       public EventSender createEventSender(ClientContext clientContext) {
@@ -254,5 +255,116 @@ public abstract class DefaultEventProcessorTestBase {
         jsonProperty("value", jsonFromValue(value)),
         jsonProperty("count", (double)count)
     );
+  }
+  
+  /**
+   * This builder is similar to the public SDK configuration builder for events, except it is building
+   * the internal config object for the lower-level event processing code. This allows us to test that
+   * code independently of the rest of the SDK. Note that the default values here are deliberately not
+   * the same as the defaults in the SDK; they are chosen to make it unlikely for tests to be affected
+   * by any behavior we're not specifically trying to test-- for instance, a long flush interval means
+   * that flushes normally won't happen, and any test where we want flushes to happen will not rely on
+   * the defaults.    
+   */
+  public static class EventsConfigurationBuilder {
+    private boolean allAttributesPrivate = false;
+    private int capacity = 1000;
+    private EventContextDeduplicator contextDeduplicator = null;
+    private Duration diagnosticRecordingInterval = Duration.ofDays(1);
+    private URI eventsUri = URI.create("not-valid");
+    private Duration flushInterval = Duration.ofDays(1);
+    private Set<AttributeRef> privateAttributes = new HashSet<>();
+    private EventSender eventSender = null;
+
+    public EventsConfiguration build() {
+      return new EventsConfiguration(
+          allAttributesPrivate,
+          capacity,
+          contextDeduplicator,
+          eventSender,
+          eventsUri,
+          flushInterval,
+          privateAttributes,
+          diagnosticRecordingInterval
+          );
+    }
+    
+    public EventsConfigurationBuilder allAttributesPrivate(boolean allAttributesPrivate) {
+      this.allAttributesPrivate = allAttributesPrivate;
+      return this;
+    }
+    
+    public EventsConfigurationBuilder capacity(int capacity) {
+      this.capacity = capacity;
+      return this;
+    }
+    
+    public EventsConfigurationBuilder contextDeduplicator(EventContextDeduplicator contextDeduplicator) {
+      this.contextDeduplicator = contextDeduplicator;
+      return this;
+    }
+    
+    public EventsConfigurationBuilder diagnosticRecordingInterval(Duration diagnosticRecordingInterval) {
+      this.diagnosticRecordingInterval = diagnosticRecordingInterval;
+      return this;
+    }
+    
+    public EventsConfigurationBuilder eventsUri(URI eventsUri) {
+      this.eventsUri = eventsUri;
+      return this;
+    }
+    
+    public EventsConfigurationBuilder flushInterval(Duration flushInterval) {
+      this.flushInterval = flushInterval;
+      return this;
+    }
+    
+    public EventsConfigurationBuilder privateAttributes(Set<AttributeRef> privateAttributes) {
+      this.privateAttributes = privateAttributes;
+      return this;
+    }
+    
+    public EventsConfigurationBuilder eventSender(EventSender eventSender) {
+      this.eventSender = eventSender;
+      return this;
+    }
+  }
+  
+  public static EventContextDeduplicator contextDeduplicatorThatAlwaysSaysKeysAreNew() {
+    return new EventContextDeduplicator() {
+      @Override
+      public Long getFlushInterval() {
+        return null;
+      }
+
+      @Override
+      public boolean processContext(LDContext context) {
+        return true;
+      }
+
+      @Override
+      public void flush() {}
+    };
+  }
+  
+  public static EventContextDeduplicator contextDeduplicatorThatSaysKeyIsNewOnFirstCallOnly() {
+    return new EventContextDeduplicator() {
+      private int calls = 0;
+      
+      @Override
+      public Long getFlushInterval() {
+        return null;
+      }
+
+      @Override
+      public boolean processContext(LDContext context) {
+        ++calls;
+        return calls == 1;
+      }
+
+      @Override
+      public void flush() {}
+    };
+  
   }
 }
