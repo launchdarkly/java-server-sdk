@@ -29,7 +29,7 @@ public class JsonSerializationTestData {
     ),
     new TestItem(
       LDContext.create("userkey"),
-      "{\"key\":\"userkey\"}"
+      "{\"kind\":\"user\",\"key\":\"userkey\"}"
     )
   };
 
