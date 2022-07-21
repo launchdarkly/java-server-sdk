@@ -7,7 +7,6 @@ import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
-import com.launchdarkly.sdk.server.Evaluator.EvalResult;
 
 import org.junit.Test;
 
@@ -15,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
@@ -75,7 +75,7 @@ public class RolloutRandomizationConsistencyTest {
           .fallthrough(rollout)
           .salt(salt)
           .build();
-      EvalResult result = BASE_EVALUATOR.evaluate(flag, user, EventFactory.DEFAULT);
+      EvalResult result = BASE_EVALUATOR.evaluate(flag, user, expectNoPrerequisiteEvals());
       assertThat(result.getVariationIndex(), equalTo(expectedVariation));
       assertThat(result.getReason().getKind(), equalTo(EvaluationReason.Kind.FALLTHROUGH));
       assertThat(result.getReason().isInExperiment(), equalTo(expectedInExperiment));

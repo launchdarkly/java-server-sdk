@@ -180,7 +180,7 @@ public class EvaluatorOperatorsParameterizedTest {
     assertEquals("without preprocessing", shouldBe, Evaluator.clauseMatchAny(clause1, userValue));
     
     Clause clause2 = new Clause(userAttr, op, values, false);
-    EvaluatorPreprocessing.preprocessClause(clause2);
+    DataModelPreprocessing.preprocessClause(clause2);
     assertEquals("without preprocessing", shouldBe, Evaluator.clauseMatchAny(clause2, userValue));
   }
 }

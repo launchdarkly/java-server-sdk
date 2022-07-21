@@ -12,6 +12,7 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
@@ -69,6 +70,8 @@ public final class LDClient implements LDClientInterface {
   private final ScheduledExecutorService sharedExecutor;
   private final EventFactory eventFactoryDefault;
   private final EventFactory eventFactoryWithReasons;
+  private final Evaluator.PrerequisiteEvaluationSink prereqEvalsDefault;
+  private final Evaluator.PrerequisiteEvaluationSink prereqEvalsWithReasons;
   
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration.
@@ -250,6 +253,11 @@ public final class LDClient implements LDClientInterface {
     this.dataSource = config.dataSourceFactory.createDataSource(context, dataSourceUpdates);    
     this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates);
     
+    this.prereqEvalsDefault = makePrerequisiteEventSender(false);
+    this.prereqEvalsWithReasons = makePrerequisiteEventSender(true);
+    // We pre-create those two callback objects, rather than using inline lambdas when we call the Evaluator,
+    // because using lambdas would cause a new closure object to be allocated every time. 
+    
     Future<Void> startFuture = dataSource.start();
     if (!config.startWait.isZero() && !config.startWait.isNegative()) {
       if (!(dataSource instanceof ComponentsImpl.NullDataSource)) {
@@ -353,12 +361,15 @@ public final class LDClient implements LDClientInterface {
         continue;
       }
       try {
-        Evaluator.EvalResult result = evaluator.evaluate(flag, user, eventFactoryDefault);
+        EvalResult result = evaluator.evaluate(flag, user, null);
+        // Note: the null parameter to evaluate() is for the PrerequisiteEvaluationSink; allFlagsState should
+        // not generate evaluation events, so we don't want the evaluator to generate any prerequisite evaluation
+        // events either. 
         builder.addFlag(flag, result);
       } catch (Exception e) {
         Loggers.EVALUATION.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
         Loggers.EVALUATION.debug(e.toString(), e);
-        builder.addFlag(flag, new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.exception(e)));
+        builder.addFlag(flag, EvalResult.of(LDValue.ofNull(), NO_VARIATION, EvaluationReason.exception(e)));
       }
     }
     return builder.build();
@@ -391,41 +402,37 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
-        LDValueType.BOOLEAN, eventFactoryWithReasons);
-     return EvaluationDetail.fromValue(result.getValue().booleanValue(),
-         result.getVariationIndex(), result.getReason());
+    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+        LDValueType.BOOLEAN, true);
+    return result.getAsBoolean();
   }
 
   @Override
   public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
-        LDValueType.NUMBER, eventFactoryWithReasons);
-    return EvaluationDetail.fromValue(result.getValue().intValue(),
-        result.getVariationIndex(), result.getReason());
+    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+        LDValueType.NUMBER, true);
+    return result.getAsInteger();
   }
 
   @Override
   public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
-        LDValueType.NUMBER, eventFactoryWithReasons);
-    return EvaluationDetail.fromValue(result.getValue().doubleValue(),
-        result.getVariationIndex(), result.getReason());
+    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+        LDValueType.NUMBER, true);
+    return result.getAsDouble();
   }
 
   @Override
   public EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
-        LDValueType.STRING, eventFactoryWithReasons);
-    return EvaluationDetail.fromValue(result.getValue().stringValue(),
-        result.getVariationIndex(), result.getReason());
+    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+        LDValueType.STRING, true);
+    return result.getAsString();
   }
 
   @Override
   public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
-    Evaluator.EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue),
-        null, eventFactoryWithReasons);
-    return EvaluationDetail.fromValue(result.getValue(), result.getVariationIndex(), result.getReason());
+    EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue),
+        null, true);
+    return result.getAnyType();
   }
   
   @Override
@@ -452,15 +459,16 @@ public final class LDClient implements LDClientInterface {
   }
 
   private LDValue evaluate(String featureKey, LDUser user, LDValue defaultValue, LDValueType requireType) {
-    return evaluateInternal(featureKey, user, defaultValue, requireType, eventFactoryDefault).getValue();
+    return evaluateInternal(featureKey, user, defaultValue, requireType, false).getValue();
   }
   
-  private Evaluator.EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {
-    return new Evaluator.EvalResult(defaultValue, NO_VARIATION, EvaluationReason.error(errorKind));
+  private EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {
+    return EvalResult.of(defaultValue, NO_VARIATION, EvaluationReason.error(errorKind));
   }
   
-  private Evaluator.EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue,
-      LDValueType requireType, EventFactory eventFactory) {
+  private EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue,
+      LDValueType requireType, boolean withDetail) {
+    EventFactory eventFactory = withDetail ? eventFactoryWithReasons : eventFactoryDefault;
     if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         Loggers.EVALUATION.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
@@ -490,12 +498,10 @@ public final class LDClient implements LDClientInterface {
       if (user.getKey().isEmpty()) {
         Loggers.EVALUATION.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
       }
-      Evaluator.EvalResult evalResult = evaluator.evaluate(featureFlag, user, eventFactory);
-      for (Event.FeatureRequest event : evalResult.getPrerequisiteEvents()) {
-        eventProcessor.sendEvent(event);
-      }
-      if (evalResult.isDefault()) {
-        evalResult.setValue(defaultValue);
+      EvalResult evalResult = evaluator.evaluate(featureFlag, user,
+          withDetail ? prereqEvalsWithReasons : prereqEvalsDefault);
+      if (evalResult.isNoVariation()) {
+        evalResult = EvalResult.of(defaultValue, evalResult.getVariationIndex(), evalResult.getReason());
       } else {
         LDValue value = evalResult.getValue(); // guaranteed not to be an actual Java null, but can be LDValue.ofNull()
         if (requireType != null &&
@@ -519,7 +525,7 @@ public final class LDClient implements LDClientInterface {
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
             EvaluationReason.ErrorKind.EXCEPTION));
       }
-      return new Evaluator.EvalResult(defaultValue, NO_VARIATION, EvaluationReason.exception(e));
+      return EvalResult.of(defaultValue, NO_VARIATION, EvaluationReason.exception(e));
     }
   }
 
@@ -609,5 +615,16 @@ public final class LDClient implements LDClientInterface {
         .setPriority(config.threadPriority)
         .build();
     return Executors.newSingleThreadScheduledExecutor(threadFactory);
+  }
+  
+  private Evaluator.PrerequisiteEvaluationSink makePrerequisiteEventSender(boolean withReasons) {
+    final EventFactory factory = withReasons ? eventFactoryWithReasons : eventFactoryDefault; 
+    return new Evaluator.PrerequisiteEvaluationSink() {
+      @Override
+      public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDUser user, EvalResult result) {
+        eventProcessor.sendEvent(
+            factory.newPrerequisiteFeatureRequestEvent(flag, user, result, prereqOfFlag));
+      }
+    };
   }
 }

@@ -7,6 +7,7 @@ import com.launchdarkly.sdk.UserAttribute;
 import org.junit.Test;
 
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
@@ -114,6 +115,6 @@ public class EvaluatorSegmentMatchTest {
     DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of(segment.getKey()));
     DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
-    return e.evaluate(flag, user, EventFactory.DEFAULT).getValue().booleanValue();
+    return e.evaluate(flag, user, expectNoPrerequisiteEvals()).getValue().booleanValue();
   }
 }
