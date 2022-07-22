@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
-import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
