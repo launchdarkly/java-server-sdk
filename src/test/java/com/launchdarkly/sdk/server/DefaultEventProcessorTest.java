@@ -31,45 +31,6 @@ import static org.junit.Assert.assertTrue;
  */
 @SuppressWarnings("javadoc")
 public class DefaultEventProcessorTest extends EventTestUtil {
-//  @Test
-//  public void builderHasDefaultConfiguration() throws Exception {
-//    EventProcessorFactory epf = Components.sendEvents();
-//    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
-//      EventsConfiguration ec = ep.dispatcher.eventsConfig;
-//      assertThat(ec.allAttributesPrivate, is(false));
-//      assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
-//      assertThat(ec.diagnosticRecordingInterval, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL));
-//      assertThat(ec.contextDeduplicator, notNullValue());
-//      assertThat(ec.eventSender, instanceOf(DefaultEventSender.class));
-//      assertThat(ec.eventsUri, equalTo(StandardEndpoints.DEFAULT_EVENTS_BASE_URI));
-//      assertThat(ec.flushInterval, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL));
-//      assertThat(ec.privateAttributes, equalTo(ImmutableList.of()));
-//    }
-//  }
-//  
-//  @Test
-//  public void builderCanSpecifyConfiguration() throws Exception {
-//    MockEventSender es = new MockEventSender();
-//    EventProcessorFactory epf = Components.sendEvents()
-//        .allAttributesPrivate(true)
-//        .capacity(3333)
-//        .diagnosticRecordingInterval(Duration.ofSeconds(480))
-//        .eventSender(senderFactory(es))
-//        .flushInterval(Duration.ofSeconds(99))
-//        .privateAttributes("name", "dogs")
-//        .userKeysCapacity(555)
-//        .userKeysFlushInterval(Duration.ofSeconds(101));
-//    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
-//      EventsConfiguration ec = ep.dispatcher.eventsConfig;
-//      assertThat(ec.allAttributesPrivate, is(true));
-//      assertThat(ec.capacity, equalTo(3333));
-//      assertThat(ec.diagnosticRecordingInterval, equalTo(Duration.ofSeconds(480)));
-//      assertThat(ec.eventSender, sameInstance((EventSender)es));
-//      assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
-//      assertThat(ec.privateAttributes, equalTo(ImmutableList.of(AttributeRef.fromLiteral("name"), AttributeRef.fromLiteral("dogs"))));
-//    }
-//  }
-
   @SuppressWarnings("unchecked")
   @Test
   public void eventsAreFlushedAutomatically() throws Exception {
