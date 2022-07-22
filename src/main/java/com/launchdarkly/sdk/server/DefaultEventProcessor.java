@@ -57,23 +57,17 @@ final class DefaultEventProcessor implements Closeable {
         );
     // we don't need to save a reference to this - we communicate with it entirely through the inbox queue.
 
-    Runnable flusher = () -> {
-      postMessageAsync(MessageType.FLUSH, null);
-    };
+    Runnable flusher = postMessageRunnable(MessageType.FLUSH, null);
     scheduledTasks.add(this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushIntervalMillis,
         eventsConfig.flushIntervalMillis, TimeUnit.MILLISECONDS));
     if (eventsConfig.contextDeduplicator != null && eventsConfig.contextDeduplicator.getFlushInterval() != null) {
-      Runnable userKeysFlusher = () -> {
-        postMessageAsync(MessageType.FLUSH_USERS, null);
-      };
+      Runnable userKeysFlusher = postMessageRunnable(MessageType.FLUSH_USERS, null);
       long intervalMillis = eventsConfig.contextDeduplicator.getFlushInterval().longValue();
       scheduledTasks.add(this.scheduler.scheduleAtFixedRate(userKeysFlusher, intervalMillis,
           intervalMillis, TimeUnit.MILLISECONDS));
     }
     if (eventsConfig.diagnosticStore != null) {
-      Runnable diagnosticsTrigger = () -> {
-        postMessageAsync(MessageType.DIAGNOSTIC, null);
-      };
+      Runnable diagnosticsTrigger = postMessageRunnable(MessageType.DIAGNOSTIC, null);
       scheduledTasks.add(this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingIntervalMillis,
           eventsConfig.diagnosticRecordingIntervalMillis, TimeUnit.MILLISECONDS));
     }
@@ -93,7 +87,9 @@ final class DefaultEventProcessor implements Closeable {
 
   public void close() throws IOException {
     if (closed.compareAndSet(false, true)) {
-      scheduledTasks.forEach(task -> task.cancel(false));
+      for (ScheduledFuture<?> task: scheduledTasks) {
+        task.cancel(false);
+      }
       postMessageAsync(MessageType.FLUSH, null);
       postMessageAndWait(MessageType.SHUTDOWN, null);
     }
@@ -119,6 +115,14 @@ final class DefaultEventProcessor implements Closeable {
     }
   }
 
+  private Runnable postMessageRunnable(final MessageType messageType, final Event event) {
+    return new Runnable() {
+      public void run() {
+        postMessageAsync(messageType, event);
+      }
+    };
+  }
+  
   private boolean postToChannel(EventProcessorMessage message) {
     if (inbox.offer(message)) {
       return true;
@@ -239,8 +243,10 @@ final class DefaultEventProcessor implements Closeable {
       final EventBuffer outbox = new EventBuffer(eventsConfig.capacity);
       this.contextDeduplicator = eventsConfig.contextDeduplicator;
       
-      Thread mainThread = threadFactory.newThread(() -> {
-        runMainLoop(inbox, outbox, payloadQueue);
+      Thread mainThread = threadFactory.newThread(new Thread() {
+        public void run() {
+          runMainLoop(inbox, outbox, payloadQueue);
+        }
       });
       mainThread.setDaemon(true);
 
