@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.LDContext;
 
@@ -7,7 +7,7 @@ import com.launchdarkly.sdk.LDContext;
  * been factored out of DefaultEventProcessor because the client-side and server-side SDKs
  * behave differently (client-side does not send index events).
  */
-interface EventContextDeduplicator {
+public interface EventContextDeduplicator {
   /**
    * Returns the millisecond interval, if any, at which the event processor should call flush().
    * 

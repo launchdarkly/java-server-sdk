@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.sdk.AttributeRef;
@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.launchdarkly.sdk.server.JsonHelpers.gsonInstance;
+import static com.launchdarkly.sdk.internal.GsonHelpers.gsonInstance;
 
 /**
  * Implements serialization of contexts within JSON event data. This uses a similar schema to the

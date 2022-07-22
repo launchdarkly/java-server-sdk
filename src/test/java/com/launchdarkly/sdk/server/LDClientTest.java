@@ -42,7 +42,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -206,7 +205,7 @@ public class LDClientTest extends EasyMockSupport {
   }
 
   @Test
-  public void sameDiagnosticStorePassedToFactoriesWhenSupported() throws IOException {
+  public void diagnosticStorePassedToFactoriesWhenSupported() throws IOException {
     DataSourceFactory mockDataSourceFactory = createStrictMock(DataSourceFactory.class);
 
     LDConfig config = new LDConfig.Builder()
@@ -223,9 +222,7 @@ public class LDClientTest extends EasyMockSupport {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       verifyAll();
-      DiagnosticStore acc = ((DefaultEventProcessorWrapper)client.eventProcessor).eventsConfig.diagnosticStore; 
-      assertNotNull(acc);
-      assertSame(acc, ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
+      assertNotNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
     }
   }
 
@@ -247,7 +244,6 @@ public class LDClientTest extends EasyMockSupport {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       verifyAll();
-      assertNull(((DefaultEventProcessorWrapper)client.eventProcessor).eventsConfig.diagnosticStore);
       assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
     }
   }

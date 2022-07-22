@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.http;
 
 import org.junit.Test;
 

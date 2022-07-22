@@ -1,10 +1,10 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.LDValue;
 
 import java.util.List;
 
-class DiagnosticEvent {
+public class DiagnosticEvent {
   final String kind;
   final long creationDate;
   final DiagnosticId id;
@@ -15,10 +15,10 @@ class DiagnosticEvent {
     this.id = id;
   }
 
-  static class StreamInit {
-    long timestamp;
-    long durationMillis;
-    boolean failed;
+  public static class StreamInit {
+    public final long timestamp;
+    public final long durationMillis;
+    public final boolean failed;
 
     StreamInit(long timestamp, long durationMillis, boolean failed) {
       this.timestamp = timestamp;
@@ -27,12 +27,12 @@ class DiagnosticEvent {
     }
   }
 
-  static class Statistics extends DiagnosticEvent {
-    final long dataSinceDate;
-    final long droppedEvents;
-    final long deduplicatedUsers;
-    final long eventsInLastBatch;
-    final List<StreamInit> streamInits;
+  public static class Statistics extends DiagnosticEvent {
+    public final long dataSinceDate;
+    public final long droppedEvents;
+    public final long deduplicatedUsers;
+    public final long eventsInLastBatch;
+    public final List<StreamInit> streamInits;
 
     Statistics(long creationDate, DiagnosticId id, long dataSinceDate, long droppedEvents, long deduplicatedUsers,
       long eventsInLastBatch, List<StreamInit> streamInits) {
@@ -45,10 +45,10 @@ class DiagnosticEvent {
     }
   }
 
-  static class Init extends DiagnosticEvent {
-    final LDValue sdk;
-    final LDValue configuration;
-    final LDValue platform;
+  public static class Init extends DiagnosticEvent {
+    public final LDValue sdk;
+    public final LDValue configuration;
+    public final LDValue platform;
 
     Init(
         long creationDate,

@@ -1,8 +1,15 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.internal.events.DefaultEventProcessor;
+import com.launchdarkly.sdk.internal.events.Event;
+import com.launchdarkly.sdk.internal.events.EventContextDeduplicator;
+import com.launchdarkly.sdk.internal.events.EventSender;
+import com.launchdarkly.sdk.server.DataModel;
+import com.launchdarkly.sdk.server.EvalResult;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 
 import org.hamcrest.Matchers;
 import org.junit.Test;

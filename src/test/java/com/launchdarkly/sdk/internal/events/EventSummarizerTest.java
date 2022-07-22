@@ -1,14 +1,15 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
-import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-import com.launchdarkly.sdk.server.EventSummarizer.FlagInfo;
-import com.launchdarkly.sdk.server.EventSummarizer.SimpleIntKeyedMap;
+import com.launchdarkly.sdk.internal.events.EventSummarizer;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.CounterValue;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.EventSummary;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.FlagInfo;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.SimpleIntKeyedMap;
 
 import org.junit.Test;
 

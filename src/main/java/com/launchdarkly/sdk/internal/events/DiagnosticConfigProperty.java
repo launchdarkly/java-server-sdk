@@ -1,8 +1,8 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.LDValueType;
 
-enum DiagnosticConfigProperty {
+public enum DiagnosticConfigProperty {
   ALL_ATTRIBUTES_PRIVATE("allAttributesPrivate", LDValueType.BOOLEAN),
   CONNECT_TIMEOUT_MILLIS("connectTimeoutMillis", LDValueType.NUMBER),
   CUSTOM_BASE_URI("customBaseURI", LDValueType.BOOLEAN),
@@ -24,8 +24,8 @@ enum DiagnosticConfigProperty {
   USING_PROXY_AUTHENTICATOR("usingProxyAuthenticator", LDValueType.BOOLEAN),
   USING_RELAY_DAEMON("usingRelayDaemon", LDValueType.BOOLEAN);
 
-  String name;
-  LDValueType type;
+  public final String name;
+  public final LDValueType type;
   
   private DiagnosticConfigProperty(String name, LDValueType type) {
     this.name = name;

@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
@@ -7,12 +7,18 @@ import com.launchdarkly.sdk.ContextBuilder;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
+import com.launchdarkly.sdk.internal.events.Event;
+import com.launchdarkly.sdk.internal.events.EventOutputFormatter;
+import com.launchdarkly.sdk.internal.events.EventSummarizer;
+import com.launchdarkly.sdk.internal.events.EventsConfiguration;
+import com.launchdarkly.sdk.internal.events.Event.FeatureRequest;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.sdk.server.DataModel;
+import com.launchdarkly.sdk.server.EvalResult;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.Event.FeatureRequest;
-import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
 
 import org.junit.Test;
 

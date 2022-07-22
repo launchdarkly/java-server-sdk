@@ -1,5 +1,11 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
+import com.launchdarkly.sdk.internal.events.DefaultEventSender;
+import com.launchdarkly.sdk.internal.events.EventSender;
+import com.launchdarkly.sdk.internal.http.HttpProperties;
+import com.launchdarkly.sdk.server.ComponentsImpl;
+import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.TestHttpUtil;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;

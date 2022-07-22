@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.google.common.collect.ImmutableList;
 import com.launchdarkly.sdk.AttributeRef;
@@ -6,7 +6,7 @@ import com.launchdarkly.sdk.AttributeRef;
 import java.net.URI;
 
 // Used internally to encapsulate the various config/builder properties for events.
-final class EventsConfiguration {
+public final class EventsConfiguration {
   final boolean allAttributesPrivate;
   final int capacity;
   final EventContextDeduplicator contextDeduplicator;
@@ -17,7 +17,7 @@ final class EventsConfiguration {
   final long flushIntervalMillis;
   final ImmutableList<AttributeRef> privateAttributes;
   
-  EventsConfiguration(
+  public EventsConfiguration(
       boolean allAttributesPrivate,
       int capacity,
       EventContextDeduplicator contextDeduplicator,

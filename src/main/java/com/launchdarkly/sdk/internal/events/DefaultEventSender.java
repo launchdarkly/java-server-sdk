@@ -1,4 +1,10 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
+
+import com.launchdarkly.sdk.internal.http.HttpErrors;
+import com.launchdarkly.sdk.internal.http.HttpHelpers;
+import com.launchdarkly.sdk.internal.http.HttpProperties;
+import com.launchdarkly.sdk.server.Loggers;
+import com.launchdarkly.sdk.server.StandardEndpoints;
 
 import org.slf4j.Logger;
 
@@ -10,8 +16,8 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
 
-import static com.launchdarkly.sdk.server.HttpErrors.checkIfErrorIsRecoverableAndLog;
-import static com.launchdarkly.sdk.server.HttpErrors.httpErrorDescription;
+import static com.launchdarkly.sdk.internal.http.HttpErrors.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.internal.http.HttpErrors.httpErrorDescription;
 
 import okhttp3.Headers;
 import okhttp3.MediaType;
@@ -20,7 +26,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-final class DefaultEventSender implements EventSender {
+public final class DefaultEventSender implements EventSender {
   private static final Logger logger = Loggers.EVENTS;
   
   static final long DEFAULT_RETRY_DELAY_MILLIS = 1000;
@@ -36,7 +42,7 @@ final class DefaultEventSender implements EventSender {
   private final Headers baseHeaders;
   final long retryDelayMillis; // visible for testing
 
-  DefaultEventSender(
+  public DefaultEventSender(
       HttpProperties httpProperties,
       long retryDelayMillis
       ) {

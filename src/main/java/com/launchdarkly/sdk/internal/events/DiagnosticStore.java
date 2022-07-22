@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
@@ -17,7 +17,7 @@ import static java.util.Collections.emptyMap;
  * Implementation of basic diagnostic event creation. Platform-specific details are provided in
  * SdkDiagnosticParams.
  */
-final class DiagnosticStore {
+public final class DiagnosticStore {
   private final DiagnosticId diagnosticId;
   private final long creationDate;
   private final SdkDiagnosticParams diagnosticParams;
@@ -36,7 +36,7 @@ final class DiagnosticStore {
     final Map<String, String> defaultHttpHeaders;
     final List<LDValue> configProperties;
     
-    SdkDiagnosticParams(
+    public SdkDiagnosticParams(
         String sdkKeyOrMobileKey,
         String sdkName,
         String sdkVersion,
@@ -55,7 +55,7 @@ final class DiagnosticStore {
     }
   }
   
-  DiagnosticStore(SdkDiagnosticParams params) {
+  public DiagnosticStore(SdkDiagnosticParams params) {
     this.creationDate = this.dataSinceDate = System.currentTimeMillis();
     this.diagnosticId = new DiagnosticId(params.sdkKeyOrMobileKey);
     this.diagnosticParams = params;

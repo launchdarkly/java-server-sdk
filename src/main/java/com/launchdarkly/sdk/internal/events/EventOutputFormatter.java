@@ -1,18 +1,19 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
-import com.google.gson.Gson;
 import com.google.gson.stream.JsonWriter;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
-import com.launchdarkly.sdk.server.EventSummarizer.FlagInfo;
-import com.launchdarkly.sdk.server.EventSummarizer.SimpleIntKeyedMap;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.CounterValue;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.FlagInfo;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.SimpleIntKeyedMap;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Map;
+
+import static com.launchdarkly.sdk.internal.GsonHelpers.gsonInstance;
 
 /**
  * Transforms analytics events and summary data into the JSON format that we send to LaunchDarkly.
@@ -25,13 +26,11 @@ import java.util.Map;
  */
 final class EventOutputFormatter {
   private final EventContextFormatter contextFormatter;
-  private final Gson gson;
   
   EventOutputFormatter(EventsConfiguration config) {
     this.contextFormatter = new EventContextFormatter(
         config.allAttributesPrivate,
         config.privateAttributes.toArray(new AttributeRef[config.privateAttributes.size()]));
-    this.gson = JsonHelpers.gsonInstance();
   }
   
   final int writeOutputEvents(Event[] events, EventSummarizer.EventSummary summary, Writer writer) throws IOException {
@@ -201,7 +200,7 @@ final class EventOutputFormatter {
       return;
     }
     jw.name(key);
-    gson.toJson(value, LDValue.class, jw); // LDValue defines its own custom serializer
+    gsonInstance().toJson(value, LDValue.class, jw); // LDValue defines its own custom serializer
   }
   
   private final void writeEvaluationReason(String key, EvaluationReason er, JsonWriter jw) throws IOException {
@@ -209,6 +208,6 @@ final class EventOutputFormatter {
       return;
     }
     jw.name(key);
-    gson.toJson(er, EvaluationReason.class, jw); // EvaluationReason defines its own custom serializer
+    gsonInstance().toJson(er, EvaluationReason.class, jw); // EvaluationReason defines its own custom serializer
   }
 }

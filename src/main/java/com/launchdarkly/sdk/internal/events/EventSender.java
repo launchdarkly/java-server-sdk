@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import java.io.Closeable;
 import java.net.URI;
@@ -13,7 +13,7 @@ import java.util.Date;
  * only needs to return success/failure/shutdown status; the use of the Date header is an
  * implementation detail that is specific to the default HTTP implementation of event delivery.
  */
-interface EventSender extends Closeable {
+public interface EventSender extends Closeable {
   /**
    * Attempt to deliver an analytics event data payload.
    * <p>

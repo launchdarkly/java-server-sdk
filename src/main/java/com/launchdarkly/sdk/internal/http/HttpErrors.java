@@ -1,22 +1,36 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.http;
 
 import org.slf4j.Logger;
 
 /**
  * Contains shared helpers related to HTTP response validation.
+ * <p>
+ * This class is for internal use only and should not be documented in the SDK API. It is not
+ * supported for any use outside of the LaunchDarkly SDKs, and is subject to change without notice.
  */
-abstract class HttpErrors {
+public abstract class HttpErrors {
   private HttpErrors() {}
   
+  /**
+   * Represents an HTTP response error as an exception.
+   */
   @SuppressWarnings("serial")
   public static final class HttpErrorException extends Exception {
     private final int status;
     
+    /**
+     * Constructs an instance.
+     * @param status the status code
+     */
     public HttpErrorException(int status) {
       super("HTTP error " + status);
       this.status = status;
     }
     
+    /**
+     * Returns the status code.
+     * @return the status code
+     */
     public int getStatus() {
       return status;
     }
@@ -27,7 +41,7 @@ abstract class HttpErrors {
    * @param statusCode the HTTP status
    * @return true if retrying makes sense; false if it should be considered a permanent failure
    */
-  static boolean isHttpErrorRecoverable(int statusCode) {
+  public static boolean isHttpErrorRecoverable(int statusCode) {
     if (statusCode >= 400 && statusCode < 500) {
       switch (statusCode) {
       case 400: // bad request
@@ -52,7 +66,7 @@ abstract class HttpErrors {
    * @param recoverableMessage a phrase like "will retry" to use if the error is recoverable
    * @return true if the error is recoverable
    */
-  static boolean checkIfErrorIsRecoverableAndLog(
+  public static boolean checkIfErrorIsRecoverableAndLog(
       Logger logger,
       String errorDesc,
       String errorContext,
@@ -68,7 +82,7 @@ abstract class HttpErrors {
     }
   }
   
-  static String httpErrorDescription(int statusCode) {
+  public static String httpErrorDescription(int statusCode) {
     return "HTTP error " + statusCode +
         (statusCode == 401 || statusCode == 403 ? " (invalid SDK key)" : "");
   }

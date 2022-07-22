@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
@@ -10,7 +10,7 @@ import com.launchdarkly.sdk.LDValue;
  * These types are not visible to applications; they are an implementation detail of the default event
  * processor.
  */
-class Event {
+public class Event {
   private final long creationDate;
   private final LDContext context;
 

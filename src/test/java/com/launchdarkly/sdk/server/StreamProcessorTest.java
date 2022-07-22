@@ -2,6 +2,8 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.MessageEvent;
+import com.launchdarkly.sdk.internal.events.DiagnosticEvent;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;

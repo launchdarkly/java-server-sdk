@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.stream.JsonWriter;
@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.sdk.internal.events.EventContextFormatter;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

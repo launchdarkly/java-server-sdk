@@ -1,8 +1,13 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.LDContext;
-import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
+import com.launchdarkly.sdk.internal.events.Event.Custom;
+import com.launchdarkly.sdk.internal.events.Event.FeatureRequest;
+import com.launchdarkly.sdk.internal.events.Event.Identify;
+import com.launchdarkly.sdk.internal.events.Event.Index;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.EventSummary;
+import com.launchdarkly.sdk.server.Loggers;
 
 import org.slf4j.Logger;
 
@@ -27,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-final class DefaultEventProcessor implements Closeable {
+public final class DefaultEventProcessor implements Closeable {
   private static final int INITIAL_OUTPUT_BUFFER_SIZE = 2000;
 
   private static final Logger logger = Loggers.EVENTS;
@@ -39,7 +44,7 @@ final class DefaultEventProcessor implements Closeable {
   private final List<ScheduledFuture<?>> scheduledTasks = new ArrayList<>();
   private volatile boolean inputCapacityExceeded = false;
 
-  DefaultEventProcessor(
+  public DefaultEventProcessor(
       EventsConfiguration eventsConfig,
       ScheduledExecutorService sharedExecutor,
       int threadPriority

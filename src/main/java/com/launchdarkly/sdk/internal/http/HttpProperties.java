@@ -1,4 +1,4 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.http;
 
 import java.net.Proxy;
 import java.util.Collections;
@@ -23,7 +23,7 @@ import okhttp3.OkHttpClient;
  * Those are transformed into this when the SDK is constructing components. The public API does not
  * reference any OkHttp classes, but this internal class does.  
  */
-final class HttpProperties {
+public final class HttpProperties {
   private final long connectTimeoutMillis;
   private final Map<String, String> defaultHeaders;
   private final Proxy proxy;

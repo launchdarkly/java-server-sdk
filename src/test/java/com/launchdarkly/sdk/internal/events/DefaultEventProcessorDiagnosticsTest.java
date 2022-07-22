@@ -1,6 +1,15 @@
-package com.launchdarkly.sdk.server;
+package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.internal.events.DefaultEventProcessor;
+import com.launchdarkly.sdk.internal.events.DiagnosticEvent;
+import com.launchdarkly.sdk.internal.events.DiagnosticId;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore;
+import com.launchdarkly.sdk.internal.events.Event;
+import com.launchdarkly.sdk.internal.events.EventContextDeduplicator;
+import com.launchdarkly.sdk.internal.events.EventSender;
+import com.launchdarkly.sdk.server.DataModel;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 
 import org.junit.Test;
 
