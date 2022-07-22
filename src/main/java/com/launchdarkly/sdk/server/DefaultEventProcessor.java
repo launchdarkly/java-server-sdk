@@ -597,7 +597,7 @@ final class DefaultEventProcessor implements Closeable {
           ByteArrayOutputStream buffer = new ByteArrayOutputStream(INITIAL_OUTPUT_BUFFER_SIZE);
           Writer writer = new BufferedWriter(new OutputStreamWriter(buffer, Charset.forName("UTF-8")), INITIAL_OUTPUT_BUFFER_SIZE);
           int outputEventCount = formatter.writeOutputEvents(payload.events, payload.summary, writer);
-          // don't flush the writer, because the JsonWriter created by writeOutputEvents has already flushed and closed it
+          writer.flush();
           EventSender.Result result = eventsConfig.eventSender.sendAnalyticsEvents(
               buffer.toByteArray(),
               outputEventCount,

@@ -34,22 +34,21 @@ final class EventOutputFormatter {
     this.gson = JsonHelpers.gsonInstance();
   }
   
-  @SuppressWarnings("resource")
   final int writeOutputEvents(Event[] events, EventSummarizer.EventSummary summary, Writer writer) throws IOException {
     int count = 0;    
-    try (JsonWriter jsonWriter = new JsonWriter(writer)) {
-      jsonWriter.beginArray();
-      for (Event event: events) {
-        if (writeOutputEvent(event, jsonWriter)) {
-          count++;
-        }
-      }
-      if (!summary.isEmpty()) {
-        writeSummaryEvent(summary, jsonWriter);
+    JsonWriter jsonWriter = new JsonWriter(writer);
+    jsonWriter.beginArray();
+    for (Event event: events) {
+      if (writeOutputEvent(event, jsonWriter)) {
         count++;
       }
-      jsonWriter.endArray();
     }
+    if (!summary.isEmpty()) {
+      writeSummaryEvent(summary, jsonWriter);
+      count++;
+    }
+    jsonWriter.endArray();
+    jsonWriter.flush();
     return count;
   }
   
