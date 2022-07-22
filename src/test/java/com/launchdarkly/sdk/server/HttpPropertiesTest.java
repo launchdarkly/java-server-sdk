@@ -2,8 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import org.junit.Test;
 
-import java.time.Duration;
-
 import static org.junit.Assert.assertEquals;
 
 import okhttp3.OkHttpClient;
@@ -13,8 +11,8 @@ public class HttpPropertiesTest {
   @Test
   public void testConnectTimeout() {
     HttpProperties hp = new HttpProperties(
-        Duration.ofSeconds(100),
-        null, null, null, null, null, null, null);
+        100000,
+        null, null, null, null, 0, null, null);
     OkHttpClient httpClient = hp.toHttpClientBuilder().build();
     try {
       assertEquals(100000, httpClient.connectTimeoutMillis());
@@ -26,8 +24,8 @@ public class HttpPropertiesTest {
   @Test
   public void testSocketTimeout() {
     HttpProperties hp = new HttpProperties(
-        null, null, null, null, null,
-        Duration.ofSeconds(100),
+        0, null, null, null, null,
+        100000,
         null, null);
     OkHttpClient httpClient = hp.toHttpClientBuilder().build();
     try {

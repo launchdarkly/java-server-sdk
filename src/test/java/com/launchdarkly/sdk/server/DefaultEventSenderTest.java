@@ -37,14 +37,14 @@ public class DefaultEventSenderTest {
   private static final byte[] FAKE_DATA_BYTES = FAKE_DATA.getBytes(Charset.forName("UTF-8"));
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz",
       Locale.US);
-  private static final Duration BRIEF_RETRY_DELAY = Duration.ofMillis(50);
+  private static final long BRIEF_RETRY_DELAY_MILLIS = 50;
   
   private static EventSender makeEventSender() {
     return makeEventSender(defaultHttpProperties());
   }
 
   private static EventSender makeEventSender(HttpProperties httpProperties) {
-    return new DefaultEventSender(httpProperties, BRIEF_RETRY_DELAY);
+    return new DefaultEventSender(httpProperties, BRIEF_RETRY_DELAY_MILLIS);
   }
   
   @Test

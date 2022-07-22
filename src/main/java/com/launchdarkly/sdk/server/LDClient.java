@@ -43,7 +43,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
-import static com.launchdarkly.sdk.server.Util.isAsciiHeaderValue;
 import static com.launchdarkly.sdk.server.subsystems.EventProcessor.NO_VERSION;
 
 /**
@@ -172,7 +171,7 @@ public final class LDClient implements LDClientInterface {
   public LDClient(String sdkKey, LDConfig config) {
     checkNotNull(config, "config must not be null");
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
-    if (!isAsciiHeaderValue(sdkKey) ) {
+    if (!HttpHelpers.isAsciiHeaderValue(sdkKey) ) {
       throw new IllegalArgumentException("SDK key contained an invalid character");
     }
     this.offline = config.offline;

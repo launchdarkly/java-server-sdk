@@ -102,11 +102,11 @@ public class TestComponents {
         allAttributesPrivate,
         0,
         null,
-        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL,
+        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL.toMillis(),
         null,
         null,
         null,
-        EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
+        EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL.toMillis(),
         privateAttributes
         );
   }

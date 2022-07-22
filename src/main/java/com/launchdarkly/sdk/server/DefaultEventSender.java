@@ -6,15 +6,12 @@ import java.io.IOException;
 import java.net.URI;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
 import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
 
 import static com.launchdarkly.sdk.server.HttpErrors.checkIfErrorIsRecoverableAndLog;
 import static com.launchdarkly.sdk.server.HttpErrors.httpErrorDescription;
-import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
-import static com.launchdarkly.sdk.server.Util.describeDuration;
 
 import okhttp3.Headers;
 import okhttp3.MediaType;
@@ -26,7 +23,7 @@ import okhttp3.Response;
 final class DefaultEventSender implements EventSender {
   private static final Logger logger = Loggers.EVENTS;
   
-  static final Duration DEFAULT_RETRY_DELAY = Duration.ofSeconds(1);
+  static final long DEFAULT_RETRY_DELAY_MILLIS = 1000;
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "4";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
@@ -37,11 +34,11 @@ final class DefaultEventSender implements EventSender {
 
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
-  final Duration retryDelay; // visible for testing
+  final long retryDelayMillis; // visible for testing
 
   DefaultEventSender(
       HttpProperties httpProperties,
-      Duration retryDelay
+      long retryDelayMillis
       ) {
     this.httpClient = httpProperties.toHttpClientBuilder().build();
 
@@ -49,7 +46,7 @@ final class DefaultEventSender implements EventSender {
         .add("Content-Type", "application/json")
         .build();
     
-    this.retryDelay = retryDelay == null ? DEFAULT_RETRY_DELAY : retryDelay;
+    this.retryDelayMillis = retryDelayMillis <= 0 ? DEFAULT_RETRY_DELAY_MILLIS : retryDelayMillis;
   }
   
   @Override
@@ -88,7 +85,7 @@ final class DefaultEventSender implements EventSender {
       description = String.format("%d event(s)", eventCount);
     }
     
-    URI uri = concatenateUriPath(eventsBaseUri, path);
+    URI uri = HttpHelpers.concatenateUriPath(eventsBaseUri, path);
     Headers headers = headersBuilder.build();
     RequestBody body = RequestBody.create(data, JSON_CONTENT_TYPE);
     boolean mustShutDown = false;
@@ -97,9 +94,9 @@ final class DefaultEventSender implements EventSender {
 
     for (int attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) {
-        logger.warn("Will retry posting {} after {}", description, describeDuration(retryDelay));
+        logger.warn("Will retry posting {} after {}ms", description, retryDelayMillis);
         try {
-          Thread.sleep(retryDelay.toMillis());
+          Thread.sleep(retryDelayMillis);
         } catch (InterruptedException e) { // COVERAGE: there's no way to cause this in tests
         }
       }

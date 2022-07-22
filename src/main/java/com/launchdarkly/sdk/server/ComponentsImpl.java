@@ -227,7 +227,7 @@ abstract class ComponentsImpl {
     public EventProcessor createEventProcessor(ClientContext context) {
       EventSender eventSender;
       if (eventSenderFactory == null) {
-        eventSender = new DefaultEventSender(toHttpProperties(context.getHttp()), DefaultEventSender.DEFAULT_RETRY_DELAY);
+        eventSender = new DefaultEventSender(toHttpProperties(context.getHttp()), 0); // 0 means default retry delay
       } else {
         eventSender = new EventSenderWrapper(eventSenderFactory.createEventSender(context));
       }
@@ -241,11 +241,11 @@ abstract class ComponentsImpl {
           allAttributesPrivate,
           capacity,
           new ServerSideEventContextDeduplicator(userKeysCapacity, userKeysFlushInterval),
-          diagnosticRecordingInterval,
+          diagnosticRecordingInterval.toMillis(),
           ClientContextImpl.get(context).diagnosticStore,
           eventSender,
           eventsUri,
-          flushInterval,
+          flushInterval.toMillis(),
           privateAttributes
           );
       return new DefaultEventProcessorWrapper(context, eventsConfig);
@@ -416,12 +416,12 @@ abstract class ComponentsImpl {
       proxyAuth = Util.okhttpAuthenticatorFromHttpAuthStrategy(httpConfig.getProxyAuthentication());
     }
     return new HttpProperties(
-        httpConfig.getConnectTimeout(),
+        httpConfig.getConnectTimeout().toMillis(),
         ImmutableMap.copyOf(httpConfig.getDefaultHeaders()),
         httpConfig.getProxy(),
         proxyAuth,
         httpConfig.getSocketFactory(),
-        httpConfig.getSocketTimeout(),
+        httpConfig.getSocketTimeout().toMillis(),
         httpConfig.getSslSocketFactory(),
         httpConfig.getTrustManager()
         );

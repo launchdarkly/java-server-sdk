@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
@@ -35,7 +33,6 @@ final class DefaultEventProcessor implements Closeable {
   private static final Logger logger = Loggers.EVENTS;
   private static final Gson gson = new Gson();
   
-  @VisibleForTesting final EventDispatcher dispatcher;
   private final BlockingQueue<EventProcessorMessage> inbox;
   private final ScheduledExecutorService scheduler;
   private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -51,19 +48,20 @@ final class DefaultEventProcessor implements Closeable {
     
     scheduler = sharedExecutor;
 
-    dispatcher = new EventDispatcher(
+    new EventDispatcher(
         eventsConfig,
         sharedExecutor,
         threadPriority,
         inbox,
         closed
         );
+    // we don't need to save a reference to this - we communicate with it entirely through the inbox queue.
 
     Runnable flusher = () -> {
       postMessageAsync(MessageType.FLUSH, null);
     };
-    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushInterval.toMillis(),
-        eventsConfig.flushInterval.toMillis(), TimeUnit.MILLISECONDS));
+    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushIntervalMillis,
+        eventsConfig.flushIntervalMillis, TimeUnit.MILLISECONDS));
     if (eventsConfig.contextDeduplicator != null && eventsConfig.contextDeduplicator.getFlushInterval() != null) {
       Runnable userKeysFlusher = () -> {
         postMessageAsync(MessageType.FLUSH_USERS, null);
@@ -76,8 +74,8 @@ final class DefaultEventProcessor implements Closeable {
       Runnable diagnosticsTrigger = () -> {
         postMessageAsync(MessageType.DIAGNOSTIC, null);
       };
-      scheduledTasks.add(this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingInterval.toMillis(),
-          eventsConfig.diagnosticRecordingInterval.toMillis(), TimeUnit.MILLISECONDS));
+      scheduledTasks.add(this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingIntervalMillis,
+          eventsConfig.diagnosticRecordingIntervalMillis, TimeUnit.MILLISECONDS));
     }
   }
 
@@ -101,13 +99,11 @@ final class DefaultEventProcessor implements Closeable {
     }
   }
 
-  @VisibleForTesting
-  void waitUntilInactive() throws IOException {
+  void waitUntilInactive() throws IOException { // visible for testing
     postMessageAndWait(MessageType.SYNC, null);
   }
 
-  @VisibleForTesting
-  void postDiagnostic() {
+  void postDiagnostic() { // visible for testing
     postMessageAsync(MessageType.DIAGNOSTIC, null);
   }
 
@@ -196,14 +192,14 @@ final class DefaultEventProcessor implements Closeable {
     private static final int MAX_FLUSH_THREADS = 5;
     private static final int MESSAGE_BATCH_SIZE = 50;
 
-    @VisibleForTesting final EventsConfiguration eventsConfig;
+    final EventsConfiguration eventsConfig; // visible for testing
     private final BlockingQueue<EventProcessorMessage> inbox;
     private final AtomicBoolean closed;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
-    @VisibleForTesting final DiagnosticStore diagnosticStore;
+    final DiagnosticStore diagnosticStore; // visible for testing
     private final EventContextDeduplicator contextDeduplicator;
     private final ExecutorService sharedExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
@@ -224,11 +220,16 @@ final class DefaultEventProcessor implements Closeable {
       this.diagnosticStore = eventsConfig.diagnosticStore;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
-      ThreadFactory threadFactory = new ThreadFactoryBuilder()
-          .setDaemon(true)
-          .setNameFormat("LaunchDarkly-event-delivery-%d")
-          .setPriority(threadPriority)
-          .build();
+      ThreadFactory threadFactory = new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+          Thread t = new Thread(r);
+          t.setDaemon(true);;
+          t.setName(String.format("LaunchDarkly-event-delivery-%d", t.getId()));
+          t.setPriority(threadPriority);
+          return t;
+        }
+      };
       
       // This queue only holds one element; it represents a flush task that has not yet been
       // picked up by any worker, so if we try to push another one and are refused, it means

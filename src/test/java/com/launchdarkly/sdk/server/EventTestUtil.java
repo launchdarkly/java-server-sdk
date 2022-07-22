@@ -308,11 +308,11 @@ public abstract class EventTestUtil {
           allAttributesPrivate,
           capacity,
           contextDeduplicator,
-          diagnosticRecordingInterval,
+          diagnosticRecordingInterval.toMillis(),
           diagnosticStore,
           eventSender,
           eventsUri,
-          flushInterval,
+          flushInterval.toMillis(),
           privateAttributes
           );
     }

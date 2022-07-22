@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
-import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
 
 import okhttp3.Cache;
 import okhttp3.Headers;
@@ -38,7 +37,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
 
   DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri) {
     this.baseUri = baseUri;
-    this.pollingUri = concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
+    this.pollingUri = HttpHelpers.concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
     
     OkHttpClient.Builder httpBuilder = httpProperties.toHttpClientBuilder();
     this.headers = httpProperties.toHeadersBuilder().build();
