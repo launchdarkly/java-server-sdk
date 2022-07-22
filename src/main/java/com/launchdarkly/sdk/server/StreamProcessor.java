@@ -81,7 +81,7 @@ final class StreamProcessor implements DataSource {
   private final Headers headers;
   @VisibleForTesting final URI streamUri;
   @VisibleForTesting final Duration initialReconnectDelay;
-  private final DiagnosticAccumulator diagnosticAccumulator;
+  private final DiagnosticStore diagnosticAccumulator;
   private final int threadPriority;
   private final DataStoreStatusProvider.StatusListener statusListener;
   private volatile EventSource es;
@@ -95,7 +95,7 @@ final class StreamProcessor implements DataSource {
       HttpConfiguration httpConfig,
       DataSourceUpdates dataSourceUpdates,
       int threadPriority,
-      DiagnosticAccumulator diagnosticAccumulator,
+      DiagnosticStore diagnosticAccumulator,
       URI streamUri,
       Duration initialReconnectDelay
       ) {

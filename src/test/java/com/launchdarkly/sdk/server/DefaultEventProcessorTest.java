@@ -87,18 +87,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     MockEventSender es = new MockEventSender();
     Duration briefFlushInterval = Duration.ofMillis(50);
     
-    // Can't use the regular config builder for this, because it will enforce a minimum flush interval
-    EventsConfiguration eventsConfig = new EventsConfiguration(
-        false,
-        100,
-        null,
-        es,
-        FAKE_URI,
-        briefFlushInterval,
-        ImmutableSet.of(),
-        null
-        );
-    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY, null, null)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).flushInterval(briefFlushInterval))) {
       Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("event1", user, null, null);
       Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("event2", user, null, null);
       ep.sendEvent(event1);
@@ -178,18 +167,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       }
     };
     
-    EventsConfiguration eventsConfig = new EventsConfiguration(
-        false,
-        100,
-        contextDeduplicator,
-        es,
-        FAKE_URI,
-        Duration.ofSeconds(5),
-        ImmutableSet.of(),
-        null
-        );
-    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
-        null, null)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).contextDeduplicator(contextDeduplicator))) {
 
       boolean called = flushCalled.tryAcquire(briefContextFlushIntervalMillis * 2, TimeUnit.MILLISECONDS);
       assertTrue("expected context deduplicator flush method to be called, but it was not", called);

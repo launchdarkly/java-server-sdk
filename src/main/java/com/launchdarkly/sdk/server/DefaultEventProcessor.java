@@ -41,8 +41,7 @@ final class DefaultEventProcessor implements EventProcessor {
       EventsConfiguration eventsConfig,
       ScheduledExecutorService sharedExecutor,
       int threadPriority,
-      DiagnosticAccumulator diagnosticAccumulator,
-      DiagnosticEvent.Init diagnosticInitEvent
+      DiagnosticStore diagnosticStore
       ) {
     inbox = new ArrayBlockingQueue<>(eventsConfig.capacity);
     
@@ -54,8 +53,7 @@ final class DefaultEventProcessor implements EventProcessor {
         threadPriority,
         inbox,
         closed,
-        diagnosticAccumulator,
-        diagnosticInitEvent
+        diagnosticStore
         );
 
     Runnable flusher = () -> {
@@ -71,7 +69,7 @@ final class DefaultEventProcessor implements EventProcessor {
       scheduledTasks.add(this.scheduler.scheduleAtFixedRate(userKeysFlusher, intervalMillis,
           intervalMillis, TimeUnit.MILLISECONDS));
     }
-    if (diagnosticAccumulator != null) {
+    if (diagnosticStore != null) {
       Runnable diagnosticsTrigger = () -> {
         postMessageAsync(MessageType.DIAGNOSTIC, null);
       };
@@ -205,7 +203,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private final AtomicInteger busyFlushWorkersCount;
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
-    @VisibleForTesting final DiagnosticAccumulator diagnosticAccumulator;
+    @VisibleForTesting final DiagnosticStore diagnosticStore;
     private final EventContextDeduplicator contextDeduplicator;
     private final ExecutorService sharedExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
@@ -218,14 +216,13 @@ final class DefaultEventProcessor implements EventProcessor {
         int threadPriority,
         BlockingQueue<EventProcessorMessage> inbox,
         AtomicBoolean closed,
-        DiagnosticAccumulator diagnosticAccumulator,
-        DiagnosticEvent.Init diagnosticInitEvent
+        DiagnosticStore diagnosticStore
         ) {
       this.eventsConfig = eventsConfig;
       this.inbox = inbox;
       this.closed = closed;
       this.sharedExecutor = sharedExecutor;
-      this.diagnosticAccumulator = diagnosticAccumulator;
+      this.diagnosticStore = diagnosticStore;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
       ThreadFactory threadFactory = new ThreadFactoryBuilder()
@@ -264,10 +261,10 @@ final class DefaultEventProcessor implements EventProcessor {
         flushWorkers.add(task);
       }
 
-      if (diagnosticAccumulator != null) {
+      if (diagnosticStore != null) {
         // Set up diagnostics
         this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(eventsConfig, this::handleResponse);
-        sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticInitEvent));
+        sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticStore.getInitEvent()));
       } else {
         sendDiagnosticTaskFactory = null;
       }
@@ -347,7 +344,7 @@ final class DefaultEventProcessor implements EventProcessor {
       }
       long droppedEvents = outbox.getAndClearDroppedCount();
       // We pass droppedEvents and deduplicatedUsers as parameters here because they are updated frequently in the main loop so we want to avoid synchronization on them.
-      DiagnosticEvent diagnosticEvent = diagnosticAccumulator.createEventAndReset(droppedEvents, deduplicatedUsers);
+      DiagnosticEvent diagnosticEvent = diagnosticStore.createEventAndReset(droppedEvents, deduplicatedUsers);
       deduplicatedUsers = 0;
       sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticEvent));
     }
@@ -458,8 +455,8 @@ final class DefaultEventProcessor implements EventProcessor {
         return;
       }
       FlushPayload payload = outbox.getPayload();
-      if (diagnosticAccumulator != null) {
-        diagnosticAccumulator.recordEventsInBatch(payload.events.length);
+      if (diagnosticStore != null) {
+        diagnosticStore.recordEventsInBatch(payload.events.length);
       }
       busyFlushWorkersCount.incrementAndGet();
       if (payloadQueue.offer(payload)) {

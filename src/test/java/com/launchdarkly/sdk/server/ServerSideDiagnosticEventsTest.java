@@ -26,14 +26,18 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestUtil.assertJsonEquals;
+import static com.launchdarkly.testhelpers.JsonAssertions.jsonEqualsValue;
+import static com.launchdarkly.testhelpers.JsonAssertions.jsonProperty;
+import static com.launchdarkly.testhelpers.JsonAssertions.jsonUndefined;
+import static com.launchdarkly.testhelpers.JsonTestValue.jsonFromValue;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class DiagnosticEventTest {
+public class ServerSideDiagnosticEventsTest {
 
   private static Gson gson = new Gson();
   private static List<DiagnosticEvent.StreamInit> testStreamInits = Collections.singletonList(new DiagnosticEvent.StreamInit(1500, 100, true));
@@ -64,6 +68,62 @@ public class DiagnosticEventTest {
     assertTrue(initJson.getAsJsonPrimitive("failed").getAsBoolean());
   }
 
+  @Test
+  public void sdkDataProperties() {
+    LDValue sdkData = makeSdkData(LDConfig.DEFAULT);
+    assertThat(jsonFromValue(sdkData), allOf(
+        jsonProperty("name", jsonEqualsValue("java-server-sdk")),
+        jsonProperty("version", jsonEqualsValue(Version.SDK_VERSION)),
+        jsonProperty("wrapperName", jsonUndefined()),
+        jsonProperty("wrapperVersion", jsonUndefined())
+        ));
+  }
+
+  @Test
+  public void sdkDataWrapperProperties() {
+    LDConfig config1 = new LDConfig.Builder()
+        .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
+        .build();
+    LDValue sdkData1 = makeSdkData(config1);
+    assertThat(jsonFromValue(sdkData1), allOf(
+        jsonProperty("wrapperName", jsonEqualsValue("Scala")),
+        jsonProperty("wrapperVersion", jsonEqualsValue("0.1.0"))
+        ));
+
+    LDConfig config2 = new LDConfig.Builder()
+        .http(Components.httpConfiguration().wrapper("Scala", null))
+        .build();
+    LDValue sdkData2 = makeSdkData(config2);
+    assertThat(jsonFromValue(sdkData2), allOf(
+        jsonProperty("wrapperName", jsonEqualsValue("Scala")),
+        jsonProperty("wrapperVersion", jsonUndefined())
+        ));
+  }
+
+  @Test
+  public void platformDataOsNames() {
+    String realOsName = System.getProperty("os.name");
+    try {
+      System.setProperty("os.name", "Mac OS X");
+      assertThat(jsonFromValue(makePlatformData()),
+          jsonProperty("osName", jsonEqualsValue("MacOS")));
+      
+      System.setProperty("os.name", "Windows 10");
+      assertThat(jsonFromValue(makePlatformData()),
+          jsonProperty("osName", jsonEqualsValue("Windows")));
+      
+      System.setProperty("os.name", "Linux");
+      assertThat(jsonFromValue(makePlatformData()),
+          jsonProperty("osName", jsonEqualsValue("Linux")));
+
+      System.clearProperty("os.name");
+      assertThat(jsonFromValue(makePlatformData()),
+          jsonProperty("osName", jsonUndefined()));
+    } finally {
+      System.setProperty("os.name", realOsName);
+    }
+  }
+  
   private ObjectBuilder expectedDefaultProperties() {
     return expectedDefaultPropertiesWithoutStreaming()
         .put("reconnectTimeMillis", 1_000);
@@ -91,9 +151,23 @@ public class DiagnosticEventTest {
         .put("usingRelayDaemon", false);
   }
   
+  private static LDValue makeSdkData(LDConfig config) {
+    return makeDiagnosticInitEvent(config).sdk;    
+  }
+  
+  private static LDValue makePlatformData() {
+    return makeDiagnosticInitEvent(LDConfig.DEFAULT).platform;
+  }
+  
   private static LDValue makeConfigData(LDConfig config) {
+    return makeDiagnosticInitEvent(config).configuration;
+  }
+  
+  private static DiagnosticEvent.Init makeDiagnosticInitEvent(LDConfig config) {
     ClientContext context = clientContext("SDK_KEY", config); // the SDK key doesn't matter for these tests
-    return DiagnosticEvent.Init.getConfigurationData(config, context);
+    DiagnosticStore diagnosticStore = new DiagnosticStore(
+        ServerSideDiagnosticEvents.getSdkDiagnosticParams(context, config));
+    return diagnosticStore.getInitEvent();    
   }
   
   @Test
@@ -116,7 +190,7 @@ public class DiagnosticEventTest {
         .put("startWaitMillis", 10_000)
         .build();
 
-    assertEquals(expected, diagnosticJson);
+    assertJsonEquals(expected, diagnosticJson);
   }
 
   @Test
@@ -134,7 +208,7 @@ public class DiagnosticEventTest {
         .put("customStreamURI", true)
         .put("customEventsURI", true)
         .build();
-    assertEquals(expected1, makeConfigData(ldConfig1));
+    assertJsonEquals(expected1, makeConfigData(ldConfig1));
 
     LDConfig ldConfig2 = new LDConfig.Builder()
         .serviceEndpoints(
@@ -154,7 +228,7 @@ public class DiagnosticEventTest {
         .put("pollingIntervalMillis", PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL.toMillis())
         .put("streamingDisabled", true)
         .build();
-    assertEquals(expected2, makeConfigData(ldConfig2));
+    assertJsonEquals(expected2, makeConfigData(ldConfig2));
   }
   
   @Test
@@ -168,7 +242,7 @@ public class DiagnosticEventTest {
     LDValue expected1 = expectedDefaultPropertiesWithoutStreaming()
         .put("reconnectTimeMillis", 2_000)
         .build();
-    assertEquals(expected1, makeConfigData(ldConfig1));
+    assertJsonEquals(expected1, makeConfigData(ldConfig1));
     
     LDConfig ldConfig2 = new LDConfig.Builder()
         .dataSource(Components.streamingDataSource()) // no custom base URIs
@@ -189,7 +263,7 @@ public class DiagnosticEventTest {
         .put("pollingIntervalMillis", 60_000)
         .put("streamingDisabled", true)
         .build();
-    assertEquals(expected1,  makeConfigData(ldConfig1));
+    assertJsonEquals(expected1,  makeConfigData(ldConfig1));
 
     LDConfig ldConfig2 = new LDConfig.Builder()
         .dataSource(Components.pollingDataSource()) // no custom base URI
@@ -198,7 +272,7 @@ public class DiagnosticEventTest {
         .put("pollingIntervalMillis", PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL.toMillis())
         .put("streamingDisabled", true)
         .build();
-    assertEquals(expected2, makeConfigData(ldConfig2));
+    assertJsonEquals(expected2, makeConfigData(ldConfig2));
   }
 
   @Test
@@ -207,25 +281,25 @@ public class DiagnosticEventTest {
         .dataStore(new DataStoreFactoryWithDiagnosticDescription(LDValue.of("my-test-store")))
         .build();
     LDValue expected1 = expectedDefaultProperties().put("dataStoreType", "my-test-store").build();
-    assertEquals(expected1, makeConfigData(ldConfig1));
+    assertJsonEquals(expected1, makeConfigData(ldConfig1));
 
     LDConfig ldConfig2 = new LDConfig.Builder()
         .dataStore(new DataStoreFactoryWithoutDiagnosticDescription())
         .build();
     LDValue expected2 = expectedDefaultProperties().put("dataStoreType", "custom").build();
-    assertEquals(expected2, makeConfigData(ldConfig2));
+    assertJsonEquals(expected2, makeConfigData(ldConfig2));
 
     LDConfig ldConfig3 = new LDConfig.Builder()
         .dataStore(new DataStoreFactoryWithDiagnosticDescription(null))
         .build();
     LDValue expected3 = expectedDefaultProperties().put("dataStoreType", "custom").build();
-    assertEquals(expected3, makeConfigData(ldConfig3));
+    assertJsonEquals(expected3, makeConfigData(ldConfig3));
 
     LDConfig ldConfig4 = new LDConfig.Builder()
         .dataStore(new DataStoreFactoryWithDiagnosticDescription(LDValue.of(4)))
         .build();
     LDValue expected4 = expectedDefaultProperties().put("dataStoreType", "custom").build();
-    assertEquals(expected4, makeConfigData(ldConfig4));
+    assertJsonEquals(expected4, makeConfigData(ldConfig4));
   }
 
   @Test
@@ -237,7 +311,7 @@ public class DiagnosticEventTest {
     LDValue diagnosticJson1 = makeConfigData(ldConfig1);
     LDValue expected1 = expectedDefaultProperties().put("dataStoreType", "my-test-store").build();
 
-    assertEquals(expected1, diagnosticJson1);
+    assertJsonEquals(expected1, diagnosticJson1);
 
     LDConfig ldConfig2 = new LDConfig.Builder()
         .dataStore(Components.persistentDataStore(new PersistentDataStoreFactoryWithoutComponentName()))
@@ -246,7 +320,7 @@ public class DiagnosticEventTest {
     LDValue diagnosticJson2 = makeConfigData(ldConfig2);
     LDValue expected2 = expectedDefaultProperties().put("dataStoreType", "custom").build();
 
-    assertEquals(expected2, diagnosticJson2);
+    assertJsonEquals(expected2, diagnosticJson2);
   }
 
   @Test
@@ -273,7 +347,7 @@ public class DiagnosticEventTest {
         .put("userKeysFlushIntervalMillis", 600_000)
         .build();
 
-    assertEquals(expected1, diagnosticJson1);
+    assertJsonEquals(expected1, diagnosticJson1);
     
     LDConfig ldConfig2 = new LDConfig.Builder()
         .events(Components.sendEvents()) // no custom base URI
@@ -282,8 +356,8 @@ public class DiagnosticEventTest {
     LDValue diagnosticJson2 = makeConfigData(ldConfig2);
     LDValue expected2 = expectedDefaultProperties().build();
     
-    assertEquals(expected2, diagnosticJson2);
-}
+    assertJsonEquals(expected2, diagnosticJson2);
+  }
 
   @Test
   public void testCustomDiagnosticConfigurationForDaemonMode() {
@@ -296,7 +370,7 @@ public class DiagnosticEventTest {
         .put("usingRelayDaemon", true)
         .build();
 
-    assertEquals(expected, diagnosticJson);
+    assertJsonEquals(expected, diagnosticJson);
   }
 
   @Test
@@ -319,7 +393,7 @@ public class DiagnosticEventTest {
         .put("usingProxyAuthenticator", true)
         .build();
 
-    assertEquals(expected, diagnosticJson);
+    assertJsonEquals(expected, diagnosticJson);
   }
   
   @Test
@@ -332,7 +406,7 @@ public class DiagnosticEventTest {
     
     LDValue diagnosticJson = makeConfigData(config);
     
-    assertThat(diagnosticJson.keys(), not(hasItem(unsupportedPropertyName)));
+    assertThat(jsonFromValue(diagnosticJson), jsonProperty(unsupportedPropertyName, jsonUndefined()));
   }
 
   @Test
@@ -344,7 +418,7 @@ public class DiagnosticEventTest {
     
     LDValue diagnosticJson = makeConfigData(config);
     
-    assertThat(diagnosticJson.keys(), not(hasItem("streamingDisabled")));
+    assertThat(jsonFromValue(diagnosticJson), jsonProperty("streamingDisabled", jsonUndefined()));
   }
 
   @Test
@@ -359,7 +433,7 @@ public class DiagnosticEventTest {
     LDValue diagnosticJson1 = makeConfigData(config1);
     LDValue diagnosticJson2 = makeConfigData(config2);
     
-    assertEquals(diagnosticJson1, diagnosticJson2);
+    assertJsonEquals(diagnosticJson1, diagnosticJson2);
   }
 
   private static class DataSourceFactoryWithDiagnosticDescription implements DataSourceFactory, DiagnosticDescription {

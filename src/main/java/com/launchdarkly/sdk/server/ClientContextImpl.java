@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
@@ -22,28 +23,24 @@ final class ClientContextImpl extends ClientContext {
   private static volatile ScheduledExecutorService fallbackSharedExecutor = null;
   
   final ScheduledExecutorService sharedExecutor;
-  final DiagnosticAccumulator diagnosticAccumulator;
-  final DiagnosticEvent.Init diagnosticInitEvent;
+  final DiagnosticStore diagnosticStore;
 
   private ClientContextImpl(
       ClientContext baseContext,
       ScheduledExecutorService sharedExecutor,
-      DiagnosticAccumulator diagnosticAccumulator,
-      DiagnosticEvent.Init diagnosticInitEvent
+      DiagnosticStore diagnosticStore
   ) {
     super(baseContext.getSdkKey(), baseContext.getApplicationInfo(), baseContext.getHttp(),
         baseContext.getLogging(), baseContext.isOffline(), baseContext.getServiceEndpoints(),
         baseContext.getThreadPriority());
     this.sharedExecutor = sharedExecutor;
-    this.diagnosticAccumulator = diagnosticAccumulator;
-    this.diagnosticInitEvent = diagnosticInitEvent;
+    this.diagnosticStore = diagnosticStore;
   }
 
   static ClientContextImpl fromConfig(
       String sdkKey,
       LDConfig config,
-      ScheduledExecutorService sharedExecutor,
-      DiagnosticAccumulator diagnosticAccumulator
+      ScheduledExecutorService sharedExecutor
       ) {
     ClientContext minimalContext = new ClientContext(sdkKey, config.applicationInfo, null,
         null, config.offline, config.serviceEndpoints, config.threadPriority);
@@ -56,21 +53,18 @@ final class ClientContextImpl extends ClientContext {
     ClientContext contextWithHttpAndLogging = new ClientContext(sdkKey, config.applicationInfo, httpConfig,
         loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
     
-    DiagnosticEvent.Init diagnosticInitEvent = null;
-    if (!config.diagnosticOptOut && diagnosticAccumulator != null) {
-      diagnosticInitEvent = new DiagnosticEvent.Init(
-          diagnosticAccumulator.dataSinceDate,
-          diagnosticAccumulator.diagnosticId,
-          config,
-          contextWithHttpAndLogging
-          );
+    // Create a diagnostic store only if diagnostics are enabled. Diagnostics are enabled as long as 1. the
+    // opt-out property was not set in the config, and 2. we are using the standard event processor.
+    DiagnosticStore diagnosticStore = null;
+    if (!config.diagnosticOptOut && config.eventProcessorFactory instanceof EventProcessorBuilder) {
+      diagnosticStore = new DiagnosticStore(
+          ServerSideDiagnosticEvents.getSdkDiagnosticParams(contextWithHttpAndLogging, config));
     }
     
     return new ClientContextImpl(
         contextWithHttpAndLogging,
         sharedExecutor,
-        config.diagnosticOptOut ? null : diagnosticAccumulator,
-        diagnosticInitEvent
+        diagnosticStore
         );
   }
   
@@ -90,6 +84,6 @@ final class ClientContextImpl extends ClientContext {
         fallbackSharedExecutor = Executors.newSingleThreadScheduledExecutor();
       }
     }
-    return new ClientContextImpl(context, fallbackSharedExecutor, null, null);
+    return new ClientContextImpl(context, fallbackSharedExecutor, null);
   }
 }

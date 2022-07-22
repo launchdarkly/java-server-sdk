@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
+import com.launchdarkly.sdk.server.DiagnosticStore.SdkDiagnosticParams;
 import com.launchdarkly.sdk.server.TestComponents.DelegatingDataStore;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates.UpsertParams;
@@ -14,11 +15,11 @@ import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
@@ -43,6 +44,7 @@ import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.TestComponents.basicDiagnosticStore;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
@@ -369,7 +371,7 @@ public class StreamProcessorTest {
 
   @Test
   public void streamInitDiagnosticRecordedOnOpen() throws Exception {
-    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    DiagnosticStore acc = basicDiagnosticStore();
     long startTime = System.currentTimeMillis();
     
     try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
@@ -390,7 +392,7 @@ public class StreamProcessorTest {
 
   @Test
   public void streamInitDiagnosticRecordedOnErrorDuringInit() throws Exception {
-    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    DiagnosticStore acc = basicDiagnosticStore();
     long startTime = System.currentTimeMillis();
     
     Handler errorHandler = Handlers.status(503);
@@ -744,7 +746,7 @@ public class StreamProcessorTest {
     return createStreamProcessor(LDConfig.DEFAULT, streamUri, null);
   }
 
-  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator acc) {
+  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticStore acc) {
     return new StreamProcessor(
         clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp(),
         dataSourceUpdates,

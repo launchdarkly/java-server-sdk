@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 
@@ -11,7 +10,6 @@ import java.net.URI;
 import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -24,22 +22,29 @@ import static org.junit.Assert.assertNotNull;
  */
 @SuppressWarnings("javadoc")
 public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorTestBase {
-  private DiagnosticEvent.Init configuredInitEvent;
+  private static LDValue fakePlatformData = LDValue.buildObject().put("cats", 2).build();
+  
+  private DiagnosticId diagnosticId;
+  private DiagnosticStore diagnosticStore;
   
   public DefaultEventProcessorDiagnosticsTest() {
-    // Currently, the logic for constructing the diagnostic init event is intertwined with various SDK
-    // components. This will be more cleanly separated in the future, but for now, to verify the current
-    // server-side SDK behavior we will set up some temporary components to create the event.
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
-    ClientContext ctx = clientContext(SDK_KEY, new LDConfig.Builder().build(), diagnosticAccumulator);
-    configuredInitEvent = ClientContextImpl.get(ctx).diagnosticInitEvent;
+    diagnosticId = new DiagnosticId(SDK_KEY);
+    diagnosticStore = new DiagnosticStore(
+        new DiagnosticStore.SdkDiagnosticParams(
+            SDK_KEY,
+            "fake-sdk",
+            "1.2.3",
+            "fake-platform",
+            fakePlatformData,
+            null,
+            null
+            ));
   }
   
   @Test
   public void diagnosticEventsSentToDiagnosticEndpoint() throws Exception {
     MockEventSender es = new MockEventSender();
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticAccumulator, configuredInitEvent)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticStore)) {
       MockEventSender.Params initReq = es.awaitRequest();
       ep.postDiagnostic();
       MockEventSender.Params periodicReq = es.awaitRequest();
@@ -52,9 +57,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
   @Test
   public void initialDiagnosticEventHasInitBody() throws Exception {
     MockEventSender es = new MockEventSender();
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticAccumulator, configuredInitEvent)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticStore)) {
       MockEventSender.Params req = es.awaitRequest();
 
       DiagnosticEvent.Init initEvent = gson.fromJson(req.data, DiagnosticEvent.Init.class);
@@ -71,10 +74,8 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
   @Test
   public void periodicDiagnosticEventHasStatisticsBody() throws Exception {
     MockEventSender es = new MockEventSender();
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    long dataSinceDate = diagnosticAccumulator.dataSinceDate;
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticAccumulator, configuredInitEvent)) {
+    long dataSinceDate = diagnosticStore.getDataSinceDate();
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticStore)) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
       ep.postDiagnostic();
@@ -87,7 +88,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
       assertThat(statsEvent.kind, equalTo("diagnostic"));
       assertThat(statsEvent.id, samePropertyValuesAs(diagnosticId));
       assertThat(statsEvent.dataSinceDate, equalTo(dataSinceDate));
-      assertThat(statsEvent.creationDate, equalTo(diagnosticAccumulator.dataSinceDate));
+      assertThat(statsEvent.creationDate, equalTo(diagnosticStore.getDataSinceDate()));
       assertThat(statsEvent.deduplicatedUsers, equalTo(0L));
       assertThat(statsEvent.eventsInLastBatch, equalTo(0L));
       assertThat(statsEvent.droppedEvents, equalTo(0L));
@@ -108,11 +109,9 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     // Create a fake deduplicator that just says "not seen" for the first call and "seen" thereafter
     EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatSaysKeyIsNewOnFirstCallOnly();
     
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
     try (DefaultEventProcessor ep = makeEventProcessor(
         baseConfig(es).contextDeduplicator(contextDeduplicator),
-        diagnosticAccumulator, configuredInitEvent)) {
+        diagnosticStore)) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
@@ -138,14 +137,10 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
   @Test
   public void periodicDiagnosticEventsAreSentAutomatically() throws Exception {
     MockEventSender es = new MockEventSender();
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
-    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT, context);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
     
     EventsConfigurationBuilder eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
     
-    try (DefaultEventProcessor ep = makeEventProcessor(eventsConfig, diagnosticAccumulator, initEvent)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(eventsConfig, diagnosticStore)) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
@@ -171,14 +166,9 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     MockEventSender es = new MockEventSender();
     es.result = new EventSender.Result(false, true, null); // mustShutdown=true; this is what would be returned for a 401 error
 
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT); 
-    DiagnosticEvent.Init initEvent = new DiagnosticEvent.Init(0, diagnosticId, LDConfig.DEFAULT, context);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    
     EventsConfigurationBuilder eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
     
-    try (DefaultEventProcessor ep = makeEventProcessor(eventsConfig, diagnosticAccumulator, initEvent)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(eventsConfig, diagnosticStore)) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
@@ -190,11 +180,8 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
   public void customBaseUriIsPassedToEventSenderForDiagnosticEvents() throws Exception {
     MockEventSender es = new MockEventSender();
     URI uri = URI.create("fake-uri");
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).eventsUri(uri),
-        diagnosticAccumulator, configuredInitEvent)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).eventsUri(uri), diagnosticStore)) {
     }
 
     MockEventSender.Params p = es.awaitRequest();

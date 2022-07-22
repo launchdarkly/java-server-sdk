@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.server.DiagnosticStore.SdkDiagnosticParams;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
@@ -47,12 +48,12 @@ public class TestComponents {
   static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("TestComponents-sharedExecutor-%d").build());
   
-  public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
-    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, null);
+  public static DiagnosticStore basicDiagnosticStore() {
+    return new DiagnosticStore(new SdkDiagnosticParams("sdk_key", "sdk", "1.0.0", "Java", null, null, null));
   }
-
-  public static ClientContext clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, diagnosticAccumulator);
+  
+  public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
+    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor);
   }
 
   public static HttpConfiguration defaultHttpConfiguration() {

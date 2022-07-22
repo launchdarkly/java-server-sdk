@@ -26,7 +26,7 @@ public class ClientContextImplTest {
   public void getBasicDefaultProperties() {
     LDConfig config = new LDConfig.Builder().build();
 
-    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, null, null);
+    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, null);
     
     assertEquals(SDK_KEY, c.getSdkKey());
     assertFalse(c.isOffline());
@@ -49,7 +49,7 @@ public class ClientContextImplTest {
         .threadPriority(Thread.MAX_PRIORITY)
         .build();
  
-    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor, null);
+    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor);
     
     assertEquals(SDK_KEY, c.getSdkKey());
     assertTrue(c.isOffline());
@@ -66,7 +66,7 @@ public class ClientContextImplTest {
   public void getPackagePrivateSharedExecutor() {
     LDConfig config = new LDConfig.Builder().build();
 
-    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor, null);
+    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor);
 
     assertSame(sharedExecutor, ClientContextImpl.get(c).sharedExecutor);
   }
@@ -75,39 +75,20 @@ public class ClientContextImplTest {
   public void getPackagePrivateDiagnosticAccumulator() {
     LDConfig config = new LDConfig.Builder().build();
 
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    
-    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor, diagnosticAccumulator);
+    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor);
 
-    assertSame(diagnosticAccumulator, ClientContextImpl.get(c).diagnosticAccumulator);
+    assertNotNull(ClientContextImpl.get(c).diagnosticStore);
   }
 
   @Test
-  public void diagnosticAccumulatorIsNullIfOptedOut() {
+  public void diagnosticStoreIsNullIfOptedOut() {
     LDConfig config = new LDConfig.Builder()
         .diagnosticOptOut(true)
         .build();
 
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    
-    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor, diagnosticAccumulator);
+    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor);
 
-    assertNull(ClientContextImpl.get(c).diagnosticAccumulator);
-    assertNull(ClientContextImpl.get(c).diagnosticInitEvent);
-  }
-  
-  @Test
-  public void getPackagePrivateDiagnosticInitEvent() {
-    LDConfig config = new LDConfig.Builder().build();
-
-    DiagnosticId diagnosticId = new DiagnosticId(SDK_KEY);
-    DiagnosticAccumulator diagnosticAccumulator = new DiagnosticAccumulator(diagnosticId);
-    
-    ClientContext c = ClientContextImpl.fromConfig(SDK_KEY, config, sharedExecutor, diagnosticAccumulator);
-
-    assertNotNull(ClientContextImpl.get(c).diagnosticInitEvent);
+    assertNull(ClientContextImpl.get(c).diagnosticStore);
   }
   
   @Test
@@ -119,8 +100,7 @@ public class ClientContextImplTest {
     ClientContextImpl impl = ClientContextImpl.get(c);
     
     assertNotNull(impl.sharedExecutor);
-    assertNull(impl.diagnosticAccumulator);
-    assertNull(impl.diagnosticInitEvent);
+    assertNull(impl.diagnosticStore);
     
     ClientContextImpl impl2 = ClientContextImpl.get(c);
     
