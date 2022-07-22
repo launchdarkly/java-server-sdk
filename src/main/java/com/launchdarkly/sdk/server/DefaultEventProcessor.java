@@ -2,16 +2,19 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.gson.Gson;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
-import com.launchdarkly.sdk.server.subsystems.EventSender.EventDataKind;
 
 import org.slf4j.Logger;
 
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.StringWriter;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -27,7 +30,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 final class DefaultEventProcessor implements Closeable {
+  private static final int INITIAL_OUTPUT_BUFFER_SIZE = 2000;
+
   private static final Logger logger = Loggers.EVENTS;
+  private static final Gson gson = new Gson();
   
   @VisibleForTesting final EventDispatcher dispatcher;
   private final BlockingQueue<EventProcessorMessage> inbox;
@@ -588,11 +594,12 @@ final class DefaultEventProcessor implements Closeable {
           continue;
         }
         try {
-          StringWriter stringWriter = new StringWriter();
-          int outputEventCount = formatter.writeOutputEvents(payload.events, payload.summary, stringWriter);
-          EventSender.Result result = eventsConfig.eventSender.sendEventData(
-              EventDataKind.ANALYTICS,
-              stringWriter.toString(),
+          ByteArrayOutputStream buffer = new ByteArrayOutputStream(INITIAL_OUTPUT_BUFFER_SIZE);
+          Writer writer = new BufferedWriter(new OutputStreamWriter(buffer, Charset.forName("UTF-8")), INITIAL_OUTPUT_BUFFER_SIZE);
+          int outputEventCount = formatter.writeOutputEvents(payload.events, payload.summary, writer);
+          // don't flush the writer, because the JsonWriter created by writeOutputEvents has already flushed and closed it
+          EventSender.Result result = eventsConfig.eventSender.sendAnalyticsEvents(
+              buffer.toByteArray(),
               outputEventCount,
               eventsConfig.eventsUri
               );
@@ -630,11 +637,19 @@ final class DefaultEventProcessor implements Closeable {
       return new Runnable() {
         @Override
         public void run() {
-          String json = JsonHelpers.serialize(diagnosticEvent);
-          EventSender.Result result = eventsConfig.eventSender.sendEventData(EventDataKind.DIAGNOSTICS,
-              json, 1, eventsConfig.eventsUri);
-          if (eventResponseListener != null) {
-            eventResponseListener.handleResponse(result);
+          try {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream(INITIAL_OUTPUT_BUFFER_SIZE);
+            Writer writer = new BufferedWriter(new OutputStreamWriter(buffer, Charset.forName("UTF-8")), INITIAL_OUTPUT_BUFFER_SIZE);
+            gson.toJson(diagnosticEvent, writer);
+            writer.flush();
+            EventSender.Result result = eventsConfig.eventSender.sendDiagnosticEvent(
+                buffer.toByteArray(), eventsConfig.eventsUri);
+            if (eventResponseListener != null) {
+              eventResponseListener.handleResponse(result);
+            }
+          } catch (Exception e) {
+            logger.error("Unexpected error in event processor: {}", e.toString());
+            logger.debug(e.toString(), e);
           }
         }
       };

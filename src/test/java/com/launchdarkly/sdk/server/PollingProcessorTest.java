@@ -10,9 +10,9 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.testhelpers.ConcurrentHelpers;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
-import static com.launchdarkly.sdk.server.TestComponents.defaultHttpConfiguration;
+import static com.launchdarkly.sdk.server.TestComponents.defaultHttpProperties;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.assertDataSetEquals;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
@@ -61,7 +61,7 @@ public class PollingProcessorTest {
   }
 
   private PollingProcessor makeProcessor(URI baseUri, Duration pollInterval) {
-    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpConfiguration(), baseUri);
+    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpProperties(), baseUri);
     return new PollingProcessor(requestor, dataSourceUpdates, sharedExecutor, pollInterval);
   }
 

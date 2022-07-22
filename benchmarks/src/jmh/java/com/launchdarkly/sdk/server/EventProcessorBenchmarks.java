@@ -1,10 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
-import com.launchdarkly.sdk.server.subsystems.EventProcessor;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
-import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
@@ -130,26 +126,19 @@ public class EventProcessorBenchmarks {
     public void close() throws IOException {}
 
     @Override
-    public Result sendEventData(EventDataKind arg0, String arg1, int arg2, URI arg3) {
+    public Result sendAnalyticsEvents(byte[] data, int count, URI baseUri) {
       counter.countDown();
       return RESULT;
     }
-    
+
+    @Override
+    public Result sendDiagnosticEvent(byte[] data, URI baseUri) {
+      counter.countDown();
+      return RESULT;
+    }
+
     public void awaitEvents() throws InterruptedException {
       counter.await();
-    }
-  }
-  
-  private static final class MockEventSenderFactory implements EventSenderFactory {
-    private final MockEventSender instance;
-    
-    MockEventSenderFactory(MockEventSender instance) {
-      this.instance = instance;
-    }
-    
-    @Override
-    public EventSender createEventSender(ClientContext clientContext) {
-      return instance;
     }
   }
 }

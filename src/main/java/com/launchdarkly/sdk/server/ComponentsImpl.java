@@ -24,7 +24,6 @@ import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
 import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
@@ -153,7 +152,7 @@ abstract class ComponentsImpl {
           );
       
       return new StreamProcessor(
-          context.getHttp(),
+          toHttpProperties(context.getHttp()),
           dataSourceUpdates,
           context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticStore,
@@ -198,7 +197,7 @@ abstract class ComponentsImpl {
           Loggers.MAIN
           );
 
-      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(context.getHttp(), pollUri);
+      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(toHttpProperties(context.getHttp()), pollUri);
       return new PollingProcessor(
           requestor,
           dataSourceUpdates,
@@ -226,9 +225,12 @@ abstract class ComponentsImpl {
       implements DiagnosticDescription {
     @Override
     public EventProcessor createEventProcessor(ClientContext context) {
-      EventSender eventSender =
-          (eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory)
-          .createEventSender(context);
+      EventSender eventSender;
+      if (eventSenderFactory == null) {
+        eventSender = new DefaultEventSender(toHttpProperties(context.getHttp()), DefaultEventSender.DEFAULT_RETRY_DELAY);
+      } else {
+        eventSender = new EventSenderWrapper(eventSenderFactory.createEventSender(context));
+      }
       URI eventsUri = StandardEndpoints.selectBaseUri(
           context.getServiceEndpoints().getEventsBaseUri(),
           StandardEndpoints.DEFAULT_EVENTS_BASE_URI,
@@ -265,6 +267,40 @@ abstract class ComponentsImpl {
           .put(DiagnosticConfigProperty.USER_KEYS_FLUSH_INTERVAL_MILLIS.name, userKeysFlushInterval.toMillis())
           .build();
     }
+    
+    static final class EventSenderWrapper implements EventSender {
+      private final com.launchdarkly.sdk.server.subsystems.EventSender wrappedSender;
+      
+      EventSenderWrapper(com.launchdarkly.sdk.server.subsystems.EventSender wrappedSender) {
+        this.wrappedSender = wrappedSender;
+      }
+
+      @Override
+      public void close() throws IOException {
+        wrappedSender.close();
+      }
+
+      @Override
+      public Result sendAnalyticsEvents(byte[] data, int eventCount, URI eventsBaseUri) {
+        return transformResult(wrappedSender.sendAnalyticsEvents(data, eventCount, eventsBaseUri));
+      }
+
+      @Override
+      public Result sendDiagnosticEvent(byte[] data, URI eventsBaseUri) {
+        return transformResult(wrappedSender.sendDiagnosticEvent(data, eventsBaseUri));
+      }
+      
+      private Result transformResult(com.launchdarkly.sdk.server.subsystems.EventSender.Result result) {
+        switch (result) {
+        case FAILURE:
+          return new Result(false, false, null);
+        case STOP:
+          return new Result(false, true, null);
+        default:
+          return new Result(true, false, null);
+        }
+      }
+    }
   }
 
   static final class HttpConfigurationBuilderImpl extends HttpConfigurationBuilder {
@@ -290,15 +326,15 @@ abstract class ComponentsImpl {
         Loggers.MAIN.info("Using proxy: {} {} authentication.", proxy, proxyAuth == null ? "without" : "with");
       }
       
-      return new HttpConfigurationImpl(
+      return new HttpConfiguration(
           connectTimeout,
+          headers.build(),
           proxy,
           proxyAuth,
-          socketTimeout,
           socketFactory,
+          socketTimeout,
           sslSocketFactory,
-          trustManager,
-          headers.build()
+          trustManager
       );
     }
   }
@@ -372,5 +408,22 @@ abstract class ComponentsImpl {
       }
       return new ServiceEndpoints(streamingBaseUri, pollingBaseUri, eventsBaseUri);
     }
+  }
+  
+  static HttpProperties toHttpProperties(HttpConfiguration httpConfig) {
+    okhttp3.Authenticator proxyAuth = null;
+    if (httpConfig.getProxyAuthentication() != null) {
+      proxyAuth = Util.okhttpAuthenticatorFromHttpAuthStrategy(httpConfig.getProxyAuthentication());
+    }
+    return new HttpProperties(
+        httpConfig.getConnectTimeout(),
+        ImmutableMap.copyOf(httpConfig.getDefaultHeaders()),
+        httpConfig.getProxy(),
+        proxyAuth,
+        httpConfig.getSocketFactory(),
+        httpConfig.getSocketTimeout(),
+        httpConfig.getSslSocketFactory(),
+        httpConfig.getTrustManager()
+        );
   }
 }

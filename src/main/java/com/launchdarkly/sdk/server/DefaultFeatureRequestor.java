@@ -2,9 +2,9 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.stream.JsonReader;
+import com.launchdarkly.sdk.server.HttpErrors.HttpErrorException;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import org.slf4j.Logger;
@@ -16,9 +16,6 @@ import java.nio.file.Path;
 
 import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
 import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
-import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
-import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
-import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 
 import okhttp3.Cache;
 import okhttp3.Headers;
@@ -39,13 +36,12 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   private final Headers headers;
   private final Path cacheDir;
 
-  DefaultFeatureRequestor(HttpConfiguration httpConfig, URI baseUri) {
+  DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri) {
     this.baseUri = baseUri;
     this.pollingUri = concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
     
-    OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(httpConfig, httpBuilder);
-    this.headers = getHeadersBuilderFor(httpConfig).build();
+    OkHttpClient.Builder httpBuilder = httpProperties.toHttpClientBuilder();
+    this.headers = httpProperties.toHeadersBuilder().build();
 
     try {
       cacheDir = Files.createTempDirectory("LaunchDarklySDK");
@@ -59,7 +55,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   }
 
   public void close() {
-    shutdownHttpClient(httpClient);
+    HttpProperties.shutdownHttpClient(httpClient);
     Util.deleteDirectory(cacheDir);
   }
   

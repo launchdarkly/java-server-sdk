@@ -1,10 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
-import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
-import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
-
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -16,13 +11,10 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
 
-import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.server.HttpErrors.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.server.HttpErrors.httpErrorDescription;
 import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
-import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.describeDuration;
-import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
-import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
-import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 
 import okhttp3.Headers;
 import okhttp3.MediaType;
@@ -48,14 +40,12 @@ final class DefaultEventSender implements EventSender {
   final Duration retryDelay; // visible for testing
 
   DefaultEventSender(
-      HttpConfiguration httpConfiguration,
+      HttpProperties httpProperties,
       Duration retryDelay
       ) {
-    OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(httpConfiguration, httpBuilder);
-    this.httpClient = httpBuilder.build();
+    this.httpClient = httpProperties.toHttpClientBuilder().build();
 
-    this.baseHeaders = getHeadersBuilderFor(httpConfiguration)
+    this.baseHeaders = httpProperties.toHeadersBuilder()
         .add("Content-Type", "application/json")
         .build();
     
@@ -64,12 +54,21 @@ final class DefaultEventSender implements EventSender {
   
   @Override
   public void close() throws IOException {
-    shutdownHttpClient(httpClient);
+    HttpProperties.shutdownHttpClient(httpClient);
+  }
+  
+  @Override
+  public Result sendAnalyticsEvents(byte[] data, int eventCount, URI eventsBaseUri) {
+    return sendEventData(false, data, eventCount, eventsBaseUri);
   }
 
   @Override
-  public Result sendEventData(EventDataKind kind, String data, int eventCount, URI eventsBaseUri) {
-    if (data == null || data.isEmpty()) {
+  public Result sendDiagnosticEvent(byte[] data, URI eventsBaseUri) {
+    return sendEventData(true, data, 1, eventsBaseUri);
+  }
+  
+  private Result sendEventData(boolean isDiagnostic, byte[] data, int eventCount, URI eventsBaseUri) {
+    if (data == null || data.length == 0) {
       // DefaultEventProcessor won't normally pass us an empty payload, but if it does, don't bother sending
       return new Result(true, false, null);
     }
@@ -78,20 +77,15 @@ final class DefaultEventSender implements EventSender {
     String path;
     String description;
     
-    switch (kind) {
-    case ANALYTICS:
+    if (isDiagnostic) {
+      path = StandardEndpoints.DIAGNOSTIC_EVENTS_POST_REQUEST_PATH;
+      description = "diagnostic event";    
+    } else {
       path = StandardEndpoints.ANALYTICS_EVENTS_POST_REQUEST_PATH;
       String eventPayloadId = UUID.randomUUID().toString();
       headersBuilder.add(EVENT_PAYLOAD_ID_HEADER, eventPayloadId);
       headersBuilder.add(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION);
       description = String.format("%d event(s)", eventCount);
-      break;
-    case DIAGNOSTICS:
-      path = StandardEndpoints.DIAGNOSTIC_EVENTS_POST_REQUEST_PATH;
-      description = "diagnostic event";
-      break;
-    default:
-      throw new IllegalArgumentException("kind"); // COVERAGE: unreachable code, those are the only enum values
     }
     
     URI uri = concatenateUriPath(eventsBaseUri, path);
@@ -161,12 +155,5 @@ final class DefaultEventSender implements EventSender {
       }
     }
     return null;
-  }
-  
-  static final class Factory implements EventSenderFactory {
-    @Override
-    public EventSender createEventSender(ClientContext clientContext) {
-      return new DefaultEventSender(clientContext.getHttp(), DefaultEventSender.DEFAULT_RETRY_DELAY);
-    }
   }
 }

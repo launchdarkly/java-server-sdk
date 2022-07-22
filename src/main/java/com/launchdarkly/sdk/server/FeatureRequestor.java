@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.server.HttpErrors.HttpErrorException;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 

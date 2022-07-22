@@ -61,6 +61,10 @@ public class TestComponents {
   public static HttpConfiguration defaultHttpConfiguration() {
     return clientContext("", LDConfig.DEFAULT).getHttp();
   }
+
+  public static HttpProperties defaultHttpProperties() {
+    return ComponentsImpl.toHttpProperties(defaultHttpConfiguration());
+  }
   
   public static DataStore dataStoreThatThrowsException(RuntimeException e) {
     return new DataStoreThatThrowsException(e);

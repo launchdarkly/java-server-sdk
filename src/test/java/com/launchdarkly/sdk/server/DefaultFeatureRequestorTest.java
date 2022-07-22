@@ -52,8 +52,8 @@ public class DefaultFeatureRequestorTest {
     return new DefaultFeatureRequestor(makeHttpConfig(config), server.getUri());
   }
 
-  private HttpConfiguration makeHttpConfig(LDConfig config) {
-    return config.httpConfigFactory.createHttpConfiguration(new ClientContext(sdkKey));
+  private HttpProperties makeHttpConfig(LDConfig config) {
+    return ComponentsImpl.toHttpProperties(config.httpConfigFactory.createHttpConfiguration(new ClientContext(sdkKey)));
   }
 
   private void verifyExpectedData(FullDataSet<ItemDescriptor> data) {

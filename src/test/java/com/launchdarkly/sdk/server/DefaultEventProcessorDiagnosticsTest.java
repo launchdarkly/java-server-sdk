@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.junit.Test;
 
@@ -12,6 +11,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.samePropertyValuesAs;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -48,8 +48,8 @@ public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
       ep.postDiagnostic();
       MockEventSender.Params periodicReq = es.awaitRequest();
 
-      assertThat(initReq.kind, equalTo(EventSender.EventDataKind.DIAGNOSTICS));
-      assertThat(periodicReq.kind, equalTo(EventSender.EventDataKind.DIAGNOSTICS));
+      assertThat(initReq.diagnostic, is(true));
+      assertThat(periodicReq.diagnostic, is(true));
     }
   }
 

@@ -2,20 +2,15 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
-import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import org.junit.Test;
 
 import java.time.Duration;
 
-import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
-import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import okhttp3.Authenticator;
-import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -23,38 +18,9 @@ import okhttp3.Response;
 @SuppressWarnings("javadoc")
 public class UtilTest {
   @Test
-  public void testConnectTimeout() {
-    LDConfig config = new LDConfig.Builder().http(Components.httpConfiguration().connectTimeout(Duration.ofSeconds(3))).build();
-    HttpConfiguration httpConfig = clientContext("", config).getHttp();
-    OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(httpConfig, httpBuilder);
-    OkHttpClient httpClient = httpBuilder.build();
-    try {
-      assertEquals(3000, httpClient.connectTimeoutMillis());
-    } finally {
-      shutdownHttpClient(httpClient);
-    }
-  }
-  
-  @Test
-  public void testSocketTimeout() {
-    LDConfig config = new LDConfig.Builder().http(Components.httpConfiguration().socketTimeout(Duration.ofSeconds(3))).build();
-    HttpConfiguration httpConfig = clientContext("", config).getHttp();
-    OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(httpConfig, httpBuilder);
-    OkHttpClient httpClient = httpBuilder.build();
-    try {
-      assertEquals(3000, httpClient.readTimeoutMillis());
-    } finally {
-      shutdownHttpClient(httpClient);
-    }
-  }
-  
-  @Test
   public void useOurBasicAuthenticatorAsOkhttpProxyAuthenticator() throws Exception {
     HttpAuthentication ourAuth = Components.httpBasicAuthentication("user", "pass");
-    Authenticator okhttpAuth = Util.okhttpAuthenticatorFromHttpAuthStrategy(ourAuth,
-        "Proxy-Authentication", "Proxy-Authorization");
+    Authenticator okhttpAuth = Util.okhttpAuthenticatorFromHttpAuthStrategy(ourAuth);
     
     Request originalRequest = new Request.Builder().url("http://proxy").build();
     Response resp1 = new Response.Builder()
@@ -80,7 +46,7 @@ public class UtilTest {
     
     assertNull(okhttpAuth.authenticate(null, resp2)); // null tells OkHttp to give up
   }
-
+  
   @Test
   public void describeDuration() {
     assertEquals("15 milliseconds", Util.describeDuration(Duration.ofMillis(15)));

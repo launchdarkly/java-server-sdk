@@ -6,7 +6,6 @@ import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
-import com.launchdarkly.sdk.server.DiagnosticStore.SdkDiagnosticParams;
 import com.launchdarkly.sdk.server.TestComponents.DelegatingDataStore;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates.UpsertParams;
@@ -748,7 +747,7 @@ public class StreamProcessorTest {
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticStore acc) {
     return new StreamProcessor(
-        clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp(),
+        ComponentsImpl.toHttpProperties(clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp()),
         dataSourceUpdates,
         Thread.MIN_PRIORITY,
         acc,
