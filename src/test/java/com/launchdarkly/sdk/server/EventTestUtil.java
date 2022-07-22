@@ -15,7 +15,6 @@ import org.hamcrest.Matcher;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -129,8 +128,8 @@ public abstract class EventTestUtil {
       return awaitValue(receivedParams, 5, TimeUnit.SECONDS);
     }
     
-    void expectNoRequests(Duration timeout) {
-      assertNoMoreValues(receivedParams, timeout.toMillis(), TimeUnit.MILLISECONDS);
+    void expectNoRequests(long timeoutMillis) {
+      assertNoMoreValues(receivedParams, timeoutMillis, TimeUnit.MILLISECONDS);
     }
     
     Iterable<JsonTestValue> getEventsFromLastRequest() {
@@ -296,10 +295,10 @@ public abstract class EventTestUtil {
     private boolean allAttributesPrivate = false;
     private int capacity = 1000;
     private EventContextDeduplicator contextDeduplicator = null;
-    private Duration diagnosticRecordingInterval = Duration.ofDays(1);
+    private long diagnosticRecordingIntervalMillis = 1000000;
     private DiagnosticStore diagnosticStore = null;
     private URI eventsUri = URI.create("not-valid");
-    private Duration flushInterval = Duration.ofDays(1);
+    private long flushIntervalMillis = 1000000;
     private Set<AttributeRef> privateAttributes = new HashSet<>();
     private EventSender eventSender = null;
 
@@ -308,11 +307,11 @@ public abstract class EventTestUtil {
           allAttributesPrivate,
           capacity,
           contextDeduplicator,
-          diagnosticRecordingInterval.toMillis(),
+          diagnosticRecordingIntervalMillis,
           diagnosticStore,
           eventSender,
           eventsUri,
-          flushInterval.toMillis(),
+          flushIntervalMillis,
           privateAttributes
           );
     }
@@ -332,8 +331,8 @@ public abstract class EventTestUtil {
       return this;
     }
     
-    public EventsConfigurationBuilder diagnosticRecordingInterval(Duration diagnosticRecordingInterval) {
-      this.diagnosticRecordingInterval = diagnosticRecordingInterval;
+    public EventsConfigurationBuilder diagnosticRecordingIntervalMillis(long diagnosticRecordingIntervalMillis) {
+      this.diagnosticRecordingIntervalMillis = diagnosticRecordingIntervalMillis;
       return this;
     }
     
@@ -347,8 +346,8 @@ public abstract class EventTestUtil {
       return this;
     }
     
-    public EventsConfigurationBuilder flushInterval(Duration flushInterval) {
-      this.flushInterval = flushInterval;
+    public EventsConfigurationBuilder flushIntervalMillis(long flushIntervalMillis) {
+      this.flushIntervalMillis = flushIntervalMillis;
       return this;
     }
     
