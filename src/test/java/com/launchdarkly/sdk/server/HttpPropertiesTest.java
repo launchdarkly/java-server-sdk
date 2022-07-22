@@ -31,7 +31,7 @@ public class HttpPropertiesTest {
         null, null);
     OkHttpClient httpClient = hp.toHttpClientBuilder().build();
     try {
-      assertEquals(3000, httpClient.readTimeoutMillis());
+      assertEquals(100000, httpClient.readTimeoutMillis());
     } finally {
       HttpProperties.shutdownHttpClient(httpClient);
     }

@@ -34,6 +34,7 @@ import static org.junit.Assert.assertTrue;
 public class DefaultEventSenderTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final String FAKE_DATA = "some data";
+  private static final byte[] FAKE_DATA_BYTES = FAKE_DATA.getBytes(Charset.forName("UTF-8"));
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz",
       Locale.US);
   private static final Duration BRIEF_RETRY_DELAY = Duration.ofMillis(50);
@@ -46,15 +47,11 @@ public class DefaultEventSenderTest {
     return new DefaultEventSender(httpProperties, BRIEF_RETRY_DELAY);
   }
   
-  private static byte[] toUtf8Bytes(String s) {
-    return s.getBytes(Charset.forName("UTF-8"));
-  }
-  
   @Test
   public void analyticsDataIsDelivered() throws Exception {
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
-        EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
         
         assertTrue(result.isSuccess());
         assertFalse(result.isMustShutDown());
@@ -71,7 +68,7 @@ public class DefaultEventSenderTest {
   public void diagnosticDataIsDelivered() throws Exception {
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
-        EventSender.Result result = es.sendDiagnosticEvent(toUtf8Bytes(FAKE_DATA), server.getUri());
+        EventSender.Result result = es.sendDiagnosticEvent(FAKE_DATA_BYTES, server.getUri());
         
         assertTrue(result.isSuccess());
         assertFalse(result.isMustShutDown());
@@ -91,7 +88,7 @@ public class DefaultEventSenderTest {
     
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender(httpProperties)) {
-        es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
       }
       
       RequestInfo req = server.getRecorder().requireRequest();
@@ -108,7 +105,7 @@ public class DefaultEventSenderTest {
     
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender(httpProperties)) {
-        es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        es.sendDiagnosticEvent(FAKE_DATA_BYTES, server.getUri());
       }
       
       RequestInfo req = server.getRecorder().requireRequest();      
@@ -122,7 +119,7 @@ public class DefaultEventSenderTest {
   public void eventSchemaIsSentForAnalytics() throws Exception {
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
-        es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
       }
 
       RequestInfo req = server.getRecorder().requireRequest();
@@ -134,7 +131,7 @@ public class DefaultEventSenderTest {
   public void eventPayloadIdIsSentForAnalytics() throws Exception {
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
-        es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
       }
 
       RequestInfo req = server.getRecorder().requireRequest();
@@ -151,8 +148,8 @@ public class DefaultEventSenderTest {
 
     try (HttpServer server = HttpServer.start(errorThenSuccess)) {
       try (EventSender es = makeEventSender()) {
-        es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
-        es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
+        es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
       }
 
       // Failed response request
@@ -173,7 +170,7 @@ public class DefaultEventSenderTest {
   public void eventSchemaNotSetOnDiagnosticEvents() throws Exception {
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
-        es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        es.sendDiagnosticEvent(FAKE_DATA_BYTES, server.getUri());
       }
 
       RequestInfo req = server.getRecorder().requireRequest();
@@ -220,7 +217,7 @@ public class DefaultEventSenderTest {
 
     try (HttpServer server = HttpServer.start(resp)) {
       try (EventSender es = makeEventSender()) {
-        EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
         
         assertNotNull(result.getTimeFromServer());
         assertEquals(fakeTime, result.getTimeFromServer().getTime());
@@ -234,7 +231,7 @@ public class DefaultEventSenderTest {
 
     try (HttpServer server = HttpServer.start(resp)) {
       try (EventSender es = makeEventSender()) {
-        EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
         
         assertTrue(result.isSuccess());
         assertNull(result.getTimeFromServer());
@@ -251,7 +248,7 @@ public class DefaultEventSenderTest {
           HttpConfiguration config = goodHttpConfig.createHttpConfiguration(clientContext("", LDConfig.DEFAULT));
           
           try (EventSender es = makeEventSender(ComponentsImpl.toHttpProperties(config))) {
-            EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, targetUri);
+            EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, targetUri);
             
             assertTrue(result.isSuccess());
             assertFalse(result.isMustShutDown());
@@ -262,7 +259,7 @@ public class DefaultEventSenderTest {
           HttpConfiguration config = badHttpConfig.createHttpConfiguration(clientContext("", LDConfig.DEFAULT));
  
           try (EventSender es = makeEventSender(ComponentsImpl.toHttpProperties(config))) {
-            EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, targetUri);
+            EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, targetUri);
             
             assertFalse(result.isSuccess());
             assertFalse(result.isMustShutDown());
@@ -276,7 +273,7 @@ public class DefaultEventSenderTest {
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
         URI uriWithoutSlash = URI.create(server.getUri().toString().replaceAll("/$", ""));
-        EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, uriWithoutSlash);
+        EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, uriWithoutSlash);
         
         assertTrue(result.isSuccess());
         assertFalse(result.isMustShutDown());
@@ -294,7 +291,7 @@ public class DefaultEventSenderTest {
     try (HttpServer server = HttpServer.start(eventsSuccessResponse())) {
       try (EventSender es = makeEventSender()) {
         URI baseUri = server.getUri().resolve("/context/path");
-        EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, baseUri);
+        EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, baseUri);
         
         assertTrue(result.isSuccess());
         assertFalse(result.isMustShutDown());
@@ -340,7 +337,7 @@ public class DefaultEventSenderTest {
     
     try (HttpServer server = HttpServer.start(errorResponse)) {
       try (EventSender es = makeEventSender()) {
-        EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
         
         assertFalse(result.isSuccess());
         assertTrue(result.isMustShutDown());
@@ -360,7 +357,7 @@ public class DefaultEventSenderTest {
     
     try (HttpServer server = HttpServer.start(errorsThenSuccess)) {
       try (EventSender es = makeEventSender()) {
-        EventSender.Result result = es.sendAnalyticsEvents(toUtf8Bytes(FAKE_DATA), 1, server.getUri());
+        EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, server.getUri());
         
         assertFalse(result.isSuccess());
         assertFalse(result.isMustShutDown());
