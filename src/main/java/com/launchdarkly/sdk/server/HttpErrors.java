@@ -2,8 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import org.slf4j.Logger;
 
-import java.time.Duration;
-
 /**
  * Contains shared helpers related to HTTP response validation.
  */
@@ -73,17 +71,5 @@ abstract class HttpErrors {
   static String httpErrorDescription(int statusCode) {
     return "HTTP error " + statusCode +
         (statusCode == 401 || statusCode == 403 ? " (invalid SDK key)" : "");
-  }
-  
-  static String describeDuration(Duration d) {
-    if (d.toMillis() % 1000 == 0) {
-      if (d.toMillis() % 60000 == 0) {
-        return d.toMinutes() + (d.toMinutes() == 1 ? " minute" : " minutes");
-      } else {
-        long sec = d.toMillis() / 1000;
-        return sec + (sec == 1 ? " second" : " seconds");
-      }
-    }
-    return d.toMillis() + " milliseconds";
   }
 }
