@@ -4,13 +4,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-import com.launchdarkly.sdk.server.subsystems.Event;
-import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.EventSender.EventDataKind;
 
 import org.slf4j.Logger;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -27,7 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-final class DefaultEventProcessor implements EventProcessor {
+final class DefaultEventProcessor implements Closeable {
   private static final Logger logger = Loggers.EVENTS;
   
   @VisibleForTesting final EventDispatcher dispatcher;
@@ -40,8 +39,7 @@ final class DefaultEventProcessor implements EventProcessor {
   DefaultEventProcessor(
       EventsConfiguration eventsConfig,
       ScheduledExecutorService sharedExecutor,
-      int threadPriority,
-      DiagnosticStore diagnosticStore
+      int threadPriority
       ) {
     inbox = new ArrayBlockingQueue<>(eventsConfig.capacity);
     
@@ -52,8 +50,7 @@ final class DefaultEventProcessor implements EventProcessor {
         sharedExecutor,
         threadPriority,
         inbox,
-        closed,
-        diagnosticStore
+        closed
         );
 
     Runnable flusher = () -> {
@@ -69,7 +66,7 @@ final class DefaultEventProcessor implements EventProcessor {
       scheduledTasks.add(this.scheduler.scheduleAtFixedRate(userKeysFlusher, intervalMillis,
           intervalMillis, TimeUnit.MILLISECONDS));
     }
-    if (diagnosticStore != null) {
+    if (eventsConfig.diagnosticStore != null) {
       Runnable diagnosticsTrigger = () -> {
         postMessageAsync(MessageType.DIAGNOSTIC, null);
       };
@@ -78,21 +75,18 @@ final class DefaultEventProcessor implements EventProcessor {
     }
   }
 
-  @Override
   public void sendEvent(Event e) {
     if (!closed.get()) {
       postMessageAsync(MessageType.EVENT, e);
     }
   }
 
-  @Override
   public void flush() {
     if (!closed.get()) {
       postMessageAsync(MessageType.FLUSH, null);
     }
   }
 
-  @Override
   public void close() throws IOException {
     if (closed.compareAndSet(false, true)) {
       scheduledTasks.forEach(task -> task.cancel(false));
@@ -215,14 +209,13 @@ final class DefaultEventProcessor implements EventProcessor {
         ExecutorService sharedExecutor,
         int threadPriority,
         BlockingQueue<EventProcessorMessage> inbox,
-        AtomicBoolean closed,
-        DiagnosticStore diagnosticStore
+        AtomicBoolean closed
         ) {
       this.eventsConfig = eventsConfig;
       this.inbox = inbox;
       this.closed = closed;
       this.sharedExecutor = sharedExecutor;
-      this.diagnosticStore = diagnosticStore;
+      this.diagnosticStore = eventsConfig.diagnosticStore;
       this.busyFlushWorkersCount = new AtomicInteger(0);
 
       ThreadFactory threadFactory = new ThreadFactoryBuilder()
@@ -398,7 +391,7 @@ final class DefaultEventProcessor implements EventProcessor {
         outbox.addToSummary(fe);
         addFullEvent = fe.isTrackEvents();
         if (shouldDebugEvent(fe)) {
-          debugEvent = EventFactory.newDebugEvent(fe);
+          debugEvent = fe.toDebugEvent();
         }
       } else {
         addFullEvent = true;
@@ -435,7 +428,11 @@ final class DefaultEventProcessor implements EventProcessor {
     }
 
     private boolean shouldDebugEvent(Event.FeatureRequest fe) {
-      long debugEventsUntilDate = fe.getDebugEventsUntilDate();
+      Long maybeDate = fe.getDebugEventsUntilDate();
+      if (maybeDate == null) {
+        return false;
+      }
+      long debugEventsUntilDate = maybeDate.longValue();
       if (debugEventsUntilDate > 0) {
         // The "last known past time" comes from the last HTTP response we got from the server.
         // In case the client's time is set wrong, at least we know that any expiration date

@@ -6,13 +6,13 @@ import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextBuilder;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.Event.FeatureRequest;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-import com.launchdarkly.sdk.server.subsystems.Event;
-import com.launchdarkly.sdk.server.subsystems.Event.FeatureRequest;
 
 import org.junit.Test;
 
@@ -24,13 +24,14 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.defaultEventsConfig;
 import static com.launchdarkly.sdk.server.TestComponents.makeEventsConfig;
 import static com.launchdarkly.sdk.server.TestUtil.assertJsonEquals;
+import static com.launchdarkly.sdk.server.subsystems.EventProcessor.NO_VERSION;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("javadoc")
-public class EventOutputTest {
+public class EventOutputTest extends EventTestUtil {
   private static final Gson gson = new Gson();
   
   private ContextBuilder contextBuilderWithAllAttributes = LDContext.builder("userkey")
@@ -140,15 +141,12 @@ public class EventOutputTest {
   
   @Test
   public void featureEventIsSerialized() throws Exception {
-    EventFactory factory = eventFactoryWithTimestamp(100000, false);
-    EventFactory factoryWithReason = eventFactoryWithTimestamp(100000, true);
-    FeatureFlag flag = flagBuilder("flag").version(11).build();
     LDContext context = LDContext.builder("userkey").name("me").build();
+    LDValue value = LDValue.of("flagvalue"), defaultVal = LDValue.of("defaultvalue");
     EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
     
-    FeatureRequest feWithVariation = factory.newFeatureRequestEvent(flag, context,
-        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
-        LDValue.of("defaultvalue"));
+    FeatureRequest feWithVariation = makeFeatureRequestEvent(100000,
+        "flag", context, 11, 1, value, defaultVal, null);
     LDValue feJson1 = buildFeatureEventProps("flag")
         .put("version", 11)
         .put("variation", 1)
@@ -157,18 +155,16 @@ public class EventOutputTest {
         .build();
     assertJsonEquals(feJson1, getSingleOutputEvent(f, feWithVariation));
 
-    FeatureRequest feWithoutVariationOrDefault = factory.newFeatureRequestEvent(flag, context,
-        EvalResult.of(LDValue.of("flagvalue"), NO_VARIATION, EvaluationReason.off()),
-        LDValue.ofNull());
+    FeatureRequest feWithoutVariationOrDefault = makeFeatureRequestEvent(100000,
+        "flag", context, 11, NO_VARIATION, value, null, null);
     LDValue feJson2 = buildFeatureEventProps("flag")
         .put("version", 11)
         .put("value", "flagvalue")
         .build();
     assertJsonEquals(feJson2, getSingleOutputEvent(f, feWithoutVariationOrDefault));
 
-    FeatureRequest feWithReason = factoryWithReason.newFeatureRequestEvent(flag, context,
-        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()),
-        LDValue.of("defaultvalue"));
+    FeatureRequest feWithReason = makeFeatureRequestEvent(100000,
+        "flag", context, 11, 1, value, defaultVal, EvaluationReason.fallthrough());
     LDValue feJson3 = buildFeatureEventProps("flag")
         .put("version", 11)
         .put("variation", 1)
@@ -178,8 +174,9 @@ public class EventOutputTest {
         .build();
     assertJsonEquals(feJson3, getSingleOutputEvent(f, feWithReason));
 
-    FeatureRequest feUnknownFlag = factoryWithReason.newUnknownFeatureRequestEvent("flag", context,
-        LDValue.of("defaultvalue"), EvaluationReason.ErrorKind.FLAG_NOT_FOUND);
+    FeatureRequest feUnknownFlag = makeFeatureRequestEvent(100000,
+        "flag", context, NO_VERSION, NO_VARIATION, defaultVal, defaultVal,
+        EvaluationReason.error(ErrorKind.FLAG_NOT_FOUND));
     LDValue feJson4 = buildFeatureEventProps("flag")
         .put("value", "defaultvalue")
         .put("default", "defaultvalue")
@@ -187,8 +184,7 @@ public class EventOutputTest {
         .build();
     assertJsonEquals(feJson4, getSingleOutputEvent(f, feUnknownFlag));
 
-    Event.FeatureRequest debugEvent = EventFactory.newDebugEvent(feWithVariation);
-    
+    Event.FeatureRequest debugEvent = feWithVariation.toDebugEvent();
     LDValue feJson5 = LDValue.buildObject()
         .put("kind", "debug")
         .put("key", "flag")
@@ -201,9 +197,9 @@ public class EventOutputTest {
         .build();
     assertJsonEquals(feJson5, getSingleOutputEvent(f, debugEvent));
     
-    FeatureFlag parentFlag = flagBuilder("parent").build();
-    Event.FeatureRequest prereqEvent = factory.newPrerequisiteFeatureRequestEvent(flag, context,
-        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()), parentFlag);
+    Event.FeatureRequest prereqEvent = new Event.FeatureRequest(100000,
+        "flag", context, 11, 1, value, null, null,
+        "parent", false, null, false);
     LDValue feJson6 = buildFeatureEventProps("flag")
         .put("version", 11)
         .put("variation", 1)
@@ -211,34 +207,14 @@ public class EventOutputTest {
         .put("prereqOf", "parent")
         .build();
     assertJsonEquals(feJson6, getSingleOutputEvent(f, prereqEvent));
-
-    Event.FeatureRequest prereqWithReason = factoryWithReason.newPrerequisiteFeatureRequestEvent(flag, context,
-        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.fallthrough()), parentFlag);
-    LDValue feJson7 = buildFeatureEventProps("flag")
-        .put("version", 11)
-        .put("variation", 1)
-        .put("value", "flagvalue")
-        .put("reason", LDValue.buildObject().put("kind", "FALLTHROUGH").build())
-        .put("prereqOf", "parent")
-        .build();
-    assertJsonEquals(feJson7, getSingleOutputEvent(f, prereqWithReason));
-
-    Event.FeatureRequest prereqWithoutResult = factoryWithReason.newPrerequisiteFeatureRequestEvent(flag, context,
-        null, parentFlag);
-    LDValue feJson8 = buildFeatureEventProps("flag")
-        .put("version", 11)
-        .put("prereqOf", "parent")
-        .build();
-    assertJsonEquals(feJson8, getSingleOutputEvent(f, prereqWithoutResult));
   }
 
   @Test
   public void identifyEventIsSerialized() throws IOException {
-    EventFactory factory = eventFactoryWithTimestamp(100000, false);
     LDContext context = LDContext.builder("userkey").name("me").build();
     EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
 
-    Event.Identify ie = factory.newIdentifyEvent(context);
+    Event.Identify ie = makeIdentifyEvent(context);
     LDValue ieJson = parseValue("{" +
         "\"kind\":\"identify\"," +
         "\"creationDate\":100000," +
@@ -249,12 +225,11 @@ public class EventOutputTest {
 
   @Test
   public void customEventIsSerialized() throws IOException {
-    EventFactory factory = eventFactoryWithTimestamp(100000, false);
     LDContext context = LDContext.builder("userkey").name("me").build();
     LDValue contextKeysJson = LDValue.buildObject().put("user", context.getKey()).build();
     EventOutputFormatter f = new EventOutputFormatter(defaultEventsConfig());
 
-    Event.Custom ceWithoutData = factory.newCustomEvent("customkey", context, LDValue.ofNull(), null);
+    Event.Custom ceWithoutData = makeCustomEvent("customkey", context, LDValue.ofNull(), null);
     LDValue ceJson1 = parseValue("{" +
         "\"kind\":\"custom\"," +
         "\"creationDate\":100000," +
@@ -263,7 +238,7 @@ public class EventOutputTest {
         "}");
     assertJsonEquals(ceJson1, getSingleOutputEvent(f, ceWithoutData));
 
-    Event.Custom ceWithData = factory.newCustomEvent("customkey", context, LDValue.of("thing"), null);
+    Event.Custom ceWithData = makeCustomEvent("customkey", context, LDValue.of("thing"), null);
     LDValue ceJson2 = parseValue("{" +
         "\"kind\":\"custom\"," +
         "\"creationDate\":100000," +
@@ -273,7 +248,7 @@ public class EventOutputTest {
         "}");
     assertJsonEquals(ceJson2, getSingleOutputEvent(f, ceWithData));
 
-    Event.Custom ceWithMetric = factory.newCustomEvent("customkey", context, LDValue.ofNull(), 2.5);
+    Event.Custom ceWithMetric = makeCustomEvent("customkey", context, LDValue.ofNull(), 2.5);
     LDValue ceJson3 = parseValue("{" +
         "\"kind\":\"custom\"," +
         "\"creationDate\":100000," +
@@ -283,7 +258,7 @@ public class EventOutputTest {
         "}");
     assertJsonEquals(ceJson3, getSingleOutputEvent(f, ceWithMetric));
 
-    Event.Custom ceWithDataAndMetric = factory.newCustomEvent("customkey", context, LDValue.of("thing"), 2.5);
+    Event.Custom ceWithDataAndMetric = makeCustomEvent("customkey", context, LDValue.of("thing"), 2.5);
     LDValue ceJson4 = parseValue("{" +
         "\"kind\":\"custom\"," +
         "\"creationDate\":100000," +
@@ -379,10 +354,6 @@ public class EventOutputTest {
     return gson.fromJson(json, LDValue.class);
   }
 
-  private EventFactory eventFactoryWithTimestamp(final long timestamp, final boolean includeReasons) {
-    return new EventFactory.Default(includeReasons, () -> timestamp);
-  }
-  
   private LDValue getSingleOutputEvent(EventOutputFormatter f, Event event) throws IOException {
     StringWriter w = new StringWriter();
     int count = f.writeOutputEvents(new Event[] { event }, new EventSummary(), w);
@@ -395,14 +366,14 @@ public class EventOutputTest {
     EventOutputFormatter f = new EventOutputFormatter(config);
     FeatureFlag flag = flagBuilder("flagkey").build();
     
-    Event.FeatureRequest featureEvent = EventFactory.DEFAULT.newFeatureRequestEvent(flag, context,
+    Event.FeatureRequest featureEvent = makeFeatureRequestEvent(flag, context,
         EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
         LDValue.of("defaultvalue"));
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertJsonEquals(expectedJsonValue, outputEvent.get("contextKeys"));
     assertJsonEquals(LDValue.ofNull(), outputEvent.get("context"));
     
-    Event.Custom customEvent = EventFactory.DEFAULT.newCustomEvent("eventkey", context, null, null);
+    Event.Custom customEvent = makeCustomEvent("eventkey", context, null, null);
     outputEvent = getSingleOutputEvent(f, customEvent);
     assertJsonEquals(expectedJsonValue, outputEvent.get("contextKeys"));
     assertJsonEquals(LDValue.ofNull(), outputEvent.get("context"));
@@ -412,7 +383,7 @@ public class EventOutputTest {
     EventsConfiguration config = makeEventsConfig(baseConfig.allAttributesPrivate, baseConfig.privateAttributes);
     EventOutputFormatter f = new EventOutputFormatter(config);
 
-    Event.Identify identifyEvent = EventFactory.DEFAULT.newIdentifyEvent(context);
+    Event.Identify identifyEvent = makeIdentifyEvent(context);
     LDValue outputEvent = getSingleOutputEvent(f, identifyEvent);
     assertJsonEquals(LDValue.ofNull(), outputEvent.get("contextKeys"));
     assertJsonEquals(expectedJsonValue, outputEvent.get("context"));

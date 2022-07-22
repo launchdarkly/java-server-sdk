@@ -1,14 +1,8 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
-import com.launchdarkly.sdk.server.subsystems.Event;
-import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
@@ -23,16 +17,11 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -41,45 +30,45 @@ import static org.junit.Assert.assertTrue;
  * DefaultEventProcessorOutputTest or DefaultEventProcessorDiagnosticTest.
  */
 @SuppressWarnings("javadoc")
-public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
-  @Test
-  public void builderHasDefaultConfiguration() throws Exception {
-    EventProcessorFactory epf = Components.sendEvents();
-    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
-      EventsConfiguration ec = ep.dispatcher.eventsConfig;
-      assertThat(ec.allAttributesPrivate, is(false));
-      assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
-      assertThat(ec.diagnosticRecordingInterval, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL));
-      assertThat(ec.contextDeduplicator, notNullValue());
-      assertThat(ec.eventSender, instanceOf(DefaultEventSender.class));
-      assertThat(ec.eventsUri, equalTo(StandardEndpoints.DEFAULT_EVENTS_BASE_URI));
-      assertThat(ec.flushInterval, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL));
-      assertThat(ec.privateAttributes, equalTo(ImmutableList.of()));
-    }
-  }
-  
-  @Test
-  public void builderCanSpecifyConfiguration() throws Exception {
-    MockEventSender es = new MockEventSender();
-    EventProcessorFactory epf = Components.sendEvents()
-        .allAttributesPrivate(true)
-        .capacity(3333)
-        .diagnosticRecordingInterval(Duration.ofSeconds(480))
-        .eventSender(senderFactory(es))
-        .flushInterval(Duration.ofSeconds(99))
-        .privateAttributes("name", "dogs")
-        .userKeysCapacity(555)
-        .userKeysFlushInterval(Duration.ofSeconds(101));
-    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
-      EventsConfiguration ec = ep.dispatcher.eventsConfig;
-      assertThat(ec.allAttributesPrivate, is(true));
-      assertThat(ec.capacity, equalTo(3333));
-      assertThat(ec.diagnosticRecordingInterval, equalTo(Duration.ofSeconds(480)));
-      assertThat(ec.eventSender, sameInstance((EventSender)es));
-      assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
-      assertThat(ec.privateAttributes, equalTo(ImmutableList.of(AttributeRef.fromLiteral("name"), AttributeRef.fromLiteral("dogs"))));
-    }
-  }
+public class DefaultEventProcessorTest extends EventTestUtil {
+//  @Test
+//  public void builderHasDefaultConfiguration() throws Exception {
+//    EventProcessorFactory epf = Components.sendEvents();
+//    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
+//      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+//      assertThat(ec.allAttributesPrivate, is(false));
+//      assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
+//      assertThat(ec.diagnosticRecordingInterval, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL));
+//      assertThat(ec.contextDeduplicator, notNullValue());
+//      assertThat(ec.eventSender, instanceOf(DefaultEventSender.class));
+//      assertThat(ec.eventsUri, equalTo(StandardEndpoints.DEFAULT_EVENTS_BASE_URI));
+//      assertThat(ec.flushInterval, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL));
+//      assertThat(ec.privateAttributes, equalTo(ImmutableList.of()));
+//    }
+//  }
+//  
+//  @Test
+//  public void builderCanSpecifyConfiguration() throws Exception {
+//    MockEventSender es = new MockEventSender();
+//    EventProcessorFactory epf = Components.sendEvents()
+//        .allAttributesPrivate(true)
+//        .capacity(3333)
+//        .diagnosticRecordingInterval(Duration.ofSeconds(480))
+//        .eventSender(senderFactory(es))
+//        .flushInterval(Duration.ofSeconds(99))
+//        .privateAttributes("name", "dogs")
+//        .userKeysCapacity(555)
+//        .userKeysFlushInterval(Duration.ofSeconds(101));
+//    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
+//      EventsConfiguration ec = ep.dispatcher.eventsConfig;
+//      assertThat(ec.allAttributesPrivate, is(true));
+//      assertThat(ec.capacity, equalTo(3333));
+//      assertThat(ec.diagnosticRecordingInterval, equalTo(Duration.ofSeconds(480)));
+//      assertThat(ec.eventSender, sameInstance((EventSender)es));
+//      assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
+//      assertThat(ec.privateAttributes, equalTo(ImmutableList.of(AttributeRef.fromLiteral("name"), AttributeRef.fromLiteral("dogs"))));
+//    }
+//  }
 
   @SuppressWarnings("unchecked")
   @Test
@@ -88,8 +77,8 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     Duration briefFlushInterval = Duration.ofMillis(50);
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).flushInterval(briefFlushInterval))) {
-      Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("event1", user, null, null);
-      Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("event2", user, null, null);
+      Event.Custom event1 = makeCustomEvent("event1", user, null, null);
+      Event.Custom event2 = makeCustomEvent("event2", user, null, null);
       ep.sendEvent(event1);
       ep.sendEvent(event2);
       
@@ -104,14 +93,14 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         assertThat(payload1, contains(isCustomEvent(event1), isCustomEvent(event2)));
       }
       
-      Event.Custom event3 = EventFactory.DEFAULT.newCustomEvent("event3", user, null, null);
+      Event.Custom event3 = makeCustomEvent("event3", user, null, null);
       ep.sendEvent(event3);
       assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event3)));
     }
     
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     double metric = 1.5;
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, metric);
+    Event.Custom ce = makeCustomEvent("eventkey", user, data, metric);
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(ce);
@@ -125,7 +114,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   @Test
   public void closingEventProcessorForcesSynchronousFlush() throws Exception {
     MockEventSender es = new MockEventSender();
-    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+    Event e = makeIdentifyEvent(user);
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(e);
@@ -196,7 +185,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   @Test
   public void customBaseUriIsPassedToEventSenderForAnalyticsEvents() throws Exception {
     MockEventSender es = new MockEventSender();
-    Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
+    Event e = makeIdentifyEvent(user);
     URI uri = URI.create("fake-uri");
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).eventsUri(uri))) {
@@ -219,7 +208,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     
     try (DefaultEventProcessor ep = makeEventProcessor(config)) {
       for (int i = 0; i < capacity + 2; i++) {
-        ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+        ep.sendEvent(makeIdentifyEvent(user));
         
         // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
         // delay to keep EventDispatcher from being overwhelmed
@@ -243,12 +232,12 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(config)) {
-      Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
+      Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
           simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
       ep.sendEvent(fe);
      
       for (int i = 0; i < capacity; i++) {
-        Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("event-key", user, LDValue.ofNull(), null);
+        Event.Custom ce = makeCustomEvent("event-key", user, LDValue.ofNull(), null);
         ep.sendEvent(ce);
         
         // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
@@ -270,14 +259,14 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     es.result = new EventSender.Result(false, true, null); // mustShutdown == true
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.sendEvent(makeIdentifyEvent(user));
       ep.flush();
       es.awaitRequest();
       
       // allow a little time for the event processor to pass the "must shut down" signal back from the sender
       Thread.sleep(50);
       
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.sendEvent(makeIdentifyEvent(user));
       ep.flush();
       es.expectNoRequests(Duration.ofMillis(100));
     }
@@ -290,7 +279,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.close();
       
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.sendEvent(makeIdentifyEvent(user));
       ep.flush();
       
       es.expectNoRequests(Duration.ofMillis(100));
@@ -304,14 +293,14 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       es.fakeError = new RuntimeException("sorry");
       
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.sendEvent(makeIdentifyEvent(user));
       ep.flush();
       es.awaitRequest();
       // MockEventSender now throws an unchecked exception up to EventProcessor's flush worker -
       // verify that a subsequent flush still works
       
       es.fakeError = null;
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+      ep.sendEvent(makeIdentifyEvent(user));
       ep.flush();
       es.awaitRequest();
     }
@@ -342,7 +331,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       for (int i = 0; i < 5; i++) {
-        ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(user));
+        ep.sendEvent(makeIdentifyEvent(user));
         ep.flush();
         es.awaitRequest(); // we don't need to see this payload, just throw it away
       }
@@ -355,20 +344,20 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       // Now, put an event in the buffer and try to flush again. In the current implementation (see
       // above) this payload gets queued in a holding area, and will be flushed after a worker
       // becomes free.
-      Event.Identify event1 = EventFactory.DEFAULT.newIdentifyEvent(testUser1);
+      Event.Identify event1 = makeIdentifyEvent(testUser1);
       ep.sendEvent(event1);
       ep.flush();
       
       // Do an additional flush with another event. This time, the event processor should see that there's
       // no space available and simply ignore the flush request. There's no way to verify programmatically
       // that this has happened, so just give it a short delay.
-      Event.Identify event2 = EventFactory.DEFAULT.newIdentifyEvent(testUser2);
+      Event.Identify event2 = makeIdentifyEvent(testUser2);
       ep.sendEvent(event2);
       ep.flush();
       Thread.sleep(100);
       
       // Enqueue a third event. The current payload should now be event2 + event3.
-      Event.Identify event3 = EventFactory.DEFAULT.newIdentifyEvent(testUser3);
+      Event.Identify event3 = makeIdentifyEvent(testUser3);
       ep.sendEvent(event3);
       
       // Now allow the workers to unblock

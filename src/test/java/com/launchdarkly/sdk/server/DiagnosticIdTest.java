@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.launchdarkly.sdk.server.DiagnosticId;
 
 import org.junit.Test;
 

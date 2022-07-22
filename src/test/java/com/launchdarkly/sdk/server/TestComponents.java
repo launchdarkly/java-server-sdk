@@ -2,6 +2,9 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDContext;
+import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DiagnosticStore.SdkDiagnosticParams;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
@@ -22,7 +25,6 @@ import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
-import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
@@ -96,11 +98,12 @@ public class TestComponents {
         allAttributesPrivate,
         0,
         null,
+        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL,
+        null,
         null,
         null,
         EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
-        privateAttributes,
-        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL
+        privateAttributes
         );
   }
 
@@ -125,16 +128,31 @@ public class TestComponents {
     volatile int flushCount;
   
     @Override
-    public void close() throws IOException {}
-  
-    @Override
-    public void sendEvent(Event e) {
-      events.add(e);
-    }
-  
-    @Override
     public void flush() {
       flushCount++;
+    }
+
+    @Override
+    public void close() throws IOException {
+    }
+
+    @Override
+    public void recordEvaluationEvent(LDContext context, String flagKey, int flagVersion, int variation, LDValue value,
+        EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey, boolean requireFullEvent,
+        Long debugEventsUntilDate) {
+      events.add(new Event.FeatureRequest(System.currentTimeMillis(), flagKey, context, flagVersion,
+          variation, value, defaultValue, reason, prerequisiteOfFlagKey, requireFullEvent, debugEventsUntilDate, false));
+    }
+
+    @Override
+    public void recordIdentifyEvent(LDContext context) {
+      events.add(new Event.Identify(System.currentTimeMillis(), context));
+    }
+
+
+    @Override
+    public void recordCustomEvent(LDContext context, String eventKey, LDValue data, Double metricValue) {
+      events.add(new Event.Custom(System.currentTimeMillis(), eventKey, context, data, metricValue));
     }
   }
 

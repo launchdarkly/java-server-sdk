@@ -1,6 +1,8 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableMap;
+import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
@@ -20,7 +22,6 @@ import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
 import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
 import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
-import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
@@ -70,16 +71,21 @@ abstract class ComponentsImpl {
     private NullEventProcessor() {}
     
     @Override
-    public void sendEvent(Event e) {
-    }
+    public void flush() {}
     
     @Override
-    public void flush() {
-    }
-    
+    public void close() {}
+
     @Override
-    public void close() {
-    }
+    public void recordEvaluationEvent(LDContext context, String flagKey, int flagVersion, int variation, LDValue value,
+        EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey, boolean requireFullEvent,
+        Long debugEventsUntilDate) {}
+
+    @Override
+    public void recordIdentifyEvent(LDContext context) {}
+
+    @Override
+    public void recordCustomEvent(LDContext context, String eventKey, LDValue data, Double metricValue) {}
   }
   
   static final class NullDataSourceFactory implements DataSourceFactory, DiagnosticDescription {
@@ -229,21 +235,18 @@ abstract class ComponentsImpl {
           "events",
           Loggers.MAIN
           );
-      return new DefaultEventProcessor(
-          new EventsConfiguration(
-              allAttributesPrivate,
-              capacity,
-              new ServerSideEventContextDeduplicator(userKeysCapacity, userKeysFlushInterval),
-              eventSender,
-              eventsUri,
-              flushInterval,
-              privateAttributes,
-              diagnosticRecordingInterval
-              ),
-          ClientContextImpl.get(context).sharedExecutor,
-          context.getThreadPriority(),
-          ClientContextImpl.get(context).diagnosticStore
+      EventsConfiguration eventsConfig = new EventsConfiguration(
+          allAttributesPrivate,
+          capacity,
+          new ServerSideEventContextDeduplicator(userKeysCapacity, userKeysFlushInterval),
+          diagnosticRecordingInterval,
+          ClientContextImpl.get(context).diagnosticStore,
+          eventSender,
+          eventsUri,
+          flushInterval,
+          privateAttributes
           );
+      return new DefaultEventProcessorWrapper(context, eventsConfig);
     }
     
     @Override

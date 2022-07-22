@@ -12,30 +12,33 @@ final class EventsConfiguration {
   final boolean allAttributesPrivate;
   final int capacity;
   final EventContextDeduplicator contextDeduplicator;
+  final Duration diagnosticRecordingInterval;
+  final DiagnosticStore diagnosticStore;
   final EventSender eventSender;
   final URI eventsUri;
   final Duration flushInterval;
   final ImmutableList<AttributeRef> privateAttributes;
-  final Duration diagnosticRecordingInterval;
   
   EventsConfiguration(
       boolean allAttributesPrivate,
       int capacity,
       EventContextDeduplicator contextDeduplicator,
+      Duration diagnosticRecordingInterval,
+      DiagnosticStore diagnosticStore,
       EventSender eventSender,
       URI eventsUri,
       Duration flushInterval,
-      Iterable<AttributeRef> privateAttributes,
-      Duration diagnosticRecordingInterval
+      Iterable<AttributeRef> privateAttributes
       ) {
     super();
     this.allAttributesPrivate = allAttributesPrivate;
     this.capacity = capacity;
     this.contextDeduplicator = contextDeduplicator;
+    this.diagnosticRecordingInterval = diagnosticRecordingInterval;
+    this.diagnosticStore = diagnosticStore;
     this.eventSender = eventSender;
     this.eventsUri = eventsUri;
     this.flushInterval = flushInterval;
     this.privateAttributes = privateAttributes == null ? ImmutableList.of() : ImmutableList.copyOf(privateAttributes);
-    this.diagnosticRecordingInterval = diagnosticRecordingInterval;
   }
 }

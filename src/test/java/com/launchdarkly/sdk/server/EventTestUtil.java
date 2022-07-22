@@ -7,8 +7,8 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
-import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 import com.launchdarkly.testhelpers.JsonTestValue;
@@ -37,8 +37,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 @SuppressWarnings("javadoc")
-public abstract class DefaultEventProcessorTestBase {
+public abstract class EventTestUtil {
   public static final String SDK_KEY = "SDK_KEY";
+  public static final long FAKE_TIME = 100000;
   public static final URI FAKE_URI = URI.create("http://fake");
   public static final LDContext user = LDContext.builder("userkey").name("Red").build();
   public static final Gson gson = new Gson();
@@ -57,18 +58,10 @@ public abstract class DefaultEventProcessorTestBase {
   }
 
   public static DefaultEventProcessor makeEventProcessor(EventsConfigurationBuilder ec) {
-    return makeEventProcessor(ec, null);
-  }
-
-  public static DefaultEventProcessor makeEventProcessor(
-      EventsConfigurationBuilder ec,
-      DiagnosticStore diagnosticAccumulator
-      ) {
     return new DefaultEventProcessor(
         ec.build(),
         TestComponents.sharedExecutor,
-        Thread.MAX_PRIORITY,
-        diagnosticAccumulator
+        Thread.MAX_PRIORITY
         );
   }
 
@@ -254,6 +247,40 @@ public abstract class DefaultEventProcessorTestBase {
         jsonProperty("count", (double)count)
     );
   }
+
+  public static Event.FeatureRequest makeFeatureRequestEvent(long timestamp, String flagKey,
+      LDContext context, int flagVersion, int variation, LDValue value, LDValue defaultValue,
+      EvaluationReason reason) {
+    return new Event.FeatureRequest(timestamp, flagKey, context, flagVersion,
+        variation, value, defaultValue, reason, null, false, null, false);
+  }
+
+  public static Event.FeatureRequest makeFeatureRequestEvent(FeatureFlag flag, LDContext context,
+      EvalResult result, LDValue defaultVal, boolean withReason) {
+    return new Event.FeatureRequest(FAKE_TIME, flag.getKey(), context, flag.getVersion(),
+        result.getVariationIndex(), result.getValue(), defaultVal, withReason ? result.getReason() : null,
+        null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(), false);
+  }
+  
+  public static Event.FeatureRequest makeFeatureRequestEvent(FeatureFlag flag, LDContext context,
+      EvalResult result, LDValue defaultVal) {
+    return makeFeatureRequestEvent(flag, context, result, defaultVal, false);
+  }
+  
+  public static Event.FeatureRequest makePrerequisiteEvent(FeatureFlag prereqFlag, LDContext context,
+      EvalResult result, FeatureFlag mainFlag) {
+    return new Event.FeatureRequest(FAKE_TIME, prereqFlag.getKey(), context, prereqFlag.getVersion(),
+        result.getVariationIndex(), result.getValue(), null, null,
+        mainFlag.getKey(), prereqFlag.isTrackEvents(), prereqFlag.getDebugEventsUntilDate(), false);
+  }
+  
+  public static Event.Identify makeIdentifyEvent(LDContext context) {
+    return new Event.Identify(FAKE_TIME, context);
+  }
+  
+  public static Event.Custom makeCustomEvent(String eventKey, LDContext context, LDValue data, Double metricValue) {
+    return new Event.Custom(FAKE_TIME, eventKey, context, data, metricValue);
+  }
   
   /**
    * This builder is similar to the public SDK configuration builder for events, except it is building
@@ -263,12 +290,16 @@ public abstract class DefaultEventProcessorTestBase {
    * by any behavior we're not specifically trying to test-- for instance, a long flush interval means
    * that flushes normally won't happen, and any test where we want flushes to happen will not rely on
    * the defaults.    
+   * <p>
+   * This is defined only in test code, instead of as an inner class of EventsConfiguration, because
+   * in non-test code there's only one place where we ever construct EventsConfiguration. 
    */
   public static class EventsConfigurationBuilder {
     private boolean allAttributesPrivate = false;
     private int capacity = 1000;
     private EventContextDeduplicator contextDeduplicator = null;
     private Duration diagnosticRecordingInterval = Duration.ofDays(1);
+    private DiagnosticStore diagnosticStore = null;
     private URI eventsUri = URI.create("not-valid");
     private Duration flushInterval = Duration.ofDays(1);
     private Set<AttributeRef> privateAttributes = new HashSet<>();
@@ -279,11 +310,12 @@ public abstract class DefaultEventProcessorTestBase {
           allAttributesPrivate,
           capacity,
           contextDeduplicator,
+          diagnosticRecordingInterval,
+          diagnosticStore,
           eventSender,
           eventsUri,
           flushInterval,
-          privateAttributes,
-          diagnosticRecordingInterval
+          privateAttributes
           );
     }
     
@@ -304,6 +336,11 @@ public abstract class DefaultEventProcessorTestBase {
     
     public EventsConfigurationBuilder diagnosticRecordingInterval(Duration diagnosticRecordingInterval) {
       this.diagnosticRecordingInterval = diagnosticRecordingInterval;
+      return this;
+    }
+    
+    public EventsConfigurationBuilder diagnosticStore(DiagnosticStore diagnosticStore) {
+      this.diagnosticStore = diagnosticStore;
       return this;
     }
     
@@ -362,7 +399,6 @@ public abstract class DefaultEventProcessorTestBase {
 
       @Override
       public void flush() {}
-    };
-  
+    };  
   }
 }

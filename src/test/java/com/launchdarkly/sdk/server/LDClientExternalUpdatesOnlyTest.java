@@ -34,7 +34,7 @@ public class LDClientExternalUpdatesOnlyTest {
         .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(DefaultEventProcessorWrapper.class, client.eventProcessor.getClass());
     }
   }
 
