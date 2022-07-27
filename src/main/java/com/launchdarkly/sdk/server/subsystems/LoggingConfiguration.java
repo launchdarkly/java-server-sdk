@@ -11,7 +11,18 @@ import java.time.Duration;
  * 
  * @since 5.0.0
  */
-public interface LoggingConfiguration {
+public final class LoggingConfiguration {
+  private final Duration logDataSourceOutageAsErrorAfter;
+
+  /**
+   * Creates an instance.
+   * 
+   * @param logDataSourceOutageAsErrorAfter see {@link #getLogDataSourceOutageAsErrorAfter()}
+   */
+  public LoggingConfiguration(Duration logDataSourceOutageAsErrorAfter) {
+    this.logDataSourceOutageAsErrorAfter = logDataSourceOutageAsErrorAfter;
+  }
+  
   /**
    * The time threshold, if any, after which the SDK will log a data source outage at {@code ERROR}
    * level instead of {@code WARN} level.
@@ -19,5 +30,7 @@ public interface LoggingConfiguration {
    * @return the error logging threshold, or null
    * @see LoggingConfigurationBuilder#logDataSourceOutageAsErrorAfter(java.time.Duration)
    */
-  Duration getLogDataSourceOutageAsErrorAfter();
+  public Duration getLogDataSourceOutageAsErrorAfter() {
+    return logDataSourceOutageAsErrorAfter;
+  }
 }

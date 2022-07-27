@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server.subsystems;
 
+import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 
@@ -23,28 +24,74 @@ import javax.net.ssl.X509TrustManager;
  * 
  * @since 4.13.0
  */
-public interface HttpConfiguration {
+public final class HttpConfiguration {
+  private final Duration connectTimeout;
+  private final ImmutableMap<String, String> defaultHeaders;
+  private final Proxy proxy;
+  private final HttpAuthentication proxyAuth;
+  private final Duration socketTimeout;
+  private final SocketFactory socketFactory;
+  private final SSLSocketFactory sslSocketFactory;
+  private final X509TrustManager trustManager;
+
+  /**
+   * Creates an instance.
+   * 
+   * @param connectTimeout see {@link #getConnectTimeout()}
+   * @param defaultHeaders see {@link #getDefaultHeaders()}
+   * @param proxy see {@link #getProxy()}
+   * @param proxyAuth see {@link #getProxyAuthentication()}
+   * @param socketTimeout see {@link #getSocketTimeout()}
+   * @param socketFactory see {@link #getSocketFactory()}
+   * @param sslSocketFactory see {@link #getSslSocketFactory()}
+   * @param trustManager see {@link #getTrustManager()}
+   */
+  public HttpConfiguration(
+      Duration connectTimeout,
+      ImmutableMap<String, String> defaultHeaders,
+      Proxy proxy,
+      HttpAuthentication proxyAuth,
+      Duration socketTimeout,
+      SocketFactory socketFactory,
+      SSLSocketFactory sslSocketFactory,
+      X509TrustManager trustManager) {
+    this.connectTimeout = connectTimeout == null ? HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT : connectTimeout;
+    this.defaultHeaders = defaultHeaders == null ? ImmutableMap.of() : defaultHeaders;
+    this.proxy = proxy;
+    this.proxyAuth = proxyAuth;
+    this.socketTimeout = socketTimeout == null ? HttpConfigurationBuilder.DEFAULT_SOCKET_TIMEOUT : socketTimeout;
+    this.socketFactory = socketFactory;
+    this.sslSocketFactory = sslSocketFactory;
+    this.trustManager = trustManager;
+  }
+
   /**
    * The connection timeout. This is the time allowed for the underlying HTTP client to connect
    * to the LaunchDarkly server.
    * 
    * @return the connection timeout; must not be null
    */
-  Duration getConnectTimeout();
+  public Duration getConnectTimeout() {
+    return connectTimeout;
+  }
 
   /**
    * The proxy configuration, if any.
    * 
    * @return a {@link Proxy} instance or null
    */
-  Proxy getProxy();
+  public Proxy getProxy() {
+    return proxy;
+  }
 
   /**
    * The authentication method to use for a proxy, if any. Ignored if {@link #getProxy()} is null.
    * 
    * @return an {@link HttpAuthentication} implementation or null
    */
-  HttpAuthentication getProxyAuthentication();
+  public HttpAuthentication getProxyAuthentication() {
+    return proxyAuth;
+  }
 
   /**
    * The socket timeout. This is the amount of time without receiving data on a connection that the
@@ -54,15 +101,17 @@ public interface HttpConfiguration {
    *  
    * @return the socket timeout; must not be null
    */
-  Duration getSocketTimeout();
+  public Duration getSocketTimeout() {
+    return socketTimeout;
+  }
   
   /**
    * The configured socket factory for insecure connections.
    *
    * @return a SocketFactory or null
    */
-  default SocketFactory getSocketFactory() {
-    return null;
+  public SocketFactory getSocketFactory() {
+    return socketFactory;
   }
 
   /**
@@ -70,14 +119,18 @@ public interface HttpConfiguration {
    * 
    * @return a SSLSocketFactory or null
    */
-  SSLSocketFactory getSslSocketFactory();
+  public SSLSocketFactory getSslSocketFactory() {
+    return sslSocketFactory;
+  }
 
   /**
    * The configured trust manager for secure connections, if custom certificate verification is needed.
    * 
    * @return an X509TrustManager or null
    */
-  X509TrustManager getTrustManager();
+  public X509TrustManager getTrustManager() {
+    return trustManager;
+  }
 
   /**
    * Returns the basic headers that should be added to all HTTP requests from SDK components to
@@ -85,5 +138,7 @@ public interface HttpConfiguration {
    * 
    * @return a list of HTTP header names and values
    */
-  Iterable<Map.Entry<String, String>> getDefaultHeaders();
+  public Iterable<Map.Entry<String, String>> getDefaultHeaders() {
+    return defaultHeaders.entrySet();
+  }
 }

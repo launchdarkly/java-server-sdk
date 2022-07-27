@@ -285,15 +285,15 @@ abstract class ComponentsImpl {
         Loggers.MAIN.info("Using proxy: {} {} authentication.", proxy, proxyAuth == null ? "without" : "with");
       }
       
-      return new HttpConfigurationImpl(
+      return new HttpConfiguration(
           connectTimeout,
+          headers.build(),
           proxy,
           proxyAuth,
           socketTimeout,
           socketFactory,
           sslSocketFactory,
-          trustManager,
-          headers.build()
+          trustManager
       );
     }
   }
@@ -343,7 +343,7 @@ abstract class ComponentsImpl {
   static final class LoggingConfigurationBuilderImpl extends LoggingConfigurationBuilder {
     @Override
     public LoggingConfiguration build(ClientContext clientContext) {
-      return new LoggingConfigurationImpl(logDataSourceOutageAsErrorAfter);
+      return new LoggingConfiguration(logDataSourceOutageAsErrorAfter);
     }
   }
 
