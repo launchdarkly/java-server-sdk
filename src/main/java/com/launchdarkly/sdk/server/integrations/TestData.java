@@ -12,9 +12,9 @@ import com.launchdarkly.sdk.server.DataModel;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
@@ -63,7 +63,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
  * @since 5.1.0
  * @see FileData
  */
-public final class TestData implements DataSourceFactory {
+public final class TestData implements ComponentConfigurer<DataSource> {
   private final Object lock = new Object();
   private final Map<String, ItemDescriptor> currentFlags = new HashMap<>();
   private final Map<String, FlagBuilder> currentBuilders = new HashMap<>();
@@ -167,13 +167,9 @@ public final class TestData implements DataSourceFactory {
     return this;
   }
   
-  /**
-   * Called internally by the SDK to associate this test data source with an {@code LDClient} instance.
-   * You do not need to call this method.
-   */
   @Override
-  public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-    DataSourceImpl instance = new DataSourceImpl(dataSourceUpdates);
+  public DataSource build(ClientContext context) {
+    DataSourceImpl instance = new DataSourceImpl(context.getDataSourceUpdateSink());
     synchronized (lock) {
       instances.add(instance);
     }
@@ -666,9 +662,9 @@ public final class TestData implements DataSourceFactory {
   }
   
   private final class DataSourceImpl implements DataSource {
-    final DataSourceUpdates updates;
+    final DataSourceUpdateSink updates;
     
-    DataSourceImpl(DataSourceUpdates updates) {
+    DataSourceImpl(DataSourceUpdateSink updates) {
       this.updates = updates;
     }
     

@@ -1,8 +1,8 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
-import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
@@ -55,9 +55,9 @@ public class DefaultEventSenderTest {
 
   @Test
   public void factoryCreatesDefaultSenderWithDefaultRetryDelay() throws Exception {
-    EventSenderFactory f = new DefaultEventSender.Factory();
+    ComponentConfigurer<EventSender> f = new DefaultEventSender.Factory();
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT);
-    try (EventSender es = f.createEventSender(context)) {
+    try (EventSender es = f.build(context)) {
       assertThat(es, isA(EventSender.class));
       assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
     }

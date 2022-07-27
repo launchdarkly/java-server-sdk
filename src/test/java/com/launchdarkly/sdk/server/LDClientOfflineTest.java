@@ -12,7 +12,7 @@ import java.io.IOException;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -68,7 +68,7 @@ public class LDClientOfflineTest {
     DataStore testDataStore = initedDataStore();
     LDConfig config = new LDConfig.Builder()
         .offline(true)
-        .dataStore(specificDataStore(testDataStore))
+        .dataStore(specificComponent(testDataStore))
         .build();
     upsertFlag(testDataStore, flagWithValue("key", LDValue.of(true)));
     try (LDClient client = new LDClient("SDK_KEY", config)) {

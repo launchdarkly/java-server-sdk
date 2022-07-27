@@ -18,8 +18,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificEventProcessor;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -35,8 +34,8 @@ public class LDClientEventTest {
   private DataStore dataStore = initedDataStore();
   private TestComponents.TestEventProcessor eventSink = new TestComponents.TestEventProcessor();
   private LDConfig config = new LDConfig.Builder()
-      .dataStore(specificDataStore(dataStore))
-      .events(specificEventProcessor(eventSink))
+      .dataStore(specificComponent(dataStore))
+      .events(specificComponent(eventSink))
       .dataSource(Components.externalUpdatesOnly())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);

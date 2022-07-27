@@ -18,7 +18,7 @@ public class LoggingConfigurationBuilderTest {
 
   @Test
   public void testDefaults() {
-    LoggingConfiguration c = Components.logging().createLoggingConfiguration(BASIC_CONTEXT);
+    LoggingConfiguration c = Components.logging().build(BASIC_CONTEXT);
     assertEquals(LoggingConfigurationBuilder.DEFAULT_LOG_DATA_SOURCE_OUTAGE_AS_ERROR_AFTER,
         c.getLogDataSourceOutageAsErrorAfter());
   }
@@ -27,12 +27,12 @@ public class LoggingConfigurationBuilderTest {
   public void logDataSourceOutageAsErrorAfter() {
     LoggingConfiguration c1 = Components.logging()
         .logDataSourceOutageAsErrorAfter(Duration.ofMinutes(9))
-        .createLoggingConfiguration(BASIC_CONTEXT);
+        .build(BASIC_CONTEXT);
     assertEquals(Duration.ofMinutes(9), c1.getLogDataSourceOutageAsErrorAfter());
 
     LoggingConfiguration c2 = Components.logging()
         .logDataSourceOutageAsErrorAfter(null)
-        .createLoggingConfiguration(BASIC_CONTEXT);
+        .build(BASIC_CONTEXT);
     assertNull(c2.getLogDataSourceOutageAsErrorAfter());
   }
 }

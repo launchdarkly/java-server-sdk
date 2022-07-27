@@ -1,16 +1,10 @@
 package com.launchdarkly.sdk.server.integrations;
 
-import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-
 import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -19,6 +13,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 /**
  * A configurable test class for all implementations of {@link BigSegmentStore}.
@@ -39,7 +39,7 @@ public abstract class BigSegmentStoreTestBase {
 
   private BigSegmentStore makeEmptyStore() throws Exception {
     LDConfig config = new LDConfig.Builder().build();
-    BigSegmentStore store = makeStore(prefix).createBigSegmentStore(clientContext("sdk-key", config));
+    BigSegmentStore store = makeStore(prefix).build(clientContext("sdk-key", config));
     try {
       clearData(prefix);
     } catch (RuntimeException ex) {
@@ -142,7 +142,7 @@ public abstract class BigSegmentStoreTestBase {
    * @param prefix the database prefix
    * @return the configured factory
    */
-  protected abstract BigSegmentStoreFactory makeStore(String prefix);
+  protected abstract ComponentConfigurer<BigSegmentStore> makeStore(String prefix);
 
   /**
    * Test classes should override this method to clear all data from the underlying data store for

@@ -53,7 +53,7 @@ public class DefaultFeatureRequestorTest {
   }
 
   private HttpConfiguration makeHttpConfig(LDConfig config) {
-    return config.httpConfigFactory.createHttpConfiguration(new ClientContext(sdkKey));
+    return config.http.build(new ClientContext(sdkKey));
   }
 
   private void verifyExpectedData(FullDataSet<ItemDescriptor> data) {

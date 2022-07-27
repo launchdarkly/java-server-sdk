@@ -7,7 +7,7 @@ import java.time.Duration;
 /**
  * Encapsulates the SDK's general logging configuration.
  * <p>
- * Use {@link LoggingConfigurationFactory} to construct an instance.
+ * Use {@link LoggingConfigurationBuilder} to construct an instance.
  * 
  * @since 5.0.0
  */

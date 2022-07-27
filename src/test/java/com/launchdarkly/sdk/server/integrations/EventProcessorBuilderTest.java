@@ -3,7 +3,8 @@ package com.launchdarkly.sdk.server.integrations;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.junit.Test;
 
@@ -61,12 +62,12 @@ public class EventProcessorBuilderTest {
   
   @Test
   public void eventSender() {
-    assertNull(sendEvents().eventSenderFactory);
+    assertNull(sendEvents().eventSenderConfigurer);
     
-    EventSenderFactory f = (ctx) -> null;
-    assertSame(f, sendEvents().eventSender(f).eventSenderFactory);
+    ComponentConfigurer<EventSender> f = (ctx) -> null;
+    assertSame(f, sendEvents().eventSender(f).eventSenderConfigurer);
     
-    assertNull(sendEvents().eventSender(f).eventSender(null).eventSenderFactory);
+    assertNull(sendEvents().eventSender(f).eventSender(null).eventSenderConfigurer);
   }
   
   @Test

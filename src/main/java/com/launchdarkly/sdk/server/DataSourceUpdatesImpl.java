@@ -9,7 +9,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.StatusListener;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
@@ -46,7 +46,7 @@ import static java.util.Collections.emptyMap;
  * 
  * @since 4.11.0
  */
-final class DataSourceUpdatesImpl implements DataSourceUpdates {
+final class DataSourceUpdatesImpl implements DataSourceUpdateSink {
   private final DataStore store;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier;
   private final EventBroadcasterImpl<StatusListener, Status> dataSourceStatusNotifier;

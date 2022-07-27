@@ -6,12 +6,10 @@ import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
-import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 
 import org.easymock.Capture;
 import org.easymock.EasyMock;
@@ -30,13 +28,10 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
 import static com.launchdarkly.sdk.server.TestComponents.failedDataSource;
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataSource;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificEventProcessor;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.isA;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -222,7 +217,8 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void sameDiagnosticAccumulatorPassedToFactoriesWhenSupported() throws IOException {
-    DataSourceFactory mockDataSourceFactory = createStrictMock(DataSourceFactory.class);
+    @SuppressWarnings("unchecked")
+    ComponentConfigurer<DataSource> mockDataSourceFactory = createStrictMock(ComponentConfigurer.class);
 
     LDConfig config = new LDConfig.Builder()
             .serviceEndpoints(Components.serviceEndpoints().events(URI.create("http://fake-host")))
@@ -231,8 +227,7 @@ public class LDClientTest extends EasyMockSupport {
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
-        isA(DataSourceUpdates.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -246,7 +241,8 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void nullDiagnosticAccumulatorPassedToFactoriesWhenOptedOut() throws IOException {
-    DataSourceFactory mockDataSourceFactory = createStrictMock(DataSourceFactory.class);
+    @SuppressWarnings("unchecked")
+    ComponentConfigurer<DataSource> mockDataSourceFactory = createStrictMock(ComponentConfigurer.class);
 
     LDConfig config = new LDConfig.Builder()
             .dataSource(mockDataSourceFactory)
@@ -255,8 +251,7 @@ public class LDClientTest extends EasyMockSupport {
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
-        isA(DataSourceUpdates.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -272,8 +267,10 @@ public class LDClientTest extends EasyMockSupport {
     EventProcessor mockEventProcessor = createStrictMock(EventProcessor.class);
     mockEventProcessor.close();
     EasyMock.expectLastCall().anyTimes();
-    EventProcessorFactory mockEventProcessorFactory = createStrictMock(EventProcessorFactory.class);
-    DataSourceFactory mockDataSourceFactory = createStrictMock(DataSourceFactory.class);
+    @SuppressWarnings("unchecked")
+    ComponentConfigurer<EventProcessor> mockEventProcessorFactory = createStrictMock(ComponentConfigurer.class);
+    @SuppressWarnings("unchecked")
+    ComponentConfigurer<DataSource> mockDataSourceFactory = createStrictMock(ComponentConfigurer.class);
 
     LDConfig config = new LDConfig.Builder()
             .events(mockEventProcessorFactory)
@@ -283,9 +280,8 @@ public class LDClientTest extends EasyMockSupport {
 
     Capture<ClientContext> capturedEventContext = Capture.newInstance();
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockEventProcessorFactory.createEventProcessor(capture(capturedEventContext))).andReturn(mockEventProcessor);
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
-        isA(DataSourceUpdates.class))).andReturn(failedDataSource());
+    expect(mockEventProcessorFactory.build(capture(capturedEventContext))).andReturn(mockEventProcessor);
+    expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
 
     replayAll();
 
@@ -379,7 +375,7 @@ public class LDClientTest extends EasyMockSupport {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWait(Duration.ZERO)
-            .dataStore(specificDataStore(testDataStore));
+            .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(true).times(1);
     replayAll();
@@ -396,7 +392,7 @@ public class LDClientTest extends EasyMockSupport {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWait(Duration.ZERO)
-            .dataStore(specificDataStore(testDataStore));
+            .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(true).times(1);
     replayAll();
@@ -412,7 +408,7 @@ public class LDClientTest extends EasyMockSupport {
     DataStore testDataStore = new InMemoryDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWait(Duration.ZERO)
-            .dataStore(specificDataStore(testDataStore));
+            .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
     replayAll();
@@ -429,7 +425,7 @@ public class LDClientTest extends EasyMockSupport {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWait(Duration.ZERO)
-            .dataStore(specificDataStore(testDataStore));
+            .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
     replayAll();
@@ -446,7 +442,7 @@ public class LDClientTest extends EasyMockSupport {
     DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
     LDConfig.Builder config = new LDConfig.Builder()
         .startWait(Duration.ZERO)
-        .dataStore(specificDataStore(badStore));
+        .dataStore(specificComponent(badStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
     replayAll();
@@ -506,8 +502,8 @@ public class LDClientTest extends EasyMockSupport {
   }
   
   private LDClient createMockClient(LDConfig.Builder config) {
-    config.dataSource(specificDataSource(dataSource));
-    config.events(specificEventProcessor(eventProcessor));
+    config.dataSource(specificComponent(dataSource));
+    config.events(specificComponent(eventProcessor));
     return new LDClient(SDK_KEY, config.build());
   }
 }

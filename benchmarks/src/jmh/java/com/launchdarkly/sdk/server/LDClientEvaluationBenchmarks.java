@@ -13,7 +13,7 @@ import org.openjdk.jmh.annotations.State;
 import java.util.Random;
 
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestValues.BOOLEAN_FLAG_KEY;
 import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_VALUE_COUNT;
@@ -51,7 +51,7 @@ public class LDClientEvaluationBenchmarks {
       }
 
       LDConfig config = new LDConfig.Builder()
-        .dataStore(specificDataStore(dataStore))
+        .dataStore(specificComponent(dataStore))
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();
