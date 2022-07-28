@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
@@ -168,7 +167,7 @@ final class DefaultEventSender implements EventSender {
     @Override
     public EventSender createEventSender(ClientContext clientContext) {
       return new DefaultEventSender(clientContext.getHttp(), DefaultEventSender.DEFAULT_RETRY_DELAY,
-          LDLogger.withAdapter(Logs.none(), ""));
+          clientContext.getBaseLogger().subLogger(Loggers.EVENTS_LOGGER_NAME));
     }
   }
 }

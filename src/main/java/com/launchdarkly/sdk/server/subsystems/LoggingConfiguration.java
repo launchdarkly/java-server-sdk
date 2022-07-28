@@ -25,12 +25,14 @@ public interface LoggingConfiguration {
   /**
    * Returns the configured base logger name.
    * @return the logger name
+   * @since 5.10.0
    */
   String getBaseLoggerName();
   
   /**
    * Returns the configured logging adapter.
    * @return the logging adapter
+   * @since 5.10.0
    */
   LDLogAdapter getLogAdapter();
 }

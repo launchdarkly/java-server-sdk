@@ -357,8 +357,8 @@ public final class LDClient implements LDClientInterface {
     try {
       flags = dataStore.getAll(FEATURES);
     } catch (Exception e) {
-      evaluationLogger.error("Exception from data store when evaluating all flags: {}", e.toString());
-      evaluationLogger.debug(e.toString(), e);
+      evaluationLogger.error("Exception from data store when evaluating all flags: {}", LogValues.exceptionSummary(e));
+      evaluationLogger.debug(e.toString(), LogValues.exceptionTrace(e));
       return builder.valid(false).build();
     }
     
@@ -377,8 +377,9 @@ public final class LDClient implements LDClientInterface {
         // events either. 
         builder.addFlag(flag, result);
       } catch (Exception e) {
-        evaluationLogger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
-        evaluationLogger.debug(e.toString(), e);
+        evaluationLogger.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(),
+            LogValues.exceptionSummary(e));
+        evaluationLogger.debug(e.toString(), LogValues.exceptionTrace(e));
         builder.addFlag(flag, EvalResult.of(LDValue.ofNull(), NO_VARIATION, EvaluationReason.exception(e)));
       }
     }

@@ -79,7 +79,7 @@ final class ClientContextImpl extends ClientContext {
         diagnosticInitEvent
         );
   }
-  
+
   /**
    * This mechanism is a convenience for internal components to access the package-private fields of the
    * context if it is a ClientContextImpl, and to receive null values for those fields if it is not.

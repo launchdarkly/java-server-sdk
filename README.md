@@ -27,9 +27,11 @@ Refer to the [SDK reference guide](https://docs.launchdarkly.com/sdk/server-side
 
 ## Logging
 
-By default, the LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). SLF4J has its own configuration mechanisms for determining where output will go, and filtering by level and/or logger name. For an example of using SLF4J with a simple console logging configuration, check out the [hello-java](https://github.com/launchdarkly/hello-java) project.
+By default, the LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). SLF4J has its own configuration mechanisms for determining where output will go, and filtering by level and/or logger name.
 
 The SDK can also be configured to use other adapters from the [com.launchdarkly.logging](https://github.com/launchdarkly/java-logging) facade instead of SLF4J. See `LoggingConfigurationBuilder`. This allows the logging behavior to be completely determined by the application, rather than by external SLF4J configuration.
+
+For an example of using the default SLF4J behavior with a simple console logging configuration, check out the [`slf4j-logging` branch](https://github.com/launchdarkly/hello-java/tree/slf4j-logging) of the [`hello-java`](https://github.com/launchdarkly/hello-java) project. The [main branch](https://github.com/launchdarkly/hello-java) of `hello-java` uses console logging that is programmatically configured without SLF4J.
 
 All loggers are namespaced under `com.launchdarkly`, if you are using name-based filtering.
 
