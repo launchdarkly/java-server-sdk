@@ -1,5 +1,10 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import com.launchdarkly.logging.LDLogLevel;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LDSLF4J;
+import com.launchdarkly.logging.LogCapture;
+import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
@@ -8,6 +13,9 @@ import org.junit.Test;
 
 import java.time.Duration;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -34,5 +42,41 @@ public class LoggingConfigurationBuilderTest {
         .logDataSourceOutageAsErrorAfter(null)
         .createLoggingConfiguration(BASIC_CONFIG);
     assertNull(c2.getLogDataSourceOutageAsErrorAfter());
+  }
+  
+  @Test
+  public void defaultLogAdapterIsSLF4J() {
+    LoggingConfiguration c = Components.logging()
+        .createLoggingConfiguration(BASIC_CONFIG);
+    assertThat(c.getLogAdapter(), sameInstance(LDSLF4J.adapter()));
+  }
+  
+  @Test
+  public void canSetLogAdapterAndLevel() {
+    LogCapture logSink = Logs.capture();
+    LoggingConfiguration c = Components.logging()
+        .adapter(logSink)
+        .level(LDLogLevel.WARN)
+        .createLoggingConfiguration(BASIC_CONFIG);
+    LDLogger logger = LDLogger.withAdapter(c.getLogAdapter(), "");
+    logger.debug("message 1");
+    logger.info("message 2");
+    logger.warn("message 3");
+    logger.error("message 4");
+    assertThat(logSink.getMessageStrings(), contains("WARN:message 3", "ERROR:message 4"));
+  }
+
+  @Test
+  public void defaultLevelIsInfo() {
+    LogCapture logSink = Logs.capture();
+    LoggingConfiguration c = Components.logging()
+        .adapter(logSink)
+        .createLoggingConfiguration(BASIC_CONFIG);
+    LDLogger logger = LDLogger.withAdapter(c.getLogAdapter(), "");
+    logger.debug("message 1");
+    logger.info("message 2");
+    logger.warn("message 3");
+    logger.error("message 4");
+    assertThat(logSink.getMessageStrings(), contains("INFO:message 2", "WARN:message 3", "ERROR:message 4"));
   }
 }

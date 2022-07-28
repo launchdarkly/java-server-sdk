@@ -377,13 +377,11 @@ abstract class ComponentsImpl {
     @Override
     public LoggingConfiguration createLoggingConfiguration(BasicConfiguration basicConfiguration) {
       LDLogAdapter adapter = logAdapter == null ? LDSLF4J.adapter() : logAdapter;
-      LDLogAdapter filteredAdapter;
-      if (adapter == LDSLF4J.adapter() || adapter == Logs.toJavaUtilLogging()) {
-        filteredAdapter = adapter; // ignore level setting because these frameworks have their own config
-      } else {
-        filteredAdapter = Logs.level(adapter,
+      LDLogAdapter filteredAdapter = Logs.level(adapter,
           minimumLevel == null ? LDLogLevel.INFO : minimumLevel);
-      }
+      // If the adapter is for a framework like SLF4J or java.util.logging that has its own external
+      // configuration system, then calling Logs.level here has no effect and filteredAdapter will be
+      // just the same as adapter.
       String name = baseName == null ? Loggers.BASE_LOGGER_NAME : baseName;
       return new LoggingConfigurationImpl(name, filteredAdapter, logDataSourceOutageAsErrorAfter);
     }
