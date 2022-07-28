@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
 
 import java.time.Instant;
 import java.util.regex.Pattern;
@@ -44,7 +45,7 @@ abstract class EvaluatorOperators {
       DataModel.Operator op,
       LDValue userValue,
       LDValue clauseValue,
-      EvaluatorPreprocessing.ClauseExtra.ValueExtra preprocessed
+      ClausePreprocessed.ValueData preprocessed
       ) {
     switch (op) {
     case in:
@@ -116,7 +117,7 @@ abstract class EvaluatorOperators {
       ComparisonOp op,
       LDValue userValue,
       LDValue clauseValue,
-      EvaluatorPreprocessing.ClauseExtra.ValueExtra preprocessed
+      ClausePreprocessed.ValueData preprocessed
       ) {
     // If preprocessed is non-null, it means we've already tried to parse the clause value as a date/time,
     // in which case if preprocessed.parsedDate is null it was not a valid date/time.
@@ -135,7 +136,7 @@ abstract class EvaluatorOperators {
       ComparisonOp op,
       LDValue userValue,
       LDValue clauseValue,
-      EvaluatorPreprocessing.ClauseExtra.ValueExtra preprocessed
+      ClausePreprocessed.ValueData preprocessed
       ) {
     // If preprocessed is non-null, it means we've already tried to parse the clause value as a version,
     // in which case if preprocessed.parsedSemVer is null it was not a valid version.

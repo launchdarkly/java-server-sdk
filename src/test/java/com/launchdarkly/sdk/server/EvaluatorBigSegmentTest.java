@@ -3,13 +3,13 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.Evaluator.EvalResult;
 
 import org.junit.Test;
 
 import java.util.Collections;
 
 import static com.launchdarkly.sdk.server.Evaluator.makeBigSegmentRef;
+import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingUser;
@@ -35,7 +35,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
     DataModel.FeatureFlag flag = booleanFlagWithClauses("key", clauseMatchingSegment(segment));
     Evaluator evaluator = evaluatorBuilder().withStoredSegments(segment).withBigSegmentQueryResult(testUser.getKey(), null).build();
 
-    EvalResult result = evaluator.evaluate(flag, testUser, EventFactory.DEFAULT);
+    EvalResult result = evaluator.evaluate(flag, testUser, expectNoPrerequisiteEvals());
     assertEquals(LDValue.of(false), result.getValue());
     assertEquals(BigSegmentsStatus.NOT_CONFIGURED, result.getReason().getBigSegmentsStatus());
   }
@@ -47,7 +47,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
     DataModel.FeatureFlag flag = booleanFlagWithClauses("key", clauseMatchingSegment(segment));
     Evaluator evaluator = evaluatorBuilder().withStoredSegments(segment).build();
 
-    EvalResult result = evaluator.evaluate(flag, testUser, EventFactory.DEFAULT);
+    EvalResult result = evaluator.evaluate(flag, testUser, expectNoPrerequisiteEvals());
     assertEquals(LDValue.of(false), result.getValue());
     assertEquals(BigSegmentsStatus.NOT_CONFIGURED, result.getReason().getBigSegmentsStatus());
   }
@@ -61,7 +61,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
     queryResult.membership = createMembershipFromSegmentRefs(Collections.singleton(makeBigSegmentRef(segment)), null);
     Evaluator evaluator = evaluatorBuilder().withStoredSegments(segment).withBigSegmentQueryResult(testUser.getKey(), queryResult).build();
 
-    EvalResult result = evaluator.evaluate(flag, testUser, EventFactory.DEFAULT);
+    EvalResult result = evaluator.evaluate(flag, testUser, expectNoPrerequisiteEvals());
     assertEquals(LDValue.of(true), result.getValue());
     assertEquals(BigSegmentsStatus.HEALTHY, result.getReason().getBigSegmentsStatus());
   }
@@ -79,7 +79,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
     queryResult.membership = createMembershipFromSegmentRefs(null, null);
     Evaluator evaluator = evaluatorBuilder().withStoredSegments(segment).withBigSegmentQueryResult(testUser.getKey(), queryResult).build();
 
-    EvalResult result = evaluator.evaluate(flag, testUser, EventFactory.DEFAULT);
+    EvalResult result = evaluator.evaluate(flag, testUser, expectNoPrerequisiteEvals());
     assertEquals(LDValue.of(true), result.getValue());
     assertEquals(BigSegmentsStatus.HEALTHY, result.getReason().getBigSegmentsStatus());
   }
@@ -97,7 +97,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
     queryResult.membership = createMembershipFromSegmentRefs(null, Collections.singleton(makeBigSegmentRef(segment)));
     Evaluator evaluator = evaluatorBuilder().withStoredSegments(segment).withBigSegmentQueryResult(testUser.getKey(), queryResult).build();
 
-    EvalResult result = evaluator.evaluate(flag, testUser, EventFactory.DEFAULT);
+    EvalResult result = evaluator.evaluate(flag, testUser, expectNoPrerequisiteEvals());
     assertEquals(LDValue.of(false), result.getValue());
     assertEquals(BigSegmentsStatus.HEALTHY, result.getReason().getBigSegmentsStatus());
   }
@@ -111,7 +111,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
     queryResult.membership = createMembershipFromSegmentRefs(Collections.singleton(makeBigSegmentRef(segment)), null);
     Evaluator evaluator = evaluatorBuilder().withStoredSegments(segment).withBigSegmentQueryResult(testUser.getKey(), queryResult).build();
 
-    EvalResult result = evaluator.evaluate(flag, testUser, EventFactory.DEFAULT);
+    EvalResult result = evaluator.evaluate(flag, testUser, expectNoPrerequisiteEvals());
     assertEquals(LDValue.of(true), result.getValue());
     assertEquals(BigSegmentsStatus.STALE, result.getReason().getBigSegmentsStatus());
   }
@@ -141,7 +141,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
     replay(mockGetters);
 
     Evaluator evaluator = new Evaluator(mockGetters, testLogger);
-    EvalResult result = evaluator.evaluate(flag, testUser, EventFactory.DEFAULT);
+    EvalResult result = evaluator.evaluate(flag, testUser, expectNoPrerequisiteEvals());
     assertEquals(LDValue.of(true), result.getValue());
     assertEquals(BigSegmentsStatus.HEALTHY, result.getReason().getBigSegmentsStatus());
   }

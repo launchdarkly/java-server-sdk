@@ -1,35 +1,56 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.gson.Gson;
-import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.server.DataModel;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.server.DataModel.Clause;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Operator;
+import com.launchdarkly.sdk.server.DataModel.Prerequisite;
+import com.launchdarkly.sdk.server.DataModel.Rule;
+import com.launchdarkly.sdk.server.DataModel.Target;
 
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+import static com.launchdarkly.sdk.server.ModelBuilders.clause;
+import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.target;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertNotNull;
 
 @SuppressWarnings("javadoc")
 public class FlagModelDeserializationTest {
   private static final Gson gson = new Gson();
   
+  // The details of the preprocessed data are verified by DataModelPreprocessingTest; here we're
+  // just verifying that the preprocessing is actually being done whenever we deserialize a flag.
   @Test
-  public void precomputedReasonsAreAddedToPrerequisites() {
-    String flagJson = "{\"key\":\"flagkey\",\"prerequisites\":[{\"key\":\"prereq0\"},{\"key\":\"prereq1\"}]}";
-    DataModel.FeatureFlag flag = gson.fromJson(flagJson, DataModel.FeatureFlag.class);
-    assertNotNull(flag.getPrerequisites());
-    assertEquals(2, flag.getPrerequisites().size());
-    assertEquals(EvaluationReason.prerequisiteFailed("prereq0"), flag.getPrerequisites().get(0).getPrerequisiteFailedReason());
-    assertEquals(EvaluationReason.prerequisiteFailed("prereq1"), flag.getPrerequisites().get(1).getPrerequisiteFailedReason());
-  }
-  
-  @Test
-  public void precomputedReasonsAreAddedToRules() {
-    String flagJson = "{\"key\":\"flagkey\",\"rules\":[{\"id\":\"ruleid0\"},{\"id\":\"ruleid1\"}]}";
-    DataModel.FeatureFlag flag = gson.fromJson(flagJson, DataModel.FeatureFlag.class);
-    assertNotNull(flag.getRules());
-    assertEquals(2, flag.getRules().size());
-    assertEquals(EvaluationReason.ruleMatch(0, "ruleid0"), flag.getRules().get(0).getRuleMatchReason());
-    assertEquals(EvaluationReason.ruleMatch(1, "ruleid1"), flag.getRules().get(1).getRuleMatchReason());
+  public void preprocessingIsDoneOnDeserialization() {
+    FeatureFlag originalFlag = flagBuilder("flagkey")
+        .variations("a", "b")
+        .prerequisites(new Prerequisite("abc", 0))
+        .targets(target(0, "x"))
+        .rules(ruleBuilder().clauses(
+            clause(UserAttribute.KEY, Operator.in, LDValue.of("x"), LDValue.of("y"))
+            ).build())
+        .build();
+    String flagJson = JsonHelpers.serialize(originalFlag);
+
+    FeatureFlag flag = gson.fromJson(flagJson, FeatureFlag.class);
+    assertNotNull(flag.preprocessed);
+    for (Prerequisite p: flag.getPrerequisites()) {
+      assertNotNull(p.preprocessed);
+    }
+    for (Target t: flag.getTargets()) {
+      assertNotNull(t.preprocessed);
+    }
+    for (Rule r: flag.getRules()) {
+      assertThat(r.preprocessed, notNullValue());
+      for (Clause c: r.getClauses()) {
+        assertThat(c.preprocessed, notNullValue());
+      }
+    }
   }
 }

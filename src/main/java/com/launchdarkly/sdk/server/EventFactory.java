@@ -5,7 +5,6 @@ import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.Event.Custom;
 import com.launchdarkly.sdk.server.interfaces.Event.FeatureRequest;
@@ -23,6 +22,7 @@ abstract class EventFactory {
       LDValue value,
       int variationIndex,
       EvaluationReason reason,
+      boolean forceReasonTracking,
       LDValue defaultValue,
       String prereqOf
       );
@@ -43,15 +43,16 @@ abstract class EventFactory {
   final Event.FeatureRequest newFeatureRequestEvent(
       DataModel.FeatureFlag flag,
       LDUser user,
-      Evaluator.EvalResult details,
+      EvalResult result,
       LDValue defaultValue
       ) {
     return newFeatureRequestEvent(
         flag,
         user,
-        details == null ? null : details.getValue(),
-        details == null ? -1 : details.getVariationIndex(),
-        details == null ? null : details.getReason(),
+        result == null ? null : result.getValue(),
+        result == null ? -1 : result.getVariationIndex(),
+        result == null ? null : result.getReason(),
+        result != null && result.isForceReasonTracking(),
         defaultValue,
         null
         );
@@ -69,6 +70,7 @@ abstract class EventFactory {
         defaultVal,
         -1,
         EvaluationReason.error(errorKind),
+        false,
         defaultVal,
         null
         );
@@ -77,15 +79,16 @@ abstract class EventFactory {
   final Event.FeatureRequest newPrerequisiteFeatureRequestEvent(
       DataModel.FeatureFlag prereqFlag,
       LDUser user,
-      Evaluator.EvalResult details,
+      EvalResult result,
       DataModel.FeatureFlag prereqOf
       ) {
     return newFeatureRequestEvent(
         prereqFlag,
         user,
-        details == null ? null : details.getValue(),
-        details == null ? -1 : details.getVariationIndex(),
-        details == null ? null : details.getReason(),
+        result == null ? null : result.getValue(),
+        result == null ? -1 : result.getVariationIndex(),
+        result == null ? null : result.getReason(),
+        result != null && result.isForceReasonTracking(),
         LDValue.ofNull(),
         prereqOf.getKey()
     );
@@ -118,9 +121,9 @@ abstract class EventFactory {
     }
   
     @Override
-    final Event.FeatureRequest newFeatureRequestEvent(DataModel.FeatureFlag flag, LDUser user, LDValue value,
-        int variationIndex, EvaluationReason reason, LDValue defaultValue, String prereqOf){
-      boolean requireExperimentData = isExperiment(flag, reason);
+    final Event.FeatureRequest newFeatureRequestEvent(DataModel.FeatureFlag flag, LDUser user,
+        LDValue value, int variationIndex, EvaluationReason reason, boolean forceReasonTracking,
+        LDValue defaultValue, String prereqOf){
       return new Event.FeatureRequest(
           timestampFn.get(),
           flag.getKey(),
@@ -129,9 +132,9 @@ abstract class EventFactory {
           variationIndex,
           value,
           defaultValue,
-          (requireExperimentData || includeReasons) ? reason : null,
+          (forceReasonTracking || includeReasons) ? reason : null,
           prereqOf,
-          requireExperimentData || flag.isTrackEvents(),
+          forceReasonTracking || flag.isTrackEvents(),
           flag.getDebugEventsUntilDate() == null ? 0 : flag.getDebugEventsUntilDate().longValue(),
           false
       );
@@ -181,7 +184,7 @@ abstract class EventFactory {
 
     @Override
     final FeatureRequest newFeatureRequestEvent(FeatureFlag flag, LDUser user, LDValue value, int variationIndex,
-        EvaluationReason reason, LDValue defaultValue, String prereqOf) {
+        EvaluationReason reason, boolean inExperiment, LDValue defaultValue, String prereqOf) {
       return null;
     }
 
@@ -203,34 +206,6 @@ abstract class EventFactory {
     @Override
     Event.AliasEvent newAliasEvent(LDUser user, LDUser previousUser) {
       return null;
-    }
-  }
-  
-  static boolean isExperiment(DataModel.FeatureFlag flag, EvaluationReason reason) {
-    if (reason == null) {
-      // doesn't happen in real life, but possible in testing
-      return false;
-    }
-
-    // If the reason says we're in an experiment, we are. Otherwise, apply
-    // the legacy rule exclusion logic.
-    if (reason.isInExperiment()) return true;
-    
-    switch (reason.getKind()) { 
-    case FALLTHROUGH:
-      return flag.isTrackEventsFallthrough();
-    case RULE_MATCH:
-      int ruleIndex = reason.getRuleIndex();
-      // Note, it is OK to rely on the rule index rather than the unique ID in this context, because the
-      // FeatureFlag that is passed to us here *is* necessarily the same version of the flag that was just
-      // evaluated, so we cannot be out of sync with its rule list.
-      if (ruleIndex >= 0 && ruleIndex < flag.getRules().size()) {
-        DataModel.Rule rule = flag.getRules().get(ruleIndex);
-        return rule.isTrackEvents();
-      }
-      return false;
-    default:
-      return false;
     }
   }
 }
