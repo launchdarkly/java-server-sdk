@@ -361,7 +361,10 @@ public final class LDClient implements LDClientInterface {
         continue;
       }
       try {
-        EvalResult result = evaluator.evaluate(flag, user, prereqEvalsDefault);
+        EvalResult result = evaluator.evaluate(flag, user, null);
+        // Note: the null parameter to evaluate() is for the PrerequisiteEvaluationSink; allFlagsState should
+        // not generate evaluation events, so we don't want the evaluator to generate any prerequisite evaluation
+        // events either. 
         builder.addFlag(flag, result);
       } catch (Exception e) {
         Loggers.EVALUATION.error("Exception caught for feature flag \"{}\" when evaluating all flags: {}", entry.getKey(), e.toString());
