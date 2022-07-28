@@ -329,7 +329,7 @@ javadoc {
     // the correct external URLs
     if (options instanceof StandardJavadocDocletOptions) {
         (options as StandardJavadocDocletOptions).links(
-            "https://javadoc.io/doc/com.launchdarkly/launchdarkly-logging/1.1.0"
+            "https://javadoc.io/doc/com.launchdarkly/launchdarkly-logging/${versions.launchdarklyLogging}"
         )
     }
 }
