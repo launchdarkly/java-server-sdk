@@ -1,6 +1,8 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableList;
+import com.launchdarkly.sdk.server.TestComponents;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -48,15 +50,10 @@ public class PersistentDataStoreGenericTest extends PersistentDataStoreTestBase<
   }
 
   @Override
-  protected MockPersistentDataStore makeStore() {
-    return makeStoreWithPrefix("");
-  }
-
-  @Override
-  protected MockPersistentDataStore makeStoreWithPrefix(String prefix) {
+  protected PersistentDataStoreFactory buildStore(String prefix) {
     MockPersistentDataStore store = new MockPersistentDataStore(sharedData, prefix);
     store.persistOnlyAsString = testMode.persistOnlyAsString;
-    return store;
+    return TestComponents.specificPersistentDataStore(store);
   }
 
   @Override

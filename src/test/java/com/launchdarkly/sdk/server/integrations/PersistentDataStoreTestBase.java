@@ -1,11 +1,14 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import com.launchdarkly.sdk.server.BaseTest;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
+import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -18,6 +21,7 @@ import static com.launchdarkly.sdk.server.DataStoreTestTypes.OTHER_TEST_ITEMS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toItemsMap;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toSerialized;
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -30,7 +34,7 @@ import static org.junit.Assume.assumeTrue;
  * CachingStoreWrapperTest. 
  */
 @SuppressWarnings("javadoc")
-public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore> {
+public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore> extends BaseTest {
   protected T store;
   
   protected TestItem item1 = new TestItem("key1", "first", 10);
@@ -39,17 +43,57 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   
   protected TestItem otherItem1 = new TestItem("key1", "other-first", 11);
   
+  private ClientContext makeClientContext() {
+    return clientContext("", baseConfig().build());
+  }
+  
+  @SuppressWarnings("unchecked")
+  private T makeConfiguredStore() {
+    PersistentDataStoreFactory builder = buildStore(null);
+    if (builder == null) {
+      return makeStore();
+    }
+    return (T)builder.createPersistentDataStore(makeClientContext());
+  }
+
+  @SuppressWarnings("unchecked")
+  private T makeConfiguredStoreWithPrefix(String prefix) {
+    PersistentDataStoreFactory builder = buildStore(prefix);
+    if (builder == null) {
+      return makeStoreWithPrefix(prefix);
+    }
+    return (T)builder.createPersistentDataStore(makeClientContext());
+  }
+  
   /**
-   * Test subclasses must override this method to create an instance of the feature store class
-   * with default properties.
+   * Test subclasses can override either this method or {@link #buildStore(String)} to create an instance
+   * of the feature store class with default properties.
+   * @deprecated It is preferable to override {@link #buildStore(String)} instead.
    */
-  protected abstract T makeStore();
+  @Deprecated
+  protected T makeStore() {
+    throw new RuntimeException("test subclasses must override either makeStore or buildStore");
+  }
 
   /**
-   * Test subclasses should implement this if the feature store class supports a key prefix option
-   * for keeping data sets distinct within the same database.
+   * Test subclasses can implement this (or override {@link #buildStore(String)}) if the feature store
+   * class supports a key prefix option for keeping data sets distinct within the same database.
+   * @deprecated It is preferable to override {@link #buildStore(String)} instead.
    */
-  protected abstract T makeStoreWithPrefix(String prefix);
+  protected T makeStoreWithPrefix(String prefix) {
+    return null;
+  }
+
+  /**
+   * Test subclasses should override this method to prepare an instance of the data store class.
+   * They are allowed to return null if {@code prefix} is non-null and they do not support prefixes.
+   * 
+   * @param prefix a database prefix or null
+   * @return a factory for creating the data store
+   */
+  protected PersistentDataStoreFactory buildStore(String prefix) {
+    return null;
+  }
   
   /**
    * Test classes should override this to clear all data from the underlying database.
@@ -87,12 +131,14 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   
   @Before
   public void setup() {
-    store = makeStore();
+    store = makeConfiguredStore();
   }
   
   @After
   public void teardown() throws Exception {
-    store.close();
+    if (store != null) {
+      store.close();
+    }
   }
   
   @Test
@@ -127,7 +173,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   @Test
   public void oneInstanceCanDetectIfAnotherInstanceHasInitializedTheStore() {
     clearAllData();
-    T store2 = makeStore();
+    T store2 = makeConfiguredStore();
     
     assertFalse(store.isInitialized());
     
@@ -139,7 +185,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   @Test
   public void oneInstanceCanDetectIfAnotherInstanceHasInitializedTheStoreEvenIfEmpty() {
     clearAllData();
-    T store2 = makeStore();
+    T store2 = makeConfiguredStore();
     
     assertFalse(store.isInitialized());
     
@@ -243,7 +289,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   
   @Test
   public void handlesUpsertRaceConditionAgainstExternalClientWithLowerVersion() throws Exception {
-    final T store2 = makeStore();
+    final T store2 = makeConfiguredStore();
     
     int startVersion = 1;
     final int store2VersionStart = 2;
@@ -279,7 +325,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   
   @Test
   public void handlesUpsertRaceConditionAgainstExternalClientWithHigherVersion() throws Exception {
-    final T store2 = makeStore();
+    final T store2 = makeConfiguredStore();
     
     int startVersion = 1;
     final int store2Version = 3;
@@ -310,9 +356,9 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   
   @Test
   public void storesWithDifferentPrefixAreIndependent() throws Exception {
-    T store1 = makeStoreWithPrefix("aaa");
+    T store1 = makeConfiguredStoreWithPrefix("aaa");
     Assume.assumeNotNull(store1);
-    T store2 = makeStoreWithPrefix("bbb");
+    T store2 = makeConfiguredStoreWithPrefix("bbb");
     clearAllData();
     
     try {

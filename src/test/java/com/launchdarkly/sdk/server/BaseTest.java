@@ -9,6 +9,7 @@ import org.junit.Rule;
 import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
 
+@SuppressWarnings("javadoc")
 public class BaseTest {
   @Rule public DumpLogIfTestFails dumpLogIfTestFails;
   

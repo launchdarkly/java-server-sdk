@@ -1,16 +1,11 @@
 package com.launchdarkly.sdk.server.integrations;
 
-import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-
-import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.BaseTest;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.Membership;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.StoreMetadata;
+import com.launchdarkly.sdk.server.interfaces.ClientContext;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -19,6 +14,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 /**
  * A configurable test class for all implementations of {@link BigSegmentStore}.
@@ -31,15 +32,18 @@ import java.util.Objects;
  * {@link #setMetadata(String, StoreMetadata)}, and {@link #setSegments(String, String, Iterable, Iterable)}.
  */
 @SuppressWarnings("javadoc")
-public abstract class BigSegmentStoreTestBase {
+public abstract class BigSegmentStoreTestBase extends BaseTest {
   private static final String prefix = "testprefix";
   private static final String fakeUserHash = "userhash";
   private static final String segmentRef1 = "key1", segmentRef2 = "key2", segmentRef3 = "key3";
   private static final String[] allSegmentRefs = {segmentRef1, segmentRef2, segmentRef3};
 
+  private ClientContext makeClientContext() {
+    return clientContext("", baseConfig().build());
+  }
+  
   private BigSegmentStore makeEmptyStore() throws Exception {
-    LDConfig config = new LDConfig.Builder().build();
-    BigSegmentStore store = makeStore(prefix).createBigSegmentStore(clientContext("sdk-key", config));
+    BigSegmentStore store = makeStore(prefix).createBigSegmentStore(makeClientContext());
     try {
       clearData(prefix);
     } catch (RuntimeException ex) {
