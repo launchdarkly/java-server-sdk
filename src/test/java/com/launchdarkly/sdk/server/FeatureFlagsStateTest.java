@@ -179,11 +179,11 @@ public class FeatureFlagsStateTest {
   }
   
   private static FeatureFlagsState makeInstanceForSerialization() {
-    Evaluator.EvalResult eval1 = new Evaluator.EvalResult(LDValue.of("value1"), 0, EvaluationReason.off());
+    EvalResult eval1 = EvalResult.of(LDValue.of("value1"), 0, EvaluationReason.off());
     DataModel.FeatureFlag flag1 = flagBuilder("key1").version(100).trackEvents(false).build();
-    Evaluator.EvalResult eval2 = new Evaluator.EvalResult(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
+    EvalResult eval2 = EvalResult.of(LDValue.of("value2"), 1, EvaluationReason.fallthrough());
     DataModel.FeatureFlag flag2 = flagBuilder("key2").version(200).trackEvents(true).debugEventsUntilDate(1000L).build();
-    Evaluator.EvalResult eval3 = new Evaluator.EvalResult(LDValue.ofNull(), NO_VARIATION, EvaluationReason.error(MALFORMED_FLAG));
+    EvalResult eval3 = EvalResult.of(LDValue.ofNull(), NO_VARIATION, EvaluationReason.error(MALFORMED_FLAG));
     DataModel.FeatureFlag flag3 = flagBuilder("key3").version(300).build();
     return FeatureFlagsState.builder(FlagsStateOption.WITH_REASONS)
         .addFlag(flag1, eval1).addFlag(flag2, eval2).addFlag(flag3, eval3).build();

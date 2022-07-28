@@ -1,8 +1,8 @@
 package com.launchdarkly.sdk.server;
 
-import java.net.URI;
-
 import com.launchdarkly.logging.LDLogger;
+
+import java.net.URI;
 
 abstract class StandardEndpoints {
   private StandardEndpoints() {}
@@ -23,16 +23,12 @@ abstract class StandardEndpoints {
    * set some custom endpoints but not this one.
    * 
    * @param serviceEndpointsValue the value set in ServiceEndpoints (this is either the default URI, a custom URI, or null)
-   * @param overrideValue the value overridden via the deprecated .baseURI() method (this is either a custom URI or null)
    * @param defaultValue the constant default URI value defined in StandardEndpoints
    * @param description a human-readable string for the type of endpoint being selected, for logging purposes
    * @param logger the logger to which we should print the warning, if needed
    * @return the base URI we should connect to
    */
-  static URI selectBaseUri(URI serviceEndpointsValue, URI overrideValue, URI defaultValue, String description, LDLogger logger) {
-    if (overrideValue != null) {
-      return overrideValue;
-    }
+  static URI selectBaseUri(URI serviceEndpointsValue, URI defaultValue, String description, LDLogger logger) {
     if (serviceEndpointsValue != null) {
       return serviceEndpointsValue;
     }
@@ -49,12 +45,10 @@ abstract class StandardEndpoints {
    * for the purposes of this diagnostic.
    *
    * @param serviceEndpointsValue the value set in ServiceEndpoints
-   * @param overrideValue the value overridden via the deprecated .baseURI() method
    * @param defaultValue the constant default URI value defined in StandardEndpoints
    * @return true iff the base URI was customized
    */
-  static boolean isCustomBaseUri(URI serviceEndpointsValue, URI overrideValue, URI defaultValue) {
-    return (overrideValue != null && !overrideValue.equals(defaultValue)) ||
-      (serviceEndpointsValue != null && !serviceEndpointsValue.equals(defaultValue));
+  static boolean isCustomBaseUri(URI serviceEndpointsValue, URI defaultValue) {
+    return serviceEndpointsValue != null && !serviceEndpointsValue.equals(defaultValue);
   }
 }

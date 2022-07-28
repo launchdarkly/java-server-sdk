@@ -3,7 +3,7 @@ package com.launchdarkly.sdk.server.integrations;
 import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.LDLogLevel;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfigurationFactory;
 
 import java.time.Duration;
 

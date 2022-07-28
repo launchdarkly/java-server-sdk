@@ -1,17 +1,15 @@
 package com.launchdarkly.sdk.server;
 
-import static com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
-
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider.StatusListener;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.Membership;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreTypes.StoreMetadata;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
 
 import org.apache.commons.codec.digest.DigestUtils;
@@ -25,6 +23,8 @@ import java.util.Base64;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+
+import static com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
 
 class BigSegmentStoreWrapper implements Closeable {
   private final BigSegmentStore store;

@@ -6,13 +6,13 @@ import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.TestUtil.ActionCanThrowAnyException;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.testhelpers.ConcurrentHelpers;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
@@ -103,12 +103,9 @@ public class PollingProcessorTest extends BaseTest {
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    URI uri = URI.create("http://fake");
     DataSourceFactory f = Components.pollingDataSource()
-        .baseURI(uri)
         .pollInterval(LENGTHY_INTERVAL);
     try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, baseConfig().build()), null)) {
-      assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(uri));
       assertThat(pp.pollInterval, equalTo(LENGTHY_INTERVAL));
     }
   }

@@ -6,11 +6,10 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;
@@ -63,17 +62,21 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
     return (DefaultEventProcessor)ec.createEventProcessor(clientContext(SDK_KEY, config));
   }
 
+  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
+    return (DefaultEventProcessor)ec.createEventProcessor(
+        clientContext(SDK_KEY, config, diagnosticAccumulator));
+  }
+  
   public DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
     LDConfig config = new LDConfig.Builder().diagnosticOptOut(false)
         .logging(Components.logging(testLogging)).build();
-    return (DefaultEventProcessor)ec.createEventProcessor(
-        clientContext(SDK_KEY, config, diagnosticAccumulator));
+    return makeEventProcessor(ec, config, diagnosticAccumulator);
   }
   
   public static EventSenderFactory senderFactory(final MockEventSender es) {
     return new EventSenderFactory() {
       @Override
-      public EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration) {
+      public EventSender createEventSender(ClientContext clientContext) {
         return es;
       }
     };
@@ -160,6 +163,10 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
     );
   }
 
+  public static Matcher<JsonTestValue> isIndexEvent() {
+    return jsonProperty("kind", "index");
+  }
+
   public static Matcher<JsonTestValue> isIndexEvent(Event sourceEvent, LDValue user) {
     return allOf(
         jsonProperty("kind", "index"),
@@ -191,13 +198,13 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
     return jsonProperty("prereqOf", parentFlagKey);
   }
 
-  public static Matcher<JsonTestValue> isCustomEvent(Event.Custom sourceEvent, LDValue inlineUser) {
+  public static Matcher<JsonTestValue> isCustomEvent(Event.Custom sourceEvent) {
     boolean hasData = sourceEvent.getData() != null && !sourceEvent.getData().isNull();
     return allOf(
         jsonProperty("kind", "custom"),
         jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         jsonProperty("key", sourceEvent.getKey()),
-        hasUserOrUserKey(sourceEvent, inlineUser),
+        hasUserOrUserKey(sourceEvent, null),
         jsonProperty("data", hasData ? jsonEqualsValue(sourceEvent.getData()) : jsonUndefined()),
         jsonProperty("metricValue", sourceEvent.getMetricValue() == null ? jsonUndefined() : jsonEqualsValue(sourceEvent.getMetricValue()))              
     );
@@ -209,10 +216,12 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
           jsonProperty("user", jsonEqualsValue(inlineUser)),
           jsonProperty("userKey", jsonUndefined()));
     }
+    if (sourceEvent.getUser() == null || sourceEvent.getUser().getKey() == null) {
+      return jsonProperty("user", jsonUndefined());
+    }
     return allOf(
         jsonProperty("user", jsonUndefined()),
-        jsonProperty("userKey", sourceEvent.getUser() == null ? jsonUndefined() :
-          jsonEqualsValue(sourceEvent.getUser().getKey())));
+        jsonProperty("userKey", jsonEqualsValue(sourceEvent.getUser().getKey())));
   }
   
   public static Matcher<JsonTestValue> isSummaryEvent() {

@@ -5,16 +5,15 @@ import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.EventProcessor;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
 import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.HttpConfigurationFactory;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfigurationFactory;
 
-import java.net.URI;
 import java.time.Duration;
 
 /**
@@ -173,7 +172,7 @@ public final class LDConfig {
      * Sets the implementation of the data store to be used for holding feature flags and
      * related data received from LaunchDarkly, using a factory object. The default is
      * {@link Components#inMemoryDataStore()}; for database integrations, use
-     * {@link Components#persistentDataStore(com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory)}.
+     * {@link Components#persistentDataStore(com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory)}.
      * 
      * @param factory the factory object
      * @return the builder

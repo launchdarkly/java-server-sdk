@@ -2,10 +2,10 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.Logs;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import java.io.IOException;
 import java.net.URI;
@@ -164,19 +164,11 @@ final class DefaultEventSender implements EventSender {
     return null;
   }
   
-  static final class Factory implements EventSenderFactory, EventSenderFactory.WithLogger {
+  static final class Factory implements EventSenderFactory {
     @Override
-    public EventSender createEventSender(BasicConfiguration basicConfiguration, HttpConfiguration httpConfiguration) {
-      return new DefaultEventSender(httpConfiguration, DefaultEventSender.DEFAULT_RETRY_DELAY,
+    public EventSender createEventSender(ClientContext clientContext) {
+      return new DefaultEventSender(clientContext.getHttp(), DefaultEventSender.DEFAULT_RETRY_DELAY,
           LDLogger.withAdapter(Logs.none(), ""));
-    }
-    
-    @Override
-    public EventSender createEventSender(
-        BasicConfiguration basicConfiguration,
-        HttpConfiguration httpConfiguration,
-        LDLogger logger) {
-      return new DefaultEventSender(httpConfiguration, DefaultEventSender.DEFAULT_RETRY_DELAY, logger);
     }
   }
 }

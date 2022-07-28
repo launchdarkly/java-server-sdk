@@ -1,15 +1,19 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.gson.stream.JsonReader;
 import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
 import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
 import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
 import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
@@ -22,7 +26,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 /**
- * Implementation of getting flag data via a polling request. Used by both streaming and polling components.
+ * Implementation of getting flag data via a polling request.
  */
 final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -59,7 +63,8 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
     Util.deleteDirectory(cacheDir);
   }
   
-  public AllData getAllData(boolean returnDataEvenIfCached) throws IOException, HttpErrorException, SerializationException {
+  public FullDataSet<ItemDescriptor> getAllData(boolean returnDataEvenIfCached)
+      throws IOException, HttpErrorException, SerializationException {
     Request request = new Request.Builder()
         .url(pollingUri.toURL())
         .headers(headers)
@@ -76,19 +81,19 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
             httpClient.cache().hitCount(), httpClient.cache().networkCount());
         return null;
       }
-      
-      String body = response.body().string();
 
-      if (!response.isSuccessful()) {
-        throw new HttpErrorException(response.code());
-      }
-      logger.debug("Get flag(s) response: {} with body: {}", response, body);
+      logger.debug("Get flag(s) response: {}", response);
       logger.debug("Network response: {}", response.networkResponse());
       logger.debug("Cache hit count: {} Cache network count: {}",
           httpClient.cache().hitCount(), httpClient.cache().networkCount());
       logger.debug("Cache response: {}", response.cacheResponse());
-      
-      return JsonHelpers.deserialize(body, AllData.class);
+
+      if (!response.isSuccessful()) {
+        throw new HttpErrorException(response.code());
+      }
+
+      JsonReader jr = new JsonReader(response.body().charStream());
+      return parseFullDataSet(jr);
     }
   }
 }

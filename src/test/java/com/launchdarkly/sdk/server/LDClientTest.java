@@ -3,15 +3,15 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.EventProcessor;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 
 import org.easymock.Capture;
 import org.easymock.EasyMock;
@@ -177,7 +177,6 @@ public class LDClientTest extends BaseTest {
   @Test
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.streamingDataSource())
         .serviceEndpoints(Components.serviceEndpoints().streaming("http://fake"))
         .events(Components.noEvents())
         .logging(Components.logging(testLogging))
@@ -236,8 +235,8 @@ public class LDClientTest extends BaseTest {
     DataSourceFactory mockDataSourceFactory = mocks.createStrictMock(DataSourceFactory.class);
 
     LDConfig config = new LDConfig.Builder()
-            .dataSource(mockDataSourceFactory)
             .serviceEndpoints(Components.serviceEndpoints().events("fake-host")) // event processor will try to send a diagnostic event here
+            .dataSource(mockDataSourceFactory)
             .events(Components.sendEvents())
             .logging(Components.logging(testLogging))
             .startWait(Duration.ZERO)

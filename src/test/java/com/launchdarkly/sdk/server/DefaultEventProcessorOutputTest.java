@@ -3,8 +3,8 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.hamcrest.Matchers;
 import org.junit.Test;
@@ -109,43 +109,6 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
         isSummaryEvent()
     ));
   }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void featureEventCanContainInlineUser() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-    
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).inlineUsersInEvents(true))) {
-      ep.sendEvent(fe);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isFeatureEvent(fe, flag, false, userJson),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void userIsFilteredInFeatureEvent() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
-        .inlineUsersInEvents(true).allAttributesPrivate(true))) {
-      ep.sendEvent(fe);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isFeatureEvent(fe, flag, false, filteredUserJson),
-        isSummaryEvent()
-    ));
-  }
 
   @SuppressWarnings("unchecked")
   @Test
@@ -180,7 +143,7 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
-        .inlineUsersInEvents(true).allAttributesPrivate(true))) {
+        .allAttributesPrivate(true))) {
       ep.sendEvent(event1);
       ep.sendEvent(event2);
     }
@@ -197,7 +160,7 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
     EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
     Event.FeatureRequest fe = EventFactory.DEFAULT_WITH_REASONS.newFeatureRequestEvent(flag, user,
-          new Evaluator.EvalResult(LDValue.of("value"), 1, reason), LDValue.ofNull());
+          EvalResult.of(LDValue.of("value"), 1, reason), LDValue.ofNull());
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(fe);
@@ -206,24 +169,6 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     assertThat(es.getEventsFromLastRequest(), contains(
         isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, false, null, reason),
-        isSummaryEvent()
-    ));
-  }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void indexEventIsStillGeneratedIfInlineUsersIsTrueButFeatureEventIsNotTracked() throws Exception {
-    MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(false).build();
-    Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), null);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).inlineUsersInEvents(true))) {
-      ep.sendEvent(fe);
-    }
-
-    assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
         isSummaryEvent()
     ));
   }
@@ -442,37 +387,10 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     
     assertThat(es.getEventsFromLastRequest(), contains(
         isIndexEvent(ce, userJson),
-        isCustomEvent(ce, null)
+        isCustomEvent(ce)
     ));
   }
-
-  @Test
-  public void customEventCanContainInlineUser() throws Exception {
-    MockEventSender es = new MockEventSender();
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).inlineUsersInEvents(true))) {
-      ep.sendEvent(ce);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(ce, userJson)));
-  }
   
-  @Test
-  public void userIsFilteredInCustomEvent() throws Exception {
-    MockEventSender es = new MockEventSender();
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    Event.Custom ce = EventFactory.DEFAULT.newCustomEvent("eventkey", user, data, null);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
-        .inlineUsersInEvents(true).allAttributesPrivate(true))) {
-      ep.sendEvent(ce);
-    }
-    
-    assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(ce, filteredUserJson)));
-  }
-
   @SuppressWarnings("unchecked")
   @Test
   public void customEventWithNullUserOrNullUserKeyDoesNotCauseError() throws Exception {
@@ -483,14 +401,14 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("eventkey", null, LDValue.ofNull(), null);
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
-        .inlineUsersInEvents(true).allAttributesPrivate(true))) {
+        .allAttributesPrivate(true))) {
       ep.sendEvent(event1);
       ep.sendEvent(event2);
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(
-        isCustomEvent(event1, LDValue.buildObject().build()),
-        isCustomEvent(event2, LDValue.ofNull())
+        isCustomEvent(event1),
+        isCustomEvent(event2)
     ));
   }
 }

@@ -265,16 +265,15 @@ public final class FeatureFlagsState implements JsonSerializable {
       return this;
     }
     
-    Builder addFlag(DataModel.FeatureFlag flag, Evaluator.EvalResult eval) {
-      boolean requireExperimentData = EventFactory.isExperiment(flag, eval.getReason());
+    Builder addFlag(DataModel.FeatureFlag flag, EvalResult eval) {
       return add(
           flag.getKey(),
           eval.getValue(),
-          eval.isDefault() ? null : eval.getVariationIndex(),
+          eval.isNoVariation() ? null : eval.getVariationIndex(),
           eval.getReason(),
           flag.getVersion(),
-          flag.isTrackEvents() || requireExperimentData,
-          requireExperimentData,
+          flag.isTrackEvents() || eval.isForceReasonTracking(),
+          eval.isForceReasonTracking(),
           flag.getDebugEventsUntilDate()
           );
     }

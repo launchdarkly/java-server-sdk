@@ -1,10 +1,8 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -20,108 +18,66 @@ import java.util.concurrent.ScheduledExecutorService;
  * implementation of {@link ClientContext}, which might have been created for instance in application
  * test code).
  */
-final class ClientContextImpl implements ClientContext {
+final class ClientContextImpl extends ClientContext {
   private static volatile ScheduledExecutorService fallbackSharedExecutor = null;
   
-  private final BasicConfiguration basicConfiguration;
-  private final HttpConfiguration httpConfiguration;
-  private final LoggingConfiguration loggingConfiguration;
   final ScheduledExecutorService sharedExecutor;
   final DiagnosticAccumulator diagnosticAccumulator;
   final DiagnosticEvent.Init diagnosticInitEvent;
 
   private ClientContextImpl(
-      BasicConfiguration basicConfiguration,
-      HttpConfiguration httpConfiguration,
-      LoggingConfiguration loggingConfiguration,
+      ClientContext baseContext,
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator,
       DiagnosticEvent.Init diagnosticInitEvent
   ) {
-    this.basicConfiguration = basicConfiguration;
-    this.httpConfiguration = httpConfiguration;
-    this.loggingConfiguration = loggingConfiguration;
+    super(baseContext.getSdkKey(), baseContext.getApplicationInfo(), baseContext.getHttp(),
+        baseContext.getLogging(), baseContext.isOffline(), baseContext.getServiceEndpoints(),
+        baseContext.getThreadPriority());
     this.sharedExecutor = sharedExecutor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.diagnosticInitEvent = diagnosticInitEvent;
   }
 
-  ClientContextImpl(
+  static ClientContextImpl fromConfig(
       String sdkKey,
-      LDConfig configuration,
+      LDConfig config,
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator
-  ) {
-    LDLogger baseLogger;
-    // There is some temporarily over-elaborate logic here because the component factory interfaces can't
-    // be updated to make the dependencies more sensible till the next major version.
-    BasicConfiguration tempBasic = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority,
-        configuration.applicationInfo, configuration.serviceEndpoints, LDLogger.none());
-    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(tempBasic);
-    if (this.loggingConfiguration instanceof LoggingConfiguration.AdapterOptions) {
-      LoggingConfiguration.AdapterOptions ao = (LoggingConfiguration.AdapterOptions)this.loggingConfiguration;
-      baseLogger = LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
-    } else {
-      baseLogger = makeDefaultLogger(tempBasic);
+      ) {
+    ClientContext minimalContext = new ClientContext(sdkKey, config.applicationInfo, null,
+        null, config.offline, config.serviceEndpoints, config.threadPriority);
+    LoggingConfiguration loggingConfig = config.loggingConfigFactory.createLoggingConfiguration(minimalContext);
+    
+    ClientContext contextWithLogging = new ClientContext(sdkKey, config.applicationInfo, null,
+        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
+    HttpConfiguration httpConfig = config.httpConfigFactory.createHttpConfiguration(contextWithLogging);
+    
+    if (httpConfig.getProxy() != null) {
+      contextWithLogging.getBaseLogger().info("Using proxy: {} {} authentication.",
+          httpConfig.getProxy(),
+          httpConfig.getProxyAuthentication() == null ? "without" : "with");
     }
     
-    this.basicConfiguration = new BasicConfiguration(
-        sdkKey,
-        configuration.offline,
-        configuration.threadPriority,
-        configuration.applicationInfo,
-        configuration.serviceEndpoints,
-        baseLogger
-        );
-    
-    this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
- 
-    
-    if (this.httpConfiguration.getProxy() != null) {
-      baseLogger.info("Using proxy: {} {} authentication.",
-          this.httpConfiguration.getProxy(),
-          this.httpConfiguration.getProxyAuthentication() == null ? "without" : "with");
-    }
-    
-    this.sharedExecutor = sharedExecutor;
-    
-    if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {
-      this.diagnosticAccumulator = diagnosticAccumulator;
-      this.diagnosticInitEvent = new DiagnosticEvent.Init(
+    ClientContext contextWithHttpAndLogging = new ClientContext(sdkKey, config.applicationInfo, httpConfig,
+        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
+
+    DiagnosticEvent.Init diagnosticInitEvent = null;
+    if (!config.diagnosticOptOut && diagnosticAccumulator != null) {
+      diagnosticInitEvent = new DiagnosticEvent.Init(
           diagnosticAccumulator.dataSinceDate,
           diagnosticAccumulator.diagnosticId,
-          configuration,
-          basicConfiguration,
-          httpConfiguration
+          config,
+          contextWithHttpAndLogging
           );
-    } else {
-      this.diagnosticAccumulator = null;
-      this.diagnosticInitEvent = null;
     }
-  }
-
-  @Override
-  public BasicConfiguration getBasic() {
-    return basicConfiguration;
-  }
-  
-  @Override
-  public HttpConfiguration getHttp() {
-    return httpConfiguration;
-  }
-
-  @Override
-  public LoggingConfiguration getLogging() {
-    return loggingConfiguration;
-  }
-  
-  private static LDLogger makeDefaultLogger(BasicConfiguration basicConfiguration) {
-    LoggingConfiguration lc = Components.logging().createLoggingConfiguration(basicConfiguration);
-    if (lc instanceof LoggingConfiguration.AdapterOptions) {
-      LoggingConfiguration.AdapterOptions ao = (LoggingConfiguration.AdapterOptions)lc;
-      return LDLogger.withAdapter(ao.getLogAdapter(), ao.getBaseLoggerName());
-    }
-    return LDLogger.none();
+    
+    return new ClientContextImpl(
+        contextWithHttpAndLogging,
+        sharedExecutor,
+        config.diagnosticOptOut ? null : diagnosticAccumulator,
+        diagnosticInitEvent
+        );
   }
   
   /**
@@ -140,13 +96,6 @@ final class ClientContextImpl implements ClientContext {
         fallbackSharedExecutor = Executors.newSingleThreadScheduledExecutor();
       }
     }
-    return new ClientContextImpl(
-        context.getBasic(),
-        context.getHttp(),
-        context.getLogging(),
-        fallbackSharedExecutor,
-        null,
-        null
-        );
+    return new ClientContextImpl(context, fallbackSharedExecutor, null, null);
   }
 }

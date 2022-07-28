@@ -6,10 +6,10 @@ import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventProcessor;
-import com.launchdarkly.sdk.server.interfaces.EventSender;
-import com.launchdarkly.sdk.server.interfaces.EventSender.EventDataKind;
+import com.launchdarkly.sdk.server.subsystems.Event;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
+import com.launchdarkly.sdk.server.subsystems.EventSender.EventDataKind;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -409,22 +409,20 @@ final class DefaultEventProcessor implements EventProcessor {
 
       // For each user we haven't seen before, we add an index event - unless this is already
       // an identify event for that user.
-      if (!addFullEvent || !eventsConfig.inlineUsersInEvents) {
-        LDUser user = e.getUser();
-        if (user != null && user.getKey() != null) {
-          if (e instanceof Event.FeatureRequest || e instanceof Event.Custom) {
-            String key = user.getKey();
-            // Add to the set of users we've noticed
-            boolean alreadySeen = (userKeys.put(key, key) != null);
-            if (alreadySeen) {
-              deduplicatedUsers++;
-            } else {
-              addIndexEvent = true;
-            }
-          } else if (e instanceof Event.Identify) {
-            String key = user.getKey();
-            userKeys.put(key, key); // just mark that we've seen it
+      LDUser user = e.getUser();
+      if (user != null && user.getKey() != null) {
+        if (e instanceof Event.FeatureRequest || e instanceof Event.Custom) {
+          String key = user.getKey();
+          // Add to the set of users we've noticed
+          boolean alreadySeen = (userKeys.put(key, key) != null);
+          if (alreadySeen) {
+            deduplicatedUsers++;
+          } else {
+            addIndexEvent = true;
           }
+        } else if (e instanceof Event.Identify) {
+          String key = user.getKey();
+          userKeys.put(key, key); // just mark that we've seen it
         }
       }
 
@@ -471,6 +469,7 @@ final class DefaultEventProcessor implements EventProcessor {
       } else {
         logger.debug("Skipped flushing because all workers are busy");
         // All the workers are busy so we can't flush now; keep the events in our state
+        outbox.summarizer.restoreTo(payload.summary);
         synchronized(busyFlushWorkersCount) {
           busyFlushWorkersCount.decrementAndGet();
           busyFlushWorkersCount.notify();
@@ -519,7 +518,7 @@ final class DefaultEventProcessor implements EventProcessor {
     }
 
     boolean isEmpty() {
-      return events.isEmpty() && summarizer.snapshot().isEmpty();
+      return events.isEmpty() && summarizer.isEmpty();
     }
 
     long getAndClearDroppedCount() {
@@ -530,7 +529,7 @@ final class DefaultEventProcessor implements EventProcessor {
 
     FlushPayload getPayload() {
       Event[] eventsOut = events.toArray(new Event[events.size()]);
-      EventSummarizer.EventSummary summary = summarizer.snapshot();
+      EventSummarizer.EventSummary summary = summarizer.getSummaryAndReset();
       return new FlushPayload(eventsOut, summary);
     }
 

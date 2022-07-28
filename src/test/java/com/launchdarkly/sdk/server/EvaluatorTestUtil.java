@@ -2,9 +2,13 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.Logs;
+import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.BigSegmentStoreWrapper.BigSegmentsQueryResult;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 @SuppressWarnings("javadoc")
 public abstract class EvaluatorTestUtil {
@@ -76,6 +80,36 @@ public abstract class EvaluatorTestUtil {
     public EvaluatorBuilder withBigSegmentQueryResult(final String userKey, BigSegmentsQueryResult queryResult) {
       bigSegmentMap.put(userKey, queryResult);
       return this;
+    }
+  }
+  
+  public static Evaluator.PrerequisiteEvaluationSink expectNoPrerequisiteEvals() {
+    return (f1, f2, u, r) -> {
+      throw new AssertionError("did not expect any prerequisite evaluations, but got one");
+    };
+  }
+  
+  public static final class PrereqEval {
+    public final FeatureFlag flag;
+    public final FeatureFlag prereqOfFlag;
+    public final LDUser user;
+    public final EvalResult result;
+    
+    public PrereqEval(FeatureFlag flag, FeatureFlag prereqOfFlag, LDUser user, EvalResult result) {
+      this.flag = flag;
+      this.prereqOfFlag = prereqOfFlag;
+      this.user = user;
+      this.result = result;
+    }
+  }
+  
+  public static final class PrereqRecorder implements Evaluator.PrerequisiteEvaluationSink {
+    public final List<PrereqEval> evals = new ArrayList<PrereqEval>();
+
+    @Override
+    public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDUser user,
+        EvalResult result) {
+      evals.add(new PrereqEval(flag, prereqOfFlag, user, result));
     }
   }
 }

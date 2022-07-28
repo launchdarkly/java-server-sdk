@@ -1,12 +1,7 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.gson.JsonElement;
 import com.google.gson.annotations.JsonAdapter;
-import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.DataModel.Segment;
-import com.launchdarkly.sdk.server.DataModel.VersionedData;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import org.junit.Test;
 
@@ -35,48 +30,6 @@ public class JsonHelpersTest {
     JsonHelpers.deserialize("{\"value", MySerializableClass.class);
   }
   
-  @Test
-  public void deserializeFlagFromParsedJson() {
-    String json = "{\"key\":\"flagkey\",\"version\":1}";
-    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
-    VersionedData flag = JsonHelpers.deserializeFromParsedJson(DataModel.FEATURES, element);
-    assertEquals(FeatureFlag.class, flag.getClass());
-    assertEquals("flagkey", flag.getKey());
-    assertEquals(1, flag.getVersion());
-  }
-
-  @Test(expected=SerializationException.class)
-  public void deserializeInvalidFlagFromParsedJson() {
-    String json = "{\"key\":[3]}";
-    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
-    JsonHelpers.deserializeFromParsedJson(DataModel.FEATURES, element);
-  }
-
-  @Test
-  public void deserializeSegmentFromParsedJson() {
-    String json = "{\"key\":\"segkey\",\"version\":1}";
-    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
-    VersionedData segment = JsonHelpers.deserializeFromParsedJson(DataModel.SEGMENTS, element);
-    assertEquals(Segment.class, segment.getClass());
-    assertEquals("segkey", segment.getKey());
-    assertEquals(1, segment.getVersion());
-  }
-
-  @Test(expected=SerializationException.class)
-  public void deserializeInvalidSegmentFromParsedJson() {
-    String json = "{\"key\":[3]}";
-    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
-    JsonHelpers.deserializeFromParsedJson(DataModel.SEGMENTS, element);
-  }
-
-  @Test(expected=IllegalArgumentException.class)
-  public void deserializeInvalidDataKindFromParsedJson() {
-    String json = "{\"key\":\"something\",\"version\":1}";
-    JsonElement element = JsonHelpers.gsonInstance().fromJson(json, JsonElement.class);
-    DataKind mysteryKind = new DataKind("incorrect", null, null);
-    JsonHelpers.deserializeFromParsedJson(mysteryKind, element);
-  }
-
   @Test
   public void postProcessingTypeAdapterFactoryCallsAfterDeserializedIfApplicable() {
     // This tests the mechanism that ensures afterDeserialize() is called on every FeatureFlag or

@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * An interface for querying the status of a {@link DataSource}. The data source is the component
+ * An interface for querying the status of the SDK's data source. The data source is the component
  * that receives updates to feature flag data; normally this is a streaming connection, but it could
  * be polling or file data depending on your configuration.
  * <p>
@@ -23,8 +23,8 @@ public interface DataSourceStatusProvider {
    * All of the built-in data source implementations are guaranteed to update this status whenever they
    * successfully initialize, encounter an error, or recover after an error.
    * <p>
-   * For a custom data source implementation, it is the responsibility of the data source to report its
-   * status via {@link DataSourceUpdates}; if it does not do so, the status will always be reported as
+   * For a custom data source implementation, it is the responsibility of the data source to push
+   * status updates to the SDK; if it does not do so, the status will always be reported as
    * {@link State#INITIALIZING}. 
    * 
    * @return the latest status; will never be null
@@ -157,7 +157,7 @@ public interface DataSourceStatusProvider {
      * store failed (so the SDK may not have the latest data).
      * <p>
      * Data source implementations do not need to report this kind of error; it will be automatically
-     * reported by the SDK whenever one of the update methods of {@link DataSourceUpdates} throws an exception.
+     * reported by the SDK when exceptions are detected.
      */
     STORE_ERROR
   }

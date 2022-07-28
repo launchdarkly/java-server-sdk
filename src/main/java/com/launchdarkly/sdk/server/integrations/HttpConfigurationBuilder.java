@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
-import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
+import com.launchdarkly.sdk.server.subsystems.HttpConfigurationFactory;
 
 import java.time.Duration;
 

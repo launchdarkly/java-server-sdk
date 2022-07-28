@@ -2,12 +2,14 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -90,12 +92,12 @@ final class PollingProcessor implements DataSource {
       // want to bother parsing the data or reinitializing the data store. But if we never succeeded in
       // storing any data, then we would still want to parse and try to store it even if it's cached.
       boolean alreadyInited = initialized.get();
-      FeatureRequestor.AllData allData = requestor.getAllData(!alreadyInited);
+      FullDataSet<ItemDescriptor> allData = requestor.getAllData(!alreadyInited);
       if (allData == null) {
         // This means it was cached, and alreadyInited was true
         dataSourceUpdates.updateStatus(State.VALID, null);
       } else {
-        if (dataSourceUpdates.init(allData.toFullDataSet())) {
+        if (dataSourceUpdates.init(allData)) {
           dataSourceUpdates.updateStatus(State.VALID, null);
           if (!initialized.getAndSet(true)) {
             logger.info("Initialized LaunchDarkly client."); 
