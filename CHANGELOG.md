@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.9.2] - 2022-07-20
+### Changed:
+- Further optimizations to reduce how many short-lived objects the SDK produces as a side effect of flag evaluations, causing less work for the garbage collector in applications that evaluate flags very frequently.
+
 ## [5.9.1] - 2022-06-30
 ### Changed:
 - The SDK now uses memory more efficiently when parsing JSON flag/segment configuration data that it receives from LaunchDarkly, so there will be a less sizable transient memory usage spike if the flag/segment data is very large. This does not affect the baseline memory requirements for storing the data after it is received.
