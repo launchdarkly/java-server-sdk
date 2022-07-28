@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.LDLogLevel;
+import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
 
@@ -113,15 +114,15 @@ public abstract class LoggingConfigurationBuilder implements LoggingConfiguratio
   /**
    * Specifies the lowest level of logging to enable.
    * <p>
-   * This adds a log level filter that is applied regardless of what implementation of logging is
-   * being used, so that log messages at lower levels are suppressed. For instance, setting the
-   * minimum level to {@link LDLogLevel#INFO} means that <code>DEBUG</code>-level output is disabled.
+   * This is only applicable when using an implementation of logging that does not have its own
+   * external configuration mechanism, such as {@link Logs#toConsole()}. It adds a log level filter
+   * so that log messages at lower levels are suppressed. For instance, setting the minimum level to
+   * {@link LDLogLevel#INFO} means that <code>DEBUG</code>-level output is disabled. If not specified,
+   * the default minimum level is {@link LDLogLevel#INFO}.
    * <p>
-   * External logging frameworks may also have their own mechanisms for setting a minimum log level.
-   * For instance, in SLF4J, this can be set on a per-logger-name basis in the SLF4J configuration
-   * file. Therefore, if {@link #adapter(LDLogAdapter)} is set to the default destination of SLF4J,
-   * or to <code>Logs.toJavaUtilLogging()</code>, the setting of {@link #level(LDLogLevel)} is
-   * ignored. Otherwise, the default minimum level is {@link LDLogLevel#INFO}.  
+   * When using a logging framework like SLF4J or {@code java.util.logging} that has its own
+   * separate mechanism for log filtering, you must use that framework's configuration options for
+   * log levels; calling {@link #level(LDLogLevel)} in that case has no effect.  
    * 
    * @param minimumLevel the lowest level of logging to enable
    * @return the builder
