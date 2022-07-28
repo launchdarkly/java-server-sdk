@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ClientContext;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
@@ -52,11 +53,35 @@ final class ClientContextImpl implements ClientContext {
       ScheduledExecutorService sharedExecutor,
       DiagnosticAccumulator diagnosticAccumulator
   ) {
-    this.basicConfiguration = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority, configuration.applicationInfo, configuration.serviceEndpoints);
+    // There is some temporarily over-elaborate logic here because the component factory interfaces can't
+    // be updated to make the dependencies more sensible till the next major version.
+    BasicConfiguration tempBasic = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority,
+        configuration.applicationInfo, configuration.serviceEndpoints, LDLogger.none());
+    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(tempBasic);
+    LDLogger baseLogger = LDLogger.withAdapter(
+        loggingConfiguration.getLogAdapter() == null ? Logs.none() : loggingConfiguration.getLogAdapter(),
+        loggingConfiguration.getBaseLoggerName() == null ? Loggers.BASE_LOGGER_NAME :
+          loggingConfiguration.getBaseLoggerName()
+        );
+    
+    this.basicConfiguration = new BasicConfiguration(
+        sdkKey,
+        configuration.offline,
+        configuration.threadPriority,
+        configuration.applicationInfo,
+        configuration.serviceEndpoints,
+        baseLogger
+        );
     
     this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
-    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(basicConfiguration);
-        
+ 
+    
+    if (this.httpConfiguration.getProxy() != null) {
+      baseLogger.info("Using proxy: {} {} authentication.",
+          this.httpConfiguration.getProxy(),
+          this.httpConfiguration.getProxyAuthentication() == null ? "without" : "with");
+    }
+    
     this.sharedExecutor = sharedExecutor;
     
     if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {

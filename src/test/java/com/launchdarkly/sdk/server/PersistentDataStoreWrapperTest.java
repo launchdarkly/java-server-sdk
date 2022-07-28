@@ -2,8 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.launchdarkly.sdk.server.PersistentDataStoreStatusManager;
-import com.launchdarkly.sdk.server.PersistentDataStoreWrapper;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
@@ -43,7 +41,7 @@ import static org.junit.Assume.assumeThat;
 
 @SuppressWarnings("javadoc")
 @RunWith(Parameterized.class)
-public class PersistentDataStoreWrapperTest {
+public class PersistentDataStoreWrapperTest extends BaseTest {
   private static final RuntimeException FAKE_ERROR = new RuntimeException("fake error");
   
   private final TestMode testMode;
@@ -110,9 +108,10 @@ public class PersistentDataStoreWrapperTest {
         PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
         false,
         this::updateStatus,
-        sharedExecutor
+        sharedExecutor,
+        testLogger
         );
-    this.statusBroadcaster = EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
+    this.statusBroadcaster = EventBroadcasterImpl.forDataStoreStatus(sharedExecutor, testLogger);
     this.dataStoreUpdates = new DataStoreUpdatesImpl(statusBroadcaster);
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(wrapper, dataStoreUpdates);
   }
@@ -474,7 +473,8 @@ public class PersistentDataStoreWrapperTest {
         PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
         false,
         this::updateStatus,
-        sharedExecutor
+        sharedExecutor,
+        testLogger
         )) {
       assertThat(wrapper1.isInitialized(), is(false));
       assertThat(core.initedQueryCount, equalTo(1));
@@ -508,7 +508,8 @@ public class PersistentDataStoreWrapperTest {
         PersistentDataStoreBuilder.StaleValuesPolicy.EVICT,
         true,
         this::updateStatus,
-        sharedExecutor
+        sharedExecutor,
+        testLogger
         )) {
       CacheStats stats = w.getCacheStats();
       

@@ -9,6 +9,8 @@ import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.server.StreamProcessorEvents.DeleteData;
 import com.launchdarkly.sdk.server.StreamProcessorEvents.PatchData;
 import com.launchdarkly.sdk.server.StreamProcessorEvents.PutData;
@@ -21,8 +23,6 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.SerializationException;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -71,7 +71,6 @@ final class StreamProcessor implements DataSource {
   private static final String PUT = "put";
   private static final String PATCH = "patch";
   private static final String DELETE = "delete";
-  private static final Logger logger = Loggers.DATA_SOURCE;
   private static final Duration DEAD_CONNECTION_INTERVAL = Duration.ofSeconds(300);
   private static final String ERROR_CONTEXT_MESSAGE = "in stream connection";
   private static final String WILL_RETRY_MESSAGE = "will retry";
@@ -88,6 +87,7 @@ final class StreamProcessor implements DataSource {
   private final AtomicBoolean initialized = new AtomicBoolean(false);
   private volatile long esStarted = 0;
   private volatile boolean lastStoreUpdateFailed = false;
+  private final LDLogger logger;
 
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
@@ -97,7 +97,8 @@ final class StreamProcessor implements DataSource {
       int threadPriority,
       DiagnosticAccumulator diagnosticAccumulator,
       URI streamUri,
-      Duration initialReconnectDelay
+      Duration initialReconnectDelay,
+      LDLogger logger
       ) {
     this.dataSourceUpdates = dataSourceUpdates;
     this.httpConfig = httpConfig;
@@ -105,7 +106,8 @@ final class StreamProcessor implements DataSource {
     this.threadPriority = threadPriority;
     this.streamUri = streamUri;
     this.initialReconnectDelay = initialReconnectDelay;
-
+    this.logger = logger;
+    
     this.headers = getHeadersBuilderFor(httpConfig)
         .add("Accept", "text/event-stream")
         .build();
@@ -189,10 +191,10 @@ final class StreamProcessor implements DataSource {
     
     EventSource.Builder builder = new EventSource.Builder(handler, endpointUri)
         .threadPriority(threadPriority)
+        .logger(new EventSourceLoggerAdapter())
         .readBufferSize(5000)
         .streamEventData(true)
         .expectFields("event")
-        .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
           public void configure(OkHttpClient.Builder builder) {
             configureHttpClientBuilder(httpConfig, builder);
@@ -264,15 +266,16 @@ final class StreamProcessor implements DataSource {
             break;
             
           default:
-            logger.warn("Unexpected event found in stream: " + eventName);
+            logger.warn("Unexpected event found in stream: {}", eventName);
             break;
         }
         lastStoreUpdateFailed = false;
         dataSourceUpdates.updateStatus(State.VALID, null);
       } catch (StreamInputException e) {
-        logger.error("LaunchDarkly service request failed or received invalid data: {}", e.toString());
-        logger.debug(e.toString(), e);
-        
+        logger.error("LaunchDarkly service request failed or received invalid data: {}",
+            LogValues.exceptionSummary(e));
+        logger.debug(LogValues.exceptionTrace(e));
+         
         ErrorInfo errorInfo = new ErrorInfo(
             e.getCause() instanceof IOException ? ErrorKind.NETWORK_ERROR : ErrorKind.INVALID_DATA,
             0,
@@ -292,8 +295,8 @@ final class StreamProcessor implements DataSource {
         }
         lastStoreUpdateFailed = true;
       } catch (Exception e) {
-        logger.warn("Unexpected error from stream processor: {}", e.toString());
-        logger.debug(e.toString(), e);
+        logger.warn("Unexpected error from stream processor: {}", LogValues.exceptionSummary(e));
+        logger.debug(LogValues.exceptionTrace(e));
       }
     }
 
@@ -338,8 +341,8 @@ final class StreamProcessor implements DataSource {
 
     @Override
     public void onError(Throwable throwable) {
-      logger.warn("Encountered EventSource error: {}", throwable.toString());
-      logger.debug(throwable.toString(), throwable);
+      logger.warn("Encountered EventSource error: {}", LogValues.exceptionSummary(throwable));
+      logger.debug(LogValues.exceptionTrace(throwable));
     }  
   }
 
@@ -369,4 +372,31 @@ final class StreamProcessor implements DataSource {
   // This exception class indicates that the data store failed to persist an update.
   @SuppressWarnings("serial")
   private static final class StreamStoreException extends Exception {}
+
+  private final class EventSourceLoggerAdapter implements com.launchdarkly.eventsource.Logger {
+    @Override
+    public void debug(String format, Object param) {
+      logger.debug(format, param);
+    }
+
+    @Override
+    public void debug(String format, Object param1, Object param2) {
+      logger.debug(format, param1, param2);
+    }
+
+    @Override
+    public void info(String message) {
+      logger.info(message);
+    }
+
+    @Override
+    public void warn(String message) {
+      logger.warn(message);
+    }
+
+    @Override
+    public void error(String message) {
+      logger.error(message);
+    }
+  }
 }

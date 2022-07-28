@@ -37,7 +37,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 @SuppressWarnings("javadoc")
-public abstract class DefaultEventProcessorTestBase {
+public abstract class DefaultEventProcessorTestBase extends BaseTest {
   public static final String SDK_KEY = "SDK_KEY";
   public static final URI FAKE_URI = URI.create("http://fake");
   public static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
@@ -45,8 +45,6 @@ public abstract class DefaultEventProcessorTestBase {
   public static final LDValue userJson = LDValue.buildObject().put("key", "userkey").put("name", "Red").build();
   public static final LDValue filteredUserJson = LDValue.buildObject().put("key", "userkey")
       .put("privateAttrs", LDValue.buildArray().add("name").build()).build();
-  public static final LDConfig baseLDConfig = new LDConfig.Builder().diagnosticOptOut(true).build();
-  public static final LDConfig diagLDConfig = new LDConfig.Builder().diagnosticOptOut(false).build();
   
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
@@ -55,17 +53,21 @@ public abstract class DefaultEventProcessorTestBase {
     return sendEvents().eventSender(senderFactory(es));
   }
 
-  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec) {
-    return makeEventProcessor(ec, baseLDConfig);
+  public DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec) {
+    LDConfig config = new LDConfig.Builder().diagnosticOptOut(true)
+        .logging(Components.logging(testLogging)).build();
+    return makeEventProcessor(ec, config);
   }
   
-  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
+  public DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
     return (DefaultEventProcessor)ec.createEventProcessor(clientContext(SDK_KEY, config));
   }
 
-  public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
+  public DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, DiagnosticAccumulator diagnosticAccumulator) {
+    LDConfig config = new LDConfig.Builder().diagnosticOptOut(false)
+        .logging(Components.logging(testLogging)).build();
     return (DefaultEventProcessor)ec.createEventProcessor(
-        clientContext(SDK_KEY, diagLDConfig, diagnosticAccumulator));
+        clientContext(SDK_KEY, config, diagnosticAccumulator));
   }
   
   public static EventSenderFactory senderFactory(final MockEventSender es) {
