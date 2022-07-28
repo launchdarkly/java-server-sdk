@@ -362,7 +362,7 @@ def getPackagesInDependencyJar(jarFile) {
     new java.util.zip.ZipFile(jarFile).withCloseable { zf ->
         zf.entries().findAll { !it.directory && it.name.endsWith(".class") }.collect {
             it.name.contains("/") ? it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".") : ""
-        }.findAll { !it.equals("") }.unique()
+        }.findAll { !it.equals("") && !it.startsWith("META-INF") }.unique()
     }
 }
 
