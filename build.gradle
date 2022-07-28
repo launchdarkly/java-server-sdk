@@ -324,6 +324,14 @@ javadoc {
     // Use test classpath so Javadoc won't complain about java-sdk-common classes that internally
     // reference stuff we don't use directly, like Jackson
     classpath = sourceSets.test.compileClasspath
+
+    // The following should allow hyperlinks to com.launchdarkly.logging classes to go to
+    // the correct external URLs
+    if (options instanceof StandardJavadocDocletOptions) {
+        (options as StandardJavadocDocletOptions).links(
+            "https://javadoc.io/doc/com.launchdarkly/launchdarkly-logging/1.1.0"
+        )
+    }
 }
 
 // Force the Javadoc build to fail if there are any Javadoc warnings. See: https://discuss.gradle.org/t/javadoc-fail-on-warning/18141/3
