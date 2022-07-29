@@ -8,6 +8,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
@@ -18,8 +20,6 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
 import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -44,8 +44,6 @@ import static com.google.common.collect.Iterables.isEmpty;
  * This class is only constructed by {@link PersistentDataStoreBuilder}.
  */
 final class PersistentDataStoreWrapper implements DataStore {
-  private static final Logger logger = Loggers.DATA_STORE;
-
   private final PersistentDataStore core;
   private final LoadingCache<CacheKey, Optional<ItemDescriptor>> itemCache;
   private final LoadingCache<DataKind, KeyedItems<ItemDescriptor>> allCache;
@@ -55,6 +53,7 @@ final class PersistentDataStoreWrapper implements DataStore {
   private final Set<DataKind> cachedDataKinds = new HashSet<>(); // this map is used in pollForAvailability()
   private final AtomicBoolean inited = new AtomicBoolean(false);
   private final ListeningExecutorService cacheExecutor;
+  private final LDLogger logger;
   
   PersistentDataStoreWrapper(
       final PersistentDataStore core,
@@ -62,9 +61,11 @@ final class PersistentDataStoreWrapper implements DataStore {
       PersistentDataStoreBuilder.StaleValuesPolicy staleValuesPolicy,
       boolean recordCacheStats,
       DataStoreUpdates dataStoreUpdates,
-      ScheduledExecutorService sharedExecutor
+      ScheduledExecutorService sharedExecutor,
+      LDLogger logger
     ) {
     this.core = core;
+    this.logger = logger;
     
     if (cacheTtl.isZero()) {
       itemCache = null;
@@ -112,7 +113,8 @@ final class PersistentDataStoreWrapper implements DataStore {
         true,
         this::pollAvailabilityAfterOutage,
         dataStoreUpdates::updateStatus,
-        sharedExecutor
+        sharedExecutor,
+        logger
         );
   }
   
@@ -421,8 +423,9 @@ final class PersistentDataStoreWrapper implements DataStore {
       } else {
         // We failed to write the cached data to the underlying store. In this case, we should not
         // return to a recovered state, but just try this all again next time the poll task runs.
-        logger.error("Tried to write cached data to persistent store after a store outage, but failed: {}", e.toString());
-        logger.debug(e.toString(), e);
+        logger.error("Tried to write cached data to persistent store after a store outage, but failed: {}",
+            LogValues.exceptionSummary(e));
+        logger.debug(LogValues.exceptionTrace(e));
         return false;
       }
     }

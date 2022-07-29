@@ -1,6 +1,11 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableMap;
+import com.launchdarkly.logging.LDLogAdapter;
+import com.launchdarkly.logging.LDLogLevel;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LDSLF4J;
+import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DiagnosticEvent.ConfigProperty;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
@@ -24,6 +29,7 @@ import com.launchdarkly.sdk.server.interfaces.Event;
 import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.EventSender;
+import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
 import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
@@ -89,12 +95,13 @@ abstract class ComponentsImpl {
     
     @Override
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+      LDLogger logger = context.getBasic().getBaseLogger();
       if (context.getBasic().isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
         // more specific message.
-        Loggers.MAIN.info("Starting LaunchDarkly client in offline mode");
+        logger.info("Starting LaunchDarkly client in offline mode");
       } else {
-        Loggers.MAIN.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
+        logger.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
       }
       dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
       return NullDataSource.INSTANCE;
@@ -137,16 +144,16 @@ abstract class ComponentsImpl {
       implements DiagnosticDescription {
     @Override
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-      // Note, we log startup messages under the LDClient class to keep logs more readable
-      
-      Loggers.DATA_SOURCE.info("Enabling streaming API");
+      LDLogger baseLogger = context.getBasic().getBaseLogger();
+      LDLogger logger = baseLogger.subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
+      logger.info("Enabling streaming API");
 
       URI streamUri = StandardEndpoints.selectBaseUri(
           context.getBasic().getServiceEndpoints().getStreamingBaseUri(),
           baseURI,
           StandardEndpoints.DEFAULT_STREAMING_BASE_URI,
           "streaming",
-          Loggers.MAIN
+          baseLogger
           );
       
       return new StreamProcessor(
@@ -155,7 +162,8 @@ abstract class ComponentsImpl {
           context.getBasic().getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
           streamUri,
-          initialReconnectDelay
+          initialReconnectDelay,
+          logger
           );
     }
 
@@ -184,25 +192,27 @@ abstract class ComponentsImpl {
     
     @Override
     public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
-      // Note, we log startup messages under the LDClient class to keep logs more readable
+      LDLogger baseLogger = context.getBasic().getBaseLogger();
+      LDLogger logger = baseLogger.subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
       
-      Loggers.DATA_SOURCE.info("Disabling streaming API");
-      Loggers.DATA_SOURCE.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
-
+      logger.info("Disabling streaming API");
+      logger.warn("You should only disable the streaming API if instructed to do so by LaunchDarkly support");
+      
       URI pollUri = StandardEndpoints.selectBaseUri(
           context.getBasic().getServiceEndpoints().getPollingBaseUri(),
           baseURI,
           StandardEndpoints.DEFAULT_POLLING_BASE_URI,
           "polling",
-          Loggers.MAIN
+          baseLogger
           );
 
-      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(context.getHttp(), pollUri);
+      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(context.getHttp(), pollUri, logger);
       return new PollingProcessor(
           requestor,
           dataSourceUpdates,
           ClientContextImpl.get(context).sharedExecutor,
-          pollInterval
+          pollInterval,
+          logger
           );
     }
 
@@ -226,15 +236,21 @@ abstract class ComponentsImpl {
       implements DiagnosticDescription {
     @Override
     public EventProcessor createEventProcessor(ClientContext context) {
-      EventSender eventSender =
-          (eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory)
-          .createEventSender(context.getBasic(), context.getHttp());
+      LDLogger baseLogger = context.getBasic().getBaseLogger();
+      LDLogger logger = baseLogger.subLogger(Loggers.EVENTS_LOGGER_NAME);
+      EventSenderFactory senderFactory =
+          eventSenderFactory == null ? new DefaultEventSender.Factory() : eventSenderFactory;
+      EventSender eventSender = senderFactory.createEventSender(
+          context.getBasic(),
+          context.getHttp(),
+          logger
+          );
       URI eventsUri = StandardEndpoints.selectBaseUri(
           context.getBasic().getServiceEndpoints().getEventsBaseUri(),
           baseURI,
           StandardEndpoints.DEFAULT_EVENTS_BASE_URI,
           "events",
-          Loggers.MAIN
+          baseLogger
           );
       return new DefaultEventProcessor(
           new EventsConfiguration(
@@ -252,7 +268,8 @@ abstract class ComponentsImpl {
           ClientContextImpl.get(context).sharedExecutor,
           context.getBasic().getThreadPriority(),
           ClientContextImpl.get(context).diagnosticAccumulator,
-          ClientContextImpl.get(context).diagnosticInitEvent
+          ClientContextImpl.get(context).diagnosticInitEvent,
+          logger
           );
     }
     
@@ -279,12 +296,13 @@ abstract class ComponentsImpl {
   static final class HttpConfigurationBuilderImpl extends HttpConfigurationBuilder {
     @Override
     public HttpConfiguration createHttpConfiguration(BasicConfiguration basicConfiguration) {
+      LDLogger logger = basicConfiguration.getBaseLogger();
       // Build the default headers
       ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
       headers.put("Authorization", basicConfiguration.getSdkKey());
       headers.put("User-Agent", "JavaClient/" + Version.SDK_VERSION);
       if (basicConfiguration.getApplicationInfo() != null) {
-        String tagHeader = Util.applicationTagHeader(basicConfiguration.getApplicationInfo());
+        String tagHeader = Util.applicationTagHeader(basicConfiguration.getApplicationInfo(), logger);
         if (!tagHeader.isEmpty()) {
           headers.put("X-LaunchDarkly-Tags", tagHeader);
         }
@@ -295,9 +313,6 @@ abstract class ComponentsImpl {
       }
       
       Proxy proxy = proxyHost == null ? null : new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
-      if (proxy != null) {
-        Loggers.MAIN.info("Using proxy: {} {} authentication.", proxy, proxyAuth == null ? "without" : "with");
-      }
       
       return new HttpConfigurationImpl(
           connectTimeout,
@@ -352,7 +367,8 @@ abstract class ComponentsImpl {
           staleValuesPolicy,
           recordCacheStats,
           dataStoreUpdates,
-          ClientContextImpl.get(context).sharedExecutor
+          ClientContextImpl.get(context).sharedExecutor,
+          context.getBasic().getBaseLogger().subLogger(Loggers.DATA_STORE_LOGGER_NAME)
           );
     }
   }
@@ -360,7 +376,14 @@ abstract class ComponentsImpl {
   static final class LoggingConfigurationBuilderImpl extends LoggingConfigurationBuilder {
     @Override
     public LoggingConfiguration createLoggingConfiguration(BasicConfiguration basicConfiguration) {
-      return new LoggingConfigurationImpl(logDataSourceOutageAsErrorAfter);
+      LDLogAdapter adapter = logAdapter == null ? LDSLF4J.adapter() : logAdapter;
+      LDLogAdapter filteredAdapter = Logs.level(adapter,
+          minimumLevel == null ? LDLogLevel.INFO : minimumLevel);
+      // If the adapter is for a framework like SLF4J or java.util.logging that has its own external
+      // configuration system, then calling Logs.level here has no effect and filteredAdapter will be
+      // just the same as adapter.
+      String name = baseName == null ? Loggers.BASE_LOGGER_NAME : baseName;
+      return new LoggingConfigurationImpl(name, filteredAdapter, logDataSourceOutageAsErrorAfter);
     }
   }
 

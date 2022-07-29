@@ -34,5 +34,4 @@ public interface ClientContext {
    * @return the logging configuration
    */
   public LoggingConfiguration getLogging();
-  
 }

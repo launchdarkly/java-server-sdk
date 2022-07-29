@@ -15,6 +15,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
 
+@SuppressWarnings("javadoc")
 public class EvalResultTest {
   private static final LDValue SOME_VALUE = LDValue.of("value");
   private static final LDValue ARRAY_VALUE = LDValue.arrayOf();
