@@ -37,7 +37,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 @SuppressWarnings("javadoc")
-public abstract class DefaultEventProcessorTestBase {
+public abstract class DefaultEventProcessorTestBase extends BaseTest {
   public static final String SDK_KEY = "SDK_KEY";
   public static final URI FAKE_URI = URI.create("http://fake");
   public static final LDContext user = LDContext.builder("userkey").name("Red").build();
@@ -46,8 +46,6 @@ public abstract class DefaultEventProcessorTestBase {
       .put("key", "userkey").put("name", "Red").build();
   public static final LDValue filteredUserJson = LDValue.buildObject().put("kind", "user")
       .put("key", "userkey").put("_meta", LDValue.parse("{\"redactedAttributes\":[\"name\"]}")).build();
-  public static final LDConfig baseLDConfig = new LDConfig.Builder().diagnosticOptOut(true).build();
-  public static final LDConfig diagLDConfig = new LDConfig.Builder().diagnosticOptOut(false).build();
   
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
@@ -56,11 +54,11 @@ public abstract class DefaultEventProcessorTestBase {
     return new EventsConfigurationBuilder().eventSender(es);
   }
 
-  public static DefaultEventProcessor makeEventProcessor(EventsConfigurationBuilder ec) {
+  public DefaultEventProcessor makeEventProcessor(EventsConfigurationBuilder ec) {
     return makeEventProcessor(ec, null, null);
   }
 
-  public static DefaultEventProcessor makeEventProcessor(
+  public DefaultEventProcessor makeEventProcessor(
       EventsConfigurationBuilder ec,
       DiagnosticAccumulator diagnosticAccumulator,
       DiagnosticEvent.Init diagnosticInitEvent
@@ -70,7 +68,8 @@ public abstract class DefaultEventProcessorTestBase {
         TestComponents.sharedExecutor,
         Thread.MAX_PRIORITY,
         diagnosticAccumulator,
-        diagnosticInitEvent
+        diagnosticInitEvent,
+        testLogger
         );
   }
 

@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableSet;
+import com.launchdarkly.sdk.server.BaseTest;
 import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.TestComponents;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
@@ -31,12 +32,12 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("javadoc")
-public class FileDataSourceTest {
+public class FileDataSourceTest extends BaseTest {
   private static final Path badFilePath = Paths.get("no-such-file.json");
   
   private final DataStore store;
   private MockDataSourceUpdates dataSourceUpdates;
-  private final LDConfig config = new LDConfig.Builder().build();
+  private final LDConfig config = baseConfig().build();
   
   public FileDataSourceTest() throws Exception {
     store = inMemoryDataStore();

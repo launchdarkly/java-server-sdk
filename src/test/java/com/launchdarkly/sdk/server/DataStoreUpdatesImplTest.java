@@ -16,9 +16,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 @SuppressWarnings("javadoc")
-public class DataStoreUpdatesImplTest {
+public class DataStoreUpdatesImplTest extends BaseTest {
   private EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> broadcaster =
-      EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
+      EventBroadcasterImpl.forDataStoreStatus(sharedExecutor, testLogger);
   private final DataStoreUpdatesImpl updates = new DataStoreUpdatesImpl(broadcaster);
   
   @Test
