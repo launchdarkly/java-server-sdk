@@ -9,8 +9,6 @@ import org.junit.Test;
 
 import java.util.Date;
 
-import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
@@ -19,7 +17,7 @@ import static org.hamcrest.Matchers.contains;
  * These DefaultEventProcessor tests cover the specific content that should appear in event payloads.
  */
 @SuppressWarnings("javadoc")
-public class DefaultEventProcessorOutputTest extends EventTestUtil {
+public class DefaultEventProcessorOutputTest extends BaseEventTest {
   private static final LDContext invalidContext = LDContext.create(null);
   
   // Note: context deduplication behavior has been abstracted out of DefaultEventProcessor, so that
@@ -31,7 +29,7 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   @Test
   public void identifyEventIsQueued() throws Exception {
     MockEventSender es = new MockEventSender();
-    Event e = makeIdentifyEvent(user);
+    Event e = identifyEvent(user);
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(e);
@@ -45,7 +43,7 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   @Test
   public void userIsFilteredInIdentifyEvent() throws Exception {
     MockEventSender es = new MockEventSender();
-    Event e = makeIdentifyEvent(user);
+    Event e = identifyEvent(user);
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).allAttributesPrivate(true))) {
       ep.sendEvent(e);
@@ -61,9 +59,9 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     // This should never happen because LDClient.identify() rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
-    Event event1 = makeIdentifyEvent(invalidContext);
-    Event event2 = makeIdentifyEvent(null);
-    Event event3 = makeIdentifyEvent(user);
+    Event event1 = identifyEvent(invalidContext);
+    Event event2 = identifyEvent(null);
+    Event event3 = identifyEvent(user);
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(event1);
@@ -80,9 +78,7 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   @Test
   public void individualFeatureEventIsQueuedWithIndexEvent() throws Exception {
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Event.FeatureRequest fe = featureEvent(user, FLAG_KEY).trackEvents(true).build();
 
     EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatAlwaysSaysKeysAreNew();
     
@@ -92,7 +88,7 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   
     assertThat(es.getEventsFromLastRequest(), contains(
         isIndexEvent(fe, userJson),
-        isFeatureEvent(fe, flag, false, null),
+        isFeatureEvent(fe),
         isSummaryEvent()
     ));
   }
@@ -101,9 +97,7 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   @Test
   public void userIsFilteredInIndexEvent() throws Exception {
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Event.FeatureRequest fe = featureEvent(user, FLAG_KEY).build();
 
     EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatAlwaysSaysKeysAreNew();
 
@@ -113,7 +107,6 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   
     assertThat(es.getEventsFromLastRequest(), contains(
         isIndexEvent(fe, filteredUserJson),
-        isFeatureEvent(fe, flag, false, null),
         isSummaryEvent()
     ));
   }
@@ -122,18 +115,15 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   @Test
   public void featureEventCanBeForPrerequisite() throws Exception {
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag mainFlag = flagBuilder("flagkey").version(11).build();
-    DataModel.FeatureFlag prereqFlag = flagBuilder("prereqkey").version(12).trackEvents(true).build();
-    Event.FeatureRequest fe = makePrerequisiteEvent(prereqFlag, user,
-        simpleEvaluation(1, LDValue.of("value")),
-        mainFlag);
+    String prereqKey = "prereqkey";
+    Event.FeatureRequest fe = featureEvent(user, prereqKey).prereqOf(FLAG_KEY).trackEvents(true).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(fe);
     }
   
     assertThat(es.getEventsFromLastRequest(), contains(
-        allOf(isFeatureEvent(fe, prereqFlag, false, null), isPrerequisiteOf(mainFlag.getKey())),
+        isFeatureEvent(fe),
         isSummaryEvent()
     ));
   }
@@ -143,11 +133,8 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     // This should never happen because LDClient rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).build();
-    Event.FeatureRequest event1 = makeFeatureRequestEvent(flag, invalidContext,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
-    Event.FeatureRequest event2 = makeFeatureRequestEvent(flag, null,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Event.FeatureRequest event1 = featureEvent(invalidContext, FLAG_KEY).build();
+    Event.FeatureRequest event2 = featureEvent(null, FLAG_KEY).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
         .allAttributesPrivate(true))) {
@@ -164,17 +151,15 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   @Test
   public void featureEventCanContainReason() throws Exception {
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
     EvaluationReason reason = EvaluationReason.ruleMatch(1, null);
-    Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
-        EvalResult.of(LDValue.of("value"), 1, reason), LDValue.ofNull(), true);
+    Event.FeatureRequest fe = featureEvent(user, FLAG_KEY).reason(reason).trackEvents(true).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(fe);
     }
 
     assertThat(es.getEventsFromLastRequest(), contains(
-        isFeatureEvent(fe, flag, false, null, reason),
+        isFeatureEvent(fe),
         isSummaryEvent()
     ));
   }
@@ -184,16 +169,14 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   public void eventKindIsDebugIfFlagIsTemporarilyInDebugMode() throws Exception {
     MockEventSender es = new MockEventSender();
     long futureTime = System.currentTimeMillis() + 1000000;
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(futureTime).build();
-    Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Event.FeatureRequest fe = featureEvent(user, FLAG_KEY).debugEventsUntilDate(futureTime).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(fe);
     }
   
     assertThat(es.getEventsFromLastRequest(), contains(
-        isFeatureEvent(fe, flag, true, userJson),
+        isDebugEvent(fe, userJson),
         isSummaryEvent()
     ));
   }
@@ -203,18 +186,15 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   public void eventCanBeBothTrackedAndDebugged() throws Exception {
     MockEventSender es = new MockEventSender();
     long futureTime = System.currentTimeMillis() + 1000000;
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true)
-        .debugEventsUntilDate(futureTime).build();
-    Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Event.FeatureRequest fe = featureEvent(user, FLAG_KEY).trackEvents(true).debugEventsUntilDate(futureTime).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(fe);
     }
 
     assertThat(es.getEventsFromLastRequest(), contains(
-        isFeatureEvent(fe, flag, false, null),
-        isFeatureEvent(fe, flag, true, userJson),
+        isFeatureEvent(fe),
+        isDebugEvent(fe, userJson),
         isSummaryEvent()
     ));
   }
@@ -228,13 +208,11 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     es.result = new EventSender.Result(true, false, new Date(serverTime));
     
     long debugUntil = serverTime + 1000;
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
-    Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Event.FeatureRequest fe = featureEvent(user, FLAG_KEY).debugEventsUntilDate(debugUntil).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       // Send and flush an event we don't care about, just so we'll receive "resp1" which sets the last server time
-      ep.sendEvent(new Event.Identify(FAKE_TIME, LDContext.create("otherUser")));
+      ep.sendEvent(identifyEvent(LDContext.create("otherUser")));
       ep.flush();
       ep.waitUntilInactive(); // this ensures that it has received the first response, with the date
       
@@ -261,13 +239,11 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     es.result = new EventSender.Result(true, false, new Date(serverTime));
     
     long debugUntil = serverTime - 1000;
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).debugEventsUntilDate(debugUntil).build();
-    Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
+    Event.FeatureRequest fe = featureEvent(user, FLAG_KEY).debugEventsUntilDate(debugUntil).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       // Send and flush an event we don't care about, just to set the last server time
-      ep.sendEvent(makeIdentifyEvent(LDContext.create("otherUser")));
+      ep.sendEvent(identifyEvent(LDContext.create("otherUser")));
       ep.flush();
       ep.waitUntilInactive(); // this ensures that it has received the first response, with the date
       
@@ -294,13 +270,8 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatSaysKeyIsNewOnFirstCallOnly();
     
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
-    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
-    LDValue value = LDValue.of("value");
-    Event.FeatureRequest fe1 = makeFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, value), LDValue.ofNull());
-    Event.FeatureRequest fe2 = makeFeatureRequestEvent(flag2, user,
-        simpleEvaluation(1, value), LDValue.ofNull());
+    Event.FeatureRequest fe1 = featureEvent(user, "flagkey1").trackEvents(true).build();
+    Event.FeatureRequest fe2 = featureEvent(user, "flagkey2").trackEvents(true).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).contextDeduplicator(contextDeduplicator))) {
       ep.sendEvent(fe1);
@@ -309,8 +280,8 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     
     assertThat(es.getEventsFromLastRequest(), contains(
         isIndexEvent(fe1, userJson),
-        isFeatureEvent(fe1, flag1, false, null),
-        isFeatureEvent(fe2, flag2, false, null),
+        isFeatureEvent(fe1),
+        isFeatureEvent(fe2),
         isSummaryEvent(fe1.getCreationDate(), fe2.getCreationDate())
     ));
   }
@@ -320,9 +291,7 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   public void identifyEventMakesIndexEventUnnecessary() throws Exception {
     MockEventSender es = new MockEventSender();
     Event ie = new Event.Identify(FAKE_TIME, user);
-    DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).trackEvents(true).build();
-    Event.FeatureRequest fe = makeFeatureRequestEvent(flag, user,
-        simpleEvaluation(1, LDValue.of("value")), null);
+    Event.FeatureRequest fe = featureEvent(user, FLAG_KEY).trackEvents(true).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(ie);
@@ -331,7 +300,7 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     
     assertThat(es.getEventsFromLastRequest(), contains(
         isIdentifyEvent(ie, userJson),
-        isFeatureEvent(fe, flag, false, null),
+        isFeatureEvent(fe),
         isSummaryEvent()
     ));
   }
@@ -341,20 +310,18 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
   @Test
   public void nonTrackedEventsAreSummarized() throws Exception {
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).build();
-    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).build();
-    LDValue value1 = LDValue.of("value1");
-    LDValue value2 = LDValue.of("value2");
-    LDValue default1 = LDValue.of("default1");
-    LDValue default2 = LDValue.of("default2");
-    Event fe1a = makeFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, value1), default1);
-    Event fe1b = makeFeatureRequestEvent(flag1, user,
-        simpleEvaluation(1, value1), default1);
-    Event fe1c = makeFeatureRequestEvent(flag1, user,
-        simpleEvaluation(2, value2), default1);
-    Event fe2 = makeFeatureRequestEvent(flag2, user,
-        simpleEvaluation(2, value2), default2);
+    String flagkey1 = "flagkey1", flagkey2 = "flagkey2";
+    int version1 = 11, version2 = 22;
+    LDValue value1 = LDValue.of("value1"), value2 = LDValue.of("value2");
+    LDValue default1 = LDValue.of("default1"), default2 = LDValue.of("default2");
+    Event fe1a = featureEvent(user, flagkey1).flagVersion(version1)
+        .variation(1).value(value1).defaultValue(default1).build();
+    Event fe1b = featureEvent(user, flagkey1).flagVersion(version1)
+        .variation(1).value(value1).defaultValue(default1).build();
+    Event fe1c = featureEvent(user, flagkey1).flagVersion(version1)
+        .variation(2).value(value2).defaultValue(default1).build();
+    Event fe2 = featureEvent(user, flagkey2).flagVersion(version2)
+        .variation(2).value(value2).defaultValue(default2).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(fe1a);
@@ -366,13 +333,13 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     assertThat(es.getEventsFromLastRequest(), contains(
         allOf(
             isSummaryEvent(fe1a.getCreationDate(), fe2.getCreationDate()),
-            hasSummaryFlag(flag1.getKey(), default1,
+            hasSummaryFlag(flagkey1, default1,
                 Matchers.containsInAnyOrder(
-                    isSummaryEventCounter(flag1, 1, value1, 2),
-                    isSummaryEventCounter(flag1, 2, value2, 1)
+                    isSummaryEventCounter(version1, 1, value1, 2),
+                    isSummaryEventCounter(version1, 2, value2, 1)
                 )),
-            hasSummaryFlag(flag2.getKey(), default2,
-                contains(isSummaryEventCounter(flag2, 2, value2, 1)))
+            hasSummaryFlag(flagkey2, default2,
+                contains(isSummaryEventCounter(version2, 2, value2, 1)))
         )
     ));
   }
@@ -382,7 +349,7 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     MockEventSender es = new MockEventSender();
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     double metric = 1.5;
-    Event.Custom ce = new Event.Custom(FAKE_TIME, "eventkey", user, data, metric);
+    Event.Custom ce = customEvent(user, "eventkey").data(data).metricValue(metric).build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(ce);
@@ -398,9 +365,9 @@ public class DefaultEventProcessorOutputTest extends EventTestUtil {
     // This should never happen because LDClient rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
-    Event.Custom event1 = new Event.Custom(FAKE_TIME, "eventkey", invalidContext, null, null);
-    Event.Custom event2 = new Event.Custom(FAKE_TIME, "eventkey", null, null, null);
-    Event.Custom event3 = new Event.Custom(FAKE_TIME, "eventkey", user, null, null);
+    Event.Custom event1 = customEvent(invalidContext, "eventkey").build();
+    Event.Custom event2 = customEvent(null, "eventkey").build();
+    Event.Custom event3 = customEvent(user, "eventkey").build();
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(event1);
