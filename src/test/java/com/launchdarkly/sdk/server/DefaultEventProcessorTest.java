@@ -118,7 +118,6 @@ public class DefaultEventProcessorTest extends EventTestUtil {
     };
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).contextDeduplicator(contextDeduplicator))) {
-
       boolean called = flushCalled.tryAcquire(briefContextFlushIntervalMillis * 2, TimeUnit.MILLISECONDS);
       assertTrue("expected context deduplicator flush method to be called, but it was not", called);
     }

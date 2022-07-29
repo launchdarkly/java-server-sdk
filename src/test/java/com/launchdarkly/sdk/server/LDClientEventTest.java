@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Prerequisite;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
@@ -23,19 +24,23 @@ import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
 import static com.launchdarkly.sdk.server.TestComponents.specificEventProcessor;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasKey;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class LDClientEventTest {
+public class LDClientEventTest extends BaseTest {
   private static final LDContext user = LDContext.create("userkey");
   private static final LDContext invalidContext = LDContext.create(null);
   
   private DataStore dataStore = initedDataStore();
   private TestComponents.TestEventProcessor eventSink = new TestComponents.TestEventProcessor();
-  private LDConfig config = new LDConfig.Builder()
+  private LDConfig config = baseConfig()
       .dataStore(specificDataStore(dataStore))
       .events(specificEventProcessor(eventSink))
       .dataSource(Components.externalUpdatesOnly())
@@ -497,7 +502,7 @@ public class LDClientEventTest {
   
   @Test
   public void identifyWithEventsDisabledDoesNotCauseError() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();
@@ -508,7 +513,7 @@ public class LDClientEventTest {
   
   @Test
   public void trackWithEventsDisabledDoesNotCauseError() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();
@@ -519,7 +524,7 @@ public class LDClientEventTest {
 
   @Test
   public void flushWithEventsDisabledDoesNotCauseError() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();
@@ -528,6 +533,49 @@ public class LDClientEventTest {
     }
   }
 
+  @Test
+  public void allFlagsStateGeneratesNoEvaluationEvents() {
+    DataModel.FeatureFlag flag = flagBuilder("flag")
+        .on(true)
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(1)
+        .variations(LDValue.of(true), LDValue.of(false))
+        .version(1)
+        .build();
+    upsertFlag(dataStore, flag);
+    
+    FeatureFlagsState state = client.allFlagsState(user);
+    assertThat(state.toValuesMap(), hasKey(flag.getKey()));
+    
+    assertThat(eventSink.events, empty());
+  }
+
+  @Test
+  public void allFlagsStateGeneratesNoPrerequisiteEvaluationEvents() {
+    DataModel.FeatureFlag flag1 = flagBuilder("flag1")
+        .on(true)
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(1)
+        .variations(LDValue.of(true), LDValue.of(false))
+        .version(1)
+        .build();
+    DataModel.FeatureFlag flag0 = flagBuilder("flag0")
+        .on(true)
+        .fallthrough(fallthroughVariation(0))
+        .offVariation(1)
+        .variations(LDValue.of(true), LDValue.of(false))
+        .prerequisites(new Prerequisite(flag1.getKey(), 0))
+        .version(1)
+        .build();
+    upsertFlag(dataStore, flag1);
+    upsertFlag(dataStore, flag0);
+    
+    FeatureFlagsState state = client.allFlagsState(user);
+    assertThat(state.toValuesMap(), allOf(hasKey(flag0.getKey()), hasKey(flag1.getKey())));
+    
+    assertThat(eventSink.events, empty());
+  }
+  
   private void checkFeatureEvent(Event e, DataModel.FeatureFlag flag, LDValue value, LDValue defaultVal,
       String prereqOf, EvaluationReason reason) {
     assertEquals(Event.FeatureRequest.class, e.getClass());

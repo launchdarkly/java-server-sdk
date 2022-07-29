@@ -50,6 +50,12 @@ final class ClientContextImpl extends ClientContext {
         loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
     HttpConfiguration httpConfig = config.httpConfigFactory.createHttpConfiguration(contextWithLogging);
     
+    if (httpConfig.getProxy() != null) {
+      contextWithLogging.getBaseLogger().info("Using proxy: {} {} authentication.",
+          httpConfig.getProxy(),
+          httpConfig.getProxyAuthentication() == null ? "without" : "with");
+    }
+    
     ClientContext contextWithHttpAndLogging = new ClientContext(sdkKey, config.applicationInfo, httpConfig,
         loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
     
@@ -67,7 +73,7 @@ final class ClientContextImpl extends ClientContext {
         diagnosticStore
         );
   }
-  
+
   /**
    * This mechanism is a convenience for internal components to access the package-private fields of the
    * context if it is a ClientContextImpl, and to receive null values for those fields if it is not.

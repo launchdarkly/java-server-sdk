@@ -6,9 +6,6 @@ import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestInfo;
 import com.launchdarkly.testhelpers.httptest.ServerTLSConfiguration;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.URI;
 
@@ -18,8 +15,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
 class TestHttpUtil {
-  static Logger logger = LoggerFactory.getLogger(TestHttpUtil.class);
-  
   // Used for testWithSpecialHttpConfigurations
   static interface HttpConfigurationTestAction {
     void accept(URI targetUri, HttpConfigurationFactory httpConfig) throws IOException;
@@ -62,7 +57,6 @@ class TestHttpUtil {
   
   static void testHttpClientDoesNotAllowSelfSignedCertByDefault(Handler handler,
       HttpConfigurationTestAction testActionShouldFail) {
-    logger.warn("testHttpClientDoesNotAllowSelfSignedCertByDefault");
     try {
       ServerTLSConfiguration tlsConfig = ServerTLSConfiguration.makeSelfSignedCertificate();
       try (HttpServer secureServer = HttpServer.startSecure(tlsConfig, handler)) {
@@ -76,7 +70,6 @@ class TestHttpUtil {
 
   static void testHttpClientCanBeConfiguredToAllowSelfSignedCert(Handler handler,
       HttpConfigurationTestAction testActionShouldSucceed) {
-    logger.warn("testHttpClientCanBeConfiguredToAllowSelfSignedCert");
     try {
       ServerTLSConfiguration tlsConfig = ServerTLSConfiguration.makeSelfSignedCertificate();
       HttpConfigurationFactory httpConfig = Components.httpConfiguration()
@@ -91,8 +84,7 @@ class TestHttpUtil {
   }
 
   static void testHttpClientCanUseCustomSocketFactory(Handler handler,
-      HttpConfigurationTestAction testActionShouldSucceed) {     
-    logger.warn("testHttpClientCanUseCustomSocketFactory");
+      HttpConfigurationTestAction testActionShouldSucceed) {
     try {
       try (HttpServer server = HttpServer.start(handler)) {
         HttpConfigurationFactory httpConfig = Components.httpConfiguration()
@@ -109,7 +101,6 @@ class TestHttpUtil {
   
   static void testHttpClientCanUseProxy(Handler handler,
       HttpConfigurationTestAction testActionShouldSucceed) {
-    logger.warn("testHttpClientCanUseProxy");
     try {
       try (HttpServer server = HttpServer.start(handler)) {
         HttpConfigurationFactory httpConfig = Components.httpConfiguration()
@@ -126,7 +117,6 @@ class TestHttpUtil {
 
   static void testHttpClientCanUseProxyWithBasicAuth(Handler handler,
       HttpConfigurationTestAction testActionShouldSucceed) {
-    logger.warn("testHttpClientCanUseProxyWithBasicAuth");
     Handler proxyHandler = ctx -> {
       if (ctx.getRequest().getHeader("Proxy-Authorization") == null) {
         ctx.setStatus(407);

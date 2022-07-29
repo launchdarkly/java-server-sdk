@@ -17,10 +17,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class LDClientExternalUpdatesOnlyTest {
+public class LDClientExternalUpdatesOnlyTest extends BaseTest {
   @Test
   public void externalUpdatesOnlyClientHasNullDataSource() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
@@ -30,8 +30,9 @@ public class LDClientExternalUpdatesOnlyTest {
 
   @Test
   public void externalUpdatesOnlyClientHasDefaultEventProcessor() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(Components.externalUpdatesOnly())
+        .events(Components.sendEvents())
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
       assertEquals(DefaultEventProcessorWrapper.class, client.eventProcessor.getClass());
@@ -40,7 +41,7 @@ public class LDClientExternalUpdatesOnlyTest {
 
   @Test
   public void externalUpdatesOnlyClientIsInitialized() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
@@ -53,7 +54,7 @@ public class LDClientExternalUpdatesOnlyTest {
   @Test
   public void externalUpdatesOnlyClientGetsFlagFromDataStore() throws IOException {
     DataStore testDataStore = initedDataStore();
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(Components.externalUpdatesOnly())
         .dataStore(specificDataStore(testDataStore))
         .build();
