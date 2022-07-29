@@ -12,49 +12,50 @@ import org.junit.Before;
 import org.junit.Test;
 
 @SuppressWarnings("javadoc")
-public class BigSegmentStoreStatusProviderImplTest extends EasyMockSupport {
+public class BigSegmentStoreStatusProviderImplTest extends BaseTest {
 
   // We don't need to extensively test status broadcasting behavior, just that the implementation
   // delegates to the BigSegmentStoreWrapper and EventBroadcasterImpl.
 
   private StatusListener mockStatusListener;
   private EventBroadcasterImpl<StatusListener, Status> mockEventBroadcaster;
+  private final EasyMockSupport mocks = new EasyMockSupport();
 
   @Before
   @SuppressWarnings("unchecked")
   public void setup() {
-    mockEventBroadcaster = strictMock(EventBroadcasterImpl.class);
-    mockStatusListener = strictMock(StatusListener.class);
+    mockEventBroadcaster = mocks.strictMock(EventBroadcasterImpl.class);
+    mockStatusListener = mocks.strictMock(StatusListener.class);
   }
 
   @Test
   public void statusUnavailableWithNullWrapper() {
-    replayAll();
+    mocks.replayAll();
     BigSegmentStoreStatusProviderImpl statusProvider = new BigSegmentStoreStatusProviderImpl(mockEventBroadcaster, null);
     assertEquals(statusProvider.getStatus(), new Status(false, false));
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
   public void statusDelegatedToWrapper() {
-    BigSegmentStoreWrapper storeWrapper = strictMock(BigSegmentStoreWrapper.class);
+    BigSegmentStoreWrapper storeWrapper = mocks.strictMock(BigSegmentStoreWrapper.class);
     expect(storeWrapper.getStatus()).andReturn(new Status(true, false)).once();
-    replayAll();
+    mocks.replayAll();
 
     BigSegmentStoreStatusProviderImpl statusProvider = new BigSegmentStoreStatusProviderImpl(mockEventBroadcaster, storeWrapper);
     assertEquals(statusProvider.getStatus(), new Status(true, false));
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
   public void listenersDelegatedToEventBroadcaster() {
     mockEventBroadcaster.register(same(mockStatusListener));
     mockEventBroadcaster.unregister(same(mockStatusListener));
-    replayAll();
+    mocks.replayAll();
 
     BigSegmentStoreStatusProviderImpl statusProvider = new BigSegmentStoreStatusProviderImpl(mockEventBroadcaster, null);
     statusProvider.addStatusListener(mockStatusListener);
     statusProvider.removeStatusListener(mockStatusListener);
-    verifyAll();
+    mocks.verifyAll();
   }
 }

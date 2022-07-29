@@ -1,8 +1,8 @@
 package com.launchdarkly.sdk.server;
 
-import java.net.URI;
+import com.launchdarkly.logging.LDLogger;
 
-import org.slf4j.Logger;
+import java.net.URI;
 
 abstract class StandardEndpoints {
   private StandardEndpoints() {}
@@ -28,7 +28,7 @@ abstract class StandardEndpoints {
    * @param logger the logger to which we should print the warning, if needed
    * @return the base URI we should connect to
    */
-  static URI selectBaseUri(URI serviceEndpointsValue, URI defaultValue, String description, Logger logger) {
+  static URI selectBaseUri(URI serviceEndpointsValue, URI defaultValue, String description, LDLogger logger) {
     if (serviceEndpointsValue != null) {
       return serviceEndpointsValue;
     }

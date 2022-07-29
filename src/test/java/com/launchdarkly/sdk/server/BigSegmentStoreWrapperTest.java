@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestComponents.nullLogger;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
 import static org.easymock.EasyMock.expect;
@@ -33,9 +34,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 @SuppressWarnings("javadoc")
-public class BigSegmentStoreWrapperTest extends EasyMockSupport {
+public class BigSegmentStoreWrapperTest extends BaseTest {
   private static final String SDK_KEY = "sdk-key";
 
+  private final EasyMockSupport mocks = new EasyMockSupport();
   private AtomicBoolean storeUnavailable;
   private AtomicReference<StoreMetadata> storeMetadata;
   private BigSegmentStore storeMock;
@@ -44,20 +46,24 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
 
   @Before
   public void setup() {
-    eventBroadcaster = EventBroadcasterImpl.forBigSegmentStoreStatus(sharedExecutor);
+    eventBroadcaster = EventBroadcasterImpl.forBigSegmentStoreStatus(sharedExecutor, nullLogger);
     storeUnavailable = new AtomicBoolean(false);
     storeMetadata = new AtomicReference<>(null);
-    storeMock = niceMock(BigSegmentStore.class);
+    storeMock = mocks.niceMock(BigSegmentStore.class);
     expect(storeMock.getMetadata()).andAnswer(() -> {
       if (storeUnavailable.get()) {
         throw new RuntimeException("sorry");
       }
       return storeMetadata.get();
     }).anyTimes();
-    storeFactoryMock = strictMock(BigSegmentStoreFactory.class);
+    storeFactoryMock = mocks.strictMock(BigSegmentStoreFactory.class);
     expect(storeFactoryMock.createBigSegmentStore(isA(ClientContext.class))).andReturn(storeMock);
   }
 
+  private BigSegmentStoreWrapper makeWrapper(BigSegmentsConfiguration bsConfig) {
+    return new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor, testLogger);
+  }
+  
   private void setStoreMembership(String userKey, Membership membership) {
     expect(storeMock.getMembership(BigSegmentStoreWrapper.hashForUserKey(userKey))).andReturn(membership);
   }
@@ -68,13 +74,13 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
 
     String userKey = "userkey";
     setStoreMembership(userKey, expectedMembership);
-    replayAll();
+    mocks.replayAll();
 
     storeMetadata.set(new StoreMetadata(System.currentTimeMillis()));
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .staleAfter(Duration.ofDays(1))
         .createBigSegmentsConfiguration(clientContext(SDK_KEY, new LDConfig.Builder().build()));
-    try (BigSegmentStoreWrapper wrapper = new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor)) {
+    try (BigSegmentStoreWrapper wrapper = makeWrapper(bsConfig)) {
       BigSegmentsQueryResult res = wrapper.getUserMembership(userKey);
       assertEquals(expectedMembership, res.membership);
       assertEquals(BigSegmentsStatus.HEALTHY, res.status);
@@ -85,13 +91,13 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
   public void membershipQueryReturnsNull() throws Exception {
     String userKey = "userkey";
     setStoreMembership(userKey, null);
-    replayAll();
+    mocks.replayAll();
 
     storeMetadata.set(new StoreMetadata(System.currentTimeMillis()));
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .staleAfter(Duration.ofDays(1))
         .createBigSegmentsConfiguration(clientContext(SDK_KEY, new LDConfig.Builder().build()));
-    try (BigSegmentStoreWrapper wrapper = new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor)) {
+    try (BigSegmentStoreWrapper wrapper = makeWrapper(bsConfig)) {
       BigSegmentsQueryResult res = wrapper.getUserMembership(userKey);
       assertEquals(createMembershipFromSegmentRefs(null, null), res.membership);
       assertEquals(BigSegmentsStatus.HEALTHY, res.status);
@@ -104,13 +110,13 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
     String userKey = "userkey";
     setStoreMembership(userKey, expectedMembership);
 
-    replayAll();
+    mocks.replayAll();
 
     storeMetadata.set(new StoreMetadata(System.currentTimeMillis()));
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .staleAfter(Duration.ofDays(1))
         .createBigSegmentsConfiguration(clientContext(SDK_KEY, new LDConfig.Builder().build()));
-    try (BigSegmentStoreWrapper wrapper = new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor)) {
+    try (BigSegmentStoreWrapper wrapper = makeWrapper(bsConfig)) {
       BigSegmentsQueryResult res1 = wrapper.getUserMembership(userKey);
       assertEquals(expectedMembership, res1.membership);
       assertEquals(BigSegmentsStatus.HEALTHY, res1.status);
@@ -127,13 +133,13 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
     String userKey = "userkey";
     setStoreMembership(userKey, expectedMembership);
 
-    replayAll();
+    mocks.replayAll();
 
     storeMetadata.set(new StoreMetadata(System.currentTimeMillis() - 1000));
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .staleAfter(Duration.ofMillis(500))
         .createBigSegmentsConfiguration(clientContext(SDK_KEY, new LDConfig.Builder().build()));
-    try (BigSegmentStoreWrapper wrapper = new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor)) {
+    try (BigSegmentStoreWrapper wrapper = makeWrapper(bsConfig)) {
       BigSegmentsQueryResult res = wrapper.getUserMembership(userKey);
       assertEquals(expectedMembership, res.membership);
       assertEquals(BigSegmentsStatus.STALE, res.status);
@@ -146,13 +152,13 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
     String userKey = "userkey";
     setStoreMembership(userKey, expectedMembership);
 
-    replayAll();
+    mocks.replayAll();
 
     storeMetadata.set(null);
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .staleAfter(Duration.ofMillis(500))
         .createBigSegmentsConfiguration(clientContext(SDK_KEY, new LDConfig.Builder().build()));
-    try (BigSegmentStoreWrapper wrapper = new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor)) {
+    try (BigSegmentStoreWrapper wrapper = makeWrapper(bsConfig)) {
       BigSegmentsQueryResult res = wrapper.getUserMembership(userKey);
       assertEquals(expectedMembership, res.membership);
       assertEquals(BigSegmentsStatus.STALE, res.status);
@@ -170,14 +176,14 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
     setStoreMembership(userKey3, expectedMembership3);
     setStoreMembership(userKey1, expectedMembership1);
 
-    replayAll();
+    mocks.replayAll();
 
     storeMetadata.set(new StoreMetadata(System.currentTimeMillis()));
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .userCacheSize(2)
         .staleAfter(Duration.ofDays(1))
         .createBigSegmentsConfiguration(clientContext(SDK_KEY, new LDConfig.Builder().build()));
-    try (BigSegmentStoreWrapper wrapper = new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor)) {
+    try (BigSegmentStoreWrapper wrapper = makeWrapper(bsConfig)) {
       BigSegmentsQueryResult res1 = wrapper.getUserMembership(userKey1);
       assertEquals(expectedMembership1, res1.membership);
       assertEquals(BigSegmentsStatus.HEALTHY, res1.status);
@@ -206,14 +212,14 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
 
   @Test
   public void pollingDetectsStoreUnavailability() throws Exception {
-    replayAll();
+    mocks.replayAll();
 
     storeMetadata.set(new StoreMetadata(System.currentTimeMillis()));
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .statusPollInterval(Duration.ofMillis(10))
         .staleAfter(Duration.ofDays(1))
         .createBigSegmentsConfiguration(clientContext(SDK_KEY, new LDConfig.Builder().build()));
-    try (BigSegmentStoreWrapper wrapper = new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor)) {
+    try (BigSegmentStoreWrapper wrapper = makeWrapper(bsConfig)) {
       assertTrue(wrapper.getStatus().isAvailable());
 
       BlockingQueue<BigSegmentStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
@@ -233,14 +239,14 @@ public class BigSegmentStoreWrapperTest extends EasyMockSupport {
 
   @Test
   public void pollingDetectsStaleStatus() throws Exception {
-    replayAll();
+    mocks.replayAll();
 
     storeMetadata.set(new StoreMetadata(System.currentTimeMillis() + 10000));
     BigSegmentsConfiguration bsConfig = Components.bigSegments(storeFactoryMock)
         .statusPollInterval(Duration.ofMillis(10))
         .staleAfter(Duration.ofMillis(200))
         .createBigSegmentsConfiguration(clientContext(SDK_KEY, new LDConfig.Builder().build()));
-    try (BigSegmentStoreWrapper wrapper = new BigSegmentStoreWrapper(bsConfig, eventBroadcaster, sharedExecutor)) {
+    try (BigSegmentStoreWrapper wrapper = makeWrapper(bsConfig)) {
       assertFalse(wrapper.getStatus().isStale());
 
       BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();

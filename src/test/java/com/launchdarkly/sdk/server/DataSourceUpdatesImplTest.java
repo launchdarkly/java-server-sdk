@@ -31,6 +31,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.inMemoryDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.nullLogger;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.expectEvents;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
@@ -42,12 +43,13 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 
 @SuppressWarnings("javadoc")
-public class DataSourceUpdatesImplTest extends EasyMockSupport {
+public class DataSourceUpdatesImplTest {
   // Note that these tests must use the actual data model types for flags and segments, rather than the
   // TestItem type from DataStoreTestTypes, because the dependency behavior is based on the real data model.
   
-  private EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeBroadcaster =
-      EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor);
+  private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeBroadcaster =
+      EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor, nullLogger);
+  private final EasyMockSupport mocks = new EasyMockSupport();
   
   private DataSourceUpdatesImpl makeInstance(DataStore store) {
     return makeInstance(store, null);
@@ -57,7 +59,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
       DataStore store,
       EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> statusBroadcaster
       ) {
-    return new DataSourceUpdatesImpl(store, null, flagChangeBroadcaster, statusBroadcaster, sharedExecutor, null);
+    return new DataSourceUpdatesImpl(store, null, flagChangeBroadcaster, statusBroadcaster, sharedExecutor, null, nullLogger);
   }
   
   @Test
@@ -334,7 +336,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
     // The logic for this is already tested in DataModelDependenciesTest, but here we are verifying
     // that DataSourceUpdatesImpl is actually using DataModelDependencies.
     Capture<FullDataSet<ItemDescriptor>> captureData = Capture.newInstance();
-    DataStore store = createStrictMock(DataStore.class);
+    DataStore store = mocks.createStrictMock(DataStore.class);
     store.init(EasyMock.capture(captureData));
     replay(store);
     
@@ -349,7 +351,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
   @Test
   public void updateStatusBroadcastsNewStatus() {
     EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> broadcaster =
-        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor, nullLogger);
     DataSourceUpdatesImpl updates = makeInstance(inMemoryDataStore(), broadcaster);
     
     BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
@@ -369,7 +371,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
   @Test
   public void updateStatusKeepsStateUnchangedIfStateWasInitializingAndNewStateIsInterrupted() {
     EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> broadcaster =
-        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor, nullLogger);
     DataSourceUpdatesImpl updates = makeInstance(inMemoryDataStore(), broadcaster);
     
     assertThat(updates.getLastStatus().getState(), is(State.INITIALIZING));
@@ -391,7 +393,7 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
   @Test
   public void updateStatusDoesNothingIfParametersHaveNoNewData() {
     EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> broadcaster =
-        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor, nullLogger);
     DataSourceUpdatesImpl updates = makeInstance(inMemoryDataStore(), broadcaster);
     
     BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
@@ -412,9 +414,10 @@ public class DataSourceUpdatesImplTest extends EasyMockSupport {
         inMemoryDataStore(),
         null,
         flagChangeBroadcaster,
-        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor),
+        EventBroadcasterImpl.forDataSourceStatus(sharedExecutor, nullLogger),
         sharedExecutor,
-        outageTimeout
+        outageTimeout,
+        nullLogger
     );
     updates.onOutageErrorLog = outageErrors::add;
     
