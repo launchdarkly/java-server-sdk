@@ -54,6 +54,7 @@ public class LDClientEvaluationBenchmarks {
         .dataStore(specificComponent(dataStore))
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
+        .logging(Components.noLogging())
         .build();
       client = new LDClient(SDK_KEY, config);
 

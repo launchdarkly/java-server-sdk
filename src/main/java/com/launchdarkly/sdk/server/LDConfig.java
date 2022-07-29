@@ -244,7 +244,7 @@ public final class LDConfig {
       this.logging = loggingConfigurer;
       return this;
     }
-    
+
     /**
      * Set whether this client is offline.
      * <p>

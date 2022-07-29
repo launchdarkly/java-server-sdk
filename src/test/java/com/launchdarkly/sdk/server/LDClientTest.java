@@ -47,20 +47,21 @@ import static org.junit.Assert.fail;
  * See also LDClientEvaluationTest, etc. This file contains mostly tests for the startup logic.
  */
 @SuppressWarnings("javadoc")
-public class LDClientTest extends EasyMockSupport {
+public class LDClientTest extends BaseTest {
   private final static String SDK_KEY = "SDK_KEY";
 
   private DataSource dataSource;
   private EventProcessor eventProcessor;
   private Future<Void> initFuture;
   private LDClientInterface client;
+  private final EasyMockSupport mocks = new EasyMockSupport();
 
   @SuppressWarnings("unchecked")
   @Before
   public void before() {
-    dataSource = createStrictMock(DataSource.class);
-    eventProcessor = createStrictMock(EventProcessor.class);
-    initFuture = createStrictMock(Future.class);
+    dataSource = mocks.createStrictMock(DataSource.class);
+    eventProcessor = mocks.createStrictMock(EventProcessor.class);
+    initFuture = mocks.createStrictMock(Future.class);
   }
 
   @Test
@@ -104,7 +105,7 @@ public class LDClientTest extends EasyMockSupport {
     // It may seem counter-intuitive to allow this, but if someone is using the SDK in offline
     // mode, or with a file data source or a test fixture, they may reasonably assume that it's
     // OK to pass an empty string since the key won't actually be used.
-    try (LDClient client = new LDClient(SDK_KEY + "")) {}
+    try (LDClient client = new LDClient("", baseConfig().build())) {}
   }
 
   @Test
@@ -121,6 +122,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
         .diagnosticOptOut(true)
+        .logging(Components.logging(testLogging))
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
@@ -133,6 +135,7 @@ public class LDClientTest extends EasyMockSupport {
         .dataSource(Components.externalUpdatesOnly())
         .events(Components.sendEvents())
         .diagnosticOptOut(true)
+        .logging(Components.logging(testLogging))
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
@@ -144,6 +147,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
         .events(Components.noEvents())
+        .logging(Components.logging(testLogging))
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(ComponentsImpl.NullEventProcessor.class, client.eventProcessor.getClass());
@@ -154,9 +158,11 @@ public class LDClientTest extends EasyMockSupport {
   public void canSetCustomEventsEndpoint() throws Exception {
     URI eu = URI.create("http://fake");
     LDConfig config = new LDConfig.Builder()
+        .dataSource(Components.externalUpdatesOnly())
         .serviceEndpoints(Components.serviceEndpoints().events(eu))
         .events(Components.sendEvents())
         .diagnosticOptOut(true)
+        .logging(Components.logging(testLogging))
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertEquals(eu, ((DefaultEventProcessor) client.eventProcessor).dispatcher.eventsConfig.eventsUri);
@@ -166,8 +172,9 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void streamingClientHasStreamProcessor() throws Exception {
     LDConfig config = new LDConfig.Builder()
-        .serviceEndpoints(Components.serviceEndpoints().streaming(URI.create("http://fake")))
+        .serviceEndpoints(Components.serviceEndpoints().streaming("http://fake"))
         .events(Components.noEvents())
+        .logging(Components.logging(testLogging))
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -181,6 +188,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .serviceEndpoints(Components.serviceEndpoints().streaming(su))
         .events(Components.noEvents())
+        .logging(Components.logging(testLogging))
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -191,9 +199,10 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void pollingClientHasPollingProcessor() throws IOException {
     LDConfig config = new LDConfig.Builder()
-        .serviceEndpoints(Components.serviceEndpoints().polling(URI.create("http://fake")))
         .dataSource(Components.pollingDataSource())
+        .serviceEndpoints(Components.serviceEndpoints().polling("http://fake"))
         .events(Components.noEvents())
+        .logging(Components.logging(testLogging))
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -208,6 +217,7 @@ public class LDClientTest extends EasyMockSupport {
         .dataSource(Components.pollingDataSource())
         .serviceEndpoints(Components.serviceEndpoints().polling(pu))
         .events(Components.noEvents())
+        .logging(Components.logging(testLogging))
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
@@ -218,21 +228,23 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void sameDiagnosticAccumulatorPassedToFactoriesWhenSupported() throws IOException {
     @SuppressWarnings("unchecked")
-    ComponentConfigurer<DataSource> mockDataSourceFactory = createStrictMock(ComponentConfigurer.class);
+    ComponentConfigurer<DataSource> mockDataSourceFactory = mocks.createStrictMock(ComponentConfigurer.class);
 
     LDConfig config = new LDConfig.Builder()
-            .serviceEndpoints(Components.serviceEndpoints().events(URI.create("http://fake-host")))
+            .serviceEndpoints(Components.serviceEndpoints().events("fake-host")) // event processor will try to send a diagnostic event here
             .dataSource(mockDataSourceFactory)
+            .events(Components.sendEvents())
+            .logging(Components.logging(testLogging))
             .startWait(Duration.ZERO)
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
     expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
 
-    replayAll();
+    mocks.replayAll();
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      verifyAll();
+      mocks.verifyAll();
       DiagnosticAccumulator acc = ((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticAccumulator; 
       assertNotNull(acc);
       assertSame(acc, ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
@@ -242,21 +254,22 @@ public class LDClientTest extends EasyMockSupport {
   @Test
   public void nullDiagnosticAccumulatorPassedToFactoriesWhenOptedOut() throws IOException {
     @SuppressWarnings("unchecked")
-    ComponentConfigurer<DataSource> mockDataSourceFactory = createStrictMock(ComponentConfigurer.class);
+    ComponentConfigurer<DataSource> mockDataSourceFactory = mocks.createStrictMock(ComponentConfigurer.class);
 
     LDConfig config = new LDConfig.Builder()
             .dataSource(mockDataSourceFactory)
             .diagnosticOptOut(true)
+            .logging(Components.logging(testLogging))
             .startWait(Duration.ZERO)
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
     expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
 
-    replayAll();
+    mocks.replayAll();
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      verifyAll();
+      mocks.verifyAll();
       assertNull(((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticAccumulator);
       assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
     }
@@ -264,17 +277,18 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void nullDiagnosticAccumulatorPassedToUpdateFactoryWhenEventProcessorDoesNotSupportDiagnostics() throws IOException {
-    EventProcessor mockEventProcessor = createStrictMock(EventProcessor.class);
+    EventProcessor mockEventProcessor = mocks.createStrictMock(EventProcessor.class);
     mockEventProcessor.close();
     EasyMock.expectLastCall().anyTimes();
     @SuppressWarnings("unchecked")
-    ComponentConfigurer<EventProcessor> mockEventProcessorFactory = createStrictMock(ComponentConfigurer.class);
+    ComponentConfigurer<EventProcessor> mockEventProcessorFactory = mocks.createStrictMock(ComponentConfigurer.class);
     @SuppressWarnings("unchecked")
-    ComponentConfigurer<DataSource> mockDataSourceFactory = createStrictMock(ComponentConfigurer.class);
+    ComponentConfigurer<DataSource> mockDataSourceFactory = mocks.createStrictMock(ComponentConfigurer.class);
 
     LDConfig config = new LDConfig.Builder()
             .events(mockEventProcessorFactory)
             .dataSource(mockDataSourceFactory)
+            .logging(Components.logging(testLogging))
             .startWait(Duration.ZERO)
             .build();
 
@@ -283,10 +297,10 @@ public class LDClientTest extends EasyMockSupport {
     expect(mockEventProcessorFactory.build(capture(capturedEventContext))).andReturn(mockEventProcessor);
     expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
 
-    replayAll();
+    mocks.replayAll();
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      verifyAll();
+      mocks.verifyAll();
       assertNull(ClientContextImpl.get(capturedEventContext.getValue()).diagnosticAccumulator);
       assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
     }
@@ -299,12 +313,12 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false);
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
     assertFalse(client.isInitialized());
 
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
@@ -315,12 +329,12 @@ public class LDClientTest extends EasyMockSupport {
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andReturn(null);
     expect(dataSource.isInitialized()).andReturn(false).anyTimes();
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
     assertFalse(client.isInitialized());
 
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
@@ -330,12 +344,12 @@ public class LDClientTest extends EasyMockSupport {
 
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false);
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
     assertFalse(client.isInitialized());
 
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
@@ -346,12 +360,12 @@ public class LDClientTest extends EasyMockSupport {
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new TimeoutException());
     expect(dataSource.isInitialized()).andReturn(false).anyTimes();
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
     assertFalse(client.isInitialized());
 
-    verifyAll();
+    mocks.verifyAll();
   }
   
   @Test
@@ -362,12 +376,12 @@ public class LDClientTest extends EasyMockSupport {
     expect(dataSource.start()).andReturn(initFuture);
     expect(initFuture.get(10L, TimeUnit.MILLISECONDS)).andThrow(new RuntimeException());
     expect(dataSource.isInitialized()).andReturn(false).anyTimes();
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
     assertFalse(client.isInitialized());
 
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
@@ -378,13 +392,13 @@ public class LDClientTest extends EasyMockSupport {
             .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(true).times(1);
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
 
     upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
     assertTrue(client.isFlagKnown("key"));
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
@@ -395,12 +409,12 @@ public class LDClientTest extends EasyMockSupport {
             .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(true).times(1);
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
 
     assertFalse(client.isFlagKnown("key"));
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
@@ -411,13 +425,13 @@ public class LDClientTest extends EasyMockSupport {
             .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
 
     upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
     assertFalse(client.isFlagKnown("key"));
-    verifyAll();
+    mocks.verifyAll();
   }
 
   @Test
@@ -428,13 +442,13 @@ public class LDClientTest extends EasyMockSupport {
             .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
 
     upsertFlag(testDataStore, flagWithValue("key", LDValue.of(1)));
     assertTrue(client.isFlagKnown("key"));
-    verifyAll();
+    mocks.verifyAll();
   }
   
   @Test
@@ -445,7 +459,7 @@ public class LDClientTest extends EasyMockSupport {
         .dataStore(specificComponent(badStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
-    replayAll();
+    mocks.replayAll();
 
     client = createMockClient(config);
     
@@ -457,6 +471,7 @@ public class LDClientTest extends EasyMockSupport {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
         .events(Components.noEvents())
+        .logging(Components.logging(testLogging))
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       assertEquals(Version.SDK_VERSION, client.version());
@@ -465,15 +480,12 @@ public class LDClientTest extends EasyMockSupport {
 
   @Test
   public void canGetCacheStatsFromDataStoreStatusProvider() throws Exception {
-    LDConfig config1 = new LDConfig.Builder()
-        .dataSource(Components.externalUpdatesOnly())
-        .events(Components.noEvents())
-        .build();
+    LDConfig config1 = baseConfig().build();
     try (LDClient client1 = new LDClient(SDK_KEY, config1)) {
       assertNull(client1.getDataStoreStatusProvider().getCacheStats());
     }
     
-    LDConfig config2 = new LDConfig.Builder()
+    LDConfig config2 = baseConfig()
         .dataStore(Components.persistentDataStore(c -> new MockPersistentDataStore()))
         .build();
     try (LDClient client2 = new LDClient(SDK_KEY, config2)) {
@@ -488,7 +500,8 @@ public class LDClientTest extends EasyMockSupport {
     LDUser user = new LDUser.Builder("userkey").build();
     String expectedHash = "c097a70924341660427c2e487b86efee789210f9e6dafc3b5f50e75bc596ff99";
     
-    client = createMockClient(new LDConfig.Builder().startWait(Duration.ZERO));
+    client = createMockClient(new LDConfig.Builder()
+        .startWait(Duration.ZERO));
     assertEquals(expectedHash, client.secureModeHash(user));
   
     assertNull(client.secureModeHash(null));
@@ -498,12 +511,13 @@ public class LDClientTest extends EasyMockSupport {
   private void setupMockDataSourceToInitialize(boolean willInitialize) {
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(willInitialize);
-    replayAll();
+    mocks.replayAll();
   }
   
   private LDClient createMockClient(LDConfig.Builder config) {
     config.dataSource(specificComponent(dataSource));
     config.events(specificComponent(eventProcessor));
+    config.logging(Components.logging(testLogging));
     return new LDClient(SDK_KEY, config.build());
   }
 }

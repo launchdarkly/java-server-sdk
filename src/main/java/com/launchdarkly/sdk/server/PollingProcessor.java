@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
@@ -9,8 +10,6 @@ import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -25,7 +24,6 @@ import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
 import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
 
 final class PollingProcessor implements DataSource {
-  private static final Logger logger = Loggers.DATA_SOURCE;
   private static final String ERROR_CONTEXT_MESSAGE = "on polling request";
   private static final String WILL_RETRY_MESSAGE = "will retry at next scheduled poll interval";
 
@@ -36,18 +34,21 @@ final class PollingProcessor implements DataSource {
   private final AtomicBoolean initialized = new AtomicBoolean(false);
   private final CompletableFuture<Void> initFuture;
   private volatile ScheduledFuture<?> task;
+  private final LDLogger logger;
 
   PollingProcessor(
       FeatureRequestor requestor,
       DataSourceUpdateSink dataSourceUpdates,
       ScheduledExecutorService sharedExecutor,
-      Duration pollInterval
+      Duration pollInterval,
+      LDLogger logger
       ) {
     this.requestor = requestor; // note that HTTP configuration is applied to the requestor when it is created
     this.dataSourceUpdates = dataSourceUpdates;
     this.scheduler = sharedExecutor;
     this.pollInterval = pollInterval;
     this.initFuture = new CompletableFuture<>();
+    this.logger = logger;
   }
 
   @Override
@@ -73,8 +74,8 @@ final class PollingProcessor implements DataSource {
 
   @Override
   public Future<Void> start() {
-    logger.info("Starting LaunchDarkly polling client with interval: "
-        + pollInterval.toMillis() + " milliseconds");
+    logger.info("Starting LaunchDarkly polling client with interval: {} milliseconds",
+        pollInterval.toMillis());
     
     synchronized (this) {
       if (task == null) {

@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.io.ByteStreams;
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
@@ -119,7 +120,8 @@ public final class FileDataSourceBuilder implements ComponentConfigurer<DataSour
   
   @Override
   public DataSource build(ClientContext context) {
-    return new FileDataSourceImpl(context.getDataSourceUpdateSink(), sources, autoUpdate, duplicateKeysHandling);
+    LDLogger logger = context.getBaseLogger().subLogger("DataSource");
+    return new FileDataSourceImpl(context.getDataSourceUpdateSink(), sources, autoUpdate, duplicateKeysHandling, logger);
   }
   
   static abstract class SourceInfo {

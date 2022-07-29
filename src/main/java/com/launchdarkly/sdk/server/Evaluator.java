@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.LDUser;
@@ -18,8 +19,6 @@ import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes;
-
-import org.slf4j.Logger;
 
 import java.util.List;
 import java.util.Set;
@@ -57,8 +56,6 @@ class Evaluator {
   // variables captured in the closure each time they are used.
   //
   
-  private final static Logger logger = Loggers.EVALUATION;
-
   /**
    * This key cannot exist in LaunchDarkly because it contains invalid characters. We use it in tests as a way to
    * simulate an unexpected RuntimeException during flag evaluations. We check for it by reference equality, so
@@ -68,6 +65,7 @@ class Evaluator {
   static final RuntimeException EXPECTED_EXCEPTION_FROM_INVALID_FLAG = new RuntimeException("deliberate test error");
   
   private final Getters getters;
+  private final LDLogger logger;
   
   /**
    * An abstraction of getting flags or segments by key. This ensures that Evaluator cannot modify the data store,
@@ -101,8 +99,9 @@ class Evaluator {
     private EvaluationReason.BigSegmentsStatus bigSegmentsStatus = null;
   }
   
-  Evaluator(Getters getters) {
+  Evaluator(Getters getters, LDLogger logger) {
     this.getters = getters;
+    this.logger = logger;
   }
 
   /**
@@ -203,7 +202,7 @@ class Evaluator {
     return null;
   }
 
-  private static EvalResult getValueForVariationOrRollout(
+  private EvalResult getValueForVariationOrRollout(
       FeatureFlag flag,
       VariationOrRollout vr,
       LDUser user,
@@ -428,7 +427,7 @@ class Evaluator {
     return bucket < weight;
   }
 
-  private static EvalResult computeRuleMatch(FeatureFlag flag, LDUser user, Rule rule, int ruleIndex) {
+  private EvalResult computeRuleMatch(FeatureFlag flag, LDUser user, Rule rule, int ruleIndex) {
     if (rule.preprocessed != null) {
       return getValueForVariationOrRollout(flag, rule, user, rule.preprocessed.allPossibleResults, null);
     }
