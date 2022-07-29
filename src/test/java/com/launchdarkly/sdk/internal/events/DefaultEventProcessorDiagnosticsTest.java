@@ -94,11 +94,8 @@ public class DefaultEventProcessorDiagnosticsTest extends BaseEventTest {
   @Test
   public void periodicDiagnosticEventGetsEventsInLastBatchAndDeduplicatedUsers() throws Exception {
     MockEventSender es = new MockEventSender();
-    LDValue value = LDValue.of("value");
-    Event.FeatureRequest fe1 = makeFeatureRequestEvent("flagkey1", user, 11,
-            simpleEvaluation(1, value), LDValue.ofNull());
-    Event.FeatureRequest fe2 = makeFeatureRequestEvent("flagkey2", user, 22,
-            simpleEvaluation(1, value), LDValue.ofNull());
+    Event.FeatureRequest fe1 = featureEvent(user, "flagkey1").build();
+    Event.FeatureRequest fe2 = featureEvent(user, "flagkey2").build();
 
     // Create a fake deduplicator that just says "not seen" for the first call and "seen" thereafter
     EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatSaysKeyIsNewOnFirstCallOnly();
@@ -122,7 +119,7 @@ public class DefaultEventProcessorDiagnosticsTest extends BaseEventTest {
 
       assertNotNull(statsEvent);
       assertThat(statsEvent.deduplicatedUsers, equalTo(1L));
-      assertThat(statsEvent.eventsInLastBatch, equalTo(2L));
+      assertThat(statsEvent.eventsInLastBatch, equalTo(2L)); // 1 index event + 1 summary event
       assertThat(statsEvent.droppedEvents, equalTo(0L));
     }
   }

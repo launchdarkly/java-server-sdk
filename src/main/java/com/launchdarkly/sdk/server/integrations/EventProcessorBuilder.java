@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
@@ -16,7 +16,7 @@ import java.util.Set;
  * <p>
  * The SDK normally buffers analytics events and sends them to LaunchDarkly at intervals. If you want
  * to customize this behavior, create a builder with {@link Components#sendEvents()}, change its
- * properties with the methods of this class, and pass it to {@link com.launchdarkly.sdk.server.LDConfig.Builder#events(EventProcessorFactory)}:
+ * properties with the methods of this class, and pass it to {@link Builder#events(EventProcessorFactory)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .events(Components.sendEvents().capacity(5000).flushIntervalSeconds(2))
@@ -106,9 +106,9 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * <p>
    * The default value is {@link #DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL}; the minimum value is
    * {@link #MIN_DIAGNOSTIC_RECORDING_INTERVAL}. This property is ignored if
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#diagnosticOptOut(boolean)} is set to {@code true}.
+   * {@link Builder#diagnosticOptOut(boolean)} is set to {@code true}.
    *
-   * @see com.launchdarkly.sdk.server.LDConfig.Builder#diagnosticOptOut(boolean)
+   * @see Builder#diagnosticOptOut(boolean)
    *
    * @param diagnosticRecordingInterval the diagnostics interval; null to use the default
    * @return the builder
@@ -127,7 +127,7 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * Specifies a custom implementation for event delivery.
    * <p>
    * The standard event delivery implementation sends event data via HTTP/HTTPS to the LaunchDarkly events
-   * service endpoint (or any other endpoint specified with {@link LDConfig.Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
+   * service endpoint (or any other endpoint specified with {@link Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
    * Providing a custom implementation may be useful in tests, or if the event data needs to be stored and forwarded. 
    * 
    * @param eventSenderFactory a factory for an {@link EventSender} implementation

@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.internal.events;
 
-import com.launchdarkly.sdk.internal.BaseInternalTest;
 import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
@@ -19,7 +18,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.launchdarkly.sdk.server.TestComponents.defaultHttpProperties;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.equalToIgnoringCase;
@@ -32,7 +30,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class DefaultEventSenderTest extends BaseInternalTest {
+public class DefaultEventSenderTest extends BaseEventTest {
   private static final String FAKE_DATA = "some data";
   private static final byte[] FAKE_DATA_BYTES = FAKE_DATA.getBytes(Charset.forName("UTF-8"));
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz",

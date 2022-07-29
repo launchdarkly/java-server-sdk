@@ -27,6 +27,9 @@ public final class DiagnosticStore {
   private final Object streamInitsLock = new Object();
   private ArrayList<DiagnosticEvent.StreamInit> streamInits = new ArrayList<>();
   
+  /**
+   * Parameters for creating a DiagnosticStore.
+   */
   public static class SdkDiagnosticParams {
     final String sdkKeyOrMobileKey;
     final String sdkName;
@@ -36,6 +39,17 @@ public final class DiagnosticStore {
     final Map<String, String> defaultHttpHeaders;
     final List<LDValue> configProperties;
     
+    /**
+     * Creates an instance.
+     * 
+     * @param sdkKeyOrMobileKey the SDK key or mobile key
+     * @param sdkName the SDK name as represented in diagnostic events
+     * @param sdkVersion the version string
+     * @param platformName the platform name as represented in diagnostic events
+     * @param extraPlatformData optional JSON object for platform properties
+     * @param defaultHttpHeaders from the HTTP configuration (we get the wrapper name from this)
+     * @param configProperties optional JSON object for any additional config properties
+     */
     public SdkDiagnosticParams(
         String sdkKeyOrMobileKey,
         String sdkName,
@@ -55,20 +69,40 @@ public final class DiagnosticStore {
     }
   }
   
+  /**
+   * Constructs an instance.
+   * 
+   * @param params the diagnostic properties
+   */
   public DiagnosticStore(SdkDiagnosticParams params) {
     this.creationDate = this.dataSinceDate = System.currentTimeMillis();
     this.diagnosticId = new DiagnosticId(params.sdkKeyOrMobileKey);
     this.diagnosticParams = params;
   }
   
+  /**
+   * Returns the unique diagnostic identifier.
+   * 
+   * @return the identifier
+   */
   public DiagnosticId getDiagnosticId() {
     return diagnosticId;
   }
   
+  /**
+   * Returns the millisecond timestamp when the current diagnostic stats began.
+   * 
+   * @return the timestamp
+   */
   public long getDataSinceDate() {
     return dataSinceDate;
   }
   
+  /**
+   * Returns the initial diagnostic event.
+   * 
+   * @return the initial event
+   */
   public DiagnosticEvent.Init getInitEvent() {
     return new DiagnosticEvent.Init(creationDate, diagnosticId,
         makeInitEventSdkData(), makeInitEventConfigData(), makeInitEventPlatformData());
@@ -127,17 +161,36 @@ public final class DiagnosticStore {
     return b.build();
   }
   
+  /**
+   * Records a successful or failed stream initialization.
+   * 
+   * @param timestamp the millisecond timestamp
+   * @param durationMillis how long the initialization took
+   * @param failed true if failed
+   */
   public void recordStreamInit(long timestamp, long durationMillis, boolean failed) {
     synchronized (streamInitsLock) {
       streamInits.add(new DiagnosticEvent.StreamInit(timestamp, durationMillis, failed));
     }
   }
 
+  /**
+   * Records the number of events in the last flush payload.
+   * 
+   * @param eventsInBatch the event count
+   */
   public void recordEventsInBatch(int eventsInBatch) {
     eventsInLastBatch.set(eventsInBatch);
   }
 
-  public DiagnosticEvent.Statistics createEventAndReset(long droppedEvents, long deduplicatedUsers) {
+  /**
+   * Creates a statistics event and then resets the counters.
+   * 
+   * @param droppedEvents number of dropped events
+   * @param deduplicatedContexts number of deduplicated contexts
+   * @return the event
+   */
+  public DiagnosticEvent.Statistics createEventAndReset(long droppedEvents, long deduplicatedContexts) {
     long currentTime = System.currentTimeMillis();
     List<DiagnosticEvent.StreamInit> eventInits;
     synchronized (streamInitsLock) {
@@ -146,7 +199,7 @@ public final class DiagnosticStore {
     }
     long eventsInBatch = eventsInLastBatch.getAndSet(0);
     DiagnosticEvent.Statistics res = new DiagnosticEvent.Statistics(currentTime, diagnosticId, dataSinceDate, droppedEvents,
-        deduplicatedUsers, eventsInBatch, eventInits);
+        deduplicatedContexts, eventsInBatch, eventInits);
     dataSinceDate = currentTime;
     return res;
   }

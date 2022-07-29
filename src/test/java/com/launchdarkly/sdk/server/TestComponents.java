@@ -39,6 +39,7 @@ import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -105,7 +106,7 @@ public class TestComponents {
   }
 
   static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate,
-      Iterable<AttributeRef> privateAttributes) {
+      Collection<AttributeRef> privateAttributes) {
     return new EventsConfiguration(
         allAttributesPrivate,
         0,

@@ -4,6 +4,9 @@ import com.launchdarkly.sdk.LDValue;
 
 import java.util.List;
 
+/**
+ * Base class for diagnostic events. This class and its subclasses are used only for JSON serialization.
+ */
 public class DiagnosticEvent {
   final String kind;
   final long creationDate;
@@ -15,6 +18,10 @@ public class DiagnosticEvent {
     this.id = id;
   }
 
+  /**
+   * Stream initialization data in a diagnostic event.
+   */
+  @SuppressWarnings("javadoc")
   public static class StreamInit {
     public final long timestamp;
     public final long durationMillis;
@@ -27,6 +34,10 @@ public class DiagnosticEvent {
     }
   }
 
+  /**
+   * A diagnostic statistics event.
+   */
+  @SuppressWarnings("javadoc")
   public static class Statistics extends DiagnosticEvent {
     public final long dataSinceDate;
     public final long droppedEvents;
@@ -45,6 +56,10 @@ public class DiagnosticEvent {
     }
   }
 
+  /**
+   * A diagnostic initialization event.
+   */
+  @SuppressWarnings("javadoc")
   public static class Init extends DiagnosticEvent {
     public final LDValue sdk;
     public final LDValue configuration;

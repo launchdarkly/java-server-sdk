@@ -2,6 +2,11 @@ package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.LDValueType;
 
+/**
+ * Defines the standard properties that are allowed in the configuration section of a diagnostic
+ * initialization event.
+ */
+@SuppressWarnings("javadoc")
 public enum DiagnosticConfigProperty {
   ALL_ATTRIBUTES_PRIVATE("allAttributesPrivate", LDValueType.BOOLEAN),
   CONNECT_TIMEOUT_MILLIS("connectTimeoutMillis", LDValueType.NUMBER),

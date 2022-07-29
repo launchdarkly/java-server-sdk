@@ -262,7 +262,7 @@ abstract class ComponentsImpl {
           eventSender,
           eventsUri,
           flushInterval.toMillis(),
-          ImmutableList.copyOf(privateAttributes)
+          privateAttributes
           );
       return new DefaultEventProcessorWrapper(context, eventsConfig);
     }

@@ -1,8 +1,5 @@
 package com.launchdarkly.sdk.internal.events;
 
-import com.google.common.collect.Iterables;
-import com.launchdarkly.sdk.EvaluationDetail;
-import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.testhelpers.JsonTestValue;
@@ -12,6 +9,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -36,30 +34,28 @@ public class DefaultEventProcessorTest extends BaseEventTest {
     long briefFlushInterval = 50;
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).flushIntervalMillis(briefFlushInterval))) {
-      Event.Custom event1 = makeCustomEvent("event1", user, null, null);
-      Event.Custom event2 = makeCustomEvent("event2", user, null, null);
+      Event.Custom event1 = customEvent(user, "event1").build();
+      Event.Custom event2 = customEvent(user, "event2").build();
       ep.sendEvent(event1);
       ep.sendEvent(event2);
       
       // getEventsFromLastRequest will block until the MockEventSender receives a payload - we expect
       // both events to be in one payload, but if some unusual delay happened in between the two
       // sendEvent calls, they might be in two
-      Iterable<JsonTestValue> payload1 = es.getEventsFromLastRequest();
-      if (Iterables.size(payload1) == 1) {
+      List<JsonTestValue> payload1 = es.getEventsFromLastRequest();
+      if (payload1.size() == 1) {
         assertThat(payload1, contains(isCustomEvent(event1)));
         assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event2)));
       } else {
         assertThat(payload1, contains(isCustomEvent(event1), isCustomEvent(event2)));
       }
       
-      Event.Custom event3 = makeCustomEvent("event3", user, null, null);
+      Event.Custom event3 = customEvent(user, "event3").build();
       ep.sendEvent(event3);
       assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event3)));
     }
     
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    double metric = 1.5;
-    Event.Custom ce = makeCustomEvent("eventkey", user, data, metric);
+    Event.Custom ce = customEvent(user, "eventkey").build();
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(ce);
@@ -73,7 +69,7 @@ public class DefaultEventProcessorTest extends BaseEventTest {
   @Test
   public void closingEventProcessorForcesSynchronousFlush() throws Exception {
     MockEventSender es = new MockEventSender();
-    Event e = makeIdentifyEvent(user);
+    Event e = identifyEvent(user);
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(e);
@@ -143,7 +139,7 @@ public class DefaultEventProcessorTest extends BaseEventTest {
   @Test
   public void customBaseUriIsPassedToEventSenderForAnalyticsEvents() throws Exception {
     MockEventSender es = new MockEventSender();
-    Event e = makeIdentifyEvent(user);
+    Event e = identifyEvent(user);
     URI uri = URI.create("fake-uri");
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).eventsUri(uri))) {
@@ -166,7 +162,7 @@ public class DefaultEventProcessorTest extends BaseEventTest {
     
     try (DefaultEventProcessor ep = makeEventProcessor(config)) {
       for (int i = 0; i < capacity + 2; i++) {
-        ep.sendEvent(makeIdentifyEvent(user));
+        ep.sendEvent(identifyEvent(user));
         
         // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
         // delay to keep EventDispatcher from being overwhelmed
@@ -188,12 +184,11 @@ public class DefaultEventProcessorTest extends BaseEventTest {
     // sure a flush will happen within a few seconds so getEventsFromLastRequest() won't time out.
 
     try (DefaultEventProcessor ep = makeEventProcessor(config)) {
-      Event.FeatureRequest fe = makeFeatureRequestEvent("flagkey", user, 11,
-          EvaluationDetail.fromValue(LDValue.of("value"), 1, EvaluationReason.off()), LDValue.ofNull());
+      Event.FeatureRequest fe = featureEvent(user, "flagkey").build();
       ep.sendEvent(fe);
      
       for (int i = 0; i < capacity; i++) {
-        Event.Custom ce = makeCustomEvent("event-key", user, LDValue.ofNull(), null);
+        Event.Custom ce = customEvent(user, "event-key").build();
         ep.sendEvent(ce);
         
         // Using such a tiny buffer means there's also a tiny inbox queue, so we'll add a slight
@@ -202,10 +197,10 @@ public class DefaultEventProcessorTest extends BaseEventTest {
       }
       
       ep.flush();
-      Iterable<JsonTestValue> eventsReceived = es.getEventsFromLastRequest(); 
+      List<JsonTestValue> eventsReceived = es.getEventsFromLastRequest(); 
       
       assertThat(eventsReceived, Matchers.iterableWithSize(capacity + 1));
-      assertThat(Iterables.get(eventsReceived, capacity), isSummaryEvent());
+      assertThat(eventsReceived.get(capacity), isSummaryEvent());
     }
   }
   
@@ -215,14 +210,14 @@ public class DefaultEventProcessorTest extends BaseEventTest {
     es.result = new EventSender.Result(false, true, null); // mustShutdown == true
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
-      ep.sendEvent(makeIdentifyEvent(user));
+      ep.sendEvent(identifyEvent(user));
       ep.flush();
       es.awaitRequest();
       
       // allow a little time for the event processor to pass the "must shut down" signal back from the sender
       Thread.sleep(50);
       
-      ep.sendEvent(makeIdentifyEvent(user));
+      ep.sendEvent(identifyEvent(user));
       ep.flush();
       es.expectNoRequests(100);
     }
@@ -235,7 +230,7 @@ public class DefaultEventProcessorTest extends BaseEventTest {
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.close();
       
-      ep.sendEvent(makeIdentifyEvent(user));
+      ep.sendEvent(identifyEvent(user));
       ep.flush();
       
       es.expectNoRequests(100);
@@ -249,14 +244,14 @@ public class DefaultEventProcessorTest extends BaseEventTest {
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       es.fakeError = new RuntimeException("sorry");
       
-      ep.sendEvent(makeIdentifyEvent(user));
+      ep.sendEvent(identifyEvent(user));
       ep.flush();
       es.awaitRequest();
       // MockEventSender now throws an unchecked exception up to EventProcessor's flush worker -
       // verify that a subsequent flush still works
       
       es.fakeError = null;
-      ep.sendEvent(makeIdentifyEvent(user));
+      ep.sendEvent(identifyEvent(user));
       ep.flush();
       es.awaitRequest();
     }
@@ -287,7 +282,7 @@ public class DefaultEventProcessorTest extends BaseEventTest {
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       for (int i = 0; i < 5; i++) {
-        ep.sendEvent(makeIdentifyEvent(user));
+        ep.sendEvent(identifyEvent(user));
         ep.flush();
         es.awaitRequest(); // we don't need to see this payload, just throw it away
       }
@@ -300,20 +295,20 @@ public class DefaultEventProcessorTest extends BaseEventTest {
       // Now, put an event in the buffer and try to flush again. In the current implementation (see
       // above) this payload gets queued in a holding area, and will be flushed after a worker
       // becomes free.
-      Event.Identify event1 = makeIdentifyEvent(testUser1);
+      Event.Identify event1 = identifyEvent(testUser1);
       ep.sendEvent(event1);
       ep.flush();
       
       // Do an additional flush with another event. This time, the event processor should see that there's
       // no space available and simply ignore the flush request. There's no way to verify programmatically
       // that this has happened, so just give it a short delay.
-      Event.Identify event2 = makeIdentifyEvent(testUser2);
+      Event.Identify event2 = identifyEvent(testUser2);
       ep.sendEvent(event2);
       ep.flush();
       Thread.sleep(100);
       
       // Enqueue a third event. The current payload should now be event2 + event3.
-      Event.Identify event3 = makeIdentifyEvent(testUser3);
+      Event.Identify event3 = identifyEvent(testUser3);
       ep.sendEvent(event3);
       
       // Now allow the workers to unblock

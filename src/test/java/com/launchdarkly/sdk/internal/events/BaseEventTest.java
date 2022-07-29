@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.internal.events;
 
-import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.EvaluationDetail;
@@ -18,7 +17,10 @@ import org.hamcrest.Matcher;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -40,6 +42,8 @@ import static org.junit.Assert.assertNotNull;
 public abstract class BaseEventTest extends BaseInternalTest {
   public static final String SDK_KEY = "SDK_KEY";
   public static final long FAKE_TIME = 100000;
+  public static final String FLAG_KEY = "flagkey";
+  public static final int FLAG_VERSION = 11;
   public static final URI FAKE_URI = URI.create("http://fake");
   public static final LDContext user = LDContext.builder("userkey").name("Red").build();
   public static final Gson gson = new Gson();
@@ -80,7 +84,7 @@ public abstract class BaseEventTest extends BaseInternalTest {
   }
 
   public static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate,
-      Iterable<AttributeRef> privateAttributes) {
+      Collection<AttributeRef> privateAttributes) {
     return new EventsConfiguration(
         allAttributesPrivate,
         0,
@@ -168,15 +172,15 @@ public abstract class BaseEventTest extends BaseInternalTest {
       assertNoMoreValues(receivedParams, timeoutMillis, TimeUnit.MILLISECONDS);
     }
     
-    Iterable<JsonTestValue> getEventsFromLastRequest() {
+    List<JsonTestValue> getEventsFromLastRequest() {
       Params p = awaitRequest();
       LDValue a = LDValue.parse(p.data);
       assertEquals(p.eventCount, a.size());
-      ImmutableList.Builder<JsonTestValue> ret = ImmutableList.builder();
+      List<JsonTestValue> ret = new ArrayList<>();
       for (LDValue v: a.values()) {
         ret.add(jsonFromValue(v));
       }
-      return ret.build();
+      return ret;
     }
   }
 
@@ -200,28 +204,28 @@ public abstract class BaseEventTest extends BaseInternalTest {
     );
   }
 
-  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, String flagKey,
-      int flagVersion, boolean debug, LDValue inlineUser) {
-    return isFeatureEvent(sourceEvent, flagKey, flagVersion, debug, inlineUser, null);
+  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent) {
+    return isFeatureOrDebugEvent(sourceEvent, null, false);
+  }
+
+  public static Matcher<JsonTestValue> isDebugEvent(Event.FeatureRequest sourceEvent, LDValue inlineContext) {
+    return isFeatureOrDebugEvent(sourceEvent, inlineContext, true);
   }
 
   @SuppressWarnings("unchecked")
-  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, String flagKey,
-      int flagVersion, boolean debug, LDValue inlineContext, EvaluationReason reason) {
+  private static Matcher<JsonTestValue> isFeatureOrDebugEvent(Event.FeatureRequest sourceEvent,
+      LDValue inlineContext, boolean debug) {
     return allOf(
         jsonProperty("kind", debug ? "debug" : "feature"),
         jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        jsonProperty("key", flagKey),
-        jsonProperty("version", (double)flagVersion),
+        jsonProperty("key", sourceEvent.getKey()),
+        jsonProperty("version", sourceEvent.getVersion()),
         jsonProperty("variation", sourceEvent.getVariation()),
         jsonProperty("value", jsonFromValue(sourceEvent.getValue())),
         inlineContext == null ? hasContextKeys(sourceEvent) : hasInlineContext(inlineContext),
-        jsonProperty("reason", reason == null ? jsonUndefined() : jsonEqualsValue(reason))
+        jsonProperty("reason", sourceEvent.getReason() == null ? jsonUndefined() : jsonEqualsValue(sourceEvent.getReason())),
+        jsonProperty("prereqOf", sourceEvent.getPrereqOf() == null ? jsonUndefined() : jsonEqualsValue(sourceEvent.getPrereqOf()))
     );
-  }
-
-  public static Matcher<JsonTestValue> isPrerequisiteOf(String parentFlagKey) {
-    return jsonProperty("prereqOf", parentFlagKey);
   }
 
   public static Matcher<JsonTestValue> isCustomEvent(Event.Custom sourceEvent) {
@@ -282,38 +286,16 @@ public abstract class BaseEventTest extends BaseInternalTest {
     );
   }
 
-  public static Event.FeatureRequest makeFeatureRequestEvent(long timestamp, String flagKey,
-      LDContext context, int flagVersion, int variation, LDValue value, LDValue defaultValue,
-      EvaluationReason reason) {
-    return new Event.FeatureRequest(timestamp, flagKey, context, flagVersion,
-        variation, value, defaultValue, reason, null, false, null, false);
+  public static FeatureRequestEventBuilder featureEvent(LDContext context, String flagKey) {
+    return new FeatureRequestEventBuilder(context, flagKey);
   }
 
-  public static Event.FeatureRequest makeFeatureRequestEvent(String flagKey, LDContext context,
-      int flagVersion, EvaluationDetail<LDValue> result, LDValue defaultVal, boolean withReason) {
-    return new Event.FeatureRequest(FAKE_TIME, flagKey, context, flagVersion,
-        result.getVariationIndex(), result.getValue(), defaultVal, withReason ? result.getReason() : null,
-        null, false, null, false);
+  public static CustomEventBuilder customEvent(LDContext context, String flagKey) {
+    return new CustomEventBuilder(context, flagKey);
   }
   
-  public static Event.FeatureRequest makeFeatureRequestEvent(String flagKey, LDContext context,
-      int flagVersion, EvaluationDetail<LDValue> result, LDValue defaultVal) {
-    return makeFeatureRequestEvent(flagKey, context, flagVersion, result, defaultVal, false);
-  }
-  
-  public static Event.FeatureRequest makePrerequisiteEvent(String prereqFlagKey, LDContext context,
-      int prereqFlagVersion, EvaluationDetail<LDValue> result, String mainFlagKey) {
-    return new Event.FeatureRequest(FAKE_TIME, prereqFlagKey, context, prereqFlagVersion,
-        result.getVariationIndex(), result.getValue(), null, null,
-        mainFlagKey, false, null, false);
-  }
-  
-  public static Event.Identify makeIdentifyEvent(LDContext context) {
+  public static Event.Identify identifyEvent(LDContext context) {
     return new Event.Identify(FAKE_TIME, context);
-  }
-  
-  public static Event.Custom makeCustomEvent(String eventKey, LDContext context, LDValue data, Double metricValue) {
-    return new Event.Custom(FAKE_TIME, eventKey, context, data, metricValue);
   }
   
   /**
@@ -434,5 +416,96 @@ public abstract class BaseEventTest extends BaseInternalTest {
       @Override
       public void flush() {}
     };  
+  }
+  
+  public static final class FeatureRequestEventBuilder {
+    private long timestamp = FAKE_TIME;
+    private LDContext context;
+    private String flagKey;
+    private int flagVersion = 100;
+    private int variation = 1;
+    private LDValue value = LDValue.of("value");
+    private EvaluationReason reason = null;
+    private LDValue defaultValue = LDValue.of("default");
+    private String prereqOf = null;
+    private boolean trackEvents = false;
+    private Long debugEventsUntilDate = null;
+    
+    public FeatureRequestEventBuilder(LDContext context, String flagKey) {
+      this.context = context;
+      this.flagKey = flagKey;
+    }
+    
+    public Event.FeatureRequest build() {
+      return new Event.FeatureRequest(timestamp, flagKey, context, flagVersion, variation, value,
+          defaultValue, reason, prereqOf, trackEvents, debugEventsUntilDate, false);
+    }
+    
+    public FeatureRequestEventBuilder flagVersion(int flagVersion) {
+      this.flagVersion = flagVersion;
+      return this;
+    }
+    
+    public FeatureRequestEventBuilder variation(int variation) {
+      this.variation = variation;
+      return this;
+    }
+    
+    public FeatureRequestEventBuilder value(LDValue value) {
+      this.value = value;
+      return this;
+    }
+    
+    public FeatureRequestEventBuilder defaultValue(LDValue defaultValue) {
+      this.defaultValue = defaultValue;
+      return this;
+    }
+    
+    public FeatureRequestEventBuilder reason(EvaluationReason reason) {
+      this.reason = reason;
+      return this;
+    }
+    
+    public FeatureRequestEventBuilder prereqOf(String prereqOf) {
+      this.prereqOf = prereqOf;
+      return this;
+    }
+
+    public FeatureRequestEventBuilder trackEvents(boolean trackEvents) {
+      this.trackEvents = trackEvents;
+      return this;
+    }
+
+    public FeatureRequestEventBuilder debugEventsUntilDate(Long debugEventsUntilDate) {
+      this.debugEventsUntilDate = debugEventsUntilDate;
+      return this;
+    }
+  }
+  
+  public static final class CustomEventBuilder {
+    private long timestamp = FAKE_TIME;
+    private LDContext context;
+    private String eventKey;
+    private LDValue data = LDValue.ofNull();
+    private Double metricValue = null;
+    
+    public CustomEventBuilder(LDContext context, String eventKey) {
+      this.context = context;
+      this.eventKey = eventKey;
+    }
+    
+    public Event.Custom build() {
+      return new Event.Custom(timestamp, eventKey, context, data, metricValue);
+    }
+    
+    public CustomEventBuilder data(LDValue data) {
+      this.data = data;
+      return this;
+    }
+    
+    public CustomEventBuilder metricValue(Double metricValue) {
+      this.metricValue = metricValue;
+      return this;
+    }
   }
 }
