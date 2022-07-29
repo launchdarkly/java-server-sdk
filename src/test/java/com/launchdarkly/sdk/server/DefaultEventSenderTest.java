@@ -35,21 +35,22 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class DefaultEventSenderTest {
+public class DefaultEventSenderTest extends BaseTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final String FAKE_DATA = "some data";
   private static final SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz",
       Locale.US);
   private static final Duration BRIEF_RETRY_DELAY = Duration.ofMillis(50);
   
-  private static EventSender makeEventSender() {
+  private EventSender makeEventSender() {
     return makeEventSender(LDConfig.DEFAULT);
   }
 
-  private static EventSender makeEventSender(LDConfig config) {
+  private EventSender makeEventSender(LDConfig config) {
     return new DefaultEventSender(
         clientContext(SDK_KEY, config).getHttp(),
-        BRIEF_RETRY_DELAY
+        BRIEF_RETRY_DELAY,
+        testLogger
         );
   }
 
@@ -66,7 +67,7 @@ public class DefaultEventSenderTest {
   @Test
   public void constructorUsesDefaultRetryDelayIfNotSpecified() throws Exception {
     ClientContext context = clientContext(SDK_KEY, LDConfig.DEFAULT);
-    try (EventSender es = new DefaultEventSender(context.getHttp(), null)) {
+    try (EventSender es = new DefaultEventSender(context.getHttp(), null, testLogger)) {
       assertThat(((DefaultEventSender)es).retryDelay, equalTo(DefaultEventSender.DEFAULT_RETRY_DELAY));
     }
   }
