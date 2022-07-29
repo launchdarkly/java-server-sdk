@@ -132,7 +132,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     EventsConfiguration eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
     
     try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
-        diagnosticAccumulator, initEvent)) {
+        diagnosticAccumulator, initEvent, testLogger)) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
@@ -177,7 +177,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     EventsConfiguration eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
     
     try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
-        diagnosticAccumulator, initEvent)) {
+        diagnosticAccumulator, initEvent, testLogger)) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
