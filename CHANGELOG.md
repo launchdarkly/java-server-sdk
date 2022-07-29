@@ -2,6 +2,24 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.0] - 2022-07-28
+The main purpose of this release is to introduce a new logging facade, [`com.launchdarkly.logging`](https://github.com/launchdarkly/java-logging), to streamline how logging works in LaunchDarkly Java and Android code. Previously, the Java SDK always used SLF4J for logging; developers needed to provide an SLF4J configuration externally to specify the actual logging behavior. In this release, the default behavior is still to use SLF4J, but the logging facade can also be configured programmatically to do simple console logging without SLF4J, or to forward output to another framework such as `java.util.logging`, or to multiple destinations, or to capture output in memory. In a future major version release, the default behavior may be changed so that the SDK does not require SLF4J as a dependency.
+
+### Added:
+- In [`LoggingConfigurationBuilder`](https://javadoc.io/doc/com.launchdarkly/launchdarkly-java-server-sdk/latest/com/launchdarkly/sdk/server/integrations/LoggingConfigurationBuilder.html), the new methods `adapter` and `level`, for the new logging capabilities mentioned above.
+- `TestData.FlagBuilder.variationForAll` and `valueForAll`: new names for the deprecated methods listed below.
+
+### Deprecated:
+- `TestData.FlagBuilder.variationForAllUsers` and `valueForAllUsers`: These methods are being renamed because in the future, there will be other possible kinds of evaluation inputs that are not users, and these test methods will apply equally to those.
+
+## [5.9.3] - 2022-07-28
+### Changed:
+- Updated `okhttp` dependency to version 4.9.3 to address a [reported vulnerability](https://security.snyk.io/vuln/SNYK-JAVA-COMSQUAREUPOKHTTP3-2958044) in earlier versions of that library, which could have allowed potentially sensitive information to be written to the log if you had put that information in a custom header value that contained an illegal character (see release notes for Java SDK [5.6.0](https://github.com/launchdarkly/java-server-sdk/releases/tag/5.6.0)). ([#271](https://github.com/launchdarkly/java-server-sdk/issues/271))
+
+## [5.9.2] - 2022-07-20
+### Changed:
+- Further optimizations to reduce how many short-lived objects the SDK produces as a side effect of flag evaluations, causing less work for the garbage collector in applications that evaluate flags very frequently.
+
 ## [5.9.1] - 2022-06-30
 ### Changed:
 - The SDK now uses memory more efficiently when parsing JSON flag/segment configuration data that it receives from LaunchDarkly, so there will be a less sizable transient memory usage spike if the flag/segment data is very large. This does not affect the baseline memory requirements for storing the data after it is received.

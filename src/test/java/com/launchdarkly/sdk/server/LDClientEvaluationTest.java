@@ -40,14 +40,14 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class LDClientEvaluationTest {
+public class LDClientEvaluationTest extends BaseTest {
   private static final LDUser user = new LDUser("userkey");
   private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
   private static final Gson gson = new Gson();
   
   private DataStore dataStore = initedDataStore();
 
-  private LDConfig config = new LDConfig.Builder()
+  private LDConfig config = baseConfig()
       .dataStore(specificDataStore(dataStore))
       .events(Components.noEvents())
       .dataSource(Components.externalUpdatesOnly())
@@ -306,9 +306,8 @@ public class LDClientEvaluationTest {
   @Test
   public void appropriateErrorIfClientNotInitialized() throws Exception {
     DataStore badDataStore = new InMemoryDataStore();
-    LDConfig badConfig = new LDConfig.Builder()
+    LDConfig badConfig = baseConfig()
         .dataStore(specificDataStore(badDataStore))
-        .events(Components.noEvents())
         .dataSource(specificDataSource(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
@@ -358,10 +357,8 @@ public class LDClientEvaluationTest {
   public void appropriateErrorForUnexpectedExceptionFromDataStore() throws Exception {
     RuntimeException exception = new RuntimeException("sorry");
     DataStore badDataStore = dataStoreThatThrowsException(exception);
-    LDConfig badConfig = new LDConfig.Builder()
+    LDConfig badConfig = baseConfig()
         .dataStore(specificDataStore(badDataStore))
-        .events(Components.noEvents())
-        .dataSource(Components.externalUpdatesOnly())
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, NO_VARIATION,
@@ -390,9 +387,8 @@ public class LDClientEvaluationTest {
   @Test
   public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
-    LDConfig customConfig = new LDConfig.Builder()
+    LDConfig customConfig = baseConfig()
         .dataStore(specificDataStore(dataStore))
-        .events(Components.noEvents())
         .dataSource(specificDataSource(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
@@ -590,10 +586,8 @@ public class LDClientEvaluationTest {
 
   @Test
   public void allFlagsStateReturnsEmptyStateIfDataStoreThrowsException() throws Exception {
-    LDConfig customConfig = new LDConfig.Builder()
+    LDConfig customConfig = baseConfig()
         .dataStore(specificDataStore(TestComponents.dataStoreThatThrowsException(new RuntimeException("sorry"))))
-        .events(Components.noEvents())
-        .dataSource(Components.externalUpdatesOnly())
         .startWait(Duration.ZERO)
         .build();
 
@@ -619,9 +613,8 @@ public class LDClientEvaluationTest {
   @Test
   public void allFlagsStateUsesStoreDataIfStoreIsInitializedButClientIsNot() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
-    LDConfig customConfig = new LDConfig.Builder()
+    LDConfig customConfig = baseConfig()
         .dataStore(specificDataStore(dataStore))
-        .events(Components.noEvents())
         .dataSource(specificDataSource(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
@@ -637,8 +630,7 @@ public class LDClientEvaluationTest {
   
   @Test
   public void allFlagsStateReturnsEmptyStateIfClientAndStoreAreNotInitialized() throws Exception {
-    LDConfig customConfig = new LDConfig.Builder()
-        .events(Components.noEvents())
+    LDConfig customConfig = baseConfig()
         .dataSource(specificDataSource(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
