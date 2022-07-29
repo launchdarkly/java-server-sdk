@@ -18,12 +18,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class LDClientOfflineTest {
+public class LDClientOfflineTest extends BaseTest {
   private static final LDUser user = new LDUser("user");
   
   @Test
   public void offlineClientHasNullDataSource() throws IOException {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
@@ -33,7 +33,7 @@ public class LDClientOfflineTest {
 
   @Test
   public void offlineClientHasNullEventProcessor() throws IOException {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
@@ -43,7 +43,7 @@ public class LDClientOfflineTest {
   
   @Test
   public void offlineClientIsInitialized() throws IOException {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -55,7 +55,7 @@ public class LDClientOfflineTest {
   
   @Test
   public void offlineClientReturnsDefaultValue() throws IOException {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -66,7 +66,7 @@ public class LDClientOfflineTest {
   @Test
   public void offlineClientGetsFlagsStateFromDataStore() throws IOException {
     DataStore testDataStore = initedDataStore();
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .offline(true)
         .dataStore(specificDataStore(testDataStore))
         .build();

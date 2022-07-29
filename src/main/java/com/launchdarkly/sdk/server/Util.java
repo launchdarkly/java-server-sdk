@@ -1,10 +1,9 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.URI;
@@ -152,7 +151,7 @@ abstract class Util {
    * @return true if the error is recoverable
    */
   static boolean checkIfErrorIsRecoverableAndLog(
-      Logger logger,
+      LDLogger logger,
       String errorDesc,
       String errorContext,
       int statusCode,
@@ -221,7 +220,7 @@ abstract class Util {
    * @param applicationInfo the application metadata
    * @return a space-separated string of tags, e.g. "application-id/authentication-service application-version/1.0.0"
    */
-  static String applicationTagHeader(ApplicationInfo applicationInfo) {
+  static String applicationTagHeader(ApplicationInfo applicationInfo, LDLogger logger) {
     String[][] tags = {
       {"applicationId", "application-id", applicationInfo.getApplicationId()},
       {"applicationVersion", "application-version", applicationInfo.getApplicationVersion()},
@@ -235,11 +234,11 @@ abstract class Util {
         continue;
       }
       if (!TAG_VALUE_REGEX.matcher(tagVal).matches()) {
-        Loggers.MAIN.warn("Value of ApplicationInfo.{} contained invalid characters and was discarded", javaKey);
+        logger.warn("Value of ApplicationInfo.{} contained invalid characters and was discarded", javaKey);
         continue;
       }
       if (tagVal.length() > 64) {
-        Loggers.MAIN.warn("Value of ApplicationInfo.{} was longer than 64 characters and was discarded", javaKey);
+        logger.warn("Value of ApplicationInfo.{} was longer than 64 characters and was discarded", javaKey);
         continue;
       }
       parts.add(tagKey + "/" + tagVal);

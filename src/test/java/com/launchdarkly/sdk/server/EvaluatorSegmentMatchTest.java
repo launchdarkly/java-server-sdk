@@ -14,7 +14,6 @@ import com.launchdarkly.sdk.server.ModelBuilders.SegmentBuilder;
 import org.junit.Test;
 
 import static com.launchdarkly.sdk.server.EvaluatorBucketing.computeBucketValue;
-import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
@@ -26,7 +25,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class EvaluatorSegmentMatchTest {
+public class EvaluatorSegmentMatchTest extends EvaluatorTestBase {
   private static final String SEGMENT_KEY = "segmentkey";
   private static final String ARBITRARY_SALT = "abcdef";
   private static final int maxWeight = 100000;
@@ -134,7 +133,7 @@ public class EvaluatorSegmentMatchTest {
     testRolloutBucketing("foo", c, null, AttributeRef.fromPath("/attr1/prop1"));
   }
 
-  private static void testRolloutBucketing(String bucketByValue, LDContext context, ContextKind contextKind, AttributeRef bucketBy) {
+  private void testRolloutBucketing(String bucketByValue, LDContext context, ContextKind contextKind, AttributeRef bucketBy) {
     float expectedBucketValue = computeBucketValue(false, null, LDContext.create(bucketByValue), null,
         SEGMENT_KEY, null, ARBITRARY_SALT);
     int bucketValueAsInt = (int)(expectedBucketValue * 100000);
@@ -161,7 +160,7 @@ public class EvaluatorSegmentMatchTest {
     return segmentBuilder(SEGMENT_KEY).version(1).salt(ARBITRARY_SALT);
   }
   
-  private static boolean segmentMatchesContext(Segment segment, LDContext context) {
+  private boolean segmentMatchesContext(Segment segment, LDContext context) {
     Clause clause = clauseMatchingSegment(segment);
     FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
