@@ -63,8 +63,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class StreamProcessorTest {
-
+public class StreamProcessorTest extends BaseTest {
   private static final String SDK_KEY = "sdk_key";
   private static final Duration BRIEF_RECONNECT_DELAY = Duration.ofMillis(10);
   private static final String FEATURE1_KEY = "feature1";
@@ -752,7 +751,8 @@ public class StreamProcessorTest {
         Thread.MIN_PRIORITY,
         acc,
         streamUri,
-        BRIEF_RECONNECT_DELAY
+        BRIEF_RECONNECT_DELAY,
+        testLogger
         );
   }
 

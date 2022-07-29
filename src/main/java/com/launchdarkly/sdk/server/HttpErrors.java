@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server;
 
-import org.slf4j.Logger;
+import com.launchdarkly.logging.LDLogger;
 
 /**
  * Contains shared helpers related to HTTP response validation.
@@ -53,7 +53,7 @@ abstract class HttpErrors {
    * @return true if the error is recoverable
    */
   static boolean checkIfErrorIsRecoverableAndLog(
-      Logger logger,
+      LDLogger logger,
       String errorDesc,
       String errorContext,
       int statusCode,

@@ -35,7 +35,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class LDClientBigSegmentsTest extends EasyMockSupport {
+public class LDClientBigSegmentsTest extends BaseTest {
   private final LDContext user = LDContext.create("userkey");
   private final Segment bigSegment = segmentBuilder("segmentkey").unbounded(true).generation(1).build();
   private final FeatureFlag flag = booleanFlagWithClauses("flagkey", clauseMatchingSegment(bigSegment));
@@ -43,6 +43,7 @@ public class LDClientBigSegmentsTest extends EasyMockSupport {
   private LDConfig.Builder configBuilder;
   private BigSegmentStore storeMock;
   private BigSegmentStoreFactory storeFactoryMock;
+  private final EasyMockSupport mocks = new EasyMockSupport();
 
   @Before
   public void setup() {
@@ -50,21 +51,18 @@ public class LDClientBigSegmentsTest extends EasyMockSupport {
     upsertFlag(dataStore, flag);
     upsertSegment(dataStore, bigSegment);
 
-    storeMock = niceMock(BigSegmentStore.class);
-    storeFactoryMock = strictMock(BigSegmentStoreFactory.class);
+    storeMock = mocks.niceMock(BigSegmentStore.class);
+    storeFactoryMock = mocks.strictMock(BigSegmentStoreFactory.class);
     expect(storeFactoryMock.createBigSegmentStore(isA(ClientContext.class))).andReturn(storeMock);
 
-    configBuilder = new LDConfig.Builder()
-        .dataSource(Components.externalUpdatesOnly())
-        .dataStore(specificDataStore(dataStore))
-        .events(Components.noEvents());
+    configBuilder = baseConfig().dataStore(specificDataStore(dataStore));
   }
 
   @Test
   public void userNotFound() throws Exception {
     expect(storeMock.getMetadata()).andAnswer(() -> new StoreMetadata(System.currentTimeMillis())).anyTimes();
     expect(storeMock.getMembership(hashForUserKey(user.getKey()))).andReturn(null);
-    replayAll();
+    mocks.replayAll();
 
     LDConfig config = configBuilder.bigSegments(Components.bigSegments(storeFactoryMock)).build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -79,7 +77,7 @@ public class LDClientBigSegmentsTest extends EasyMockSupport {
     Membership membership = createMembershipFromSegmentRefs(Collections.singleton(makeBigSegmentRef(bigSegment)), null);
     expect(storeMock.getMetadata()).andAnswer(() -> new StoreMetadata(System.currentTimeMillis())).anyTimes();
     expect(storeMock.getMembership(hashForUserKey(user.getKey()))).andReturn(membership);
-    replayAll();
+    mocks.replayAll();
 
     LDConfig config = configBuilder.bigSegments(Components.bigSegments(storeFactoryMock)).build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
@@ -93,7 +91,7 @@ public class LDClientBigSegmentsTest extends EasyMockSupport {
   public void storeError() throws Exception {
     expect(storeMock.getMetadata()).andAnswer(() -> new StoreMetadata(System.currentTimeMillis())).anyTimes();
     expect(storeMock.getMembership(hashForUserKey(user.getKey()))).andThrow(new RuntimeException("sorry"));
-    replayAll();
+    mocks.replayAll();
 
     LDConfig config = configBuilder.bigSegments(Components.bigSegments(storeFactoryMock)).build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {

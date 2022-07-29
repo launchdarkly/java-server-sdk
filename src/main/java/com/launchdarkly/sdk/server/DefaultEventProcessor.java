@@ -1,10 +1,10 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.gson.Gson;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
-
-import org.slf4j.Logger;
 
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicLong;
 final class DefaultEventProcessor implements Closeable {
   private static final int INITIAL_OUTPUT_BUFFER_SIZE = 2000;
 
-  private static final Logger logger = Loggers.EVENTS;
   private static final Gson gson = new Gson();
   
   private final BlockingQueue<EventProcessorMessage> inbox;
@@ -38,22 +37,26 @@ final class DefaultEventProcessor implements Closeable {
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private final List<ScheduledFuture<?>> scheduledTasks = new ArrayList<>();
   private volatile boolean inputCapacityExceeded = false;
+  private final LDLogger logger;
 
   DefaultEventProcessor(
       EventsConfiguration eventsConfig,
       ScheduledExecutorService sharedExecutor,
-      int threadPriority
+      int threadPriority,
+      LDLogger logger
       ) {
     inbox = new ArrayBlockingQueue<>(eventsConfig.capacity);
     
     scheduler = sharedExecutor;
+    this.logger = logger;
 
     new EventDispatcher(
         eventsConfig,
         sharedExecutor,
         threadPriority,
         inbox,
-        closed
+        closed,
+        logger
         );
     // we don't need to save a reference to this - we communicate with it entirely through the inbox queue.
 
@@ -207,7 +210,8 @@ final class DefaultEventProcessor implements Closeable {
     private final EventContextDeduplicator contextDeduplicator;
     private final ExecutorService sharedExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
-
+    private final LDLogger logger;
+    
     private long deduplicatedUsers = 0;
 
     private EventDispatcher(
@@ -215,7 +219,8 @@ final class DefaultEventProcessor implements Closeable {
         ExecutorService sharedExecutor,
         int threadPriority,
         BlockingQueue<EventProcessorMessage> inbox,
-        AtomicBoolean closed
+        AtomicBoolean closed,
+        LDLogger logger
         ) {
       this.eventsConfig = eventsConfig;
       this.inbox = inbox;
@@ -223,6 +228,7 @@ final class DefaultEventProcessor implements Closeable {
       this.sharedExecutor = sharedExecutor;
       this.diagnosticStore = eventsConfig.diagnosticStore;
       this.busyFlushWorkersCount = new AtomicInteger(0);
+      this.logger = logger;
 
       ThreadFactory threadFactory = new ThreadFactory() {
         @Override
@@ -240,7 +246,7 @@ final class DefaultEventProcessor implements Closeable {
       // all the workers are busy.
       final BlockingQueue<FlushPayload> payloadQueue = new ArrayBlockingQueue<>(1);
 
-      final EventBuffer outbox = new EventBuffer(eventsConfig.capacity);
+      final EventBuffer outbox = new EventBuffer(eventsConfig.capacity, logger);
       this.contextDeduplicator = eventsConfig.contextDeduplicator;
       
       Thread mainThread = threadFactory.newThread(new Thread() {
@@ -262,14 +268,15 @@ final class DefaultEventProcessor implements Closeable {
             listener,
             payloadQueue,
             busyFlushWorkersCount,
-            threadFactory
+            threadFactory,
+            logger
             );
         flushWorkers.add(task);
       }
 
       if (diagnosticStore != null) {
         // Set up diagnostics
-        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(eventsConfig, this::handleResponse);
+        this.sendDiagnosticTaskFactory = new SendDiagnosticTaskFactory(eventsConfig, this::handleResponse, logger);
         sharedExecutor.submit(sendDiagnosticTaskFactory.createSendDiagnosticTask(diagnosticStore.getInitEvent()));
       } else {
         sendDiagnosticTaskFactory = null;
@@ -283,7 +290,12 @@ final class DefaultEventProcessor implements Closeable {
       // application won't end up blocking on a queue that's no longer being consumed.
       // COVERAGE: there is no way to make this happen from test code.
       
-      logger.error("Event processor thread was terminated by an unrecoverable error. No more analytics events will be sent.", e);
+      logger.error("Event processor thread was terminated by an unrecoverable error. No more analytics events will be sent. {} {}",
+          LogValues.exceptionSummary(e), LogValues.exceptionTrace(e));
+      // Note that this is a rare case where we always log the exception stacktrace, instead of only
+      // logging it at debug level. That's because an exception of this kind should never happen and,
+      // if it happens, may be difficult to debug.
+      
       // Flip the switch to prevent DefaultEventProcessor from putting any more messages on the queue
       closed.set(true);
       // Now discard everything that was on the queue, but also make sure no one was blocking on a message
@@ -364,8 +376,8 @@ final class DefaultEventProcessor implements Closeable {
       try {
         eventsConfig.eventSender.close();
       } catch (IOException e) {
-        logger.error("Unexpected error when closing event sender: {}", e.toString());
-        logger.debug(e.toString(), e);
+        logger.error("Unexpected error when closing event sender: {}", LogValues.exceptionSummary(e));
+        logger.debug(LogValues.exceptionTrace(e));
       }
     }
 
@@ -497,11 +509,13 @@ final class DefaultEventProcessor implements Closeable {
     final List<Event> events = new ArrayList<>();
     final EventSummarizer summarizer = new EventSummarizer();
     private final int capacity;
+    private final LDLogger logger;
     private boolean capacityExceeded = false;
     private long droppedEventCount = 0;
 
-    EventBuffer(int capacity) {
+    EventBuffer(int capacity, LDLogger logger) {
       this.capacity = capacity;
+      this.logger = logger;
     }
 
     void add(Event e) {
@@ -573,13 +587,15 @@ final class DefaultEventProcessor implements Closeable {
     private final AtomicBoolean stopping;
     private final EventOutputFormatter formatter;
     private final Thread thread;
+    private final LDLogger logger;
 
     SendEventsTask(
         EventsConfiguration eventsConfig,
         EventResponseListener responseListener,
         BlockingQueue<FlushPayload> payloadQueue,
         AtomicInteger activeFlushWorkersCount,
-        ThreadFactory threadFactory
+        ThreadFactory threadFactory,
+        LDLogger logger
         ) {
       this.eventsConfig = eventsConfig;
       this.formatter = new EventOutputFormatter(eventsConfig);
@@ -587,6 +603,7 @@ final class DefaultEventProcessor implements Closeable {
       this.payloadQueue = payloadQueue;
       this.activeFlushWorkersCount = activeFlushWorkersCount;
       this.stopping = new AtomicBoolean(false);
+      this.logger = logger;
       thread = threadFactory.newThread(this);
       thread.setDaemon(true);
       thread.start();
@@ -612,8 +629,8 @@ final class DefaultEventProcessor implements Closeable {
               );
           responseListener.handleResponse(result);
         } catch (Exception e) {
-          logger.error("Unexpected error in event processor: {}", e.toString());
-          logger.debug(e.toString(), e);
+          logger.error("Unexpected error in event processor: {}", LogValues.exceptionSummary(e));
+          logger.debug(LogValues.exceptionTrace(e));
         }
         synchronized (activeFlushWorkersCount) {
           activeFlushWorkersCount.decrementAndGet();
@@ -631,13 +648,16 @@ final class DefaultEventProcessor implements Closeable {
   private static final class SendDiagnosticTaskFactory {
     private final EventsConfiguration eventsConfig;
     private final EventResponseListener eventResponseListener;
+    private final LDLogger logger;
 
     SendDiagnosticTaskFactory(
         EventsConfiguration eventsConfig,
-        EventResponseListener eventResponseListener
+        EventResponseListener eventResponseListener,
+        LDLogger logger
         ) {
       this.eventsConfig = eventsConfig;
       this.eventResponseListener = eventResponseListener;
+      this.logger = logger;
     }
 
     Runnable createSendDiagnosticTask(final DiagnosticEvent diagnosticEvent) {
