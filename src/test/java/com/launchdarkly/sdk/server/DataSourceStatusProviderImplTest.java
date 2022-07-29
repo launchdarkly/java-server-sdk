@@ -24,16 +24,17 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.sameInstance;
 
 @SuppressWarnings("javadoc")
-public class DataSourceStatusProviderImplTest {
+public class DataSourceStatusProviderImplTest extends BaseTest {
   private EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status> broadcaster =
-      EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+      EventBroadcasterImpl.forDataSourceStatus(sharedExecutor, testLogger);
   private DataSourceUpdatesImpl updates = new DataSourceUpdatesImpl(
       TestComponents.inMemoryDataStore(),
       null,
       null,
       broadcaster,
       sharedExecutor,
-      null
+      null,
+      testLogger
       );
   private DataSourceStatusProviderImpl statusProvider = new DataSourceStatusProviderImpl(broadcaster, updates);
   
