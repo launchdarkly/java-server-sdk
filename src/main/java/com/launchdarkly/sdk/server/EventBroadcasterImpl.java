@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
@@ -23,7 +25,8 @@ class EventBroadcasterImpl<ListenerT, EventT> {
   private final CopyOnWriteArrayList<ListenerT> listeners = new CopyOnWriteArrayList<>();
   private final BiConsumer<ListenerT, EventT> broadcastAction;
   private final ExecutorService executor;
-
+  private final LDLogger logger;
+  
   /**
    * Creates an instance.
    * 
@@ -31,28 +34,37 @@ class EventBroadcasterImpl<ListenerT, EventT> {
    * @param executor the executor to use for running notification tasks on a worker thread; if this
    *   is null (which should only be the case in test code) then broadcasting an event will be a no-op
    */
-  EventBroadcasterImpl(BiConsumer<ListenerT, EventT> broadcastAction, ExecutorService executor) {
+  EventBroadcasterImpl(
+      BiConsumer<ListenerT, EventT> broadcastAction,
+      ExecutorService executor,
+      LDLogger logger
+      ) {
     this.broadcastAction = broadcastAction;
     this.executor = executor;
+    this.logger = logger;
   }
 
-  static EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> forFlagChangeEvents(ExecutorService executor) {
-    return new EventBroadcasterImpl<>(FlagChangeListener::onFlagChange, executor);
+  static EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> forFlagChangeEvents(
+      ExecutorService executor, LDLogger logger) {
+    return new EventBroadcasterImpl<>(FlagChangeListener::onFlagChange, executor, logger);
   }
   
   static EventBroadcasterImpl<DataSourceStatusProvider.StatusListener, DataSourceStatusProvider.Status>
-      forDataSourceStatus(ExecutorService executor) {
-    return new EventBroadcasterImpl<>(DataSourceStatusProvider.StatusListener::dataSourceStatusChanged, executor);
+      forDataSourceStatus(ExecutorService executor, LDLogger logger) {
+    return new EventBroadcasterImpl<>(DataSourceStatusProvider.StatusListener::dataSourceStatusChanged,
+        executor, logger);
   }
 
   static EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status>
-      forDataStoreStatus(ExecutorService executor) {
-    return new EventBroadcasterImpl<>(DataStoreStatusProvider.StatusListener::dataStoreStatusChanged, executor);
+      forDataStoreStatus(ExecutorService executor, LDLogger logger) {
+    return new EventBroadcasterImpl<>(DataStoreStatusProvider.StatusListener::dataStoreStatusChanged,
+        executor, logger);
   }
 
   static EventBroadcasterImpl<BigSegmentStoreStatusProvider.StatusListener, BigSegmentStoreStatusProvider.Status>
-      forBigSegmentStoreStatus(ExecutorService executor) {
-    return new EventBroadcasterImpl<>(BigSegmentStoreStatusProvider.StatusListener::bigSegmentStoreStatusChanged, executor);
+      forBigSegmentStoreStatus(ExecutorService executor, LDLogger logger) {
+    return new EventBroadcasterImpl<>(BigSegmentStoreStatusProvider.StatusListener::bigSegmentStoreStatusChanged,
+        executor, logger);
   }
 
   /**
@@ -96,8 +108,8 @@ class EventBroadcasterImpl<ListenerT, EventT> {
         try {
           broadcastAction.accept(l, event);
         } catch (Exception e) {
-          Loggers.MAIN.warn("Unexpected error from listener ({}): {}", l.getClass(), e.toString());
-          Loggers.MAIN.debug(e.toString(), e);
+          logger.warn("Unexpected error from listener ({}): {}", l.getClass(), LogValues.exceptionSummary(e));
+          logger.debug("{}", LogValues.exceptionTrace(e));
         }
       });
     }

@@ -4,6 +4,9 @@ import com.google.common.collect.ImmutableList;
 import com.launchdarkly.sdk.AttributeRef;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 // Used internally to encapsulate the various config/builder properties for events.
 public final class EventsConfiguration {
@@ -15,7 +18,7 @@ public final class EventsConfiguration {
   final EventSender eventSender;
   final URI eventsUri;
   final long flushIntervalMillis;
-  final ImmutableList<AttributeRef> privateAttributes;
+  final List<AttributeRef> privateAttributes;
   
   public EventsConfiguration(
       boolean allAttributesPrivate,
@@ -26,7 +29,7 @@ public final class EventsConfiguration {
       EventSender eventSender,
       URI eventsUri,
       long flushIntervalMillis,
-      Iterable<AttributeRef> privateAttributes
+      List<AttributeRef> privateAttributes
       ) {
     super();
     this.allAttributesPrivate = allAttributesPrivate;
@@ -37,6 +40,6 @@ public final class EventsConfiguration {
     this.eventSender = eventSender;
     this.eventsUri = eventsUri;
     this.flushIntervalMillis = flushIntervalMillis;
-    this.privateAttributes = privateAttributes == null ? ImmutableList.of() : ImmutableList.copyOf(privateAttributes);
+    this.privateAttributes = privateAttributes == null ? Collections.emptyList() : new ArrayList<>(privateAttributes);
   }
 }

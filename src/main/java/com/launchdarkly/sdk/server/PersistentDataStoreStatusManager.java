@@ -1,9 +1,9 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.Status;
-
-import org.slf4j.Logger;
 
 import java.io.Closeable;
 import java.util.concurrent.Callable;
@@ -19,13 +19,13 @@ import java.util.function.Consumer;
  * clarity and also lets us reuse this logic in tests.
  */
 final class PersistentDataStoreStatusManager implements Closeable {
-  private static final Logger logger = Loggers.DATA_STORE;
   static final int POLL_INTERVAL_MS = 500; // visible for testing
   
   private final Consumer<DataStoreStatusProvider.Status> statusUpdater;
   private final ScheduledExecutorService scheduler;
   private final Callable<Boolean> statusPollFn;
   private final boolean refreshOnRecovery;
+  private final LDLogger logger;
   private volatile boolean lastAvailable;
   private volatile ScheduledFuture<?> pollerFuture;
   
@@ -34,13 +34,15 @@ final class PersistentDataStoreStatusManager implements Closeable {
       boolean availableNow,
       Callable<Boolean> statusPollFn,
       Consumer<DataStoreStatusProvider.Status> statusUpdater,
-      ScheduledExecutorService sharedExecutor
+      ScheduledExecutorService sharedExecutor,
+      LDLogger logger
       ) {
     this.refreshOnRecovery = refreshOnRecovery;
     this.lastAvailable = availableNow;
     this.statusPollFn = statusPollFn;
     this.statusUpdater = statusUpdater;
     this.scheduler = sharedExecutor;
+    this.logger = logger;
   }
   
   public void close() {
@@ -88,8 +90,8 @@ final class PersistentDataStoreStatusManager implements Closeable {
               updateAvailability(true);
             }
           } catch (Exception e) {
-            logger.error("Unexpected error from data store status function: {}", e.toString());
-            logger.debug(e.toString(), e);
+            logger.error("Unexpected error from data store status function: {}", LogValues.exceptionSummary(e));
+            logger.debug(LogValues.exceptionTrace(e));
           }
         }
       };

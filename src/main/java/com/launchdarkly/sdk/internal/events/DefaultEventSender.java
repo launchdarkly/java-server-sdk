@@ -1,15 +1,13 @@
 package com.launchdarkly.sdk.internal.events;
 
-import com.launchdarkly.sdk.internal.http.HttpErrors;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.internal.http.HttpHelpers;
 import com.launchdarkly.sdk.internal.http.HttpProperties;
-import com.launchdarkly.sdk.server.Loggers;
-import com.launchdarkly.sdk.server.StandardEndpoints;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -26,10 +24,15 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+/**
+ * The default implementation of delivering JSON data to an LaunchDarkly event endpoint.
+ * This is the only implementation that is used by the SDKs. It is abstracted out with an
+ * interface for the sake of testability.
+ */
 public final class DefaultEventSender implements EventSender {
-  private static final Logger logger = Loggers.EVENTS;
-  
   static final long DEFAULT_RETRY_DELAY_MILLIS = 1000;
+  private static final String ANALYTICS_EVENTS_POST_REQUEST_PATH = "/bulk";
+  private static final String DIAGNOSTIC_EVENTS_POST_REQUEST_PATH = "/diagnostic";
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "4";
   private static final String EVENT_PAYLOAD_ID_HEADER = "X-LaunchDarkly-Payload-ID";
@@ -41,12 +44,22 @@ public final class DefaultEventSender implements EventSender {
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
   final long retryDelayMillis; // visible for testing
+  private final LDLogger logger;
 
+  /**
+   * Creates an instance.
+   * 
+   * @param httpProperties the HTTP configuration
+   * @param retryDelayMillis retry delay, or zero to use the default
+   * @param logger the logger
+   */
   public DefaultEventSender(
       HttpProperties httpProperties,
-      long retryDelayMillis
+      long retryDelayMillis,
+      LDLogger logger
       ) {
     this.httpClient = httpProperties.toHttpClientBuilder().build();
+    this.logger = logger;
 
     this.baseHeaders = httpProperties.toHeadersBuilder()
         .add("Content-Type", "application/json")
@@ -81,10 +94,10 @@ public final class DefaultEventSender implements EventSender {
     String description;
     
     if (isDiagnostic) {
-      path = StandardEndpoints.DIAGNOSTIC_EVENTS_POST_REQUEST_PATH;
+      path = DIAGNOSTIC_EVENTS_POST_REQUEST_PATH;
       description = "diagnostic event";    
     } else {
-      path = StandardEndpoints.ANALYTICS_EVENTS_POST_REQUEST_PATH;
+      path = ANALYTICS_EVENTS_POST_REQUEST_PATH;
       String eventPayloadId = UUID.randomUUID().toString();
       headersBuilder.add(EVENT_PAYLOAD_ID_HEADER, eventPayloadId);
       headersBuilder.add(EVENT_SCHEMA_HEADER, EVENT_SCHEMA_VERSION);
@@ -96,7 +109,8 @@ public final class DefaultEventSender implements EventSender {
     RequestBody body = RequestBody.create(data, JSON_CONTENT_TYPE);
     boolean mustShutDown = false;
     
-    logger.debug("Posting {} to {} with payload: {}", description, uri, data);
+    logger.debug("Posting {} to {} with payload: {}", description, uri,
+        LogValues.defer(new LazilyPrintedUtf8Data(data)));
 
     for (int attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) {
@@ -145,7 +159,7 @@ public final class DefaultEventSender implements EventSender {
     return new Result(false, mustShutDown, null);
   }
   
-  private static final Date parseResponseDate(Response response) {
+  private final Date parseResponseDate(Response response) {
     String dateStr = response.header("Date");
     if (dateStr != null) {
       try {
@@ -158,5 +172,18 @@ public final class DefaultEventSender implements EventSender {
       }
     }
     return null;
+  }
+  
+  private final class LazilyPrintedUtf8Data implements LogValues.StringProvider {
+    private final byte[] data;
+    
+    LazilyPrintedUtf8Data(byte[] data) {
+      this.data = data;
+    }
+
+    @Override
+    public String get() {
+      return data == null ? "" : new String(data, Charset.forName("UTF-8"));
+    }
   }
 }

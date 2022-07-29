@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server.subsystems;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
@@ -22,6 +23,7 @@ import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
 public class ClientContext {
   private final String sdkKey;
   private final ApplicationInfo applicationInfo;
+  private final LDLogger baseLogger;
   private final HttpConfiguration http;
   private final LoggingConfiguration logging;
   private final boolean offline;
@@ -60,6 +62,9 @@ public class ClientContext {
     this.offline = offline;
     this.serviceEndpoints = serviceEndpoints;
     this.threadPriority = threadPriority;
+    
+    this.baseLogger = logging == null ? LDLogger.none() :
+      LDLogger.withAdapter(logging.getLogAdapter(), logging.getBaseLoggerName());
   }
   
   /**
@@ -95,6 +100,14 @@ public class ClientContext {
   
   public ApplicationInfo getApplicationInfo() {
     return applicationInfo;
+  }
+  
+  /**
+   * The base logger for the SDK.
+   * @return a logger instance
+   */
+  public LDLogger getBaseLogger() {
+    return baseLogger;
   }
   
   /**

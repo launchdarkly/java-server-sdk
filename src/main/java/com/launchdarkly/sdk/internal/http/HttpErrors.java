@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.internal.http;
 
-import org.slf4j.Logger;
+import com.launchdarkly.logging.LDLogger;
 
 /**
  * Contains shared helpers related to HTTP response validation.
@@ -67,7 +67,7 @@ public abstract class HttpErrors {
    * @return true if the error is recoverable
    */
   public static boolean checkIfErrorIsRecoverableAndLog(
-      Logger logger,
+      LDLogger logger,
       String errorDesc,
       String errorContext,
       int statusCode,
@@ -82,6 +82,12 @@ public abstract class HttpErrors {
     }
   }
   
+  /**
+   * Returns a text description of an HTTP error.
+   * 
+   * @param statusCode the status code
+   * @return the error description
+   */
   public static String httpErrorDescription(int statusCode) {
     return "HTTP error " + statusCode +
         (statusCode == 401 || statusCode == 403 ? " (invalid SDK key)" : "");

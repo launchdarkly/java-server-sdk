@@ -3,22 +3,14 @@ package com.launchdarkly.sdk.internal.events;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.internal.events.DefaultEventProcessor;
-import com.launchdarkly.sdk.internal.events.DiagnosticStore;
-import com.launchdarkly.sdk.internal.events.Event;
-import com.launchdarkly.sdk.internal.events.EventContextDeduplicator;
-import com.launchdarkly.sdk.internal.events.EventSender;
-import com.launchdarkly.sdk.internal.events.EventsConfiguration;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.EvalResult;
-import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.internal.BaseInternalTest;
+import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.TestComponents;
-import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;
@@ -45,7 +37,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 @SuppressWarnings("javadoc")
-public abstract class EventTestUtil {
+public abstract class BaseEventTest extends BaseInternalTest {
   public static final String SDK_KEY = "SDK_KEY";
   public static final long FAKE_TIME = 100000;
   public static final URI FAKE_URI = URI.create("http://fake");
@@ -55,8 +47,6 @@ public abstract class EventTestUtil {
       .put("key", "userkey").put("name", "Red").build();
   public static final LDValue filteredUserJson = LDValue.buildObject().put("kind", "user")
       .put("key", "userkey").put("_meta", LDValue.parse("{\"redactedAttributes\":[\"name\"]}")).build();
-  public static final LDConfig baseLDConfig = new LDConfig.Builder().diagnosticOptOut(true).build();
-  public static final LDConfig diagLDConfig = new LDConfig.Builder().diagnosticOptOut(false).build();
   
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
@@ -65,12 +55,47 @@ public abstract class EventTestUtil {
     return new EventsConfigurationBuilder().eventSender(es);
   }
 
-  public static DefaultEventProcessor makeEventProcessor(EventsConfigurationBuilder ec) {
+  public static HttpProperties defaultHttpProperties() {
+    return new HttpProperties(0, null, null, null, null, 0, null, null);
+  }
+  
+  public DefaultEventProcessor makeEventProcessor(EventsConfigurationBuilder ec) {
+    return makeEventProcessor(ec, null);
+  }
+
+  public DefaultEventProcessor makeEventProcessor(
+      EventsConfigurationBuilder ec,
+      DiagnosticStore diagnosticStore
+      ) {
     return new DefaultEventProcessor(
         ec.build(),
         TestComponents.sharedExecutor,
-        Thread.MAX_PRIORITY
+        Thread.MAX_PRIORITY,
+        testLogger
         );
+  }
+
+  public static EventsConfiguration defaultEventsConfig() {
+    return makeEventsConfig(false, null);
+  }
+
+  public static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate,
+      Iterable<AttributeRef> privateAttributes) {
+    return new EventsConfiguration(
+        allAttributesPrivate,
+        0,
+        null,
+        100000, // arbitrary long flush interval
+        null,
+        null,
+        null,
+        100000, // arbitrary long flush interval
+        privateAttributes
+        );
+  }
+  
+  public static EvaluationDetail<LDValue> simpleEvaluation(int variation, LDValue value) {
+    return EvaluationDetail.fromValue(value, variation, EvaluationReason.off());
   }
 
   public static final class MockEventSender implements EventSender {
@@ -175,18 +200,19 @@ public abstract class EventTestUtil {
     );
   }
 
-  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser) {
-    return isFeatureEvent(sourceEvent, flag, debug, inlineUser, null);
+  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, String flagKey,
+      int flagVersion, boolean debug, LDValue inlineUser) {
+    return isFeatureEvent(sourceEvent, flagKey, flagVersion, debug, inlineUser, null);
   }
 
   @SuppressWarnings("unchecked")
-  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag,
-      boolean debug, LDValue inlineContext, EvaluationReason reason) {
+  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, String flagKey,
+      int flagVersion, boolean debug, LDValue inlineContext, EvaluationReason reason) {
     return allOf(
         jsonProperty("kind", debug ? "debug" : "feature"),
         jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        jsonProperty("key", flag.getKey()),
-        jsonProperty("version", (double)flag.getVersion()),
+        jsonProperty("key", flagKey),
+        jsonProperty("version", (double)flagVersion),
         jsonProperty("variation", sourceEvent.getVariation()),
         jsonProperty("value", jsonFromValue(sourceEvent.getValue())),
         inlineContext == null ? hasContextKeys(sourceEvent) : hasInlineContext(inlineContext),
@@ -247,10 +273,10 @@ public abstract class EventTestUtil {
     )));
   }
   
-  public static Matcher<JsonTestValue> isSummaryEventCounter(DataModel.FeatureFlag flag, Integer variation, LDValue value, int count) {
+  public static Matcher<JsonTestValue> isSummaryEventCounter(int flagVersion, Integer variation, LDValue value, int count) {
     return allOf(
         jsonProperty("variation", variation),
-        jsonProperty("version", (double)flag.getVersion()),
+        jsonProperty("version", (double)flagVersion),
         jsonProperty("value", jsonFromValue(value)),
         jsonProperty("count", (double)count)
     );
@@ -263,23 +289,23 @@ public abstract class EventTestUtil {
         variation, value, defaultValue, reason, null, false, null, false);
   }
 
-  public static Event.FeatureRequest makeFeatureRequestEvent(FeatureFlag flag, LDContext context,
-      EvalResult result, LDValue defaultVal, boolean withReason) {
-    return new Event.FeatureRequest(FAKE_TIME, flag.getKey(), context, flag.getVersion(),
+  public static Event.FeatureRequest makeFeatureRequestEvent(String flagKey, LDContext context,
+      int flagVersion, EvaluationDetail<LDValue> result, LDValue defaultVal, boolean withReason) {
+    return new Event.FeatureRequest(FAKE_TIME, flagKey, context, flagVersion,
         result.getVariationIndex(), result.getValue(), defaultVal, withReason ? result.getReason() : null,
-        null, flag.isTrackEvents(), flag.getDebugEventsUntilDate(), false);
+        null, false, null, false);
   }
   
-  public static Event.FeatureRequest makeFeatureRequestEvent(FeatureFlag flag, LDContext context,
-      EvalResult result, LDValue defaultVal) {
-    return makeFeatureRequestEvent(flag, context, result, defaultVal, false);
+  public static Event.FeatureRequest makeFeatureRequestEvent(String flagKey, LDContext context,
+      int flagVersion, EvaluationDetail<LDValue> result, LDValue defaultVal) {
+    return makeFeatureRequestEvent(flagKey, context, flagVersion, result, defaultVal, false);
   }
   
-  public static Event.FeatureRequest makePrerequisiteEvent(FeatureFlag prereqFlag, LDContext context,
-      EvalResult result, FeatureFlag mainFlag) {
-    return new Event.FeatureRequest(FAKE_TIME, prereqFlag.getKey(), context, prereqFlag.getVersion(),
+  public static Event.FeatureRequest makePrerequisiteEvent(String prereqFlagKey, LDContext context,
+      int prereqFlagVersion, EvaluationDetail<LDValue> result, String mainFlagKey) {
+    return new Event.FeatureRequest(FAKE_TIME, prereqFlagKey, context, prereqFlagVersion,
         result.getVariationIndex(), result.getValue(), null, null,
-        mainFlag.getKey(), prereqFlag.isTrackEvents(), prereqFlag.getDebugEventsUntilDate(), false);
+        mainFlagKey, false, null, false);
   }
   
   public static Event.Identify makeIdentifyEvent(LDContext context) {

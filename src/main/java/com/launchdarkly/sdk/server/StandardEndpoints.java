@@ -1,20 +1,18 @@
 package com.launchdarkly.sdk.server;
 
-import java.net.URI;
+import com.launchdarkly.logging.LDLogger;
 
-import org.slf4j.Logger;
+import java.net.URI;
 
 abstract class StandardEndpoints {
   private StandardEndpoints() {}
 
-  static URI DEFAULT_STREAMING_BASE_URI = URI.create("https://stream.launchdarkly.com");
-  static URI DEFAULT_POLLING_BASE_URI = URI.create("https://app.launchdarkly.com");
-  static URI DEFAULT_EVENTS_BASE_URI = URI.create("https://events.launchdarkly.com");
+  static final URI DEFAULT_STREAMING_BASE_URI = URI.create("https://stream.launchdarkly.com");
+  static final URI DEFAULT_POLLING_BASE_URI = URI.create("https://app.launchdarkly.com");
+  static final URI DEFAULT_EVENTS_BASE_URI = URI.create("https://events.launchdarkly.com");
 
-  static String STREAMING_REQUEST_PATH = "/all";
-  static String POLLING_REQUEST_PATH = "/sdk/latest-all";
-  static String ANALYTICS_EVENTS_POST_REQUEST_PATH = "/bulk";
-  static String DIAGNOSTIC_EVENTS_POST_REQUEST_PATH = "/diagnostic";
+  static final String STREAMING_REQUEST_PATH = "/all";
+  static final String POLLING_REQUEST_PATH = "/sdk/latest-all";
 
   /**
    * Internal method to decide which URI a given component should connect to.
@@ -28,7 +26,7 @@ abstract class StandardEndpoints {
    * @param logger the logger to which we should print the warning, if needed
    * @return the base URI we should connect to
    */
-  static URI selectBaseUri(URI serviceEndpointsValue, URI defaultValue, String description, Logger logger) {
+  static URI selectBaseUri(URI serviceEndpointsValue, URI defaultValue, String description, LDLogger logger) {
     if (serviceEndpointsValue != null) {
       return serviceEndpointsValue;
     }

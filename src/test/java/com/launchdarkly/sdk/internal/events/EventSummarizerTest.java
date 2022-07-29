@@ -5,7 +5,6 @@ import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.internal.events.EventSummarizer;
 import com.launchdarkly.sdk.internal.events.EventSummarizer.CounterValue;
 import com.launchdarkly.sdk.internal.events.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.internal.events.EventSummarizer.FlagInfo;

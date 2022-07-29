@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
@@ -17,10 +18,13 @@ final class DefaultEventProcessorWrapper implements EventProcessor {
   
   DefaultEventProcessorWrapper(ClientContext clientContext, EventsConfiguration eventsConfig) {
     this.eventsConfig = eventsConfig;
+    LDLogger baseLogger = clientContext.getBaseLogger();
+    LDLogger logger = baseLogger.subLogger(Loggers.EVENTS_LOGGER_NAME);
     eventProcessor = new DefaultEventProcessor(
         eventsConfig,
         ClientContextImpl.get(clientContext).sharedExecutor,
-        clientContext.getThreadPriority()
+        clientContext.getThreadPriority(),
+        logger
         );
   }
 

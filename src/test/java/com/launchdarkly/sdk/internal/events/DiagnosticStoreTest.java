@@ -1,9 +1,6 @@
 package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.internal.events.DiagnosticConfigProperty;
-import com.launchdarkly.sdk.internal.events.DiagnosticEvent;
-import com.launchdarkly.sdk.internal.events.DiagnosticStore;
 import com.launchdarkly.sdk.internal.events.DiagnosticStore.SdkDiagnosticParams;
 
 import org.junit.Test;

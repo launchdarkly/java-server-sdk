@@ -1,22 +1,11 @@
 package com.launchdarkly.sdk.internal.events;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.internal.events.DefaultEventProcessor;
-import com.launchdarkly.sdk.internal.events.DiagnosticEvent;
-import com.launchdarkly.sdk.internal.events.DiagnosticId;
-import com.launchdarkly.sdk.internal.events.DiagnosticStore;
-import com.launchdarkly.sdk.internal.events.Event;
-import com.launchdarkly.sdk.internal.events.EventContextDeduplicator;
-import com.launchdarkly.sdk.internal.events.EventSender;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 
 import org.junit.Test;
 
 import java.net.URI;
 
-import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -28,7 +17,7 @@ import static org.junit.Assert.assertNotNull;
  * These DefaultEventProcessor tests cover diagnostic event behavior.
  */
 @SuppressWarnings("javadoc")
-public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
+public class DefaultEventProcessorDiagnosticsTest extends BaseEventTest {
   private static LDValue fakePlatformData = LDValue.buildObject().put("cats", 2).build();
   
   private DiagnosticId diagnosticId;
@@ -105,12 +94,10 @@ public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
   @Test
   public void periodicDiagnosticEventGetsEventsInLastBatchAndDeduplicatedUsers() throws Exception {
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
-    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
     LDValue value = LDValue.of("value");
-    Event.FeatureRequest fe1 = makeFeatureRequestEvent(flag1, user,
+    Event.FeatureRequest fe1 = makeFeatureRequestEvent("flagkey1", user, 11,
             simpleEvaluation(1, value), LDValue.ofNull());
-    Event.FeatureRequest fe2 = makeFeatureRequestEvent(flag2, user,
+    Event.FeatureRequest fe2 = makeFeatureRequestEvent("flagkey2", user, 22,
             simpleEvaluation(1, value), LDValue.ofNull());
 
     // Create a fake deduplicator that just says "not seen" for the first call and "seen" thereafter
@@ -135,7 +122,7 @@ public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
 
       assertNotNull(statsEvent);
       assertThat(statsEvent.deduplicatedUsers, equalTo(1L));
-      assertThat(statsEvent.eventsInLastBatch, equalTo(3L));
+      assertThat(statsEvent.eventsInLastBatch, equalTo(2L));
       assertThat(statsEvent.droppedEvents, equalTo(0L));
     }
   }

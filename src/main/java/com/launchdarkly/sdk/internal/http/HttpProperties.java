@@ -24,6 +24,8 @@ import okhttp3.OkHttpClient;
  * reference any OkHttp classes, but this internal class does.  
  */
 public final class HttpProperties {
+  private static final int DEFAULT_TIMEOUT = 10000; // not used by the SDKs, just prevents invalid test conditions
+  
   private final long connectTimeoutMillis;
   private final Map<String, String> defaultHeaders;
   private final Proxy proxy;
@@ -33,24 +35,55 @@ public final class HttpProperties {
   private final SSLSocketFactory sslSocketFactory;
   private final X509TrustManager trustManager;
 
+  /**
+   * Constructs an instance.
+   * 
+   * @param connectTimeoutMillis connection timeout milliseconds
+   * @param defaultHeaders headers to add to all requests
+   * @param proxy optional proxy
+   * @param proxyAuth optional proxy authenticator
+   * @param socketFactory optional socket factory
+   * @param socketTimeoutMillis socket timeout milliseconds
+   * @param sslSocketFactory optional SSL socket factory
+   * @param trustManager optional SSL trust manager
+   */
   public HttpProperties(long connectTimeoutMillis, Map<String, String> defaultHeaders, Proxy proxy,
       Authenticator proxyAuth, SocketFactory socketFactory, long socketTimeoutMillis, SSLSocketFactory sslSocketFactory,
       X509TrustManager trustManager) {
     super();
-    this.connectTimeoutMillis = connectTimeoutMillis;
+    this.connectTimeoutMillis = connectTimeoutMillis <= 0 ? DEFAULT_TIMEOUT : connectTimeoutMillis;
     this.defaultHeaders = defaultHeaders == null ? Collections.emptyMap() : new HashMap<>(defaultHeaders);
     this.proxy = proxy;
     this.proxyAuth = proxyAuth;
     this.socketFactory = socketFactory;
-    this.socketTimeoutMillis = socketTimeoutMillis;
+    this.socketTimeoutMillis = socketTimeoutMillis <= 0 ? DEFAULT_TIMEOUT : socketTimeoutMillis;
     this.sslSocketFactory = sslSocketFactory;
     this.trustManager = trustManager;
   }
   
+  /**
+   * Returns a minimal set of properties.
+   * 
+   * @return a default instance
+   */
+  public static HttpProperties defaults() {
+    return new HttpProperties(0, null, null, null, null, 0, null, null);
+  }
+  
+  /**
+   * Returns an immutable view of the default headers.
+   * 
+   * @return the default headers
+   */
   public Iterable<Map.Entry<String, String>> getDefaultHeaders() {
     return defaultHeaders.entrySet();
   }
 
+  /**
+   * Applies the configured properties to an OkHttp client builder.
+   * 
+   * @param builder the client builder
+   */
   public void applyToHttpClientBuilder(OkHttpClient.Builder builder) {
     builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS));
     if (connectTimeoutMillis > 0) {
@@ -78,12 +111,22 @@ public final class HttpProperties {
     }
   }
   
+  /**
+   * Returns an OkHttp client builder initialized with the configured properties.
+   * 
+   * @return a client builder
+   */
   public OkHttpClient.Builder toHttpClientBuilder() {
     OkHttpClient.Builder builder = new OkHttpClient.Builder();
     applyToHttpClientBuilder(builder);
     return builder;
   }
   
+  /**
+   * Returns an OkHttp Headers builder initialized with the default headers.
+   * 
+   * @return a Headers builder
+   */
   public Headers.Builder toHeadersBuilder() {
     Headers.Builder builder = new Headers.Builder();
     for (Map.Entry<String, String> kv: getDefaultHeaders()) {
@@ -92,6 +135,11 @@ public final class HttpProperties {
     return builder;
   }
 
+  /**
+   * Attempts to completely shut down an OkHttp client.
+   * 
+   * @param client the client to stop
+   */
   public static void shutdownHttpClient(OkHttpClient client) {
     if (client.dispatcher() != null) {
       client.dispatcher().cancelAll();

@@ -5,20 +5,14 @@ import com.google.gson.Gson;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextBuilder;
 import com.launchdarkly.sdk.ContextKind;
+import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
-import com.launchdarkly.sdk.internal.events.Event;
-import com.launchdarkly.sdk.internal.events.EventOutputFormatter;
-import com.launchdarkly.sdk.internal.events.EventSummarizer;
-import com.launchdarkly.sdk.internal.events.EventsConfiguration;
-import com.launchdarkly.sdk.internal.events.Event.FeatureRequest;
-import com.launchdarkly.sdk.internal.events.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.server.DataModel;
-import com.launchdarkly.sdk.server.EvalResult;
-import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.internal.events.Event.FeatureRequest;
+import com.launchdarkly.sdk.internal.events.EventSummarizer.EventSummary;
 
 import org.junit.Test;
 
@@ -26,9 +20,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
-import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.TestComponents.defaultEventsConfig;
-import static com.launchdarkly.sdk.server.TestComponents.makeEventsConfig;
 import static com.launchdarkly.sdk.server.TestUtil.assertJsonEquals;
 import static com.launchdarkly.sdk.server.subsystems.EventProcessor.NO_VERSION;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,7 +28,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("javadoc")
-public class EventOutputTest extends EventTestUtil {
+public class EventOutputTest extends BaseEventTest {
   private static final Gson gson = new Gson();
   
   private ContextBuilder contextBuilderWithAllAttributes = LDContext.builder("userkey")
@@ -370,10 +361,9 @@ public class EventOutputTest extends EventTestUtil {
   private void testContextKeysSerialization(LDContext context, LDValue expectedJsonValue) throws IOException {
     EventsConfiguration config = makeEventsConfig(false, null);
     EventOutputFormatter f = new EventOutputFormatter(config);
-    FeatureFlag flag = flagBuilder("flagkey").build();
     
-    Event.FeatureRequest featureEvent = makeFeatureRequestEvent(flag, context,
-        EvalResult.of(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
+    Event.FeatureRequest featureEvent = makeFeatureRequestEvent("flagKey", context, 100,
+        EvaluationDetail.fromValue(LDValue.of("flagvalue"), 1, EvaluationReason.off()),
         LDValue.of("defaultvalue"));
     LDValue outputEvent = getSingleOutputEvent(f, featureEvent);
     assertJsonEquals(expectedJsonValue, outputEvent.get("contextKeys"));

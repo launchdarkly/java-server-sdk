@@ -13,6 +13,7 @@ import static com.launchdarkly.sdk.internal.GsonHelpers.gsonInstance;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+@SuppressWarnings("javadoc")
 public class DiagnosticEventTest {
   private static List<DiagnosticEvent.StreamInit> testStreamInits =
       Collections.singletonList(new DiagnosticEvent.StreamInit(1500, 100, true));
@@ -41,5 +42,4 @@ public class DiagnosticEventTest {
     assertEquals(100, initJson.getAsJsonPrimitive("durationMillis").getAsInt());
     assertTrue(initJson.getAsJsonPrimitive("failed").getAsBoolean());
   }
-
 }
