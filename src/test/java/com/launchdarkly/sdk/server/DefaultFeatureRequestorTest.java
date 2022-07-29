@@ -30,7 +30,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 @SuppressWarnings("javadoc")
-public class DefaultFeatureRequestorTest {
+public class DefaultFeatureRequestorTest extends BaseTest {
   private static final String sdkKey = "sdk-key";
   private static final String flag1Key = "flag1";
   private static final FeatureFlag flag1 = flagBuilder(flag1Key).version(1000).build();
@@ -49,7 +49,7 @@ public class DefaultFeatureRequestorTest {
   }
 
   private DefaultFeatureRequestor makeRequestor(HttpServer server, LDConfig config) {
-    return new DefaultFeatureRequestor(makeHttpConfig(config), server.getUri());
+    return new DefaultFeatureRequestor(makeHttpConfig(config), server.getUri(), testLogger);
   }
 
   private HttpConfiguration makeHttpConfig(LDConfig config) {
@@ -149,7 +149,7 @@ public class DefaultFeatureRequestorTest {
     TestHttpUtil.testWithSpecialHttpConfigurations(handler,
         (targetUri, goodHttpConfig) -> {
           LDConfig config = new LDConfig.Builder().http(goodHttpConfig).build();
-          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri)) {
+          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri, testLogger)) {
             try {
               FullDataSet<ItemDescriptor> data = r.getAllData(false);
               verifyExpectedData(data);
@@ -161,7 +161,7 @@ public class DefaultFeatureRequestorTest {
         
         (targetUri, badHttpConfig) -> {
           LDConfig config = new LDConfig.Builder().http(badHttpConfig).build();
-          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri)) {
+          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri, testLogger)) {
             try {
               r.getAllData(false);
               fail("expected exception");
@@ -177,9 +177,9 @@ public class DefaultFeatureRequestorTest {
     Handler resp = Handlers.bodyJson(allDataJson);
     
     try (HttpServer server = HttpServer.start(resp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), server.getUri())) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), server.getUri(), testLogger)) {
         FullDataSet<ItemDescriptor> data = r.getAllData(true);
-        
+ 
         RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/sdk/latest-all", req.getPath());
         verifyHeaders(req);
@@ -196,9 +196,9 @@ public class DefaultFeatureRequestorTest {
     try (HttpServer server = HttpServer.start(resp)) {
       URI uri = server.getUri().resolve("/context/path");
       
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri, testLogger)) {
         FullDataSet<ItemDescriptor> data = r.getAllData(true);
-        
+ 
         RequestInfo req = server.getRecorder().requireRequest();
         assertEquals("/context/path/sdk/latest-all", req.getPath());
         verifyHeaders(req);

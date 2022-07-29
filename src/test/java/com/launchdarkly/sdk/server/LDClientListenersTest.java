@@ -52,15 +52,15 @@ import static org.junit.Assert.assertTrue;
  * together correctly so that they work from an application's point of view.
  */
 @SuppressWarnings("javadoc")
-public class LDClientListenersTest extends EasyMockSupport {
+public class LDClientListenersTest extends BaseTest {
   private final static String SDK_KEY = "SDK_KEY";
-
+  
   @Test
   public void clientSendsFlagChangeEvents() throws Exception {
     String flagKey = "flagkey";
     TestData testData = TestData.dataSource();
     testData.update(testData.flag(flagKey).on(true));
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(testData)
         .events(Components.noEvents())
         .build();
@@ -105,7 +105,7 @@ public class LDClientListenersTest extends EasyMockSupport {
     TestData testData = TestData.dataSource();
     testData.update(testData.flag(flagKey).on(false));
     
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(testData)
         .events(Components.noEvents())
         .build();
@@ -147,7 +147,7 @@ public class LDClientListenersTest extends EasyMockSupport {
   @Test
   public void dataSourceStatusProviderReturnsLatestStatus() throws Exception {
     TestData testData = TestData.dataSource();
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(testData)
         .events(Components.noEvents())
         .build();
@@ -173,7 +173,7 @@ public class LDClientListenersTest extends EasyMockSupport {
   @Test
   public void dataSourceStatusProviderSendsStatusUpdates() throws Exception {
     TestData testData = TestData.dataSource();
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(testData)
         .events(Components.noEvents())
         .build();
@@ -195,7 +195,7 @@ public class LDClientListenersTest extends EasyMockSupport {
   
   @Test
   public void dataStoreStatusMonitoringIsDisabledForInMemoryStore() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(Components.externalUpdatesOnly())
         .events(Components.noEvents())
         .build();
@@ -206,7 +206,7 @@ public class LDClientListenersTest extends EasyMockSupport {
 
   @Test
   public void dataStoreStatusMonitoringIsEnabledForPersistentStore() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(Components.externalUpdatesOnly())
         .dataStore(
             Components.persistentDataStore(TestComponents.<PersistentDataStore>specificComponent(new MockPersistentDataStore()))
@@ -223,10 +223,8 @@ public class LDClientListenersTest extends EasyMockSupport {
     ComponentConfigurer<DataStore> underlyingStoreFactory = Components.persistentDataStore(
         TestComponents.<PersistentDataStore>specificComponent(new MockPersistentDataStore()));
     ContextCapturingFactory<DataStore> capturingFactory = new ContextCapturingFactory<>(underlyingStoreFactory);
-    LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.externalUpdatesOnly())
+    LDConfig config = baseConfig()
         .dataStore(capturingFactory)
-        .events(Components.noEvents())
         .build();    
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       DataStoreStatusProvider.Status originalStatus = new DataStoreStatusProvider.Status(true, false);
@@ -242,10 +240,8 @@ public class LDClientListenersTest extends EasyMockSupport {
     ComponentConfigurer<DataStore> underlyingStoreFactory = Components.persistentDataStore(
         TestComponents.<PersistentDataStore>specificComponent(new MockPersistentDataStore()));
     ContextCapturingFactory<DataStore> capturingFactory = new ContextCapturingFactory<>(underlyingStoreFactory);
-    LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.externalUpdatesOnly())
+    LDConfig config = baseConfig()
         .dataStore(capturingFactory)
-        .events(Components.noEvents())
         .build();    
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
@@ -265,7 +261,7 @@ public class LDClientListenersTest extends EasyMockSupport {
     
     TestData testData = TestData.dataSource();
     testData.update(testData.flag("flagkey").on(true));
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .dataSource(testData)
         .events(Components.noEvents())
         .threadPriority(desiredPriority)
@@ -287,10 +283,7 @@ public class LDClientListenersTest extends EasyMockSupport {
 
   @Test
   public void bigSegmentStoreStatusReturnsUnavailableStatusWhenNotConfigured() throws Exception {
-    LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.externalUpdatesOnly())
-        .events(Components.noEvents())
-        .build();
+    LDConfig config = baseConfig().build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       BigSegmentStoreStatusProvider.Status status = client.getBigSegmentStoreStatusProvider().getStatus();
       assertFalse(status.isAvailable());
@@ -300,8 +293,9 @@ public class LDClientListenersTest extends EasyMockSupport {
 
   @Test
   public void bigSegmentStoreStatusProviderSendsStatusUpdates() throws Exception {
+    EasyMockSupport mocks = new EasyMockSupport(); 
     AtomicBoolean storeAvailable = new AtomicBoolean(true);
-    BigSegmentStore storeMock = niceMock(BigSegmentStore.class);
+    BigSegmentStore storeMock = mocks.niceMock(BigSegmentStore.class);
     expect(storeMock.getMetadata()).andAnswer(() -> {
       if (storeAvailable.get()) {
         return new BigSegmentStoreTypes.StoreMetadata(System.currentTimeMillis());
@@ -313,12 +307,10 @@ public class LDClientListenersTest extends EasyMockSupport {
 
     replay(storeMock);
 
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .bigSegments(
             Components.bigSegments(storeFactory).statusPollInterval(Duration.ofMillis(10))
         )
-        .dataSource(Components.externalUpdatesOnly())
-        .events(Components.noEvents())
         .build();
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {

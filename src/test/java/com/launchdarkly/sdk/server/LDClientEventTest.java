@@ -31,17 +31,16 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class LDClientEventTest {
+public class LDClientEventTest extends BaseTest {
   private static final LDUser user = new LDUser("userkey");
   private static final LDUser userWithNullKey = new LDUser.Builder((String)null).build();
   private static final LDUser userWithEmptyKey = new LDUser.Builder("").build();
   
   private DataStore dataStore = initedDataStore();
   private TestComponents.TestEventProcessor eventSink = new TestComponents.TestEventProcessor();
-  private LDConfig config = new LDConfig.Builder()
+  private LDConfig config = baseConfig()
       .dataStore(specificComponent(dataStore))
       .events(specificComponent(eventSink))
-      .dataSource(Components.externalUpdatesOnly())
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
   
@@ -518,7 +517,7 @@ public class LDClientEventTest {
   
   @Test
   public void identifyWithEventsDisabledDoesNotCauseError() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();
@@ -529,7 +528,7 @@ public class LDClientEventTest {
   
   @Test
   public void trackWithEventsDisabledDoesNotCauseError() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();
@@ -540,7 +539,7 @@ public class LDClientEventTest {
 
   @Test
   public void flushWithEventsDisabledDoesNotCauseError() throws Exception {
-    LDConfig config = new LDConfig.Builder()
+    LDConfig config = baseConfig()
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .build();

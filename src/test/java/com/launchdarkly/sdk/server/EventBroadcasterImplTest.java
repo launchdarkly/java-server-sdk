@@ -10,9 +10,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 @SuppressWarnings("javadoc")
-public class EventBroadcasterImplTest {
+public class EventBroadcasterImplTest extends BaseTest {
   private EventBroadcasterImpl<FakeListener, FakeEvent> broadcaster =
-      new EventBroadcasterImpl<>(FakeListener::sendEvent, sharedExecutor);
+      new EventBroadcasterImpl<>(FakeListener::sendEvent, sharedExecutor, testLogger);
   
   @Test
   public void sendingEventWithNoListenersDoesNotCauseError() {
@@ -21,7 +21,7 @@ public class EventBroadcasterImplTest {
 
   @Test
   public void sendingEventWithNoExecutorDoesNotCauseError() {
-    new EventBroadcasterImpl<>(FakeListener::sendEvent, null).broadcast(new FakeEvent());
+    new EventBroadcasterImpl<>(FakeListener::sendEvent, null, testLogger).broadcast(new FakeEvent());
   }
   
   @Test

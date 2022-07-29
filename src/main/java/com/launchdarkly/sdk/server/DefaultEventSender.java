@@ -1,11 +1,10 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.URI;
@@ -32,8 +31,6 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 final class DefaultEventSender implements EventSender {
-  private static final Logger logger = Loggers.EVENTS;
-  
   static final Duration DEFAULT_RETRY_DELAY = Duration.ofSeconds(1);
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "3";
@@ -46,14 +43,17 @@ final class DefaultEventSender implements EventSender {
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
   final Duration retryDelay; // visible for testing
-
+  private final LDLogger logger;
+  
   DefaultEventSender(
       HttpConfiguration httpConfiguration,
-      Duration retryDelay
+      Duration retryDelay,
+      LDLogger logger
       ) {
     OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
     configureHttpClientBuilder(httpConfiguration, httpBuilder);
     this.httpClient = httpBuilder.build();
+    this.logger = logger;
 
     this.baseHeaders = getHeadersBuilderFor(httpConfiguration)
         .add("Content-Type", "application/json")
@@ -148,7 +148,7 @@ final class DefaultEventSender implements EventSender {
     return new Result(false, mustShutDown, null);
   }
   
-  private static final Date parseResponseDate(Response response) {
+  private final Date parseResponseDate(Response response) {
     String dateStr = response.header("Date");
     if (dateStr != null) {
       try {
@@ -166,7 +166,8 @@ final class DefaultEventSender implements EventSender {
   static final class Factory implements ComponentConfigurer<EventSender> {
     @Override
     public EventSender build(ClientContext clientContext) {
-      return new DefaultEventSender(clientContext.getHttp(), DefaultEventSender.DEFAULT_RETRY_DELAY);
+      return new DefaultEventSender(clientContext.getHttp(), DefaultEventSender.DEFAULT_RETRY_DELAY,
+          clientContext.getBaseLogger().subLogger(Loggers.EVENTS_LOGGER_NAME));
     }
   }
 }

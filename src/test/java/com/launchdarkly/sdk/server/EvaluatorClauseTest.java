@@ -10,7 +10,6 @@ import org.junit.Test;
 
 import static com.launchdarkly.sdk.EvaluationDetail.fromValue;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
-import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
@@ -24,7 +23,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 @SuppressWarnings("javadoc")
-public class EvaluatorClauseTest {
+public class EvaluatorClauseTest extends EvaluatorTestBase {
   private static void assertMatch(Evaluator eval, DataModel.FeatureFlag flag, LDUser user, boolean expectMatch) {
     assertEquals(LDValue.of(expectMatch), eval.evaluate(flag, user, expectNoPrerequisiteEvals()).getValue());
   }

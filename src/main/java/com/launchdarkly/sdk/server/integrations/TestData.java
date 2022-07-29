@@ -319,17 +319,16 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     /**
      * Sets the flag to always return the specified boolean variation for all users.
      * <p>
-     * VariationForAllUsers sets the flag to return the specified boolean variation by default for all users.
-     * <p>
      * Targeting is switched on, any existing targets or rules are removed, and the flag's variations are
      * set to true and false. The fallthrough variation is set to the specified value. The off variation is
      * left unchanged.
      *
      * @param variation the desired true/false variation to be returned for all users
      * @return the builder
+     * @since 5.10.0
      */
-    public FlagBuilder variationForAllUsers(boolean variation) {
-      return booleanFlag().variationForAllUsers(variationForBoolean(variation));
+    public FlagBuilder variationForAll(boolean variation) {
+      return booleanFlag().variationForAll(variationForBoolean(variation));
     }
 
     /**
@@ -341,11 +340,42 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * 
      * @param variationIndex the desired variation: 0 for the first, 1 for the second, etc.
      * @return the builder
+     * @since 5.10.0
      */
-    public FlagBuilder variationForAllUsers(int variationIndex) {
+    public FlagBuilder variationForAll(int variationIndex) {
       return on(true).clearRules().clearUserTargets().fallthroughVariation(variationIndex);
     }
     
+    /**
+     * Deprecated name for {@link #variationForAll(boolean)}.
+     * <p>
+     * This method name will be dropped in a future SDK version because "users" will not always be the
+     * only kind of input for an evaluation.
+     *
+     * @param variation the desired true/false variation to be returned for all users
+     * @return the builder
+     * @deprecated Use {@link #variationForAll(boolean)}.
+     */
+    @Deprecated
+    public FlagBuilder variationForAllUsers(boolean variation) {
+      return variationForAll(variation);
+    }
+
+    /**
+     * Deprecated name for {@link #variationForAll(int)}.
+     * <p>
+     * This method name will be dropped in a future SDK version because "users" will not always be the
+     * only kind of input for an evaluation.
+     * 
+     * @param variationIndex the desired variation: 0 for the first, 1 for the second, etc.
+     * @return the builder
+     * @deprecated Use {@link #variationForAll(int)}.
+     */
+    @Deprecated
+    public FlagBuilder variationForAllUsers(int variationIndex) {
+      return variationForAll(variationIndex);
+    }
+
     /**
      * Sets the flag to always return the specified variation value for all users.
      * <p>
@@ -357,10 +387,25 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * @param value the desired value to be returned for all users
      * @return the builder
      */
-    public FlagBuilder valueForAllUsers(LDValue value) {
+    public FlagBuilder valueForAll(LDValue value) {
       variations.clear();
       variations.add(value);
-      return variationForAllUsers(0);
+      return variationForAll(0);
+    }
+    
+    /**
+     * Deprecated name for {@link #valueForAll(LDValue)}.
+     * <p>
+     * This method name will be dropped in a future SDK version because "users" will not always be the
+     * only kind of input for an evaluation.
+     * 
+     * @param value the desired value to be returned for all users
+     * @return the builder'
+     * @deprecated Use {@link #valueForAll(LDValue)}.
+     */
+    @Deprecated
+    public FlagBuilder valueForAllUsers(LDValue value) {
+      return valueForAll(value);
     }
     
     /**

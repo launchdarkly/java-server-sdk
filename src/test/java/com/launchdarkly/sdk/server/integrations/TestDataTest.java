@@ -154,8 +154,8 @@ public class TestDataTest {
     verifyFlag(f -> f.booleanFlag(), onProps + fallthroughTrue);
     verifyFlag(f -> f.on(true), onProps + fallthroughTrue);
     verifyFlag(f -> f.on(false), offProps + fallthroughTrue);
-    verifyFlag(f -> f.variationForAllUsers(false), onProps + fallthroughFalse);
-    verifyFlag(f -> f.variationForAllUsers(true), onProps + fallthroughTrue);
+    verifyFlag(f -> f.variationForAll(false), onProps + fallthroughFalse);
+    verifyFlag(f -> f.variationForAll(true), onProps + fallthroughTrue);
 
     verifyFlag(
         f -> f.fallthroughVariation(true).offVariation(false),
