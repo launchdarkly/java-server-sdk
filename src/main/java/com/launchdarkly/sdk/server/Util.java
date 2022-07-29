@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
@@ -70,7 +71,7 @@ abstract class Util {
       }
     };  
   }
-
+  
   static String describeDuration(Duration d) {
     if (d.toMillis() % 1000 == 0) {
       if (d.toMillis() % 60000 == 0) {
@@ -120,7 +121,7 @@ abstract class Util {
    * @param applicationInfo the application metadata
    * @return a space-separated string of tags, e.g. "application-id/authentication-service application-version/1.0.0"
    */
-  static String applicationTagHeader(ApplicationInfo applicationInfo) {
+  static String applicationTagHeader(ApplicationInfo applicationInfo, LDLogger logger) {
     String[][] tags = {
       {"applicationId", "application-id", applicationInfo.getApplicationId()},
       {"applicationVersion", "application-version", applicationInfo.getApplicationVersion()},
@@ -134,11 +135,11 @@ abstract class Util {
         continue;
       }
       if (!TAG_VALUE_REGEX.matcher(tagVal).matches()) {
-        Loggers.MAIN.warn("Value of ApplicationInfo.{} contained invalid characters and was discarded", javaKey);
+        logger.warn("Value of ApplicationInfo.{} contained invalid characters and was discarded", javaKey);
         continue;
       }
       if (tagVal.length() > 64) {
-        Loggers.MAIN.warn("Value of ApplicationInfo.{} was longer than 64 characters and was discarded", javaKey);
+        logger.warn("Value of ApplicationInfo.{} was longer than 64 characters and was discarded", javaKey);
         continue;
       }
       parts.add(tagKey + "/" + tagVal);

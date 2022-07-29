@@ -49,7 +49,7 @@ public class SdkClientEntity {
     this.logger = LoggerFactory.getLogger(params.tag);
     logger.info("Starting SDK client");
 
-    LDConfig config = buildSdkConfig(params.configuration);
+    LDConfig config = buildSdkConfig(params.configuration, params.tag);
     this.client = new LDClient(params.configuration.credential, config);
     if (!client.isInitialized() && !params.configuration.initCanFail) {
       throw new RuntimeException("client initialization failed or timed out");
@@ -238,9 +238,11 @@ public class SdkClientEntity {
     logger.info("Test ended");
   }
   
-  private LDConfig buildSdkConfig(SdkConfigParams params) {
+  private LDConfig buildSdkConfig(SdkConfigParams params, String tag) {
     LDConfig.Builder builder = new LDConfig.Builder();
 
+    builder.logging(Components.logging().baseLoggerName(tag + ".sdk"));
+    
     if (params.startWaitTimeMs != null) {
       builder.startWait(Duration.ofMillis(params.startWaitTimeMs.longValue()));
     }

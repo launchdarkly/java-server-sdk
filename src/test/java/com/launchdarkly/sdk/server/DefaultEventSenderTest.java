@@ -31,7 +31,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
-public class DefaultEventSenderTest {
+public class DefaultEventSenderTest extends BaseTest {
   private static final String SDK_KEY = "SDK_KEY";
   private static final String FAKE_DATA = "some data";
   private static final byte[] FAKE_DATA_BYTES = FAKE_DATA.getBytes(Charset.forName("UTF-8"));
@@ -39,12 +39,12 @@ public class DefaultEventSenderTest {
       Locale.US);
   private static final Duration BRIEF_RETRY_DELAY = Duration.ofMillis(50);
   
-  private static EventSender makeEventSender() {
+  private EventSender makeEventSender() {
     return makeEventSender(defaultHttpProperties());
   }
 
-  private static EventSender makeEventSender(HttpProperties httpProperties) {
-    return new DefaultEventSender(httpProperties, BRIEF_RETRY_DELAY);
+  private EventSender makeEventSender(HttpProperties httpProperties) {
+    return new DefaultEventSender(httpProperties, BRIEF_RETRY_DELAY, testLogger);
   }
   
   @Test

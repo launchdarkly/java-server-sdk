@@ -2,12 +2,11 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.stream.JsonReader;
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.HttpErrors.HttpErrorException;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
-
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.URI;
@@ -27,7 +26,6 @@ import okhttp3.Response;
  * Implementation of getting flag data via a polling request.
  */
 final class DefaultFeatureRequestor implements FeatureRequestor {
-  private static final Logger logger = Loggers.DATA_SOURCE;
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
   
   @VisibleForTesting final URI baseUri;
@@ -35,10 +33,12 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   private final URI pollingUri;
   private final Headers headers;
   private final Path cacheDir;
+  private final LDLogger logger;
 
-  DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri) {
+  DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri, LDLogger logger) {
     this.baseUri = baseUri;
     this.pollingUri = concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
+    this.logger = logger;
     
     OkHttpClient.Builder httpBuilder = httpProperties.toHttpClientBuilder();
     this.headers = httpProperties.toHeadersBuilder().build();
@@ -73,14 +73,16 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
       boolean wasCached = response.networkResponse() == null || response.networkResponse().code() == 304;
       if (wasCached && !returnDataEvenIfCached) {
         logger.debug("Get flag(s) got cached response, will not parse");
-        logger.debug("Cache hit count: " + httpClient.cache().hitCount() + " Cache network Count: " + httpClient.cache().networkCount());
+        logger.debug("Cache hit count: {} Cache network count: {} ",
+            httpClient.cache().hitCount(), httpClient.cache().networkCount());
         return null;
       }
 
-      logger.debug("Get flag(s) response: " + response.toString());
-      logger.debug("Network response: " + response.networkResponse());
-      logger.debug("Cache hit count: " + httpClient.cache().hitCount() + " Cache network Count: " + httpClient.cache().networkCount());
-      logger.debug("Cache response: " + response.cacheResponse());
+      logger.debug("Get flag(s) response: {}", response);
+      logger.debug("Network response: {}", response.networkResponse());
+      logger.debug("Cache hit count: {} Cache network count: {}",
+          httpClient.cache().hitCount(), httpClient.cache().networkCount());
+      logger.debug("Cache response: {}", response.cacheResponse());
 
       if (!response.isSuccessful()) {
         throw new HttpErrorException(response.code());

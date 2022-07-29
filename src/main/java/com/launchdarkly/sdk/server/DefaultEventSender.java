@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server;
 
-import org.slf4j.Logger;
+import com.launchdarkly.logging.LDLogger;
 
 import java.io.IOException;
 import java.net.URI;
@@ -24,8 +24,6 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 final class DefaultEventSender implements EventSender {
-  private static final Logger logger = Loggers.EVENTS;
-  
   static final Duration DEFAULT_RETRY_DELAY = Duration.ofSeconds(1);
   private static final String EVENT_SCHEMA_HEADER = "X-LaunchDarkly-Event-Schema";
   private static final String EVENT_SCHEMA_VERSION = "4";
@@ -38,12 +36,15 @@ final class DefaultEventSender implements EventSender {
   private final OkHttpClient httpClient;
   private final Headers baseHeaders;
   final Duration retryDelay; // visible for testing
-
+  private final LDLogger logger;
+  
   DefaultEventSender(
       HttpProperties httpProperties,
-      Duration retryDelay
+      Duration retryDelay,
+      LDLogger logger
       ) {
     this.httpClient = httpProperties.toHttpClientBuilder().build();
+    this.logger = logger;
 
     this.baseHeaders = httpProperties.toHeadersBuilder()
         .add("Content-Type", "application/json")
@@ -142,7 +143,7 @@ final class DefaultEventSender implements EventSender {
     return new Result(false, mustShutDown, null);
   }
   
-  private static final Date parseResponseDate(Response response) {
+  private final Date parseResponseDate(Response response) {
     String dateStr = response.header("Date");
     if (dateStr != null) {
       try {
