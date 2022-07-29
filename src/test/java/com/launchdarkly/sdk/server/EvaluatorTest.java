@@ -20,7 +20,6 @@ import java.util.List;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
-import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
@@ -32,7 +31,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
 @SuppressWarnings("javadoc")
-public class EvaluatorTest {
+public class EvaluatorTest extends EvaluatorTestBase {
   private static final LDContext BASE_USER = LDContext.create("x");
 
   // These constants and flag builders define two kinds of flag: one with three variations-- allowing us to
