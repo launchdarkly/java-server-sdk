@@ -3,6 +3,8 @@ package com.launchdarkly.sdk.server;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.server.DataModelDependencies.KindAndKey;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
@@ -54,6 +56,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
   private final DataStoreStatusProvider dataStoreStatusProvider;
   private final OutageTracker outageTracker;
   private final Object stateLock = new Object();
+  private final LDLogger logger;
   
   private volatile Status currentStatus;
   private volatile boolean lastStoreUpdateFailed = false;
@@ -65,13 +68,15 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
       EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeEventNotifier,
       EventBroadcasterImpl<StatusListener, Status> dataSourceStatusNotifier,
       ScheduledExecutorService sharedExecutor,
-      Duration outageLoggingTimeout
+      Duration outageLoggingTimeout,
+      LDLogger baseLogger
       ) {
     this.store = store;
     this.flagChangeEventNotifier = flagChangeEventNotifier;
     this.dataSourceStatusNotifier = dataSourceStatusNotifier;
     this.dataStoreStatusProvider = dataStoreStatusProvider;
     this.outageTracker = new OutageTracker(sharedExecutor, outageLoggingTimeout);
+    this.logger = baseLogger.subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
     
     currentStatus = new Status(State.INITIALIZING, Instant.now(), null);
   }
@@ -267,10 +272,11 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
   
   private void reportStoreFailure(RuntimeException e) {
     if (!lastStoreUpdateFailed) {
-      Loggers.DATA_STORE.warn("Unexpected data store error when trying to store an update received from the data source: {}", e.toString());
+      logger.warn("Unexpected data store error when trying to store an update received from the data source: {}",
+          LogValues.exceptionSummary(e));
       lastStoreUpdateFailed = true;
     }
-    Loggers.DATA_STORE.debug(e.toString(), e);
+    logger.debug(LogValues.exceptionTrace(e));
     updateStatus(State.INTERRUPTED, ErrorInfo.fromException(ErrorKind.STORE_ERROR, e));
   }
   
@@ -339,7 +345,7 @@ final class DataSourceUpdatesImpl implements DataSourceUpdates {
       if (onOutageErrorLog != null) {
         onOutageErrorLog.accept(errorsDesc);
       }
-      Loggers.DATA_SOURCE.error(
+      logger.error(
           "LaunchDarkly data source outage - updates have been unavailable for at least {} with the following errors: {}",
           Util.describeDuration(loggingTimeout),
           errorsDesc

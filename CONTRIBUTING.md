@@ -56,13 +56,15 @@ The project in the `benchmarks` subdirectory uses [JMH](https://openjdk.java.net
 
 ### Logging
 
-Currently the SDK uses SLF4J for all log output. Here some things to keep in mind for good logging behavior:
+The SDK uses a LaunchDarkly logging facade, [`com.launchdarkly.logging`](https://github.com/launchdarkly/java-logging). By default, this facade sends output to SLF4J.
+
+Here some things to keep in mind for good logging behavior:
 
 1. Stick to the standardized logger name scheme defined in `Loggers.java`, preferably for all log output, but definitely for all log output above `DEBUG` level. Logger names can be useful for filtering log output, so it is desirable for users to be able to reference a clear, stable logger name like `com.launchdarkly.sdk.server.LDClient.Events` rather than a class name like `com.launchdarkly.sdk.server.EventSummarizer` which is an implementation detail. The text of a log message should be distinctive enough that we can easily find which class generated the message.
 
-2. Use parameterized messages (`Logger.MAIN.info("The value is {}", someValue)`) rather than string concatenation (`Logger.MAIN.info("The value is " + someValue)`). This avoids the overhead of string concatenation if the logger is not enabled for that level. If computing the value is an expensive operation, and it is _only_ relevant for logging, consider implementing that computation via a custom `toString()` method on some wrapper type so that it will be done lazily only if the log level is enabled.
+2. Use parameterized messages (`logger.info("The value is {}", someValue)`) rather than string concatenation (`logger.info("The value is " + someValue)`). This avoids the overhead of string concatenation if the logger is not enabled for that level. If computing the value is an expensive operation, and it is _only_ relevant for logging, consider implementing that computation via a custom `toString()` method on some wrapper type so that it will be done lazily only if the log level is enabled.
 
-3. Exception stacktraces should only be logged at debug level. For instance: `Logger.MAIN.warn("An error happened: {}", ex.toString()); Logger.MAIN.debug(ex.toString(), ex)`. Also, consider whether the stacktrace would be at all meaningful in this particular context; for instance, in a `try` block around a network I/O operation, the stacktrace would only tell us (a) some internal location in Java standard libraries and (b) the location in our own code where we tried to do the operation; (a) is very unlikely to tell us anything that the exception's type and message doesn't already tell us, and (b) could be more clearly communicated by just writing a specific log message.
+3. There is a standard pattern for logging exceptions, using the `com.launchdarkly.logging.LogValues` helpers. First, log the basic description of the exception at whatever level is appropriate (`WARN` or `ERROR`): `logger.warn("An error happened: {}", LogValues.exceptionSummary(ex))`. Then, log a stack at debug level: `logger.debug(LogValues.exceptionTrace(ex))`. The `exceptionTrace` helper is lazily evaluated so that the stacktrace will only be computed if debug logging is actually enabled. However, consider whether the stacktrace would be at all meaningful in this particular context; for instance, in a `try` block around a network I/O operation, the stacktrace would only tell us (a) some internal location in Java standard libraries and (b) the location in our own code where we tried to do the operation; (a) is very unlikely to tell us anything that the exception's type and message doesn't already tell us, and (b) could be more clearly communicated by just writing a specific log message.
 
 ### Code coverage
 

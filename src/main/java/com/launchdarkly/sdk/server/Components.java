@@ -2,6 +2,8 @@ package com.launchdarkly.sdk.server;
 
 import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FACTORY;
 
+import com.launchdarkly.logging.LDLogAdapter;
+import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.ComponentsImpl.EventProcessorBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.HttpBasicAuthentication;
 import com.launchdarkly.sdk.server.ComponentsImpl.HttpConfigurationBuilderImpl;
@@ -316,7 +318,7 @@ public abstract class Components {
    *         .build();
    * </code></pre>
    * 
-   * @return a factory object
+   * @return a configuration builder
    * @since 5.0.0
    * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.subsystems.LoggingConfigurationFactory)
    */
@@ -324,6 +326,55 @@ public abstract class Components {
     return new LoggingConfigurationBuilderImpl();
   }
 
+  /**
+   * Returns a configuration builder for the SDK's logging configuration, specifying the
+   * implementation of logging to use.
+   * <p>
+   * This is a shortcut for <code>Components.logging().adapter(logAdapter)</code>. The
+   * <a href="https://github.com/launchdarkly/java-logging"><code>com.launchdarkly.logging</code></a>
+   * API defines the {@link LDLogAdapter} interface to specify where log output should be sent. By default,
+   * it is set to {@link com.launchdarkly.logging.LDSLF4J#adapter()}, meaning that output will be sent to
+   * <a href="https://www.slf4j.org/">SLF4J</a> and controlled by the SLF4J configuration. You may use
+   * the {@link com.launchdarkly.logging.Logs} factory methods, or a custom implementation, to handle log
+   * output differently. For instance, you may specify {@link com.launchdarkly.logging.Logs#basic()} for
+   * simple console output, or {@link com.launchdarkly.logging.Logs#toJavaUtilLogging()} to use the
+   * <code>java.util.logging</code> framework.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.subsystems.LoggingConfigurationFactory)},
+   * after setting any desired properties on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     LDConfig config = new LDConfig.Builder()
+   *         .logging(
+   *              Components.logging(Logs.basic())
+   *         )
+   *         .build();
+   * </code></pre>
+   * 
+   * @param logAdapter the log adapter
+   * @return a configuration builder
+   * @since 5.10.0
+   * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.subsystems.LoggingConfigurationFactory)
+   * @see LoggingConfigurationBuilder#adapter(LDLogAdapter)
+   */
+  public static LoggingConfigurationBuilder logging(LDLogAdapter logAdapter) {
+    return logging().adapter(logAdapter);
+  }
+  
+  /**
+   * Returns a configuration builder that turns off SDK logging.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.subsystems.LoggingConfigurationFactory)}
+   * applies this configuration to the SDK.
+   * <p>
+   * It is equivalent to <code>Components.logging(com.launchdarkly.logging.Logs.none())</code>.
+   * 
+   * @return a configuration builder
+   * @since 5.10.0
+   */
+  public static LoggingConfigurationBuilder noLogging() {
+    return logging().adapter(Logs.none());
+  }
+  
   /**
    * Returns a configuration builder for the SDK's application metadata.
    * <p>
