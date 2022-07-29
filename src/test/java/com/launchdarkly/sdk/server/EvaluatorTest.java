@@ -19,7 +19,6 @@ import java.util.List;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
-import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_USER;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.FALLTHROUGH_VALUE;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.FALLTHROUGH_VARIATION;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.GREEN_VALUE;
@@ -32,7 +31,6 @@ import static com.launchdarkly.sdk.server.EvaluatorTestUtil.RED_VALUE;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.RED_VARIATION;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.buildRedGreenFlag;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.buildThreeWayFlag;
-import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
@@ -44,7 +42,9 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
 @SuppressWarnings("javadoc")
-public class EvaluatorTest {
+public class EvaluatorTest extends EvaluatorTestBase {
+  private static final LDContext BASE_USER = LDContext.create("x");
+
   private static Rollout buildRollout(boolean isExperiment, boolean untrackedVariations) {
     List<WeightedVariation> variations = new ArrayList<>();
     variations.add(new WeightedVariation(1, 50000, untrackedVariations));
