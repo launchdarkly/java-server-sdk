@@ -326,8 +326,6 @@ public final class TestData implements DataSourceFactory {
     /**
      * Sets the flag to always return the specified boolean variation for all contexts.
      * <p>
-     * VariationForAllUsers sets the flag to return the specified boolean variation by default for all contexts.
-     * <p>
      * Targeting is switched on, any existing targets or rules are removed, and the flag's variations are
      * set to true and false. The fallthrough variation is set to the specified value. The off variation is
      * left unchanged.
@@ -336,6 +334,7 @@ public final class TestData implements DataSourceFactory {
      * @return the builder
      * @see #variationForAll(int)
      * @see #valueForAll(LDValue)
+     * @since 5.10.0
      */
     public FlagBuilder variationForAll(boolean variation) {
       return booleanFlag().variationForAll(variationForBoolean(variation));
@@ -356,9 +355,9 @@ public final class TestData implements DataSourceFactory {
     public FlagBuilder variationForAll(int variationIndex) {
       return on(true).clearRules().clearTargets().fallthroughVariation(variationIndex);
     }
-    
+
     /**
-     * Sets the flag to always return the specified variation value for all contexts.
+     * Sets the flag to always return the specified variation value for all users.
      * <p>
      * The value may be of any JSON type, as defined by {@link LDValue}. This method changes the
      * flag to have only a single variation, which is this value, and to return the same

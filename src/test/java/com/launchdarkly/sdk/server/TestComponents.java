@@ -1,6 +1,8 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.server.DiagnosticStore.SdkDiagnosticParams;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
@@ -47,7 +49,9 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public class TestComponents {
   static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("TestComponents-sharedExecutor-%d").build());
-  
+
+  public static LDLogger nullLogger = LDLogger.withAdapter(Logs.none(), "");
+
   public static DiagnosticStore basicDiagnosticStore() {
     return new DiagnosticStore(new SdkDiagnosticParams("sdk_key", "sdk", "1.0.0", "Java", null, null, null));
   }
@@ -175,15 +179,16 @@ public class TestComponents {
     
     public MockDataSourceUpdates(DataStore store, DataStoreStatusProvider dataStoreStatusProvider) {
       this.dataStoreStatusProvider = dataStoreStatusProvider;
-      this.flagChangeEventBroadcaster = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor);
-      this.statusBroadcaster = EventBroadcasterImpl.forDataSourceStatus(sharedExecutor);
+      this.flagChangeEventBroadcaster = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor, nullLogger);
+      this.statusBroadcaster = EventBroadcasterImpl.forDataSourceStatus(sharedExecutor, nullLogger);
       this.wrappedInstance = new DataSourceUpdatesImpl(
           store,
           dataStoreStatusProvider,
           flagChangeEventBroadcaster,
           statusBroadcaster,
           sharedExecutor,
-          null
+          null,
+          nullLogger
           );
     }
 
@@ -348,7 +353,7 @@ public class TestComponents {
     }
     
     public MockDataStoreStatusProvider(boolean statusMonitoringEnabled) {
-      this.statusBroadcaster = EventBroadcasterImpl.forDataStoreStatus(sharedExecutor);
+      this.statusBroadcaster = EventBroadcasterImpl.forDataStoreStatus(sharedExecutor, nullLogger);
       this.lastStatus = new AtomicReference<>(new DataStoreStatusProvider.Status(true, false));
       this.statusMonitoringEnabled = statusMonitoringEnabled;
     }

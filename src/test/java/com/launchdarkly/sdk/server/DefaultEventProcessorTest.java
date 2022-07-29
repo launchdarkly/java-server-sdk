@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDContext;
@@ -24,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -168,7 +166,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     };
     
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).contextDeduplicator(contextDeduplicator))) {
-
       boolean called = flushCalled.tryAcquire(briefContextFlushIntervalMillis * 2, TimeUnit.MILLISECONDS);
       assertTrue("expected context deduplicator flush method to be called, but it was not", called);
     }
