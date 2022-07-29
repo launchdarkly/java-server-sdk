@@ -24,7 +24,7 @@ import static org.junit.Assert.assertEquals;
  * PersistentDataStoreWrapperTest suite.
  */
 @SuppressWarnings("javadoc")
-public class PersistentDataStoreWrapperOtherTest {
+public class PersistentDataStoreWrapperOtherTest extends BaseTest {
   private static final RuntimeException FAKE_ERROR = new RuntimeException("fake error");
   
   private final MockPersistentDataStore core;
@@ -40,7 +40,8 @@ public class PersistentDataStoreWrapperOtherTest {
         policy,
         false,
         status -> {},
-        sharedExecutor
+        sharedExecutor,
+        testLogger
         );
   }
   

@@ -9,7 +9,6 @@ import org.junit.Test;
 import java.util.Collections;
 
 import static com.launchdarkly.sdk.server.Evaluator.makeBigSegmentRef;
-import static com.launchdarkly.sdk.server.EvaluatorTestUtil.evaluatorBuilder;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingContext;
@@ -25,7 +24,7 @@ import static org.easymock.EasyMock.strictMock;
 import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("javadoc")
-public class EvaluatorBigSegmentTest {
+public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
   private static final LDContext testUser = LDContext.create("userkey");
 
   @Test
@@ -141,7 +140,7 @@ public class EvaluatorBigSegmentTest {
     expect(mockGetters.getSegment(segment2.getKey())).andReturn(segment2);
     replay(mockGetters);
 
-    Evaluator evaluator = new Evaluator(mockGetters);
+    Evaluator evaluator = new Evaluator(mockGetters, testLogger);
     EvalResult result = evaluator.evaluate(flag, testUser, expectNoPrerequisiteEvals());
     assertEquals(LDValue.of(true), result.getValue());
     assertEquals(BigSegmentsStatus.HEALTHY, result.getReason().getBigSegmentsStatus());

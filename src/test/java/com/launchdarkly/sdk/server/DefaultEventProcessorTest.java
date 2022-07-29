@@ -97,7 +97,8 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         Duration.ofSeconds(5),
         null
         );
-    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY, null, null)) {
+    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
+        null, null, testLogger)) {
       Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("event1", user, null, null);
       Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("event2", user, null, null);
       ep.sendEvent(event1);
@@ -175,7 +176,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         null
         );
     try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
-        null, null)) {
+        null, null, testLogger)) {
       Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("event1", user, null, null);
       Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("event2", user, null, null);
       ep.sendEvent(event1);
