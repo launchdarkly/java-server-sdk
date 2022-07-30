@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.LDValue;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -50,7 +51,8 @@ public class EventProcessorBenchmarks {
           Duration.ofHours(1),
           null
           );
-      eventProcessor = new DefaultEventProcessor(eventsConfig, TestComponents.sharedExecutor, Thread.MAX_PRIORITY);
+      eventProcessor = new DefaultEventProcessor(eventsConfig, TestComponents.sharedExecutor, Thread.MAX_PRIORITY,
+          LDLogger.none());
       
       random = new Random();
       
