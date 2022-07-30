@@ -28,7 +28,7 @@ public abstract class HttpHelpers {
    * Tests whether a string contains only characters that are safe to use in an HTTP header value.
    * <p>
    * This is specifically testing whether the string would be considered a valid HTTP header value
-   * by the OkHttp client. The actual HTTP spec does not prohibit characters >= 127; OkHttp's
+   * by the OkHttp client. The actual HTTP spec does not prohibit characters 127 and higher; OkHttp's
    * check is overly strict, as was pointed out in https://github.com/square/okhttp/issues/2016.
    * But all OkHttp 3.x and 4.x versions so far have continued to enforce that check. Control
    * characters other than a tab are always illegal.
