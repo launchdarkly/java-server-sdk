@@ -2,6 +2,10 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.internal.events.DefaultEventProcessor;
+import com.launchdarkly.sdk.internal.events.Event;
+import com.launchdarkly.sdk.internal.events.EventSender;
+import com.launchdarkly.sdk.internal.events.EventsConfiguration;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
