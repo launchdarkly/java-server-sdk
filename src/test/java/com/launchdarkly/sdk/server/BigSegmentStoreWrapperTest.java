@@ -227,6 +227,11 @@ public class BigSegmentStoreWrapperTest extends BaseTest {
 
       storeUnavailable.set(true);
       Status status1 = statuses.take();
+      // Depending on timing, the listener might or might not receive an initial status that is still
+      // available prior to the one that is unavailable.
+      if (status1.isAvailable()) {
+        status1 = statuses.take();
+      }
       assertFalse(status1.isAvailable());
       assertEquals(status1, wrapper.getStatus());
 
@@ -253,7 +258,12 @@ public class BigSegmentStoreWrapperTest extends BaseTest {
       eventBroadcaster.register(statuses::add);
 
       storeMetadata.set(new StoreMetadata(System.currentTimeMillis() - 1000));
+      // Depending on timing, the listener might or might not receive an initial status that is not
+      // stale prior to the one that is stale.
       Status status1 = statuses.take();
+      if (!status1.isStale()) {
+        status1 = statuses.take();
+      }
       assertTrue(status1.isStale());
       assertEquals(status1, wrapper.getStatus());
 
