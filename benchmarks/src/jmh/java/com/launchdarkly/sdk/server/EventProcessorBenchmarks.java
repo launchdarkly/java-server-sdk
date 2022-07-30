@@ -1,8 +1,8 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
-import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
@@ -54,7 +54,8 @@ public class EventProcessorBenchmarks {
           Duration.ofHours(1),
           null
           );
-      eventProcessor = new DefaultEventProcessor(eventsConfig, TestComponents.sharedExecutor, Thread.MAX_PRIORITY);
+      eventProcessor = new DefaultEventProcessor(eventsConfig, TestComponents.sharedExecutor, Thread.MAX_PRIORITY,
+          LDLogger.none());
       
       random = new Random();
       
