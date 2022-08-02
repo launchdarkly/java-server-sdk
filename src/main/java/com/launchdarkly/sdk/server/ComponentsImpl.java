@@ -295,15 +295,15 @@ abstract class ComponentsImpl {
       
       Proxy proxy = proxyHost == null ? null : new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
       
-      return new HttpConfigurationImpl(
+      return new HttpConfiguration(
           connectTimeout,
+          headers.build(),
           proxy,
           proxyAuth,
           socketTimeout,
           socketFactory,
           sslSocketFactory,
-          trustManager,
-          headers.build()
+          trustManager
       );
     }
   }
@@ -361,7 +361,7 @@ abstract class ComponentsImpl {
       // configuration system, then calling Logs.level here has no effect and filteredAdapter will be
       // just the same as adapter.
       String name = baseName == null ? Loggers.BASE_LOGGER_NAME : baseName;
-      return new LoggingConfigurationImpl(name, filteredAdapter, logDataSourceOutageAsErrorAfter);
+      return new LoggingConfiguration(name, filteredAdapter, logDataSourceOutageAsErrorAfter);
     }
   }
 
