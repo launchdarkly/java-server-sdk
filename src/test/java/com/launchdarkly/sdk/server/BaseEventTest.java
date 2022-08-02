@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.EvaluationDetail;
@@ -7,6 +8,7 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.testhelpers.JsonAssertions;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;
@@ -22,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
@@ -31,6 +34,7 @@ import static com.launchdarkly.testhelpers.JsonAssertions.jsonEqualsValue;
 import static com.launchdarkly.testhelpers.JsonAssertions.jsonProperty;
 import static com.launchdarkly.testhelpers.JsonAssertions.jsonUndefined;
 import static com.launchdarkly.testhelpers.JsonTestValue.jsonFromValue;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -48,10 +52,14 @@ public abstract class BaseEventTest extends BaseTest {
       .put("key", "userkey").put("name", "Red").build();
   public static final LDValue filteredUserJson = LDValue.buildObject().put("kind", "user")
       .put("key", "userkey").put("_meta", LDValue.parse("{\"redactedAttributes\":[\"name\"]}")).build();
-  
-  // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
-  // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
 
+  public static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
+      new ThreadFactoryBuilder().setNameFormat("tests-sharedExecutor-%d").build());
+
+  public static void assertJsonEquals(LDValue expected, LDValue actual) {
+    JsonAssertions.assertJsonEquals(expected.toJsonString(), actual.toJsonString());
+  }
+  
   public static EventsConfigurationBuilder baseConfig(EventSender es) {
     return new EventsConfigurationBuilder().eventSender(es);
   }
@@ -70,7 +78,7 @@ public abstract class BaseEventTest extends BaseTest {
       ) {
     return new DefaultEventProcessor(
         ec.build(),
-        TestComponents.sharedExecutor,
+        sharedExecutor,
         Thread.MAX_PRIORITY,
         testLogger
         );

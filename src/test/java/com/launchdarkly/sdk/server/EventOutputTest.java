@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
-import static com.launchdarkly.sdk.server.TestUtil.assertJsonEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
