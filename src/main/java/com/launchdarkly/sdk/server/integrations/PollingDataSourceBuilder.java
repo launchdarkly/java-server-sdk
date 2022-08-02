@@ -1,7 +1,9 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.LDConfig.Builder;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
 
 import java.time.Duration;
 
@@ -14,7 +16,7 @@ import java.time.Duration;
  * polling is still less efficient than streaming and should only be used on the advice of LaunchDarkly support.
  * <p>
  * To use polling mode, create a builder with {@link Components#pollingDataSource()},
- * change its properties with the methods of this class, and pass it to {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(DataSourceFactory)}:
+ * change its properties with the methods of this class, and pass it to {@link Builder#dataSource(ComponentConfigurer)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .dataSource(Components.pollingDataSource().pollInterval(Duration.ofSeconds(45)))
@@ -25,7 +27,7 @@ import java.time.Duration;
  * 
  * @since 4.12.0
  */
-public abstract class PollingDataSourceBuilder implements DataSourceFactory {
+public abstract class PollingDataSourceBuilder implements ComponentConfigurer<DataSource> {
   /**
    * The default and minimum value for {@link #pollInterval(Duration)}: 30 seconds.
    */

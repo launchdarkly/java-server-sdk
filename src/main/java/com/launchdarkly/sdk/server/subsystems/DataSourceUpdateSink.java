@@ -1,6 +1,9 @@
 package com.launchdarkly.sdk.server.subsystems;
 
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
+import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
@@ -13,14 +16,15 @@ import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
  * that the SDK can perform any other necessary operations that must happen when data is updated.
  * 
  * @since 5.0.0
+ * @see ClientContext#getDataSourceUpdateSink()
  */
-public interface DataSourceUpdates {
+public interface DataSourceUpdateSink {
   /**
    * Completely overwrites the current contents of the data store with a set of items for each collection.
    * <p>
    * If the underlying data store throws an error during this operation, the SDK will catch it, log it,
-   * and set the data source state to {@link DataSourceStatusProvider.State#INTERRUPTED} with an error of
-   * {@link DataSourceStatusProvider.ErrorKind#STORE_ERROR}. It will not rethrow the error to the data
+   * and set the data source state to {@link State#INTERRUPTED} with an error of
+   * {@link ErrorKind#STORE_ERROR}. It will not rethrow the error to the data
    * source, but will simply return {@code false} to indicate that the operation failed.
    * 
    * @param allData a list of {@link DataStoreTypes.DataKind} instances and their corresponding data sets
@@ -37,8 +41,8 @@ public interface DataSourceUpdates {
    * they do not overwrite a later update in case updates are received out of order.
    * <p>
    * If the underlying data store throws an error during this operation, the SDK will catch it, log it,
-   * and set the data source state to {@link DataSourceStatusProvider.State#INTERRUPTED} with an error of
-   * {@link DataSourceStatusProvider.ErrorKind#STORE_ERROR}. It will not rethrow the error to the data
+   * and set the data source state to {@link State#INTERRUPTED} with an error of
+   * {@link ErrorKind#STORE_ERROR}. It will not rethrow the error to the data
    * source, but will simply return {@code false} to indicate that the operation failed.
    * 
    * @param kind specifies which collection to use
@@ -70,14 +74,14 @@ public interface DataSourceUpdates {
    * {@link DataSourceStatusProvider#getStatus()}, and will trigger status change events to any
    * registered listeners.
    * <p>
-   * A special case is that if {@code newState} is {@link DataSourceStatusProvider.State#INTERRUPTED},
-   * but the previous state was {@link DataSourceStatusProvider.State#INITIALIZING}, the state will remain
-   * at {@link DataSourceStatusProvider.State#INITIALIZING} because {@link DataSourceStatusProvider.State#INTERRUPTED}
+   * A special case is that if {@code newState} is {@link State#INTERRUPTED},
+   * but the previous state was {@link State#INITIALIZING}, the state will remain
+   * at {@link State#INITIALIZING} because {@link State#INTERRUPTED}
    * is only meaningful after a successful startup.
    *  
    * @param newState the data source state
    * @param newError information about a new error, if any
    * @see DataSourceStatusProvider
    */
-  void updateStatus(DataSourceStatusProvider.State newState, DataSourceStatusProvider.ErrorInfo newError);
+  void updateStatus(State newState, ErrorInfo newError);
 }
