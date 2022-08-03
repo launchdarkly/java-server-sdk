@@ -1,9 +1,8 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.AttributeRef;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
@@ -15,24 +14,41 @@ abstract class EvaluatorBucketing {
   
   private static final float LONG_SCALE = (float) 0xFFFFFFFFFFFFFFFL;
 
-  static float bucketUser(Integer seed, LDUser user, String key, AttributeRef attr, String salt) {
-    LDValue userValue = user.getAttribute(attr == null ? UserAttribute.KEY : UserAttribute.forName(attr.toString()));
-    String idHash = getBucketableStringValue(userValue);
-    if (idHash != null) {
-      String prefix;
-      if (seed != null) {
-        prefix = seed.toString();
-      } else {
-        prefix = key + "." + salt;
+  static float computeBucketValue(
+      Integer seed,
+      LDContext context,
+      String flagOrSegmentKey,
+      AttributeRef attr,
+      String salt
+      ) {
+    LDValue contextValue;
+    if (attr == null) {
+      contextValue = LDValue.of(context.getKey());
+    } else {
+      contextValue = context.getValue(attr);
+      if (contextValue.isNull()) {
+        return 0;
       }
-      if (user.getSecondary() != null) {
-        idHash = idHash + "." + user.getSecondary();
-      }
-      String hash = DigestUtils.sha1Hex(prefix + "." + idHash).substring(0, 15);
-      long longVal = Long.parseLong(hash, 16);
-      return (float) longVal / LONG_SCALE;
     }
-    return 0F;
+
+    String idHash = getBucketableStringValue(contextValue);
+    if (idHash == null) {
+      return 0;
+    }
+
+    String prefix;
+    if (seed != null) {
+      prefix = seed.toString();
+    } else {
+      prefix = flagOrSegmentKey + "." + salt;
+    }
+    String secondary = context.getSecondary();
+    if (secondary != null) {
+      idHash = idHash + "." + secondary;
+    }
+    String hash = DigestUtils.sha1Hex(prefix + "." + idHash).substring(0, 15);
+    long longVal = Long.parseLong(hash, 16);
+    return (float) longVal / LONG_SCALE;
   }
 
   private static String getBucketableStringValue(LDValue userValue) {

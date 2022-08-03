@@ -3,11 +3,19 @@ package com.launchdarkly.sdk.server;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
+import com.launchdarkly.sdk.ArrayBuilder;
+import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextBuilder;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
+import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.json.JsonSerialization;
+import com.launchdarkly.sdk.json.SerializationException;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
@@ -351,7 +359,8 @@ public final class LDClient implements LDClientInterface {
       evaluationLogger.warn("allFlagsState() was called with null user or null user key! returning no data");
       return builder.valid(false).build();
     }
-
+    LDContext context = temporaryConvertUserToContext(user);
+    
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
     KeyedItems<ItemDescriptor> flags;
     try {
@@ -371,7 +380,7 @@ public final class LDClient implements LDClientInterface {
         continue;
       }
       try {
-        EvalResult result = evaluator.evaluate(flag, user, null);
+        EvalResult result = evaluator.evaluate(flag, context, null);
         // Note: the null parameter to evaluate() is for the PrerequisiteEvaluationSink; allFlagsState should
         // not generate evaluation events, so we don't want the evaluator to generate any prerequisite evaluation
         // events either. 
@@ -510,7 +519,8 @@ public final class LDClient implements LDClientInterface {
       if (user.getKey().isEmpty()) {
         evaluationLogger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
       }
-      EvalResult evalResult = evaluator.evaluate(featureFlag, user,
+      LDContext context = temporaryConvertUserToContext(user);
+      EvalResult evalResult = evaluator.evaluate(featureFlag, context,
           withDetail ? prereqEvalsWithReasons : prereqEvalsDefault);
       if (evalResult.isNoVariation()) {
         evalResult = EvalResult.of(defaultValue, evalResult.getVariationIndex(), evalResult.getReason());
@@ -629,10 +639,62 @@ public final class LDClient implements LDClientInterface {
     final EventFactory factory = withReasons ? eventFactoryWithReasons : eventFactoryDefault; 
     return new Evaluator.PrerequisiteEvaluationSink() {
       @Override
-      public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDUser user, EvalResult result) {
+      public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context, EvalResult result) {
+        LDUser user = temporaryConvertContextToUser(context);
         eventProcessor.sendEvent(
             factory.newPrerequisiteFeatureRequestEvent(flag, user, result, prereqOfFlag));
       }
     };
+  }
+  
+  private static LDContext temporaryConvertUserToContext(LDUser u) {
+    ContextBuilder cb = LDContext.builder(u.getKey()).name(u.getName()).anonymous(u.isAnonymous()).secondary(u.getSecondary());
+    for (UserAttribute a: new UserAttribute[] {
+        UserAttribute.FIRST_NAME, UserAttribute.LAST_NAME, UserAttribute.EMAIL, UserAttribute.COUNTRY,
+        UserAttribute.IP, UserAttribute.AVATAR
+    }) {
+      cb.set(a.getName(), u.getAttribute(a));
+    }
+    for (UserAttribute a: u.getCustomAttributes()) {
+      cb.set(a.getName(), u.getAttribute(a));
+    }
+    for (UserAttribute a: u.getPrivateAttributes()) {
+      cb.privateAttributes(AttributeRef.fromLiteral(a.getName()));
+    }
+    return cb.build();
+  }
+  
+  private static LDUser temporaryConvertContextToUser(LDContext c) {
+    // The user builder API is pretty inconvenient for this purpose; since this is a very temporary thing
+    // that doesn't need to be efficient (it's only supporting the interim development state where both users
+    // and contexts exist in the SDK), let's just build JSON and deserialize it
+    ObjectBuilder ob = LDValue.buildObject();
+    ob.put("key", c.getKey()).put("name", c.getName()).put("secondary", c.getSecondary());
+    if (c.isAnonymous()) {
+      ob.put("anonymous", true);
+    }
+    for (UserAttribute a: new UserAttribute[] {
+        UserAttribute.FIRST_NAME, UserAttribute.LAST_NAME, UserAttribute.EMAIL, UserAttribute.COUNTRY,
+        UserAttribute.IP, UserAttribute.AVATAR
+    }) {
+      ob.put(a.getName(), c.getValue(a.getName()).stringValue());
+    }
+    ObjectBuilder cb = LDValue.buildObject();
+    for (String a: c.getCustomAttributeNames()) {
+      if (!UserAttribute.forName(a).isBuiltIn()) {
+        cb.put(a, c.getValue(a));
+      }
+    }
+    ob.put("custom", cb.build());
+    ArrayBuilder pab = LDValue.buildArray();
+    for (int i = 0; i < c.getPrivateAttributeCount(); i++) {
+      pab.add(c.getPrivateAttribute(i).toString());
+    }
+    ob.put("privateAttributeNames", pab.build());
+    try {
+      return JsonSerialization.deserialize(ob.build().toJsonString(), LDUser.class);
+    } catch (SerializationException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

@@ -1,8 +1,12 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.server.DataModel.Clause;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Segment;
+import com.launchdarkly.sdk.server.DataModel.SegmentRule;
 
 import org.junit.Test;
 
@@ -22,99 +26,99 @@ public class EvaluatorSegmentMatchTest extends EvaluatorTestBase {
   
   @Test
   public void explicitIncludeUser() {
-    DataModel.Segment s = segmentBuilder("test")
+    Segment s = segmentBuilder("test")
         .included("foo")
         .salt("abcdef")
         .version(1)
         .build();
-    LDUser u = new LDUser.Builder("foo").build();
+    LDContext c = LDContext.create("foo");
     
-    assertTrue(segmentMatchesUser(s, u));
+    assertTrue(segmentMatchesContext(s, c));
   }
   
   @Test
   public void explicitExcludeUser() {
-    DataModel.Segment s = segmentBuilder("test")
+    Segment s = segmentBuilder("test")
         .excluded("foo")
         .salt("abcdef")
         .version(1)
         .build();
-    LDUser u = new LDUser.Builder("foo").build();
+    LDContext c = LDContext.create("foo");
     
-    assertFalse(segmentMatchesUser(s, u));
+    assertFalse(segmentMatchesContext(s, c));
   }
   
   @Test
   public void explicitIncludeHasPrecedence() {
-    DataModel.Segment s = segmentBuilder("test")
+    Segment s = segmentBuilder("test")
         .included("foo")
         .excluded("foo")
         .salt("abcdef")
         .version(1)
         .build();
-    LDUser u = new LDUser.Builder("foo").build();
+    LDContext c = LDContext.create("foo");
     
-    assertTrue(segmentMatchesUser(s, u));
+    assertTrue(segmentMatchesContext(s, c));
   }
   
   @Test
   public void matchingRuleWithFullRollout() {
-    DataModel.Clause clause = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
-    DataModel.SegmentRule rule = segmentRuleBuilder().clauses(clause).weight(maxWeight).build();
-    DataModel.Segment s = segmentBuilder("test")
+    Clause clause = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
+    SegmentRule rule = segmentRuleBuilder().clauses(clause).weight(maxWeight).build();
+    Segment s = segmentBuilder("test")
         .salt("abcdef")
         .rules(rule)
         .build();
-    LDUser u = new LDUser.Builder("foo").email("test@example.com").build();
+    LDContext c = LDContext.builder("foo").set("email", "test@example.com").build();
     
-    assertTrue(segmentMatchesUser(s, u));
+    assertTrue(segmentMatchesContext(s, c));
   }
 
   @Test
   public void matchingRuleWithZeroRollout() {
-    DataModel.Clause clause = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
-    DataModel.SegmentRule rule = segmentRuleBuilder().clauses(clause).weight(0).build();
-    DataModel.Segment s = segmentBuilder("test")
+    Clause clause = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
+    SegmentRule rule = segmentRuleBuilder().clauses(clause).weight(0).build();
+    Segment s = segmentBuilder("test")
         .salt("abcdef")
         .rules(rule)
         .build();
-    LDUser u = new LDUser.Builder("foo").email("test@example.com").build();
+    LDContext c = LDContext.builder("foo").set("email", "test@example.com").build();
     
-    assertFalse(segmentMatchesUser(s, u));
+    assertFalse(segmentMatchesContext(s, c));
   }
   
   @Test
   public void matchingRuleWithMultipleClauses() {
-    DataModel.Clause clause1 = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
-    DataModel.Clause clause2 = clause(UserAttribute.NAME, DataModel.Operator.in, LDValue.of("bob"));
-    DataModel.SegmentRule rule = segmentRuleBuilder().clauses(clause1, clause2).build();
-    DataModel.Segment s = segmentBuilder("test")
+    Clause clause1 = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
+    Clause clause2 = clause(UserAttribute.NAME, DataModel.Operator.in, LDValue.of("bob"));
+    SegmentRule rule = segmentRuleBuilder().clauses(clause1, clause2).build();
+    Segment s = segmentBuilder("test")
         .salt("abcdef")
         .rules(rule)
         .build();
-    LDUser u = new LDUser.Builder("foo").email("test@example.com").name("bob").build();
+    LDContext c = LDContext.builder("foo").set("email", "test@example.com").name("bob").build();
     
-    assertTrue(segmentMatchesUser(s, u));
+    assertTrue(segmentMatchesContext(s, c));
   }
 
   @Test
   public void nonMatchingRuleWithMultipleClauses() {
-    DataModel.Clause clause1 = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
-    DataModel.Clause clause2 = clause(UserAttribute.NAME, DataModel.Operator.in, LDValue.of("bill"));
-    DataModel.SegmentRule rule = segmentRuleBuilder().clauses(clause1, clause2).build();
-    DataModel.Segment s = segmentBuilder("test")
+    Clause clause1 = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
+    Clause clause2 = clause(UserAttribute.NAME, DataModel.Operator.in, LDValue.of("bill"));
+    SegmentRule rule = segmentRuleBuilder().clauses(clause1, clause2).build();
+    Segment s = segmentBuilder("test")
         .salt("abcdef")
         .rules(rule)
         .build();
-    LDUser u = new LDUser.Builder("foo").email("test@example.com").name("bob").build();
+    LDContext c = LDContext.builder("foo").set("email", "test@example.com").name("bob").build();
     
-    assertFalse(segmentMatchesUser(s, u));
+    assertFalse(segmentMatchesContext(s, c));
   }
   
-  private boolean segmentMatchesUser(DataModel.Segment segment, LDUser user) {
-    DataModel.Clause clause = clauseMatchingSegment(segment);
-    DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
+  private boolean segmentMatchesContext(Segment segment, LDContext context) {
+    Clause clause = clauseMatchingSegment(segment);
+    FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
-    return e.evaluate(flag, user, expectNoPrerequisiteEvals()).getValue().booleanValue();
+    return e.evaluate(flag, context, expectNoPrerequisiteEvals()).getValue().booleanValue();
   }
 }

@@ -10,8 +10,13 @@ test:
 
 TEMP_TEST_OUTPUT=/tmp/sdk-test-service.log
 
-# temporary skips for contract tests that can't pass till more U2C work is done
-TEST_HARNESS_PARAMS := $(TEST_HARNESS_PARAMS) \
+# Temporary contract test skips - these non-U2C tests won't work with the v1 test harness,
+# because they either describe evaluation conditions that aren't applicable to contexts,
+# or features like alias events that have been removed. When we migrate to using the v2
+# U2C-aware contract tests, we can remove these.
+TEST_HARNESS_PARAMS= \
+    -skip evaluation/parameterized/secondary \
+    -skip evaluation/parameterized/key/empty \
     -skip events/alias \
     -skip events/custom \
     -skip events/disabling/alias \

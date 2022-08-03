@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 
 import org.junit.Test;
@@ -11,8 +11,8 @@ import java.util.Collections;
 import static com.launchdarkly.sdk.server.Evaluator.makeBigSegmentRef;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
+import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingContext;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
-import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingUser;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
@@ -25,7 +25,7 @@ import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("javadoc")
 public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
-  private static final LDUser testUser = new LDUser("userkey");
+  private static final LDContext testUser = LDContext.create("userkey");
 
   @Test
   public void bigSegmentWithNoProviderIsNotMatched() {
@@ -68,7 +68,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
 
   @Test
   public void matchedWithRule() {
-    DataModel.Clause clause = clauseMatchingUser(testUser);
+    DataModel.Clause clause = clauseMatchingContext(testUser);
     DataModel.SegmentRule segmentRule = segmentRuleBuilder().clauses(clause).build();
     DataModel.Segment segment = segmentBuilder("segmentkey").unbounded(true).generation(2)
         .rules(segmentRule)
@@ -86,7 +86,7 @@ public class EvaluatorBigSegmentTest extends EvaluatorTestBase {
 
   @Test
   public void unmatchedByExcludeRegardlessOfRule() {
-    DataModel.Clause clause = clauseMatchingUser(testUser);
+    DataModel.Clause clause = clauseMatchingContext(testUser);
     DataModel.SegmentRule segmentRule = segmentRuleBuilder().clauses(clause).build();
     DataModel.Segment segment = segmentBuilder("segmentkey").unbounded(true).generation(2)
         .rules(segmentRule)

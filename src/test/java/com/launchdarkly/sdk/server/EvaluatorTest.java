@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
@@ -25,7 +25,6 @@ import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
-import static com.launchdarkly.sdk.server.ModelBuilders.target;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
@@ -33,7 +32,7 @@ import static org.junit.Assert.assertSame;
 
 @SuppressWarnings("javadoc")
 public class EvaluatorTest extends EvaluatorTestBase {
-  private static final LDUser BASE_USER = new LDUser.Builder("x").build();
+  private static final LDContext BASE_USER = LDContext.create("x");
 
   // These constants and flag builders define two kinds of flag: one with three variations-- allowing us to
   // distinguish between match, fallthrough, and off results--  and one with two.
@@ -82,19 +81,19 @@ public class EvaluatorTest extends EvaluatorTestBase {
   }
   
   @Test
-  public void evaluationReturnsErrorIfUserIsNull() throws Exception {
+  public void evaluationReturnsErrorIfContextIsNull() throws Exception {
     DataModel.FeatureFlag f = flagBuilder("feature").build();
     EvalResult result = BASE_EVALUATOR.evaluate(f, null, expectNoPrerequisiteEvals());
     
-    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED), result);
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.EXCEPTION), result);
   }
 
   @Test
-  public void evaluationReturnsErrorIfUserKeyIsNull() throws Exception {
+  public void evaluationReturnsErrorIfContextIsInvalid() throws Exception {
     DataModel.FeatureFlag f = flagBuilder("feature").build();
-    EvalResult result = BASE_EVALUATOR.evaluate(f, new LDUser(null), expectNoPrerequisiteEvals());
+    EvalResult result = BASE_EVALUATOR.evaluate(f, LDContext.create(""), expectNoPrerequisiteEvals());
     
-    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED), result);
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.EXCEPTION), result);
   }
 
   @Test
@@ -444,18 +443,6 @@ public class EvaluatorTest extends EvaluatorTestBase {
   }
   
   @Test
-  public void flagMatchesUserFromTargets() throws Exception {
-    DataModel.FeatureFlag f = buildThreeWayFlag("feature")
-        .on(true)
-        .targets(target(2, "whoever", "userkey"))
-        .build();
-    LDUser user = new LDUser.Builder("userkey").build();
-    EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
-    
-    assertEquals(EvalResult.of(MATCH_VALUE, MATCH_VARIATION, EvaluationReason.targetMatch()), result);
-  }
-  
-  @Test
   public void flagMatchesUserFromRules() {
     DataModel.Clause clause0 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("wrongkey"));
     DataModel.Clause clause1 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
@@ -467,7 +454,7 @@ public class EvaluatorTest extends EvaluatorTestBase {
         .rules(rule0, rule1)
         .build();
     
-    LDUser user = new LDUser.Builder("userkey").build();
+    LDContext user = LDContext.create("userkey");
     EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
     
     assertEquals(EvalResult.of(MATCH_VALUE, MATCH_VARIATION, EvaluationReason.ruleMatch(1, "ruleid1")), result);
@@ -486,7 +473,7 @@ public class EvaluatorTest extends EvaluatorTestBase {
         .rules(rule0, rule1)
         .build();
     
-    LDUser user = new LDUser.Builder("userkey").build();
+    LDContext user = LDContext.create("userkey");
     EvalResult result = BASE_EVALUATOR.evaluate(f, user, expectNoPrerequisiteEvals());
     
     assertEquals(

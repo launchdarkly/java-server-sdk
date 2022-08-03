@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.Logs;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.server.BigSegmentStoreWrapper.BigSegmentsQueryResult;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 
@@ -92,13 +92,13 @@ public abstract class EvaluatorTestUtil {
   public static final class PrereqEval {
     public final FeatureFlag flag;
     public final FeatureFlag prereqOfFlag;
-    public final LDUser user;
+    public final LDContext context;
     public final EvalResult result;
     
-    public PrereqEval(FeatureFlag flag, FeatureFlag prereqOfFlag, LDUser user, EvalResult result) {
+    public PrereqEval(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context, EvalResult result) {
       this.flag = flag;
       this.prereqOfFlag = prereqOfFlag;
-      this.user = user;
+      this.context = context;
       this.result = result;
     }
   }
@@ -107,9 +107,9 @@ public abstract class EvaluatorTestUtil {
     public final List<PrereqEval> evals = new ArrayList<PrereqEval>();
 
     @Override
-    public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDUser user,
+    public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context,
         EvalResult result) {
-      evals.add(new PrereqEval(flag, prereqOfFlag, user, result));
+      evals.add(new PrereqEval(flag, prereqOfFlag, context, result));
     }
   }
 }

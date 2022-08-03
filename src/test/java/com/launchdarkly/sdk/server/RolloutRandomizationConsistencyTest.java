@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
@@ -12,6 +12,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.launchdarkly.sdk.server.EvaluatorBucketing.computeBucketValue;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,15 +47,15 @@ public class RolloutRandomizationConsistencyTest {
         String key = "hashKey";
         String salt = "saltyA";
 
-        LDUser user1 = new LDUser("userKeyA");
+        LDContext user1 = LDContext.create("userKeyA");
         // bucketVal = 0.09801207
         assertVariationIndexAndExperimentStateForRollout(0, true, rollout, user1, key, salt);
 
-        LDUser user2 = new LDUser("userKeyB");
+        LDContext user2 = LDContext.create("userKeyB");
         // bucketVal = 0.14483777
         assertVariationIndexAndExperimentStateForRollout(1, true, rollout, user2, key, salt);
 
-        LDUser user3 = new LDUser("userKeyC");
+        LDContext user3 = LDContext.create("userKeyC");
         // bucketVal = 0.9242641
         assertVariationIndexAndExperimentStateForRollout(0, false, rollout, user3, key, salt);
     }
@@ -63,7 +64,7 @@ public class RolloutRandomizationConsistencyTest {
         int expectedVariation,
         boolean expectedInExperiment,
         Rollout rollout,
-        LDUser user,
+        LDContext context,
         String flagKey,
         String salt
         ) {
@@ -73,7 +74,7 @@ public class RolloutRandomizationConsistencyTest {
           .fallthrough(rollout)
           .salt(salt)
           .build();
-      EvalResult result = BASE_EVALUATOR.evaluate(flag, user, expectNoPrerequisiteEvals());
+      EvalResult result = BASE_EVALUATOR.evaluate(flag, context, expectNoPrerequisiteEvals());
       assertThat(result.getVariationIndex(), equalTo(expectedVariation));
       assertThat(result.getReason().getKind(), equalTo(EvaluationReason.Kind.FALLTHROUGH));
       assertThat(result.getReason().isInExperiment(), equalTo(expectedInExperiment));
@@ -81,16 +82,16 @@ public class RolloutRandomizationConsistencyTest {
     
     @Test
     public void bucketUserByKeyTest() {
-        LDUser user1 = new LDUser("userKeyA");
-        Float point1 = EvaluatorBucketing.bucketUser(noSeed, user1, "hashKey", null, "saltyA");
+        LDContext user1 = LDContext.create("userKeyA");
+        float point1 = computeBucketValue(noSeed, user1, "hashKey", null, "saltyA");
         assertEquals(0.42157587, point1, 0.0000001);
 
-        LDUser user2 = new LDUser("userKeyB");
-        Float point2 = EvaluatorBucketing.bucketUser(noSeed, user2, "hashKey", null, "saltyA");
+        LDContext user2 = LDContext.create("userKeyB");
+        float point2 = computeBucketValue(noSeed, user2, "hashKey", null, "saltyA");
         assertEquals(0.6708485, point2, 0.0000001);
 
-        LDUser user3 = new LDUser("userKeyC");
-        Float point3 = EvaluatorBucketing.bucketUser(noSeed, user3, "hashKey", null, "saltyA");
+        LDContext user3 = LDContext.create("userKeyC");
+        float point3 = computeBucketValue(noSeed, user3, "hashKey", null, "saltyA");
         assertEquals(0.10343106, point3, 0.0000001);
     }
 
@@ -98,16 +99,16 @@ public class RolloutRandomizationConsistencyTest {
     public void bucketUserWithSeedTest() {
         Integer seed = 61;
 
-        LDUser user1 = new LDUser("userKeyA");
-        Float point1 = EvaluatorBucketing.bucketUser(seed, user1, "hashKey", null, "saltyA");
+        LDContext user1 = LDContext.create("userKeyA");
+        Float point1 = computeBucketValue(seed, user1, "hashKey", null, "saltyA");
         assertEquals(0.09801207, point1, 0.0000001);
 
-        LDUser user2 = new LDUser("userKeyB");
-        Float point2 = EvaluatorBucketing.bucketUser(seed, user2, "hashKey", null, "saltyA");
+        LDContext user2 = LDContext.create("userKeyB");
+        Float point2 = computeBucketValue(seed, user2, "hashKey", null, "saltyA");
         assertEquals(0.14483777, point2, 0.0000001);
 
-        LDUser user3 = new LDUser("userKeyC");
-        Float point3 = EvaluatorBucketing.bucketUser(seed, user3, "hashKey", null, "saltyA");
+        LDContext user3 = LDContext.create("userKeyC");
+        Float point3 = computeBucketValue(seed, user3, "hashKey", null, "saltyA");
         assertEquals(0.9242641, point3, 0.0000001);
     }
 

@@ -150,6 +150,9 @@ abstract class DataModelPreprocessing {
     for (Target t: f.getTargets()) {
       preprocessTarget(t, f);
     }
+    for (Target t: f.getContextTargets()) {
+      preprocessTarget(t, f);
+    }
     List<Rule> rules = f.getRules();
     int n = rules.size();
     for (int i = 0; i < n; i++) {

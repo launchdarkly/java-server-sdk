@@ -1,12 +1,12 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.Kind;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
@@ -21,10 +21,11 @@ import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-import static com.launchdarkly.sdk.server.EvaluatorBucketing.bucketUser;
+import static com.launchdarkly.sdk.server.EvaluatorBucketing.computeBucketValue;
 
 /**
  * Encapsulates the feature flag evaluation logic. The Evaluator has no knowledge of the rest of the SDK environment;
@@ -87,7 +88,7 @@ class Evaluator {
     void recordPrerequisiteEvaluation(
         FeatureFlag flag,
         FeatureFlag prereqOfFlag,
-        LDUser user,
+        LDContext context,
         EvalResult result
         );
   }
@@ -109,24 +110,26 @@ class Evaluator {
    * The client's entry point for evaluating a flag. No other Evaluator methods should be exposed.
    * 
    * @param flag an existing feature flag; any other referenced flags or segments will be queried via {@link Getters}
-   * @param user the user to evaluate against
+   * @param context the evaluation context
    * @param eventFactory produces feature request events
    * @return an {@link EvalResult} - guaranteed non-null
    */
-  EvalResult evaluate(FeatureFlag flag, LDUser user, PrerequisiteEvaluationSink prereqEvals) {
+  EvalResult evaluate(FeatureFlag flag, LDContext context, PrerequisiteEvaluationSink prereqEvals) {
     if (flag.getKey() == INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION) {
       throw EXPECTED_EXCEPTION_FROM_INVALID_FLAG;
     }
     
-    if (user == null || user.getKey() == null) {
-      // this should have been prevented by LDClient.evaluateInternal
-      logger.warn("Null user or null user key when evaluating flag \"{}\"; returning null", flag.getKey());
-      return EvalResult.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED);
+    if (context == null || !context.isValid()) {
+      // This would be a serious logic error on our part, rather than an application error, since LDClient
+      // should never be passing a null or invalid context to Evaluator; the SDK should have rejected that
+      // at a higher level. So we will report it as EXCEPTION to differentiate it from application errors.
+      logger.error("Null or invalid context was unexpectedly passed to evaluator");
+      return EvalResult.error(EvaluationReason.ErrorKind.EXCEPTION);
     }
 
     EvaluatorState state = new EvaluatorState();
     
-    EvalResult result = evaluateInternal(flag, user, prereqEvals, state);
+    EvalResult result = evaluateInternal(flag, context, prereqEvals, state);
 
     if (state.bigSegmentsStatus != null) {
       return result.withReason(
@@ -136,25 +139,21 @@ class Evaluator {
     return result;
   }
 
-  private EvalResult evaluateInternal(FeatureFlag flag, LDUser user,
+  private EvalResult evaluateInternal(FeatureFlag flag, LDContext context,
       PrerequisiteEvaluationSink prereqEvals, EvaluatorState state) {
     if (!flag.isOn()) {
       return EvaluatorHelpers.offResult(flag);
     }
     
-    EvalResult prereqFailureResult = checkPrerequisites(flag, user, prereqEvals, state);
+    EvalResult prereqFailureResult = checkPrerequisites(flag, context, prereqEvals, state);
     if (prereqFailureResult != null) {
       return prereqFailureResult;
     }
     
     // Check to see if targets match
-    List<Target> targets = flag.getTargets(); // guaranteed non-null
-    int nTargets = targets.size();
-    for (int i = 0; i < nTargets; i++) {
-      Target target = targets.get(i);
-      if (target.getValues().contains(user.getKey())) { // getValues() is guaranteed non-null
-        return EvaluatorHelpers.targetMatchResult(flag, target);
-      }
+    EvalResult targetMatchResult = checkTargets(flag, context);
+    if (targetMatchResult != null) {
+      return targetMatchResult;
     }
     
     // Now walk through the rules and see if any match
@@ -162,19 +161,19 @@ class Evaluator {
     int nRules = rules.size();
     for (int i = 0; i < nRules; i++) {
       Rule rule = rules.get(i);
-      if (ruleMatchesUser(flag, rule, user, state)) {
-        return computeRuleMatch(flag, user, rule, i);
+      if (ruleMatchesContext(flag, rule, context, state)) {
+        return computeRuleMatch(flag, context, rule, i);
       }
     }
     // Walk through the fallthrough and see if it matches
-    return getValueForVariationOrRollout(flag, flag.getFallthrough(), user,
+    return getValueForVariationOrRollout(flag, flag.getFallthrough(), context,
         flag.preprocessed == null ? null : flag.preprocessed.fallthroughResults,
         EvaluationReason.fallthrough());
   }
 
   // Checks prerequisites if any; returns null if successful, or an EvalResult if we have to
   // short-circuit due to a prerequisite failure.
-  private EvalResult checkPrerequisites(FeatureFlag flag, LDUser user,
+  private EvalResult checkPrerequisites(FeatureFlag flag, LDContext context,
       PrerequisiteEvaluationSink prereqEvals, EvaluatorState state) {
     List<Prerequisite> prerequisites = flag.getPrerequisites(); // guaranteed non-null
     int nPrerequisites = prerequisites.size();
@@ -186,14 +185,14 @@ class Evaluator {
         logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), flag.getKey());
         prereqOk = false;
       } else {
-        EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, user, prereqEvals, state);
+        EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, context, prereqEvals, state);
         // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
         // off variation was. But we still need to evaluate it in order to generate an event.
         if (!prereqFeatureFlag.isOn() || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
           prereqOk = false;
         }
         if (prereqEvals != null) {
-          prereqEvals.recordPrerequisiteEvaluation(prereqFeatureFlag, flag, user, prereqEvalResult);
+          prereqEvals.recordPrerequisiteEvaluation(prereqFeatureFlag, flag, context, prereqEvalResult);
         }
       }
       if (!prereqOk) {
@@ -203,10 +202,61 @@ class Evaluator {
     return null;
   }
 
+  private static EvalResult checkTargets(
+      FeatureFlag flag,
+      LDContext context
+      ) {
+    List<Target> contextTargets = flag.getContextTargets(); // guaranteed non-null
+    List<Target> userTargets = flag.getTargets(); // guaranteed non-null
+    int nContextTargets = contextTargets.size();
+    int nUserTargets = userTargets.size();
+    
+    if (nContextTargets == 0) {
+      // old-style data has only targets for users
+      if (nUserTargets != 0) {
+        LDContext userContext = context.getIndividualContext(ContextKind.DEFAULT);
+        if (userContext != null) {
+          for (int i = 0; i < nUserTargets; i++) {
+            Target t = userTargets.get(i);
+            if (t.getValues().contains(userContext.getKey())) { // getValues() is guaranteed non-null
+              return EvaluatorHelpers.targetMatchResult(flag, t);
+            }
+          }
+        }
+      }
+      return null;
+    }
+    
+    // new-style data has ContextTargets, which may include placeholders for user targets that are in Targets
+    for (int i = 0; i < nContextTargets; i++) {
+      Target t = contextTargets.get(i);
+      if (t.getContextKind() == null || t.getContextKind().isDefault()) {
+        LDContext userContext = context.getIndividualContext(ContextKind.DEFAULT);
+        if (userContext == null) {
+          continue;
+        }
+        for (int j = 0; j < nUserTargets; j++) {
+          Target ut = userTargets.get(j);
+          if (ut.getVariation() == t.getVariation()) {
+            if (ut.getValues().contains(userContext.getKey())) {
+              return EvaluatorHelpers.targetMatchResult(flag, t);
+            }
+            break;
+          }
+        }
+      } else {
+        if (contextKeyIsInTargetList(context, t.getContextKind(), t.getValues())) {
+          return EvaluatorHelpers.targetMatchResult(flag, t);
+        }
+      }
+    }
+    return null;
+  }
+  
   private EvalResult getValueForVariationOrRollout(
       FeatureFlag flag,
       VariationOrRollout vr,
-      LDUser user,
+      LDContext context,
       DataModelPreprocessing.EvalResultFactoryMultiVariations precomputedResults,
       EvaluationReason reason
       ) {
@@ -218,7 +268,13 @@ class Evaluator {
     } else {
       Rollout rollout = vr.getRollout();
       if (rollout != null && !rollout.getVariations().isEmpty()) {
-        float bucket = bucketUser(rollout.getSeed(), user, flag.getKey(), rollout.getBucketBy(), flag.getSalt());
+        float bucket = computeBucketValue(
+            rollout.getSeed(),
+            context,
+            flag.getKey(),
+            rollout.getBucketBy(),
+            flag.getSalt()
+            );
         float sum = 0F;
         List<WeightedVariation> variations = rollout.getVariations(); // guaranteed non-null
         int nVariations = variations.size();
@@ -266,19 +322,19 @@ class Evaluator {
     return reason;
   }
 
-  private boolean ruleMatchesUser(FeatureFlag flag, Rule rule, LDUser user, EvaluatorState state) {
+  private boolean ruleMatchesContext(FeatureFlag flag, Rule rule, LDContext context, EvaluatorState state) {
     List<Clause> clauses = rule.getClauses(); // guaranteed non-null
     int nClauses = clauses.size();
     for (int i = 0; i < nClauses; i++) {
       Clause clause = clauses.get(i);
-      if (!clauseMatchesUser(clause, user, state)) {
+      if (!clauseMatchesContext(clause, context, state)) {
         return false;
       }
     }
     return true;
   }
 
-  private boolean clauseMatchesUser(Clause clause, LDUser user, EvaluatorState state) {
+  private boolean clauseMatchesContext(Clause clause, LDContext context, EvaluatorState state) {
     // In the case of a segment match operator, we check if the user is in any of the segments,
     // and possibly negate
     if (clause.getOp() == Operator.segmentMatch) {
@@ -289,7 +345,7 @@ class Evaluator {
         if (clauseValue.isString()) {
           Segment segment = getters.getSegment(clauseValue.stringValue());
           if (segment != null) {
-            if (segmentMatchesUser(segment, user, state)) {
+            if (segmentMatchesContext(segment, context, state)) {
               return maybeNegate(clause, true);
             }
           }
@@ -298,21 +354,21 @@ class Evaluator {
       return maybeNegate(clause, false);
     }
     
-    return clauseMatchesUserNoSegments(clause, user);
+    return clauseMatchesContextNoSegments(clause, context);
   }
   
-  private boolean clauseMatchesUserNoSegments(Clause clause, LDUser user) {
-    LDValue userValue = user.getAttribute(UserAttribute.forName(clause.getAttribute().toString()));
-    if (userValue.isNull()) {
+  private boolean clauseMatchesContextNoSegments(Clause clause, LDContext context) {
+    LDValue contextValue = context.getValue(clause.getAttribute());
+    if (contextValue.isNull()) {
       return false;
     }
 
-    if (userValue.getType() == LDValueType.ARRAY) {
-      int nValues = userValue.size();
+    if (contextValue.getType() == LDValueType.ARRAY) {
+      int nValues = contextValue.size();
       for (int i = 0; i < nValues; i++) {
-        LDValue value = userValue.get(i);
+        LDValue value = contextValue.get(i);
         if (value.getType() == LDValueType.ARRAY || value.getType() == LDValueType.OBJECT) {
-          logger.error("Invalid custom attribute value in user object for user key \"{}\": {}", user.getKey(), value);
+          logger.error("Invalid custom attribute value in user object for user key \"{}\": {}", context.getKey(), value);
           return false;
         }
         if (clauseMatchAny(clause, value)) {
@@ -320,15 +376,15 @@ class Evaluator {
         }
       }
       return maybeNegate(clause, false);
-    } else if (userValue.getType() != LDValueType.OBJECT) {
-      return maybeNegate(clause, clauseMatchAny(clause, userValue));
+    } else if (contextValue.getType() != LDValueType.OBJECT) {
+      return maybeNegate(clause, clauseMatchAny(clause, contextValue));
     }
     logger.warn("Got unexpected user attribute type \"{}\" for user key \"{}\" and attribute \"{}\"",
-        userValue.getType(), user.getKey(), clause.getAttribute());
+        contextValue.getType(), context.getKey(), clause.getAttribute());
     return false;
   }
   
-  static boolean clauseMatchAny(Clause clause, LDValue userValue) {
+  static boolean clauseMatchAny(Clause clause, LDValue contextValue) {
     Operator op = clause.getOp();
     if (op != null) {
       ClausePreprocessed preprocessed = clause.preprocessed;
@@ -336,7 +392,7 @@ class Evaluator {
         // see if we have precomputed a Set for fast equality matching
         Set<LDValue> vs = preprocessed == null ? null : preprocessed.valuesSet;
         if (vs != null) {
-          return vs.contains(userValue);
+          return vs.contains(contextValue);
         }
       }
       List<LDValue> values = clause.getValues();
@@ -347,7 +403,7 @@ class Evaluator {
         // the preprocessed list, if present, will always have the same size as the values list
         ClausePreprocessed.ValueData p = preprocessedValues == null ? null : preprocessedValues.get(i);
         LDValue v = values.get(i);
-        if (EvaluatorOperators.apply(op, userValue, v, p)) {
+        if (EvaluatorOperators.apply(op, contextValue, v, p)) {
           return true;
         }
       }
@@ -359,8 +415,8 @@ class Evaluator {
     return clause.isNegate() ? !b : b;
   }
   
-  private boolean segmentMatchesUser(Segment segment, LDUser user, EvaluatorState state) {
-    String userKey = user.getKey(); // we've already verified that the key is non-null at the top of evaluate()
+  private boolean segmentMatchesContext(Segment segment, LDContext context, EvaluatorState state) {
+    String userKey = context.getKey();
     if (segment.isUnbounded()) {
       if (segment.getGeneration() == null) {
         // Big Segment queries can only be done if the generation is known. If it's unset, that
@@ -374,7 +430,7 @@ class Evaluator {
       // Even if multiple Big Segments are referenced within a single flag evaluation, we only need
       // to do this query once, since it returns *all* of the user's segment memberships.
       if (state.bigSegmentsStatus == null) {
-        BigSegmentStoreWrapper.BigSegmentsQueryResult queryResult = getters.getBigSegments(user.getKey());
+        BigSegmentStoreWrapper.BigSegmentsQueryResult queryResult = getters.getBigSegments(userKey);
         if (queryResult == null) {
           // The SDK hasn't been configured to be able to use big segments
           state.bigSegmentsStatus = EvaluationReason.BigSegmentsStatus.NOT_CONFIGURED;
@@ -400,19 +456,27 @@ class Evaluator {
     int nRules = rules.size();
     for (int i = 0; i < nRules; i++) {
       SegmentRule rule = rules.get(i);
-      if (segmentRuleMatchesUser(rule, user, segment.getKey(), segment.getSalt())) {
+      if (segmentRuleMatchesContext(rule, context, segment.getKey(), segment.getSalt())) {
         return true;
       }
     }
     return false;
   }
 
-  private boolean segmentRuleMatchesUser(SegmentRule segmentRule, LDUser user, String segmentKey, String salt) {
+  private static boolean contextKeyIsInTargetList(LDContext context, ContextKind contextKind, Collection<String> keys) {
+    if (keys.isEmpty()) {
+      return false;
+    }
+    LDContext matchContext = context.getIndividualContext(contextKind);
+    return matchContext != null && keys.contains(matchContext.getKey());
+  }
+
+  private boolean segmentRuleMatchesContext(SegmentRule segmentRule, LDContext context, String segmentKey, String salt) {
     List<Clause> clauses = segmentRule.getClauses(); // guaranteed non-null
     int nClauses = clauses.size();
     for (int i = 0; i < nClauses; i++) {
       Clause c = clauses.get(i);
-      if (!clauseMatchesUserNoSegments(c, user)) {
+      if (!clauseMatchesContextNoSegments(c, context)) {
         return false;
       }
     }
@@ -423,17 +487,17 @@ class Evaluator {
     }
     
     // All of the clauses are met. See if the user buckets in
-    double bucket = EvaluatorBucketing.bucketUser(null, user, segmentKey, segmentRule.getBucketBy(), salt);
+    double bucket = computeBucketValue(null, context, segmentKey, segmentRule.getBucketBy(), salt);
     double weight = (double)segmentRule.getWeight() / 100000.0;
     return bucket < weight;
   }
 
-  private EvalResult computeRuleMatch(FeatureFlag flag, LDUser user, Rule rule, int ruleIndex) {
+  private EvalResult computeRuleMatch(FeatureFlag flag, LDContext context, Rule rule, int ruleIndex) {
     if (rule.preprocessed != null) {
-      return getValueForVariationOrRollout(flag, rule, user, rule.preprocessed.allPossibleResults, null);
+      return getValueForVariationOrRollout(flag, rule, context, rule.preprocessed.allPossibleResults, null);
     }
     EvaluationReason reason = EvaluationReason.ruleMatch(ruleIndex, rule.getId());
-    return getValueForVariationOrRollout(flag, rule, user, null, reason);
+    return getValueForVariationOrRollout(flag, rule, context, null, reason);
   }
   
   static String makeBigSegmentRef(Segment segment) {
