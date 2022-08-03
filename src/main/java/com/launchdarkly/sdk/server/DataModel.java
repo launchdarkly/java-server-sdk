@@ -618,15 +618,22 @@ public abstract class DataModel {
    */
   static class Operator {
     private final String name;
+    private final boolean builtin;
+    private final int hashCode;
     
     private static final Map<String, Operator> builtins = new HashMap<>();
     
-    private Operator(String name) {
+    private Operator(String name, boolean builtin) {
       this.name = name;
+      this.builtin = builtin;
+      
+      // Precompute the hash code for fast map lookups - String.hashCode() does memoize this value,
+      // sort of, but we shouldn't have to rely on that 
+      this.hashCode = name.hashCode();
     }
     
     private static Operator builtin(String name) {
-      Operator op = new Operator(name);
+      Operator op = new Operator(name, true);
       builtins.put(name, op);
       return op;
     }
@@ -648,8 +655,11 @@ public abstract class DataModel {
     static final Operator segmentMatch = builtin("segmentMatch");
     
     static Operator forName(String name) {
+      // Normally we will only see names that are in the builtins map. Anything else is something
+      // the SDK doesn't recognize, but we still need to allow it to exist rather than throwing
+      // an error.
       Operator op = builtins.get(name);
-      return op == null ? new Operator(name) : op;
+      return op == null ? new Operator(name, false) : op;
     }
     
     static Iterable<Operator> getBuiltins() {
@@ -663,6 +673,20 @@ public abstract class DataModel {
     @Override
     public String toString() {
       return name;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (this.builtin) {
+        // reference equality is OK for the builtin ones, because we intern them
+        return this == other;
+      }
+      return other instanceof Operator && ((Operator)other).name.equals(this.name);
+    }
+    
+    @Override
+    public int hashCode() {
+      return hashCode;
     }
   }
   
