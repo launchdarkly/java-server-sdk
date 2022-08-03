@@ -358,7 +358,14 @@ class Evaluator {
   }
   
   private boolean clauseMatchesContextNoSegments(Clause clause, LDContext context) {
-    LDValue contextValue = context.getValue(clause.getAttribute());
+    if (clause.getAttribute().getDepth() == 1 && clause.getAttribute().getComponent(0).equals("kind")) {
+      return maybeNegate(clause, clauseMatchByKind(clause, context));
+    }
+    LDContext actualContext = context.getIndividualContext(clause.getContextKind());
+    if (actualContext == null) {
+      return false;
+    }
+    LDValue contextValue = actualContext.getValue(clause.getAttribute());
     if (contextValue.isNull()) {
       return false;
     }
@@ -367,10 +374,6 @@ class Evaluator {
       int nValues = contextValue.size();
       for (int i = 0; i < nValues; i++) {
         LDValue value = contextValue.get(i);
-        if (value.getType() == LDValueType.ARRAY || value.getType() == LDValueType.OBJECT) {
-          logger.error("Invalid custom attribute value in user object for user key \"{}\": {}", context.getKey(), value);
-          return false;
-        }
         if (clauseMatchAny(clause, value)) {
           return maybeNegate(clause, true);
         }
@@ -379,8 +382,19 @@ class Evaluator {
     } else if (contextValue.getType() != LDValueType.OBJECT) {
       return maybeNegate(clause, clauseMatchAny(clause, contextValue));
     }
-    logger.warn("Got unexpected user attribute type \"{}\" for user key \"{}\" and attribute \"{}\"",
-        contextValue.getType(), context.getKey(), clause.getAttribute());
+    return false;
+  }
+  
+  static boolean clauseMatchByKind(Clause clause, LDContext context) {
+    // If attribute is "kind", then we treat operator and values as a match expression against a list
+    // of all individual kinds in the context. That is, for a multi-kind context with kinds of "org"
+    // and "user", it is a match if either of those strings is a match with Operator and Values.
+    for (int i = 0; i < context.getIndividualContextCount(); i++) {
+      if (clauseMatchAny(clause, LDValue.of(
+          context.getIndividualContext(i).getKind().toString()))) {
+        return true;
+      }
+    }
     return false;
   }
   
