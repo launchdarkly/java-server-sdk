@@ -30,6 +30,7 @@ import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
+import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
@@ -66,12 +67,12 @@ public class DataModelDependenciesTest {
             ruleBuilder()
               .clauses(
                   clause(UserAttribute.KEY, Operator.in, LDValue.of("ignore")),
-                  clause(null, Operator.segmentMatch, LDValue.of("segment1"), LDValue.of("segment2"))
+                  clauseMatchingSegment("segment1", "segment2")
                   )
               .build(),
             ruleBuilder()
               .clauses(
-                  clause(null, Operator.segmentMatch, LDValue.of("segment3"))
+                  clauseMatchingSegment("segment3")
                   )
               .build()
               )
@@ -216,7 +217,7 @@ public class DataModelDependenciesTest {
         .rules(
             ruleBuilder()
               .clauses(
-                  clause(null, Operator.segmentMatch, LDValue.of("segment1"), LDValue.of("segment2"))
+                  clauseMatchingSegment("segment1", "segment2")
                   )
               .build()
               )
@@ -230,7 +231,7 @@ public class DataModelDependenciesTest {
         .rules(
             ruleBuilder()
               .clauses(
-                  clause(null, Operator.segmentMatch, LDValue.of("segment2"))
+                  clauseMatchingSegment("segment2")
                   )
               .build()
               )

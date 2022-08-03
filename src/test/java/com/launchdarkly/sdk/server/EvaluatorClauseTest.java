@@ -13,6 +13,7 @@ import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
+import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
 import static com.launchdarkly.sdk.server.ModelBuilders.fallthroughVariation;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
@@ -202,7 +203,7 @@ public class EvaluatorClauseTest extends EvaluatorTestBase {
   @Test
   public void testSegmentMatchClauseRetrievesSegmentFromStore() throws Exception {
     String segmentKey = "segkey";
-    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of(segmentKey));
+    DataModel.Clause clause = clauseMatchingSegment(segmentKey);
     DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     DataModel.Segment segment = makeSegmentThatMatchesUser(segmentKey, "foo");
     LDUser user = new LDUser.Builder("foo").build();
@@ -214,7 +215,7 @@ public class EvaluatorClauseTest extends EvaluatorTestBase {
   @Test
   public void testSegmentMatchClauseFallsThroughIfSegmentNotFound() throws Exception {
     String segmentKey = "segkey";
-    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch, LDValue.of(segmentKey));
+    DataModel.Clause clause = clauseMatchingSegment(segmentKey);
     DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     LDUser user = new LDUser.Builder("foo").build();
     
@@ -225,7 +226,7 @@ public class EvaluatorClauseTest extends EvaluatorTestBase {
   @Test
   public void testSegmentMatchClauseIgnoresNonStringValues() throws Exception {
     String segmentKey = "segkey";
-    DataModel.Clause clause = clause(null, DataModel.Operator.segmentMatch,
+    DataModel.Clause clause = clause(null, null, DataModel.Operator.segmentMatch, false,
         LDValue.of(123), LDValue.of(segmentKey));
     DataModel.FeatureFlag flag = booleanFlagWithClauses("flag", clause);
     DataModel.Segment segment = makeSegmentThatMatchesUser(segmentKey, "foo");

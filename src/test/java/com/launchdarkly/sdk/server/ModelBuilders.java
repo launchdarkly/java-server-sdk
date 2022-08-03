@@ -2,12 +2,23 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Operator;
+import com.launchdarkly.sdk.server.DataModel.Prerequisite;
+import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
+import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
+import com.launchdarkly.sdk.server.DataModel.SegmentRule;
+import com.launchdarkly.sdk.server.DataModel.SegmentTarget;
+import com.launchdarkly.sdk.server.DataModel.Target;
+import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,7 +36,7 @@ public abstract class ModelBuilders {
     return new FlagBuilder(fromFlag);
   }
   
-  public static DataModel.FeatureFlag booleanFlagWithClauses(String key, DataModel.Clause... clauses) {
+  public static FeatureFlag booleanFlagWithClauses(String key, DataModel.Clause... clauses) {
     DataModel.Rule rule = ruleBuilder().variation(1).clauses(clauses).build();
     return flagBuilder(key)
         .on(true)
@@ -36,7 +47,7 @@ public abstract class ModelBuilders {
         .build();
   }
 
-  public static DataModel.FeatureFlag flagWithValue(String key, LDValue value) {
+  public static FeatureFlag flagWithValue(String key, LDValue value) {
     return flagBuilder(key)
         .on(false)
         .offVariation(0)
@@ -44,7 +55,7 @@ public abstract class ModelBuilders {
         .build();
   }
   
-  public static DataModel.VariationOrRollout fallthroughVariation(int variation) {
+  public static VariationOrRollout fallthroughVariation(int variation) {
     return new DataModel.VariationOrRollout(variation, null);
   }
 
@@ -52,36 +63,62 @@ public abstract class ModelBuilders {
     return new RuleBuilder();
   }
 
-  public static DataModel.Clause clause(UserAttribute attribute, DataModel.Operator op, boolean negate, LDValue... values) {
-    return new DataModel.Clause(attribute, op, Arrays.asList(values), negate);
+  public static Clause clause(
+      ContextKind contextKind,
+      AttributeRef attribute,
+      Operator op,
+      boolean negate,
+      LDValue... values
+      ) {
+    return new Clause(contextKind, attribute, op, Arrays.asList(values), negate);
   }
 
-  public static DataModel.Clause clause(UserAttribute attribute, DataModel.Operator op, LDValue... values) {
+  public static Clause clause(String attributeName, DataModel.Operator op, boolean negate, LDValue... values) {
+    return clause(null, AttributeRef.fromLiteral(attributeName), op, negate, values);
+  }
+
+  public static Clause clause(String attributeName, DataModel.Operator op, LDValue... values) {
+    return clause(attributeName, op, false, values);
+  }
+
+  public static Clause clause(UserAttribute attribute, DataModel.Operator op, boolean negate, LDValue... values) {
+    return clause(attribute.getName(), op, negate, values);
+  }
+
+  public static Clause clause(UserAttribute attribute, DataModel.Operator op, LDValue... values) {
     return clause(attribute, op, false, values);
   }
   
-  public static DataModel.Clause clauseMatchingUser(LDUser user) {
+  public static Clause clauseMatchingUser(LDUser user) {
     return clause(UserAttribute.KEY, DataModel.Operator.in, user.getAttribute(UserAttribute.KEY));
   }
 
-  public static DataModel.Clause clauseNotMatchingUser(LDUser user) {
+  public static Clause clauseNotMatchingUser(LDUser user) {
     return clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("not-" + user.getKey()));
   }
 
-  public static DataModel.Clause clauseMatchingSegment(Segment segment) {
-    return clause(null, DataModel.Operator.segmentMatch, LDValue.of(segment.getKey()));
+  public static Clause clauseMatchingSegment(String... segmentKeys) {
+    LDValue[] values = new LDValue[segmentKeys.length];
+    for (int i = 0; i < segmentKeys.length; i++) {
+      values[i] = LDValue.of(segmentKeys[i]);
+    }
+    return clause(null, null, DataModel.Operator.segmentMatch, false, values);
   }
   
-  public static DataModel.Target target(int variation, String... userKeys) {
-    return new DataModel.Target(ImmutableSet.copyOf(userKeys), variation);
+  public static Clause clauseMatchingSegment(Segment segment) {
+    return clauseMatchingSegment(segment.getKey());
   }
   
-  public static DataModel.Prerequisite prerequisite(String key, int variation) {
+  public static Target target(int variation, String... userKeys) {
+    return new DataModel.Target(null, ImmutableSet.copyOf(userKeys), variation);
+  }
+  
+  public static Prerequisite prerequisite(String key, int variation) {
     return new DataModel.Prerequisite(key, variation);
   }
   
-  public static DataModel.Rollout emptyRollout() {
-    return new DataModel.Rollout(ImmutableList.<DataModel.WeightedVariation>of(), null, RolloutKind.rollout);
+  public static Rollout emptyRollout() {
+    return new DataModel.Rollout(null, ImmutableList.<DataModel.WeightedVariation>of(), null, RolloutKind.rollout, null);
   }
   
   public static SegmentBuilder segmentBuilder(String key) {
@@ -96,11 +133,12 @@ public abstract class ModelBuilders {
     private String key;
     private int version;
     private boolean on;
-    private List<DataModel.Prerequisite> prerequisites = new ArrayList<>();
+    private List<Prerequisite> prerequisites = new ArrayList<>();
     private String salt;
-    private List<DataModel.Target> targets = new ArrayList<>();
-    private List<DataModel.Rule> rules = new ArrayList<>();
-    private DataModel.VariationOrRollout fallthrough;
+    private List<Target> targets = new ArrayList<>();
+    private List<Target> contextTargets = new ArrayList<>();
+    private List<Rule> rules = new ArrayList<>();
+    private VariationOrRollout fallthrough;
     private Integer offVariation;
     private List<LDValue> variations = new ArrayList<>();
     private boolean clientSide;
@@ -122,6 +160,7 @@ public abstract class ModelBuilders {
         this.prerequisites = f.getPrerequisites();
         this.salt = f.getSalt();
         this.targets = f.getTargets();
+        this.contextTargets = f.getContextTargets();
         this.rules = f.getRules();
         this.fallthrough = f.getFallthrough();
         this.offVariation = f.getOffVariation();
@@ -144,7 +183,7 @@ public abstract class ModelBuilders {
       return this;
     }
   
-    FlagBuilder prerequisites(DataModel.Prerequisite... prerequisites) {
+    FlagBuilder prerequisites(Prerequisite... prerequisites) {
       this.prerequisites = Arrays.asList(prerequisites);
       return this;
     }
@@ -154,12 +193,17 @@ public abstract class ModelBuilders {
       return this;
     }
   
-    FlagBuilder targets(DataModel.Target... targets) {
+    FlagBuilder targets(Target... targets) {
       this.targets = Arrays.asList(targets);
       return this;
     }
 
-    FlagBuilder rules(DataModel.Rule... rules) {
+    FlagBuilder contextTargets(Target... contextTargets) {
+      this.contextTargets = Arrays.asList(contextTargets);
+      return this;
+    }
+
+    FlagBuilder rules(Rule... rules) {
       this.rules = Arrays.asList(rules);
       return this;
     }
@@ -169,12 +213,12 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    FlagBuilder fallthrough(DataModel.Rollout rollout) {
+    FlagBuilder fallthrough(Rollout rollout) {
       this.fallthrough = new DataModel.VariationOrRollout(null, rollout);
       return this;
     }
     
-    FlagBuilder fallthrough(DataModel.VariationOrRollout fallthrough) {
+    FlagBuilder fallthrough(VariationOrRollout fallthrough) {
       this.fallthrough = fallthrough;
       return this;
     }
@@ -245,8 +289,9 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    DataModel.FeatureFlag build() {
-      FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets, rules, fallthrough, offVariation, variations,
+    FeatureFlag build() {
+      FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets,
+          contextTargets, rules, fallthrough, offVariation, variations,
           clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);
       if (!disablePreprocessing) {
         flag.afterDeserialized();
@@ -299,12 +344,16 @@ public abstract class ModelBuilders {
     private String key;
     private Set<String> included = new HashSet<>();
     private Set<String> excluded = new HashSet<>();
+    private List<SegmentTarget> includedContexts = new ArrayList<>();
+    private List<SegmentTarget> excludedContexts = new ArrayList<>();
     private String salt = "";
-    private List<DataModel.SegmentRule> rules = new ArrayList<>();
+    private List<SegmentRule> rules = new ArrayList<>();
     private int version = 0;
     private boolean deleted;
     private boolean unbounded;
+    private ContextKind unboundedContextKind;
     private Integer generation;
+    private boolean disablePreprocessing;
 
     private SegmentBuilder(String key) {
       this.key = key;
@@ -320,10 +369,18 @@ public abstract class ModelBuilders {
       this.deleted = from.isDeleted();
     }
     
-    public DataModel.Segment build() {
-      Segment s = new DataModel.Segment(key, included, excluded, salt, rules, version, deleted, unbounded, generation);
-      s.afterDeserialized();
+    public Segment build() {
+      Segment s = new Segment(key, included, excluded, includedContexts, excludedContexts,
+          salt, rules, version, deleted, unbounded, unboundedContextKind, generation);
+      if (!disablePreprocessing) {
+        s.afterDeserialized();
+      }
       return s;
+    }
+
+    public SegmentBuilder disablePreprocessing(boolean disable) {
+      this.disablePreprocessing = disable;
+      return this;
     }
     
     public SegmentBuilder included(String... included) {
@@ -336,6 +393,16 @@ public abstract class ModelBuilders {
       return this;
     }
     
+    public SegmentBuilder includedContexts(ContextKind contextKind, String... keys) {
+      this.includedContexts.add(new SegmentTarget(contextKind, ImmutableSet.copyOf(keys)));
+      return this;
+    }
+
+    public SegmentBuilder excludedContexts(ContextKind contextKind, String... keys) {
+      this.excludedContexts.add(new SegmentTarget(contextKind, ImmutableSet.copyOf(keys)));
+      return this;
+    }
+
     public SegmentBuilder salt(String salt) {
       this.salt = salt;
       return this;
@@ -361,6 +428,11 @@ public abstract class ModelBuilders {
       return this;
     }
 
+    public SegmentBuilder unboundedContextKind(ContextKind unboundedContextKind) {
+      this.unboundedContextKind = unboundedContextKind;
+      return this;
+    }
+    
     public SegmentBuilder generation(Integer generation) {
       this.generation = generation;
       return this;
@@ -370,13 +442,14 @@ public abstract class ModelBuilders {
   public static class SegmentRuleBuilder {
     private List<DataModel.Clause> clauses = new ArrayList<>();
     private Integer weight;
-    private UserAttribute bucketBy;
+    private ContextKind rolloutContextKind;
+    private AttributeRef bucketBy;
 
     private SegmentRuleBuilder() {
     }
     
-    public DataModel.SegmentRule build() {
-      return new DataModel.SegmentRule(clauses, weight, bucketBy);
+    public SegmentRule build() {
+      return new SegmentRule(clauses, weight, rolloutContextKind, bucketBy);
     }
     
     public SegmentRuleBuilder clauses(DataModel.Clause... clauses) {
@@ -389,7 +462,12 @@ public abstract class ModelBuilders {
       return this;
     }
     
-    public SegmentRuleBuilder bucketBy(UserAttribute bucketBy) {
+    public SegmentRuleBuilder rolloutContextKind(ContextKind rolloutContextKind) {
+      this.rolloutContextKind = rolloutContextKind;
+      return this;
+    }
+    
+    public SegmentRuleBuilder bucketBy(AttributeRef bucketBy) {
       this.bucketBy = bucketBy;
       return this;
     }

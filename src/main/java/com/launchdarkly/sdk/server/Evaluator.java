@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.EvaluationReason.Kind;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
+import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
@@ -301,7 +302,7 @@ class Evaluator {
   }
   
   private boolean clauseMatchesUserNoSegments(Clause clause, LDUser user) {
-    LDValue userValue = user.getAttribute(clause.getAttribute());
+    LDValue userValue = user.getAttribute(UserAttribute.forName(clause.getAttribute().toString()));
     if (userValue.isNull()) {
       return false;
     }

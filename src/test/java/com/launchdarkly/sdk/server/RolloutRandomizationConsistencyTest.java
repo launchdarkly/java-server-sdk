@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDUser;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
@@ -34,10 +33,9 @@ public class RolloutRandomizationConsistencyTest {
         variations.add(new WeightedVariation(0, 10000, untrackedVariations));
         variations.add(new WeightedVariation(1, 20000, untrackedVariations));
         variations.add(new WeightedVariation(0, 70000, true));
-        UserAttribute bucketBy = UserAttribute.KEY;
         RolloutKind kind = isExperiment ? RolloutKind.experiment : RolloutKind.rollout;
         Integer seed = 61;
-        Rollout rollout = new Rollout(variations, bucketBy, kind, seed);
+        Rollout rollout = new Rollout(null, variations, null, kind, seed);
         return rollout;
     }
     
@@ -84,15 +82,15 @@ public class RolloutRandomizationConsistencyTest {
     @Test
     public void bucketUserByKeyTest() {
         LDUser user1 = new LDUser("userKeyA");
-        Float point1 = EvaluatorBucketing.bucketUser(noSeed, user1, "hashKey", UserAttribute.KEY, "saltyA");
+        Float point1 = EvaluatorBucketing.bucketUser(noSeed, user1, "hashKey", null, "saltyA");
         assertEquals(0.42157587, point1, 0.0000001);
 
         LDUser user2 = new LDUser("userKeyB");
-        Float point2 = EvaluatorBucketing.bucketUser(noSeed, user2, "hashKey", UserAttribute.KEY, "saltyA");
+        Float point2 = EvaluatorBucketing.bucketUser(noSeed, user2, "hashKey", null, "saltyA");
         assertEquals(0.6708485, point2, 0.0000001);
 
         LDUser user3 = new LDUser("userKeyC");
-        Float point3 = EvaluatorBucketing.bucketUser(noSeed, user3, "hashKey", UserAttribute.KEY, "saltyA");
+        Float point3 = EvaluatorBucketing.bucketUser(noSeed, user3, "hashKey", null, "saltyA");
         assertEquals(0.10343106, point3, 0.0000001);
     }
 
@@ -101,15 +99,15 @@ public class RolloutRandomizationConsistencyTest {
         Integer seed = 61;
 
         LDUser user1 = new LDUser("userKeyA");
-        Float point1 = EvaluatorBucketing.bucketUser(seed, user1, "hashKey", UserAttribute.KEY, "saltyA");
+        Float point1 = EvaluatorBucketing.bucketUser(seed, user1, "hashKey", null, "saltyA");
         assertEquals(0.09801207, point1, 0.0000001);
 
         LDUser user2 = new LDUser("userKeyB");
-        Float point2 = EvaluatorBucketing.bucketUser(seed, user2, "hashKey", UserAttribute.KEY, "saltyA");
+        Float point2 = EvaluatorBucketing.bucketUser(seed, user2, "hashKey", null, "saltyA");
         assertEquals(0.14483777, point2, 0.0000001);
 
         LDUser user3 = new LDUser("userKeyC");
-        Float point3 = EvaluatorBucketing.bucketUser(seed, user3, "hashKey", UserAttribute.KEY, "saltyA");
+        Float point3 = EvaluatorBucketing.bucketUser(seed, user3, "hashKey", null, "saltyA");
         assertEquals(0.9242641, point3, 0.0000001);
     }
 
