@@ -105,9 +105,9 @@ class DiagnosticEvent {
       builder.put("startWaitMillis", config.startWait.toMillis());
       
       // Allow each pluggable component to describe its own relevant properties. 
-      mergeComponentProperties(builder, config.dataStoreFactory, clientContext, "dataStoreType");
-      mergeComponentProperties(builder, config.dataSourceFactory, clientContext, null);
-      mergeComponentProperties(builder, config.eventProcessorFactory, clientContext, null);
+      mergeComponentProperties(builder, config.dataStore, clientContext, "dataStoreType");
+      mergeComponentProperties(builder, config.dataSource, clientContext, null);
+      mergeComponentProperties(builder, config.events, clientContext, null);
       return builder.build();
     }
     

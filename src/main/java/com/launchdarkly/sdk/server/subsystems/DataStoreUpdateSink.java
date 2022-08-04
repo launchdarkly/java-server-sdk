@@ -4,13 +4,11 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 
 /**
  * Interface that a data store implementation can use to report information back to the SDK.
- * <p>
- * The {@link DataStoreFactory} receives an implementation of this interface and can pass it to the
- * data store that it creates, if desired.
  * 
  * @since 5.0.0
+ * @see ClientContext#getDataStoreUpdateSink()
  */
-public interface DataStoreUpdates {
+public interface DataStoreUpdateSink {
   /**
    * Reports a change in the data store's operational status.
    * <p>

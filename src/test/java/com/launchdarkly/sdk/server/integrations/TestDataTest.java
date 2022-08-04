@@ -4,12 +4,13 @@ import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel;
+import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.ModelBuilders;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
@@ -24,6 +25,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.Iterables.get;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyIterable;
@@ -48,7 +50,7 @@ public class TestDataTest {
   @Test
   public void initializesWithEmptyData() throws Exception {
     TestData td = TestData.dataSource();
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     Future<Void> started = ds.start();
     
     assertThat(started.isDone(), is(true));
@@ -68,7 +70,7 @@ public class TestDataTest {
     td.update(td.flag("flag1").on(true))
       .update(td.flag("flag2").on(false));
     
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     Future<Void> started = ds.start();
     
     assertThat(started.isDone(), is(true));
@@ -98,7 +100,7 @@ public class TestDataTest {
   @Test
   public void addsFlag() throws Exception {
     TestData td = TestData.dataSource();
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     Future<Void> started = ds.start();
     
     assertThat(started.isDone(), is(true));
@@ -132,7 +134,7 @@ public class TestDataTest {
         .addTarget(0, "a").addContextTarget(ContextKind.DEFAULT, 0)
         .addRule("rule0", 0, "{\"contextKind\":\"user\",\"attribute\":\"name\",\"op\":\"in\",\"values\":[\"Lucy\"]}");
 
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     Future<Void> started = ds.start();
     
     assertThat(started.isDone(), is(true));
@@ -384,8 +386,8 @@ public class TestDataTest {
     expectedFlag = configureExpectedFlag.apply(expectedFlag);
 
     TestData td = TestData.dataSource();
-
-    DataSource ds = td.createDataSource(null, updates);
+    
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     ds.start();
     
     td.update(configureFlag.apply(td.flag("flagkey")));
@@ -416,7 +418,7 @@ public class TestDataTest {
     }
   }
   
-  private static class CapturingDataSourceUpdates implements DataSourceUpdates {
+  private static class CapturingDataSourceUpdates implements DataSourceUpdateSink {
     BlockingQueue<FullDataSet<ItemDescriptor>> inits = new LinkedBlockingQueue<>();
     BlockingQueue<UpsertParams> upserts = new LinkedBlockingQueue<>();
     boolean valid;

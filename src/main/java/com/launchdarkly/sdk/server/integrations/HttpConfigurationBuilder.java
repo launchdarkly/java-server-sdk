@@ -2,7 +2,8 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
-import com.launchdarkly.sdk.server.subsystems.HttpConfigurationFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import java.time.Duration;
 
@@ -15,7 +16,7 @@ import javax.net.ssl.X509TrustManager;
  * <p>
  * If you want to set non-default values for any of these properties, create a builder with
  * {@link Components#httpConfiguration()}, change its properties with the methods of this class,
- * and pass it to {@link com.launchdarkly.sdk.server.LDConfig.Builder#http(HttpConfigurationFactory)}:
+ * and pass it to {@link com.launchdarkly.sdk.server.LDConfig.Builder#http(ComponentConfigurer)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .http(
@@ -30,7 +31,7 @@ import javax.net.ssl.X509TrustManager;
  * 
  * @since 4.13.0
  */
-public abstract class HttpConfigurationBuilder implements HttpConfigurationFactory {
+public abstract class HttpConfigurationBuilder implements ComponentConfigurer<HttpConfiguration> {
   /**
    * The default value for {@link #connectTimeout(Duration)}: two seconds.
    */

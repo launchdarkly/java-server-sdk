@@ -13,22 +13,17 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
-import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
-import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
-import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
-import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,11 +46,16 @@ public class TestComponents {
   
   public static LDLogger nullLogger = LDLogger.withAdapter(Logs.none(), "");
   
-  public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
+  public static ClientContextImpl clientContext(String sdkKey, LDConfig config) {
     return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, null);
   }
 
-  public static ClientContext clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
+  public static ClientContextImpl clientContext(String sdkKey, LDConfig config,
+      DataSourceUpdateSink dataSourceUpdateSink) {
+    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, null).withDataSourceUpdateSink(dataSourceUpdateSink);
+  }
+
+  public static ClientContextImpl clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
     return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, diagnosticAccumulator);
   }
 
@@ -107,20 +107,8 @@ public class TestComponents {
         );
   }
 
-  public static DataSourceFactory specificDataSource(final DataSource up) {
-    return (context, dataSourceUpdates) -> up;
-  }
-
-  public static DataStoreFactory specificDataStore(final DataStore store) {
-    return (context, statusUpdater) -> store;
-  }
-
-  public static PersistentDataStoreFactory specificPersistentDataStore(final PersistentDataStore store) {
-    return context -> store;
-  }
-  
-  public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {
-    return context -> ep;
+  public static <T> ComponentConfigurer<T> specificComponent(final T instance) {
+    return context -> instance;
   }
 
   public static class TestEventProcessor implements EventProcessor {
@@ -154,7 +142,7 @@ public class TestComponents {
     }          
   };
   
-  public static class MockDataSourceUpdates implements DataSourceUpdates {
+  public static class MockDataSourceUpdates implements DataSourceUpdateSink {
     public static class UpsertParams {
       public final DataKind kind;
       public final String key;
@@ -233,18 +221,18 @@ public class TestComponents {
     }
   }
   
-  public static class DataStoreFactoryThatExposesUpdater implements DataStoreFactory {
-    public volatile DataStoreUpdates dataStoreUpdates;
-    private final DataStoreFactory wrappedFactory;
+  public static class ContextCapturingFactory<T> implements ComponentConfigurer<T> {
+    public volatile ClientContext clientContext;
+    private final ComponentConfigurer<T> wrappedFactory;
 
-    public DataStoreFactoryThatExposesUpdater(DataStoreFactory wrappedFactory) {
+    public ContextCapturingFactory(ComponentConfigurer<T> wrappedFactory) {
       this.wrappedFactory = wrappedFactory;
     }
     
     @Override
-    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
-      this.dataStoreUpdates = dataStoreUpdates;
-      return wrappedFactory.createDataStore(context, dataStoreUpdates);
+    public T build(ClientContext context) {
+      this.clientContext = context;
+      return wrappedFactory.build(context);
     }
   }
   

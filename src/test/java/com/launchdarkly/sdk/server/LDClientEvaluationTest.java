@@ -29,8 +29,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
 import static com.launchdarkly.sdk.server.TestComponents.failedDataSource;
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataSource;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestUtil.upsertSegment;
 import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
@@ -48,9 +47,7 @@ public class LDClientEvaluationTest extends BaseTest {
   private DataStore dataStore = initedDataStore();
 
   private LDConfig config = baseConfig()
-      .dataStore(specificDataStore(dataStore))
-      .events(Components.noEvents())
-      .dataSource(Components.externalUpdatesOnly())
+      .dataStore(specificComponent(dataStore))
       .build();
   private LDClientInterface client = new LDClient("SDK_KEY", config);
   
@@ -307,8 +304,8 @@ public class LDClientEvaluationTest extends BaseTest {
   public void appropriateErrorIfClientNotInitialized() throws Exception {
     DataStore badDataStore = new InMemoryDataStore();
     LDConfig badConfig = baseConfig()
-        .dataStore(specificDataStore(badDataStore))
-        .dataSource(specificDataSource(failedDataSource()))
+        .dataStore(specificComponent(badDataStore))
+        .dataSource(specificComponent(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
@@ -357,7 +354,7 @@ public class LDClientEvaluationTest extends BaseTest {
     RuntimeException exception = new RuntimeException("sorry");
     DataStore badDataStore = dataStoreThatThrowsException(exception);
     LDConfig badConfig = baseConfig()
-        .dataStore(specificDataStore(badDataStore))
+        .dataStore(specificComponent(badDataStore))
         .build();
     try (LDClientInterface badClient = new LDClient("SDK_KEY", badConfig)) {
       EvaluationDetail<Boolean> expectedResult = EvaluationDetail.fromValue(false, NO_VARIATION,
@@ -379,8 +376,8 @@ public class LDClientEvaluationTest extends BaseTest {
   public void evaluationUsesStoreIfStoreIsInitializedButClientIsNot() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
     LDConfig customConfig = baseConfig()
-        .dataStore(specificDataStore(dataStore))
-        .dataSource(specificDataSource(failedDataSource()))
+        .dataStore(specificComponent(dataStore))
+        .dataSource(specificComponent(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
 
@@ -578,7 +575,7 @@ public class LDClientEvaluationTest extends BaseTest {
   @Test
   public void allFlagsStateReturnsEmptyStateIfDataStoreThrowsException() throws Exception {
     LDConfig customConfig = baseConfig()
-        .dataStore(specificDataStore(TestComponents.dataStoreThatThrowsException(new RuntimeException("sorry"))))
+        .dataStore(specificComponent(TestComponents.dataStoreThatThrowsException(new RuntimeException("sorry"))))
         .startWait(Duration.ZERO)
         .build();
 
@@ -605,8 +602,8 @@ public class LDClientEvaluationTest extends BaseTest {
   public void allFlagsStateUsesStoreDataIfStoreIsInitializedButClientIsNot() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of("value")));
     LDConfig customConfig = baseConfig()
-        .dataStore(specificDataStore(dataStore))
-        .dataSource(specificDataSource(failedDataSource()))
+        .dataStore(specificComponent(dataStore))
+        .dataSource(specificComponent(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
     
@@ -622,7 +619,7 @@ public class LDClientEvaluationTest extends BaseTest {
   @Test
   public void allFlagsStateReturnsEmptyStateIfClientAndStoreAreNotInitialized() throws Exception {
     LDConfig customConfig = baseConfig()
-        .dataSource(specificDataSource(failedDataSource()))
+        .dataSource(specificComponent(failedDataSource()))
         .startWait(Duration.ZERO)
         .build();
     

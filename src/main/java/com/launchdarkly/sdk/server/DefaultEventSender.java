@@ -2,8 +2,8 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
-import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import java.io.IOException;
@@ -163,9 +163,9 @@ final class DefaultEventSender implements EventSender {
     return null;
   }
   
-  static final class Factory implements EventSenderFactory {
+  static final class Factory implements ComponentConfigurer<EventSender> {
     @Override
-    public EventSender createEventSender(ClientContext clientContext) {
+    public EventSender build(ClientContext clientContext) {
       return new DefaultEventSender(clientContext.getHttp(), DefaultEventSender.DEFAULT_RETRY_DELAY,
           clientContext.getBaseLogger().subLogger(Loggers.EVENTS_LOGGER_NAME));
     }
