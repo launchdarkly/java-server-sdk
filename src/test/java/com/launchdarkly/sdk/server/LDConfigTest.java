@@ -5,9 +5,10 @@ import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
-import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
@@ -16,6 +17,7 @@ import org.junit.Test;
 import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -30,23 +32,23 @@ public class LDConfigTest {
   @Test
   public void defaults() {
     LDConfig config = new LDConfig.Builder().build();
-    assertNotNull(config.bigSegmentsConfigBuilder);
-    assertNull(config.bigSegmentsConfigBuilder.createBigSegmentsConfiguration(clientContext("", config)).getStore());
-    assertNotNull(config.dataSourceFactory);
-    assertEquals(Components.streamingDataSource().getClass(), config.dataSourceFactory.getClass());
-    assertNotNull(config.dataStoreFactory);
-    assertEquals(Components.inMemoryDataStore().getClass(), config.dataStoreFactory.getClass());
+    assertNotNull(config.bigSegments);
+    assertNull(config.bigSegments.build(clientContext("", config)).getStore());
+    assertNotNull(config.dataSource);
+    assertEquals(Components.streamingDataSource().getClass(), config.dataSource.getClass());
+    assertNotNull(config.dataStore);
+    assertEquals(Components.inMemoryDataStore().getClass(), config.dataStore.getClass());
     assertFalse(config.diagnosticOptOut);
-    assertNotNull(config.eventProcessorFactory);
-    assertEquals(Components.sendEvents().getClass(), config.eventProcessorFactory.getClass());
+    assertNotNull(config.events);
+    assertEquals(Components.sendEvents().getClass(), config.events.getClass());
     assertFalse(config.offline);
     
-    assertNotNull(config.httpConfigFactory);
-    HttpConfiguration httpConfig = config.httpConfigFactory.createHttpConfiguration(BASIC_CONTEXT);
+    assertNotNull(config.http);
+    HttpConfiguration httpConfig = config.http.build(BASIC_CONTEXT);
     assertEquals(HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT, httpConfig.getConnectTimeout());
     
-    assertNotNull(config.loggingConfigFactory);
-    LoggingConfiguration loggingConfig = config.loggingConfigFactory.createLoggingConfiguration(BASIC_CONTEXT);
+    assertNotNull(config.logging);
+    LoggingConfiguration loggingConfig = config.logging.build(BASIC_CONTEXT);
     assertEquals(LoggingConfigurationBuilder.DEFAULT_LOG_DATA_SOURCE_OUTAGE_AS_ERROR_AFTER,
         loggingConfig.getLogDataSourceOutageAsErrorAfter());
     
@@ -58,21 +60,21 @@ public class LDConfigTest {
   public void bigSegmentsConfigFactory() {
     BigSegmentsConfigurationBuilder f = Components.bigSegments(null);
     LDConfig config = new LDConfig.Builder().bigSegments(f).build();
-    assertSame(f, config.bigSegmentsConfigBuilder);
+    assertSame(f, config.bigSegments);
   }
   
   @Test
   public void dataSourceFactory() {
-    DataSourceFactory f = TestComponents.specificDataSource(null);
+    ComponentConfigurer<DataSource> f = specificComponent(null);
     LDConfig config = new LDConfig.Builder().dataSource(f).build();
-    assertSame(f, config.dataSourceFactory);
+    assertSame(f, config.dataSource);
   }
 
   @Test
   public void dataStoreFactory() {
-    DataStoreFactory f = TestComponents.specificDataStore(null);
+    ComponentConfigurer<DataStore> f = specificComponent(null);
     LDConfig config = new LDConfig.Builder().dataStore(f).build();
-    assertSame(f, config.dataStoreFactory);
+    assertSame(f, config.dataStore);
   }
 
   @Test
@@ -86,22 +88,22 @@ public class LDConfigTest {
 
   @Test
   public void eventProcessorFactory() {
-    EventProcessorFactory f = TestComponents.specificEventProcessor(null);
+    ComponentConfigurer<EventProcessor> f = specificComponent(null);
     LDConfig config = new LDConfig.Builder().events(f).build();
-    assertSame(f, config.eventProcessorFactory);
+    assertSame(f, config.events);
   }
 
   @Test
   public void offline() {
     LDConfig config1 = new LDConfig.Builder().offline(true).build();
     assertTrue(config1.offline);
-    assertSame(Components.externalUpdatesOnly(), config1.dataSourceFactory);
-    assertSame(Components.noEvents(), config1.eventProcessorFactory);
+    assertSame(Components.externalUpdatesOnly(), config1.dataSource);
+    assertSame(Components.noEvents(), config1.events);
     
     LDConfig config2 = new LDConfig.Builder().offline(true).dataSource(Components.streamingDataSource()).build();
     assertTrue(config2.offline);
-    assertSame(Components.externalUpdatesOnly(), config2.dataSourceFactory); // offline overrides specified factory
-    assertSame(Components.noEvents(), config2.eventProcessorFactory);
+    assertSame(Components.externalUpdatesOnly(), config2.dataSource); // offline overrides specified factory
+    assertSame(Components.noEvents(), config2.events);
     
     LDConfig config3 = new LDConfig.Builder().offline(true).offline(false).build();
     assertFalse(config3.offline); // just testing that the setter works for both true and false
@@ -112,7 +114,7 @@ public class LDConfigTest {
     HttpConfigurationBuilder b = Components.httpConfiguration().connectTimeout(Duration.ofSeconds(9));
     LDConfig config = new LDConfig.Builder().http(b).build();
     assertEquals(Duration.ofSeconds(9),
-        config.httpConfigFactory.createHttpConfiguration(BASIC_CONTEXT).getConnectTimeout());
+        config.http.build(BASIC_CONTEXT).getConnectTimeout());
   }
 
   @Test
@@ -120,7 +122,7 @@ public class LDConfigTest {
     LoggingConfigurationBuilder b = Components.logging().logDataSourceOutageAsErrorAfter(Duration.ofSeconds(9));
     LDConfig config = new LDConfig.Builder().logging(b).build();
     assertEquals(Duration.ofSeconds(9),
-        config.loggingConfigFactory.createLoggingConfiguration(BASIC_CONTEXT).getLogDataSourceOutageAsErrorAfter());
+        config.logging.build(BASIC_CONTEXT).getLogDataSourceOutageAsErrorAfter());
   }
 
   @Test
@@ -141,8 +143,8 @@ public class LDConfigTest {
   @Test
   public void testHttpDefaults() {
     LDConfig config = new LDConfig.Builder().build();
-    HttpConfiguration hc = config.httpConfigFactory.createHttpConfiguration(BASIC_CONTEXT);
-    HttpConfiguration defaults = Components.httpConfiguration().createHttpConfiguration(BASIC_CONTEXT);
+    HttpConfiguration hc = config.http.build(BASIC_CONTEXT);
+    HttpConfiguration defaults = Components.httpConfiguration().build(BASIC_CONTEXT);
     assertEquals(defaults.getConnectTimeout(), hc.getConnectTimeout());
     assertNull(hc.getProxy());
     assertNull(hc.getProxyAuthentication());

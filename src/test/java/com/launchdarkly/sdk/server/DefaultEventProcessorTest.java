@@ -7,8 +7,9 @@ import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.Event;
-import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
@@ -40,8 +41,8 @@ import static org.junit.Assert.assertEquals;
 public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
-    EventProcessorFactory epf = Components.sendEvents();
-    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
+    ComponentConfigurer<EventProcessor> epf = Components.sendEvents();
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.build(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
       EventsConfiguration ec = ep.dispatcher.eventsConfig;
       assertThat(ec.allAttributesPrivate, is(false));
       assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
@@ -58,7 +59,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
     MockEventSender es = new MockEventSender();
-    EventProcessorFactory epf = Components.sendEvents()
+    ComponentConfigurer<EventProcessor> epf = Components.sendEvents()
         .allAttributesPrivate(true)
         .capacity(3333)
         .diagnosticRecordingInterval(Duration.ofSeconds(480))
@@ -67,7 +68,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
         .privateAttributes("name", "dogs")
         .userKeysCapacity(555)
         .userKeysFlushInterval(Duration.ofSeconds(101));
-    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.createEventProcessor(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
+    try (DefaultEventProcessor ep = (DefaultEventProcessor)epf.build(clientContext(SDK_KEY, LDConfig.DEFAULT))) {
       EventsConfiguration ec = ep.dispatcher.eventsConfig;
       assertThat(ec.allAttributesPrivate, is(true));
       assertThat(ec.capacity, equalTo(3333));
