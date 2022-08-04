@@ -1,7 +1,9 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.LDConfig.Builder;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
 
 import java.time.Duration;
 
@@ -10,7 +12,7 @@ import java.time.Duration;
  * <p>
  * By default, the SDK uses a streaming connection to receive feature flag data from LaunchDarkly. If you want
  * to customize the behavior of the connection, create a builder with {@link Components#streamingDataSource()},
- * change its properties with the methods of this class, and pass it to {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(DataSourceFactory)}:
+ * change its properties with the methods of this class, and pass it to {@link Builder#dataSource(ComponentConfigurer)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .dataSource(Components.streamingDataSource().initialReconnectDelayMillis(500))
@@ -21,7 +23,7 @@ import java.time.Duration;
  * 
  * @since 4.12.0
  */
-public abstract class StreamingDataSourceBuilder implements DataSourceFactory {
+public abstract class StreamingDataSourceBuilder implements ComponentConfigurer<DataSource> {
   /**
    * The default value for {@link #initialReconnectDelay(Duration)}: 1000 milliseconds.
    */

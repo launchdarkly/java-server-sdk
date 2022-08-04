@@ -1,9 +1,11 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.Components;
+import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
-import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -12,11 +14,11 @@ import java.util.concurrent.TimeUnit;
  * A configurable factory for a persistent data store.
  * <p>
  * Several database integrations exist for the LaunchDarkly SDK, each with its own behavior and options
- * specific to that database; this is described via some implementation of {@link PersistentDataStoreFactory}.
+ * specific to that database; this is described via some implementation of {@link PersistentDataStore}.
  * There is also universal behavior that the SDK provides for all persistent data stores, such as caching;
  * the {@link PersistentDataStoreBuilder} adds this.
  * <p>
- * After configuring this object, pass it to {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataStore(DataStoreFactory)}
+ * After configuring this object, pass it to {@link Builder#dataStore(ComponentConfigurer)}
  * to use it in the SDK configuration. For example, using the Redis integration:
  * 
  * <pre><code>
@@ -33,16 +35,16 @@ import java.util.concurrent.TimeUnit;
  * {@code cacheSeconds()} is an option that can be used for any persistent data store. 
  * <p>
  * Note that this class is abstract; the actual implementation is created by calling
- * {@link Components#persistentDataStore(PersistentDataStoreFactory)}.
+ * {@link Components#persistentDataStore(ComponentConfigurer)}.
  * @since 4.12.0
  */
-public abstract class PersistentDataStoreBuilder implements DataStoreFactory {
+public abstract class PersistentDataStoreBuilder implements ComponentConfigurer<DataStore> {
   /**
    * The default value for the cache TTL.
    */
   public static final Duration DEFAULT_CACHE_TTL = Duration.ofSeconds(15);
 
-  protected final PersistentDataStoreFactory persistentDataStoreFactory; // see Components for why these are not private
+  protected final ComponentConfigurer<PersistentDataStore> persistentDataStoreConfigurer; // see Components for why these are not private
   protected Duration cacheTime = DEFAULT_CACHE_TTL;
   protected StaleValuesPolicy staleValuesPolicy = StaleValuesPolicy.EVICT;
   protected boolean recordCacheStats = false;
@@ -95,10 +97,10 @@ public abstract class PersistentDataStoreBuilder implements DataStoreFactory {
   /**
    * Creates a new builder.
    * 
-   * @param persistentDataStoreFactory the factory implementation for the specific data store type
+   * @param persistentDataStoreConfigurer the factory implementation for the specific data store type
    */
-  protected PersistentDataStoreBuilder(PersistentDataStoreFactory persistentDataStoreFactory) {
-    this.persistentDataStoreFactory = persistentDataStoreFactory;
+  protected PersistentDataStoreBuilder(ComponentConfigurer<PersistentDataStore> persistentDataStoreConfigurer) {
+    this.persistentDataStoreConfigurer = persistentDataStoreConfigurer;
   }
 
   /**
