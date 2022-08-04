@@ -38,9 +38,9 @@ abstract class ServerSideDiagnosticEvents {
     listBuilder.add(builder.build());
     
     // Allow each pluggable component to describe its own relevant properties.
-    listBuilder.add(describeComponent(config.dataStoreFactory, clientContext, DiagnosticConfigProperty.DATA_STORE_TYPE.name));
-    listBuilder.add(describeComponent(config.dataSourceFactory, clientContext, null));
-    listBuilder.add(describeComponent(config.eventProcessorFactory, clientContext, null));
+    listBuilder.add(describeComponent(config.dataStore, clientContext, DiagnosticConfigProperty.DATA_STORE_TYPE.name));
+    listBuilder.add(describeComponent(config.dataSource, clientContext, null));
+    listBuilder.add(describeComponent(config.events, clientContext, null));
     return listBuilder.build();
   }
   

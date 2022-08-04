@@ -49,7 +49,7 @@ public class FileDataSourceTest extends BaseTest {
   }
 
   private DataSource makeDataSource(FileDataSourceBuilder builder) {
-    return builder.createDataSource(clientContext("", config), dataSourceUpdates);
+    return builder.build(clientContext("", config, dataSourceUpdates));
   }
   
   @Test
