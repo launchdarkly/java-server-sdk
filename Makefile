@@ -17,6 +17,8 @@ TEMP_TEST_OUTPUT=/tmp/sdk-test-service.log
 TEST_HARNESS_PARAMS= \
     -skip evaluation/parameterized/secondary \
     -skip evaluation/parameterized/key/empty \
+    -skip evaluation/bucketing/secondary/secondary/experiment \
+    -skip evaluation/bucketing/non-key/experiments \
     -skip events/alias \
     -skip events/custom \
     -skip events/disabling/alias \

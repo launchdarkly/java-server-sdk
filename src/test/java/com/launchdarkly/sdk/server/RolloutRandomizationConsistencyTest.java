@@ -83,15 +83,15 @@ public class RolloutRandomizationConsistencyTest {
     @Test
     public void bucketUserByKeyTest() {
         LDContext user1 = LDContext.create("userKeyA");
-        float point1 = computeBucketValue(noSeed, user1, "hashKey", null, "saltyA");
+        float point1 = computeBucketValue(false, noSeed, user1, null, "hashKey", null, "saltyA");
         assertEquals(0.42157587, point1, 0.0000001);
 
         LDContext user2 = LDContext.create("userKeyB");
-        float point2 = computeBucketValue(noSeed, user2, "hashKey", null, "saltyA");
+        float point2 = computeBucketValue(false, noSeed, user2, null, "hashKey", null, "saltyA");
         assertEquals(0.6708485, point2, 0.0000001);
 
         LDContext user3 = LDContext.create("userKeyC");
-        float point3 = computeBucketValue(noSeed, user3, "hashKey", null, "saltyA");
+        float point3 = computeBucketValue(false, noSeed, user3, null, "hashKey", null, "saltyA");
         assertEquals(0.10343106, point3, 0.0000001);
     }
 
@@ -100,15 +100,15 @@ public class RolloutRandomizationConsistencyTest {
         Integer seed = 61;
 
         LDContext user1 = LDContext.create("userKeyA");
-        Float point1 = computeBucketValue(seed, user1, "hashKey", null, "saltyA");
+        Float point1 = computeBucketValue(true, seed, user1, null, "hashKey", null, "saltyA");
         assertEquals(0.09801207, point1, 0.0000001);
 
         LDContext user2 = LDContext.create("userKeyB");
-        Float point2 = computeBucketValue(seed, user2, "hashKey", null, "saltyA");
+        Float point2 = computeBucketValue(true, seed, user2, null, "hashKey", null, "saltyA");
         assertEquals(0.14483777, point2, 0.0000001);
 
         LDContext user3 = LDContext.create("userKeyC");
-        Float point3 = computeBucketValue(seed, user3, "hashKey", null, "saltyA");
+        Float point3 = computeBucketValue(true, seed, user3, null, "hashKey", null, "saltyA");
         assertEquals(0.9242641, point3, 0.0000001);
     }
 

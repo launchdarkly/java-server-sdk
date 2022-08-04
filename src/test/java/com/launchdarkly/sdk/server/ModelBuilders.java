@@ -90,6 +90,9 @@ public abstract class ModelBuilders {
   }
 
   public static Clause clauseMatchingContext(LDContext context) {
+    if (context.isMultiple()) {
+      return clauseMatchingContext(context.getIndividualContext(0));
+    }
     return clause(context.getKind(), AttributeRef.fromLiteral("key"), DataModel.Operator.in, LDValue.of(context.getKey()));
   }
 

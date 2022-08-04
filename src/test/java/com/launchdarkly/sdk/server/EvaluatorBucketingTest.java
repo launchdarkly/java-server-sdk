@@ -36,7 +36,7 @@ public class EvaluatorBucketingTest {
     
     // First verify that with our test inputs, the bucket value will be greater than zero and less than 100000,
     // so we can construct a rollout whose second bucket just barely contains that value
-    int bucketValue = (int)(computeBucketValue(noSeed, context, flagKey, null, salt) * 100000);
+    int bucketValue = (int)(computeBucketValue(false, noSeed, context, null, flagKey, null, salt) * 100000);
     assertThat(bucketValue, greaterThanOrEqualTo(1));
     assertThat(bucketValue, lessThan(100000));
     
@@ -57,8 +57,8 @@ public class EvaluatorBucketingTest {
     String salt = "salt";
     Integer seed = 123;
     
-    float bucketValue1 = computeBucketValue(noSeed, context, flagKey, null, salt);
-    float bucketValue2 = computeBucketValue(seed, context, flagKey, null, salt);
+    float bucketValue1 = computeBucketValue(false, noSeed, context, null, flagKey, null, salt);
+    float bucketValue2 = computeBucketValue(true, seed, context, null, flagKey, null, salt);
     assert(bucketValue1 != bucketValue2);
   }
 
@@ -70,8 +70,8 @@ public class EvaluatorBucketingTest {
     Integer seed1 = 123;
     Integer seed2 = 456;
     
-    float bucketValue1 = computeBucketValue(seed1, context, flagKey, null, salt);
-    float bucketValue2 = computeBucketValue(seed2, context, flagKey, null, salt);
+    float bucketValue1 = computeBucketValue(true, seed1, context, null, flagKey, null, salt);
+    float bucketValue2 = computeBucketValue(true, seed2, context, null, flagKey, null, salt);
     assert(bucketValue1 != bucketValue2);
   }
 
@@ -84,8 +84,8 @@ public class EvaluatorBucketingTest {
     String salt2 = "salt2";
     Integer seed = 123;
     
-    float bucketValue1 = computeBucketValue(seed, context, flagKey1, null, salt1);
-    float bucketValue2 = computeBucketValue(seed, context, flagKey2, null, salt2);
+    float bucketValue1 = computeBucketValue(true, seed, context, null, flagKey1, null, salt1);
+    float bucketValue2 = computeBucketValue(true, seed, context, null, flagKey2, null, salt2);
     assert(bucketValue1 == bucketValue2);
   }
 
@@ -96,7 +96,7 @@ public class EvaluatorBucketingTest {
     String salt = "salt";
 
     // We'll construct a list of variations that stops right at the target bucket value
-    int bucketValue = (int)(computeBucketValue(noSeed, context, flagKey, null, salt) * 100000);
+    int bucketValue = (int)(computeBucketValue(false, noSeed, context, null, flagKey, null, salt) * 100000);
     
     List<WeightedVariation> variations = Arrays.asList(new WeightedVariation(0, bucketValue, true));
     Rollout rollout = new Rollout(null, variations, null, RolloutKind.rollout, null);
@@ -110,8 +110,8 @@ public class EvaluatorBucketingTest {
         .set("stringattr", "33333")
         .set("intattr", 33333)
         .build();
-    float resultForString = computeBucketValue(noSeed, context, "key", AttributeRef.fromLiteral("stringattr"), "salt");
-    float resultForInt = computeBucketValue(noSeed, context, "key", AttributeRef.fromLiteral("intattr"), "salt");
+    float resultForString = computeBucketValue(false, noSeed, context, null, "key", AttributeRef.fromLiteral("stringattr"), "salt");
+    float resultForInt = computeBucketValue(false, noSeed, context, null, "key", AttributeRef.fromLiteral("intattr"), "salt");
     assertEquals(resultForString, resultForInt, Float.MIN_VALUE);
   }
 
@@ -120,7 +120,7 @@ public class EvaluatorBucketingTest {
     LDContext context = LDContext.builder("key")
         .set("floatattr", 33.5f)
         .build();
-    float result = computeBucketValue(noSeed, context, "key", AttributeRef.fromLiteral("floatattr"), "salt");
+    float result = computeBucketValue(false, noSeed, context, null, "key", AttributeRef.fromLiteral("floatattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 
@@ -129,7 +129,7 @@ public class EvaluatorBucketingTest {
     LDContext context = LDContext.builder("key")
         .set("boolattr", true)
         .build();
-    float result = computeBucketValue(noSeed, context, "key", AttributeRef.fromLiteral("boolattr"), "salt");
+    float result = computeBucketValue(false, noSeed, context, null, "key", AttributeRef.fromLiteral("boolattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
   }
 
@@ -137,9 +137,18 @@ public class EvaluatorBucketingTest {
   public void contextSecondaryKeyAffectsBucketValue() {
     LDContext context1 = LDContext.create("key");
     LDContext context2 = LDContext.builder("key").secondary("other").build();
-    float result1 = computeBucketValue(noSeed, context1, "flagkey", null, "salt");
-    float result2 = computeBucketValue(noSeed, context2, "flagkey", null, "salt");
+    float result1 = computeBucketValue(false, noSeed, context1, null, "flagkey", null, "salt");
+    float result2 = computeBucketValue(false, noSeed, context2, null, "flagkey", null, "salt");
     assertNotEquals(result1, result2);
+  }
+
+  @Test
+  public void contextSecondaryKeyDoesNotAffectBucketValueForExperiment() {
+    LDContext context1 = LDContext.create("key");
+    LDContext context2 = LDContext.builder("key").secondary("other").build();
+    float result1 = computeBucketValue(true, noSeed, context1, null, "flagkey", null, "salt");
+    float result2 = computeBucketValue(true, noSeed, context2, null, "flagkey", null, "salt");
+    assertEquals(result1, result2, Float.MIN_VALUE);
   }
 
   private static void assertVariationIndexFromRollout(

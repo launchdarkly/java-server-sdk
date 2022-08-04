@@ -1,17 +1,25 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Rollout;
+import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.Rule;
+import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.ModelBuilders.FlagBuilder;
 import com.launchdarkly.sdk.server.ModelBuilders.RuleBuilder;
 
 import org.junit.Test;
 
+import java.util.Arrays;
+
+import static com.launchdarkly.sdk.server.EvaluatorBucketing.computeBucketValue;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.BASE_EVALUATOR;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
@@ -123,4 +131,69 @@ public class EvaluatorRuleTest {
     
     assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
   }
+
+  @Test
+  public void rolloutUsesCorrectBucketValue() {
+    LDContext c = LDContext.create("foo");
+    testRolloutBucketing("foo", c, null, null, RolloutKind.rollout);
+  }
+  
+  @Test
+  public void rolloutUsesContextKind() {
+    LDContext c1 = LDContext.create(ContextKind.of("kind1"), "foo");
+    LDContext c2 = LDContext.create(ContextKind.of("kind2"), "bar");
+    LDContext multi = LDContext.createMulti(c1, c2);
+    testRolloutBucketing("foo", multi, ContextKind.of("kind1"), null, RolloutKind.rollout);
+  }
+
+  @Test
+  public void rolloutUsesBucketBy() {
+    LDContext c = LDContext.builder("xxx").set("attr1", LDValue.parse("{\"prop1\":\"foo\"}")).build();
+    testRolloutBucketing("foo", c, null, AttributeRef.fromPath("/attr1/prop1"), RolloutKind.rollout);
+  }
+
+  @Test
+  public void experimentIgnoresBucketBy() {
+    LDContext c = LDContext.builder("xxx").set("attr1", LDValue.parse("{\"prop1\":\"foo\"}")).build();
+    testRolloutBucketing("xxx", c, null, AttributeRef.fromPath("/attr1/prop1"), RolloutKind.experiment);
+  }
+
+  private static void testRolloutBucketing(
+      String bucketByValue,
+      LDContext context,
+      ContextKind contextKind,
+      AttributeRef bucketBy,
+      RolloutKind rolloutKind
+      ) {
+    String flagKey = "feature";
+    String salt = "abc";
+    float expectedBucketValue = computeBucketValue(false, null, LDContext.create(bucketByValue), null,
+        flagKey, null, salt);
+    int bucketValueAsInt = (int)(expectedBucketValue * 100000);
+    Clause clause = clauseMatchingContext(context);
+    
+    // To roughly verify that the right bucket value is being used, we'll construct a rollout
+    // where the target bucket is in a very small range around that value.
+    Rollout rollout = new Rollout(
+        contextKind,
+        Arrays.asList(
+          new WeightedVariation(0, bucketValueAsInt - 1, false),
+          new WeightedVariation(1, 2, false),
+          new WeightedVariation(2, 100000 - (bucketValueAsInt + 1), false)
+        ),
+        bucketBy,
+        rolloutKind,
+        null);
+    FeatureFlag flag = flagBuilder(flagKey)
+        .on(true)
+        .variations(LDValue.of("no"), LDValue.of("yes"), LDValue.of("no"))
+        .rules(ruleBuilder().id("rule").clauses(clause).rollout(rollout).build())
+        .salt(salt)
+        .build();
+    
+    EvalResult result = BASE_EVALUATOR.evaluate(flag, context, expectNoPrerequisiteEvals());
+    assertEquals(LDValue.of("yes"), result.getValue());
+    assertEquals(1, result.getVariationIndex());
+    assertEquals(EvaluationReason.Kind.RULE_MATCH, result.getReason().getKind());
+  }  
 }
