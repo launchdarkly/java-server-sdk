@@ -1,12 +1,30 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.EvaluationDetail;
+import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
+import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.DataModel.Segment;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+
+import org.easymock.EasyMockSupport;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.util.Collections;
+
 import static com.launchdarkly.sdk.server.BigSegmentStoreWrapper.hashForUserKey;
 import static com.launchdarkly.sdk.server.Evaluator.makeBigSegmentRef;
 import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestUtil.upsertSegment;
 import static com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.createMembershipFromSegmentRefs;
@@ -16,24 +34,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.launchdarkly.sdk.EvaluationDetail;
-import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
-import com.launchdarkly.sdk.LDUser;
-import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.DataModel.Segment;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
-import com.launchdarkly.sdk.server.subsystems.DataStore;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
-
-import org.easymock.EasyMockSupport;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.util.Collections;
-
 @SuppressWarnings("javadoc")
 public class LDClientBigSegmentsTest extends BaseTest {
   private final LDUser user = new LDUser("userkey");
@@ -42,9 +42,10 @@ public class LDClientBigSegmentsTest extends BaseTest {
 
   private LDConfig.Builder configBuilder;
   private BigSegmentStore storeMock;
-  private BigSegmentStoreFactory storeFactoryMock;
+  private ComponentConfigurer<BigSegmentStore> storeFactoryMock;
   private final EasyMockSupport mocks = new EasyMockSupport();
 
+  @SuppressWarnings("unchecked")
   @Before
   public void setup() {
     DataStore dataStore = initedDataStore();
@@ -52,10 +53,10 @@ public class LDClientBigSegmentsTest extends BaseTest {
     upsertSegment(dataStore, bigSegment);
 
     storeMock = mocks.niceMock(BigSegmentStore.class);
-    storeFactoryMock = mocks.strictMock(BigSegmentStoreFactory.class);
-    expect(storeFactoryMock.createBigSegmentStore(isA(ClientContext.class))).andReturn(storeMock);
+    storeFactoryMock = mocks.strictMock(ComponentConfigurer.class);
+    expect(storeFactoryMock.build(isA(ClientContext.class))).andReturn(storeMock);
 
-    configBuilder = baseConfig().dataStore(specificDataStore(dataStore));
+    configBuilder = baseConfig().dataStore(specificComponent(dataStore));
   }
 
   @Test

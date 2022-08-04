@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.server.subsystems.HttpConfigurationFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestInfo;
@@ -17,7 +18,7 @@ import static org.hamcrest.Matchers.nullValue;
 class TestHttpUtil {
   // Used for testWithSpecialHttpConfigurations
   static interface HttpConfigurationTestAction {
-    void accept(URI targetUri, HttpConfigurationFactory httpConfig) throws IOException;
+    void accept(URI targetUri, ComponentConfigurer<HttpConfiguration> httpConfig) throws IOException;
   }
   
   /**
@@ -72,7 +73,7 @@ class TestHttpUtil {
       HttpConfigurationTestAction testActionShouldSucceed) {
     try {
       ServerTLSConfiguration tlsConfig = ServerTLSConfiguration.makeSelfSignedCertificate();
-      HttpConfigurationFactory httpConfig = Components.httpConfiguration()
+      ComponentConfigurer<HttpConfiguration> httpConfig = Components.httpConfiguration()
           .sslSocketFactory(tlsConfig.getSocketFactory(), tlsConfig.getTrustManager());
       try (HttpServer secureServer = HttpServer.startSecure(tlsConfig, handler)) {
         testActionShouldSucceed.accept(secureServer.getUri(), httpConfig);
@@ -87,7 +88,7 @@ class TestHttpUtil {
       HttpConfigurationTestAction testActionShouldSucceed) {
     try {
       try (HttpServer server = HttpServer.start(handler)) {
-        HttpConfigurationFactory httpConfig = Components.httpConfiguration()
+        ComponentConfigurer<HttpConfiguration> httpConfig = Components.httpConfiguration()
             .socketFactory(makeSocketFactorySingleHost(server.getUri().getHost(), server.getPort()));
 
         URI uriWithWrongPort = URI.create("http://localhost:1");
@@ -103,7 +104,7 @@ class TestHttpUtil {
       HttpConfigurationTestAction testActionShouldSucceed) {
     try {
       try (HttpServer server = HttpServer.start(handler)) {
-        HttpConfigurationFactory httpConfig = Components.httpConfiguration()
+        ComponentConfigurer<HttpConfiguration> httpConfig = Components.httpConfiguration()
             .proxyHostAndPort(server.getUri().getHost(), server.getPort());
         
         URI fakeBaseUri = URI.create("http://not-a-real-host");
@@ -127,7 +128,7 @@ class TestHttpUtil {
     };
     try {
       try (HttpServer server = HttpServer.start(proxyHandler)) {
-        HttpConfigurationFactory httpConfig = Components.httpConfiguration()
+        ComponentConfigurer<HttpConfiguration> httpConfig = Components.httpConfiguration()
             .proxyHostAndPort(server.getUri().getHost(), server.getPort())
             .proxyAuth(Components.httpBasicAuthentication("user", "pass"));
         

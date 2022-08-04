@@ -4,14 +4,15 @@ import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel;
+import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
+import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.testhelpers.JsonAssertions;
 
 import org.junit.Test;
@@ -23,6 +24,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 
 import static com.google.common.collect.Iterables.get;
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.testhelpers.JsonAssertions.assertJsonEquals;
 import static com.launchdarkly.testhelpers.JsonAssertions.jsonProperty;
 import static com.launchdarkly.testhelpers.JsonTestValue.jsonOf;
@@ -44,7 +46,7 @@ public class TestDataTest {
   @Test
   public void initializesWithEmptyData() throws Exception {
     TestData td = TestData.dataSource();
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     Future<Void> started = ds.start();
     
     assertThat(started.isDone(), is(true));
@@ -64,7 +66,7 @@ public class TestDataTest {
     td.update(td.flag("flag1").on(true))
       .update(td.flag("flag2").on(false));
     
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     Future<Void> started = ds.start();
     
     assertThat(started.isDone(), is(true));
@@ -90,7 +92,7 @@ public class TestDataTest {
   @Test
   public void addsFlag() throws Exception {
     TestData td = TestData.dataSource();
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     Future<Void> started = ds.start();
     
     assertThat(started.isDone(), is(true));
@@ -115,7 +117,7 @@ public class TestDataTest {
       .variationForUser("a", true)
       .ifMatch(UserAttribute.NAME, LDValue.of("Lucy")).thenReturn(true));
     
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     Future<Void> started = ds.start();
     
     assertThat(started.isDone(), is(true));
@@ -313,7 +315,7 @@ public class TestDataTest {
     
     TestData td = TestData.dataSource();
     
-    DataSource ds = td.createDataSource(null, updates);
+    DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates));
     ds.start();
 
     td.update(configureFlag.apply(td.flag("flagkey")));
@@ -340,7 +342,7 @@ public class TestDataTest {
     }
   }
   
-  private static class CapturingDataSourceUpdates implements DataSourceUpdates {
+  private static class CapturingDataSourceUpdates implements DataSourceUpdateSink {
     BlockingQueue<FullDataSet<ItemDescriptor>> inits = new LinkedBlockingQueue<>();
     BlockingQueue<UpsertParams> upserts = new LinkedBlockingQueue<>();
     boolean valid;
