@@ -7,10 +7,9 @@ import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
-import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;
@@ -25,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.Components.sendEvents;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static com.launchdarkly.testhelpers.JsonAssertions.isJsonArray;
@@ -61,11 +61,11 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
   }
   
   public DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config) {
-    return (DefaultEventProcessor)ec.createEventProcessor(clientContext(SDK_KEY, config));
+    return (DefaultEventProcessor)ec.build(clientContext(SDK_KEY, config));
   }
 
   public static DefaultEventProcessor makeEventProcessor(EventProcessorBuilder ec, LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    return (DefaultEventProcessor)ec.createEventProcessor(
+    return (DefaultEventProcessor)ec.build(
         clientContext(SDK_KEY, config, diagnosticAccumulator));
   }
   
@@ -75,13 +75,8 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
     return makeEventProcessor(ec, config, diagnosticAccumulator);
   }
   
-  public static EventSenderFactory senderFactory(final MockEventSender es) {
-    return new EventSenderFactory() {
-      @Override
-      public EventSender createEventSender(ClientContext clientContext) {
-        return es;
-      }
-    };
+  public static ComponentConfigurer<EventSender> senderFactory(final MockEventSender es) {
+    return specificComponent(es);
   }
   
   public static final class MockEventSender implements EventSender {

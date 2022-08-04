@@ -5,7 +5,8 @@ import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
-import com.launchdarkly.sdk.server.subsystems.HttpConfigurationFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
@@ -258,7 +259,7 @@ public class LDClientEndToEndTest extends BaseTest {
   }
 
   private static void testWithSpecialHttpConfigurations(Handler handler,
-      BiFunction<URI, HttpConfigurationFactory, LDConfig.Builder> makeConfig) throws Exception {
+      BiFunction<URI, ComponentConfigurer<HttpConfiguration>, LDConfig.Builder> makeConfig) throws Exception {
     TestHttpUtil.testWithSpecialHttpConfigurations(handler,
         (serverUri, httpConfig) -> {
           LDConfig config = makeConfig.apply(serverUri, httpConfig)
