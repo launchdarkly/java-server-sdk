@@ -32,33 +32,73 @@ public class EvaluatorSegmentMatchTest extends EvaluatorTestBase {
   
   @Test
   public void explicitIncludeUser() {
-    Segment s = baseSegmentBuilder()
-        .included("foo")
-        .build();
     LDContext c = LDContext.create("foo");
+    Segment s = baseSegmentBuilder()
+        .included(c.getKey())
+        .build();
     
     assertTrue(segmentMatchesContext(s, c));
   }
   
   @Test
   public void explicitExcludeUser() {
-    Segment s = baseSegmentBuilder()
-        .excluded("foo")
-        .build();
     LDContext c = LDContext.create("foo");
+    Segment s = baseSegmentBuilder()
+        .excluded(c.getKey())
+        .rules(segmentRuleBuilder().clauses(clauseMatchingContext(c)).build())
+        .build();
     
     assertFalse(segmentMatchesContext(s, c));
   }
   
   @Test
   public void explicitIncludeHasPrecedence() {
-    Segment s = baseSegmentBuilder()
-        .included("foo")
-        .excluded("foo")
-        .build();
     LDContext c = LDContext.create("foo");
+    Segment s = baseSegmentBuilder()
+        .included(c.getKey())
+        .excluded(c.getKey())
+        .build();
     
     assertTrue(segmentMatchesContext(s, c));
+  }
+  
+  @Test
+  public void includedKeyForContextKind() {
+    ContextKind kind1 = ContextKind.of("kind1");
+    String key = "foo";
+    LDContext c1 = LDContext.create(key);
+    LDContext c2 = LDContext.create(kind1, key);
+    LDContext c3 = LDContext.createMulti(c1, c2);
+
+    Segment s = baseSegmentBuilder()
+        .includedContexts(kind1, key)
+        .build();
+    
+    assertFalse(segmentMatchesContext(s, c1));
+    assertTrue(segmentMatchesContext(s, c2));
+    assertTrue(segmentMatchesContext(s, c3));
+  }
+
+  @Test
+  public void excludedKeyForContextKind() {
+    ContextKind kind1 = ContextKind.of("kind1");
+    String key = "foo";
+    LDContext c1 = LDContext.create(key);
+    LDContext c2 = LDContext.create(kind1, key);
+    LDContext c3 = LDContext.createMulti(c1, c2);
+
+    Segment s = baseSegmentBuilder()
+        .excludedContexts(kind1, key)
+        .rules(
+            segmentRuleBuilder().clauses(clauseMatchingContext(c1)).build(),
+            segmentRuleBuilder().clauses(clauseMatchingContext(c2)).build(),
+            segmentRuleBuilder().clauses(clauseMatchingContext(c3)).build()
+            )
+        .build();
+    
+    assertTrue(segmentMatchesContext(s, c1)); // rule matched, wasn't excluded
+    assertFalse(segmentMatchesContext(s, c2)); // rule matched but was excluded
+    assertFalse(segmentMatchesContext(s, c3)); // rule matched but was excluded
   }
   
   @Test

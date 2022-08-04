@@ -27,6 +27,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static java.util.Arrays.asList;
+
 @SuppressWarnings("javadoc")
 public abstract class ModelBuilders {
   public static FlagBuilder flagBuilder(String key) {
@@ -374,12 +376,14 @@ public abstract class ModelBuilders {
       this.key = key;
     }
     
-    private SegmentBuilder(DataModel.Segment from) {
+    private SegmentBuilder(Segment from) {
       this.key = from.getKey();
-      this.included = ImmutableSet.copyOf(from.getIncluded());
-      this.excluded = ImmutableSet.copyOf(from.getExcluded());
+      this.included = new HashSet<>(from.getIncluded());
+      this.excluded = new HashSet<>(from.getExcluded());
+      this.includedContexts = new ArrayList<>(from.getIncludedContexts());
+      this.excludedContexts = new ArrayList<>(from.getIncludedContexts());
       this.salt = from.getSalt();
-      this.rules = ImmutableList.copyOf(from.getRules());
+      this.rules = new ArrayList<>(from.getRules());
       this.version = from.getVersion();
       this.deleted = from.isDeleted();
     }
@@ -399,12 +403,12 @@ public abstract class ModelBuilders {
     }
     
     public SegmentBuilder included(String... included) {
-      this.included = ImmutableSet.copyOf(included);
+      this.included.addAll(asList(included));
       return this;
     }
     
     public SegmentBuilder excluded(String... excluded) {
-      this.excluded = ImmutableSet.copyOf(excluded);
+      this.excluded.addAll(asList(excluded));
       return this;
     }
     
