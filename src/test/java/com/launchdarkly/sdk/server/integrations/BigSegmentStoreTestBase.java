@@ -2,10 +2,10 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.BaseTest;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -43,7 +43,7 @@ public abstract class BigSegmentStoreTestBase extends BaseTest {
   }
   
   private BigSegmentStore makeEmptyStore() throws Exception {
-    BigSegmentStore store = makeStore(prefix).createBigSegmentStore(makeClientContext());
+    BigSegmentStore store = makeStore(prefix).build(makeClientContext());
     try {
       clearData(prefix);
     } catch (RuntimeException ex) {
@@ -146,7 +146,7 @@ public abstract class BigSegmentStoreTestBase extends BaseTest {
    * @param prefix the database prefix
    * @return the configured factory
    */
-  protected abstract BigSegmentStoreFactory makeStore(String prefix);
+  protected abstract ComponentConfigurer<BigSegmentStore> makeStore(String prefix);
 
   /**
    * Test classes should override this method to clear all data from the underlying data store for

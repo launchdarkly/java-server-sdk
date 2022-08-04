@@ -18,7 +18,7 @@ import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagTracker;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
@@ -63,7 +63,7 @@ public final class LDClient implements LDClientInterface {
   final DataStore dataStore;
   private final BigSegmentStoreStatusProvider bigSegmentStoreStatusProvider;
   private final BigSegmentStoreWrapper bigSegmentStoreWrapper;
-  private final DataSourceUpdates dataSourceUpdates;
+  private final DataSourceUpdateSink dataSourceUpdates;
   private final DataStoreStatusProviderImpl dataStoreStatusProvider;
   private final DataSourceStatusProviderImpl dataSourceStatusProvider;
   private final FlagTrackerImpl flagTracker;
@@ -185,7 +185,7 @@ public final class LDClient implements LDClientInterface {
     
     this.sharedExecutor = createSharedExecutor(config);
     
-    boolean eventsDisabled = Components.isNullImplementation(config.eventProcessorFactory);
+    boolean eventsDisabled = Components.isNullImplementation(config.events);
     if (eventsDisabled) {
       this.eventFactoryDefault = EventFactory.Disabled.INSTANCE;
       this.eventFactoryWithReasons = EventFactory.Disabled.INSTANCE;
@@ -202,11 +202,11 @@ public final class LDClient implements LDClientInterface {
     this.baseLogger = context.getBaseLogger();
     this.evaluationLogger = this.baseLogger.subLogger(Loggers.EVALUATION_LOGGER_NAME);
     
-    this.eventProcessor = config.eventProcessorFactory.createEventProcessor(context);
+    this.eventProcessor = config.events.build(context);
 
     EventBroadcasterImpl<BigSegmentStoreStatusProvider.StatusListener, BigSegmentStoreStatusProvider.Status> bigSegmentStoreStatusNotifier =
         EventBroadcasterImpl.forBigSegmentStoreStatus(sharedExecutor, baseLogger);
-    BigSegmentsConfiguration bigSegmentsConfig = config.bigSegmentsConfigBuilder.createBigSegmentsConfiguration(context);
+    BigSegmentsConfiguration bigSegmentsConfig = config.bigSegments.build(context);
     if (bigSegmentsConfig.getStore() != null) {
       bigSegmentStoreWrapper = new BigSegmentStoreWrapper(bigSegmentsConfig, bigSegmentStoreStatusNotifier, sharedExecutor,
           this.baseLogger.subLogger(Loggers.BIG_SEGMENTS_LOGGER_NAME));
@@ -218,7 +218,7 @@ public final class LDClient implements LDClientInterface {
     EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> dataStoreStatusNotifier =
         EventBroadcasterImpl.forDataStoreStatus(sharedExecutor, baseLogger);
     DataStoreUpdatesImpl dataStoreUpdates = new DataStoreUpdatesImpl(dataStoreStatusNotifier);
-    this.dataStore = config.dataStoreFactory.createDataStore(context, dataStoreUpdates);
+    this.dataStore = config.dataStore.build(context.withDataStoreUpdateSink(dataStoreUpdates));
 
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
@@ -253,7 +253,7 @@ public final class LDClient implements LDClientInterface {
         baseLogger
         );
     this.dataSourceUpdates = dataSourceUpdates;
-    this.dataSource = config.dataSourceFactory.createDataSource(context, dataSourceUpdates);    
+    this.dataSource = config.dataSource.build(context.withDataSourceUpdateSink(dataSourceUpdates));    
     this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates);
     
     this.prereqEvalsDefault = makePrerequisiteEventSender(false);

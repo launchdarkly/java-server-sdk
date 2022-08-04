@@ -7,10 +7,9 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
-import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;
@@ -25,6 +24,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static com.launchdarkly.testhelpers.JsonAssertions.isJsonArray;
@@ -71,13 +71,8 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
         );
   }
 
-  public static EventSenderFactory senderFactory(final EventSender es) {
-    return new EventSenderFactory() {
-      @Override
-      public EventSender createEventSender(ClientContext clientContext) {
-        return es;
-      }
-    };
+  public static ComponentConfigurer<EventSender> senderFactory(final EventSender es) {
+    return specificComponent(es);
   }
   
   public static final class MockEventSender implements EventSender {

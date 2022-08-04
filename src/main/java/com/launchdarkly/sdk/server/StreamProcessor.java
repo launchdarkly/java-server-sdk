@@ -19,7 +19,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
@@ -75,7 +75,7 @@ final class StreamProcessor implements DataSource {
   private static final String ERROR_CONTEXT_MESSAGE = "in stream connection";
   private static final String WILL_RETRY_MESSAGE = "will retry";
 
-  private final DataSourceUpdates dataSourceUpdates;
+  private final DataSourceUpdateSink dataSourceUpdates;
   private final HttpConfiguration httpConfig;
   private final Headers headers;
   @VisibleForTesting final URI streamUri;
@@ -93,7 +93,7 @@ final class StreamProcessor implements DataSource {
   
   StreamProcessor(
       HttpConfiguration httpConfig,
-      DataSourceUpdates dataSourceUpdates,
+      DataSourceUpdateSink dataSourceUpdates,
       int threadPriority,
       DiagnosticStore diagnosticAccumulator,
       URI streamUri,
