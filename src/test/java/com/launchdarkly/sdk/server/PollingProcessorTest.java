@@ -11,7 +11,8 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.testhelpers.ConcurrentHelpers;
 import com.launchdarkly.testhelpers.httptest.Handler;
@@ -94,8 +95,8 @@ public class PollingProcessorTest extends BaseTest {
   
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
-    DataSourceFactory f = Components.pollingDataSource();
-    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, baseConfig().build()), null)) {
+    ComponentConfigurer<DataSource> f = Components.pollingDataSource();
+    try (PollingProcessor pp = (PollingProcessor)f.build(clientContext(SDK_KEY, baseConfig().build()))) {
       assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(StandardEndpoints.DEFAULT_POLLING_BASE_URI));
       assertThat(pp.pollInterval, equalTo(PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL));
     }
@@ -103,9 +104,9 @@ public class PollingProcessorTest extends BaseTest {
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    DataSourceFactory f = Components.pollingDataSource()
+    ComponentConfigurer<DataSource> f = Components.pollingDataSource()
         .pollInterval(LENGTHY_INTERVAL);
-    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, baseConfig().build()), null)) {
+    try (PollingProcessor pp = (PollingProcessor)f.build(clientContext(SDK_KEY, baseConfig().build()))) {
       assertThat(pp.pollInterval, equalTo(LENGTHY_INTERVAL));
     }
   }

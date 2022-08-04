@@ -16,7 +16,6 @@ import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.SegmentRule;
-import com.launchdarkly.sdk.server.DataModel.SegmentTarget;
 import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
@@ -29,6 +28,7 @@ import java.util.Map;
 
 import static com.launchdarkly.sdk.server.EvaluatorBucketing.computeBucketValue;
 import static com.launchdarkly.sdk.server.EvaluatorHelpers.contextKeyIsInTargetList;
+import static com.launchdarkly.sdk.server.EvaluatorHelpers.contextKeyIsInTargetLists;
 import static com.launchdarkly.sdk.server.EvaluatorHelpers.matchClauseByKind;
 import static com.launchdarkly.sdk.server.EvaluatorHelpers.matchClauseWithoutSegments;
 import static com.launchdarkly.sdk.server.EvaluatorHelpers.maybeNegate;
@@ -522,17 +522,6 @@ class Evaluator {
         }
       }
       state.segmentStack.remove(state.segmentStack.size() - 1);
-    }
-    return false;
-  }
-
-  private boolean contextKeyIsInTargetLists(LDContext context, List<SegmentTarget> targets) {
-    int nTargets = targets.size();
-    for (int i = 0; i < nTargets; i++) {
-      SegmentTarget t = targets.get(i);
-      if (contextKeyIsInTargetList(context, t.getContextKind(), t.getValues())) {
-        return true;
-      }
     }
     return false;
   }

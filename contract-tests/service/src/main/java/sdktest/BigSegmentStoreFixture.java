@@ -1,10 +1,10 @@
 package sdktest;
 
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 
 import java.io.IOException;
 
@@ -12,7 +12,7 @@ import sdktest.CallbackRepresentations.BigSegmentStoreGetMembershipParams;
 import sdktest.CallbackRepresentations.BigSegmentStoreGetMembershipResponse;
 import sdktest.CallbackRepresentations.BigSegmentStoreGetMetadataResponse;
 
-public class BigSegmentStoreFixture implements BigSegmentStore, BigSegmentStoreFactory {
+public class BigSegmentStoreFixture implements BigSegmentStore, ComponentConfigurer<BigSegmentStore> {
   private final CallbackService service;
   
   public BigSegmentStoreFixture(CallbackService service) {
@@ -46,7 +46,7 @@ public class BigSegmentStoreFixture implements BigSegmentStore, BigSegmentStoreF
   }
 
   @Override
-  public BigSegmentStore createBigSegmentStore(ClientContext context) {
+  public BigSegmentStore build(ClientContext context) {
     return this;
   }
 }

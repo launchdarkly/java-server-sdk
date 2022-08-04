@@ -1,6 +1,8 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.DataStoreUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
@@ -24,6 +26,8 @@ final class ClientContextImpl extends ClientContext {
   final ScheduledExecutorService sharedExecutor;
   final DiagnosticAccumulator diagnosticAccumulator;
   final DiagnosticEvent.Init diagnosticInitEvent;
+  final DataSourceUpdateSink dataSourceUpdateSink;
+  final DataStoreUpdateSink dataStoreUpdateSink;
 
   private ClientContextImpl(
       ClientContext baseContext,
@@ -37,8 +41,41 @@ final class ClientContextImpl extends ClientContext {
     this.sharedExecutor = sharedExecutor;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.diagnosticInitEvent = diagnosticInitEvent;
+    this.dataSourceUpdateSink = null;
+    this.dataStoreUpdateSink = null;
   }
 
+  private ClientContextImpl(
+      ClientContextImpl copyFrom,
+      DataSourceUpdateSink dataSourceUpdateSink,
+      DataStoreUpdateSink dataStoreUpdateSink
+      ) {
+    super(copyFrom);
+    this.dataSourceUpdateSink = dataSourceUpdateSink;
+    this.dataStoreUpdateSink = dataStoreUpdateSink;
+    this.diagnosticAccumulator = copyFrom.diagnosticAccumulator;
+    this.diagnosticInitEvent = copyFrom.diagnosticInitEvent;
+    this.sharedExecutor = copyFrom.sharedExecutor;
+  }
+  
+  ClientContextImpl withDataSourceUpdateSink(DataSourceUpdateSink newDataSourceUpdateSink) {
+    return new ClientContextImpl(this, newDataSourceUpdateSink, this.dataStoreUpdateSink);
+  }
+  
+  ClientContextImpl withDataStoreUpdateSink(DataStoreUpdateSink newDataStoreUpdateSink) {
+    return new ClientContextImpl(this, this.dataSourceUpdateSink, newDataStoreUpdateSink);
+  }
+  
+  @Override
+  public DataSourceUpdateSink getDataSourceUpdateSink() {
+    return dataSourceUpdateSink;
+  }
+  
+  @Override
+  public DataStoreUpdateSink getDataStoreUpdateSink() {
+    return dataStoreUpdateSink;
+  }
+  
   static ClientContextImpl fromConfig(
       String sdkKey,
       LDConfig config,
@@ -47,11 +84,11 @@ final class ClientContextImpl extends ClientContext {
       ) {
     ClientContext minimalContext = new ClientContext(sdkKey, config.applicationInfo, null,
         null, config.offline, config.serviceEndpoints, config.threadPriority);
-    LoggingConfiguration loggingConfig = config.loggingConfigFactory.createLoggingConfiguration(minimalContext);
+    LoggingConfiguration loggingConfig = config.logging.build(minimalContext);
     
     ClientContext contextWithLogging = new ClientContext(sdkKey, config.applicationInfo, null,
         loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
-    HttpConfiguration httpConfig = config.httpConfigFactory.createHttpConfiguration(contextWithLogging);
+    HttpConfiguration httpConfig = config.http.build(contextWithLogging);
     
     if (httpConfig.getProxy() != null) {
       contextWithLogging.getBaseLogger().info("Using proxy: {} {} authentication.",
