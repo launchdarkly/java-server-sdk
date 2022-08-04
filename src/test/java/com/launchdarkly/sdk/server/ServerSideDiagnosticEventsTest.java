@@ -7,15 +7,11 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
-import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
-import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
 import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
-import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
 
 import org.junit.Test;
 
@@ -436,7 +432,7 @@ public class ServerSideDiagnosticEventsTest {
     assertJsonEquals(diagnosticJson1, diagnosticJson2);
   }
 
-  private static class DataSourceFactoryWithDiagnosticDescription implements DataSourceFactory, DiagnosticDescription {
+  private static class DataSourceFactoryWithDiagnosticDescription implements ComponentConfigurer<DataSource>, DiagnosticDescription {
     private final LDValue value;
     
     DataSourceFactoryWithDiagnosticDescription(LDValue value) {
@@ -449,19 +445,19 @@ public class ServerSideDiagnosticEventsTest {
     }
 
     @Override
-    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+    public DataSource build(ClientContext context) {
       return null;
     }
   }
 
-  private static class DataSourceFactoryWithoutDiagnosticDescription implements DataSourceFactory {
+  private static class DataSourceFactoryWithoutDiagnosticDescription implements ComponentConfigurer<DataSource> {
     @Override
-    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+    public DataSource build(ClientContext context) {
       return null;
     }
   }
 
-  private static class DataStoreFactoryWithDiagnosticDescription implements DataStoreFactory, DiagnosticDescription {
+  private static class DataStoreFactoryWithDiagnosticDescription implements ComponentConfigurer<DataStore>, DiagnosticDescription {
     private final LDValue value;
     
     DataStoreFactoryWithDiagnosticDescription(LDValue value) {
@@ -474,33 +470,33 @@ public class ServerSideDiagnosticEventsTest {
     }
 
     @Override
-    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataStore build(ClientContext context) {
       return null;
     }
   }
 
-  private static class DataStoreFactoryWithoutDiagnosticDescription implements DataStoreFactory {
+  private static class DataStoreFactoryWithoutDiagnosticDescription implements ComponentConfigurer<DataStore> {
     @Override
-    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataStore build(ClientContext context) {
       return null;
     }
   }
   
-  private static class PersistentDataStoreFactoryWithComponentName implements PersistentDataStoreFactory, DiagnosticDescription {
+  private static class PersistentDataStoreFactoryWithComponentName implements ComponentConfigurer<PersistentDataStore>, DiagnosticDescription {
     @Override
     public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.of("my-test-store");
     }
 
     @Override
-    public PersistentDataStore createPersistentDataStore(ClientContext context) {
+    public PersistentDataStore build(ClientContext context) {
       return null;
     }
   }
   
-  private static class PersistentDataStoreFactoryWithoutComponentName implements PersistentDataStoreFactory {
+  private static class PersistentDataStoreFactoryWithoutComponentName implements ComponentConfigurer<PersistentDataStore> {
     @Override
-    public PersistentDataStore createPersistentDataStore(ClientContext context) {
+    public PersistentDataStore build(ClientContext context) {
       return null;
     }
   }

@@ -20,19 +20,14 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
-import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
-import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
 import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
-import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
-import com.launchdarkly.sdk.server.subsystems.PersistentDataStoreFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -51,10 +46,10 @@ import okhttp3.Credentials;
 abstract class ComponentsImpl {
   private ComponentsImpl() {}
 
-  static final class InMemoryDataStoreFactory implements DataStoreFactory, DiagnosticDescription {
-    static final DataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
+  static final class InMemoryDataStoreFactory implements ComponentConfigurer<DataStore>, DiagnosticDescription {
+    static final InMemoryDataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
     @Override
-    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
+    public DataStore build(ClientContext context) {
       return new InMemoryDataStore();
     }
 
@@ -64,7 +59,7 @@ abstract class ComponentsImpl {
     }
   }
   
-  static final EventProcessorFactory NULL_EVENT_PROCESSOR_FACTORY = context -> NullEventProcessor.INSTANCE;
+  static final ComponentConfigurer<EventProcessor> NULL_EVENT_PROCESSOR_FACTORY = context -> NullEventProcessor.INSTANCE;
   
   /**
    * Stub implementation of {@link EventProcessor} for when we don't want to send any events.
@@ -92,11 +87,11 @@ abstract class ComponentsImpl {
     public void recordCustomEvent(LDContext context, String eventKey, LDValue data, Double metricValue) {}
   }
   
-  static final class NullDataSourceFactory implements DataSourceFactory, DiagnosticDescription {
+  static final class NullDataSourceFactory implements ComponentConfigurer<DataSource>, DiagnosticDescription {
     static final NullDataSourceFactory INSTANCE = new NullDataSourceFactory();
     
     @Override
-    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+    public DataSource build(ClientContext context) {
       LDLogger logger = context.getBaseLogger();
       if (context.isOffline()) {
         // If they have explicitly called offline(true) to disable everything, we'll log this slightly
@@ -105,7 +100,7 @@ abstract class ComponentsImpl {
       } else {
         logger.info("LaunchDarkly client will not connect to Launchdarkly for feature flag data");
       }
-      dataSourceUpdates.updateStatus(DataSourceStatusProvider.State.VALID, null);
+      context.getDataSourceUpdateSink().updateStatus(DataSourceStatusProvider.State.VALID, null);
       return NullDataSource.INSTANCE;
     }
 
@@ -145,7 +140,7 @@ abstract class ComponentsImpl {
   static final class StreamingDataSourceBuilderImpl extends StreamingDataSourceBuilder
       implements DiagnosticDescription {
     @Override
-    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+    public DataSource build(ClientContext context) {
       LDLogger baseLogger = context.getBaseLogger();
       LDLogger logger = baseLogger.subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
       logger.info("Enabling streaming API");
@@ -159,7 +154,7 @@ abstract class ComponentsImpl {
       
       return new StreamProcessor(
           toHttpProperties(context.getHttp()),
-          dataSourceUpdates,
+          context.getDataSourceUpdateSink(),
           context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticStore,
           streamUri,
@@ -191,7 +186,7 @@ abstract class ComponentsImpl {
     }
     
     @Override
-    public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+    public DataSource build(ClientContext context) {
       LDLogger baseLogger = context.getBaseLogger();
       LDLogger logger = baseLogger.subLogger(Loggers.DATA_SOURCE_LOGGER_NAME);
       
@@ -208,7 +203,7 @@ abstract class ComponentsImpl {
       DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(toHttpProperties(context.getHttp()), pollUri, logger);
       return new PollingProcessor(
           requestor,
-          dataSourceUpdates,
+          context.getDataSourceUpdateSink(),
           ClientContextImpl.get(context).sharedExecutor,
           pollInterval,
           logger
@@ -233,13 +228,13 @@ abstract class ComponentsImpl {
   static final class EventProcessorBuilderImpl extends EventProcessorBuilder
       implements DiagnosticDescription {
     @Override
-    public EventProcessor createEventProcessor(ClientContext context) {
+    public EventProcessor build(ClientContext context) {
       EventSender eventSender;
-      if (eventSenderFactory == null) {
+      if (eventSenderConfigurer == null) {
         eventSender = new DefaultEventSender(toHttpProperties(context.getHttp()), DefaultEventSender.DEFAULT_RETRY_DELAY,
             context.getBaseLogger().subLogger(Loggers.EVENTS_LOGGER_NAME));
       } else {
-        eventSender = new EventSenderWrapper(eventSenderFactory.createEventSender(context));
+        eventSender = new EventSenderWrapper(eventSenderConfigurer.build(context));
       }
       URI eventsUri = StandardEndpoints.selectBaseUri(
           context.getServiceEndpoints().getEventsBaseUri(),
@@ -315,7 +310,7 @@ abstract class ComponentsImpl {
 
   static final class HttpConfigurationBuilderImpl extends HttpConfigurationBuilder {
     @Override
-    public HttpConfiguration createHttpConfiguration(ClientContext clientContext) {
+    public HttpConfiguration build(ClientContext clientContext) {
       LDLogger logger = clientContext.getBaseLogger();
       // Build the default headers
       ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
@@ -363,30 +358,27 @@ abstract class ComponentsImpl {
   }
   
   static final class PersistentDataStoreBuilderImpl extends PersistentDataStoreBuilder implements DiagnosticDescription {
-    public PersistentDataStoreBuilderImpl(PersistentDataStoreFactory persistentDataStoreFactory) {
-      super(persistentDataStoreFactory);
+    public PersistentDataStoreBuilderImpl(ComponentConfigurer<PersistentDataStore> storeConfigurer) {
+      super(storeConfigurer);
     }
 
     @Override
     public LDValue describeConfiguration(ClientContext clientContext) {
-      if (persistentDataStoreFactory instanceof DiagnosticDescription) {
-        return ((DiagnosticDescription)persistentDataStoreFactory).describeConfiguration(clientContext);
+      if (persistentDataStoreConfigurer instanceof DiagnosticDescription) {
+        return ((DiagnosticDescription)persistentDataStoreConfigurer).describeConfiguration(clientContext);
       }
       return LDValue.of("custom");
     }
     
-    /**
-     * Called by the SDK to create the data store instance.
-     */
     @Override
-    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
-      PersistentDataStore core = persistentDataStoreFactory.createPersistentDataStore(context);
+    public DataStore build(ClientContext context) {
+      PersistentDataStore core = persistentDataStoreConfigurer.build(context);
       return new PersistentDataStoreWrapper(
           core,
           cacheTime,
           staleValuesPolicy,
           recordCacheStats,
-          dataStoreUpdates,
+          context.getDataStoreUpdateSink(),
           ClientContextImpl.get(context).sharedExecutor,
           context.getBaseLogger().subLogger(Loggers.DATA_STORE_LOGGER_NAME)
           );
@@ -395,7 +387,7 @@ abstract class ComponentsImpl {
   
   static final class LoggingConfigurationBuilderImpl extends LoggingConfigurationBuilder {
     @Override
-    public LoggingConfiguration createLoggingConfiguration(ClientContext clientContext) {
+    public LoggingConfiguration build(ClientContext clientContext) {
       LDLogAdapter adapter = logAdapter == null ? LDSLF4J.adapter() : logAdapter;
       LDLogAdapter filteredAdapter = Logs.level(adapter,
           minimumLevel == null ? LDLogLevel.INFO : minimumLevel);
@@ -403,7 +395,7 @@ abstract class ComponentsImpl {
       // configuration system, then calling Logs.level here has no effect and filteredAdapter will be
       // just the same as adapter.
       String name = baseName == null ? Loggers.BASE_LOGGER_NAME : baseName;
-      return new LoggingConfigurationImpl(name, filteredAdapter, logDataSourceOutageAsErrorAfter);
+      return new LoggingConfiguration(name, filteredAdapter, logDataSourceOutageAsErrorAfter);
     }
   }
 
