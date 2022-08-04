@@ -503,7 +503,7 @@ class Evaluator {
     return matchContext != null && keys.contains(matchContext.getKey());
   }
 
-  private boolean contextKeyIsInTargetLists(LDContext context, List<SegmentTarget> targets) {
+  private static boolean contextKeyIsInTargetLists(LDContext context, List<SegmentTarget> targets) {
     int nTargets = targets.size();
     for (int i = 0; i < nTargets; i++) {
       SegmentTarget t = targets.get(i);
