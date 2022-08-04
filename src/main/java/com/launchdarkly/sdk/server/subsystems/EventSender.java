@@ -7,7 +7,7 @@ import java.util.Date;
 /**
  * Interface for a component that can deliver preformatted event data.
  * 
- * @see com.launchdarkly.sdk.server.integrations.EventProcessorBuilder#eventSender(EventSenderFactory)
+ * @see com.launchdarkly.sdk.server.integrations.EventProcessorBuilder#eventSender(ComponentConfigurer)
  * @since 4.14.0
  */
 public interface EventSender extends Closeable {

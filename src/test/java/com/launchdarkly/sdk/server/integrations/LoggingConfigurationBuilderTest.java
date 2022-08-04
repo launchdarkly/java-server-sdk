@@ -26,7 +26,7 @@ public class LoggingConfigurationBuilderTest {
 
   @Test
   public void testDefaults() {
-    LoggingConfiguration c = Components.logging().createLoggingConfiguration(BASIC_CONTEXT);
+    LoggingConfiguration c = Components.logging().build(BASIC_CONTEXT);
     assertEquals(LoggingConfigurationBuilder.DEFAULT_LOG_DATA_SOURCE_OUTAGE_AS_ERROR_AFTER,
         c.getLogDataSourceOutageAsErrorAfter());
   }
@@ -35,19 +35,19 @@ public class LoggingConfigurationBuilderTest {
   public void logDataSourceOutageAsErrorAfter() {
     LoggingConfiguration c1 = Components.logging()
         .logDataSourceOutageAsErrorAfter(Duration.ofMinutes(9))
-        .createLoggingConfiguration(BASIC_CONTEXT);
+        .build(BASIC_CONTEXT);
     assertEquals(Duration.ofMinutes(9), c1.getLogDataSourceOutageAsErrorAfter());
 
     LoggingConfiguration c2 = Components.logging()
         .logDataSourceOutageAsErrorAfter(null)
-        .createLoggingConfiguration(BASIC_CONTEXT);
+        .build(BASIC_CONTEXT);
     assertNull(c2.getLogDataSourceOutageAsErrorAfter());
   }
   
   @Test
   public void defaultLogAdapterIsSLF4J() {
     LoggingConfiguration c = Components.logging()
-        .createLoggingConfiguration(BASIC_CONTEXT);
+        .build(BASIC_CONTEXT);
     assertThat(c.getLogAdapter(), sameInstance(LDSLF4J.adapter()));
   }
   
@@ -57,7 +57,7 @@ public class LoggingConfigurationBuilderTest {
     LoggingConfiguration c = Components.logging()
         .adapter(logSink)
         .level(LDLogLevel.WARN)
-        .createLoggingConfiguration(BASIC_CONTEXT);
+        .build(BASIC_CONTEXT);
     LDLogger logger = LDLogger.withAdapter(c.getLogAdapter(), "");
     logger.debug("message 1");
     logger.info("message 2");
@@ -71,7 +71,7 @@ public class LoggingConfigurationBuilderTest {
     LogCapture logSink = Logs.capture();
     LoggingConfiguration c = Components.logging()
         .adapter(logSink)
-        .createLoggingConfiguration(BASIC_CONTEXT);
+        .build(BASIC_CONTEXT);
     LDLogger logger = LDLogger.withAdapter(c.getLogAdapter(), "");
     logger.debug("message 1");
     logger.info("message 2");

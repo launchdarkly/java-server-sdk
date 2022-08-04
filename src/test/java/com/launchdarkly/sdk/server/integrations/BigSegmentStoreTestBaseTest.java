@@ -1,10 +1,10 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.Membership;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes.StoreMetadata;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -30,7 +30,7 @@ public class BigSegmentStoreTestBaseTest extends BigSegmentStoreTestBase {
   }
 
   @Override
-  protected BigSegmentStoreFactory makeStore(String prefix) {
+  protected ComponentConfigurer<BigSegmentStore> makeStore(String prefix) {
     return new MockStoreFactory(getOrCreateDataSet(prefix));
   }
 
@@ -53,7 +53,7 @@ public class BigSegmentStoreTestBaseTest extends BigSegmentStoreTestBase {
     dataSet.memberships.put(userHashKey, createMembershipFromSegmentRefs(includedSegmentRefs, excludedSegmentRefs));
   }
 
-  private static final class MockStoreFactory implements BigSegmentStoreFactory {
+  private static final class MockStoreFactory implements ComponentConfigurer<BigSegmentStore> {
     private final DataSet data;
 
     private MockStoreFactory(DataSet data) {
@@ -61,7 +61,7 @@ public class BigSegmentStoreTestBaseTest extends BigSegmentStoreTestBase {
     }
 
     @Override
-    public BigSegmentStore createBigSegmentStore(ClientContext context) {
+    public BigSegmentStore build(ClientContext context) {
       return new MockStore(data);
     }
   }
