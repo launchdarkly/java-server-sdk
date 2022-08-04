@@ -7,7 +7,7 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
@@ -29,7 +29,7 @@ final class PollingProcessor implements DataSource {
   private static final String WILL_RETRY_MESSAGE = "will retry at next scheduled poll interval";
 
   @VisibleForTesting final FeatureRequestor requestor;
-  private final DataSourceUpdates dataSourceUpdates;
+  private final DataSourceUpdateSink dataSourceUpdates;
   private final ScheduledExecutorService scheduler;
   @VisibleForTesting final Duration pollInterval;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -39,7 +39,7 @@ final class PollingProcessor implements DataSource {
 
   PollingProcessor(
       FeatureRequestor requestor,
-      DataSourceUpdates dataSourceUpdates,
+      DataSourceUpdateSink dataSourceUpdates,
       ScheduledExecutorService sharedExecutor,
       Duration pollInterval,
       LDLogger logger

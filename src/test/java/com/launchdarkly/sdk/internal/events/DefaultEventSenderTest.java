@@ -247,7 +247,7 @@ public class DefaultEventSenderTest extends BaseEventTest {
 //    
 //    TestHttpUtil.testWithSpecialHttpConfigurations(handler,
 //        (targetUri, goodHttpConfig) -> {
-//          HttpConfiguration config = goodHttpConfig.createHttpConfiguration(clientContext("", LDConfig.DEFAULT));
+//          HttpConfiguration config = goodHttpConfig.build(clientContext("", LDConfig.DEFAULT));
 //          
 //          try (EventSender es = makeEventSender(ComponentsImpl.toHttpProperties(config))) {
 //            EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, targetUri);
@@ -258,7 +258,7 @@ public class DefaultEventSenderTest extends BaseEventTest {
 //        },
 //        
 //        (targetUri, badHttpConfig) -> {
-//          HttpConfiguration config = badHttpConfig.createHttpConfiguration(clientContext("", LDConfig.DEFAULT));
+//          HttpConfiguration config = badHttpConfig.build(clientContext("", LDConfig.DEFAULT));
 // 
 //          try (EventSender es = makeEventSender(ComponentsImpl.toHttpProperties(config))) {
 //            EventSender.Result result = es.sendAnalyticsEvents(FAKE_DATA_BYTES, 1, targetUri);

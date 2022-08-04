@@ -3,9 +3,9 @@ package com.launchdarkly.sdk.server.integrations;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig.Builder;
-import com.launchdarkly.sdk.server.subsystems.EventProcessorFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
-import com.launchdarkly.sdk.server.subsystems.EventSenderFactory;
 
 import java.time.Duration;
 import java.util.HashSet;
@@ -16,7 +16,7 @@ import java.util.Set;
  * <p>
  * The SDK normally buffers analytics events and sends them to LaunchDarkly at intervals. If you want
  * to customize this behavior, create a builder with {@link Components#sendEvents()}, change its
- * properties with the methods of this class, and pass it to {@link Builder#events(EventProcessorFactory)}:
+ * properties with the methods of this class, and pass it to {@link Builder#events(ComponentConfigurer)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .events(Components.sendEvents().capacity(5000).flushIntervalSeconds(2))
@@ -27,7 +27,7 @@ import java.util.Set;
  * 
  * @since 4.12.0
  */
-public abstract class EventProcessorBuilder implements EventProcessorFactory {
+public abstract class EventProcessorBuilder implements ComponentConfigurer<EventProcessor> {
   /**
    * The default value for {@link #capacity(int)}.
    */
@@ -65,7 +65,7 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
   protected Set<AttributeRef> privateAttributes;
   protected int userKeysCapacity = DEFAULT_USER_KEYS_CAPACITY;
   protected Duration userKeysFlushInterval = DEFAULT_USER_KEYS_FLUSH_INTERVAL;
-  protected EventSenderFactory eventSenderFactory = null;
+  protected ComponentConfigurer<EventSender> eventSenderConfigurer = null;
 
   /**
    * Sets whether or not all optional user attributes should be hidden from LaunchDarkly.
@@ -130,11 +130,11 @@ public abstract class EventProcessorBuilder implements EventProcessorFactory {
    * service endpoint (or any other endpoint specified with {@link Builder#serviceEndpoints(ServiceEndpointsBuilder)}.
    * Providing a custom implementation may be useful in tests, or if the event data needs to be stored and forwarded. 
    * 
-   * @param eventSenderFactory a factory for an {@link EventSender} implementation
+   * @param eventSenderConfigurer a factory for an {@link EventSender} implementation
    * @return the builder
    */
-  public EventProcessorBuilder eventSender(EventSenderFactory eventSenderFactory) {
-    this.eventSenderFactory = eventSenderFactory;
+  public EventProcessorBuilder eventSender(ComponentConfigurer<EventSender> eventSenderConfigurer) {
+    this.eventSenderConfigurer = eventSenderConfigurer;
     return this;
   }
   

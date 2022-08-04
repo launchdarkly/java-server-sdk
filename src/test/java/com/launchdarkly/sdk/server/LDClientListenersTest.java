@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.TestComponents.DataStoreFactoryThatExposesUpdater;
+import com.launchdarkly.sdk.server.TestComponents.ContextCapturingFactory;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.integrations.TestData;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
@@ -12,10 +12,10 @@ import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagValueChangeEvent;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes;
-import com.launchdarkly.sdk.server.subsystems.ClientContext;
-import com.launchdarkly.sdk.server.subsystems.DataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 
 import org.easymock.EasyMockSupport;
 import org.junit.Test;
@@ -27,11 +27,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.launchdarkly.sdk.server.TestComponents.specificPersistentDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.isA;
 import static org.easymock.EasyMock.replay;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -210,7 +209,7 @@ public class LDClientListenersTest extends BaseTest {
     LDConfig config = baseConfig()
         .dataSource(Components.externalUpdatesOnly())
         .dataStore(
-            Components.persistentDataStore(specificPersistentDataStore(new MockPersistentDataStore()))
+            Components.persistentDataStore(TestComponents.<PersistentDataStore>specificComponent(new MockPersistentDataStore()))
             )
         .events(Components.noEvents())
         .build();
@@ -221,39 +220,35 @@ public class LDClientListenersTest extends BaseTest {
 
   @Test
   public void dataStoreStatusProviderReturnsLatestStatus() throws Exception {
-    DataStoreFactory underlyingStoreFactory = Components.persistentDataStore(
-        specificPersistentDataStore(new MockPersistentDataStore()));
-    DataStoreFactoryThatExposesUpdater factoryWithUpdater = new DataStoreFactoryThatExposesUpdater(underlyingStoreFactory);
+    ComponentConfigurer<DataStore> underlyingStoreFactory = Components.persistentDataStore(
+        TestComponents.<PersistentDataStore>specificComponent(new MockPersistentDataStore()));
+    ContextCapturingFactory<DataStore> capturingFactory = new ContextCapturingFactory<>(underlyingStoreFactory);
     LDConfig config = baseConfig()
-        .dataSource(Components.externalUpdatesOnly())
-        .dataStore(factoryWithUpdater)
-        .events(Components.noEvents())
+        .dataStore(capturingFactory)
         .build();    
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       DataStoreStatusProvider.Status originalStatus = new DataStoreStatusProvider.Status(true, false);
       DataStoreStatusProvider.Status newStatus = new DataStoreStatusProvider.Status(false, false);
       assertThat(client.getDataStoreStatusProvider().getStatus(), equalTo(originalStatus));
-      factoryWithUpdater.dataStoreUpdates.updateStatus(newStatus);
+      capturingFactory.clientContext.getDataStoreUpdateSink().updateStatus(newStatus);
       assertThat(client.getDataStoreStatusProvider().getStatus(), equalTo(newStatus));
     }
   }
 
   @Test
   public void dataStoreStatusProviderSendsStatusUpdates() throws Exception {
-    DataStoreFactory underlyingStoreFactory = Components.persistentDataStore(
-        specificPersistentDataStore(new MockPersistentDataStore()));
-    DataStoreFactoryThatExposesUpdater factoryWithUpdater = new DataStoreFactoryThatExposesUpdater(underlyingStoreFactory);
+    ComponentConfigurer<DataStore> underlyingStoreFactory = Components.persistentDataStore(
+        TestComponents.<PersistentDataStore>specificComponent(new MockPersistentDataStore()));
+    ContextCapturingFactory<DataStore> capturingFactory = new ContextCapturingFactory<>(underlyingStoreFactory);
     LDConfig config = baseConfig()
-        .dataSource(Components.externalUpdatesOnly())
-        .dataStore(factoryWithUpdater)
-        .events(Components.noEvents())
+        .dataStore(capturingFactory)
         .build();    
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       BlockingQueue<DataStoreStatusProvider.Status> statuses = new LinkedBlockingQueue<>();
       client.getDataStoreStatusProvider().addStatusListener(statuses::add);
 
       DataStoreStatusProvider.Status newStatus = new DataStoreStatusProvider.Status(false, false);
-      factoryWithUpdater.dataStoreUpdates.updateStatus(newStatus);
+      capturingFactory.clientContext.getDataStoreUpdateSink().updateStatus(newStatus);
       
       assertThat(statuses.take(), equalTo(newStatus));
     }
@@ -308,14 +303,13 @@ public class LDClientListenersTest extends BaseTest {
       throw new RuntimeException("sorry");
     }).anyTimes();
 
-    BigSegmentStoreFactory storeFactoryMock = mocks.strictMock(BigSegmentStoreFactory.class);
-    expect(storeFactoryMock.createBigSegmentStore(isA(ClientContext.class))).andReturn(storeMock);
+    ComponentConfigurer<BigSegmentStore> storeFactory = specificComponent(storeMock);
 
-    replay(storeFactoryMock, storeMock);
+    replay(storeMock);
 
     LDConfig config = baseConfig()
         .bigSegments(
-            Components.bigSegments(storeFactoryMock).statusPollInterval(Duration.ofMillis(10))
+            Components.bigSegments(storeFactory).statusPollInterval(Duration.ofMillis(10))
         )
         .build();
 

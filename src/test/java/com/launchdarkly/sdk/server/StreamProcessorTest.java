@@ -17,7 +17,8 @@ import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
@@ -138,9 +139,9 @@ public class StreamProcessorTest extends BaseTest {
 
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
-    DataSourceFactory f = Components.streamingDataSource();
-    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
-        dataSourceUpdates)) {
+    ComponentConfigurer<DataSource> f = Components.streamingDataSource();
+    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, LDConfig.DEFAULT)
+        .withDataSourceUpdateSink(dataSourceUpdates))) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
       assertThat(sp.streamUri, equalTo(StandardEndpoints.DEFAULT_STREAMING_BASE_URI));
     }
@@ -148,10 +149,10 @@ public class StreamProcessorTest extends BaseTest {
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    DataSourceFactory f = Components.streamingDataSource()
+    ComponentConfigurer<DataSource> f = Components.streamingDataSource()
         .initialReconnectDelay(Duration.ofMillis(5555));
-    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
-        dataSourceUpdates(dataStore))) {
+    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, LDConfig.DEFAULT)
+        .withDataSourceUpdateSink(dataSourceUpdates(dataStore)))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
     }
   }

@@ -2,15 +2,15 @@ package com.launchdarkly.sdk.server.subsystems;
 
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
 
 /**
  * Context information provided by the {@link com.launchdarkly.sdk.server.LDClient} when creating components.
  * <p>
- * This is passed as a parameter to {@link DataStoreFactory#createDataStore(ClientContext, DataStoreUpdates)},
- * etc. Component factories do not receive the entire {@link com.launchdarkly.sdk.server.LDConfig} because
+ * This is passed as a parameter to component factories that implement {@link ComponentConfigurer}.
+ * Component factories do not receive the entire {@link com.launchdarkly.sdk.server.LDConfig} because
  * it could contain factory objects that have mutable state, and because components should not be able
  * to access the configurations of unrelated components.
  * <p>
@@ -35,16 +35,13 @@ public class ClientContext {
    * 
    * @param sdkKey the SDK key
    * @param applicationInfo application metadata properties from
-   *   {@link LDConfig.Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)}
-   * @param http HTTP configuration properties from
-   *   {@link LDConfig.Builder#http(HttpConfigurationFactory)}
-   * @param logging logging configuration properties from
-   *   {@link LDConfig.Builder#logging(LoggingConfigurationFactory)}
+   *   {@link Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)}
+   * @param http HTTP configuration properties from {@link Builder#http(ComponentConfigurer)}
+   * @param logging logging configuration properties from {@link Builder#logging(ComponentConfigurer)}
    * @param offline true if the SDK should be entirely offline
    * @param serviceEndpoints service endpoint URI properties from
-   *   {@link LDConfig.Builder#serviceEndpoints(com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder)}
-   * @param threadPriority worker thread priority from
-   *   {@link LDConfig.Builder#threadPriority(int)}
+   *   {@link Builder#serviceEndpoints(com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder)}
+   * @param threadPriority worker thread priority from {@link Builder#threadPriority(int)}
    */
   public ClientContext(
       String sdkKey,
@@ -68,6 +65,16 @@ public class ClientContext {
   }
   
   /**
+   * Copy constructor.
+   * 
+   * @param copyFrom the instance to copy from
+   */
+  protected ClientContext(ClientContext copyFrom) {
+    this(copyFrom.sdkKey, copyFrom.applicationInfo, copyFrom.http, copyFrom.logging,
+        copyFrom.offline, copyFrom.serviceEndpoints, copyFrom.threadPriority);
+  }
+  
+  /**
    * Basic constructor for convenience in testing, using defaults for most properties.
    * 
    * @param sdkKey the SDK key
@@ -86,18 +93,29 @@ public class ClientContext {
   
   private static HttpConfiguration defaultHttp(String sdkKey) {
     ClientContext minimalContext = new ClientContext(sdkKey, null, null, null, false, null, 0);
-    return Components.httpConfiguration().createHttpConfiguration(minimalContext);
+    return Components.httpConfiguration().build(minimalContext);
   }
   
   private static LoggingConfiguration defaultLogging() {
     ClientContext minimalContext = new ClientContext("", null, null, null, false, null, 0);
-    return Components.logging().createLoggingConfiguration(minimalContext);
+    return Components.logging().build(minimalContext);
   }
   
+  /**
+   * Returns the configured SDK key.
+   * 
+   * @return the SDK key
+   */
   public String getSdkKey() {
     return sdkKey;
   }
   
+  /**
+   * Returns the application metadata, if any, set by
+   * {@link Builder#applicationInfo(com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder)}.
+   * 
+   * @return the application metadata or null
+   */
   public ApplicationInfo getApplicationInfo() {
     return applicationInfo;
   }
@@ -108,6 +126,32 @@ public class ClientContext {
    */
   public LDLogger getBaseLogger() {
     return baseLogger;
+  }
+
+  /**
+   * Returns the component that {@link DataSource} implementations use to deliver data and status
+   * updates to the SDK.
+   * <p>
+   * This component is only available when the SDK is calling a {@link DataSource} factory.
+   * Otherwise the method returns null.
+   *
+   * @return the {@link DataSourceUpdateSink}, if applicable
+   */
+  public DataSourceUpdateSink getDataSourceUpdateSink() {
+    return null;
+  }
+  
+  /**
+   * Returns the component that {@link DataStore} implementations use to deliver data store status
+   * updates to the SDK.
+   * <p>
+   * This component is only available when the SDK is calling a {@link DataStore} factory.
+   * Otherwise the method returns null.
+   *
+   * @return the {@link DataStoreUpdateSink}, if applicable
+   */
+  public DataStoreUpdateSink getDataStoreUpdateSink() {
+    return null;
   }
   
   /**
@@ -127,14 +171,30 @@ public class ClientContext {
     return logging;
   }
   
+  /**
+   * Returns true if the SDK was configured to be completely offline.
+   * 
+   * @return true if configured to be offline
+   */
   public boolean isOffline() {
     return offline;
   }
   
+  /**
+   * Returns the base service URIs used by SDK components.
+   * 
+   * @return the service endpoint URIs
+   */
   public ServiceEndpoints getServiceEndpoints() {
     return serviceEndpoints;
   }
   
+  /**
+   * Returns the worker thread priority that is set by
+   * {@link Builder#threadPriority(int)}.
+   * 
+   * @return the thread priority
+   */
   public int getThreadPriority() {
     return threadPriority;
   }

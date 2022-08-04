@@ -6,9 +6,8 @@ import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 
@@ -28,13 +27,10 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagWithValue;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
 import static com.launchdarkly.sdk.server.TestComponents.failedDataSource;
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataSource;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificEventProcessor;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.isA;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -213,8 +209,9 @@ public class LDClientTest extends BaseTest {
   }
 
   @Test
-  public void diagnosticStorePassedToFactoriesWhenSupported() throws IOException {
-    DataSourceFactory mockDataSourceFactory = mocks.createStrictMock(DataSourceFactory.class);
+  public void sameDiagnosticStorePassedToFactoriesWhenSupported() throws IOException {
+    @SuppressWarnings("unchecked")
+    ComponentConfigurer<DataSource> mockDataSourceFactory = mocks.createStrictMock(ComponentConfigurer.class);
 
     LDConfig config = new LDConfig.Builder()
             .serviceEndpoints(Components.serviceEndpoints().events("fake-host")) // event processor will try to send a diagnostic event here
@@ -225,8 +222,7 @@ public class LDClientTest extends BaseTest {
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
-        isA(DataSourceUpdates.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
 
     mocks.replayAll();
 
@@ -238,7 +234,8 @@ public class LDClientTest extends BaseTest {
 
   @Test
   public void nullDiagnosticStorePassedToFactoriesWhenOptedOut() throws IOException {
-    DataSourceFactory mockDataSourceFactory = mocks.createStrictMock(DataSourceFactory.class);
+    @SuppressWarnings("unchecked")
+    ComponentConfigurer<DataSource> mockDataSourceFactory = mocks.createStrictMock(ComponentConfigurer.class);
 
     LDConfig config = new LDConfig.Builder()
             .dataSource(mockDataSourceFactory)
@@ -248,8 +245,7 @@ public class LDClientTest extends BaseTest {
             .build();
 
     Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockDataSourceFactory.createDataSource(capture(capturedDataSourceContext),
-        isA(DataSourceUpdates.class))).andReturn(failedDataSource());
+    expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
 
     mocks.replayAll();
 
@@ -342,7 +338,7 @@ public class LDClientTest extends BaseTest {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWait(Duration.ZERO)
-            .dataStore(specificDataStore(testDataStore));
+            .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(true).times(1);
     mocks.replayAll();
@@ -359,7 +355,7 @@ public class LDClientTest extends BaseTest {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWait(Duration.ZERO)
-            .dataStore(specificDataStore(testDataStore));
+            .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(true).times(1);
     mocks.replayAll();
@@ -375,7 +371,7 @@ public class LDClientTest extends BaseTest {
     DataStore testDataStore = new InMemoryDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWait(Duration.ZERO)
-            .dataStore(specificDataStore(testDataStore));
+            .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
     mocks.replayAll();
@@ -392,7 +388,7 @@ public class LDClientTest extends BaseTest {
     DataStore testDataStore = initedDataStore();
     LDConfig.Builder config = new LDConfig.Builder()
             .startWait(Duration.ZERO)
-            .dataStore(specificDataStore(testDataStore));
+            .dataStore(specificComponent(testDataStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
     mocks.replayAll();
@@ -409,7 +405,7 @@ public class LDClientTest extends BaseTest {
     DataStore badStore = dataStoreThatThrowsException(new RuntimeException("sorry"));
     LDConfig.Builder config = new LDConfig.Builder()
         .startWait(Duration.ZERO)
-        .dataStore(specificDataStore(badStore));
+        .dataStore(specificComponent(badStore));
     expect(dataSource.start()).andReturn(initFuture);
     expect(dataSource.isInitialized()).andReturn(false).times(1);
     mocks.replayAll();
@@ -468,8 +464,8 @@ public class LDClientTest extends BaseTest {
   }
   
   private LDClient createMockClient(LDConfig.Builder config) {
-    config.dataSource(specificDataSource(dataSource));
-    config.events(specificEventProcessor(eventProcessor));
+    config.dataSource(specificComponent(dataSource));
+    config.events(specificComponent(eventProcessor));
     config.logging(Components.logging(testLogging));
     return new LDClient(SDK_KEY, config.build());
   }

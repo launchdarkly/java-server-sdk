@@ -10,7 +10,7 @@ import java.net.URI;
  * provide a different implementation of event delivery by implementing this interface-- for
  * instance, to create a test fixture, or to store the data somewhere else.
  * 
- * @see com.launchdarkly.sdk.server.integrations.EventProcessorBuilder#eventSender(EventSenderFactory)
+ * @see com.launchdarkly.sdk.server.integrations.EventProcessorBuilder#eventSender(ComponentConfigurer)
  * @since 4.14.0
  */
 public interface EventSender extends Closeable {

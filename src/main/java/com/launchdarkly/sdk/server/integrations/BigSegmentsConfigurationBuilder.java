@@ -1,12 +1,13 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
-import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreFactory;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 
 import java.time.Duration;
 
@@ -18,8 +19,8 @@ import java.time.Duration;
  * </a>.
  * <p>
  * If you want non-default values for any of these properties create a builder with
- * {@link Components#bigSegments(BigSegmentStoreFactory)}, change its properties with the methods
- * of this class, and pass it to {@link LDConfig.Builder#bigSegments(BigSegmentsConfigurationBuilder)}
+ * {@link Components#bigSegments(ComponentConfigurer)}, change its properties with the methods
+ * of this class, and pass it to {@link Builder#bigSegments(ComponentConfigurer)}
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .bigSegments(Components.bigSegments(Redis.dataStore().prefix("app1"))
@@ -29,7 +30,7 @@ import java.time.Duration;
  *
  * @since 5.7.0
  */
-public final class BigSegmentsConfigurationBuilder {
+public final class BigSegmentsConfigurationBuilder implements ComponentConfigurer<BigSegmentsConfiguration> {
   /**
    * The default value for {@link #userCacheSize(int)}.
    */
@@ -50,7 +51,7 @@ public final class BigSegmentsConfigurationBuilder {
    */
   public static final Duration DEFAULT_STALE_AFTER = Duration.ofMinutes(2);
 
-  private final BigSegmentStoreFactory storeFactory;
+  private final ComponentConfigurer<BigSegmentStore> storeConfigurer;
   private int userCacheSize = DEFAULT_USER_CACHE_SIZE;
   private Duration userCacheTime = DEFAULT_USER_CACHE_TIME;
   private Duration statusPollInterval = DEFAULT_STATUS_POLL_INTERVAL;
@@ -59,10 +60,10 @@ public final class BigSegmentsConfigurationBuilder {
   /**
    * Creates a new builder for Big Segments configuration.
    *
-   * @param storeFactory the factory implementation for the specific data store type
+   * @param storeConfigurer the factory implementation for the specific data store type
    */
-  public BigSegmentsConfigurationBuilder(BigSegmentStoreFactory storeFactory) {
-    this.storeFactory = storeFactory;
+  public BigSegmentsConfigurationBuilder(ComponentConfigurer<BigSegmentStore> storeConfigurer) {
+    this.storeConfigurer = storeConfigurer;
   }
 
   /**
@@ -137,8 +138,8 @@ public final class BigSegmentsConfigurationBuilder {
    * While in a stale state, the SDK will still continue using the last known data, but
    * {@link com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider.Status} will return
    * true in its {@code stale} property, and any {@link EvaluationReason} generated from a feature
-   * flag that references a Big Segment will have a {@link EvaluationReason.BigSegmentsStatus} of
-   * {@link EvaluationReason.BigSegmentsStatus#STALE}.
+   * flag that references a Big Segment will have a {@link BigSegmentsStatus} of
+   * {@link BigSegmentsStatus#STALE}.
    *
    * @param staleAfter the time limit for marking the data as stale (a null, zero, or negative
    *                   value will be changed to {@link #DEFAULT_STALE_AFTER})
@@ -151,15 +152,9 @@ public final class BigSegmentsConfigurationBuilder {
     return this;
   }
 
-  /**
-   * Called internally by the SDK to create a configuration instance. Applications do not need to
-   * call this method.
-   *
-   * @param context allows access to the client configuration
-   * @return a {@link BigSegmentsConfiguration} instance
-   */
-  public BigSegmentsConfiguration createBigSegmentsConfiguration(ClientContext context) {
-    BigSegmentStore store = storeFactory == null ? null : storeFactory.createBigSegmentStore(context);
+  @Override
+  public BigSegmentsConfiguration build(ClientContext context) {
+    BigSegmentStore store = storeConfigurer == null ? null : storeConfigurer.build(context);
     return new BigSegmentsConfiguration(
         store,
         userCacheSize,
