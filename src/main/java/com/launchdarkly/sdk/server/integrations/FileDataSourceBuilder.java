@@ -2,10 +2,10 @@ package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.io.ByteStreams;
 import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-import com.launchdarkly.sdk.server.subsystems.DataSourceFactory;
-import com.launchdarkly.sdk.server.subsystems.DataSourceUpdates;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,13 +20,13 @@ import java.util.List;
  * To use the file data source, obtain a new instance of this class with {@link FileData#dataSource()};
  * call the builder method {@link #filePaths(String...)} to specify file path(s), and/or
  * {@link #classpathResources(String...)} to specify classpath data resources; then pass the resulting
- * object to {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(DataSourceFactory)}.
+ * object to {@link Builder#dataSource(ComponentConfigurer)}.
  * <p>
  * For more details, see {@link FileData}.
  * 
  * @since 4.12.0
  */
-public final class FileDataSourceBuilder implements DataSourceFactory {
+public final class FileDataSourceBuilder implements ComponentConfigurer<DataSource> {
   final List<SourceInfo> sources = new ArrayList<>(); // visible for tests
   private boolean autoUpdate = false;
   private FileData.DuplicateKeysHandling duplicateKeysHandling = FileData.DuplicateKeysHandling.FAIL;
@@ -118,13 +118,10 @@ public final class FileDataSourceBuilder implements DataSourceFactory {
     return this;
   }
   
-  /**
-   * Used internally by the LaunchDarkly client.
-   */
   @Override
-  public DataSource createDataSource(ClientContext context, DataSourceUpdates dataSourceUpdates) {
+  public DataSource build(ClientContext context) {
     LDLogger logger = context.getBaseLogger().subLogger("DataSource");
-    return new FileDataSourceImpl(dataSourceUpdates, sources, autoUpdate, duplicateKeysHandling, logger);
+    return new FileDataSourceImpl(context.getDataSourceUpdateSink(), sources, autoUpdate, duplicateKeysHandling, logger);
   }
   
   static abstract class SourceInfo {

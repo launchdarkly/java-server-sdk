@@ -10,6 +10,7 @@ import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataModel.Prerequisite;
+import com.launchdarkly.sdk.server.DataModel.SegmentTarget;
 import com.launchdarkly.sdk.server.DataModel.Target;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
 
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
+import static com.launchdarkly.sdk.server.EvaluatorHelpers.contextKeyIsInTargetList;
 
 /**
  * Low-level helpers for producing various kinds of evaluation results. We also put any
@@ -129,5 +131,16 @@ abstract class EvaluatorHelpers {
     }
     LDContext matchContext = context.getIndividualContext(contextKind);
     return matchContext != null && keys.contains(matchContext.getKey());
+  }
+
+  static boolean contextKeyIsInTargetLists(LDContext context, List<SegmentTarget> targets) {
+    int nTargets = targets.size();
+    for (int i = 0; i < nTargets; i++) {
+      SegmentTarget t = targets.get(i);
+      if (contextKeyIsInTargetList(context, t.getContextKind(), t.getValues())) {
+        return true;
+      }
+    }
+    return false;
   }
 }

@@ -37,7 +37,7 @@ public final class HttpConfiguration {
   private final X509TrustManager trustManager;
 
   /**
-   * Creates an instance, specifying all properties.
+   * Creates an instance.
    * 
    * @param connectTimeout see {@link #getConnectTimeout()}
    * @param defaultHeaders see {@link #getDefaultHeaders()}

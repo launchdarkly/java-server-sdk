@@ -13,13 +13,13 @@ import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
-import com.launchdarkly.sdk.server.subsystems.DataStoreUpdates;
-import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -60,7 +60,7 @@ final class PersistentDataStoreWrapper implements DataStore {
       Duration cacheTtl,
       PersistentDataStoreBuilder.StaleValuesPolicy staleValuesPolicy,
       boolean recordCacheStats,
-      DataStoreUpdates dataStoreUpdates,
+      DataStoreUpdateSink dataStoreUpdates,
       ScheduledExecutorService sharedExecutor,
       LDLogger logger
     ) {

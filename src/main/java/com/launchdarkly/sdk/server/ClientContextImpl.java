@@ -2,6 +2,8 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.DataStoreUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
@@ -24,6 +26,8 @@ final class ClientContextImpl extends ClientContext {
   
   final ScheduledExecutorService sharedExecutor;
   final DiagnosticStore diagnosticStore;
+  final DataSourceUpdateSink dataSourceUpdateSink;
+  final DataStoreUpdateSink dataStoreUpdateSink;
 
   private ClientContextImpl(
       ClientContext baseContext,
@@ -35,8 +39,40 @@ final class ClientContextImpl extends ClientContext {
         baseContext.getThreadPriority());
     this.sharedExecutor = sharedExecutor;
     this.diagnosticStore = diagnosticStore;
+    this.dataSourceUpdateSink = null;
+    this.dataStoreUpdateSink = null;
   }
 
+  private ClientContextImpl(
+      ClientContextImpl copyFrom,
+      DataSourceUpdateSink dataSourceUpdateSink,
+      DataStoreUpdateSink dataStoreUpdateSink
+      ) {
+    super(copyFrom);
+    this.dataSourceUpdateSink = dataSourceUpdateSink;
+    this.dataStoreUpdateSink = dataStoreUpdateSink;
+    this.diagnosticStore = copyFrom.diagnosticStore;
+    this.sharedExecutor = copyFrom.sharedExecutor;
+  }
+  
+  ClientContextImpl withDataSourceUpdateSink(DataSourceUpdateSink newDataSourceUpdateSink) {
+    return new ClientContextImpl(this, newDataSourceUpdateSink, this.dataStoreUpdateSink);
+  }
+  
+  ClientContextImpl withDataStoreUpdateSink(DataStoreUpdateSink newDataStoreUpdateSink) {
+    return new ClientContextImpl(this, this.dataSourceUpdateSink, newDataStoreUpdateSink);
+  }
+  
+  @Override
+  public DataSourceUpdateSink getDataSourceUpdateSink() {
+    return dataSourceUpdateSink;
+  }
+  
+  @Override
+  public DataStoreUpdateSink getDataStoreUpdateSink() {
+    return dataStoreUpdateSink;
+  }
+  
   static ClientContextImpl fromConfig(
       String sdkKey,
       LDConfig config,
@@ -44,11 +80,11 @@ final class ClientContextImpl extends ClientContext {
       ) {
     ClientContext minimalContext = new ClientContext(sdkKey, config.applicationInfo, null,
         null, config.offline, config.serviceEndpoints, config.threadPriority);
-    LoggingConfiguration loggingConfig = config.loggingConfigFactory.createLoggingConfiguration(minimalContext);
+    LoggingConfiguration loggingConfig = config.logging.build(minimalContext);
     
     ClientContext contextWithLogging = new ClientContext(sdkKey, config.applicationInfo, null,
         loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
-    HttpConfiguration httpConfig = config.httpConfigFactory.createHttpConfiguration(contextWithLogging);
+    HttpConfiguration httpConfig = config.http.build(contextWithLogging);
     
     if (httpConfig.getProxy() != null) {
       contextWithLogging.getBaseLogger().info("Using proxy: {} {} authentication.",
@@ -62,7 +98,7 @@ final class ClientContextImpl extends ClientContext {
     // Create a diagnostic store only if diagnostics are enabled. Diagnostics are enabled as long as 1. the
     // opt-out property was not set in the config, and 2. we are using the standard event processor.
     DiagnosticStore diagnosticStore = null;
-    if (!config.diagnosticOptOut && config.eventProcessorFactory instanceof EventProcessorBuilder) {
+    if (!config.diagnosticOptOut && config.events instanceof EventProcessorBuilder) {
       diagnosticStore = new DiagnosticStore(
           ServerSideDiagnosticEvents.getSdkDiagnosticParams(contextWithHttpAndLogging, config));
     }
