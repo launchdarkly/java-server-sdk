@@ -168,7 +168,7 @@ class EventContextFormatter {
   // recurse to redact subproperties of an object, we set previousMatchRef to *any* AttributeRef
   // we've seen that has the current subpath as a prefix; such an AttributeRef is guaranteed to
   // exist, because we wouldn't have bothered to recurse if we hadn't found one, and we will only
-  // be comparing components 0 through depth-1 of it (see matchPrivateRef), This shortcut allows
+  // be comparing components 0 through depth-1 of it (see matchPrivateRef). This shortcut allows
   // us to avoid allocating a variable-length mutable data structure such as a stack.
   private AttributeRef findPrivateRef(LDContext c, int depth, String attrName, AttributeRef previousMatchRef) {
     AttributeRef nonExactMatch = null;
