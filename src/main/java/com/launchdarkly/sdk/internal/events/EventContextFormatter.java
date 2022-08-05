@@ -163,11 +163,13 @@ class EventContextFormatter {
   // path (that is, it has the current path as a prefix, but the depth is greater), then we return
   // it, to tell us that we'll need to recurse to redact subproperties.
   //
-  // The previousMatchRef parameter is what we use instead of a stack to keep track of where we're
-  // at in recursive calls. It starts out as null at the top level. Then, every time we recurse to
-  // redact subproperties of an object, we set previousMatchRef to any AttributeRef that has the
-  // current subpath as a prefix; such an AttributeRef is guaranteed to exist, because we wouldn't
-  // have bothered to recurse if we hadn't found one.
+  // The previousMatchRef parameter is how we to keep track of the previous path segments we have
+  // already matched when recursing. It starts out as null at the top level. Then, every time we
+  // recurse to redact subproperties of an object, we set previousMatchRef to *any* AttributeRef
+  // we've seen that has the current subpath as a prefix; such an AttributeRef is guaranteed to
+  // exist, because we wouldn't have bothered to recurse if we hadn't found one, and we will only
+  // be comparing components 0 through depth-1 of it (see matchPrivateRef), This shortcut allows
+  // us to avoid allocating a variable-length mutable data structure such as a stack.
   private AttributeRef findPrivateRef(LDContext c, int depth, String attrName, AttributeRef previousMatchRef) {
     AttributeRef nonExactMatch = null;
     if (globalPrivateAttributes.length != 0) { // minor optimization to avoid creating an iterator if it's empty
