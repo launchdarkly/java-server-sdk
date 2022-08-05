@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.launchdarkly.sdk.server.EvaluatorHelpers.matchClauseWithoutSegments;
 import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("javadoc")
@@ -177,10 +178,10 @@ public class EvaluatorOperatorsParameterizedTest {
     values.add(clauseValue);
     
     Clause clause1 = new Clause(null, userAttr, op, values, false);
-    assertEquals("without preprocessing", shouldBe, Evaluator.clauseMatchAny(clause1, userValue));
+    assertEquals("without preprocessing", shouldBe, matchClauseWithoutSegments(clause1, userValue));
     
     Clause clause2 = new Clause(null, userAttr, op, values, false);
     DataModelPreprocessing.preprocessClause(clause2);
-    assertEquals("without preprocessing", shouldBe, Evaluator.clauseMatchAny(clause2, userValue));
+    assertEquals("without preprocessing", shouldBe, matchClauseWithoutSegments(clause2, userValue));
   }
 }

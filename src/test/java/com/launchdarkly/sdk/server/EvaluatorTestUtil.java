@@ -3,15 +3,61 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.LDContext;
+import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.BigSegmentStoreWrapper.BigSegmentsQueryResult;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
+import com.launchdarkly.sdk.server.ModelBuilders.FlagBuilder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+
 @SuppressWarnings("javadoc")
 public abstract class EvaluatorTestUtil {
+  public static final LDContext BASE_USER = LDContext.create("x");
+
+  // These constants and flag builders define two kinds of flag: one with three variations-- allowing us to
+  // distinguish between match, fallthrough, and off results--  and one with two.
+  public static final int OFF_VARIATION = 0;
+  public static final LDValue OFF_VALUE = LDValue.of("off");
+  public static final int FALLTHROUGH_VARIATION = 1;
+  public static final LDValue FALLTHROUGH_VALUE = LDValue.of("fall");
+  public static final int MATCH_VARIATION = 2;
+  public static final LDValue MATCH_VALUE = LDValue.of("match");
+  public static final LDValue[] THREE_VARIATIONS = new LDValue[] { OFF_VALUE, FALLTHROUGH_VALUE, MATCH_VALUE };
+
+  public static final int RED_VARIATION = 0;
+  public static final LDValue RED_VALUE = LDValue.of("red");
+  public static final int GREEN_VARIATION = 1;
+  public static final LDValue GREEN_VALUE = LDValue.of("green");
+  public static final LDValue[] RED_GREEN_VARIATIONS = new LDValue[] { RED_VALUE, GREEN_VALUE };
+  
+  public static FlagBuilder buildThreeWayFlag(String flagKey) {
+    return flagBuilder(flagKey)
+        .fallthroughVariation(FALLTHROUGH_VARIATION)
+        .offVariation(OFF_VARIATION)
+        .variations(THREE_VARIATIONS)
+        .version(versionFromKey(flagKey));
+  }
+  
+  public static FlagBuilder buildRedGreenFlag(String flagKey) {
+    return flagBuilder(flagKey)
+        .fallthroughVariation(GREEN_VARIATION)
+        .offVariation(RED_VARIATION)
+        .variations(RED_GREEN_VARIATIONS)
+        .version(versionFromKey(flagKey));
+  }
+
+  public static int versionFromKey(String flagKey) {
+    return Math.abs(flagKey.hashCode());
+  }
+  
+  public static EvaluatorBuilder evaluatorBuilder() {
+    return new EvaluatorBuilder();
+  }
+  
   public static Evaluator BASE_EVALUATOR = new EvaluatorBuilder().build();
 
   public static class EvaluatorBuilder {

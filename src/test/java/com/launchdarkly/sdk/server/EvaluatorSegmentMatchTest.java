@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextKind;
+import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
@@ -21,6 +22,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingContext;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentRuleBuilder;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -196,13 +198,55 @@ public class EvaluatorSegmentMatchTest extends EvaluatorTestBase {
     assertFalse(segmentMatchesContext(s2, context));
   }
   
+  @Test
+  public void segmentReferencingSegment() {
+    LDContext context = LDContext.create("foo");
+    Segment segment0 = segmentBuilder("segmentkey0")
+        .rules(segmentRuleBuilder().clauses(clauseMatchingSegment("segmentkey1")).build())
+        .build();
+    Segment segment1 = segmentBuilder("segmentkey1")
+        .included(context.getKey())
+        .build();
+    FeatureFlag flag = booleanFlagWithClauses("flag", clauseMatchingSegment(segment0));
+    
+    Evaluator e = evaluatorBuilder().withStoredSegments(segment0, segment1).build();
+    EvalResult result = e.evaluate(flag, context, expectNoPrerequisiteEvals());
+    assertTrue(result.getValue().booleanValue());
+  }
+  
+  @Test
+  public void segmentCycleDetection() {
+    for (int depth = 1; depth <= 4; depth++) {
+      String[] segmentKeys = new String[depth];
+      for (int i = 0; i < depth; i++) {
+        segmentKeys[i] = "segmentkey" + i;
+      }
+      Segment[] segments = new Segment[depth];
+      for (int i = 0; i < depth; i++) {
+        segments[i] = segmentBuilder(segmentKeys[i])
+            .rules(
+                segmentRuleBuilder().clauses(
+                    clauseMatchingSegment(segmentKeys[(i + 1) % depth])
+                    ).build()
+                )
+            .build();
+      }
+
+      FeatureFlag flag = booleanFlagWithClauses("flag", clauseMatchingSegment(segments[0]));
+      Evaluator e = evaluatorBuilder().withStoredSegments(segments).build();
+
+      LDContext context = LDContext.create("foo");
+      EvalResult result = e.evaluate(flag, context, expectNoPrerequisiteEvals());
+      assertEquals(EvalResult.error(ErrorKind.MALFORMED_FLAG), result);
+    }
+  }
+  
   private static SegmentBuilder baseSegmentBuilder() {
     return segmentBuilder(SEGMENT_KEY).version(1).salt(ARBITRARY_SALT);
   }
   
   private boolean segmentMatchesContext(Segment segment, LDContext context) {
-    Clause clause = clauseMatchingSegment(segment);
-    FeatureFlag flag = booleanFlagWithClauses("flag", clause);
+    FeatureFlag flag = booleanFlagWithClauses("flag", clauseMatchingSegment(segment));
     Evaluator e = evaluatorBuilder().withStoredSegments(segment).build();
     return e.evaluate(flag, context, expectNoPrerequisiteEvals()).getValue().booleanValue();
   }
