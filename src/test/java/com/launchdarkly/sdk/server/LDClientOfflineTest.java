@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableMap;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
@@ -19,7 +19,7 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDClientOfflineTest extends BaseTest {
-  private static final LDUser user = new LDUser("user");
+  private static final LDContext user = LDContext.create("user");
   
   @Test
   public void offlineClientHasNullDataSource() throws IOException {

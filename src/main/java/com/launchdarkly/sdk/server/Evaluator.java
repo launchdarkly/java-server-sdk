@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
@@ -400,15 +401,22 @@ class Evaluator {
     if (clause.getOp() == Operator.segmentMatch) {
       return maybeNegate(clause, matchAnySegment(clause.getValues(), context, state));
     }
-    
-    if (clause.getAttribute().getDepth() == 1 && clause.getAttribute().getComponent(0).equals("kind")) {
+    AttributeRef attr = clause.getAttribute();
+    if (attr == null) {
+      throw new EvaluationException(ErrorKind.MALFORMED_FLAG, "rule clause did not specify an attribute");
+    }
+    if (!attr.isValid()) {
+      throw new EvaluationException(ErrorKind.MALFORMED_FLAG,
+          "invalid attribute reference \"" + attr.getError() + "\"");
+    }
+    if (attr.getDepth() == 1 && attr.getComponent(0).equals("kind")) {
       return maybeNegate(clause, matchClauseByKind(clause, context));
     }
     LDContext actualContext = context.getIndividualContext(clause.getContextKind());
     if (actualContext == null) {
       return false;
     }
-    LDValue contextValue = actualContext.getValue(clause.getAttribute());
+    LDValue contextValue = actualContext.getValue(attr);
     if (contextValue.isNull()) {
       return false;
     }

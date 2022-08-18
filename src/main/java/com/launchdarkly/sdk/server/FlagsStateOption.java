@@ -4,7 +4,7 @@ import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 
 /**
- * Optional parameters that can be passed to {@link LDClientInterface#allFlagsState(com.launchdarkly.sdk.LDUser, FlagsStateOption...)}.
+ * Optional parameters that can be passed to {@link LDClientInterface#allFlagsState(com.launchdarkly.sdk.LDContext, FlagsStateOption...)}.
  * @since 4.3.0
  */
 public final class FlagsStateOption {

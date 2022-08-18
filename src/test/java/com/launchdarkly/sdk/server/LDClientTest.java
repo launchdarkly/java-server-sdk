@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
@@ -497,7 +497,7 @@ public class LDClientTest extends BaseTest {
   @Test
   public void testSecureModeHash() throws IOException {
     setupMockDataSourceToInitialize(true);
-    LDUser user = new LDUser.Builder("userkey").build();
+    LDContext user = LDContext.create("userkey");
     String expectedHash = "c097a70924341660427c2e487b86efee789210f9e6dafc3b5f50e75bc596ff99";
     
     client = createMockClient(new LDConfig.Builder()
@@ -505,7 +505,7 @@ public class LDClientTest extends BaseTest {
     assertEquals(expectedHash, client.secureModeHash(user));
   
     assertNull(client.secureModeHash(null));
-    assertNull(client.secureModeHash(new LDUser(null)));
+    assertNull(client.secureModeHash(LDContext.create(null))); // invalid context
   }
 
   private void setupMockDataSourceToInitialize(boolean willInitialize) {

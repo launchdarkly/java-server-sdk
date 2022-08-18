@@ -1,6 +1,6 @@
 package com.launchdarkly.sdk.server.integrations;
 
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDClient;
@@ -18,7 +18,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 @SuppressWarnings("javadoc")
 public class ClientWithFileDataSourceTest {
-  private static final LDUser user = new LDUser.Builder("userkey").build();
+  private static final LDContext user = LDContext.create("userkey");
 
   private LDClient makeClient() throws Exception {
     FileDataSourceBuilder fdsb = FileData.dataSource()

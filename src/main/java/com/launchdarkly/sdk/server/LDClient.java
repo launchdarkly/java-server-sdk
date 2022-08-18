@@ -3,15 +3,11 @@ package com.launchdarkly.sdk.server;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
-import com.launchdarkly.sdk.AttributeRef;
-import com.launchdarkly.sdk.ContextBuilder;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
@@ -246,7 +242,7 @@ public final class LDClient implements LDClientInterface {
 
     this.flagChangeBroadcaster = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor, baseLogger);
     this.flagTracker = new FlagTrackerImpl(flagChangeBroadcaster,
-        (key, user) -> jsonValueVariation(key, user, LDValue.ofNull()));
+        (key, ctx) -> jsonValueVariation(key, ctx, LDValue.ofNull()));
 
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore, dataStoreUpdates);
 
@@ -297,36 +293,39 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public void track(String eventName, LDUser user) {
-    trackData(eventName, user, LDValue.ofNull());
+  public void track(String eventName, LDContext context) {
+    trackData(eventName, context, LDValue.ofNull());
   }
 
   @Override
-  public void trackData(String eventName, LDUser user, LDValue data) {
-    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
-      baseLogger.warn("Track called with null user or null/empty user key!");
+  public void trackData(String eventName, LDContext context, LDValue data) {
+    if (context == null) {
+      baseLogger.warn("Track called with null context!");
+    } else if (!context.isValid()) {
+      baseLogger.warn("Track called with invalid context: " + context.getError());
     } else {
-      LDContext context = temporaryConvertUserToContext(user);
       eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, context, data, null));
     }
   }
 
   @Override
-  public void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
-    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
-      baseLogger.warn("Track called with null user or null/empty user key!");
+  public void trackMetric(String eventName, LDContext context, LDValue data, double metricValue) {
+    if (context == null) {
+      baseLogger.warn("Track called with null context!");
+    } else if (!context.isValid()) {
+      baseLogger.warn("Track called with invalid context: " + context.getError());
     } else {
-      LDContext context = temporaryConvertUserToContext(user);
       eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, context, data, metricValue));
     }
   }
 
   @Override
-  public void identify(LDUser user) {
-    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
-      baseLogger.warn("Identify called with null user or null/empty user key!");
+  public void identify(LDContext context) {
+    if (context == null) {
+      baseLogger.warn("Identify called with null context!");
+    } else if (!context.isValid()) {
+      baseLogger.warn("Identify called with invalid context: " + context.getError());
     } else {
-      LDContext context = temporaryConvertUserToContext(user);
       eventProcessor.sendEvent(eventFactoryDefault.newIdentifyEvent(context));
     }
   }
@@ -338,7 +337,7 @@ public final class LDClient implements LDClientInterface {
   }
   
   @Override
-  public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
+  public FeatureFlagsState allFlagsState(LDContext context, FlagsStateOption... options) {
     FeatureFlagsState.Builder builder = FeatureFlagsState.builder(options);
     
     if (isOffline()) {
@@ -354,11 +353,14 @@ public final class LDClient implements LDClientInterface {
       }
     }
 
-    if (user == null || user.getKey() == null) {
-      evaluationLogger.warn("allFlagsState() was called with null user or null user key! returning no data");
+    if (context == null) {
+      evaluationLogger.warn("allFlagsState() was called with null context! returning no data");
       return builder.valid(false).build();
     }
-    LDContext context = temporaryConvertUserToContext(user);
+    if (!context.isValid()) {
+      evaluationLogger.warn("allFlagsState() was called with invalid context: " + context.getError());
+      return builder.valid(false).build();
+    }
     
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
     KeyedItems<ItemDescriptor> flags;
@@ -395,61 +397,61 @@ public final class LDClient implements LDClientInterface {
   }
   
   @Override
-  public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.BOOLEAN).booleanValue();
+  public boolean boolVariation(String featureKey, LDContext context, boolean defaultValue) {
+    return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.BOOLEAN).booleanValue();
   }
 
   @Override
-  public int intVariation(String featureKey, LDUser user, int defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.NUMBER).intValue();
+  public int intVariation(String featureKey, LDContext context, int defaultValue) {
+    return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER).intValue();
   }
 
   @Override
-  public double doubleVariation(String featureKey, LDUser user, double defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.NUMBER).doubleValue();
+  public double doubleVariation(String featureKey, LDContext context, double defaultValue) {
+    return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER).doubleValue();
   }
 
   @Override
-  public String stringVariation(String featureKey, LDUser user, String defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.STRING).stringValue();
+  public String stringVariation(String featureKey, LDContext context, String defaultValue) {
+    return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.STRING).stringValue();
   }
 
   @Override
-  public LDValue jsonValueVariation(String featureKey, LDUser user, LDValue defaultValue) {
-    return evaluate(featureKey, user, LDValue.normalize(defaultValue), null);
+  public LDValue jsonValueVariation(String featureKey, LDContext context, LDValue defaultValue) {
+    return evaluate(featureKey, context, LDValue.normalize(defaultValue), null);
   }
 
   @Override
-  public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+  public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDContext context, boolean defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.of(defaultValue),
         LDValueType.BOOLEAN, true);
     return result.getAsBoolean();
   }
 
   @Override
-  public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+  public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDContext context, int defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.of(defaultValue),
         LDValueType.NUMBER, true);
     return result.getAsInteger();
   }
 
   @Override
-  public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+  public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDContext context, double defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.of(defaultValue),
         LDValueType.NUMBER, true);
     return result.getAsDouble();
   }
 
   @Override
-  public EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+  public EvaluationDetail<String> stringVariationDetail(String featureKey, LDContext context, String defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.of(defaultValue),
         LDValueType.STRING, true);
     return result.getAsString();
   }
 
   @Override
-  public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue),
+  public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDContext context, LDValue defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.normalize(defaultValue),
         null, true);
     return result.getAnyType();
   }
@@ -478,18 +480,17 @@ public final class LDClient implements LDClientInterface {
     return false;
   }
 
-  private LDValue evaluate(String featureKey, LDUser user, LDValue defaultValue, LDValueType requireType) {
-    return evaluateInternal(featureKey, user, defaultValue, requireType, false).getValue();
+  private LDValue evaluate(String featureKey, LDContext context, LDValue defaultValue, LDValueType requireType) {
+    return evaluateInternal(featureKey, context, defaultValue, requireType, false).getValue();
   }
   
   private EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {
     return EvalResult.of(defaultValue, NO_VARIATION, EvaluationReason.error(errorKind));
   }
   
-  private EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue,
+  private EvalResult evaluateInternal(String featureKey, LDContext context, LDValue defaultValue,
       LDValueType requireType, boolean withDetail) {
     EventFactory eventFactory = withDetail ? eventFactoryWithReasons : eventFactoryDefault;
-    LDContext context = temporaryConvertUserToContext(user);
     if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         evaluationLogger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
@@ -510,14 +511,17 @@ public final class LDClient implements LDClientInterface {
             EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
         return errorResult(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, defaultValue);
       }
-      if (user == null || user.getKey() == null) {
-        evaluationLogger.warn("Null user or null user key when evaluating flag \"{}\"; returning default value", featureKey);
+      if (context == null) {
+        evaluationLogger.warn("Null context when evaluating flag \"{}\"; returning default value", featureKey);
         sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, context, defaultValue,
             EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
         return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
-      if (user.getKey().isEmpty()) {
-        evaluationLogger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
+      if (!context.isValid()) {
+        evaluationLogger.warn("Invalid context when evaluating flag \"{}\"; returning default value: " + context.getError(), featureKey);
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, context, defaultValue,
+            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
+        return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
       EvalResult evalResult = evaluator.evaluate(featureFlag, context,
           withDetail ? prereqEvalsWithReasons : prereqEvalsDefault);
@@ -571,6 +575,12 @@ public final class LDClient implements LDClientInterface {
     return dataSourceStatusProvider;
   }
   
+  /**
+   * Shuts down the client and releases any resources it is using.
+   * <p>
+   * Unless it is offline, the client will attempt to deliver any pending analytics events before
+   * closing.
+   */
   @Override
   public void close() throws IOException {
     baseLogger.info("Closing LaunchDarkly Client");
@@ -595,14 +605,14 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public String secureModeHash(LDUser user) {
-    if (user == null || user.getKey() == null) {
+  public String secureModeHash(LDContext context) {
+    if (context == null || !context.isValid()) {
       return null;
     }
     try {
       Mac mac = Mac.getInstance(HMAC_ALGORITHM);
       mac.init(new SecretKeySpec(sdkKey.getBytes(), HMAC_ALGORITHM));
-      return Hex.encodeHexString(mac.doFinal(user.getKey().getBytes("UTF8")));
+      return Hex.encodeHexString(mac.doFinal(context.getFullyQualifiedKey().getBytes("UTF8")));
     } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
       // COVERAGE: there is no way to cause these errors in a unit test.
       baseLogger.error("Could not generate secure mode hash: {}", LogValues.exceptionSummary(e));
@@ -643,25 +653,5 @@ public final class LDClient implements LDClientInterface {
             factory.newPrerequisiteFeatureRequestEvent(flag, context, result, prereqOfFlag));
       }
     };
-  }
-  
-  private static LDContext temporaryConvertUserToContext(LDUser u) {
-    if (u == null) {
-      return null;
-    }
-    ContextBuilder cb = LDContext.builder(u.getKey()).name(u.getName()).anonymous(u.isAnonymous()).secondary(u.getSecondary());
-    for (UserAttribute a: new UserAttribute[] {
-        UserAttribute.FIRST_NAME, UserAttribute.LAST_NAME, UserAttribute.EMAIL, UserAttribute.COUNTRY,
-        UserAttribute.IP, UserAttribute.AVATAR
-    }) {
-      cb.set(a.getName(), u.getAttribute(a));
-    }
-    for (UserAttribute a: u.getCustomAttributes()) {
-      cb.set(a.getName(), u.getAttribute(a));
-    }
-    for (UserAttribute a: u.getPrivateAttributes()) {
-      cb.privateAttributes(AttributeRef.fromLiteral(a.getName()));
-    }
-    return cb.build();
   }
 }

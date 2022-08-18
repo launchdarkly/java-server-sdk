@@ -25,9 +25,9 @@ public class BigSegmentStoreFixture implements BigSegmentStore, ComponentConfigu
   }
 
   @Override
-  public Membership getMembership(String userHash) {
+  public Membership getMembership(String contextHash) {
     BigSegmentStoreGetMembershipParams params = new BigSegmentStoreGetMembershipParams();
-    params.userHash = userHash;
+    params.contextHash = contextHash;
     BigSegmentStoreGetMembershipResponse resp =
         service.post("/getMembership", params, BigSegmentStoreGetMembershipResponse.class);
     return new Membership() {

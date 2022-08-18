@@ -5,7 +5,6 @@ import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDContext;
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
@@ -87,10 +86,6 @@ public abstract class ModelBuilders {
     return clause(attribute.getName(), op, values);
   }
   
-  public static Clause clauseMatchingUser(LDUser user) {
-    return clause(UserAttribute.KEY, DataModel.Operator.in, user.getAttribute(UserAttribute.KEY));
-  }
-
   public static Clause clauseMatchingContext(LDContext context) {
     if (context.isMultiple()) {
       return clauseMatchingContext(context.getIndividualContext(0));
@@ -98,12 +93,8 @@ public abstract class ModelBuilders {
     return clause(context.getKind(), AttributeRef.fromLiteral("key"), DataModel.Operator.in, LDValue.of(context.getKey()));
   }
 
-  public static Clause clauseNotMatchingUser(LDUser user) {
-    return clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("not-" + user.getKey()));
-  }
-
   public static Clause clauseNotMatchingContext(LDContext context) {
-    return clause(context.getKind(), AttributeRef.fromLiteral("key"), DataModel.Operator.in, LDValue.of(context.getKey()));
+    return negateClause(clauseMatchingContext(context));
   }
 
   public static Clause clauseMatchingSegment(String... segmentKeys) {

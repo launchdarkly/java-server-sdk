@@ -248,6 +248,26 @@ public class EvaluatorClauseTest extends EvaluatorTestBase {
   }
   
   @Test
+  public void clauseReturnsMalformedFlagErrorForAttributeNotSpecified() {
+    Clause clause = clause(null, (AttributeRef)null, Operator.in, LDValue.of(4));
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDContext context = LDContext.create("key");
+
+    EvalResult result = BASE_EVALUATOR.evaluate(f, context, expectNoPrerequisiteEvals());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
+  }
+
+  @Test
+  public void clauseReturnsMalformedFlagErrorForMalformedAttributeReference() {
+    Clause clause = clause(null, AttributeRef.fromPath("///"), Operator.in, LDValue.of(4));
+    FeatureFlag f = booleanFlagWithClauses("flag", clause);
+    LDContext context = LDContext.create("key");
+
+    EvalResult result = BASE_EVALUATOR.evaluate(f, context, expectNoPrerequisiteEvals());
+    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG), result);
+  }
+  
+  @Test
   public void testSegmentMatchClauseRetrievesSegmentFromStore() throws Exception {
     String segmentKey = "segkey";
     Clause clause = clauseMatchingSegment(segmentKey);

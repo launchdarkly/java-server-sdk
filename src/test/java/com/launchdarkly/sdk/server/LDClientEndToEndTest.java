@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
@@ -38,7 +38,7 @@ public class LDClientEndToEndTest extends BaseTest {
   private static final DataModel.FeatureFlag flag = flagBuilder(flagKey)
       .offVariation(0).variations(LDValue.of(true))
       .build();
-  private static final LDUser user = new LDUser("user-key");
+  private static final LDContext user = LDContext.create("user-key");
   
   private static Handler makePollingSuccessResponse() {
     return bodyJson(makeAllDataJson());
@@ -230,7 +230,7 @@ public class LDClientEndToEndTest extends BaseTest {
       
       try (LDClient client = new LDClient(sdkKey, config)) {
         assertTrue(client.isInitialized());
-        client.identify(new LDUser("userkey"));
+        client.identify(user);
       }
       
       RequestInfo req = server.getRecorder().requireRequest();

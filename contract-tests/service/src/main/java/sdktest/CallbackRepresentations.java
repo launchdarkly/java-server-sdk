@@ -8,7 +8,7 @@ public abstract class CallbackRepresentations {
   }
 
   public static class BigSegmentStoreGetMembershipParams {
-    String userHash;
+    String contextHash;
   }
 
   public static class BigSegmentStoreGetMembershipResponse {

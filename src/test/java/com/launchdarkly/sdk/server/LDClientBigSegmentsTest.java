@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
@@ -36,7 +36,7 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class LDClientBigSegmentsTest extends BaseTest {
-  private final LDUser user = new LDUser("userkey");
+  private final LDContext user = LDContext.create("userkey");
   private final Segment bigSegment = segmentBuilder("segmentkey").unbounded(true).generation(1).build();
   private final FeatureFlag flag = booleanFlagWithClauses("flagkey", clauseMatchingSegment(bigSegment));
 

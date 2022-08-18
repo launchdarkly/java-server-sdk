@@ -1,6 +1,9 @@
 package sdktest;
 
+import com.launchdarkly.sdk.ContextBuilder;
+import com.launchdarkly.sdk.ContextMultiBuilder;
 import com.launchdarkly.sdk.EvaluationDetail;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.json.JsonSerialization;
 import com.launchdarkly.sdk.server.Components;
@@ -21,8 +24,13 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import sdktest.Representations.CommandParams;
+import sdktest.Representations.ContextBuildParams;
+import sdktest.Representations.ContextBuildResponse;
+import sdktest.Representations.ContextBuildSingleParams;
+import sdktest.Representations.ContextConvertParams;
 import sdktest.Representations.CreateInstanceParams;
 import sdktest.Representations.CustomEventParams;
 import sdktest.Representations.EvaluateAllFlagsParams;
@@ -70,6 +78,10 @@ public class SdkClientEntity {
       resp.available = status.isAvailable();
       resp.stale = status.isStale();
       return resp;
+    case "contextBuild":
+      return doContextBuild(params.contextBuild);
+    case "contextConvert":
+      return doContextConvert(params.contextConvert);
     default:
       throw new TestService.BadRequestException("unknown command: " + params.command);
     }
@@ -82,31 +94,31 @@ public class SdkClientEntity {
       switch (params.valueType) {
       case "bool":
         EvaluationDetail<Boolean> boolResult = client.boolVariationDetail(params.flagKey,
-            params.user, params.defaultValue.booleanValue());
+            params.context, params.defaultValue.booleanValue());
         resp.value = LDValue.of(boolResult.getValue());
         genericResult = boolResult;
         break;
       case "int":
         EvaluationDetail<Integer> intResult = client.intVariationDetail(params.flagKey,
-            params.user, params.defaultValue.intValue());
+            params.context, params.defaultValue.intValue());
         resp.value = LDValue.of(intResult.getValue());
         genericResult = intResult;
         break;
       case "double":
         EvaluationDetail<Double> doubleResult = client.doubleVariationDetail(params.flagKey,
-            params.user, params.defaultValue.doubleValue());
+            params.context, params.defaultValue.doubleValue());
         resp.value = LDValue.of(doubleResult.getValue());
         genericResult = doubleResult;
         break;
       case "string":
         EvaluationDetail<String> stringResult = client.stringVariationDetail(params.flagKey,
-            params.user, params.defaultValue.stringValue());
+            params.context, params.defaultValue.stringValue());
         resp.value = LDValue.of(stringResult.getValue());
         genericResult = stringResult;
         break;
       default:
         EvaluationDetail<LDValue> anyResult = client.jsonValueVariationDetail(params.flagKey,
-            params.user, params.defaultValue);
+            params.context, params.defaultValue);
         resp.value = anyResult.getValue();
         genericResult = anyResult;
         break;
@@ -117,19 +129,19 @@ public class SdkClientEntity {
     } else {
       switch (params.valueType) {
       case "bool":
-        resp.value = LDValue.of(client.boolVariation(params.flagKey, params.user, params.defaultValue.booleanValue()));
+        resp.value = LDValue.of(client.boolVariation(params.flagKey, params.context, params.defaultValue.booleanValue()));
         break;
       case "int":
-        resp.value = LDValue.of(client.intVariation(params.flagKey, params.user, params.defaultValue.intValue()));
+        resp.value = LDValue.of(client.intVariation(params.flagKey, params.context, params.defaultValue.intValue()));
         break;
       case "double":
-        resp.value = LDValue.of(client.doubleVariation(params.flagKey, params.user, params.defaultValue.doubleValue()));
+        resp.value = LDValue.of(client.doubleVariation(params.flagKey, params.context, params.defaultValue.doubleValue()));
         break;
       case "string":
-        resp.value = LDValue.of(client.stringVariation(params.flagKey, params.user, params.defaultValue.stringValue()));
+        resp.value = LDValue.of(client.stringVariation(params.flagKey, params.context, params.defaultValue.stringValue()));
         break;
       default:
-        resp.value = client.jsonValueVariation(params.flagKey, params.user, params.defaultValue);
+        resp.value = client.jsonValueVariation(params.flagKey, params.context, params.defaultValue);
         break;
       }
     }
@@ -147,24 +159,74 @@ public class SdkClientEntity {
     if (params.withReasons) {
       options.add(FlagsStateOption.WITH_REASONS);
     }
-    FeatureFlagsState state = client.allFlagsState(params.user, options.toArray(new FlagsStateOption[0]));
+    FeatureFlagsState state = client.allFlagsState(params.context, options.toArray(new FlagsStateOption[0]));
     EvaluateAllFlagsResponse resp = new EvaluateAllFlagsResponse();
     resp.state = LDValue.parse(JsonSerialization.serialize(state));
     return resp;
   }
   
   private void doIdentifyEvent(IdentifyEventParams params) {
-    client.identify(params.user);
+    client.identify(params.context);
   }
   
   private void doCustomEvent(CustomEventParams params) {
     if ((params.data == null || params.data.isNull()) && params.omitNullData && params.metricValue == null) {
-      client.track(params.eventKey, params.user);
+      client.track(params.eventKey, params.context);
     } else if (params.metricValue == null) {
-      client.trackData(params.eventKey, params.user, params.data);
+      client.trackData(params.eventKey, params.context, params.data);
     } else {
-      client.trackMetric(params.eventKey, params.user, params.data, params.metricValue.doubleValue());
+      client.trackMetric(params.eventKey, params.context, params.data, params.metricValue.doubleValue());
     }
+  }
+  
+  private ContextBuildResponse doContextBuild(ContextBuildParams params) {
+    LDContext c;
+    if (params.multi == null) {
+      c = doContextBuildSingle(params.single);
+    } else {
+      ContextMultiBuilder b = LDContext.multiBuilder();
+      for (ContextBuildSingleParams s: params.multi) {
+        b.add(doContextBuildSingle(s));
+      }
+      c = b.build();
+    }
+    ContextBuildResponse resp = new ContextBuildResponse();
+    if (c.isValid()) {
+      resp.output = JsonSerialization.serialize(c);
+    } else {
+      resp.error = c.getError();
+    }
+    return resp;
+  }
+  
+  private LDContext doContextBuildSingle(ContextBuildSingleParams params) {
+    ContextBuilder b = LDContext.builder(params.key)
+        .kind(params.kind)
+        .name(params.name)
+        .secondary(params.secondary);
+    if (params.anonymous != null) {
+      b.anonymous(params.anonymous.booleanValue());
+    }
+    if (params.custom != null) {
+      for (Map.Entry<String, LDValue> kv: params.custom.entrySet()) {
+        b.set(kv.getKey(), kv.getValue());
+      }
+    }
+    if (params.privateAttrs != null) {
+      b.privateAttributes(params.privateAttrs);
+    }
+    return b.build();
+  }
+  
+  private ContextBuildResponse doContextConvert(ContextConvertParams params) {
+    ContextBuildResponse resp = new ContextBuildResponse();
+    try {
+      LDContext c = JsonSerialization.deserialize(params.input, LDContext.class);
+      resp.output = JsonSerialization.serialize(c);
+    } catch (Exception e) {
+      resp.error = e.getMessage();
+    }
+    return resp;
   }
   
   public void close() {
