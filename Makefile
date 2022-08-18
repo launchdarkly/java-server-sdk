@@ -10,19 +10,17 @@ test:
 
 TEMP_TEST_OUTPUT=/tmp/sdk-test-service.log
 
-# Temporary contract test skips - these non-U2C tests won't work with the v1 test harness,
-# because they either describe evaluation conditions that aren't applicable to contexts,
-# or features like alias events that have been removed. When we migrate to using the v2
-# U2C-aware contract tests, we can remove these.
+# Temporary contract test skips - these non-U2C tests won't work with the v1 test harness.
+# All of the event tests currently fail because we have already migrated the event code to
+# use the U2C schema, and some of the evaluation tests describe evaluation conditions that
+# aren't applicable to contexts. When we migrate to using the v2 U2C-aware contract tests,
+# we'll remove these skips.
 TEST_HARNESS_PARAMS= \
     -skip evaluation/parameterized/secondary \
     -skip evaluation/parameterized/key/empty \
     -skip evaluation/bucketing/secondary/secondary/experiment \
     -skip evaluation/bucketing/non-key/experiments \
-    -skip events/alias \
-    -skip events/custom \
-    -skip events/disabling/alias \
-    -skip events/user/inlineUsers=true
+    -skip events
 
 build-contract-tests:
 	@cd contract-tests && ../gradlew installDist

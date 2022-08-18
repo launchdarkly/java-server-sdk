@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
@@ -22,7 +22,7 @@ import static org.hamcrest.Matchers.contains;
  */
 @SuppressWarnings("javadoc")
 public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBase {
-  private static final LDUser userWithNullKey = new LDUser(null);
+  private static final LDContext invalidContext = LDContext.create(null);
   
   @Test
   public void identifyEventIsQueued() throws Exception {
@@ -52,23 +52,23 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     ));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
-  public void identifyEventWithNullUserOrNullUserKeyDoesNotCauseError() throws Exception {
+  public void identifyEventWithNullContextOrInvalidContextDoesNotCauseError() throws Exception {
     // This should never happen because LDClient.identify() rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
-    Event event1 = EventFactory.DEFAULT.newIdentifyEvent(userWithNullKey);
+    Event event1 = EventFactory.DEFAULT.newIdentifyEvent(invalidContext);
     Event event2 = EventFactory.DEFAULT.newIdentifyEvent(null);
+    Event event3 = EventFactory.DEFAULT.newIdentifyEvent(user);
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).allAttributesPrivate(true))) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(event1);
       ep.sendEvent(event2);
+      ep.sendEvent(event3);
     }
 
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIdentifyEvent(event1, LDValue.buildObject().build()),
-        isIdentifyEvent(event2, LDValue.ofNull())
+        isIdentifyEvent(event3, userJson)
     ));
   }
 
@@ -132,12 +132,12 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
   }
 
   @Test
-  public void featureEventWithNullUserOrNullUserKeyIsIgnored() throws Exception {
+  public void featureEventWithNullContextOrInvalidContextIsIgnored() throws Exception {
     // This should never happen because LDClient rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
     DataModel.FeatureFlag flag = flagBuilder("flagkey").version(11).build();
-    Event.FeatureRequest event1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag, userWithNullKey,
+    Event.FeatureRequest event1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag, invalidContext,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
     Event.FeatureRequest event2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag, null,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
@@ -231,7 +231,7 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       // Send and flush an event we don't care about, just so we'll receive "resp1" which sets the last server time
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
+      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(LDContext.create("otherUser")));
       ep.flush();
       ep.waitUntilInactive(); // this ensures that it has received the first response, with the date
       
@@ -266,7 +266,7 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
 
     try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       // Send and flush an event we don't care about, just to set the last server time
-      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(new LDUser.Builder("otherUser").build()));
+      ep.sendEvent(EventFactory.DEFAULT.newIdentifyEvent(LDContext.create("otherUser")));
       ep.flush();
       ep.waitUntilInactive(); // this ensures that it has received the first response, with the date
       
@@ -393,22 +393,23 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
   
   @SuppressWarnings("unchecked")
   @Test
-  public void customEventWithNullUserOrNullUserKeyDoesNotCauseError() throws Exception {
+  public void customEventWithNullContextOrInvalidContextDoesNotCauseError() throws Exception {
     // This should never happen because LDClient rejects such a user, but just in case,
     // we want to make sure it doesn't blow up the event processor.
     MockEventSender es = new MockEventSender();
-    Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("eventkey", userWithNullKey, LDValue.ofNull(), null);
-    Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("eventkey", null, LDValue.ofNull(), null);
-
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es)
-        .allAttributesPrivate(true))) {
+    Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("eventkey", invalidContext, null, null);
+    Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("eventkey", null, null, null);
+    Event.Custom event3 = EventFactory.DEFAULT.newCustomEvent("eventkey", user, null, null);
+    
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
       ep.sendEvent(event1);
       ep.sendEvent(event2);
+      ep.sendEvent(event3);
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(
-        isCustomEvent(event1),
-        isCustomEvent(event2)
+        isIndexEvent(event3, userJson),
+        isCustomEvent(event3)
     ));
   }
 }

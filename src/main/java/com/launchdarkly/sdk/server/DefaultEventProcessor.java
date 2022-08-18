@@ -4,7 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.server.EventSummarizer.EventSummary;
 import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
@@ -388,9 +388,11 @@ final class DefaultEventProcessor implements EventProcessor {
         return;
       }
 
-      // Always record the event in the summarizer.
-      outbox.addToSummary(e);
-
+      LDContext context = e.getContext();
+      if (context == null) {
+        return; // LDClient should never give us an event with no context
+      }
+      
       // Decide whether to add the event to the payload. Feature events may be added twice, once for
       // the event (if tracked) and once for debugging.
       boolean addIndexEvent = false,
@@ -399,6 +401,7 @@ final class DefaultEventProcessor implements EventProcessor {
 
       if (e instanceof Event.FeatureRequest) {
         Event.FeatureRequest fe = (Event.FeatureRequest)e;
+        outbox.addToSummary(fe);
         addFullEvent = fe.isTrackEvents();
         if (shouldDebugEvent(fe)) {
           debugEvent = EventFactory.newDebugEvent(fe);
@@ -407,12 +410,11 @@ final class DefaultEventProcessor implements EventProcessor {
         addFullEvent = true;
       }
 
-      // For each user we haven't seen before, we add an index event - unless this is already
-      // an identify event for that user.
-      LDUser user = e.getUser();
-      if (user != null && user.getKey() != null) {
+      // For each context we haven't seen before, we add an index event - unless this is already
+      // an identify event for that context.
+      if (context != null && context.getFullyQualifiedKey() != null) {
         if (e instanceof Event.FeatureRequest || e instanceof Event.Custom) {
-          String key = user.getKey();
+          String key = context.getFullyQualifiedKey();
           // Add to the set of users we've noticed
           boolean alreadySeen = (userKeys.put(key, key) != null);
           if (alreadySeen) {
@@ -421,13 +423,13 @@ final class DefaultEventProcessor implements EventProcessor {
             addIndexEvent = true;
           }
         } else if (e instanceof Event.Identify) {
-          String key = user.getKey();
+          String key = context.getFullyQualifiedKey();
           userKeys.put(key, key); // just mark that we've seen it
         }
       }
 
       if (addIndexEvent) {
-        Event.Index ie = new Event.Index(e.getCreationDate(), e.getUser());
+        Event.Index ie = new Event.Index(e.getCreationDate(), e.getContext());
         outbox.add(ie);
       }
       if (addFullEvent) {
@@ -513,8 +515,16 @@ final class DefaultEventProcessor implements EventProcessor {
       }
     }
 
-    void addToSummary(Event e) {
-      summarizer.summarizeEvent(e);
+    void addToSummary(Event.FeatureRequest e) {
+      summarizer.summarizeEvent(
+          e.getCreationDate(),
+          e.getKey(),
+          e.getVersion(),
+          e.getVariation(),
+          e.getValue(),
+          e.getDefaultVal(),
+          e.getContext()
+          );
     }
 
     boolean isEmpty() {

@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
@@ -22,6 +23,7 @@ public abstract class TestValues {
   public static final String SDK_KEY = "sdk-key";
   
   public static final LDUser BASIC_USER = new LDUser("userkey");
+  public static final LDContext BASIC_CONTEXT = LDContext.create("userkey");
   
   public static final String BOOLEAN_FLAG_KEY = "flag-bool";
   public static final String INT_FLAG_KEY = "flag-int";
@@ -119,7 +121,7 @@ public abstract class TestValues {
   public static final Event.Custom CUSTOM_EVENT = new Event.Custom(
       System.currentTimeMillis(),
       "event-key",
-      BASIC_USER,
+      BASIC_CONTEXT,
       CUSTOM_EVENT_DATA,
       null
       );

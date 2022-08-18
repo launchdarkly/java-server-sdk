@@ -3,7 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.Logs;
-import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
@@ -28,7 +28,6 @@ import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -95,7 +94,7 @@ public class TestComponents {
   }
 
   static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate,
-      Set<UserAttribute> privateAttributes) {
+      Iterable<AttributeRef> privateAttributes) {
     return new EventsConfiguration(
         allAttributesPrivate,
         0,

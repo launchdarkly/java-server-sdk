@@ -3,8 +3,9 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.Event;
@@ -39,11 +40,12 @@ import static org.junit.Assert.assertNotNull;
 public abstract class DefaultEventProcessorTestBase extends BaseTest {
   public static final String SDK_KEY = "SDK_KEY";
   public static final URI FAKE_URI = URI.create("http://fake");
-  public static final LDUser user = new LDUser.Builder("userkey").name("Red").build();
+  public static final LDContext user = LDContext.builder("userkey").name("Red").build();
   public static final Gson gson = new Gson();
-  public static final LDValue userJson = LDValue.buildObject().put("key", "userkey").put("name", "Red").build();
-  public static final LDValue filteredUserJson = LDValue.buildObject().put("key", "userkey")
-      .put("privateAttrs", LDValue.buildArray().add("name").build()).build();
+  public static final LDValue userJson = LDValue.buildObject().put("kind", "user")
+      .put("key", "userkey").put("name", "Red").build();
+  public static final LDValue filteredUserJson = LDValue.buildObject().put("kind", "user")
+      .put("key", "userkey").put("_meta", LDValue.parse("{\"redactedAttributes\":[\"name\"]}")).build();
   
   // Note that all of these events depend on the fact that DefaultEventProcessor does a synchronous
   // flush when it is closed; in this case, it's closed implicitly by the try-with-resources block.
@@ -150,11 +152,11 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
     }
   }
 
-  public static Matcher<JsonTestValue> isIdentifyEvent(Event sourceEvent, LDValue user) {
+  public static Matcher<JsonTestValue> isIdentifyEvent(Event sourceEvent, LDValue context) {
     return allOf(
         jsonProperty("kind", "identify"),
         jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        jsonProperty("user", (user == null || user.isNull()) ? jsonUndefined() : jsonEqualsValue(user))
+        jsonProperty("context", jsonFromValue(context))
     );
   }
 
@@ -162,11 +164,11 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
     return jsonProperty("kind", "index");
   }
 
-  public static Matcher<JsonTestValue> isIndexEvent(Event sourceEvent, LDValue user) {
+  public static Matcher<JsonTestValue> isIndexEvent(Event sourceEvent, LDValue context) {
     return allOf(
         jsonProperty("kind", "index"),
         jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
-        jsonProperty("user", jsonFromValue(user))
+        jsonProperty("context", jsonFromValue(context))
     );
   }
 
@@ -175,8 +177,8 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
   }
 
   @SuppressWarnings("unchecked")
-  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag, boolean debug, LDValue inlineUser,
-      EvaluationReason reason) {
+  public static Matcher<JsonTestValue> isFeatureEvent(Event.FeatureRequest sourceEvent, DataModel.FeatureFlag flag,
+      boolean debug, LDValue inlineContext, EvaluationReason reason) {
     return allOf(
         jsonProperty("kind", debug ? "debug" : "feature"),
         jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
@@ -184,7 +186,7 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
         jsonProperty("version", (double)flag.getVersion()),
         jsonProperty("variation", sourceEvent.getVariation()),
         jsonProperty("value", jsonFromValue(sourceEvent.getValue())),
-        hasUserOrUserKey(sourceEvent, inlineUser),
+        inlineContext == null ? hasContextKeys(sourceEvent) : hasInlineContext(inlineContext),
         jsonProperty("reason", reason == null ? jsonUndefined() : jsonEqualsValue(reason))
     );
   }
@@ -199,24 +201,27 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
         jsonProperty("kind", "custom"),
         jsonProperty("creationDate", (double)sourceEvent.getCreationDate()),
         jsonProperty("key", sourceEvent.getKey()),
-        hasUserOrUserKey(sourceEvent, null),
+        hasContextKeys(sourceEvent),
         jsonProperty("data", hasData ? jsonEqualsValue(sourceEvent.getData()) : jsonUndefined()),
         jsonProperty("metricValue", sourceEvent.getMetricValue() == null ? jsonUndefined() : jsonEqualsValue(sourceEvent.getMetricValue()))              
     );
   }
 
-  public static Matcher<JsonTestValue> hasUserOrUserKey(Event sourceEvent, LDValue inlineUser) {
-    if (inlineUser != null && !inlineUser.isNull()) {
-      return allOf(
-          jsonProperty("user", jsonEqualsValue(inlineUser)),
-          jsonProperty("userKey", jsonUndefined()));
+  public static Matcher<JsonTestValue> hasContextKeys(Event sourceEvent) {
+    ObjectBuilder b = LDValue.buildObject();
+    LDContext c = sourceEvent.getContext();
+    for (int i = 0; i < c.getIndividualContextCount(); i++) {
+      LDContext c1 = c.getIndividualContext(i);
+      b.put(c1.getKind().toString(), c1.getKey());
     }
-    if (sourceEvent.getUser() == null || sourceEvent.getUser().getKey() == null) {
-      return jsonProperty("user", jsonUndefined());
-    }
+    return jsonProperty("contextKeys", jsonEqualsValue(b.build()));
+  }
+  
+  public static Matcher<JsonTestValue> hasInlineContext(LDValue inlineContext) {
     return allOf(
-        jsonProperty("user", jsonUndefined()),
-        jsonProperty("userKey", jsonEqualsValue(sourceEvent.getUser().getKey())));
+        jsonProperty("context", jsonEqualsValue(inlineContext)),
+        jsonProperty("contextKeys", jsonUndefined())
+        );
   }
   
   public static Matcher<JsonTestValue> isSummaryEvent() {

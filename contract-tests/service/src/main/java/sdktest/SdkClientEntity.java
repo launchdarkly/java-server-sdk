@@ -209,7 +209,7 @@ public class SdkClientEntity {
         eb.flushInterval(Duration.ofMillis(params.events.flushIntervalMs.longValue()));
       }
       if (params.events.globalPrivateAttributes != null) {
-        eb.privateAttributeNames(params.events.globalPrivateAttributes);
+        eb.privateAttributes(params.events.globalPrivateAttributes);
       }
       builder.events(eb);
       builder.diagnosticOptOut(!params.events.enableDiagnostics);

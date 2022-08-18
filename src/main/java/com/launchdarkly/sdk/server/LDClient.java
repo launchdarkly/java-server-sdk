@@ -3,7 +3,6 @@ package com.launchdarkly.sdk.server;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
-import com.launchdarkly.sdk.ArrayBuilder;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextBuilder;
 import com.launchdarkly.sdk.EvaluationDetail;
@@ -12,10 +11,7 @@ import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
-import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.UserAttribute;
-import com.launchdarkly.sdk.json.JsonSerialization;
-import com.launchdarkly.sdk.json.SerializationException;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
@@ -310,7 +306,8 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
       baseLogger.warn("Track called with null user or null/empty user key!");
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, null));
+      LDContext context = temporaryConvertUserToContext(user);
+      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, context, data, null));
     }
   }
 
@@ -319,7 +316,8 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
       baseLogger.warn("Track called with null user or null/empty user key!");
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, metricValue));
+      LDContext context = temporaryConvertUserToContext(user);
+      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, context, data, metricValue));
     }
   }
 
@@ -328,7 +326,8 @@ public final class LDClient implements LDClientInterface {
     if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
       baseLogger.warn("Identify called with null user or null/empty user key!");
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newIdentifyEvent(user));
+      LDContext context = temporaryConvertUserToContext(user);
+      eventProcessor.sendEvent(eventFactoryDefault.newIdentifyEvent(context));
     }
   }
 
@@ -490,12 +489,13 @@ public final class LDClient implements LDClientInterface {
   private EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue,
       LDValueType requireType, boolean withDetail) {
     EventFactory eventFactory = withDetail ? eventFactoryWithReasons : eventFactoryDefault;
+    LDContext context = temporaryConvertUserToContext(user);
     if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         evaluationLogger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {
         evaluationLogger.warn("Evaluation called before client initialized for feature flag \"{}\"; data store unavailable, returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, context, defaultValue,
             EvaluationReason.ErrorKind.CLIENT_NOT_READY));
         return errorResult(EvaluationReason.ErrorKind.CLIENT_NOT_READY, defaultValue);
       }
@@ -506,20 +506,19 @@ public final class LDClient implements LDClientInterface {
       featureFlag = getFlag(dataStore, featureKey);
       if (featureFlag == null) {
         evaluationLogger.info("Unknown feature flag \"{}\"; returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, context, defaultValue,
             EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
         return errorResult(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, defaultValue);
       }
       if (user == null || user.getKey() == null) {
         evaluationLogger.warn("Null user or null user key when evaluating flag \"{}\"; returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, context, defaultValue,
             EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
         return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
       if (user.getKey().isEmpty()) {
         evaluationLogger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
       }
-      LDContext context = temporaryConvertUserToContext(user);
       EvalResult evalResult = evaluator.evaluate(featureFlag, context,
           withDetail ? prereqEvalsWithReasons : prereqEvalsDefault);
       if (evalResult.isNoVariation()) {
@@ -530,22 +529,22 @@ public final class LDClient implements LDClientInterface {
             !value.isNull() &&
             value.getType() != requireType) {
           evaluationLogger.error("Feature flag evaluation expected result as {}, but got {}", defaultValue.getType(), value.getType());
-          sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+          sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, context, defaultValue,
               EvaluationReason.ErrorKind.WRONG_TYPE));
           return errorResult(EvaluationReason.ErrorKind.WRONG_TYPE, defaultValue);
         }
       }
-      sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult, defaultValue));
+      sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, context, evalResult, defaultValue));
       return evalResult;
     } catch (Exception e) {
       evaluationLogger.error("Encountered exception while evaluating feature flag \"{}\": {}", featureKey,
           LogValues.exceptionSummary(e));
       evaluationLogger.debug("{}", LogValues.exceptionTrace(e));
       if (featureFlag == null) {
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
+        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, context, defaultValue,
             EvaluationReason.ErrorKind.EXCEPTION));
       } else {
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
+        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, context, defaultValue,
             EvaluationReason.ErrorKind.EXCEPTION));
       }
       return EvalResult.of(defaultValue, NO_VARIATION, EvaluationReason.exception(e));
@@ -640,14 +639,16 @@ public final class LDClient implements LDClientInterface {
     return new Evaluator.PrerequisiteEvaluationSink() {
       @Override
       public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context, EvalResult result) {
-        LDUser user = temporaryConvertContextToUser(context);
         eventProcessor.sendEvent(
-            factory.newPrerequisiteFeatureRequestEvent(flag, user, result, prereqOfFlag));
+            factory.newPrerequisiteFeatureRequestEvent(flag, context, result, prereqOfFlag));
       }
     };
   }
   
   private static LDContext temporaryConvertUserToContext(LDUser u) {
+    if (u == null) {
+      return null;
+    }
     ContextBuilder cb = LDContext.builder(u.getKey()).name(u.getName()).anonymous(u.isAnonymous()).secondary(u.getSecondary());
     for (UserAttribute a: new UserAttribute[] {
         UserAttribute.FIRST_NAME, UserAttribute.LAST_NAME, UserAttribute.EMAIL, UserAttribute.COUNTRY,
@@ -662,39 +663,5 @@ public final class LDClient implements LDClientInterface {
       cb.privateAttributes(AttributeRef.fromLiteral(a.getName()));
     }
     return cb.build();
-  }
-  
-  private static LDUser temporaryConvertContextToUser(LDContext c) {
-    // The user builder API is pretty inconvenient for this purpose; since this is a very temporary thing
-    // that doesn't need to be efficient (it's only supporting the interim development state where both users
-    // and contexts exist in the SDK), let's just build JSON and deserialize it
-    ObjectBuilder ob = LDValue.buildObject();
-    ob.put("key", c.getKey()).put("name", c.getName()).put("secondary", c.getSecondary());
-    if (c.isAnonymous()) {
-      ob.put("anonymous", true);
-    }
-    for (UserAttribute a: new UserAttribute[] {
-        UserAttribute.FIRST_NAME, UserAttribute.LAST_NAME, UserAttribute.EMAIL, UserAttribute.COUNTRY,
-        UserAttribute.IP, UserAttribute.AVATAR
-    }) {
-      ob.put(a.getName(), c.getValue(a.getName()).stringValue());
-    }
-    ObjectBuilder cb = LDValue.buildObject();
-    for (String a: c.getCustomAttributeNames()) {
-      if (!UserAttribute.forName(a).isBuiltIn()) {
-        cb.put(a, c.getValue(a));
-      }
-    }
-    ob.put("custom", cb.build());
-    ArrayBuilder pab = LDValue.buildArray();
-    for (int i = 0; i < c.getPrivateAttributeCount(); i++) {
-      pab.add(c.getPrivateAttribute(i).toString());
-    }
-    ob.put("privateAttributeNames", pab.build());
-    try {
-      return JsonSerialization.deserialize(ob.build().toJsonString(), LDUser.class);
-    } catch (SerializationException e) {
-      throw new RuntimeException(e);
-    }
   }
 }
