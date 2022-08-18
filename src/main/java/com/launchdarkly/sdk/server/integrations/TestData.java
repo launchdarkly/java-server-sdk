@@ -5,9 +5,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.ArrayBuilder;
+import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
@@ -205,8 +206,8 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     boolean on;
     int fallthroughVariation;
     CopyOnWriteArrayList<LDValue> variations;
-    Map<Integer, ImmutableSet<String>> targets;
-    List<FlagRuleBuilder> rules;
+    final Map<ContextKind, Map<Integer, ImmutableSet<String>>> targets = new TreeMap<>(); // TreeMap enforces ordering for test determinacy
+    final List<FlagRuleBuilder> rules = new ArrayList<>();
     
     private FlagBuilder(String key) {
       this.key = key;
@@ -220,8 +221,10 @@ public final class TestData implements ComponentConfigurer<DataSource> {
       this.on = from.on;
       this.fallthroughVariation = from.fallthroughVariation;
       this.variations = new CopyOnWriteArrayList<>(from.variations);
-      this.targets = from.targets == null ? null : new HashMap<>(from.targets); 
-      this.rules = from.rules == null ? null : new ArrayList<>(from.rules);
+      for (ContextKind contextKind: from.targets.keySet()) {
+        this.targets.put(contextKind, new TreeMap<>(from.targets.get(contextKind)));
+      }
+      this.rules.addAll(from.rules);
     }
     
     private boolean isBooleanFlag() {
@@ -267,7 +270,7 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     
     /**
      * Specifies the fallthrough variation for a boolean flag. The fallthrough is the value
-     * that is returned if targeting is on and the user was not matched by a more specific
+     * that is returned if targeting is on and the context was not matched by a more specific
      * target or rule.
      * <p>
      * If the flag was previously configured with other variations, this also changes it to a
@@ -282,7 +285,7 @@ public final class TestData implements ComponentConfigurer<DataSource> {
 
     /**
      * Specifies the index of the fallthrough variation. The fallthrough is the variation
-     * that is returned if targeting is on and the user was not matched by a more specific
+     * that is returned if targeting is on and the context was not matched by a more specific
      * target or rule.
      * 
      * @param variationIndex the desired fallthrough variation: 0 for the first, 1 for the second, etc.
@@ -317,14 +320,16 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     }
 
     /**
-     * Sets the flag to always return the specified boolean variation for all users.
+     * Sets the flag to always return the specified boolean variation for all contexts.
      * <p>
      * Targeting is switched on, any existing targets or rules are removed, and the flag's variations are
      * set to true and false. The fallthrough variation is set to the specified value. The off variation is
      * left unchanged.
      *
-     * @param variation the desired true/false variation to be returned for all users
+     * @param variation the desired true/false variation to be returned for all contexts
      * @return the builder
+     * @see #variationForAll(int)
+     * @see #valueForAll(LDValue)
      * @since 5.10.0
      */
     public FlagBuilder variationForAll(boolean variation) {
@@ -332,7 +337,7 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     }
 
     /**
-     * Sets the flag to always return the specified variation for all users.
+     * Sets the flag to always return the specified variation for all contexts.
      * <p>
      * The variation is specified by number, out of whatever variation values have already been
      * defined. Targeting is switched on, and any existing targets or rules are removed. The fallthrough
@@ -340,40 +345,11 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * 
      * @param variationIndex the desired variation: 0 for the first, 1 for the second, etc.
      * @return the builder
-     * @since 5.10.0
+     * @see #variationForAll(boolean)
+     * @see #valueForAll(LDValue)
      */
     public FlagBuilder variationForAll(int variationIndex) {
-      return on(true).clearRules().clearUserTargets().fallthroughVariation(variationIndex);
-    }
-    
-    /**
-     * Deprecated name for {@link #variationForAll(boolean)}.
-     * <p>
-     * This method name will be dropped in a future SDK version because "users" will not always be the
-     * only kind of input for an evaluation.
-     *
-     * @param variation the desired true/false variation to be returned for all users
-     * @return the builder
-     * @deprecated Use {@link #variationForAll(boolean)}.
-     */
-    @Deprecated
-    public FlagBuilder variationForAllUsers(boolean variation) {
-      return variationForAll(variation);
-    }
-
-    /**
-     * Deprecated name for {@link #variationForAll(int)}.
-     * <p>
-     * This method name will be dropped in a future SDK version because "users" will not always be the
-     * only kind of input for an evaluation.
-     * 
-     * @param variationIndex the desired variation: 0 for the first, 1 for the second, etc.
-     * @return the builder
-     * @deprecated Use {@link #variationForAll(int)}.
-     */
-    @Deprecated
-    public FlagBuilder variationForAllUsers(int variationIndex) {
-      return variationForAll(variationIndex);
+      return on(true).clearRules().clearTargets().fallthroughVariation(variationIndex);
     }
 
     /**
@@ -386,6 +362,8 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * 
      * @param value the desired value to be returned for all users
      * @return the builder
+     * @see #variationForAll(boolean)
+     * @see #variationForAll(int)
      */
     public FlagBuilder valueForAll(LDValue value) {
       variations.clear();
@@ -394,23 +372,8 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     }
     
     /**
-     * Deprecated name for {@link #valueForAll(LDValue)}.
-     * <p>
-     * This method name will be dropped in a future SDK version because "users" will not always be the
-     * only kind of input for an evaluation.
-     * 
-     * @param value the desired value to be returned for all users
-     * @return the builder'
-     * @deprecated Use {@link #valueForAll(LDValue)}.
-     */
-    @Deprecated
-    public FlagBuilder valueForAllUsers(LDValue value) {
-      return valueForAll(value);
-    }
-    
-    /**
-     * Sets the flag to return the specified boolean variation for a specific user key when
-     * targeting is on.
+     * Sets the flag to return the specified boolean variation for a specific user key (that is,
+     * for a context with that key whose context kind is "user") when targeting is on.
      * <p>
      * This has no effect when targeting is turned off for the flag.
      * <p>
@@ -420,14 +383,37 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * @param variation the desired true/false variation to be returned for this user when
      *   targeting is on
      * @return the builder
+     * @see #variationForUser(String, int)
+     * @see #variationForKey(ContextKind, String, boolean)
      */
     public FlagBuilder variationForUser(String userKey, boolean variation) {
-      return booleanFlag().variationForUser(userKey, variationForBoolean(variation));
+      return variationForKey(ContextKind.DEFAULT, userKey, variation);
+    }
+
+    /**
+     * Sets the flag to return the specified boolean variation for a specific context, identified
+     * by context kind and key, when targeting is on.
+     * <p>
+     * This has no effect when targeting is turned off for the flag.
+     * <p>
+     * If the flag was not already a boolean flag, this also changes it to a boolean flag.
+     * 
+     * @param contextKind the context kind
+     * @param key the context key
+     * @param variation the desired true/false variation to be returned for this context when
+     *   targeting is on
+     * @return the builder
+     * @see #variationForKey(ContextKind, String, int)
+     * @see #variationForUser(String, boolean)
+     * @since 6.0.0
+     */
+    public FlagBuilder variationForKey(ContextKind contextKind, String key, boolean variation) {
+      return booleanFlag().variationForKey(contextKind, key, variationForBoolean(variation));
     }
     
     /**
-     * Sets the flag to return the specified variation for a specific user key when targeting
-     * is on.
+     * Sets the flag to return the specified variation for a specific user key (that is,
+     * for a context with that key whose context kind is "user") when targeting is on.
      * <p>
      * This has no effect when targeting is turned off for the flag.
      * <p>
@@ -438,29 +424,57 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * @param variationIndex the desired variation to be returned for this user when targeting is on:
      *   0 for the first, 1 for the second, etc.
      * @return the builder
+     * @see #variationForKey(ContextKind, String, int)
+     * @see #variationForUser(String, boolean)
      */
     public FlagBuilder variationForUser(String userKey, int variationIndex) {
-      if (targets == null) {
-        targets = new TreeMap<>(); // TreeMap keeps variations in order for test determinacy
+      return variationForKey(ContextKind.DEFAULT, userKey, variationIndex);
+    }
+
+    /**
+     * Sets the flag to return the specified boolean variation for a specific context, identified
+     * by context kind and key, when targeting is on.
+     * <p>
+     * This has no effect when targeting is turned off for the flag.
+     * <p>
+     * If the flag was not already a boolean flag, this also changes it to a boolean flag.
+     * 
+     * @param contextKind the context kind
+     * @param key the context key
+     * @param variationIndex the desired variation to be returned for this context when targeting is on:
+     *   0 for the first, 1 for the second, etc.
+     * @return the builder
+     * @see #variationForKey(ContextKind, String, boolean)
+     * @see #variationForUser(String, int)
+     * @since 6.0.0
+     */
+    public FlagBuilder variationForKey(ContextKind contextKind, String key, int variationIndex) {
+      if (contextKind == null) {
+        contextKind = ContextKind.DEFAULT;
+      }
+      Map<Integer, ImmutableSet<String>> keysByVariation = targets.get(contextKind);
+      if (keysByVariation == null) {
+        keysByVariation = new TreeMap<>(); // TreeMap keeps variations in order for test determinacy
+        targets.put(contextKind, keysByVariation);
       }
       for (int i = 0; i < variations.size(); i++) {
-        ImmutableSet<String> keys = targets.get(i);
+        ImmutableSet<String> keys = keysByVariation.get(i);
         if (i == variationIndex) {
           if (keys == null) {
-            targets.put(i, ImmutableSortedSet.of(userKey));
-          } else if (!keys.contains(userKey)) {
-            targets.put(i, ImmutableSortedSet.<String>naturalOrder().addAll(keys).add(userKey).build());
+            keysByVariation.put(i, ImmutableSortedSet.of(key));
+          } else if (!keys.contains(key)) {
+            keysByVariation.put(i, ImmutableSortedSet.<String>naturalOrder().addAll(keys).add(key).build());
           }
         } else {
-          if (keys != null && keys.contains(userKey)) {
-            targets.put(i, ImmutableSortedSet.copyOf(Iterables.filter(keys, k -> !k.equals(userKey))));
+          if (keys != null && keys.contains(key)) {
+            keysByVariation.put(i, ImmutableSortedSet.copyOf(Iterables.filter(keys, k -> !k.equals(key))));
           }
         }
       }
       // Note, we use ImmutableSortedSet just to make the output determinate for our own testing
       return this;
     }
-    
+
     /**
      * Changes the allowable variation values for the flag.
      * <p>
@@ -478,15 +492,45 @@ public final class TestData implements ComponentConfigurer<DataSource> {
       }
       return this;
     }
+
+    /**
+     * Starts defining a flag rule, using the "is one of" operator. This matching expression only
+     * applies to contexts of a specific kind.
+     * <p>
+     * For example, this creates a rule that returns {@code true} if the name attribute for the
+     * "company" context is "Ella" or "Monsoon":
+     * 
+     * <pre><code>
+     *     testData.flag("flag")
+     *         .ifMatch(ContextKind.of("company"), "name",
+     *             LDValue.of("Ella"), LDValue.of("Monsoon"))
+     *         .thenReturn(true));
+     * </code></pre>
+     * 
+     * @param contextKind the context kind to match
+     * @param attribute the attribute to match against
+     * @param values values to compare to
+     * @return a {@link FlagRuleBuilder}; call {@link FlagRuleBuilder#thenReturn(boolean)} or
+     *   {@link FlagRuleBuilder#thenReturn(int)} to finish the rule, or add more tests with another
+     *   method like {@link FlagRuleBuilder#andMatch(ContextKind, String, LDValue...)}
+     * @see #ifMatch(String, LDValue...)
+     * @see #ifNotMatch(ContextKind, String, LDValue...)
+     * @since 6.0.0
+     */
+    public FlagRuleBuilder ifMatch(ContextKind contextKind, String attribute, LDValue... values) {
+      return new FlagRuleBuilder().andMatch(contextKind, attribute, values);
+    }
     
     /**
-     * Starts defining a flag rule, using the "is one of" operator.
+     * Starts defining a flag rule, using the "is one of" operator. This is a shortcut for calling
+     * {@link #ifMatch(ContextKind, String, LDValue...)} with {@link ContextKind#DEFAULT} as the
+     * context kind.
      * <p>
      * For example, this creates a rule that returns {@code true} if the name is "Patsy" or "Edina":
      * 
      * <pre><code>
      *     testData.flag("flag")
-     *         .ifMatch(UserAttribute.NAME, LDValue.of("Patsy"), LDValue.of("Edina"))
+     *         .ifMatch("name", LDValue.of("Patsy"), LDValue.of("Edina"))
      *         .thenReturn(true));
      * </code></pre>
      * 
@@ -494,14 +538,46 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * @param values values to compare to
      * @return a {@link FlagRuleBuilder}; call {@link FlagRuleBuilder#thenReturn(boolean)} or
      *   {@link FlagRuleBuilder#thenReturn(int)} to finish the rule, or add more tests with another
-     *   method like {@link FlagRuleBuilder#andMatch(UserAttribute, LDValue...)}
+     *   method like {@link FlagRuleBuilder#andMatch(String, LDValue...)}
+     * @see #ifMatch(ContextKind, String, LDValue...)
+     * @see #ifNotMatch(String, LDValue...)
      */
-    public FlagRuleBuilder ifMatch(UserAttribute attribute, LDValue... values) {
-      return new FlagRuleBuilder().andMatch(attribute, values);
+    public FlagRuleBuilder ifMatch(String attribute, LDValue... values) {
+      return ifMatch(ContextKind.DEFAULT, attribute, values);
+    }
+
+    /**
+     * Starts defining a flag rule, using the "is not one of" operator. This matching expression only
+     * applies to contexts of a specific kind.
+     * <p>
+     * For example, this creates a rule that returns {@code true} if the name attribute for the
+     * "company" context is neither "Pendant" nor "Sterling Cooper":
+     * 
+     * <pre><code>
+     *     testData.flag("flag")
+     *         .ifNotMatch(ContextKind.of("company"), "name",
+     *             LDValue.of("Pendant"), LDValue.of("Sterling Cooper"))
+     *         .thenReturn(true));
+     * </code></pre>
+     *
+     * @param contextKind the context kind to match
+     * @param attribute the attribute to match against
+     * @param values values to compare to
+     * @return a {@link FlagRuleBuilder}; call {@link FlagRuleBuilder#thenReturn(boolean)} or
+     *   {@link FlagRuleBuilder#thenReturn(int)} to finish the rule, or add more tests with another
+     *   method like {@link FlagRuleBuilder#andMatch(ContextKind, String, LDValue...)}
+     * @see #ifMatch(ContextKind, String, LDValue...)
+     * @see #ifNotMatch(String, LDValue...)
+     * @since 6.0.0
+     */
+    public FlagRuleBuilder ifNotMatch(ContextKind contextKind, String attribute, LDValue... values) {
+      return new FlagRuleBuilder().andNotMatch(contextKind, attribute, values);
     }
     
     /**
-     * Starts defining a flag rule, using the "is not one of" operator.
+     * Starts defining a flag rule, using the "is not one of" operator. This is a shortcut for calling
+     * {@link #ifNotMatch(ContextKind, String, LDValue...)} with {@link ContextKind#DEFAULT} as the
+     * context kind.
      * <p>
      * For example, this creates a rule that returns {@code true} if the name is neither "Saffron" nor "Bubble":
      * 
@@ -515,31 +591,33 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * @param values values to compare to
      * @return a {@link FlagRuleBuilder}; call {@link FlagRuleBuilder#thenReturn(boolean)} or
      *   {@link FlagRuleBuilder#thenReturn(int)} to finish the rule, or add more tests with another
-     *   method like {@link FlagRuleBuilder#andMatch(UserAttribute, LDValue...)}
+     *   method like {@link FlagRuleBuilder#andMatch(String, LDValue...)}
+     * @see #ifNotMatch(ContextKind, String, LDValue...)
+     * @see #ifMatch(String, LDValue...)
      */
-    public FlagRuleBuilder ifNotMatch(UserAttribute attribute, LDValue... values) {
-      return new FlagRuleBuilder().andNotMatch(attribute, values);
+    public FlagRuleBuilder ifNotMatch(String attribute, LDValue... values) {
+      return ifNotMatch(ContextKind.DEFAULT, attribute, values);
     }
-    
+
     /**
      * Removes any existing rules from the flag. This undoes the effect of methods like
-     * {@link #ifMatch(UserAttribute, LDValue...)}.
+     * {@link #ifMatch(String, LDValue...)}.
      * 
      * @return the same builder
      */
     public FlagBuilder clearRules() {
-      rules = null;
+      rules.clear();
       return this;
     }
 
     /**
-     * Removes any existing user targets from the flag. This undoes the effect of methods like
+     * Removes any existing user/context targets from the flag. This undoes the effect of methods like
      * {@link #variationForUser(String, boolean)}.
      * 
      * @return the same builder
      */
-    public FlagBuilder clearUserTargets() {
-      targets = null;
+    public FlagBuilder clearTargets() {
+      targets.clear();
       return this;
     }
     
@@ -550,25 +628,49 @@ public final class TestData implements ComponentConfigurer<DataSource> {
           .put("on", on)
           .put("offVariation", offVariation)
           .put("fallthrough", LDValue.buildObject().put("variation", fallthroughVariation).build());
+      
+      // The following properties shouldn't actually be used in evaluations of this flag, but
+      // adding them makes the JSON output more predictable for tests
+      builder.put("prerequisites", LDValue.arrayOf())
+        .put("salt", "");
+      
       ArrayBuilder jsonVariations = LDValue.buildArray();
       for (LDValue v: variations) {
         jsonVariations.add(v);
       }
       builder.put("variations", jsonVariations.build());
       
-      if (targets != null) {
-        ArrayBuilder jsonTargets = LDValue.buildArray();
-        for (Map.Entry<Integer, ImmutableSet<String>> e: targets.entrySet()) {
-          jsonTargets.add(LDValue.buildObject()
-              .put("variation", e.getKey().intValue())
-              .put("values", LDValue.Convert.String.arrayFrom(e.getValue()))
-              .build());
+      ArrayBuilder jsonTargets = LDValue.buildArray();
+      ArrayBuilder jsonContextTargets = LDValue.buildArray();
+      if (!targets.isEmpty()) {
+        if (targets.get(ContextKind.DEFAULT) != null) {
+          for (Map.Entry<Integer, ImmutableSet<String>> e: targets.get(ContextKind.DEFAULT).entrySet()) {
+            if (!e.getValue().isEmpty()) {
+              jsonTargets.add(LDValue.buildObject()
+                  .put("variation", e.getKey().intValue())
+                  .put("values", LDValue.Convert.String.arrayFrom(e.getValue()))
+                  .build());
+            }
+          }
         }
-        builder.put("targets", jsonTargets.build());
+        for (ContextKind contextKind: targets.keySet()) {
+          for (Map.Entry<Integer, ImmutableSet<String>> e: targets.get(contextKind).entrySet()) {
+            if (!e.getValue().isEmpty()) {
+              jsonContextTargets.add(LDValue.buildObject()
+                  .put("contextKind", contextKind.toString())
+                  .put("variation", e.getKey().intValue())
+                  .put("values", contextKind.isDefault() ? LDValue.arrayOf() :
+                      LDValue.Convert.String.arrayFrom(e.getValue()))
+                  .build());
+            }
+          }
+        }
       }
+      builder.put("targets", jsonTargets.build());
+      builder.put("contextTargets", jsonContextTargets.build());
       
-      if (rules != null) {
-        ArrayBuilder jsonRules = LDValue.buildArray();
+      ArrayBuilder jsonRules = LDValue.buildArray();
+      if (!rules.isEmpty()) {
         int ri = 0;
         for (FlagRuleBuilder r: rules) {
           ArrayBuilder jsonClauses = LDValue.buildArray();
@@ -578,7 +680,8 @@ public final class TestData implements ComponentConfigurer<DataSource> {
               jsonValues.add(v);
             }
             jsonClauses.add(LDValue.buildObject()
-                .put("attribute", c.attribute.getName())
+                .put("contextKind", c.contextKind == null ? null : c.contextKind.toString())
+                .put("attribute", c.attribute.toString())
                 .put("op", c.operator)
                 .put("values", jsonValues.build())
                 .put("negate",  c.negate)
@@ -591,8 +694,8 @@ public final class TestData implements ComponentConfigurer<DataSource> {
               .build());
           ri++;
         }
-        builder.put("rules", jsonRules.build());
       }
+      builder.put("rules", jsonRules.build());
       
       String json = builder.build().toJsonString();
       return DataModel.FEATURES.deserialize(json);
@@ -610,37 +713,97 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * rule's clauses match the user.
      * <p>
      * To start defining a rule, use one of the flag builder's matching methods such as
-     * {@link FlagBuilder#ifMatch(UserAttribute, LDValue...)}. This defines the first clause for the rule.
+     * {@link FlagBuilder#ifMatch(String, LDValue...)}. This defines the first clause for the rule.
      * Optionally, you may add more clauses with the rule builder's methods such as
-     * {@link #andMatch(UserAttribute, LDValue...)}. Finally, call {@link #thenReturn(boolean)} or
+     * {@link #andMatch(String, LDValue...)}. Finally, call {@link #thenReturn(boolean)} or
      * {@link #thenReturn(int)} to finish defining the rule.
      */
     public final class FlagRuleBuilder {
       final List<Clause> clauses = new ArrayList<>();
       int variation;
-      
+
       /**
-       * Adds another clause, using the "is one of" operator.
+       * Adds another clause, using the "is one of" operator. This matching expression only
+       * applies to contexts of a specific kind.
+       * <p>
+       * For example, this creates a rule that returns {@code true} if the name attribute for the
+       * "company" context is "Ella" and the country is "gb":
+       * 
+       * <pre><code>
+       *     testData.flag("flag")
+       *         .ifMatch(ContextKind.of("company"), "name", LDValue.of("Ella"))
+       *         .andMatch(ContextKind.of("company"), "country", LDValue.of("gb"))
+       *         .thenReturn(true));
+       * </code></pre>
+       * 
+       * @param contextKind the context kind to match
+       * @param attribute the attribute to match against
+       * @param values values to compare to
+       * @return the rule builder
+       * @see #andNotMatch(ContextKind, String, LDValue...)
+       * @see #andMatch(String, LDValue...)
+       * @since 6.0.0
+       */
+      public FlagRuleBuilder andMatch(ContextKind contextKind, String attribute, LDValue... values) {
+        if (attribute != null) {
+          clauses.add(new Clause(contextKind, AttributeRef.fromPath(attribute), "in", values, false));
+        }
+        return this;
+      }
+
+      /**
+       * Adds another clause, using the "is one of" operator. This is a shortcut for calling
+       * {@link #andMatch(ContextKind, String, LDValue...)} with {@link ContextKind#DEFAULT} as the context kind.
        * <p>
        * For example, this creates a rule that returns {@code true} if the name is "Patsy" and the
        * country is "gb":
        * 
        * <pre><code>
        *     testData.flag("flag")
-       *         .ifMatch(UserAttribute.NAME, LDValue.of("Patsy"))
-       *         .andMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
+       *         .ifMatch("name", LDValue.of("Patsy"))
+       *         .andMatch("country", LDValue.of("gb"))
        *         .thenReturn(true));
        * </code></pre>
        * 
        * @param attribute the user attribute to match against
        * @param values values to compare to
        * @return the rule builder
+       * @see #andNotMatch(String, LDValue...)
+       * @see #andMatch(ContextKind, String, LDValue...)
        */
-      public FlagRuleBuilder andMatch(UserAttribute attribute, LDValue... values) {
-        clauses.add(new Clause(attribute, "in", values, false));
-        return this;
+      public FlagRuleBuilder andMatch(String attribute, LDValue... values) {
+        return andMatch(ContextKind.DEFAULT, attribute, values);
       }
 
+      /**
+       * Adds another clause, using the "is not one of" operator. This matching expression only
+       * applies to contexts of a specific kind.
+       * <p>
+       * For example, this creates a rule that returns {@code true} if the name attribute for the
+       * "company" context is "Ella" and the country is not "gb":
+       * 
+       * <pre><code>
+       *     testData.flag("flag")
+       *         .ifMatch(ContextKind.of("company"), "name", LDValue.of("Ella"))
+       *         .andNotMatch(ContextKind.of("company"), "country", LDValue.of("gb"))
+       *         .thenReturn(true));
+       * </code></pre>
+       * 
+       * @param contextKind the context kind to match
+       * @param attribute the user attribute to match against
+       * @param values values to compare to
+       * @return the rule builder
+       * @see #andMatch(ContextKind, String, LDValue...)
+       * @see #andNotMatch(String, LDValue...)
+       * @since 6.0.0
+       */
+      public FlagRuleBuilder andNotMatch(ContextKind contextKind, String attribute, LDValue... values) {
+        if (attribute != null) {
+          clauses.add(new Clause(contextKind, AttributeRef.fromPath(attribute), "in", values, true));
+        }
+        return this;
+      }
+      
       /**
        * Adds another clause, using the "is not one of" operator.
        * <p>
@@ -657,12 +820,13 @@ public final class TestData implements ComponentConfigurer<DataSource> {
        * @param attribute the user attribute to match against
        * @param values values to compare to
        * @return the rule builder
+       * @see #andMatch(String, LDValue...)
+       * @see #andNotMatch(ContextKind, String, LDValue...)
        */
-      public FlagRuleBuilder andNotMatch(UserAttribute attribute, LDValue... values) {
-        clauses.add(new Clause(attribute, "in", values, true));
-        return this;
+      public FlagRuleBuilder andNotMatch(String attribute, LDValue... values) {
+        return andNotMatch(ContextKind.DEFAULT, attribute, values);
       }
-      
+
       /**
        * Finishes defining the rule, specifying the result value as a boolean.
        * 
@@ -683,21 +847,20 @@ public final class TestData implements ComponentConfigurer<DataSource> {
        */
       public FlagBuilder thenReturn(int variationIndex) {
         this.variation = variationIndex;
-        if (FlagBuilder.this.rules == null) {
-          FlagBuilder.this.rules = new ArrayList<>();
-        }
         FlagBuilder.this.rules.add(this);
         return FlagBuilder.this;
       }
     }
     
     private static final class Clause {
-      final UserAttribute attribute;
+      final ContextKind contextKind;
+      final AttributeRef attribute;
       final String operator;
       final LDValue[] values;
       final boolean negate;
       
-      Clause(UserAttribute attribute, String operator, LDValue[] values, boolean negate) {
+      Clause(ContextKind contextKind, AttributeRef attribute, String operator, LDValue[] values, boolean negate) {
+        this.contextKind = contextKind;
         this.attribute = attribute;
         this.operator = operator;
         this.values = values;
