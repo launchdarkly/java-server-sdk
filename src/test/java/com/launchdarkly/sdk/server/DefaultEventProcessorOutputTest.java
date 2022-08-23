@@ -24,6 +24,12 @@ import static org.hamcrest.Matchers.contains;
 public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBase {
   private static final LDContext invalidContext = LDContext.create(null);
   
+  // Note: context deduplication behavior has been abstracted out of DefaultEventProcessor, so that
+  // by default it does not generate any index events. Test cases in this file that are not
+  // specifically related to index events use this default behavior, and do not expect to see any.
+  // When we are specifically testing this behavior, we substitute a mock EventContextDeduplicator
+  // so we can verify how its outputs affect DefaultEventProcessor.
+  
   @Test
   public void identifyEventIsQueued() throws Exception {
     MockEventSender es = new MockEventSender();
@@ -80,7 +86,9 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
+    EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatAlwaysSaysKeysAreNew();
+    
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).contextDeduplicator(contextDeduplicator))) {
       ep.sendEvent(fe);
     }
   
@@ -99,7 +107,9 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     Event.FeatureRequest fe = EventFactory.DEFAULT.newFeatureRequestEvent(flag, user,
         simpleEvaluation(1, LDValue.of("value")), LDValue.ofNull());
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).allAttributesPrivate(true))) {
+    EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatAlwaysSaysKeysAreNew();
+
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).allAttributesPrivate(true).contextDeduplicator(contextDeduplicator))) {
       ep.sendEvent(fe);
     }
   
@@ -125,7 +135,6 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     }
   
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
         allOf(isFeatureEvent(fe, prereqFlag, false, null), isPrerequisiteOf(mainFlag.getKey())),
         isSummaryEvent()
     ));
@@ -167,7 +176,6 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     }
 
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, false, null, reason),
         isSummaryEvent()
     ));
@@ -187,7 +195,6 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     }
   
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, true, userJson),
         isSummaryEvent()
     ));
@@ -208,14 +215,12 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     }
 
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
         isFeatureEvent(fe, flag, false, null),
         isFeatureEvent(fe, flag, true, userJson),
         isSummaryEvent()
     ));
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void debugModeExpiresBasedOnClientTimeIfClientTimeIsLaterThanServerTime() throws Exception {
     MockEventSender es = new MockEventSender();
@@ -245,12 +250,10 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     
     // Should get a summary event only, not a full feature event
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
         isSummaryEvent(fe.getCreationDate(), fe.getCreationDate())
     ));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void debugModeExpiresBasedOnServerTimeIfServerTimeIsLaterThanClientTime() throws Exception {
     MockEventSender es = new MockEventSender();
@@ -280,14 +283,18 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     
     // Should get a summary event only, not a full feature event
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe, userJson),
         isSummaryEvent(fe.getCreationDate(), fe.getCreationDate())
     ));
   }
   
   @SuppressWarnings("unchecked")
   @Test
-  public void twoFeatureEventsForSameUserGenerateOnlyOneIndexEvent() throws Exception {
+  public void twoFeatureEventsForSameContextGenerateOnlyOneIndexEvent() throws Exception {
+    // More accurately, this is testing that DefaultEventProcessor respects whatever the
+    // EventContextDeduplicator says about whether a context key is new or not. We will set up
+    // an EventContextDeduplicator that reports "new" on the first call and "not new" on the 2nd.
+    EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatSaysKeyIsNewOnFirstCallOnly();
+    
     MockEventSender es = new MockEventSender();
     DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
     DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
@@ -297,7 +304,7 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
         simpleEvaluation(1, value), LDValue.ofNull());
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es))) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).contextDeduplicator(contextDeduplicator))) {
       ep.sendEvent(fe1);
       ep.sendEvent(fe2);
     }
@@ -359,7 +366,6 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(fe1a, userJson),
         allOf(
             isSummaryEvent(fe1a.getCreationDate(), fe2.getCreationDate()),
             hasSummaryFlag(flag1.getKey(), default1,
@@ -373,7 +379,6 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     ));
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void customEventIsQueuedWithUser() throws Exception {
     MockEventSender es = new MockEventSender();
@@ -386,12 +391,10 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(ce, userJson),
         isCustomEvent(ce)
     ));
   }
   
-  @SuppressWarnings("unchecked")
   @Test
   public void customEventWithNullContextOrInvalidContextDoesNotCauseError() throws Exception {
     // This should never happen because LDClient rejects such a user, but just in case,
@@ -408,7 +411,6 @@ public class DefaultEventProcessorOutputTest extends DefaultEventProcessorTestBa
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(event3, userJson),
         isCustomEvent(event3)
     ));
   }

@@ -11,34 +11,31 @@ import java.time.Duration;
 final class EventsConfiguration {
   final boolean allAttributesPrivate;
   final int capacity;
+  final EventContextDeduplicator contextDeduplicator;
   final EventSender eventSender;
   final URI eventsUri;
   final Duration flushInterval;
   final ImmutableList<AttributeRef> privateAttributes;
-  final int userKeysCapacity;
-  final Duration userKeysFlushInterval;
   final Duration diagnosticRecordingInterval;
   
   EventsConfiguration(
       boolean allAttributesPrivate,
       int capacity,
+      EventContextDeduplicator contextDeduplicator,
       EventSender eventSender,
       URI eventsUri,
       Duration flushInterval,
       Iterable<AttributeRef> privateAttributes,
-      int userKeysCapacity,
-      Duration userKeysFlushInterval,
       Duration diagnosticRecordingInterval
       ) {
     super();
     this.allAttributesPrivate = allAttributesPrivate;
     this.capacity = capacity;
+    this.contextDeduplicator = contextDeduplicator;
     this.eventSender = eventSender;
     this.eventsUri = eventsUri;
     this.flushInterval = flushInterval;
     this.privateAttributes = privateAttributes == null ? ImmutableList.of() : ImmutableList.copyOf(privateAttributes);
-    this.userKeysCapacity = userKeysCapacity;
-    this.userKeysFlushInterval = userKeysFlushInterval;
     this.diagnosticRecordingInterval = diagnosticRecordingInterval;
   }
 }

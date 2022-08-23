@@ -65,11 +65,14 @@ final class DefaultEventProcessor implements EventProcessor {
     };
     scheduledTasks.add(this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushInterval.toMillis(),
         eventsConfig.flushInterval.toMillis(), TimeUnit.MILLISECONDS));
-    Runnable userKeysFlusher = () -> {
-      postMessageAsync(MessageType.FLUSH_USERS, null);
-    };
-    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(userKeysFlusher, eventsConfig.userKeysFlushInterval.toMillis(),
-        eventsConfig.userKeysFlushInterval.toMillis(), TimeUnit.MILLISECONDS));
+    if (eventsConfig.contextDeduplicator != null && eventsConfig.contextDeduplicator.getFlushInterval() != null) {
+      Runnable userKeysFlusher = () -> {
+        postMessageAsync(MessageType.FLUSH_USERS, null);
+      };
+      long intervalMillis = eventsConfig.contextDeduplicator.getFlushInterval().longValue();
+      scheduledTasks.add(this.scheduler.scheduleAtFixedRate(userKeysFlusher, intervalMillis,
+          intervalMillis, TimeUnit.MILLISECONDS));
+    }
     if (diagnosticAccumulator != null) {
       Runnable diagnosticsTrigger = () -> {
         postMessageAsync(MessageType.DIAGNOSTIC, null);
@@ -205,6 +208,7 @@ final class DefaultEventProcessor implements EventProcessor {
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
     @VisibleForTesting final DiagnosticAccumulator diagnosticAccumulator;
+    private final EventContextDeduplicator contextDeduplicator;
     private final ExecutorService sharedExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
     private final LDLogger logger;
@@ -241,10 +245,10 @@ final class DefaultEventProcessor implements EventProcessor {
       final BlockingQueue<FlushPayload> payloadQueue = new ArrayBlockingQueue<>(1);
 
       final EventBuffer outbox = new EventBuffer(eventsConfig.capacity, logger);
-      final SimpleLRUCache<String, String> userKeys = new SimpleLRUCache<String, String>(eventsConfig.userKeysCapacity);
+      this.contextDeduplicator = eventsConfig.contextDeduplicator;
       
       Thread mainThread = threadFactory.newThread(() -> {
-        runMainLoop(inbox, outbox, userKeys, payloadQueue);
+        runMainLoop(inbox, outbox, payloadQueue);
       });
       mainThread.setDaemon(true);
 
@@ -303,9 +307,11 @@ final class DefaultEventProcessor implements EventProcessor {
      * thread so we don't have to synchronize on our internal structures; when it's time to flush,
      * triggerFlush will hand the events off to another task.
      */
-    private void runMainLoop(BlockingQueue<EventProcessorMessage> inbox,
-        EventBuffer outbox, SimpleLRUCache<String, String> userKeys,
-        BlockingQueue<FlushPayload> payloadQueue) {
+    private void runMainLoop(
+        BlockingQueue<EventProcessorMessage> inbox,
+        EventBuffer outbox,
+        BlockingQueue<FlushPayload> payloadQueue
+        ) {
       List<EventProcessorMessage> batch = new ArrayList<EventProcessorMessage>(MESSAGE_BATCH_SIZE);
       while (true) {
         try {
@@ -315,13 +321,15 @@ final class DefaultEventProcessor implements EventProcessor {
           for (EventProcessorMessage message: batch) {
             switch (message.type) { // COVERAGE: adding a default branch does not prevent coverage warnings here due to compiler issues
             case EVENT:
-              processEvent(message.event, userKeys, outbox);
+              processEvent(message.event, outbox);
               break;
             case FLUSH:
               triggerFlush(outbox, payloadQueue);
               break;
             case FLUSH_USERS:
-              userKeys.clear();
+              if (contextDeduplicator != null) {
+                contextDeduplicator.flush();
+              }
               break;
             case DIAGNOSTIC:
               sendAndResetDiagnostics(outbox);
@@ -383,7 +391,7 @@ final class DefaultEventProcessor implements EventProcessor {
       }
     }
 
-    private void processEvent(Event e, SimpleLRUCache<String, String> userKeys, EventBuffer outbox) {
+    private void processEvent(Event e, EventBuffer outbox) {
       if (disabled.get()) {
         return;
       }
@@ -414,17 +422,17 @@ final class DefaultEventProcessor implements EventProcessor {
       // an identify event for that context.
       if (context != null && context.getFullyQualifiedKey() != null) {
         if (e instanceof Event.FeatureRequest || e instanceof Event.Custom) {
-          String key = context.getFullyQualifiedKey();
-          // Add to the set of users we've noticed
-          boolean alreadySeen = (userKeys.put(key, key) != null);
-          if (alreadySeen) {
-            deduplicatedUsers++;
-          } else {
-            addIndexEvent = true;
+          if (contextDeduplicator != null) {
+            // Add to the set of contexts we've noticed
+            addIndexEvent = contextDeduplicator.processContext(context);
+            if (!addIndexEvent) {
+              deduplicatedUsers++;
+            }
           }
         } else if (e instanceof Event.Identify) {
-          String key = context.getFullyQualifiedKey();
-          userKeys.put(key, key); // just mark that we've seen it
+          if (contextDeduplicator != null) {
+            contextDeduplicator.processContext(context); // just mark that we've seen it
+          }
         }
       }
 
