@@ -259,7 +259,7 @@ abstract class ComponentsImpl {
           diagnosticRecordingInterval.toMillis(),
           ClientContextImpl.get(context).diagnosticStore,
           eventSender,
-          5,
+          EventsConfiguration.DEFAULT_EVENT_SENDING_THREAD_POOL_SIZE,
           eventsUri,
           flushInterval.toMillis(),
           false,
