@@ -60,7 +60,7 @@ final class DefaultEventProcessorWrapper implements EventProcessor {
 
   @Override
   public void flush() {
-    eventProcessor.flush();
+    eventProcessor.flushAsync();
   }
   
   @Override

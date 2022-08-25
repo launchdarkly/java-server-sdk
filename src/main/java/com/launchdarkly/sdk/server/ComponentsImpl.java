@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.LDLogLevel;
@@ -255,8 +254,11 @@ abstract class ComponentsImpl {
           diagnosticRecordingInterval.toMillis(),
           ClientContextImpl.get(context).diagnosticStore,
           eventSender,
+          5,
           eventsUri,
           flushInterval.toMillis(),
+          false,
+          false,
           privateAttributes
           );
       return new DefaultEventProcessorWrapper(context, eventsConfig);
@@ -432,6 +434,7 @@ abstract class ComponentsImpl {
     return new HttpProperties(
         httpConfig.getConnectTimeout().toMillis(),
         ImmutableMap.copyOf(httpConfig.getDefaultHeaders()),
+        null,
         httpConfig.getProxy(),
         proxyAuth,
         httpConfig.getSocketFactory(),
