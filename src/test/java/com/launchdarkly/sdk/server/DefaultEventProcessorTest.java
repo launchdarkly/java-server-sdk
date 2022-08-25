@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
@@ -30,8 +32,10 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * These tests cover all of the basic DefaultEventProcessor behavior that is not covered by
@@ -47,12 +51,11 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       assertThat(ec.allAttributesPrivate, is(false));
       assertThat(ec.capacity, equalTo(EventProcessorBuilder.DEFAULT_CAPACITY));
       assertThat(ec.diagnosticRecordingInterval, equalTo(EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL));
+      assertThat(ec.contextDeduplicator, notNullValue());
       assertThat(ec.eventSender, instanceOf(DefaultEventSender.class));
       assertThat(ec.eventsUri, equalTo(StandardEndpoints.DEFAULT_EVENTS_BASE_URI));
       assertThat(ec.flushInterval, equalTo(EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL));
       assertThat(ec.privateAttributes, equalTo(ImmutableList.of()));
-      assertThat(ec.userKeysCapacity, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_CAPACITY));
-      assertThat(ec.userKeysFlushInterval, equalTo(EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL));
     }
   }
   
@@ -76,8 +79,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       assertThat(ec.eventSender, sameInstance((EventSender)es));
       assertThat(ec.flushInterval, equalTo(Duration.ofSeconds(99)));
       assertThat(ec.privateAttributes, equalTo(ImmutableList.of(AttributeRef.fromLiteral("name"), AttributeRef.fromLiteral("dogs"))));
-      assertThat(ec.userKeysCapacity, equalTo(555));
-      assertThat(ec.userKeysFlushInterval, equalTo(Duration.ofSeconds(101)));
     }
   }
 
@@ -91,12 +92,11 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     EventsConfiguration eventsConfig = new EventsConfiguration(
         false,
         100,
+        null,
         es,
         FAKE_URI,
         briefFlushInterval,
         ImmutableSet.of(),
-        100,
-        Duration.ofSeconds(5),
         null
         );
     try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
@@ -110,11 +110,11 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       // both events to be in one payload, but if some unusual delay happened in between the two
       // sendEvent calls, they might be in two
       Iterable<JsonTestValue> payload1 = es.getEventsFromLastRequest();
-      if (Iterables.size(payload1) == 2) {
-        assertThat(payload1, contains(isIndexEvent(event1, userJson), isCustomEvent(event1)));
+      if (Iterables.size(payload1) == 1) {
+        assertThat(payload1, contains(isCustomEvent(event1)));
         assertThat(es.getEventsFromLastRequest(), contains(isCustomEvent(event2)));
       } else {
-        assertThat(payload1, contains(isIndexEvent(event1, userJson), isCustomEvent(event1), isCustomEvent(event2)));
+        assertThat(payload1, contains(isCustomEvent(event1), isCustomEvent(event2)));
       }
       
       Event.Custom event3 = EventFactory.DEFAULT.newCustomEvent("event3", user, null, null);
@@ -131,7 +131,6 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     }
     
     assertThat(es.getEventsFromLastRequest(), contains(
-        isIndexEvent(ce, userJson),
         isCustomEvent(ce)
     ));
   }
@@ -157,53 +156,35 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     assertEquals(0, es.receivedParams.size());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
-  public void userKeysAreFlushedAutomatically() throws Exception {
-    // This test overrides the user key flush interval to a small value and verifies that a new
-    // index event is generated for a user after the user keys have been flushed.
+  public void contextKeysAreFlushedAutomatically() throws Exception {
+    // This test sets the context key flush interval to a small value and verifies that the
+    // context deduplicator receives a flush call.
     MockEventSender es = new MockEventSender();
-    Duration briefUserKeyFlushInterval = Duration.ofMillis(60);
+    long briefContextFlushIntervalMillis = 60;
+    Semaphore flushCalled = new Semaphore(0);
+    EventContextDeduplicator contextDeduplicator = new EventContextDeduplicator() {
+      @Override
+      public Long getFlushInterval() {
+        return briefContextFlushIntervalMillis;
+      }
+
+      @Override
+      public boolean processContext(LDContext context) {
+        return false;
+      }
+
+      @Override
+      public void flush() {
+        flushCalled.release();
+      }
+    };
     
-    // Can't use the regular config builder for this, because it will enforce a minimum flush interval
-    EventsConfiguration eventsConfig = new EventsConfiguration(
-        false,
-        100,
-        es,
-        FAKE_URI,
-        Duration.ofSeconds(5),
-        ImmutableSet.of(),
-        100,
-        briefUserKeyFlushInterval,
-        null
-        );
-    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
-        null, null, testLogger)) {
-      Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("event1", user, null, null);
-      Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("event2", user, null, null);
-      ep.sendEvent(event1);
-      ep.sendEvent(event2);
-      
-      // We're relying on the user key flush not happening in between event1 and event2, so we should get
-      // a single index event for the user.
-      ep.flush();
-      assertThat(es.getEventsFromLastRequest(), contains(
-          isIndexEvent(event1, userJson),
-          isCustomEvent(event1),
-          isCustomEvent(event2)
-      ));
-
-      // Now wait long enough for the user key cache to be flushed
-      Thread.sleep(briefUserKeyFlushInterval.toMillis() * 2);
-
-      // Referencing the same user in a new even should produce a new index event
-      Event.Custom event3 = EventFactory.DEFAULT.newCustomEvent("event3", user, null, null);
-      ep.sendEvent(event3);
-      ep.flush();
-      assertThat(es.getEventsFromLastRequest(), contains(
-          isIndexEvent(event3, userJson),
-          isCustomEvent(event3)
-      ));
+    EventsConfigurationBuilder buildConfig = baseConfig(es)
+        .contextDeduplicator(contextDeduplicator);
+    try (DefaultEventProcessor ep = makeEventProcessor(buildConfig)) {
+      boolean called = flushCalled.tryAcquire(briefContextFlushIntervalMillis * 2, TimeUnit.MILLISECONDS);
+      assertTrue("expected context deduplicator flush method to be called, but it was not", called);
     }
   }
   
@@ -232,10 +213,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     Event e = EventFactory.DEFAULT.newIdentifyEvent(user);
     URI uri = URI.create("fake-uri");
 
-    LDConfig config = new LDConfig.Builder()
-        .serviceEndpoints(Components.serviceEndpoints().events(uri))
-        .build();
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), config)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).eventsUri(uri))) {
       ep.sendEvent(e);
     }
 
@@ -247,7 +225,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   public void eventCapacityIsEnforced() throws Exception {
     int capacity = 10;
     MockEventSender es = new MockEventSender();
-    EventProcessorBuilder config = baseConfig(es).capacity(capacity)
+    EventsConfigurationBuilder config = baseConfig(es).capacity(capacity)
         .flushInterval(Duration.ofSeconds(1));
     // The flush interval setting is a failsafe in case we do get a queue overflow due to the tiny buffer size -
     // that might cause the special message that's generated by ep.flush() to be missed, so we just want to make
@@ -270,7 +248,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
   public void eventCapacityDoesNotPreventSummaryEventFromBeingSent() throws Exception {
     int capacity = 10;
     MockEventSender es = new MockEventSender();
-    EventProcessorBuilder config = baseConfig(es).capacity(capacity)
+    EventsConfigurationBuilder config = baseConfig(es).capacity(capacity)
         .flushInterval(Duration.ofSeconds(1));
     // The flush interval setting is a failsafe in case we do get a queue overflow due to the tiny buffer size -
     // that might cause the special message that's generated by ep.flush() to be missed, so we just want to make

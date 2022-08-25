@@ -100,10 +100,9 @@ public class TestComponents {
         0,
         null,
         null,
+        null,
         EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
         privateAttributes,
-        0,
-        EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL,
         EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL
         );
   }
