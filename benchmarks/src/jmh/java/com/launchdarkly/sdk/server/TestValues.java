@@ -3,7 +3,6 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.internal.events.Event;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Target;
 
@@ -115,12 +114,4 @@ public abstract class TestValues {
   public static final int TEST_EVENTS_COUNT = 1000;
   
   public static final LDValue CUSTOM_EVENT_DATA = LDValue.of("data");
-  
-  public static final Event.Custom CUSTOM_EVENT = new Event.Custom(
-      System.currentTimeMillis(),
-      "event-key",
-      BASIC_CONTEXT,
-      CUSTOM_EVENT_DATA,
-      null
-      );
 }
