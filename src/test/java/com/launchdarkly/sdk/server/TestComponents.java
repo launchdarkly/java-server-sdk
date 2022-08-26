@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.server.DiagnosticStore.SdkDiagnosticParams;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
@@ -43,20 +44,20 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public class TestComponents {
   static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("TestComponents-sharedExecutor-%d").build());
-  
+
   public static LDLogger nullLogger = LDLogger.withAdapter(Logs.none(), "");
+
+  public static DiagnosticStore basicDiagnosticStore() {
+    return new DiagnosticStore(new SdkDiagnosticParams("sdk_key", "sdk", "1.0.0", "Java", null, null, null));
+  }
   
   public static ClientContextImpl clientContext(String sdkKey, LDConfig config) {
-    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, null);
+    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor);
   }
 
   public static ClientContextImpl clientContext(String sdkKey, LDConfig config,
       DataSourceUpdateSink dataSourceUpdateSink) {
-    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, null).withDataSourceUpdateSink(dataSourceUpdateSink);
-  }
-
-  public static ClientContextImpl clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor, diagnosticAccumulator);
+    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor).withDataSourceUpdateSink(dataSourceUpdateSink);
   }
 
   public static HttpConfiguration defaultHttpConfiguration() {

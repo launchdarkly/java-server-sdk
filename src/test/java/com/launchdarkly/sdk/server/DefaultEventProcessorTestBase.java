@@ -55,20 +55,18 @@ public abstract class DefaultEventProcessorTestBase extends BaseTest {
   }
 
   public DefaultEventProcessor makeEventProcessor(EventsConfigurationBuilder ec) {
-    return makeEventProcessor(ec, null, null);
+    return makeEventProcessor(ec, null);
   }
 
   public DefaultEventProcessor makeEventProcessor(
       EventsConfigurationBuilder ec,
-      DiagnosticAccumulator diagnosticAccumulator,
-      DiagnosticEvent.Init diagnosticInitEvent
+      DiagnosticStore diagnosticStore
       ) {
     return new DefaultEventProcessor(
         ec.build(),
         TestComponents.sharedExecutor,
         Thread.MAX_PRIORITY,
-        diagnosticAccumulator,
-        diagnosticInitEvent,
+        diagnosticStore,
         testLogger
         );
   }

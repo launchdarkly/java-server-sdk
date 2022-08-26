@@ -44,6 +44,7 @@ import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.TestComponents.basicDiagnosticStore;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
@@ -369,7 +370,7 @@ public class StreamProcessorTest extends BaseTest {
 
   @Test
   public void streamInitDiagnosticRecordedOnOpen() throws Exception {
-    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    DiagnosticStore acc = basicDiagnosticStore();
     long startTime = System.currentTimeMillis();
     
     try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
@@ -390,7 +391,7 @@ public class StreamProcessorTest extends BaseTest {
 
   @Test
   public void streamInitDiagnosticRecordedOnErrorDuringInit() throws Exception {
-    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    DiagnosticStore acc = basicDiagnosticStore();
     long startTime = System.currentTimeMillis();
     
     Handler errorHandler = Handlers.status(503);
@@ -744,7 +745,7 @@ public class StreamProcessorTest extends BaseTest {
     return createStreamProcessor(LDConfig.DEFAULT, streamUri, null);
   }
 
-  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator acc) {
+  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticStore acc) {
     return new StreamProcessor(
         clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp(),
         dataSourceUpdates,

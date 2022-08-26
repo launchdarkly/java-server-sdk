@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.LDContext;
@@ -25,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -88,19 +86,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
     MockEventSender es = new MockEventSender();
     Duration briefFlushInterval = Duration.ofMillis(50);
     
-    // Can't use the regular config builder for this, because it will enforce a minimum flush interval
-    EventsConfiguration eventsConfig = new EventsConfiguration(
-        false,
-        100,
-        null,
-        es,
-        FAKE_URI,
-        briefFlushInterval,
-        ImmutableSet.of(),
-        null
-        );
-    try (DefaultEventProcessor ep = new DefaultEventProcessor(eventsConfig, sharedExecutor, Thread.MAX_PRIORITY,
-        null, null, testLogger)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).flushInterval(briefFlushInterval))) {
       Event.Custom event1 = EventFactory.DEFAULT.newCustomEvent("event1", user, null, null);
       Event.Custom event2 = EventFactory.DEFAULT.newCustomEvent("event2", user, null, null);
       ep.sendEvent(event1);
@@ -180,9 +166,7 @@ public class DefaultEventProcessorTest extends DefaultEventProcessorTestBase {
       }
     };
     
-    EventsConfigurationBuilder buildConfig = baseConfig(es)
-        .contextDeduplicator(contextDeduplicator);
-    try (DefaultEventProcessor ep = makeEventProcessor(buildConfig)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).contextDeduplicator(contextDeduplicator))) {
       boolean called = flushCalled.tryAcquire(briefContextFlushIntervalMillis * 2, TimeUnit.MILLISECONDS);
       assertTrue("expected context deduplicator flush method to be called, but it was not", called);
     }

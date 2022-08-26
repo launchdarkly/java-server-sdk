@@ -9,7 +9,6 @@ import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
@@ -195,14 +194,10 @@ public final class LDClient implements LDClientInterface {
       this.eventFactoryWithReasons = EventFactory.DEFAULT_WITH_REASONS;
     }
     
-    // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
-    // standard event processor
-    final boolean useDiagnostics = !config.diagnosticOptOut && config.events instanceof EventProcessorBuilder;
     final ClientContextImpl context = ClientContextImpl.fromConfig(
         sdkKey,
         config,
-        sharedExecutor,
-        useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null
+        sharedExecutor
         );
     this.baseLogger = context.getBaseLogger();
     this.evaluationLogger = this.baseLogger.subLogger(Loggers.EVALUATION_LOGGER_NAME);

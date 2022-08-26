@@ -226,7 +226,7 @@ public class LDClientTest extends BaseTest {
   }
 
   @Test
-  public void sameDiagnosticAccumulatorPassedToFactoriesWhenSupported() throws IOException {
+  public void sameDiagnosticStorePassedToFactoriesWhenSupported() throws IOException {
     @SuppressWarnings("unchecked")
     ComponentConfigurer<DataSource> mockDataSourceFactory = mocks.createStrictMock(ComponentConfigurer.class);
 
@@ -245,14 +245,14 @@ public class LDClientTest extends BaseTest {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       mocks.verifyAll();
-      DiagnosticAccumulator acc = ((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticAccumulator; 
+      DiagnosticStore acc = ((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticStore; 
       assertNotNull(acc);
-      assertSame(acc, ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
+      assertSame(acc, ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
     }
   }
 
   @Test
-  public void nullDiagnosticAccumulatorPassedToFactoriesWhenOptedOut() throws IOException {
+  public void nullDiagnosticStorePassedToFactoriesWhenOptedOut() throws IOException {
     @SuppressWarnings("unchecked")
     ComponentConfigurer<DataSource> mockDataSourceFactory = mocks.createStrictMock(ComponentConfigurer.class);
 
@@ -270,13 +270,13 @@ public class LDClientTest extends BaseTest {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       mocks.verifyAll();
-      assertNull(((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticAccumulator);
-      assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
+      assertNull(((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticStore);
+      assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
     }
   }
 
   @Test
-  public void nullDiagnosticAccumulatorPassedToUpdateFactoryWhenEventProcessorDoesNotSupportDiagnostics() throws IOException {
+  public void nullDiagnosticStorePassedToUpdateFactoryWhenEventProcessorDoesNotSupportDiagnostics() throws IOException {
     EventProcessor mockEventProcessor = mocks.createStrictMock(EventProcessor.class);
     mockEventProcessor.close();
     EasyMock.expectLastCall().anyTimes();
@@ -301,8 +301,8 @@ public class LDClientTest extends BaseTest {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       mocks.verifyAll();
-      assertNull(ClientContextImpl.get(capturedEventContext.getValue()).diagnosticAccumulator);
-      assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticAccumulator);
+      assertNull(ClientContextImpl.get(capturedEventContext.getValue()).diagnosticStore);
+      assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
     }
   }
 

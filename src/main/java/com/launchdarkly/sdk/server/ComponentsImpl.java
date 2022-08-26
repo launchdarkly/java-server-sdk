@@ -7,7 +7,6 @@ import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LDSLF4J;
 import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DiagnosticEvent.ConfigProperty;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
@@ -108,10 +107,10 @@ abstract class ComponentsImpl {
       // Components.externalUpdatesOnly() was specified as the data source and we are sending a diagnostic
       // event, we can assume usingRelayDaemon should be true.
       return LDValue.buildObject()
-          .put(ConfigProperty.CUSTOM_BASE_URI.name, false)
-          .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
-          .put(ConfigProperty.STREAMING_DISABLED.name, false)
-          .put(ConfigProperty.USING_RELAY_DAEMON.name, true)
+          .put(DiagnosticConfigProperty.CUSTOM_BASE_URI.name, false)
+          .put(DiagnosticConfigProperty.CUSTOM_STREAM_URI.name, false)
+          .put(DiagnosticConfigProperty.STREAMING_DISABLED.name, false)
+          .put(DiagnosticConfigProperty.USING_RELAY_DAEMON.name, true)
           .build();
     }
   }
@@ -152,7 +151,7 @@ abstract class ComponentsImpl {
           context.getHttp(),
           context.getDataSourceUpdateSink(),
           context.getThreadPriority(),
-          ClientContextImpl.get(context).diagnosticAccumulator,
+          ClientContextImpl.get(context).diagnosticStore,
           streamUri,
           initialReconnectDelay,
           logger
@@ -162,14 +161,14 @@ abstract class ComponentsImpl {
     @Override
     public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.buildObject()
-          .put(ConfigProperty.STREAMING_DISABLED.name, false)
-          .put(ConfigProperty.CUSTOM_BASE_URI.name, false)
-          .put(ConfigProperty.CUSTOM_STREAM_URI.name,
+          .put(DiagnosticConfigProperty.STREAMING_DISABLED.name, false)
+          .put(DiagnosticConfigProperty.CUSTOM_BASE_URI.name, false)
+          .put(DiagnosticConfigProperty.CUSTOM_STREAM_URI.name,
               StandardEndpoints.isCustomBaseUri(
                   clientContext.getServiceEndpoints().getStreamingBaseUri(),
                   StandardEndpoints.DEFAULT_STREAMING_BASE_URI))
-          .put(ConfigProperty.RECONNECT_TIME_MILLIS.name, initialReconnectDelay.toMillis())
-          .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
+          .put(DiagnosticConfigProperty.RECONNECT_TIME_MILLIS.name, initialReconnectDelay.toMillis())
+          .put(DiagnosticConfigProperty.USING_RELAY_DAEMON.name, false)
           .build();
     }
   }
@@ -209,14 +208,14 @@ abstract class ComponentsImpl {
     @Override
     public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.buildObject()
-          .put(ConfigProperty.STREAMING_DISABLED.name, true)
-          .put(ConfigProperty.CUSTOM_BASE_URI.name,
+          .put(DiagnosticConfigProperty.STREAMING_DISABLED.name, true)
+          .put(DiagnosticConfigProperty.CUSTOM_BASE_URI.name,
               StandardEndpoints.isCustomBaseUri(
                   clientContext.getServiceEndpoints().getPollingBaseUri(),
                   StandardEndpoints.DEFAULT_POLLING_BASE_URI))
-          .put(ConfigProperty.CUSTOM_STREAM_URI.name, false)
-          .put(ConfigProperty.POLLING_INTERVAL_MILLIS.name, pollInterval.toMillis())
-          .put(ConfigProperty.USING_RELAY_DAEMON.name, false)
+          .put(DiagnosticConfigProperty.CUSTOM_STREAM_URI.name, false)
+          .put(DiagnosticConfigProperty.POLLING_INTERVAL_MILLIS.name, pollInterval.toMillis())
+          .put(DiagnosticConfigProperty.USING_RELAY_DAEMON.name, false)
           .build();
     }
   }
@@ -249,8 +248,7 @@ abstract class ComponentsImpl {
               ),
           ClientContextImpl.get(context).sharedExecutor,
           context.getThreadPriority(),
-          ClientContextImpl.get(context).diagnosticAccumulator,
-          ClientContextImpl.get(context).diagnosticInitEvent,
+          ClientContextImpl.get(context).diagnosticStore,
           logger
           );
     }
@@ -258,17 +256,17 @@ abstract class ComponentsImpl {
     @Override
     public LDValue describeConfiguration(ClientContext clientContext) {
       return LDValue.buildObject()
-          .put(ConfigProperty.ALL_ATTRIBUTES_PRIVATE.name, allAttributesPrivate)
-          .put(ConfigProperty.CUSTOM_EVENTS_URI.name,
+          .put(DiagnosticConfigProperty.ALL_ATTRIBUTES_PRIVATE.name, allAttributesPrivate)
+          .put(DiagnosticConfigProperty.CUSTOM_EVENTS_URI.name,
               StandardEndpoints.isCustomBaseUri(
                   clientContext.getServiceEndpoints().getEventsBaseUri(),
                   StandardEndpoints.DEFAULT_EVENTS_BASE_URI))
-          .put(ConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name, diagnosticRecordingInterval.toMillis())
-          .put(ConfigProperty.EVENTS_CAPACITY.name, capacity)
-          .put(ConfigProperty.EVENTS_FLUSH_INTERVAL_MILLIS.name, flushInterval.toMillis())
-          .put(ConfigProperty.SAMPLING_INTERVAL.name, 0)
-          .put(ConfigProperty.USER_KEYS_CAPACITY.name, userKeysCapacity)
-          .put(ConfigProperty.USER_KEYS_FLUSH_INTERVAL_MILLIS.name, userKeysFlushInterval.toMillis())
+          .put(DiagnosticConfigProperty.DIAGNOSTIC_RECORDING_INTERVAL_MILLIS.name, diagnosticRecordingInterval.toMillis())
+          .put(DiagnosticConfigProperty.EVENTS_CAPACITY.name, capacity)
+          .put(DiagnosticConfigProperty.EVENTS_FLUSH_INTERVAL_MILLIS.name, flushInterval.toMillis())
+          .put(DiagnosticConfigProperty.SAMPLING_INTERVAL.name, 0)
+          .put(DiagnosticConfigProperty.USER_KEYS_CAPACITY.name, userKeysCapacity)
+          .put(DiagnosticConfigProperty.USER_KEYS_FLUSH_INTERVAL_MILLIS.name, userKeysFlushInterval.toMillis())
           .build();
     }
   }
