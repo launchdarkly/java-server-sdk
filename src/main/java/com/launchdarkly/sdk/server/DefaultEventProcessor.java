@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
@@ -34,7 +32,6 @@ final class DefaultEventProcessor implements Closeable {
 
   private static final Gson gson = new Gson();
   
-  @VisibleForTesting final EventDispatcher dispatcher;
   private final BlockingQueue<EventProcessorMessage> inbox;
   private final ScheduledExecutorService scheduler;
   private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -52,8 +49,8 @@ final class DefaultEventProcessor implements Closeable {
     
     scheduler = sharedExecutor;
     this.logger = logger;
-    
-    dispatcher = new EventDispatcher(
+
+    new EventDispatcher(
         eventsConfig,
         sharedExecutor,
         threadPriority,
@@ -61,26 +58,21 @@ final class DefaultEventProcessor implements Closeable {
         closed,
         logger
         );
+    // we don't need to save a reference to this - we communicate with it entirely through the inbox queue.
 
-    Runnable flusher = () -> {
-      postMessageAsync(MessageType.FLUSH, null);
-    };
-    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushInterval.toMillis(),
-        eventsConfig.flushInterval.toMillis(), TimeUnit.MILLISECONDS));
+    Runnable flusher = postMessageRunnable(MessageType.FLUSH, null);
+    scheduledTasks.add(this.scheduler.scheduleAtFixedRate(flusher, eventsConfig.flushIntervalMillis,
+        eventsConfig.flushIntervalMillis, TimeUnit.MILLISECONDS));
     if (eventsConfig.contextDeduplicator != null && eventsConfig.contextDeduplicator.getFlushInterval() != null) {
-      Runnable userKeysFlusher = () -> {
-        postMessageAsync(MessageType.FLUSH_USERS, null);
-      };
+      Runnable userKeysFlusher = postMessageRunnable(MessageType.FLUSH_USERS, null);
       long intervalMillis = eventsConfig.contextDeduplicator.getFlushInterval().longValue();
       scheduledTasks.add(this.scheduler.scheduleAtFixedRate(userKeysFlusher, intervalMillis,
           intervalMillis, TimeUnit.MILLISECONDS));
     }
     if (eventsConfig.diagnosticStore != null) {
-      Runnable diagnosticsTrigger = () -> {
-        postMessageAsync(MessageType.DIAGNOSTIC, null);
-      };
-      scheduledTasks.add(this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingInterval.toMillis(),
-          eventsConfig.diagnosticRecordingInterval.toMillis(), TimeUnit.MILLISECONDS));
+      Runnable diagnosticsTrigger = postMessageRunnable(MessageType.DIAGNOSTIC, null);
+      scheduledTasks.add(this.scheduler.scheduleAtFixedRate(diagnosticsTrigger, eventsConfig.diagnosticRecordingIntervalMillis,
+          eventsConfig.diagnosticRecordingIntervalMillis, TimeUnit.MILLISECONDS));
     }
   }
 
@@ -98,19 +90,19 @@ final class DefaultEventProcessor implements Closeable {
 
   public void close() throws IOException {
     if (closed.compareAndSet(false, true)) {
-      scheduledTasks.forEach(task -> task.cancel(false));
+      for (ScheduledFuture<?> task: scheduledTasks) {
+        task.cancel(false);
+      }
       postMessageAsync(MessageType.FLUSH, null);
       postMessageAndWait(MessageType.SHUTDOWN, null);
     }
   }
 
-  @VisibleForTesting
-  void waitUntilInactive() throws IOException {
+  void waitUntilInactive() throws IOException { // visible for testing
     postMessageAndWait(MessageType.SYNC, null);
   }
 
-  @VisibleForTesting
-  void postDiagnostic() {
+  void postDiagnostic() { // visible for testing
     postMessageAsync(MessageType.DIAGNOSTIC, null);
   }
 
@@ -126,6 +118,14 @@ final class DefaultEventProcessor implements Closeable {
     }
   }
 
+  private Runnable postMessageRunnable(final MessageType messageType, final Event event) {
+    return new Runnable() {
+      public void run() {
+        postMessageAsync(messageType, event);
+      }
+    };
+  }
+  
   private boolean postToChannel(EventProcessorMessage message) {
     if (inbox.offer(message)) {
       return true;
@@ -199,14 +199,14 @@ final class DefaultEventProcessor implements Closeable {
     private static final int MAX_FLUSH_THREADS = 5;
     private static final int MESSAGE_BATCH_SIZE = 50;
 
-    @VisibleForTesting final EventsConfiguration eventsConfig;
+    final EventsConfiguration eventsConfig; // visible for testing
     private final BlockingQueue<EventProcessorMessage> inbox;
     private final AtomicBoolean closed;
     private final List<SendEventsTask> flushWorkers;
     private final AtomicInteger busyFlushWorkersCount;
     private final AtomicLong lastKnownPastTime = new AtomicLong(0);
     private final AtomicBoolean disabled = new AtomicBoolean(false);
-    @VisibleForTesting final DiagnosticStore diagnosticStore;
+    final DiagnosticStore diagnosticStore; // visible for testing
     private final EventContextDeduplicator contextDeduplicator;
     private final ExecutorService sharedExecutor;
     private final SendDiagnosticTaskFactory sendDiagnosticTaskFactory;
@@ -229,12 +229,17 @@ final class DefaultEventProcessor implements Closeable {
       this.diagnosticStore = eventsConfig.diagnosticStore;
       this.busyFlushWorkersCount = new AtomicInteger(0);
       this.logger = logger;
-      
-      ThreadFactory threadFactory = new ThreadFactoryBuilder()
-          .setDaemon(true)
-          .setNameFormat("LaunchDarkly-event-delivery-%d")
-          .setPriority(threadPriority)
-          .build();
+
+      ThreadFactory threadFactory = new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+          Thread t = new Thread(r);
+          t.setDaemon(true);;
+          t.setName(String.format("LaunchDarkly-event-delivery-%d", t.getId()));
+          t.setPriority(threadPriority);
+          return t;
+        }
+      };
       
       // This queue only holds one element; it represents a flush task that has not yet been
       // picked up by any worker, so if we try to push another one and are refused, it means
@@ -244,8 +249,10 @@ final class DefaultEventProcessor implements Closeable {
       final EventBuffer outbox = new EventBuffer(eventsConfig.capacity, logger);
       this.contextDeduplicator = eventsConfig.contextDeduplicator;
       
-      Thread mainThread = threadFactory.newThread(() -> {
-        runMainLoop(inbox, outbox, payloadQueue);
+      Thread mainThread = threadFactory.newThread(new Thread() {
+        public void run() {
+          runMainLoop(inbox, outbox, payloadQueue);
+        }
       });
       mainThread.setDaemon(true);
 

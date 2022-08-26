@@ -5,7 +5,6 @@ import com.launchdarkly.sdk.LDValue;
 import org.junit.Test;
 
 import java.net.URI;
-import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
@@ -151,7 +150,7 @@ public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
   }
 
   private EventsConfigurationBuilder makeEventsConfigurationWithBriefDiagnosticInterval(EventSender es) {
-    return baseConfig(es).diagnosticRecordingInterval(Duration.ofMillis(50));
+    return baseConfig(es).diagnosticRecordingIntervalMillis(50);
   }
 
   @Test
@@ -170,7 +169,7 @@ public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
-      es.expectNoRequests(Duration.ofMillis(100));
+      es.expectNoRequests(100);
     }
   }
   

@@ -44,11 +44,11 @@ public class EventProcessorBenchmarks {
           false,
           EVENT_BUFFER_SIZE,
           new ServerSideEventContextDeduplicator(1000, Duration.ofHours(1)),
-          null,
+          1000000,
           null,
           eventSender,
           null,
-          Duration.ofHours(1),
+          1000000,
           null
           );
       eventProcessor = new DefaultEventProcessor(eventsConfig, TestComponents.sharedExecutor, Thread.MAX_PRIORITY,

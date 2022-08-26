@@ -35,7 +35,6 @@ import java.util.function.Function;
 
 import static com.launchdarkly.sdk.server.HttpErrors.checkIfErrorIsRecoverableAndLog;
 import static com.launchdarkly.sdk.server.HttpErrors.httpErrorDescription;
-import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
 
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
@@ -172,7 +171,7 @@ final class StreamProcessor implements DataSource {
     };
 
     EventHandler handler = new StreamEventHandler(initFuture);
-    URI endpointUri = concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
+    URI endpointUri = HttpHelpers.concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
 
     // Notes about the configuration of the EventSource below:
     //

@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import java.net.Proxy;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,25 +24,25 @@ import okhttp3.OkHttpClient;
  * reference any OkHttp classes, but this internal class does.  
  */
 final class HttpProperties {
-  private final Duration connectTimeout;
+  private final long connectTimeoutMillis;
   private final Map<String, String> defaultHeaders;
   private final Proxy proxy;
   private final Authenticator proxyAuth;
   private final SocketFactory socketFactory;
-  private final Duration socketTimeout;
+  private final long socketTimeoutMillis;
   private final SSLSocketFactory sslSocketFactory;
   private final X509TrustManager trustManager;
 
-  public HttpProperties(Duration connectTimeout, Map<String, String> defaultHeaders, Proxy proxy,
-      Authenticator proxyAuth, SocketFactory socketFactory, Duration socketTimeout, SSLSocketFactory sslSocketFactory,
+  public HttpProperties(long connectTimeoutMillis, Map<String, String> defaultHeaders, Proxy proxy,
+      Authenticator proxyAuth, SocketFactory socketFactory, long socketTimeoutMillis, SSLSocketFactory sslSocketFactory,
       X509TrustManager trustManager) {
     super();
-    this.connectTimeout = connectTimeout;
+    this.connectTimeoutMillis = connectTimeoutMillis;
     this.defaultHeaders = defaultHeaders == null ? Collections.emptyMap() : new HashMap<>(defaultHeaders);
     this.proxy = proxy;
     this.proxyAuth = proxyAuth;
     this.socketFactory = socketFactory;
-    this.socketTimeout = socketTimeout;
+    this.socketTimeoutMillis = socketTimeoutMillis;
     this.sslSocketFactory = sslSocketFactory;
     this.trustManager = trustManager;
   }
@@ -54,12 +53,12 @@ final class HttpProperties {
 
   public void applyToHttpClientBuilder(OkHttpClient.Builder builder) {
     builder.connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS));
-    if (connectTimeout != null) {
-      builder.connectTimeout(connectTimeout);
+    if (connectTimeoutMillis > 0) {
+      builder.connectTimeout(connectTimeoutMillis, TimeUnit.MILLISECONDS);
     }
-    if (socketTimeout != null) {
-      builder.readTimeout(socketTimeout)
-        .writeTimeout(socketTimeout);
+    if (socketTimeoutMillis > 0) {
+      builder.readTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS)
+        .writeTimeout(socketTimeoutMillis, TimeUnit.MILLISECONDS);
     }
     builder.retryOnConnectionFailure(false); // we will implement our own retry logic
       
