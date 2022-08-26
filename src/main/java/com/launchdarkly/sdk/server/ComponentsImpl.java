@@ -6,6 +6,8 @@ import com.launchdarkly.logging.LDLogLevel;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LDSLF4J;
 import com.launchdarkly.logging.Logs;
+import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
@@ -22,7 +24,6 @@ import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
-import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
@@ -70,16 +71,21 @@ abstract class ComponentsImpl {
     private NullEventProcessor() {}
     
     @Override
-    public void sendEvent(Event e) {
-    }
+    public void flush() {}
     
     @Override
-    public void flush() {
-    }
-    
+    public void close() {}
+
     @Override
-    public void close() {
-    }
+    public void recordEvaluationEvent(LDContext context, String flagKey, int flagVersion, int variation, LDValue value,
+        EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey, boolean requireFullEvent,
+        Long debugEventsUntilDate) {}
+
+    @Override
+    public void recordIdentifyEvent(LDContext context) {}
+
+    @Override
+    public void recordCustomEvent(LDContext context, String eventKey, LDValue data, Double metricValue) {}
   }
   
   static final class NullDataSourceFactory implements ComponentConfigurer<DataSource>, DiagnosticDescription {
@@ -224,8 +230,6 @@ abstract class ComponentsImpl {
       implements DiagnosticDescription {
     @Override
     public EventProcessor build(ClientContext context) {
-      LDLogger baseLogger = context.getBaseLogger();
-      LDLogger logger = baseLogger.subLogger(Loggers.EVENTS_LOGGER_NAME);
       EventSender eventSender =
           (eventSenderConfigurer == null ? new DefaultEventSender.Factory() : eventSenderConfigurer)
           .build(context);
@@ -233,24 +237,20 @@ abstract class ComponentsImpl {
           context.getServiceEndpoints().getEventsBaseUri(),
           StandardEndpoints.DEFAULT_EVENTS_BASE_URI,
           "events",
-          baseLogger
+          context.getBaseLogger()
           );
-      return new DefaultEventProcessor(
-          new EventsConfiguration(
-              allAttributesPrivate,
-              capacity,
-              new ServerSideEventContextDeduplicator(userKeysCapacity, userKeysFlushInterval),
-              eventSender,
-              eventsUri,
-              flushInterval,
-              privateAttributes,
-              diagnosticRecordingInterval
-              ),
-          ClientContextImpl.get(context).sharedExecutor,
-          context.getThreadPriority(),
+      EventsConfiguration eventsConfig = new EventsConfiguration(
+          allAttributesPrivate,
+          capacity,
+          new ServerSideEventContextDeduplicator(userKeysCapacity, userKeysFlushInterval),
+          diagnosticRecordingInterval,
           ClientContextImpl.get(context).diagnosticStore,
-          logger
+          eventSender,
+          eventsUri,
+          flushInterval,
+          privateAttributes
           );
+      return new DefaultEventProcessorWrapper(context, eventsConfig);
     }
     
     @Override

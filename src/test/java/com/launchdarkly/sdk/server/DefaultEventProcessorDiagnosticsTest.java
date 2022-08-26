@@ -1,7 +1,6 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.junit.Test;
@@ -21,7 +20,7 @@ import static org.junit.Assert.assertNotNull;
  * These DefaultEventProcessor tests cover diagnostic event behavior.
  */
 @SuppressWarnings("javadoc")
-public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorTestBase {
+public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
   private static LDValue fakePlatformData = LDValue.buildObject().put("cats", 2).build();
   
   private DiagnosticId diagnosticId;
@@ -44,7 +43,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
   @Test
   public void diagnosticEventsSentToDiagnosticEndpoint() throws Exception {
     MockEventSender es = new MockEventSender();
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticStore)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).diagnosticStore(diagnosticStore))) {
       MockEventSender.Params initReq = es.awaitRequest();
       ep.postDiagnostic();
       MockEventSender.Params periodicReq = es.awaitRequest();
@@ -57,7 +56,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
   @Test
   public void initialDiagnosticEventHasInitBody() throws Exception {
     MockEventSender es = new MockEventSender();
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticStore)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).diagnosticStore(diagnosticStore))) {
       MockEventSender.Params req = es.awaitRequest();
 
       DiagnosticEvent.Init initEvent = gson.fromJson(req.data, DiagnosticEvent.Init.class);
@@ -75,7 +74,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
   public void periodicDiagnosticEventHasStatisticsBody() throws Exception {
     MockEventSender es = new MockEventSender();
     long dataSinceDate = diagnosticStore.getDataSinceDate();
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es), diagnosticStore)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).diagnosticStore(diagnosticStore))) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
       ep.postDiagnostic();
@@ -101,17 +100,16 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
     DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
     LDValue value = LDValue.of("value");
-    Event.FeatureRequest fe1 = EventFactory.DEFAULT.newFeatureRequestEvent(flag1, user,
+    Event.FeatureRequest fe1 = makeFeatureRequestEvent(flag1, user,
             simpleEvaluation(1, value), LDValue.ofNull());
-    Event.FeatureRequest fe2 = EventFactory.DEFAULT.newFeatureRequestEvent(flag2, user,
+    Event.FeatureRequest fe2 = makeFeatureRequestEvent(flag2, user,
             simpleEvaluation(1, value), LDValue.ofNull());
 
     // Create a fake deduplicator that just says "not seen" for the first call and "seen" thereafter
     EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatSaysKeyIsNewOnFirstCallOnly();
     
     try (DefaultEventProcessor ep = makeEventProcessor(
-        baseConfig(es).contextDeduplicator(contextDeduplicator),
-        diagnosticStore)) {
+        baseConfig(es).contextDeduplicator(contextDeduplicator).diagnosticStore(diagnosticStore))) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
@@ -140,7 +138,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     
     EventsConfigurationBuilder eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
     
-    try (DefaultEventProcessor ep = makeEventProcessor(eventsConfig, diagnosticStore)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(eventsConfig.diagnosticStore(diagnosticStore))) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
@@ -168,7 +166,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
 
     EventsConfigurationBuilder eventsConfig = makeEventsConfigurationWithBriefDiagnosticInterval(es);
     
-    try (DefaultEventProcessor ep = makeEventProcessor(eventsConfig, diagnosticStore)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(eventsConfig.diagnosticStore(diagnosticStore))) {
       // Ignore the initial diagnostic event
       es.awaitRequest();
 
@@ -181,7 +179,7 @@ public class DefaultEventProcessorDiagnosticsTest extends DefaultEventProcessorT
     MockEventSender es = new MockEventSender();
     URI uri = URI.create("fake-uri");
 
-    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).eventsUri(uri), diagnosticStore)) {
+    try (DefaultEventProcessor ep = makeEventProcessor(baseConfig(es).eventsUri(uri).diagnosticStore(diagnosticStore))) {
     }
 
     MockEventSender.Params p = es.awaitRequest();

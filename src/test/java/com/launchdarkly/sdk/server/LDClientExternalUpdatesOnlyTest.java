@@ -29,6 +29,17 @@ public class LDClientExternalUpdatesOnlyTest extends BaseTest {
   }
 
   @Test
+  public void externalUpdatesOnlyClientHasDefaultEventProcessor() throws Exception {
+    LDConfig config = baseConfig()
+        .dataSource(Components.externalUpdatesOnly())
+        .events(Components.sendEvents())
+        .build();
+    try (LDClient client = new LDClient("SDK_KEY", config)) {    
+      assertEquals(DefaultEventProcessorWrapper.class, client.eventProcessor.getClass());
+    }
+  }
+
+  @Test
   public void externalUpdatesOnlyClientIsInitialized() throws Exception {
     LDConfig config = baseConfig()
         .dataSource(Components.externalUpdatesOnly())

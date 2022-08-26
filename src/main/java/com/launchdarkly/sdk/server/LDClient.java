@@ -22,7 +22,6 @@ import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.subsystems.Event;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 
 import org.apache.commons.codec.binary.Hex;
@@ -47,6 +46,7 @@ import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.Util.isAsciiHeaderValue;
+import static com.launchdarkly.sdk.server.subsystems.EventProcessor.NO_VERSION;
 
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
@@ -69,8 +69,6 @@ public final class LDClient implements LDClientInterface {
   private final FlagTrackerImpl flagTracker;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeBroadcaster;
   private final ScheduledExecutorService sharedExecutor;
-  private final EventFactory eventFactoryDefault;
-  private final EventFactory eventFactoryWithReasons;
   private final LDLogger baseLogger;
   private final LDLogger evaluationLogger;
   private final Evaluator.PrerequisiteEvaluationSink prereqEvalsDefault;
@@ -185,15 +183,6 @@ public final class LDClient implements LDClientInterface {
     
     this.sharedExecutor = createSharedExecutor(config);
     
-    boolean eventsDisabled = Components.isNullImplementation(config.events);
-    if (eventsDisabled) {
-      this.eventFactoryDefault = EventFactory.Disabled.INSTANCE;
-      this.eventFactoryWithReasons = EventFactory.Disabled.INSTANCE;
-    } else {
-      this.eventFactoryDefault = EventFactory.DEFAULT;
-      this.eventFactoryWithReasons = EventFactory.DEFAULT_WITH_REASONS;
-    }
-    
     final ClientContextImpl context = ClientContextImpl.fromConfig(
         sdkKey,
         config,
@@ -299,7 +288,7 @@ public final class LDClient implements LDClientInterface {
     } else if (!context.isValid()) {
       baseLogger.warn("Track called with invalid context: " + context.getError());
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, context, data, null));
+      eventProcessor.recordCustomEvent(context, eventName, data, null);
     }
   }
 
@@ -310,7 +299,7 @@ public final class LDClient implements LDClientInterface {
     } else if (!context.isValid()) {
       baseLogger.warn("Track called with invalid context: " + context.getError());
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, context, data, metricValue));
+      eventProcessor.recordCustomEvent(context, eventName, data, metricValue);
     }
   }
 
@@ -321,13 +310,7 @@ public final class LDClient implements LDClientInterface {
     } else if (!context.isValid()) {
       baseLogger.warn("Identify called with invalid context: " + context.getError());
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newIdentifyEvent(context));
-    }
-  }
-
-  private void sendFlagRequestEvent(Event.FeatureRequest event) {
-    if (event != null) {
-      eventProcessor.sendEvent(event);
+      eventProcessor.recordIdentifyEvent(context);
     }
   }
   
@@ -485,14 +468,13 @@ public final class LDClient implements LDClientInterface {
   
   private EvalResult evaluateInternal(String featureKey, LDContext context, LDValue defaultValue,
       LDValueType requireType, boolean withDetail) {
-    EventFactory eventFactory = withDetail ? eventFactoryWithReasons : eventFactoryDefault;
     if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         evaluationLogger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {
         evaluationLogger.warn("Evaluation called before client initialized for feature flag \"{}\"; data store unavailable, returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, context, defaultValue,
-            EvaluationReason.ErrorKind.CLIENT_NOT_READY));
+        recordEvaluationUnknownFlagErrorEvent(featureKey, context, defaultValue,
+            EvaluationReason.ErrorKind.CLIENT_NOT_READY, withDetail);
         return errorResult(EvaluationReason.ErrorKind.CLIENT_NOT_READY, defaultValue);
       }
     }
@@ -502,20 +484,20 @@ public final class LDClient implements LDClientInterface {
       featureFlag = getFlag(dataStore, featureKey);
       if (featureFlag == null) {
         evaluationLogger.info("Unknown feature flag \"{}\"; returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, context, defaultValue,
-            EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
+        recordEvaluationUnknownFlagErrorEvent(featureKey, context, defaultValue,
+            EvaluationReason.ErrorKind.FLAG_NOT_FOUND, withDetail);
         return errorResult(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, defaultValue);
       }
       if (context == null) {
         evaluationLogger.warn("Null context when evaluating flag \"{}\"; returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, context, defaultValue,
-            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
+        recordEvaluationErrorEvent(featureFlag, context, defaultValue,
+            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, withDetail);
         return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
       if (!context.isValid()) {
         evaluationLogger.warn("Invalid context when evaluating flag \"{}\"; returning default value: " + context.getError(), featureKey);
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, context, defaultValue,
-            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
+        recordEvaluationErrorEvent(featureFlag, context, defaultValue,
+            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, withDetail);
         return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
       EvalResult evalResult = evaluator.evaluate(featureFlag, context,
@@ -528,23 +510,22 @@ public final class LDClient implements LDClientInterface {
             !value.isNull() &&
             value.getType() != requireType) {
           evaluationLogger.error("Feature flag evaluation expected result as {}, but got {}", defaultValue.getType(), value.getType());
-          sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, context, defaultValue,
-              EvaluationReason.ErrorKind.WRONG_TYPE));
+          recordEvaluationErrorEvent(featureFlag, context, defaultValue, EvaluationReason.ErrorKind.WRONG_TYPE, withDetail);
           return errorResult(EvaluationReason.ErrorKind.WRONG_TYPE, defaultValue);
         }
       }
-      sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, context, evalResult, defaultValue));
+      recordEvaluationEvent(featureFlag, context, evalResult, defaultValue, withDetail, null);
       return evalResult;
     } catch (Exception e) {
       evaluationLogger.error("Encountered exception while evaluating feature flag \"{}\": {}", featureKey,
           LogValues.exceptionSummary(e));
       evaluationLogger.debug("{}", LogValues.exceptionTrace(e));
       if (featureFlag == null) {
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, context, defaultValue,
-            EvaluationReason.ErrorKind.EXCEPTION));
+        recordEvaluationUnknownFlagErrorEvent(featureKey, context, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION, withDetail);
       } else {
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, context, defaultValue,
-            EvaluationReason.ErrorKind.EXCEPTION));
+        recordEvaluationErrorEvent(featureFlag, context, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION, withDetail);
       }
       return EvalResult.of(defaultValue, NO_VARIATION, EvaluationReason.exception(e));
     }
@@ -625,6 +606,79 @@ public final class LDClient implements LDClientInterface {
     return Version.SDK_VERSION;
   }
   
+  private void recordEvaluationUnknownFlagErrorEvent(
+      String flagKey,
+      LDContext context,
+      LDValue defaultValue,
+      EvaluationReason.ErrorKind errorKind,
+      boolean withReasons
+      ) {
+    eventProcessor.recordEvaluationEvent(
+        context,
+        flagKey,
+        NO_VERSION,
+        NO_VARIATION,
+        defaultValue,
+        withReasons ? EvaluationReason.error(errorKind) : null,
+        defaultValue,
+        null,
+        false,
+        null
+        );
+  }
+
+  private void recordEvaluationErrorEvent(
+      FeatureFlag flag,
+      LDContext context,
+      LDValue defaultValue,
+      EvaluationReason.ErrorKind errorKind,
+      boolean withReasons
+      ) {
+    eventProcessor.recordEvaluationEvent(
+        context,
+        flag.getKey(),
+        flag.getVersion(),
+        NO_VARIATION,
+        defaultValue,
+        withReasons ? EvaluationReason.error(errorKind) : null,
+        defaultValue,
+        null,
+        flag.isTrackEvents(),
+        flag.getDebugEventsUntilDate()
+        );
+  }
+
+  private void recordEvaluationEvent(
+      FeatureFlag flag,
+      LDContext context,
+      EvalResult result,
+      LDValue defaultValue,
+      boolean withReasons,
+      String prereqOf
+      ) {
+    eventProcessor.recordEvaluationEvent(
+        context,
+        flag.getKey(),
+        flag.getVersion(),
+        result.getVariationIndex(),
+        result.getValue(),
+        (withReasons || result.isForceReasonTracking()) ? result.getReason() : null,
+        defaultValue,
+        prereqOf,
+        flag.isTrackEvents() || result.isForceReasonTracking(),
+        flag.getDebugEventsUntilDate()
+        );
+  }
+
+  private Evaluator.PrerequisiteEvaluationSink makePrerequisiteEventSender(boolean withReasons) {
+    return new Evaluator.PrerequisiteEvaluationSink() {
+      @Override
+      public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context, EvalResult result) {
+        recordEvaluationEvent(flag, context, result, LDValue.ofNull(), withReasons, prereqOfFlag.getKey());
+      }
+    };
+  }
+  
   // This executor is used for a variety of SDK tasks such as flag change events, checking the data store
   // status after an outage, and the poll task in polling mode. These are all tasks that we do not expect
   // to be executing frequently so that it is acceptable to use a single thread to execute them one at a
@@ -637,16 +691,5 @@ public final class LDClient implements LDClientInterface {
         .setPriority(config.threadPriority)
         .build();
     return Executors.newSingleThreadScheduledExecutor(threadFactory);
-  }
-  
-  private Evaluator.PrerequisiteEvaluationSink makePrerequisiteEventSender(boolean withReasons) {
-    final EventFactory factory = withReasons ? eventFactoryWithReasons : eventFactoryDefault; 
-    return new Evaluator.PrerequisiteEvaluationSink() {
-      @Override
-      public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context, EvalResult result) {
-        eventProcessor.sendEvent(
-            factory.newPrerequisiteFeatureRequestEvent(flag, context, result, prereqOfFlag));
-      }
-    };
   }
 }

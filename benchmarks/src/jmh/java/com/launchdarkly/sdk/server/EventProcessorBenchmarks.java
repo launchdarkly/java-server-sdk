@@ -1,8 +1,7 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.Event;
-import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -11,6 +10,7 @@ import org.openjdk.jmh.annotations.State;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -29,7 +29,7 @@ public class EventProcessorBenchmarks {
   @State(Scope.Thread)
   public static class BenchmarkInputs {
     // Initialization of the things in BenchmarkInputs does not count as part of a benchmark.
-    final EventProcessor eventProcessor;
+    final DefaultEventProcessor eventProcessor;
     final MockEventSender eventSender;
     final List<Event.FeatureRequest> featureRequestEventsWithoutTracking = new ArrayList<>();
     final List<Event.FeatureRequest> featureRequestEventsWithTracking = new ArrayList<>();
@@ -41,10 +41,19 @@ public class EventProcessorBenchmarks {
       // JSON data in the payload.
       eventSender = new MockEventSender();
       
-      eventProcessor = Components.sendEvents()
-          .capacity(EVENT_BUFFER_SIZE)
-          .eventSender(TestComponents.specificComponent(eventSender))
-          .build(TestComponents.clientContext(TestValues.SDK_KEY, LDConfig.DEFAULT));
+      EventsConfiguration eventsConfig = new EventsConfiguration(
+          false,
+          EVENT_BUFFER_SIZE,
+          new ServerSideEventContextDeduplicator(1000, Duration.ofHours(1)),
+          null,
+          null,
+          eventSender,
+          null,
+          Duration.ofHours(1),
+          null
+          );
+      eventProcessor = new DefaultEventProcessor(eventsConfig, TestComponents.sharedExecutor, Thread.MAX_PRIORITY,
+          LDLogger.none());
       
       random = new Random();
       
@@ -64,7 +73,7 @@ public class EventProcessorBenchmarks {
               null,
               null,
               trackEvents,
-              0,
+              null,
               false
               );
           (trackEvents ? featureRequestEventsWithTracking : featureRequestEventsWithoutTracking).add(event);

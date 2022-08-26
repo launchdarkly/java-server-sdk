@@ -12,7 +12,6 @@ import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 
 import org.easymock.Capture;
-import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.junit.Before;
 import org.junit.Test;
@@ -125,7 +124,7 @@ public class LDClientTest extends BaseTest {
         .logging(Components.logging(testLogging))
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(DefaultEventProcessorWrapper.class, client.eventProcessor.getClass());
     }
   }
 
@@ -138,7 +137,7 @@ public class LDClientTest extends BaseTest {
         .logging(Components.logging(testLogging))
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertEquals(DefaultEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(DefaultEventProcessorWrapper.class, client.eventProcessor.getClass());
     }
   }
 
@@ -151,21 +150,6 @@ public class LDClientTest extends BaseTest {
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
       assertEquals(ComponentsImpl.NullEventProcessor.class, client.eventProcessor.getClass());
-    }
-  }
-
-  @Test
-  public void canSetCustomEventsEndpoint() throws Exception {
-    URI eu = URI.create("http://fake");
-    LDConfig config = new LDConfig.Builder()
-        .dataSource(Components.externalUpdatesOnly())
-        .serviceEndpoints(Components.serviceEndpoints().events(eu))
-        .events(Components.sendEvents())
-        .diagnosticOptOut(true)
-        .logging(Components.logging(testLogging))
-        .build();
-    try (LDClient client = new LDClient(SDK_KEY, config)) {
-      assertEquals(eu, ((DefaultEventProcessor) client.eventProcessor).dispatcher.eventsConfig.eventsUri);
     }
   }
 
@@ -245,7 +229,7 @@ public class LDClientTest extends BaseTest {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       mocks.verifyAll();
-      DiagnosticStore acc = ((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticStore; 
+      DiagnosticStore acc = ((DefaultEventProcessorWrapper)client.eventProcessor).eventsConfig.diagnosticStore; 
       assertNotNull(acc);
       assertSame(acc, ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
     }
@@ -270,38 +254,7 @@ public class LDClientTest extends BaseTest {
 
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       mocks.verifyAll();
-      assertNull(((DefaultEventProcessor)client.eventProcessor).dispatcher.diagnosticStore);
-      assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
-    }
-  }
-
-  @Test
-  public void nullDiagnosticStorePassedToUpdateFactoryWhenEventProcessorDoesNotSupportDiagnostics() throws IOException {
-    EventProcessor mockEventProcessor = mocks.createStrictMock(EventProcessor.class);
-    mockEventProcessor.close();
-    EasyMock.expectLastCall().anyTimes();
-    @SuppressWarnings("unchecked")
-    ComponentConfigurer<EventProcessor> mockEventProcessorFactory = mocks.createStrictMock(ComponentConfigurer.class);
-    @SuppressWarnings("unchecked")
-    ComponentConfigurer<DataSource> mockDataSourceFactory = mocks.createStrictMock(ComponentConfigurer.class);
-
-    LDConfig config = new LDConfig.Builder()
-            .events(mockEventProcessorFactory)
-            .dataSource(mockDataSourceFactory)
-            .logging(Components.logging(testLogging))
-            .startWait(Duration.ZERO)
-            .build();
-
-    Capture<ClientContext> capturedEventContext = Capture.newInstance();
-    Capture<ClientContext> capturedDataSourceContext = Capture.newInstance();
-    expect(mockEventProcessorFactory.build(capture(capturedEventContext))).andReturn(mockEventProcessor);
-    expect(mockDataSourceFactory.build(capture(capturedDataSourceContext))).andReturn(failedDataSource());
-
-    mocks.replayAll();
-
-    try (LDClient client = new LDClient(SDK_KEY, config)) {
-      mocks.verifyAll();
-      assertNull(ClientContextImpl.get(capturedEventContext.getValue()).diagnosticStore);
+      assertNull(((DefaultEventProcessorWrapper)client.eventProcessor).eventsConfig.diagnosticStore);
       assertNull(ClientContextImpl.get(capturedDataSourceContext.getValue()).diagnosticStore);
     }
   }

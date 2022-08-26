@@ -9,7 +9,6 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.EventSummarizer.CounterValue;
 import com.launchdarkly.sdk.server.EventSummarizer.FlagInfo;
 import com.launchdarkly.sdk.server.EventSummarizer.SimpleIntKeyedMap;
-import com.launchdarkly.sdk.server.subsystems.Event;
 
 import java.io.IOException;
 import java.io.Writer;

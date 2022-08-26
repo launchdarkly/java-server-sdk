@@ -5,7 +5,6 @@ import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Target;
-import com.launchdarkly.sdk.server.subsystems.Event;
 
 import java.util.ArrayList;
 import java.util.HashSet;

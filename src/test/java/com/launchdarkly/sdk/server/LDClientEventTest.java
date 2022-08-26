@@ -10,7 +10,6 @@ import com.launchdarkly.sdk.server.DataModel.Prerequisite;
 import com.launchdarkly.sdk.server.DataModel.Rule;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
-import com.launchdarkly.sdk.server.subsystems.Event;
 
 import org.junit.Test;
 
@@ -587,7 +586,7 @@ public class LDClientEventTest extends BaseTest {
     assertEquals(prereqOf, fe.getPrereqOf());
     assertEquals(reason, fe.getReason());
     assertEquals(flag.isTrackEvents(), fe.isTrackEvents());
-    assertEquals(flag.getDebugEventsUntilDate() == null ? 0L : flag.getDebugEventsUntilDate().longValue(), fe.getDebugEventsUntilDate());
+    assertEquals(flag.getDebugEventsUntilDate(), fe.getDebugEventsUntilDate());
   }
 
   private void checkUnknownFeatureEvent(Event e, String key, LDValue defaultVal, String prereqOf,
@@ -603,6 +602,6 @@ public class LDClientEventTest extends BaseTest {
     assertEquals(prereqOf, fe.getPrereqOf());
     assertEquals(reason, fe.getReason());
     assertFalse(fe.isTrackEvents());
-    assertEquals(0L, fe.getDebugEventsUntilDate());
+    assertNull(fe.getDebugEventsUntilDate());
   }
 }
