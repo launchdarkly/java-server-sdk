@@ -8,14 +8,13 @@ import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matcher;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
@@ -24,7 +23,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.awaitValue;
 import static com.launchdarkly.testhelpers.JsonAssertions.isJsonArray;
@@ -71,10 +69,6 @@ public abstract class EventTestUtil extends BaseTest {
         );
   }
 
-  public static ComponentConfigurer<EventSender> senderFactory(final EventSender es) {
-    return specificComponent(es);
-  }
-  
   public static final class MockEventSender implements EventSender {
     volatile boolean closed;
     volatile Result result = new Result(true, false, null);
@@ -86,18 +80,28 @@ public abstract class EventTestUtil extends BaseTest {
     final BlockingQueue<Params> receivedParams = new LinkedBlockingQueue<>();
     
     static final class Params {
-      final EventDataKind kind;
+      final boolean diagnostic;
       final String data;
       final int eventCount;
       final URI eventsBaseUri;
       
-      Params(EventDataKind kind, String data, int eventCount, URI eventsBaseUri) {
-        this.kind = kind;
+      Params(boolean diagnostic, String data, int eventCount, URI eventsBaseUri) {
+        this.diagnostic = diagnostic;
         this.data = data;
         this.eventCount = eventCount;
         assertNotNull(eventsBaseUri);
         this.eventsBaseUri = eventsBaseUri;
       }
+    }
+
+    @Override
+    public Result sendAnalyticsEvents(byte[] data, int eventCount, URI eventsBaseUri) {
+      return receive(false, data, eventCount, eventsBaseUri);
+    }
+
+    @Override
+    public Result sendDiagnosticEvent(byte[] data, URI eventsBaseUri) {
+      return receive(true, data, 1, eventsBaseUri);
     }
     
     @Override
@@ -108,9 +112,8 @@ public abstract class EventTestUtil extends BaseTest {
       }
     }
 
-    @Override
-    public Result sendEventData(EventDataKind kind, String data, int eventCount, URI eventsBaseUri) {
-      receivedParams.add(new Params(kind, data, eventCount, eventsBaseUri));
+    private Result receive(boolean diagnostic, byte[] data, int eventCount, URI eventsBaseUri) {
+      receivedParams.add(new Params(diagnostic, new String(data, Charset.forName("UTF-8")), eventCount, eventsBaseUri));
       if (waitSignal != null) {
         // this is used in DefaultEventProcessorTest.eventsAreKeptInBufferIfAllFlushWorkersAreBusy 
         synchronized (waitSignal) {

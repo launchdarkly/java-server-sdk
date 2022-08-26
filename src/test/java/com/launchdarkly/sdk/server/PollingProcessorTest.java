@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
-import static com.launchdarkly.sdk.server.TestComponents.defaultHttpConfiguration;
+import static com.launchdarkly.sdk.server.TestComponents.defaultHttpProperties;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.assertDataSetEquals;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
@@ -62,7 +62,7 @@ public class PollingProcessorTest extends BaseTest {
   }
 
   private PollingProcessor makeProcessor(URI baseUri, Duration pollInterval) {
-    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpConfiguration(), baseUri, testLogger);
+    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpProperties(), baseUri, testLogger);
     return new PollingProcessor(requestor, dataSourceUpdates, sharedExecutor, pollInterval, testLogger);
   }
 

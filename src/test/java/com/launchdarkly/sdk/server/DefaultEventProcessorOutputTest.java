@@ -3,7 +3,6 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.hamcrest.Matchers;
 import org.junit.Test;

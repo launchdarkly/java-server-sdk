@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.sdk.server.HttpErrors.HttpErrorException;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
@@ -20,8 +21,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
-import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
+import static com.launchdarkly.sdk.server.HttpErrors.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.server.HttpErrors.httpErrorDescription;
 
 final class PollingProcessor implements DataSource {
   private static final String ERROR_CONTEXT_MESSAGE = "on polling request";

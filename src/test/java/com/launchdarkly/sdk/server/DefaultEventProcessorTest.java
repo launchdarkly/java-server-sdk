@@ -3,7 +3,6 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
 import com.launchdarkly.testhelpers.JsonTestValue;
 
 import org.hamcrest.Matchers;

@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
@@ -129,11 +128,17 @@ public class EventProcessorBenchmarks {
     public void close() throws IOException {}
 
     @Override
-    public Result sendEventData(EventDataKind arg0, String arg1, int arg2, URI arg3) {
+    public Result sendAnalyticsEvents(byte[] data, int count, URI baseUri) {
       counter.countDown();
       return RESULT;
     }
-    
+
+    @Override
+    public Result sendDiagnosticEvent(byte[] data, URI baseUri) {
+      counter.countDown();
+      return RESULT;
+    }
+
     public void awaitEvents() throws InterruptedException {
       counter.await();
     }

@@ -747,7 +747,7 @@ public class StreamProcessorTest extends BaseTest {
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticStore acc) {
     return new StreamProcessor(
-        clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp(),
+        ComponentsImpl.toHttpProperties(clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp()),
         dataSourceUpdates,
         Thread.MIN_PRIORITY,
         acc,

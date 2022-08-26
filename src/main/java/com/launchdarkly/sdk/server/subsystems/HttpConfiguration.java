@@ -1,16 +1,18 @@
 package com.launchdarkly.sdk.server.subsystems;
 
-import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 
 import java.net.Proxy;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
+
+import static java.util.Collections.emptyMap;
 
 /**
  * Encapsulates top-level HTTP configuration that applies to all SDK components.
@@ -26,11 +28,11 @@ import javax.net.ssl.X509TrustManager;
  */
 public final class HttpConfiguration {
   private final Duration connectTimeout;
-  private final ImmutableMap<String, String> defaultHeaders;
+  private final Map<String, String> defaultHeaders;
   private final Proxy proxy;
-  private final HttpAuthentication proxyAuth;
-  private final Duration socketTimeout;
+  private final HttpAuthentication proxyAuthentication;
   private final SocketFactory socketFactory;
+  private final Duration socketTimeout;
   private final SSLSocketFactory sslSocketFactory;
   private final X509TrustManager trustManager;
 
@@ -40,27 +42,22 @@ public final class HttpConfiguration {
    * @param connectTimeout see {@link #getConnectTimeout()}
    * @param defaultHeaders see {@link #getDefaultHeaders()}
    * @param proxy see {@link #getProxy()}
-   * @param proxyAuth see {@link #getProxyAuthentication()}
-   * @param socketTimeout see {@link #getSocketTimeout()}
+   * @param proxyAuthentication see {@link #getProxyAuthentication()}
    * @param socketFactory see {@link #getSocketFactory()}
+   * @param socketTimeout see {@link #getSocketTimeout()}
    * @param sslSocketFactory see {@link #getSslSocketFactory()}
    * @param trustManager see {@link #getTrustManager()}
    */
-  public HttpConfiguration(
-      Duration connectTimeout,
-      ImmutableMap<String, String> defaultHeaders,
-      Proxy proxy,
-      HttpAuthentication proxyAuth,
-      Duration socketTimeout,
-      SocketFactory socketFactory,
-      SSLSocketFactory sslSocketFactory,
-      X509TrustManager trustManager) {
+  public HttpConfiguration(Duration connectTimeout, Map<String, String> defaultHeaders, Proxy proxy,
+      HttpAuthentication proxyAuthentication, SocketFactory socketFactory, Duration socketTimeout,
+      SSLSocketFactory sslSocketFactory, X509TrustManager trustManager) {
+    super();
     this.connectTimeout = connectTimeout == null ? HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT : connectTimeout;
-    this.defaultHeaders = defaultHeaders == null ? ImmutableMap.of() : defaultHeaders;
+    this.defaultHeaders = defaultHeaders == null ? emptyMap() : new HashMap<>(defaultHeaders);
     this.proxy = proxy;
-    this.proxyAuth = proxyAuth;
-    this.socketTimeout = socketTimeout == null ? HttpConfigurationBuilder.DEFAULT_SOCKET_TIMEOUT : socketTimeout;
+    this.proxyAuthentication = proxyAuthentication;
     this.socketFactory = socketFactory;
+    this.socketTimeout = socketTimeout == null ? HttpConfigurationBuilder.DEFAULT_SOCKET_TIMEOUT : socketTimeout;
     this.sslSocketFactory = sslSocketFactory;
     this.trustManager = trustManager;
   }
@@ -69,12 +66,22 @@ public final class HttpConfiguration {
    * The connection timeout. This is the time allowed for the underlying HTTP client to connect
    * to the LaunchDarkly server.
    * 
-   * @return the connection timeout; must not be null
+   * @return the connection timeout; never null
    */
   public Duration getConnectTimeout() {
     return connectTimeout;
   }
 
+  /**
+   * Returns the basic headers that should be added to all HTTP requests from SDK components to
+   * LaunchDarkly services, based on the current SDK configuration.
+   * 
+   * @return a list of HTTP header names and values
+   */
+  public Iterable<Map.Entry<String, String>> getDefaultHeaders() {
+    return defaultHeaders.entrySet();
+  }
+  
   /**
    * The proxy configuration, if any.
    * 
@@ -90,7 +97,7 @@ public final class HttpConfiguration {
    * @return an {@link HttpAuthentication} implementation or null
    */
   public HttpAuthentication getProxyAuthentication() {
-    return proxyAuth;
+    return proxyAuthentication;
   }
 
   /**
@@ -99,7 +106,7 @@ public final class HttpConfiguration {
    * used by {@link com.launchdarkly.sdk.server.Components#streamingDataSource()}, which has its own
    * non-configurable read timeout based on the expected behavior of the LaunchDarkly streaming service.
    *  
-   * @return the socket timeout; must not be null
+   * @return the socket timeout; never null
    */
   public Duration getSocketTimeout() {
     return socketTimeout;
@@ -130,15 +137,5 @@ public final class HttpConfiguration {
    */
   public X509TrustManager getTrustManager() {
     return trustManager;
-  }
-
-  /**
-   * Returns the basic headers that should be added to all HTTP requests from SDK components to
-   * LaunchDarkly services, based on the current SDK configuration.
-   * 
-   * @return a list of HTTP header names and values
-   */
-  public Iterable<Map.Entry<String, String>> getDefaultHeaders() {
-    return defaultHeaders.entrySet();
   }
 }
