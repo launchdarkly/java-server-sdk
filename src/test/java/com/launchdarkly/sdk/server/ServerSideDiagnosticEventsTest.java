@@ -1,10 +1,10 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
+import com.launchdarkly.sdk.internal.events.DiagnosticEvent;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
@@ -17,9 +17,6 @@ import org.junit.Test;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestUtil.assertJsonEquals;
@@ -30,40 +27,13 @@ import static com.launchdarkly.testhelpers.JsonTestValue.jsonFromValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class ServerSideDiagnosticEventsTest {
 
   private static Gson gson = new Gson();
-  private static List<DiagnosticEvent.StreamInit> testStreamInits = Collections.singletonList(new DiagnosticEvent.StreamInit(1500, 100, true));
   private static final URI CUSTOM_URI = URI.create("http://1.1.1.1");
   
-  @Test
-  public void testSerialization() {
-    DiagnosticId diagnosticId = new DiagnosticId("SDK_KEY");
-    DiagnosticEvent.Statistics diagnosticStatisticsEvent = new DiagnosticEvent.Statistics(2000, diagnosticId, 1000, 1, 2, 3, testStreamInits);
-    JsonObject jsonObject = gson.toJsonTree(diagnosticStatisticsEvent).getAsJsonObject();
-    assertEquals(8, jsonObject.size());
-    assertEquals("diagnostic", diagnosticStatisticsEvent.kind);
-    assertEquals(2000, jsonObject.getAsJsonPrimitive("creationDate").getAsLong());
-    JsonObject idObject = jsonObject.getAsJsonObject("id");
-    assertEquals("DK_KEY", idObject.getAsJsonPrimitive("sdkKeySuffix").getAsString());
-    // Throws InvalidArgumentException on invalid UUID
-    @SuppressWarnings("unused")
-    UUID uuid = UUID.fromString(idObject.getAsJsonPrimitive("diagnosticId").getAsString());
-    assertEquals(1000, jsonObject.getAsJsonPrimitive("dataSinceDate").getAsLong());
-    assertEquals(1, jsonObject.getAsJsonPrimitive("droppedEvents").getAsLong());
-    assertEquals(2, jsonObject.getAsJsonPrimitive("deduplicatedUsers").getAsLong());
-    assertEquals(3, jsonObject.getAsJsonPrimitive("eventsInLastBatch").getAsLong());
-    JsonArray initsJson = jsonObject.getAsJsonArray("streamInits");
-    assertEquals(1, initsJson.size());
-    JsonObject initJson = initsJson.get(0).getAsJsonObject();
-    assertEquals(1500, initJson.getAsJsonPrimitive("timestamp").getAsInt());
-    assertEquals(100, initJson.getAsJsonPrimitive("durationMillis").getAsInt());
-    assertTrue(initJson.getAsJsonPrimitive("failed").getAsBoolean());
-  }
-
   @Test
   public void sdkDataProperties() {
     LDValue sdkData = makeSdkData(LDConfig.DEFAULT);

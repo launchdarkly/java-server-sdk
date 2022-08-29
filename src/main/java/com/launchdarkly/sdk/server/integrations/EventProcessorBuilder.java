@@ -106,9 +106,9 @@ public abstract class EventProcessorBuilder implements ComponentConfigurer<Event
    * <p>
    * The default value is {@link #DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL}; the minimum value is
    * {@link #MIN_DIAGNOSTIC_RECORDING_INTERVAL}. This property is ignored if
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#diagnosticOptOut(boolean)} is set to {@code true}.
+   * {@link Builder#diagnosticOptOut(boolean)} is set to {@code true}.
    *
-   * @see com.launchdarkly.sdk.server.LDConfig.Builder#diagnosticOptOut(boolean)
+   * @see Builder#diagnosticOptOut(boolean)
    *
    * @param diagnosticRecordingInterval the diagnostics interval; null to use the default
    * @return the builder

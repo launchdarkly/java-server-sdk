@@ -7,7 +7,11 @@ import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DiagnosticStore.SdkDiagnosticParams;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore;
+import com.launchdarkly.sdk.internal.events.Event;
+import com.launchdarkly.sdk.internal.events.EventsConfiguration;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore.SdkDiagnosticParams;
+import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
@@ -45,7 +49,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @SuppressWarnings("javadoc")
 public class TestComponents {
-  static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
+  public static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("TestComponents-sharedExecutor-%d").build());
 
   public static LDLogger nullLogger = LDLogger.withAdapter(Logs.none(), "");

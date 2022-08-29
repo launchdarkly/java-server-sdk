@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDContext;
+import com.launchdarkly.sdk.internal.events.EventContextDeduplicator;
 
 import org.junit.Test;
 

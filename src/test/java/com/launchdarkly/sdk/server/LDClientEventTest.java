@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
+import com.launchdarkly.sdk.internal.events.Event;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.Clause;
