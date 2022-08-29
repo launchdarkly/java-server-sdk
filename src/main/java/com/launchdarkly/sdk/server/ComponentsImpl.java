@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.LDLogLevel;
@@ -237,8 +236,13 @@ abstract class ComponentsImpl {
     public EventProcessor build(ClientContext context) {
       EventSender eventSender;
       if (eventSenderConfigurer == null) {
-        eventSender = new DefaultEventSender(toHttpProperties(context.getHttp()), 0, // 0 means default retry delay
-            context.getBaseLogger().subLogger(Loggers.EVENTS_LOGGER_NAME));
+        eventSender = new DefaultEventSender(
+            toHttpProperties(context.getHttp()),
+            null, // use default request path for server-side events
+            null, // use default request path for client-side events
+            0, // 0 means default retry delay
+            context.getBaseLogger().subLogger(Loggers.EVENTS_LOGGER_NAME)
+            );
       } else {
         eventSender = new EventSenderWrapper(eventSenderConfigurer.build(context));
       }
@@ -255,8 +259,11 @@ abstract class ComponentsImpl {
           diagnosticRecordingInterval.toMillis(),
           ClientContextImpl.get(context).diagnosticStore,
           eventSender,
+          EventsConfiguration.DEFAULT_EVENT_SENDING_THREAD_POOL_SIZE,
           eventsUri,
           flushInterval.toMillis(),
+          false,
+          false,
           privateAttributes
           );
       return new DefaultEventProcessorWrapper(context, eventsConfig);
@@ -432,6 +439,7 @@ abstract class ComponentsImpl {
     return new HttpProperties(
         httpConfig.getConnectTimeout().toMillis(),
         ImmutableMap.copyOf(httpConfig.getDefaultHeaders()),
+        null,
         httpConfig.getProxy(),
         proxyAuth,
         httpConfig.getSocketFactory(),
