@@ -6,8 +6,6 @@ import org.junit.Test;
 
 import java.net.URI;
 
-import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.TestUtil.simpleEvaluation;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -19,7 +17,7 @@ import static org.junit.Assert.assertNotNull;
  * These DefaultEventProcessor tests cover diagnostic event behavior.
  */
 @SuppressWarnings("javadoc")
-public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
+public class DefaultEventProcessorDiagnosticsTest extends BaseEventTest {
   private static LDValue fakePlatformData = LDValue.buildObject().put("cats", 2).build();
   
   private DiagnosticId diagnosticId;
@@ -96,13 +94,8 @@ public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
   @Test
   public void periodicDiagnosticEventGetsEventsInLastBatchAndDeduplicatedUsers() throws Exception {
     MockEventSender es = new MockEventSender();
-    DataModel.FeatureFlag flag1 = flagBuilder("flagkey1").version(11).trackEvents(true).build();
-    DataModel.FeatureFlag flag2 = flagBuilder("flagkey2").version(22).trackEvents(true).build();
-    LDValue value = LDValue.of("value");
-    Event.FeatureRequest fe1 = makeFeatureRequestEvent(flag1, user,
-            simpleEvaluation(1, value), LDValue.ofNull());
-    Event.FeatureRequest fe2 = makeFeatureRequestEvent(flag2, user,
-            simpleEvaluation(1, value), LDValue.ofNull());
+    Event.FeatureRequest fe1 = featureEvent(user, "flagkey1").build();
+    Event.FeatureRequest fe2 = featureEvent(user, "flagkey2").build();
 
     // Create a fake deduplicator that just says "not seen" for the first call and "seen" thereafter
     EventContextDeduplicator contextDeduplicator = contextDeduplicatorThatSaysKeyIsNewOnFirstCallOnly();
@@ -126,7 +119,7 @@ public class DefaultEventProcessorDiagnosticsTest extends EventTestUtil {
 
       assertNotNull(statsEvent);
       assertThat(statsEvent.deduplicatedUsers, equalTo(1L));
-      assertThat(statsEvent.eventsInLastBatch, equalTo(3L));
+      assertThat(statsEvent.eventsInLastBatch, equalTo(2L)); // 1 index event + 1 summary event
       assertThat(statsEvent.droppedEvents, equalTo(0L));
     }
   }

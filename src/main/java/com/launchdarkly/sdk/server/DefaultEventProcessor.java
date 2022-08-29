@@ -478,7 +478,8 @@ final class DefaultEventProcessor implements Closeable {
       }
       FlushPayload payload = outbox.getPayload();
       if (diagnosticStore != null) {
-        diagnosticStore.recordEventsInBatch(payload.events.length);
+        int eventCount = payload.events.length + (payload.summary.isEmpty() ? 0 : 1);
+        diagnosticStore.recordEventsInBatch(eventCount);
       }
       busyFlushWorkersCount.incrementAndGet();
       if (payloadQueue.offer(payload)) {
