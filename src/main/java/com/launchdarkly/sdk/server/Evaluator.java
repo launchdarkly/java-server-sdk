@@ -338,6 +338,7 @@ class Evaluator {
             rollout.getBucketBy(),
             flag.getSalt()
             );
+        boolean contextWasFound = bucket >= 0; // see comment on computeBucketValue
         float sum = 0F;
         List<WeightedVariation> variations = rollout.getVariations(); // guaranteed non-null
         int nVariations = variations.size();
@@ -346,7 +347,7 @@ class Evaluator {
           sum += (float) wv.getWeight() / 100000F;
           if (bucket < sum) {
             variation = wv.getVariation();
-            inExperiment = vr.getRollout().isExperiment() && !wv.isUntracked();
+            inExperiment = vr.getRollout().isExperiment() && !wv.isUntracked() && contextWasFound;
             break;
           }
         }

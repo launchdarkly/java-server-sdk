@@ -15,6 +15,12 @@ abstract class EvaluatorBucketing {
   
   private static final float LONG_SCALE = (float) 0xFFFFFFFFFFFFFFFL;
 
+  // Computes a bucket value for a rollout or experiment. If an error condition prevents
+  // us from computing a valid bucket value, we return 0, which will cause the evaluator
+  // to select the first bucket. A special case is if no context of the desired kind is
+  // found, in which case we return the special value -1; this similarly will cause the
+  // first bucket to be chosen (since it is less than the end value of the bucket, just
+  // as 0 is), but also tells the evaluator that inExperiment must be set to false.
   static float computeBucketValue(
       boolean isExperiment,
       Integer seed,
@@ -26,7 +32,7 @@ abstract class EvaluatorBucketing {
       ) {
     LDContext matchContext = context.getIndividualContext(contextKind);
     if (matchContext == null) {
-      return 0;
+      return -1;
     }
     LDValue contextValue;
     if (isExperiment || attr == null) {

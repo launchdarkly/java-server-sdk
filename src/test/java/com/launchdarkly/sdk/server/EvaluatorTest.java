@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.Iterables;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
@@ -15,6 +16,7 @@ import com.launchdarkly.sdk.server.EvaluatorTestUtil.PrereqRecorder;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
@@ -33,6 +35,7 @@ import static com.launchdarkly.sdk.server.EvaluatorTestUtil.buildRedGreenFlag;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.buildThreeWayFlag;
 import static com.launchdarkly.sdk.server.EvaluatorTestUtil.expectNoPrerequisiteEvals;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
+import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingContext;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
@@ -160,8 +163,8 @@ public class EvaluatorTest extends EvaluatorTestBase {
   public void flagReturnsInExperimentForRuleMatchWhenInExperimentVariation() throws Exception {
     Rollout rollout = buildRollout(true, false);
 
-    DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of(BASE_USER.getKey()));
-    DataModel.Rule rule = ruleBuilder().id("ruleid0").clauses(clause).rollout(rollout).build();
+    DataModel.Rule rule = ruleBuilder().id("ruleid0").clauses(clauseMatchingContext(BASE_USER))
+        .rollout(rollout).build();
 
     DataModel.FeatureFlag f = buildThreeWayFlag("feature")
         .on(true)
@@ -176,8 +179,8 @@ public class EvaluatorTest extends EvaluatorTestBase {
   public void flagReturnsNotInExperimentForRuleMatchWhenNotInExperimentVariation() throws Exception {
     Rollout rollout = buildRollout(true, true);
     
-    DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
-    DataModel.Rule rule = ruleBuilder().id("ruleid0").clauses(clause).rollout(rollout).build();
+    DataModel.Rule rule = ruleBuilder().id("ruleid0").clauses(clauseMatchingContext(BASE_USER))
+        .rollout(rollout).build();
 
     DataModel.FeatureFlag f = buildThreeWayFlag("feature")
         .on(true)
@@ -188,6 +191,37 @@ public class EvaluatorTest extends EvaluatorTestBase {
     assert(!result.getReason().isInExperiment());
   }
 
+  @Test
+  public void flagReturnsNotInExperimentWhenContextKindIsNotFound() throws Exception {
+    Rollout rollout = new Rollout(
+        ContextKind.of("nonexistent"),
+        Arrays.asList(
+            new WeightedVariation(0, 1, false),
+            new WeightedVariation(1, 99999, false)
+            ),
+        null,
+        RolloutKind.experiment,
+        null);
+    
+    DataModel.Rule rule = ruleBuilder().id("ruleid0").clauses(clauseMatchingContext(BASE_USER))
+        .rollout(rollout).build();
+    DataModel.FeatureFlag flagWithRule = buildThreeWayFlag("feature")
+        .on(true)
+        .rules(rule)
+        .build();
+    EvalResult result1 = BASE_EVALUATOR.evaluate(flagWithRule, BASE_USER, expectNoPrerequisiteEvals());
+    assert(!result1.getReason().isInExperiment());
+
+    DataModel.FeatureFlag flagWithFallthrough = buildThreeWayFlag("feature")
+        .on(true)
+        .fallthrough(rollout)
+        .rules(rule)
+        .build();
+    EvalResult result2 = BASE_EVALUATOR.evaluate(flagWithFallthrough, BASE_USER, expectNoPrerequisiteEvals());
+    assert(!result2.getReason().isInExperiment());
+
+  }
+  
   @Test
   public void flagReturnsFallthroughIfFlagIsOnAndThereAreNoRules() throws Exception {
     DataModel.FeatureFlag f = buildThreeWayFlag("feature")
