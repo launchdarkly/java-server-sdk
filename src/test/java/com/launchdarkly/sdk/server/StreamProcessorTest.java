@@ -26,12 +26,17 @@ import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestInfo;
+import com.launchdarkly.testhelpers.httptest.SpecialHttpConfigurations;
+import com.launchdarkly.testhelpers.tcptest.TcpHandler;
+import com.launchdarkly.testhelpers.tcptest.TcpHandlers;
+import com.launchdarkly.testhelpers.tcptest.TcpServer;
 
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.EOFException;
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
@@ -61,7 +66,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -355,17 +359,21 @@ public class StreamProcessorTest extends BaseTest {
   
   @Test
   public void streamWillReconnectAfterGeneralIOException() throws Exception {
-    Handler errorHandler = Handlers.malformedResponse();
     Handler streamHandler = streamResponse(EMPTY_DATA_EVENT);
-    Handler errorThenSuccess = Handlers.sequential(errorHandler, streamHandler);
     
-    try (HttpServer server = HttpServer.start(errorThenSuccess)) {
-      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
-        startAndWait(sp);
-
-        assertThat(server.getRecorder().count(), equalTo(2));
-        assertThat(dataSourceUpdates.getLastStatus().getLastError(), notNullValue());
-        assertThat(dataSourceUpdates.getLastStatus().getLastError().getKind(), equalTo(ErrorKind.NETWORK_ERROR));
+    try (HttpServer server = HttpServer.start(streamHandler)) {
+      TcpHandler errorThenSuccess = TcpHandlers.sequential(
+          TcpHandlers.noResponse(), // this will cause an IOException due to closing the connection without a response
+          TcpHandlers.forwardToPort(server.getPort())
+          );
+      try (TcpServer forwardingServer = TcpServer.start(errorThenSuccess)) {
+        try (StreamProcessor sp = createStreamProcessor(null, forwardingServer.getHttpUri())) {
+          startAndWait(sp);
+  
+          assertThat(server.getRecorder().count(), equalTo(1)); // the HTTP server doesn't see the initial request that the forwardingServer rejected
+          assertThat(dataSourceUpdates.getLastStatus().getLastError(), notNullValue());
+          assertThat(dataSourceUpdates.getLastStatus().getLastError().getKind(), equalTo(ErrorKind.NETWORK_ERROR));
+        }
       }
     }
   }
@@ -637,30 +645,22 @@ public class StreamProcessorTest extends BaseTest {
   public void testSpecialHttpConfigurations() throws Exception {
     Handler handler = streamResponse(EMPTY_DATA_EVENT);
     
-    TestHttpUtil.testWithSpecialHttpConfigurations(handler,
-        (targetUri, goodHttpConfig) -> {
-          LDConfig config = new LDConfig.Builder().http(goodHttpConfig).build();
+    SpecialHttpConfigurations.testAll(handler,
+        (URI serverUri, SpecialHttpConfigurations.Params params) -> {
+          LDConfig config = new LDConfig.Builder()
+              .http(TestUtil.makeHttpConfigurationFromTestParams(params))
+              .build();
           ConnectionErrorSink errorSink = new ConnectionErrorSink();
           
-          try (StreamProcessor sp = createStreamProcessor(config, targetUri)) {
+          try (StreamProcessor sp = createStreamProcessor(config, serverUri)) {
             sp.connectionErrorHandler = errorSink;
             startAndWait(sp);
-            assertNull(errorSink.errors.peek());
+            if (errorSink.errors.size() != 0) {
+              throw new IOException(errorSink.errors.peek());
+            }
+            return true;
           }
-        },
-        (targetUri, badHttpConfig) -> {
-          LDConfig config = new LDConfig.Builder().http(badHttpConfig).build();
-          ConnectionErrorSink errorSink = new ConnectionErrorSink();
-          
-          try (StreamProcessor sp = createStreamProcessor(config, targetUri)) {
-            sp.connectionErrorHandler = errorSink;
-            startAndWait(sp);
-            
-            Throwable error = errorSink.errors.peek();
-            assertNotNull(error);
-          }
-        }
-        );
+        });
   }
   
   static class ConnectionErrorSink implements ConnectionErrorHandler {
