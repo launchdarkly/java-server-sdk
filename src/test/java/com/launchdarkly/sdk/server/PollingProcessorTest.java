@@ -19,6 +19,9 @@ import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestContext;
+import com.launchdarkly.testhelpers.tcptest.TcpHandler;
+import com.launchdarkly.testhelpers.tcptest.TcpHandlers;
+import com.launchdarkly.testhelpers.tcptest.TcpServer;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -152,22 +155,25 @@ public class PollingProcessorTest extends BaseTest {
     BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
-    Handler errorThenSuccess = Handlers.sequential(
-        Handlers.malformedResponse(), // this will cause an IOException
-        new TestPollHandler() // it should time out before reaching this
-        );
+    Handler successHandler = new TestPollHandler(); // it should time out before reaching this
     
-    try (HttpServer server = HttpServer.start(errorThenSuccess)) {
-      try (PollingProcessor pollingProcessor = makeProcessor(server.getUri(), LENGTHY_INTERVAL)) {
-        Future<Void> initFuture = pollingProcessor.start();
-        ConcurrentHelpers.assertFutureIsNotCompleted(initFuture, 200, TimeUnit.MILLISECONDS);
-        assertFalse(initFuture.isDone());
-        assertFalse(pollingProcessor.isInitialized());
-        assertEquals(0, dataSourceUpdates.receivedInits.size());
-        
-        Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
-        assertNotNull(status.getLastError());
-        assertEquals(ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
+    try (HttpServer server = HttpServer.start(successHandler)) {
+      TcpHandler errorThenSuccess = TcpHandlers.sequential(
+          TcpHandlers.noResponse(), // this will cause an IOException due to closing the connection without a response
+          TcpHandlers.forwardToPort(server.getPort())
+          );
+      try (TcpServer forwardingServer = TcpServer.start(errorThenSuccess)) {
+        try (PollingProcessor pollingProcessor = makeProcessor(forwardingServer.getHttpUri(), LENGTHY_INTERVAL)) {
+          Future<Void> initFuture = pollingProcessor.start();
+          ConcurrentHelpers.assertFutureIsNotCompleted(initFuture, 200, TimeUnit.MILLISECONDS);
+          assertFalse(initFuture.isDone());
+          assertFalse(pollingProcessor.isInitialized());
+          assertEquals(0, dataSourceUpdates.receivedInits.size());
+          
+          Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
+          assertNotNull(status.getLastError());
+          assertEquals(ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
+        }
       }
     }
   }

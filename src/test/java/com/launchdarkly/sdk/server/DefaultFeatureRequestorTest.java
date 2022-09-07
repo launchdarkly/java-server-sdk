@@ -1,5 +1,6 @@
 package com.launchdarkly.sdk.server;
 
+import com.launchdarkly.sdk.internal.http.HttpErrors.HttpErrorException;
 import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
@@ -8,10 +9,12 @@ import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestInfo;
+import com.launchdarkly.testhelpers.httptest.SpecialHttpConfigurations;
 
 import org.junit.Test;
 
@@ -28,7 +31,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
 
 @SuppressWarnings("javadoc")
 public class DefaultFeatureRequestorTest extends BaseTest {
@@ -147,30 +149,19 @@ public class DefaultFeatureRequestorTest extends BaseTest {
   public void testSpecialHttpConfigurations() throws Exception {
     Handler handler = Handlers.bodyJson(allDataJson);
     
-    TestHttpUtil.testWithSpecialHttpConfigurations(handler,
-        (targetUri, goodHttpConfig) -> {
-          LDConfig config = new LDConfig.Builder().http(goodHttpConfig).build();
-          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri, testLogger)) {
-            try {
-              FullDataSet<ItemDescriptor> data = r.getAllData(false);
-              verifyExpectedData(data);
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
+    SpecialHttpConfigurations.testAll(handler,
+        (URI serverUri, SpecialHttpConfigurations.Params params) -> {
+          LDConfig config = new LDConfig.Builder().http(TestUtil.makeHttpConfigurationFromTestParams(params)).build();
+          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), serverUri, testLogger)) {
+            FullDataSet<ItemDescriptor> data = r.getAllData(false);
+            verifyExpectedData(data);
+            return true;
+          } catch (SerializationException e) {
+            throw new SpecialHttpConfigurations.UnexpectedResponseException(e.toString());
+          } catch (HttpErrorException e) {
+            throw new SpecialHttpConfigurations.UnexpectedResponseException(e.toString());
           }
-        },
-        
-        (targetUri, badHttpConfig) -> {
-          LDConfig config = new LDConfig.Builder().http(badHttpConfig).build();
-          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), targetUri, testLogger)) {
-            try {
-              r.getAllData(false);
-              fail("expected exception");
-            } catch (Exception e) {
-            }
-          }
-        }
-        );
+        });
   }
   
   @Test

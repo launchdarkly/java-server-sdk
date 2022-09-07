@@ -11,9 +11,11 @@ import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestInfo;
+import com.launchdarkly.testhelpers.httptest.SpecialHttpConfigurations;
 
 import org.junit.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
@@ -260,23 +262,20 @@ public class LDClientEndToEndTest extends BaseTest {
 
   private static void testWithSpecialHttpConfigurations(Handler handler,
       BiFunction<URI, ComponentConfigurer<HttpConfiguration>, LDConfig.Builder> makeConfig) throws Exception {
-    TestHttpUtil.testWithSpecialHttpConfigurations(handler,
-        (serverUri, httpConfig) -> {
-          LDConfig config = makeConfig.apply(serverUri, httpConfig)
+    SpecialHttpConfigurations.testAll(handler,
+        (URI serverUri, SpecialHttpConfigurations.Params params) -> {
+          LDConfig config = makeConfig.apply(serverUri, TestUtil.makeHttpConfigurationFromTestParams(params))
               .startWait(Duration.ofSeconds(10)) // allow extra time to be sure it can connect
               .build();
           try (LDClient client = new LDClient(sdkKey, config)) {
-            assertTrue(client.isInitialized());
-            assertTrue(client.boolVariation(flagKey, user, false));
+            if (!client.isInitialized()) {
+              throw new IOException("client did not initialize successfully");
+            }
+            if (!client.boolVariation(flagKey, user, false)) {
+              throw new IOException("client said it initialized, but did not have correct flag data");
+            }
           }
-        },
-        (serverUri, httpConfig) -> {
-          LDConfig config = makeConfig.apply(serverUri, httpConfig)
-              .startWait(Duration.ofMillis(100)) // don't wait terribly long when we don't expect it to succeed
-              .build();
-          try (LDClient client = new LDClient(sdkKey, config)) {
-            assertFalse(client.isInitialized());
-          }
+          return true;
         }
         );
   }

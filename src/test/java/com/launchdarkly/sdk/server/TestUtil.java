@@ -10,6 +10,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
+import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
@@ -18,13 +19,9 @@ import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.testhelpers.Assertions;
 import com.launchdarkly.testhelpers.JsonAssertions;
+import com.launchdarkly.testhelpers.httptest.SpecialHttpConfigurations;
 
-import java.io.IOException;
 import java.io.StringReader;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
@@ -33,8 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import javax.net.SocketFactory;
 
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
@@ -161,67 +156,6 @@ public class TestUtil {
     return EvalResult.of(value, variation, EvaluationReason.fallthrough());
   }
   
-  // returns a socket factory that creates sockets that only connect to host and port
-  static SocketFactorySingleHost makeSocketFactorySingleHost(String host, int port) {
-    return new SocketFactorySingleHost(host, port);
-  }
-  
-  private static final class SocketSingleHost extends Socket {
-    private final String host;
-    private final int port;
-
-    SocketSingleHost(String host, int port) {
-      this.host = host;
-      this.port = port;
-    }
-
-    @Override public void connect(SocketAddress endpoint) throws IOException {
-      super.connect(new InetSocketAddress(this.host, this.port), 0);
-    }
-
-    @Override public void connect(SocketAddress endpoint, int timeout) throws IOException {
-      super.connect(new InetSocketAddress(this.host, this.port), timeout);
-    }
-  }
-
-  public static final class SocketFactorySingleHost extends SocketFactory {
-    private final String host;
-    private final int port;
-
-    public SocketFactorySingleHost(String host, int port) {
-      this.host = host;
-      this.port = port;
-    }
-
-    @Override public Socket createSocket() throws IOException {
-      return new SocketSingleHost(this.host, this.port);
-    }
-
-    @Override public Socket createSocket(String host, int port) throws IOException {
-      Socket socket = createSocket();
-      socket.connect(new InetSocketAddress(this.host, this.port));
-      return socket;
-    }
-
-    @Override public Socket createSocket(String host, int port, InetAddress localHost, int localPort) throws IOException {
-      Socket socket = createSocket();
-      socket.connect(new InetSocketAddress(this.host, this.port));
-      return socket;
-    }
-
-    @Override public Socket createSocket(InetAddress host, int port) throws IOException {
-      Socket socket = createSocket();
-      socket.connect(new InetSocketAddress(this.host, this.port));
-      return socket;
-    }
-
-    @Override public Socket createSocket(InetAddress host, int port, InetAddress localAddress, int localPort) throws IOException {
-      Socket socket = createSocket();
-      socket.connect(new InetSocketAddress(this.host, this.port));
-      return socket;
-    }
-  }
-
   public static <T> void assertFullyEqual(T a, T b) {
     assertEquals(a, b);
     assertEquals(b, a);
@@ -240,6 +174,24 @@ public class TestUtil {
     } catch (RuntimeException e) {
       assertThat(e.getClass(), equalTo(exceptionClass));
     }
+  }
+  
+  public static HttpConfigurationBuilder makeHttpConfigurationFromTestParams(
+      SpecialHttpConfigurations.Params params) {
+    HttpConfigurationBuilder b = Components.httpConfiguration();
+    if (params.getTlsConfig() != null) {
+      b.sslSocketFactory(params.getTlsConfig().getSocketFactory(), params.getTlsConfig().getTrustManager());
+    }
+    if (params.getProxyHost() != null) {
+      b.proxyHostAndPort(params.getProxyHost(), params.getProxyPort());
+      if (params.getProxyBasicAuthUser() != null) {
+        b.proxyAuth(Components.httpBasicAuthentication(params.getProxyBasicAuthUser(), params.getProxyBasicAuthPassword()));
+      }
+    }
+    if (params.getSocketFactory() != null) {
+      b.socketFactory(params.getSocketFactory());
+    }
+    return b;
   }
   
   public interface BuilderPropertyTester<TValue> {
