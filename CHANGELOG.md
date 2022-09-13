@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.2] - 2022-09-12
+### Fixed:
+- Updated `snakeyaml` to v1.32 to address [CVE-2022-38752](https://nvd.nist.gov/vuln/detail/CVE-2022-38752). This vulnerability would only have affected applications that used the `FileData` feature with a YAML file, assuming an attacker had write access to the filesystem.
+
 ## [5.10.1] - 2022-09-02
 ### Fixed:
 - Updated `snakeyaml` dependency (used only if using `FileData` with YAML files) to v1.31 to address CVE-2022-25857 ([#275](https://github.com/launchdarkly/java-server-sdk/issues/275))
