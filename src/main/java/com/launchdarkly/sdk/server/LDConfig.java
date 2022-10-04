@@ -20,7 +20,10 @@ import java.time.Duration;
  * This class exposes advanced configuration options for the {@link LDClient}. Instances of this class must be constructed with a {@link com.launchdarkly.sdk.server.LDConfig.Builder}.
  */
 public final class LDConfig {
-  static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
+  /**
+   * The default value for {@link Builder#startWait(Duration)}: 5 seconds.
+   */
+  public static final Duration DEFAULT_START_WAIT = Duration.ofSeconds(5);
   
   protected static final LDConfig DEFAULT = new Builder().build();
 
@@ -282,7 +285,8 @@ public final class LDConfig {
     /**
      * Set how long the constructor will block awaiting a successful connection to LaunchDarkly.
      * Setting this to a zero or negative duration will not block and cause the constructor to return immediately.
-     * Default value: 5000
+     * <p>
+     * The default is {@link #DEFAULT_START_WAIT}.
      *
      * @param startWait maximum time to wait; null to use the default
      * @return the builder

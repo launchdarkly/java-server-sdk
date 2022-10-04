@@ -78,7 +78,7 @@ ext.versions = [
     "okhttp": "4.9.3", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
     "okhttpEventsource": "2.6.2",
     "slf4j": "1.7.21",
-    "snakeyaml": "1.26",
+    "snakeyaml": "1.32",
     "jedis": "2.9.0"
 ]
 

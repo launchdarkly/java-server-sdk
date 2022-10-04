@@ -2,6 +2,15 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.2] - 2022-09-12
+### Fixed:
+- Updated `snakeyaml` to v1.32 to address [CVE-2022-38752](https://nvd.nist.gov/vuln/detail/CVE-2022-38752). This vulnerability would only have affected applications that used the `FileData` feature with a YAML file, assuming an attacker had write access to the filesystem.
+
+## [5.10.1] - 2022-09-02
+### Fixed:
+- Updated `snakeyaml` dependency (used only if using `FileData` with YAML files) to v1.31 to address CVE-2022-25857 ([#275](https://github.com/launchdarkly/java-server-sdk/issues/275))
+- Corrected documentation for default value of `LDConfig.Builder.startWait()`. (Thanks, [richardfearn](https://github.com/launchdarkly/java-server-sdk/pull/274)!)
+
 ## [5.10.0] - 2022-07-28
 The main purpose of this release is to introduce a new logging facade, [`com.launchdarkly.logging`](https://github.com/launchdarkly/java-logging), to streamline how logging works in LaunchDarkly Java and Android code. Previously, the Java SDK always used SLF4J for logging; developers needed to provide an SLF4J configuration externally to specify the actual logging behavior. In this release, the default behavior is still to use SLF4J, but the logging facade can also be configured programmatically to do simple console logging without SLF4J, or to forward output to another framework such as `java.util.logging`, or to multiple destinations, or to capture output in memory. In a future major version release, the default behavior may be changed so that the SDK does not require SLF4J as a dependency.
 
