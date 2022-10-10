@@ -1,9 +1,7 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.gson.Gson;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.ObjectBuilder;
-import com.launchdarkly.sdk.internal.events.DiagnosticEvent;
 import com.launchdarkly.sdk.internal.events.DiagnosticStore;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
@@ -31,7 +29,6 @@ import static org.junit.Assert.assertEquals;
 @SuppressWarnings("javadoc")
 public class ServerSideDiagnosticEventsTest {
 
-  private static Gson gson = new Gson();
   private static final URI CUSTOM_URI = URI.create("http://1.1.1.1");
   
   @Test
@@ -118,22 +115,22 @@ public class ServerSideDiagnosticEventsTest {
   }
   
   private static LDValue makeSdkData(LDConfig config) {
-    return makeDiagnosticInitEvent(config).sdk;    
+    return makeDiagnosticInitEvent(config).get("sdk");    
   }
   
   private static LDValue makePlatformData() {
-    return makeDiagnosticInitEvent(LDConfig.DEFAULT).platform;
+    return makeDiagnosticInitEvent(LDConfig.DEFAULT).get("platform");
   }
   
   private static LDValue makeConfigData(LDConfig config) {
-    return makeDiagnosticInitEvent(config).configuration;
+    return makeDiagnosticInitEvent(config).get("configuration");
   }
   
-  private static DiagnosticEvent.Init makeDiagnosticInitEvent(LDConfig config) {
+  private static LDValue makeDiagnosticInitEvent(LDConfig config) {
     ClientContext context = clientContext("SDK_KEY", config); // the SDK key doesn't matter for these tests
     DiagnosticStore diagnosticStore = new DiagnosticStore(
         ServerSideDiagnosticEvents.getSdkDiagnosticParams(context, config));
-    return diagnosticStore.getInitEvent();    
+    return diagnosticStore.getInitEvent().getJsonValue();    
   }
   
   @Test

@@ -2,7 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.MessageEvent;
-import com.launchdarkly.sdk.internal.events.DiagnosticEvent;
+import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.internal.events.DiagnosticStore;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
@@ -57,6 +57,7 @@ import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompleted;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -388,13 +389,14 @@ public class StreamProcessorTest extends BaseTest {
         startAndWait(sp);
         
         long timeAfterOpen = System.currentTimeMillis();
-        DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
-        assertEquals(1, event.streamInits.size());
-        DiagnosticEvent.StreamInit init = event.streamInits.get(0);
-        assertFalse(init.failed);
-        assertThat(init.timestamp, greaterThanOrEqualTo(startTime));
-        assertThat(init.timestamp, lessThanOrEqualTo(timeAfterOpen));
-        assertThat(init.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
+        LDValue event = acc.createEventAndReset(0, 0).getJsonValue();
+        LDValue streamInits = event.get("streamInits");
+        assertEquals(1, streamInits.size());
+        LDValue init = streamInits.get(0);
+        assertFalse(init.get("failed").booleanValue());
+        assertThat(init.get("timestamp").longValue(),
+            allOf(greaterThanOrEqualTo(startTime), lessThanOrEqualTo(timeAfterOpen)));
+        assertThat(init.get("durationMillis").longValue(), lessThanOrEqualTo(timeAfterOpen - startTime));
       }
     }
   }
@@ -413,19 +415,20 @@ public class StreamProcessorTest extends BaseTest {
         startAndWait(sp);
         
         long timeAfterOpen = System.currentTimeMillis();
-        DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
+        LDValue event = acc.createEventAndReset(0, 0).getJsonValue();
         
-        assertEquals(2, event.streamInits.size());
-        DiagnosticEvent.StreamInit init0 = event.streamInits.get(0);
-        assertTrue(init0.failed);
-        assertThat(init0.timestamp, greaterThanOrEqualTo(startTime));
-        assertThat(init0.timestamp, lessThanOrEqualTo(timeAfterOpen));
-        assertThat(init0.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
+        LDValue streamInits = event.get("streamInits");
+        assertEquals(2, streamInits.size());
+        LDValue init0 = streamInits.get(0);
+        assertTrue(init0.get("failed").booleanValue());
+        assertThat(init0.get("timestamp").longValue(),
+            allOf(greaterThanOrEqualTo(startTime), lessThanOrEqualTo(timeAfterOpen)));
+        assertThat(init0.get("durationMillis").longValue(), lessThanOrEqualTo(timeAfterOpen - startTime));
 
-        DiagnosticEvent.StreamInit init1 = event.streamInits.get(1);
-        assertFalse(init1.failed);
-        assertThat(init1.timestamp, greaterThanOrEqualTo(init0.timestamp));
-        assertThat(init1.timestamp, lessThanOrEqualTo(timeAfterOpen));
+        LDValue init1 = streamInits.get(1);
+        assertFalse(init1.get("failed").booleanValue());
+        assertThat(init1.get("timestamp").longValue(),
+            allOf(greaterThanOrEqualTo(init0.get("timestamp").longValue()), lessThanOrEqualTo(timeAfterOpen)));
       }
     }
   }
