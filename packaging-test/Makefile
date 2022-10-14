@@ -81,7 +81,7 @@ clean:
 test-all-jar test-default-jar test-thin-jar: $$@-classes $(TEST_APP_JAR) get-sdk-dependencies $$(RUN_JARS_$$@) $(FELIX_DIR)
 	@$(call caption,$@)
 	@./run-non-osgi-test.sh $(RUN_JARS_$@)
-# 	@./run-osgi-test.sh $(RUN_JARS_$@)
+	@./run-osgi-test.sh $(RUN_JARS_$@)
 
 test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call caption,$@)

@@ -370,15 +370,7 @@ def getAllSdkPackages() {
 // Returns the names of all Java packages contained in the specified jar - not including
 // enclosing packages like "com" that don't have any classes in them.
 def getPackagesInDependencyJar(jarFile) {
-    // System.out.println("*** getPackagesInDependencyJar: " + jarFile)
     new java.util.zip.ZipFile(jarFile).withCloseable { zf ->
-        // def a = zf.entries().findAll { !it.directory && it.name.endsWith(".class") }.collect {
-        //     it.name.contains("/") ? it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".") : ""
-        // }
-        // System.out.println("***** a = " + a)
-        // def b = a.findAll { !it.equals("") && !it.startsWith("META-INF") }.unique()
-        // System.out.println("***** b = " + b)
-        // b
         zf.entries().findAll { !it.directory && it.name.endsWith(".class") }.collect {
             it.name.contains("/") ? it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".") : ""
         }.findAll { !it.equals("") && !it.startsWith("META-INF") }.unique()
