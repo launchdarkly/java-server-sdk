@@ -152,7 +152,6 @@ $(TEMP_DIR)/dependencies-external: $(TEMP_DIR)/dependencies-all
 	@cp $(TEMP_DIR)/dependencies-all/slf4j*.jar $@
 	@cp $(TEMP_DIR)/dependencies-all/gson*.jar $@
 	@cp $(TEMP_DIR)/dependencies-all/jackson*.jar $@
-	@cp $(TEMP_DIR)/dependencies-all/launchdarkly-logging*.jar $@
 
 $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@
