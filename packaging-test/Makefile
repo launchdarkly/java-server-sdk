@@ -81,7 +81,7 @@ clean:
 test-all-jar test-default-jar test-thin-jar: $$@-classes $(TEST_APP_JAR) get-sdk-dependencies $$(RUN_JARS_$$@) $(FELIX_DIR)
 	@$(call caption,$@)
 	@./run-non-osgi-test.sh $(RUN_JARS_$@)
-	@./run-osgi-test.sh $(RUN_JARS_$@)
+# 	@./run-osgi-test.sh $(RUN_JARS_$@)
 
 test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call caption,$@)
@@ -101,6 +101,7 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call caption,$@)
 	@$(call classes_prepare,$<)
 	@$(call verify_sdk_classes)
+	@$(call classes_should_not_contain,com/launchdarkly/logging,com.launchdarkly.logging classes)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/launchdarkly/sdk,shaded SDK classes)
 	@$(call classes_should_contain,com/launchdarkly/shaded/com/google/gson,shaded Gson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
@@ -151,6 +152,7 @@ $(TEMP_DIR)/dependencies-external: $(TEMP_DIR)/dependencies-all
 	@cp $(TEMP_DIR)/dependencies-all/slf4j*.jar $@
 	@cp $(TEMP_DIR)/dependencies-all/gson*.jar $@
 	@cp $(TEMP_DIR)/dependencies-all/jackson*.jar $@
+	@cp $(TEMP_DIR)/dependencies-all/launchdarkly-logging*.jar $@
 
 $(TEMP_DIR)/dependencies-internal: $(TEMP_DIR)/dependencies-all
 	[ -d $@ ] || mkdir -p $@

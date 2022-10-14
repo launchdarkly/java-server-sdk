@@ -238,6 +238,7 @@ shadowJar {
     configurations = [ project.configurations.internal ]
 
     dependencies {
+        exclude(dependency('com.launchdarkly:launchdarkly-logging:.*'))
         exclude(dependency('org.slf4j:.*:.*'))
     }
 
@@ -265,11 +266,11 @@ shadowJar {
 }
 
 // This builds the "-all"/"fat" jar, which is the same as the default uberjar except that
-// Gson and SLF4j are bundled and exposed (unshaded).
+// Gson, SLF4J, and com.launchdarkly.logging are bundled and exposed (unshaded).
 task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     classifier = 'all'
     group = "shadow"
-    description = "Builds a Shaded fat jar including SLF4J"
+    description = "Builds a Shaded fat jar including Gson, SLF4J, and com.launchdarkly.logging"
     from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
     
     configurations = [ project.configurations.internal, project.configurations.external ]
@@ -290,9 +291,9 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     // configuration phase; this is necessary because they access the build products
     doFirst {
         shadeDependencies(project.tasks.shadowJarAll)
-        // The "all" jar exposes its bundled SLF4j dependency as an export - but, like the
-        // default jar, it *also* imports it ("self-wiring"), which allows the bundle to use a
-        // higher version if one is provided by another bundle.
+        // The "all" jar exposes its bundled SLF4j and launchdarkly-logging dependencies as
+        // exports - but, like the default jar, it *also* imports them ("self-wiring"), which
+        // allows the bundle to use a higher version if one is provided by another bundle.
         addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.imports ], [ project.configurations.imports ])
     }
 
@@ -369,7 +370,15 @@ def getAllSdkPackages() {
 // Returns the names of all Java packages contained in the specified jar - not including
 // enclosing packages like "com" that don't have any classes in them.
 def getPackagesInDependencyJar(jarFile) {
+    // System.out.println("*** getPackagesInDependencyJar: " + jarFile)
     new java.util.zip.ZipFile(jarFile).withCloseable { zf ->
+        // def a = zf.entries().findAll { !it.directory && it.name.endsWith(".class") }.collect {
+        //     it.name.contains("/") ? it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".") : ""
+        // }
+        // System.out.println("***** a = " + a)
+        // def b = a.findAll { !it.equals("") && !it.startsWith("META-INF") }.unique()
+        // System.out.println("***** b = " + b)
+        // b
         zf.entries().findAll { !it.directory && it.name.endsWith(".class") }.collect {
             it.name.contains("/") ? it.name.substring(0, it.name.lastIndexOf("/")).replace("/", ".") : ""
         }.findAll { !it.equals("") && !it.startsWith("META-INF") }.unique()
@@ -505,7 +514,7 @@ def forEachArtifactAndVisiblePackage(configs, closure) {
     configs.collectMany { it.resolvedConfiguration.resolvedArtifacts }
         .collectMany { a ->
             def exportedPackages = getOsgiPackageExportsFromJar(a.file)
-            if (exportedPackages == null) {
+            if (exportedPackages == null || exportedPackages.size == 0) {
                 // This dependency didn't specify OSGi exports, so we'll just have to assume that
                 // we might need to use any package that's in this jar (with a little special-casing
                 // to exclude things we probably should not be importing).
