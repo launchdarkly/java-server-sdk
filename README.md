@@ -19,7 +19,7 @@ Three variants of the SDK jar are published to Maven:
 
 * The default uberjar - this is accessible as `com.launchdarkly:launchdarkly-java-server-sdk:jar` and is the dependency used in the "[Getting started](https://docs.launchdarkly.com/sdk/server-side/java#getting-started)" section of the SDK reference guide as well as in the [`hello-java`](https://github.com/launchdarkly/hello-java) sample app. This variant contains the SDK classes, and all of the SDK's dependencies except for SLF4J (the SLF4J API is assumed to be brought in automatically as Maven dependencies, or otherwise made available in the classpath of the host application). All third-party bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
 * The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that SLF4J is also bundled, without shading (and is exported in OSGi).
-* The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains _only_ the SDK classes.
+* The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains _only_ the SDK classes. Applications using this jar must provide all of the dependencies that are in the SDK's `build.gradle`, so it is intended for use only in special cases.
 
 ## Getting started
 

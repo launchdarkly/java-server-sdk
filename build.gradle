@@ -231,8 +231,9 @@ jar {
     }
 }
 
-// This builds the default uberjar that contains all of our dependencies except Gson and
-// SLF4j, in shaded form. The user is expected to provide Gson and SLF4j.
+// This builds the default uberjar that contains all of our dependencies in shaded form,
+// as well as com.launchdarkly.logging in unshaded form, but does not contain SLF4J. The
+// user is expected to provide SLF4J.
 shadowJar {
     // No classifier means that the shaded jar becomes the default artifact
     classifier = ''
@@ -267,11 +268,11 @@ shadowJar {
 }
 
 // This builds the "-all"/"fat" jar, which is the same as the default uberjar except that
-// Gson, SLF4J, and com.launchdarkly.logging are bundled and exposed (unshaded).
+// SLF4J is also bundled and exposed (unshaded).
 task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     classifier = 'all'
     group = "shadow"
-    description = "Builds a Shaded fat jar including Gson, SLF4J, and com.launchdarkly.logging"
+    description = "Builds a Shaded fat jar including SLF4J"
     from(project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output)
     
     configurations = [ project.configurations.internal, project.configurations.external ]
