@@ -202,8 +202,7 @@ public class SdkClientEntity {
   private LDContext doContextBuildSingle(ContextBuildSingleParams params) {
     ContextBuilder b = LDContext.builder(params.key)
         .kind(params.kind)
-        .name(params.name)
-        .secondary(params.secondary);
+        .name(params.name);
     if (params.anonymous != null) {
       b.anonymous(params.anonymous.booleanValue());
     }

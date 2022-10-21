@@ -58,12 +58,6 @@ abstract class EvaluatorBucketing {
     } else {
       prefix = flagOrSegmentKey + "." + salt;
     }
-    if (!isExperiment) { // secondary key is not supported in experiments
-      String secondary = context.getSecondary();
-      if (secondary != null) {
-        idHash = idHash + "." + secondary;
-      }
-    }
     String hash = DigestUtils.sha1Hex(prefix + "." + idHash).substring(0, 15);
     long longVal = Long.parseLong(hash, 16);
     return (float) longVal / LONG_SCALE;
