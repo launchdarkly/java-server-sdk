@@ -29,9 +29,10 @@ workflows:
       - benchmarks:
           requires:
             - build-linux
-      - build-test-windows:
-          name: Java 11 - Windows - OpenJDK
-          openjdk-version: 11.0.2.01
+# Windows Java 11 build is temporarily disabled - see story 171428
+#      - test-windows:
+#          name: Java 11 - Windows - OpenJDK
+#          openjdk-version: 11.0.2.01
       - build-test-windows:
           name: Java 17 - Windows - OpenJDK
           openjdk-version: 17.0.1
