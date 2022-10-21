@@ -5,7 +5,6 @@ import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
 import com.launchdarkly.sdk.server.DataModel.RolloutKind;
 import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
@@ -453,8 +452,8 @@ public class EvaluatorTest extends EvaluatorTestBase {
   
   @Test
   public void flagMatchesUserFromRules() {
-    DataModel.Clause clause0 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("wrongkey"));
-    DataModel.Clause clause1 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause0 = clause("key", DataModel.Operator.in, LDValue.of("wrongkey"));
+    DataModel.Clause clause1 = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
     DataModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2).build();
     
@@ -471,8 +470,8 @@ public class EvaluatorTest extends EvaluatorTestBase {
 
   @Test
   public void ruleMatchReasonHasTrackReasonTrueIfRuleLevelTrackEventsIsTrue() {
-    DataModel.Clause clause0 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("wrongkey"));
-    DataModel.Clause clause1 = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause0 = clause("key", DataModel.Operator.in, LDValue.of("wrongkey"));
+    DataModel.Clause clause1 = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(clause0).variation(2).build();
     DataModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clause1).variation(2)
         .trackEvents(true).build();

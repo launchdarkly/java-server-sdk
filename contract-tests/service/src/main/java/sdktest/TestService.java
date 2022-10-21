@@ -29,6 +29,7 @@ public class TestService {
     "all-flags-details-only-for-tracked-flags",
     "all-flags-with-reasons",
     "big-segments",
+    "context-type",
     "tags",
     "service-endpoints"
   };

@@ -127,7 +127,6 @@ public abstract class Representations {
     public String key;
     public String name;
     public Boolean anonymous;
-    public String secondary;
     @SerializedName("private") public String[] privateAttrs;
     public Map<String, LDValue> custom;
   }

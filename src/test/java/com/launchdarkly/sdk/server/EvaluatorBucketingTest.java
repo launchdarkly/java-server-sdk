@@ -22,7 +22,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 
 @SuppressWarnings("javadoc")
 public class EvaluatorBucketingTest {
@@ -131,24 +130,6 @@ public class EvaluatorBucketingTest {
         .build();
     float result = computeBucketValue(false, noSeed, context, null, "key", AttributeRef.fromLiteral("boolattr"), "salt");
     assertEquals(0f, result, Float.MIN_VALUE);
-  }
-
-  @Test
-  public void contextSecondaryKeyAffectsBucketValue() {
-    LDContext context1 = LDContext.create("key");
-    LDContext context2 = LDContext.builder("key").secondary("other").build();
-    float result1 = computeBucketValue(false, noSeed, context1, null, "flagkey", null, "salt");
-    float result2 = computeBucketValue(false, noSeed, context2, null, "flagkey", null, "salt");
-    assertNotEquals(result1, result2);
-  }
-
-  @Test
-  public void contextSecondaryKeyDoesNotAffectBucketValueForExperiment() {
-    LDContext context1 = LDContext.create("key");
-    LDContext context2 = LDContext.builder("key").secondary("other").build();
-    float result1 = computeBucketValue(true, noSeed, context1, null, "flagkey", null, "salt");
-    float result2 = computeBucketValue(true, noSeed, context2, null, "flagkey", null, "salt");
-    assertEquals(result1, result2, Float.MIN_VALUE);
   }
 
   private static void assertVariationIndexFromRollout(

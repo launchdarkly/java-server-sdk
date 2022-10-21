@@ -5,7 +5,6 @@ import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Rollout;
@@ -75,7 +74,7 @@ public class EvaluatorRuleTest {
   public void ruleMatchResultInstanceCanBeCreatedFromScratch() {
     // Normally we will always do the preprocessing step that creates the result instances ahead of time,
     // but if somehow we didn't, it should create them as needed
-    DataModel.Clause clause = clause(UserAttribute.KEY, DataModel.Operator.in, LDValue.of("userkey"));
+    DataModel.Clause clause = clause("key", DataModel.Operator.in, LDValue.of("userkey"));
     DataModel.Rule rule = buildTestRule("ruleid", clause).build();
     LDContext user = LDContext.create("userkey");
     
