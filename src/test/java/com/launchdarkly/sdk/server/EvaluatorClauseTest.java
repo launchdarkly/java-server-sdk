@@ -6,7 +6,6 @@ import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
@@ -111,7 +110,7 @@ public class EvaluatorClauseTest extends EvaluatorTestBase {
   public void matchFailsIfContextValueIsAnArrayOfArrays() throws Exception {
     LDValue arrayValue = LDValue.buildArray().add("thing").build();
     LDValue arrayOfArrays = LDValue.buildArray().add(arrayValue).build();
-    Clause clause = clause(UserAttribute.forName("data"), Operator.in, arrayOfArrays);
+    Clause clause = clause("data", Operator.in, arrayOfArrays);
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("data", arrayOfArrays).build();
     
@@ -121,7 +120,7 @@ public class EvaluatorClauseTest extends EvaluatorTestBase {
   @Test
   public void matchFailsIfContextValueIsAnObject() throws Exception {
     LDValue objectValue = LDValue.buildObject().put("thing", LDValue.of(true)).build();
-    Clause clause = clause(UserAttribute.forName("data"), Operator.in, objectValue);
+    Clause clause = clause("data", Operator.in, objectValue);
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("data", objectValue).build();
     
@@ -132,7 +131,7 @@ public class EvaluatorClauseTest extends EvaluatorTestBase {
   public void matchFailsIfContextValueIsAnArrayOfObjects() throws Exception {
     LDValue objectValue = LDValue.buildObject().put("thing", LDValue.of(true)).build();
     LDValue arrayOfObjects = LDValue.buildArray().add(objectValue).build();
-    Clause clause = clause(UserAttribute.forName("data"), Operator.in, arrayOfObjects);
+    Clause clause = clause("data", Operator.in, arrayOfObjects);
     FeatureFlag f = booleanFlagWithClauses("flag", clause);
     LDContext context = LDContext.builder("key").set("data", arrayOfObjects).build();
     

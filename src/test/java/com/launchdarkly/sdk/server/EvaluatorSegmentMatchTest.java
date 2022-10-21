@@ -5,7 +5,6 @@ import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
@@ -129,8 +128,8 @@ public class EvaluatorSegmentMatchTest extends EvaluatorTestBase {
 
   @Test
   public void matchingRuleWithMultipleClauses() {
-    Clause clause1 = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
-    Clause clause2 = clause(UserAttribute.NAME, DataModel.Operator.in, LDValue.of("bob"));
+    Clause clause1 = clause("email", DataModel.Operator.in, LDValue.of("test@example.com"));
+    Clause clause2 = clause("name", DataModel.Operator.in, LDValue.of("bob"));
     SegmentRule rule = segmentRuleBuilder().clauses(clause1, clause2).build();
     Segment s = segmentBuilder("test")
         .salt("abcdef")
@@ -143,8 +142,8 @@ public class EvaluatorSegmentMatchTest extends EvaluatorTestBase {
 
   @Test
   public void nonMatchingRuleWithMultipleClauses() {
-    Clause clause1 = clause(UserAttribute.EMAIL, DataModel.Operator.in, LDValue.of("test@example.com"));
-    Clause clause2 = clause(UserAttribute.NAME, DataModel.Operator.in, LDValue.of("bill"));
+    Clause clause1 = clause("email", DataModel.Operator.in, LDValue.of("test@example.com"));
+    Clause clause2 = clause("name", DataModel.Operator.in, LDValue.of("bill"));
     SegmentRule rule = segmentRuleBuilder().clauses(clause1, clause2).build();
     Segment s = segmentBuilder("test")
         .salt("abcdef")

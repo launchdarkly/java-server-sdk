@@ -5,7 +5,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataModel.Segment;
@@ -66,7 +65,7 @@ public class DataModelDependenciesTest {
         .rules(
             ruleBuilder()
               .clauses(
-                  clause(UserAttribute.KEY, Operator.in, LDValue.of("ignore")),
+                  clause("key", Operator.in, LDValue.of("ignore")),
                   clauseMatchingSegment("segment1", "segment2")
                   )
               .build(),

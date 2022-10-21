@@ -2,7 +2,6 @@ package com.launchdarkly.sdk.server;
 
 import com.google.gson.Gson;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
@@ -33,7 +32,7 @@ public class FlagModelDeserializationTest {
         .prerequisites(new Prerequisite("abc", 0))
         .targets(target(0, "x"))
         .rules(ruleBuilder().clauses(
-            clause(UserAttribute.KEY, Operator.in, LDValue.of("x"), LDValue.of("y"))
+            clause("key", Operator.in, LDValue.of("x"), LDValue.of("y"))
             ).build())
         .build();
     String flagJson = JsonHelpers.serialize(originalFlag);

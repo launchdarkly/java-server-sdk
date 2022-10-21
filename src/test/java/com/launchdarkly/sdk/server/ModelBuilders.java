@@ -6,7 +6,6 @@ import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
@@ -82,10 +81,6 @@ public abstract class ModelBuilders {
     return clause(null, attributeName, op, values);
   }
 
-  public static Clause clause(UserAttribute attribute, DataModel.Operator op, LDValue... values) {
-    return clause(attribute.getName(), op, values);
-  }
-  
   public static Clause clauseMatchingContext(LDContext context) {
     if (context.isMultiple()) {
       return clauseMatchingContext(context.getIndividualContext(0));

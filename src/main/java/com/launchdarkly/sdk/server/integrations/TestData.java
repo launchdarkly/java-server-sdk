@@ -583,7 +583,7 @@ public final class TestData implements ComponentConfigurer<DataSource> {
      * 
      * <pre><code>
      *     testData.flag("flag")
-     *         .ifNotMatch(UserAttribute.NAME, LDValue.of("Saffron"), LDValue.of("Bubble"))
+     *         .ifNotMatch("name", LDValue.of("Saffron"), LDValue.of("Bubble"))
      *         .thenReturn(true));
      * </code></pre>
 
@@ -812,8 +812,8 @@ public final class TestData implements ComponentConfigurer<DataSource> {
        * 
        * <pre><code>
        *     testData.flag("flag")
-       *         .ifMatch(UserAttribute.NAME, LDValue.of("Patsy"))
-       *         .andNotMatch(UserAttribute.COUNTRY, LDValue.of("gb"))
+       *         .ifMatch("name", LDValue.of("Patsy"))
+       *         .andNotMatch("country", LDValue.of("gb"))
        *         .thenReturn(true));
        * </code></pre>
        * 
