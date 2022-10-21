@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.3] - 2022-10-20
+### Fixed:
+- The `pom.xml` specified a dependency on `com.launchdarkly:launchdarkly-logging` even though that library is already contained inside the SDK jar, which could cause extra copies of classes to be in the classpath. The dependency has been removed and the classes are still in the jar. ([#282](https://github.com/launchdarkly/java-server-sdk/issues/282))
+
 ## [5.10.2] - 2022-09-12
 ### Fixed:
 - Updated `snakeyaml` to v1.32 to address [CVE-2022-38752](https://nvd.nist.gov/vuln/detail/CVE-2022-38752). This vulnerability would only have affected applications that used the `FileData` feature with a YAML file, assuming an attacker had write access to the filesystem.
