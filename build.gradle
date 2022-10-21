@@ -82,15 +82,17 @@ ext.versions = [
     "jedis": "2.9.0"
 ]
 
-// Add dependencies to "libraries.internal" that we use internally but do not expose in
-// our public API. Putting dependencies here has the following effects:
+// Add dependencies to "libraries.internal" that we use internally but do not necessarily
+// expose in our public API. Putting dependencies here has the following effects:
 //
 // 1. Those classes will be embedded in the default uberjar
 // (launchdarkly-java-server-sdk-n.n.n.jar), and also in the "all" jar
 // (launchdarkly-java-server-sdk-n.n.n.jar).
 //
 // 2. The classes are renamed (shaded) within those jars, and all references to them are
-// updated to use the shaded names.
+// updated to use the shaded names. The only exception to this is classes from
+// launchdarkly-java-sdk-common and launchdarkly-logging, which are meant to be part of
+// the public API.
 //
 // 3. The "thin" jar does not contain those classes, and references to them from the code
 // in the "thin" jar are *not* renamed. If an application is using the "thin" jar, it is
@@ -112,6 +114,7 @@ ext.versions = [
 libraries.internal = [
     "com.launchdarkly:launchdarkly-java-sdk-common:${versions.launchdarklyJavaSdkCommon}",
     "com.launchdarkly:launchdarkly-java-sdk-internal:${versions.launchdarklyJavaSdkInternal}",
+    "com.launchdarkly:launchdarkly-logging:${versions.launchdarklyLogging}",
     "commons-codec:commons-codec:${versions.commonsCodec}",
     "com.google.code.gson:gson:${versions.gson}",
     "com.google.guava:guava:${versions.guava}",
@@ -134,7 +137,6 @@ libraries.internal = [
 // also as package exports (i.e. it provides them if a newer version is not available
 // from an import).
 libraries.external = [
-    "com.launchdarkly:launchdarkly-logging:${versions.launchdarklyLogging}",
     "org.slf4j:slf4j-api:${versions.slf4j}"
 ]
 
@@ -231,8 +233,9 @@ jar {
     }
 }
 
-// This builds the default uberjar that contains all of our dependencies except Gson and
-// SLF4j, in shaded form. The user is expected to provide Gson and SLF4j.
+// This builds the default uberjar that contains all of our dependencies in shaded form,
+// as well as com.launchdarkly.logging in unshaded form, but does not contain SLF4J. The
+// user is expected to provide SLF4J.
 shadowJar {
     // No classifier means that the shaded jar becomes the default artifact
     classifier = ''
@@ -267,7 +270,7 @@ shadowJar {
 }
 
 // This builds the "-all"/"fat" jar, which is the same as the default uberjar except that
-// Gson and SLF4j are bundled and exposed (unshaded).
+// SLF4J is also bundled and exposed (unshaded).
 task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     classifier = 'all'
     group = "shadow"
@@ -292,9 +295,9 @@ task shadowJarAll(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     // configuration phase; this is necessary because they access the build products
     doFirst {
         shadeDependencies(project.tasks.shadowJarAll)
-        // The "all" jar exposes its bundled SLF4j dependency as an export - but, like the
-        // default jar, it *also* imports it ("self-wiring"), which allows the bundle to use a
-        // higher version if one is provided by another bundle.
+        // The "all" jar exposes its bundled SLF4j and launchdarkly-logging dependencies as
+        // exports - but, like the default jar, it *also* imports them ("self-wiring"), which
+        // allows the bundle to use a higher version if one is provided by another bundle.
         addOsgiManifest(project.tasks.shadowJarAll, [ project.configurations.imports ], [ project.configurations.imports ])
     }
 
@@ -353,7 +356,7 @@ if (JavaVersion.current().isJava8Compatible()) {
 // enclosing packages like "com" that don't have any classes in them.
 def getAllSdkPackages() {
     // base package classes come from launchdarkly-java-sdk-common
-    def names = [ "com.launchdarkly.sdk", "com.launchdarkly.sdk.json" ]
+    def names = [ "com.launchdarkly.sdk", "com.launchdarkly.sdk.json", "com.launchdarkly.logging" ]
     project.convention.getPlugin(JavaPluginConvention).sourceSets.main.output.each { baseDir ->
         if (baseDir.getPath().contains("classes" + File.separator + "java" + File.separator + "main")) {
             baseDir.eachFileRecurse { f ->
@@ -507,7 +510,7 @@ def forEachArtifactAndVisiblePackage(configs, closure) {
     configs.collectMany { it.resolvedConfiguration.resolvedArtifacts }
         .collectMany { a ->
             def exportedPackages = getOsgiPackageExportsFromJar(a.file)
-            if (exportedPackages == null) {
+            if (exportedPackages == null || exportedPackages.size == 0) {
                 // This dependency didn't specify OSGi exports, so we'll just have to assume that
                 // we might need to use any package that's in this jar (with a little special-casing
                 // to exclude things we probably should not be importing).
