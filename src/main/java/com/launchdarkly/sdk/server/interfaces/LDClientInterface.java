@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.LDContext;
+import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.FeatureFlagsState;
 import com.launchdarkly.sdk.server.FlagsStateOption;
@@ -39,8 +40,26 @@ public interface LDClientInterface extends Closeable {
    * @param context   the context associated with the event
    * @see #trackData(String, LDContext, LDValue)
    * @see #trackMetric(String, LDContext, LDValue, double)
+   * @see #track(String, LDUser)
+   * @since 6.0.0
    */
   void track(String eventName, LDContext context);
+
+  /**
+   * Tracks that an application-defined event occurred.
+   * <p>
+   * This is equivalent to {@link #track(String, LDContext)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param eventName the name of the event
+   * @param user      the user attributes
+   * @see #trackData(String, LDContext, LDValue)
+   * @see #trackMetric(String, LDContext, LDValue, double)
+   * @see #track(String, LDContext)
+   */
+  default void track(String eventName, LDUser user) {
+    track(eventName, LDContext.fromUser(user));
+  }
 
   /**
    * Tracks that an application-defined event occurred.
@@ -56,11 +75,30 @@ public interface LDClientInterface extends Closeable {
    * @param eventName the name of the event
    * @param context   the context associated with the event
    * @param data      additional data associated with the event, if any
+   * @since 6.0.0
+   * @see #track(String, LDContext)
+   * @see #trackMetric(String, LDContext, LDValue, double)
+   * @see #trackData(String, LDUser, LDValue)
+   */
+  void trackData(String eventName, LDContext context, LDValue data);
+
+  /**
+   * Tracks that an application-defined event occurred.
+   * <p>
+   * This is equivalent to {@link #trackData(String, LDContext, LDValue)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param eventName the name of the event
+   * @param user      the user attributes
+   * @param data      additional data associated with the event, if any
    * @since 4.8.0
    * @see #track(String, LDContext)
    * @see #trackMetric(String, LDContext, LDValue, double)
+   * @see #trackData(String, LDContext, LDValue)
    */
-  void trackData(String eventName, LDContext context, LDValue data);
+  default void trackData(String eventName, LDUser user, LDValue data) {
+    trackData(eventName, LDContext.fromUser(user), data);
+  }
 
   /**
    * Tracks that an application-defined event occurred, and provides an additional numeric value for
@@ -85,7 +123,28 @@ public interface LDClientInterface extends Closeable {
   void trackMetric(String eventName, LDContext context, LDValue data, double metricValue);
 
   /**
-   * Registers the context.
+   * Tracks that an application-defined event occurred, and provides an additional numeric value for
+   * custom metrics.
+   * <p>
+   * This is equivalent to {@link #trackMetric(String, LDContext, LDValue, double)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param eventName the name of the event
+   * @param user      the user attributes
+   * @param data      an {@link LDValue} containing additional data associated with the event; if not applicable,
+   * you may pass either {@code null} or {@link LDValue#ofNull()}
+   * @param metricValue a numeric value used by the LaunchDarkly experimentation feature in numeric custom
+   * metrics
+   * @since 4.9.0
+   * @see #track(String, LDContext)
+   * @see #trackData(String, LDContext, LDValue)
+   */
+  default void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
+    trackMetric(eventName, LDContext.fromUser(user), data, metricValue);
+  }
+
+  /**
+   * Reports details about an evaluation context.
    * <p>
    * This method simply creates an analytics event containing the context properties, to
    * that LaunchDarkly will know about that context if it does not already.
@@ -99,8 +158,23 @@ public interface LDClientInterface extends Closeable {
    * later; see {@link #flush()}.
    *
    * @param context the context to register
+   * @see #identify(LDUser)
+   * @since 6.0.0
    */
   void identify(LDContext context);
+
+  /**
+   * Reports details about a user.
+   * <p>
+   * This is equivalent to {@link #identify(LDContext)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param user the user attributes
+   * @see #identify(LDContext)
+   */
+  default void identify(LDUser user) {
+    identify(LDContext.fromUser(user));
+  }
 
   /**
    * Returns an object that encapsulates the state of all feature flags for a given context, which can be
@@ -116,9 +190,28 @@ public interface LDClientInterface extends Closeable {
    * @param options optional {@link FlagsStateOption} values affecting how the state is computed - for
    * instance, to filter the set of flags to only include the client-side-enabled ones
    * @return a {@link FeatureFlagsState} object (will never be null; see {@link FeatureFlagsState#isValid()}
-   * @since 4.3.0
+   * @see #allFlagsState(LDUser, FlagsStateOption...)
+   * @since 6.0.0
    */
   FeatureFlagsState allFlagsState(LDContext context, FlagsStateOption... options);
+
+  /**
+   * Returns an object that encapsulates the state of all feature flags for a given user, which can be
+   * passed to front-end code.
+   * <p>
+   * This is equivalent to {@link #allFlagsState(LDContext, FlagsStateOption...)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *  
+   * @param user the user attributes
+   * @param options optional {@link FlagsStateOption} values affecting how the state is computed - for
+   * instance, to filter the set of flags to only include the client-side-enabled ones
+   * @return a {@link FeatureFlagsState} object (will never be null; see {@link FeatureFlagsState#isValid()}
+   * @see #allFlagsState(LDContext, FlagsStateOption...)
+   * @since 4.3.0
+   */
+  default FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
+    return allFlagsState(LDContext.fromUser(user), options);
+  }
   
   /**
    * Calculates the boolean value of a feature flag for a given context.
@@ -132,8 +225,26 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #boolVariation(String, LDUser, boolean)
+   * @since 6.0.0
    */
   boolean boolVariation(String key, LDContext context, boolean defaultValue);
+
+  /**
+   * Calculates the boolean value of a feature flag for a given user.
+   * <p>
+   * This is equivalent to {@link #boolVariation(String, LDContext, boolean)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #boolVariation(String, LDContext, boolean)
+   */
+  default boolean boolVariation(String key, LDUser user, boolean defaultValue) {
+    return boolVariation(key, LDContext.fromUser(user), defaultValue);
+  }
   
   /**
    * Calculates the integer value of a feature flag for a given context.
@@ -150,8 +261,26 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #intVariation(String, LDUser, int)
+   * @since 6.0.0
    */
   int intVariation(String key, LDContext context, int defaultValue);
+
+  /**
+   * Calculates the integer value of a feature flag for a given user.
+   * <p>
+   * This is equivalent to {@link #intVariation(String, LDContext, int)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #intVariation(String, LDContext, int)
+   */
+  default int intVariation(String key, LDUser user, int defaultValue) {
+    return intVariation(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
    * Calculates the floating-point numeric value of a feature flag for a given context.
@@ -165,8 +294,26 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #doubleVariation(String, LDUser, double)
+   * @since 6.0.0
    */
   double doubleVariation(String key, LDContext context, double defaultValue);
+
+  /**
+   * Calculates the floating-point numeric value of a feature flag for a given context.
+   * <p>
+   * This is equivalent to {@link #doubleVariation(String, LDContext, double)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #doubleVariation(String, LDContext, double)
+   */
+  default double doubleVariation(String key, LDUser user, double defaultValue) {
+    return doubleVariation(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
    * Calculates the string value of a feature flag for a given context.
@@ -180,8 +327,26 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #stringVariation(String, LDUser, String)
+   * @since 6.0.0
    */
   String stringVariation(String key, LDContext context, String defaultValue);
+
+  /**
+   * Calculates the string value of a feature flag for a given context.
+   * <p>
+   * This is equivalent to {@link #stringVariation(String, LDContext, String)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #stringVariation(String, LDContext, String)
+   */
+  default String stringVariation(String key, LDUser user, String defaultValue) {
+    return stringVariation(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
    * Calculates the value of a feature flag for a given context as any JSON value type.
@@ -193,10 +358,27 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
-   * 
-   * @since 4.8.0
+   * @see #jsonValueVariation(String, LDUser, LDValue)
+   * @since 6.0.0
    */
   LDValue jsonValueVariation(String key, LDContext context, LDValue defaultValue);
+
+  /**
+   * Calculates the value of a feature flag for a given context as any JSON value type.
+   * <p>
+   * This is equivalent to {@link #jsonValueVariation(String, LDContext, LDValue)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #jsonValueVariation(String, LDContext, LDValue)
+   * @since 4.8.0
+   */
+  default LDValue jsonValueVariation(String key, LDUser user, LDValue defaultValue) {
+    return jsonValueVariation(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
    * Calculates the boolean value of a feature flag for a given context, and returns an object that
@@ -211,9 +393,28 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return an {@link EvaluationDetail} object
-   * @since 2.3.0
+   * @since 6.0.0
+   * @see #boolVariationDetail(String, LDUser, boolean)
    */
   EvaluationDetail<Boolean> boolVariationDetail(String key, LDContext context, boolean defaultValue);
+
+  /**
+   * Calculates the boolean value of a feature flag for a given context, and returns an object that
+   * describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #boolVariationDetail(String, LDContext, boolean)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 2.3.0
+   * @see #boolVariationDetail(String, LDContext, boolean)
+   */
+  default EvaluationDetail<Boolean> boolVariationDetail(String key, LDUser user, boolean defaultValue) {
+    return boolVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
   
   /**
    * Calculates the integer numeric value of a feature flag for a given context, and returns an object
@@ -228,9 +429,28 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return an {@link EvaluationDetail} object
-   * @since 2.3.0
+   * @see #intVariationDetail(String, LDUser, int)
+   * @since 6.0.0
    */
   EvaluationDetail<Integer> intVariationDetail(String key, LDContext context, int defaultValue);
+
+  /**
+   * Calculates the integer numeric value of a feature flag for a given context, and returns an object
+   * that describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #intVariationDetail(String, LDContext, int)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #intVariationDetail(String, LDContext, int)
+   * @since 2.3.0
+   */
+  default EvaluationDetail<Integer> intVariationDetail(String key, LDUser user, int defaultValue) {
+    return intVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
   
   /**
    * Calculates the floating-point numeric value of a feature flag for a given context, and returns an
@@ -245,9 +465,28 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return an {@link EvaluationDetail} object
-   * @since 2.3.0
+   * @see #doubleVariationDetail(String, LDUser, double)
+   * @since 6.0.0
    */
   EvaluationDetail<Double> doubleVariationDetail(String key, LDContext context, double defaultValue);
+
+  /**
+   * Calculates the floating-point numeric value of a feature flag for a given context, and returns an
+   * object that describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #doubleVariationDetail(String, LDContext, double)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #doubleVariation(String, LDContext, double)
+   * @since 2.3.0
+   */
+  default EvaluationDetail<Double> doubleVariationDetail(String key, LDUser user, double defaultValue) {
+    return doubleVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
    * Calculates the string value of a feature flag for a given context, and returns an object
@@ -261,10 +500,29 @@ public interface LDClientInterface extends Closeable {
    * @param key          the unique key for the feature flag
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
+   * @see #stringVariation(String, LDUser, String)
    * @return an {@link EvaluationDetail} object
-   * @since 2.3.0
+   * @since 6.0.0
    */
   EvaluationDetail<String> stringVariationDetail(String key, LDContext context, String defaultValue);
+
+  /**
+   * Calculates the string value of a feature flag for a given context, and returns an object
+   * that describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #stringVariationDetail(String, LDContext, String)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #stringVariationDetail(String, LDContext, String)
+   * @since 2.3.0
+   */
+  default EvaluationDetail<String> stringVariationDetail(String key, LDUser user, String defaultValue) {
+    return stringVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
    * Calculates the value of a feature flag for a given context as any JSON value type, and returns an
@@ -279,10 +537,29 @@ public interface LDClientInterface extends Closeable {
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
    * @return an {@link EvaluationDetail} object
-   * 
-   * @since 4.8.0
+   * @see #jsonValueVariation(String, LDUser, LDValue)
+   * @since 6.0.0
    */
   EvaluationDetail<LDValue> jsonValueVariationDetail(String key, LDContext context, LDValue defaultValue);
+
+  /**
+   * Calculates the value of a feature flag for a given context as any JSON value type, and returns an
+   * object that describes the way the value was determined.
+   * that describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #jsonValueVariationDetail(String, LDContext, LDValue)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #jsonValueVariation(String, LDContext, LDValue)
+   * @since 4.8.0
+   */
+  default EvaluationDetail<LDValue> jsonValueVariationDetail(String key, LDUser user, LDValue defaultValue) {
+    return jsonValueVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
    * Returns true if the specified feature flag currently exists.
@@ -368,8 +645,24 @@ public interface LDClientInterface extends Closeable {
    *
    * @param context the evaluation context
    * @return the hash, or null if the hash could not be calculated
+   * @see #secureModeHash(LDUser)
+   * @since 6.0.0
    */
   String secureModeHash(LDContext context);
+
+  /**
+   * Creates a hash string that can be used by the JavaScript SDK to identify a context.
+   * <p>
+   * This is equivalent to {@link #secureModeHash(LDContext)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param user the user attributes
+   * @return the hash, or null if the hash could not be calculated
+   * @see #secureModeHash(LDContext)
+   */
+  default String secureModeHash(LDUser user) {
+    return secureModeHash(LDContext.fromUser(user));
+  }
 
   /**
    * The current version string of the SDK.

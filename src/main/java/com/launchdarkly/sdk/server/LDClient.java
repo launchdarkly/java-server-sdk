@@ -313,7 +313,7 @@ public final class LDClient implements LDClientInterface {
       eventProcessor.recordIdentifyEvent(context);
     }
   }
-  
+
   @Override
   public FeatureFlagsState allFlagsState(LDContext context, FlagsStateOption... options) {
     FeatureFlagsState.Builder builder = FeatureFlagsState.builder(options);
@@ -373,7 +373,7 @@ public final class LDClient implements LDClientInterface {
     }
     return builder.build();
   }
-  
+
   @Override
   public boolean boolVariation(String featureKey, LDContext context, boolean defaultValue) {
     return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.BOOLEAN).booleanValue();

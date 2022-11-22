@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.LDContext;
+import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.server.Components;
 
 /**
@@ -79,6 +80,22 @@ public interface FlagTracker {
    * @param context the evaluation context
    * @param listener an object that you provide which will be notified of changes
    * @return a {@link FlagChangeListener} that can be used to unregister the listener
+   * @since 6.0.0
    */
   public FlagChangeListener addFlagValueChangeListener(String flagKey, LDContext context, FlagValueChangeListener listener);
+  
+  /**
+   * Registers a listener to be notified of a change in a specific feature flag's value for a specific user.
+   * <p>
+   * This is equivalent to {@link #addFlagValueChangeListener(String, LDContext, FlagValueChangeListener)}, but
+   * using the {@link LDUser} type instead of {@link LDContext}.
+   * 
+   * @param flagKey the flag key to be evaluated
+   * @param user the user attributes
+   * @param listener an object that you provide which will be notified of changes
+   * @return a {@link FlagChangeListener} that can be used to unregister the listener
+   */
+  public default FlagChangeListener addFlagValueChangeListener(String flagKey, LDUser user, FlagValueChangeListener listener) {
+    return addFlagValueChangeListener(flagKey, LDContext.fromUser(user), listener);
+  }
 }

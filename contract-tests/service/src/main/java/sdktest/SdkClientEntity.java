@@ -40,6 +40,8 @@ import sdktest.Representations.EvaluateFlagResponse;
 import sdktest.Representations.GetBigSegmentsStoreStatusResponse;
 import sdktest.Representations.IdentifyEventParams;
 import sdktest.Representations.SdkConfigParams;
+import sdktest.Representations.SecureModeHashParams;
+import sdktest.Representations.SecureModeHashResponse;
 
 public class SdkClientEntity {
   private final LDClient client;
@@ -82,6 +84,8 @@ public class SdkClientEntity {
       return doContextBuild(params.contextBuild);
     case "contextConvert":
       return doContextConvert(params.contextConvert);
+    case "secureModeHash":
+      return doSecureModeHash(params.secureModeHash);
     default:
       throw new TestService.BadRequestException("unknown command: " + params.command);
     }
@@ -93,32 +97,37 @@ public class SdkClientEntity {
       EvaluationDetail<?> genericResult;
       switch (params.valueType) {
       case "bool":
-        EvaluationDetail<Boolean> boolResult = client.boolVariationDetail(params.flagKey,
-            params.context, params.defaultValue.booleanValue());
+        EvaluationDetail<Boolean> boolResult = params.user == null ?
+            client.boolVariationDetail(params.flagKey, params.context, params.defaultValue.booleanValue()) :
+              client.boolVariationDetail(params.flagKey, params.user, params.defaultValue.booleanValue());
         resp.value = LDValue.of(boolResult.getValue());
         genericResult = boolResult;
         break;
       case "int":
-        EvaluationDetail<Integer> intResult = client.intVariationDetail(params.flagKey,
-            params.context, params.defaultValue.intValue());
+        EvaluationDetail<Integer> intResult = params.user == null ?
+            client.intVariationDetail(params.flagKey, params.context, params.defaultValue.intValue()) :
+              client.intVariationDetail(params.flagKey, params.user, params.defaultValue.intValue());
         resp.value = LDValue.of(intResult.getValue());
         genericResult = intResult;
         break;
       case "double":
-        EvaluationDetail<Double> doubleResult = client.doubleVariationDetail(params.flagKey,
-            params.context, params.defaultValue.doubleValue());
+        EvaluationDetail<Double> doubleResult = params.user == null ?
+            client.doubleVariationDetail(params.flagKey, params.context, params.defaultValue.doubleValue()) :
+              client.doubleVariationDetail(params.flagKey, params.user, params.defaultValue.doubleValue());
         resp.value = LDValue.of(doubleResult.getValue());
         genericResult = doubleResult;
         break;
       case "string":
-        EvaluationDetail<String> stringResult = client.stringVariationDetail(params.flagKey,
-            params.context, params.defaultValue.stringValue());
+        EvaluationDetail<String> stringResult = params.user == null ?
+            client.stringVariationDetail(params.flagKey, params.context, params.defaultValue.stringValue()) :
+              client.stringVariationDetail(params.flagKey, params.user, params.defaultValue.stringValue());
         resp.value = LDValue.of(stringResult.getValue());
         genericResult = stringResult;
         break;
       default:
-        EvaluationDetail<LDValue> anyResult = client.jsonValueVariationDetail(params.flagKey,
-            params.context, params.defaultValue);
+        EvaluationDetail<LDValue> anyResult = params.user == null ?
+            client.jsonValueVariationDetail(params.flagKey, params.context, params.defaultValue) :
+              client.jsonValueVariationDetail(params.flagKey, params.user, params.defaultValue);
         resp.value = anyResult.getValue();
         genericResult = anyResult;
         break;
@@ -129,19 +138,29 @@ public class SdkClientEntity {
     } else {
       switch (params.valueType) {
       case "bool":
-        resp.value = LDValue.of(client.boolVariation(params.flagKey, params.context, params.defaultValue.booleanValue()));
+        resp.value = LDValue.of(params.user == null ?
+            client.boolVariation(params.flagKey, params.context, params.defaultValue.booleanValue()) :
+              client.boolVariation(params.flagKey, params.user, params.defaultValue.booleanValue()));
         break;
       case "int":
-        resp.value = LDValue.of(client.intVariation(params.flagKey, params.context, params.defaultValue.intValue()));
+        resp.value = LDValue.of(params.user == null ?
+            client.intVariation(params.flagKey, params.context, params.defaultValue.intValue()) :
+              client.intVariation(params.flagKey, params.user, params.defaultValue.intValue()));
         break;
       case "double":
-        resp.value = LDValue.of(client.doubleVariation(params.flagKey, params.context, params.defaultValue.doubleValue()));
+        resp.value = LDValue.of(params.user == null ?
+            client.doubleVariation(params.flagKey, params.context, params.defaultValue.doubleValue()) :
+              client.doubleVariation(params.flagKey, params.user, params.defaultValue.doubleValue()));
         break;
       case "string":
-        resp.value = LDValue.of(client.stringVariation(params.flagKey, params.context, params.defaultValue.stringValue()));
+        resp.value = LDValue.of(params.user == null ?
+            client.stringVariation(params.flagKey, params.context, params.defaultValue.stringValue()) :
+              client.stringVariation(params.flagKey, params.user, params.defaultValue.stringValue()));
         break;
       default:
-        resp.value = client.jsonValueVariation(params.flagKey, params.context, params.defaultValue);
+        resp.value = params.user == null ?
+            client.jsonValueVariation(params.flagKey, params.context, params.defaultValue) :
+              client.jsonValueVariation(params.flagKey, params.user, params.defaultValue);
         break;
       }
     }
@@ -159,23 +178,44 @@ public class SdkClientEntity {
     if (params.withReasons) {
       options.add(FlagsStateOption.WITH_REASONS);
     }
-    FeatureFlagsState state = client.allFlagsState(params.context, options.toArray(new FlagsStateOption[0]));
+    FeatureFlagsState state;
+    if (params.user == null) {
+      state = client.allFlagsState(params.context, options.toArray(new FlagsStateOption[0]));
+    } else {
+      state = client.allFlagsState(params.user, options.toArray(new FlagsStateOption[0]));
+    }
     EvaluateAllFlagsResponse resp = new EvaluateAllFlagsResponse();
     resp.state = LDValue.parse(JsonSerialization.serialize(state));
     return resp;
   }
   
   private void doIdentifyEvent(IdentifyEventParams params) {
-    client.identify(params.context);
+    if (params.user == null) {
+      client.identify(params.context);
+    } else {
+      client.identify(params.user);
+    }
   }
   
   private void doCustomEvent(CustomEventParams params) {
     if ((params.data == null || params.data.isNull()) && params.omitNullData && params.metricValue == null) {
-      client.track(params.eventKey, params.context);
+      if (params.user == null) {
+        client.track(params.eventKey, params.context);
+      } else {
+        client.track(params.eventKey, params.user);
+      }
     } else if (params.metricValue == null) {
-      client.trackData(params.eventKey, params.context, params.data);
+      if (params.user == null) {
+        client.trackData(params.eventKey, params.context, params.data);
+      } else {
+        client.trackData(params.eventKey, params.user, params.data);
+      }
     } else {
-      client.trackMetric(params.eventKey, params.context, params.data, params.metricValue.doubleValue());
+      if (params.user == null) {
+        client.trackMetric(params.eventKey, params.context, params.data, params.metricValue.doubleValue());
+      } else {
+        client.trackMetric(params.eventKey, params.user, params.data, params.metricValue.doubleValue());
+      }
     }
   }
   
@@ -225,6 +265,12 @@ public class SdkClientEntity {
     } catch (Exception e) {
       resp.error = e.getMessage();
     }
+    return resp;
+  }
+  
+  private SecureModeHashResponse doSecureModeHash(SecureModeHashParams params) {
+    SecureModeHashResponse resp = new SecureModeHashResponse();
+    resp.result = params.user == null ? client.secureModeHash(params.context) : client.secureModeHash(params.user);
     return resp;
   }
   

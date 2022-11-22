@@ -30,8 +30,9 @@ public class TestService {
     "all-flags-with-reasons",
     "big-segments",
     "context-type",
+    "service-endpoints",
     "tags",
-    "service-endpoints"
+    "user-type"
   };
   
   static final Gson gson = new GsonBuilder().serializeNulls().create();

@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.LDContext;
+import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
@@ -64,6 +65,7 @@ public class FlagTrackerImplTest extends BaseTest {
   public void flagValueChangeListener() throws Exception {
     String flagKey = "important-flag";
     LDContext user = LDContext.create("important-user");
+    LDUser userAsOldUserType = new LDUser(user.getKey());
     LDContext otherUser = LDContext.create("unimportant-user");
     EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> broadcaster =
         EventBroadcasterImpl.forFlagChangeEvents(TestComponents.sharedExecutor, testLogger);
@@ -76,9 +78,11 @@ public class FlagTrackerImplTest extends BaseTest {
     resultMap.put(new AbstractMap.SimpleEntry<>(flagKey, otherUser), LDValue.of(false));
     
     BlockingQueue<FlagValueChangeEvent> eventSink1 = new LinkedBlockingQueue<>();
+    BlockingQueue<FlagValueChangeEvent> eventSink1WithOldUser = new LinkedBlockingQueue<>();
     BlockingQueue<FlagValueChangeEvent> eventSink2 = new LinkedBlockingQueue<>();
     BlockingQueue<FlagValueChangeEvent> eventSink3 = new LinkedBlockingQueue<>();
     tracker.addFlagValueChangeListener(flagKey, user, eventSink1::add);
+    tracker.addFlagValueChangeListener(flagKey, userAsOldUserType, eventSink1WithOldUser::add);
     FlagChangeListener listener2 = tracker.addFlagValueChangeListener(flagKey, user, eventSink2::add);
     tracker.removeFlagChangeListener(listener2); // just verifying that the remove method works
     tracker.addFlagValueChangeListener(flagKey, otherUser, eventSink3::add);
@@ -97,6 +101,12 @@ public class FlagTrackerImplTest extends BaseTest {
     assertThat(event1.getOldValue(), equalTo(LDValue.of(false)));
     assertThat(event1.getNewValue(), equalTo(LDValue.of(true)));
     assertNoMoreValues(eventSink1, 100, TimeUnit.MILLISECONDS);
+    
+    // and the listener for the same user represented as the LDUser type also gets the event
+    FlagValueChangeEvent event1a = awaitValue(eventSink1WithOldUser, 1, TimeUnit.SECONDS);
+    assertThat(event1a.getKey(), equalTo(flagKey));
+    assertThat(event1a.getOldValue(), equalTo(LDValue.of(false)));
+    assertThat(event1a.getNewValue(), equalTo(LDValue.of(true)));
     
     // eventSink2 doesn't receive one, because it was unregistered
     assertNoMoreValues(eventSink2, 100, TimeUnit.MILLISECONDS);
