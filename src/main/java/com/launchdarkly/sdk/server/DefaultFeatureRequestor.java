@@ -3,10 +3,12 @@ package com.launchdarkly.sdk.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.stream.JsonReader;
 import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.internal.http.HttpErrors.HttpErrorException;
+import com.launchdarkly.sdk.internal.http.HttpHelpers;
+import com.launchdarkly.sdk.internal.http.HttpProperties;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -14,10 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
-import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
-import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
-import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
-import static com.launchdarkly.sdk.server.Util.shutdownHttpClient;
 
 import okhttp3.Cache;
 import okhttp3.Headers;
@@ -38,14 +36,13 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   private final Path cacheDir;
   private final LDLogger logger;
 
-  DefaultFeatureRequestor(HttpConfiguration httpConfig, URI baseUri, LDLogger logger) {
+  DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri, LDLogger logger) {
     this.baseUri = baseUri;
-    this.pollingUri = concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
+    this.pollingUri = HttpHelpers.concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
     this.logger = logger;
     
-    OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder();
-    configureHttpClientBuilder(httpConfig, httpBuilder);
-    this.headers = getHeadersBuilderFor(httpConfig).build();
+    OkHttpClient.Builder httpBuilder = httpProperties.toHttpClientBuilder();
+    this.headers = httpProperties.toHeadersBuilder().build();
 
     try {
       cacheDir = Files.createTempDirectory("LaunchDarklySDK");
@@ -59,7 +56,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
   }
 
   public void close() {
-    shutdownHttpClient(httpClient);
+    HttpProperties.shutdownHttpClient(httpClient);
     Util.deleteDirectory(cacheDir);
   }
   
@@ -82,10 +79,11 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
         return null;
       }
 
-      logger.debug("Get flag(s) response: " + response.toString());
-      logger.debug("Network response: " + response.networkResponse());
-      logger.debug("Cache hit count: " + httpClient.cache().hitCount() + " Cache network Count: " + httpClient.cache().networkCount());
-      logger.debug("Cache response: " + response.cacheResponse());
+      logger.debug("Get flag(s) response: {}", response);
+      logger.debug("Network response: {}", response.networkResponse());
+      logger.debug("Cache hit count: {} Cache network count: {}",
+          httpClient.cache().hitCount(), httpClient.cache().networkCount());
+      logger.debug("Cache response: {}", response.cacheResponse());
 
       if (!response.isSuccessful()) {
         throw new HttpErrorException(response.code());

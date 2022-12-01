@@ -2,6 +2,8 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.MessageEvent;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
@@ -11,24 +13,30 @@ import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates.UpsertParams;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestInfo;
+import com.launchdarkly.testhelpers.httptest.SpecialHttpConfigurations;
+import com.launchdarkly.testhelpers.tcptest.TcpHandler;
+import com.launchdarkly.testhelpers.tcptest.TcpHandlers;
+import com.launchdarkly.testhelpers.tcptest.TcpServer;
 
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.EOFException;
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
@@ -43,11 +51,13 @@ import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.TestComponents.basicDiagnosticStore;
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompleted;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -57,7 +67,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -135,9 +144,9 @@ public class StreamProcessorTest extends BaseTest {
 
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
-    DataSourceFactory f = Components.streamingDataSource();
-    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
-        dataSourceUpdates)) {
+    ComponentConfigurer<DataSource> f = Components.streamingDataSource();
+    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, LDConfig.DEFAULT)
+        .withDataSourceUpdateSink(dataSourceUpdates))) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
       assertThat(sp.streamUri, equalTo(StandardEndpoints.DEFAULT_STREAMING_BASE_URI));
     }
@@ -145,14 +154,11 @@ public class StreamProcessorTest extends BaseTest {
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    URI streamUri = URI.create("http://fake");
-    DataSourceFactory f = Components.streamingDataSource()
-        .baseURI(streamUri)
+    ComponentConfigurer<DataSource> f = Components.streamingDataSource()
         .initialReconnectDelay(Duration.ofMillis(5555));
-    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
-        dataSourceUpdates(dataStore))) {
+    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, LDConfig.DEFAULT)
+        .withDataSourceUpdateSink(dataSourceUpdates(dataStore)))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
-      assertThat(sp.streamUri, equalTo(streamUri));      
     }
   }
   
@@ -354,24 +360,28 @@ public class StreamProcessorTest extends BaseTest {
   
   @Test
   public void streamWillReconnectAfterGeneralIOException() throws Exception {
-    Handler errorHandler = Handlers.malformedResponse();
     Handler streamHandler = streamResponse(EMPTY_DATA_EVENT);
-    Handler errorThenSuccess = Handlers.sequential(errorHandler, streamHandler);
     
-    try (HttpServer server = HttpServer.start(errorThenSuccess)) {
-      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
-        startAndWait(sp);
-
-        assertThat(server.getRecorder().count(), equalTo(2));
-        assertThat(dataSourceUpdates.getLastStatus().getLastError(), notNullValue());
-        assertThat(dataSourceUpdates.getLastStatus().getLastError().getKind(), equalTo(ErrorKind.NETWORK_ERROR));
+    try (HttpServer server = HttpServer.start(streamHandler)) {
+      TcpHandler errorThenSuccess = TcpHandlers.sequential(
+          TcpHandlers.noResponse(), // this will cause an IOException due to closing the connection without a response
+          TcpHandlers.forwardToPort(server.getPort())
+          );
+      try (TcpServer forwardingServer = TcpServer.start(errorThenSuccess)) {
+        try (StreamProcessor sp = createStreamProcessor(null, forwardingServer.getHttpUri())) {
+          startAndWait(sp);
+  
+          assertThat(server.getRecorder().count(), equalTo(1)); // the HTTP server doesn't see the initial request that the forwardingServer rejected
+          assertThat(dataSourceUpdates.getLastStatus().getLastError(), notNullValue());
+          assertThat(dataSourceUpdates.getLastStatus().getLastError().getKind(), equalTo(ErrorKind.NETWORK_ERROR));
+        }
       }
     }
   }
 
   @Test
   public void streamInitDiagnosticRecordedOnOpen() throws Exception {
-    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    DiagnosticStore acc = basicDiagnosticStore();
     long startTime = System.currentTimeMillis();
     
     try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
@@ -379,20 +389,21 @@ public class StreamProcessorTest extends BaseTest {
         startAndWait(sp);
         
         long timeAfterOpen = System.currentTimeMillis();
-        DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
-        assertEquals(1, event.streamInits.size());
-        DiagnosticEvent.StreamInit init = event.streamInits.get(0);
-        assertFalse(init.failed);
-        assertThat(init.timestamp, greaterThanOrEqualTo(startTime));
-        assertThat(init.timestamp, lessThanOrEqualTo(timeAfterOpen));
-        assertThat(init.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
+        LDValue event = acc.createEventAndReset(0, 0).getJsonValue();
+        LDValue streamInits = event.get("streamInits");
+        assertEquals(1, streamInits.size());
+        LDValue init = streamInits.get(0);
+        assertFalse(init.get("failed").booleanValue());
+        assertThat(init.get("timestamp").longValue(),
+            allOf(greaterThanOrEqualTo(startTime), lessThanOrEqualTo(timeAfterOpen)));
+        assertThat(init.get("durationMillis").longValue(), lessThanOrEqualTo(timeAfterOpen - startTime));
       }
     }
   }
 
   @Test
   public void streamInitDiagnosticRecordedOnErrorDuringInit() throws Exception {
-    DiagnosticAccumulator acc = new DiagnosticAccumulator(new DiagnosticId(SDK_KEY));
+    DiagnosticStore acc = basicDiagnosticStore();
     long startTime = System.currentTimeMillis();
     
     Handler errorHandler = Handlers.status(503);
@@ -404,19 +415,20 @@ public class StreamProcessorTest extends BaseTest {
         startAndWait(sp);
         
         long timeAfterOpen = System.currentTimeMillis();
-        DiagnosticEvent.Statistics event = acc.createEventAndReset(0, 0);
+        LDValue event = acc.createEventAndReset(0, 0).getJsonValue();
         
-        assertEquals(2, event.streamInits.size());
-        DiagnosticEvent.StreamInit init0 = event.streamInits.get(0);
-        assertTrue(init0.failed);
-        assertThat(init0.timestamp, greaterThanOrEqualTo(startTime));
-        assertThat(init0.timestamp, lessThanOrEqualTo(timeAfterOpen));
-        assertThat(init0.durationMillis, lessThanOrEqualTo(timeAfterOpen - startTime));
+        LDValue streamInits = event.get("streamInits");
+        assertEquals(2, streamInits.size());
+        LDValue init0 = streamInits.get(0);
+        assertTrue(init0.get("failed").booleanValue());
+        assertThat(init0.get("timestamp").longValue(),
+            allOf(greaterThanOrEqualTo(startTime), lessThanOrEqualTo(timeAfterOpen)));
+        assertThat(init0.get("durationMillis").longValue(), lessThanOrEqualTo(timeAfterOpen - startTime));
 
-        DiagnosticEvent.StreamInit init1 = event.streamInits.get(1);
-        assertFalse(init1.failed);
-        assertThat(init1.timestamp, greaterThanOrEqualTo(init0.timestamp));
-        assertThat(init1.timestamp, lessThanOrEqualTo(timeAfterOpen));
+        LDValue init1 = streamInits.get(1);
+        assertFalse(init1.get("failed").booleanValue());
+        assertThat(init1.get("timestamp").longValue(),
+            allOf(greaterThanOrEqualTo(init0.get("timestamp").longValue()), lessThanOrEqualTo(timeAfterOpen)));
       }
     }
   }
@@ -636,30 +648,22 @@ public class StreamProcessorTest extends BaseTest {
   public void testSpecialHttpConfigurations() throws Exception {
     Handler handler = streamResponse(EMPTY_DATA_EVENT);
     
-    TestHttpUtil.testWithSpecialHttpConfigurations(handler,
-        (targetUri, goodHttpConfig) -> {
-          LDConfig config = new LDConfig.Builder().http(goodHttpConfig).build();
+    SpecialHttpConfigurations.testAll(handler,
+        (URI serverUri, SpecialHttpConfigurations.Params params) -> {
+          LDConfig config = new LDConfig.Builder()
+              .http(TestUtil.makeHttpConfigurationFromTestParams(params))
+              .build();
           ConnectionErrorSink errorSink = new ConnectionErrorSink();
           
-          try (StreamProcessor sp = createStreamProcessor(config, targetUri)) {
+          try (StreamProcessor sp = createStreamProcessor(config, serverUri)) {
             sp.connectionErrorHandler = errorSink;
             startAndWait(sp);
-            assertNull(errorSink.errors.peek());
+            if (errorSink.errors.size() != 0) {
+              throw new IOException(errorSink.errors.peek());
+            }
+            return true;
           }
-        },
-        (targetUri, badHttpConfig) -> {
-          LDConfig config = new LDConfig.Builder().http(badHttpConfig).build();
-          ConnectionErrorSink errorSink = new ConnectionErrorSink();
-          
-          try (StreamProcessor sp = createStreamProcessor(config, targetUri)) {
-            sp.connectionErrorHandler = errorSink;
-            startAndWait(sp);
-            
-            Throwable error = errorSink.errors.peek();
-            assertNotNull(error);
-          }
-        }
-        );
+        });
   }
   
   static class ConnectionErrorSink implements ConnectionErrorHandler {
@@ -746,9 +750,9 @@ public class StreamProcessorTest extends BaseTest {
     return createStreamProcessor(LDConfig.DEFAULT, streamUri, null);
   }
 
-  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticAccumulator acc) {
+  private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticStore acc) {
     return new StreamProcessor(
-        clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp(),
+        ComponentsImpl.toHttpProperties(clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp()),
         dataSourceUpdates,
         Thread.MIN_PRIORITY,
         acc,

@@ -2,14 +2,15 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
+import com.launchdarkly.sdk.internal.http.HttpErrors.HttpErrorException;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -20,15 +21,15 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
-import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
+import static com.launchdarkly.sdk.internal.http.HttpErrors.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.internal.http.HttpErrors.httpErrorDescription;
 
 final class PollingProcessor implements DataSource {
   private static final String ERROR_CONTEXT_MESSAGE = "on polling request";
   private static final String WILL_RETRY_MESSAGE = "will retry at next scheduled poll interval";
 
   @VisibleForTesting final FeatureRequestor requestor;
-  private final DataSourceUpdates dataSourceUpdates;
+  private final DataSourceUpdateSink dataSourceUpdates;
   private final ScheduledExecutorService scheduler;
   @VisibleForTesting final Duration pollInterval;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -38,7 +39,7 @@ final class PollingProcessor implements DataSource {
 
   PollingProcessor(
       FeatureRequestor requestor,
-      DataSourceUpdates dataSourceUpdates,
+      DataSourceUpdateSink dataSourceUpdates,
       ScheduledExecutorService sharedExecutor,
       Duration pollInterval,
       LDLogger logger

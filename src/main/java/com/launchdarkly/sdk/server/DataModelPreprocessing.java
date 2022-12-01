@@ -21,6 +21,14 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
+import static com.launchdarkly.sdk.server.DataModel.Operator.after;
+import static com.launchdarkly.sdk.server.DataModel.Operator.before;
+import static com.launchdarkly.sdk.server.DataModel.Operator.in;
+import static com.launchdarkly.sdk.server.DataModel.Operator.matches;
+import static com.launchdarkly.sdk.server.DataModel.Operator.semVerEqual;
+import static com.launchdarkly.sdk.server.DataModel.Operator.semVerGreaterThan;
+import static com.launchdarkly.sdk.server.DataModel.Operator.semVerLessThan;
+
 /**
  * Additional information that we attach to our data model to reduce the overhead of feature flag
  * evaluations. The methods that create these objects are called by the afterDeserialized() methods
@@ -142,6 +150,9 @@ abstract class DataModelPreprocessing {
     for (Target t: f.getTargets()) {
       preprocessTarget(t, f);
     }
+    for (Target t: f.getContextTargets()) {
+      preprocessTarget(t, f);
+    }
     List<Rule> rules = f.getRules();
     int n = rules.size();
     for (int i = 0; i < n; i++) {
@@ -198,8 +209,7 @@ abstract class DataModelPreprocessing {
     if (op == null) {
       return;
     }
-    switch (op) {
-    case in:
+    if (op == in) {
       // This is a special case where the clause is testing for an exact match against any of the
       // clause values. Converting the value list to a Set allows us to do a fast lookup instead of
       // a linear search. We do not do this for other operators (or if there are fewer than two
@@ -207,27 +217,18 @@ abstract class DataModelPreprocessing {
       if (values.size() > 1) {
         c.preprocessed = new ClausePreprocessed(ImmutableSet.copyOf(values), null);
       }
-      break;
-    case matches:
+    } else if (op == matches) {
       c.preprocessed = preprocessClauseValues(c.getValues(), v ->
         new ClausePreprocessed.ValueData(null, EvaluatorTypeConversion.valueToRegex(v), null)
       );
-      break;
-    case after:
-    case before:
+    } else if (op == after || op == before) {
       c.preprocessed = preprocessClauseValues(c.getValues(), v ->
         new ClausePreprocessed.ValueData(EvaluatorTypeConversion.valueToDateTime(v), null, null)
       );
-      break;
-    case semVerEqual:
-    case semVerGreaterThan:
-    case semVerLessThan:
+    } else if (op == semVerEqual || op == semVerGreaterThan || op == semVerLessThan) {
       c.preprocessed = preprocessClauseValues(c.getValues(), v ->
         new ClausePreprocessed.ValueData(null, null, EvaluatorTypeConversion.valueToSemVer(v))
       );
-      break;
-    default:
-      break;
     }
   }
   

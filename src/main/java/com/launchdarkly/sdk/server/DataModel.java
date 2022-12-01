@@ -2,18 +2,21 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.annotations.JsonAdapter;
+import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.ContextKind;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.ClausePreprocessed;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.FlagPreprocessed;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.FlagRulePreprocessed;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.PrerequisitePreprocessed;
 import com.launchdarkly.sdk.server.DataModelPreprocessing.TargetPreprocessed;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -29,19 +32,20 @@ import static java.util.Collections.emptySet;
 // implementing a custom component such as a data store. But beyond the mere fact of there being these kinds of
 // data, applications should not be considered with their structure.
 //
-// - For all classes that can be deserialized from JSON, there must be an empty constructor, and the fields
-// cannot be final. This is because of how Gson works: it creates an instance first, then sets the fields. If
-// we are able to move away from using Gson reflective deserialization in the future, we can make them final.
+// - For classes that can be deserialized from JSON, if we are relying on Gson's reflective behavior (i.e. if
+// the class does not have a custom TypeAdapter), there must be an empty constructor, and the fields cannot
+// be final. This is because of how Gson works: it creates an instance first, then sets the fields; that also
+// means we cannot do any transformation/validation of the fields in the constructor. But if we have a custom
+// deserializer, then we should use final fields.
 //
-// - There should also be a constructor that takes all the fields; we should use that whenever we need to
-// create these objects programmatically (so that if we are able at some point to make the fields final, that
+// - In any case, there should be a constructor that takes all the fields; we should use that whenever we need
+// to create these objects programmatically (so that if we are able at some point to make the fields final, that
 // won't break anything).
 //
-// - For properties that have a collection type such as List, the getter method should always include a null
-// guard and return an empty collection if the field is null (so that we don't have to worry about null guards
-// every time we might want to iterate over these collections). Semantically there is no difference in the data
-// model between an empty list and a null list, and in some languages (particularly Go) it is easy for an
-// uninitialized list to be serialized to JSON as null.
+// - For properties that have a collection type such as List, we should ensure that a null is always changed to
+// an empty list (in the constructor, if the field can be made final; otherwise in the getter). Semantically
+// there is no difference in the data model between an empty list and a null list, and in some languages
+// (particularly Go) it is easy for an uninitialized list to be serialized to JSON as null.
 //
 // - Some classes have a "preprocessed" field containing types defined in DataModelPreprocessing. These fields
 // must always be marked transient, so Gson will not serialize them. They are populated when we deserialize a
@@ -127,6 +131,7 @@ public abstract class DataModel {
     private List<Prerequisite> prerequisites;
     private String salt;
     private List<Target> targets;
+    private List<Target> contextTargets;
     private List<Rule> rules;
     private VariationOrRollout fallthrough;
     private Integer offVariation; //optional
@@ -143,8 +148,8 @@ public abstract class DataModel {
     FeatureFlag() {}
 
     FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
-        List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation, List<LDValue> variations,
-        boolean clientSide, boolean trackEvents, boolean trackEventsFallthrough,
+        List<Target> contextTargets, List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation,
+        List<LDValue> variations, boolean clientSide, boolean trackEvents, boolean trackEventsFallthrough,
         Long debugEventsUntilDate, boolean deleted) {
       this.key = key;
       this.version = version;
@@ -152,6 +157,7 @@ public abstract class DataModel {
       this.prerequisites = prerequisites;
       this.salt = salt;
       this.targets = targets;
+      this.contextTargets = contextTargets;
       this.rules = rules;
       this.fallthrough = fallthrough;
       this.offVariation = offVariation;
@@ -205,6 +211,11 @@ public abstract class DataModel {
     }
 
     // Guaranteed non-null
+    List<Target> getContextTargets() {
+      return contextTargets == null ? emptyList() : contextTargets;
+    }
+
+    // Guaranteed non-null
     List<Rule> getRules() {
       return rules == null ? emptyList() : rules;
     }
@@ -254,6 +265,7 @@ public abstract class DataModel {
   }
 
   static final class Target {
+    private ContextKind contextKind;
     private Set<String> values;
     private int variation;
   
@@ -261,11 +273,16 @@ public abstract class DataModel {
     
     Target() {}
   
-    Target(Set<String> values, int variation) {
+    Target(ContextKind contextKind, Set<String> values, int variation) {
+      this.contextKind = contextKind;
       this.values = values;
       this.variation = variation;
     }
   
+    ContextKind getContextKind() {
+      return contextKind;
+    }
+    
     // Guaranteed non-null
     Collection<String> getValues() {
       return values == null ? emptySet() : values;
@@ -313,25 +330,29 @@ public abstract class DataModel {
     }
   }
   
+  @JsonAdapter(DataModelSerialization.ClauseTypeAdapter.class)
   static final class Clause {
-    private UserAttribute attribute;
-    private Operator op;
-    private List<LDValue> values; //interpreted as an OR of values
-    private boolean negate;
+    private final ContextKind contextKind;
+    private final AttributeRef attribute;
+    private final Operator op;
+    private final List<LDValue> values; //interpreted as an OR of values
+    private final boolean negate;
     
     transient ClausePreprocessed preprocessed;
     
-    Clause() {
-    }
-    
-    Clause(UserAttribute attribute, Operator op, List<LDValue> values, boolean negate) {
+    Clause(ContextKind contextKind, AttributeRef attribute, Operator op, List<LDValue> values, boolean negate) {
+      this.contextKind = contextKind;
       this.attribute = attribute;
       this.op = op;
-      this.values = values;
+      this.values = values == null ? emptyList() : values;;
       this.negate = negate;
     }
   
-    UserAttribute getAttribute() {
+    ContextKind getContextKind() {
+      return contextKind;
+    }
+    
+    AttributeRef getAttribute() {
       return attribute;
     }
     
@@ -341,7 +362,7 @@ public abstract class DataModel {
     
     // Guaranteed non-null
     List<LDValue> getValues() {
-      return values == null ? emptyList() : values;
+      return values;
     }
     
     boolean isNegate() {
@@ -349,34 +370,32 @@ public abstract class DataModel {
     }
   }
 
+  @JsonAdapter(DataModelSerialization.RolloutTypeAdapter.class)
   static final class Rollout {
-    private List<WeightedVariation> variations;
-    private UserAttribute bucketBy;
-    private RolloutKind kind;
-    private Integer seed;
+    private final ContextKind contextKind;
+    private final List<WeightedVariation> variations;
+    private final AttributeRef bucketBy;
+    private final RolloutKind kind;
+    private final Integer seed;
   
-    Rollout() {}
-  
-    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy, RolloutKind kind) {
-      this.variations = variations;
-      this.bucketBy = bucketBy;
-      this.kind = kind;
-      this.seed = null;
-    }
-    
-    Rollout(List<WeightedVariation> variations, UserAttribute bucketBy, RolloutKind kind, Integer seed) {
-      this.variations = variations;
+    Rollout(ContextKind contextKind, List<WeightedVariation> variations, AttributeRef bucketBy, RolloutKind kind, Integer seed) {
+      this.contextKind = contextKind;
+      this.variations = variations == null ? emptyList() : variations;
       this.bucketBy = bucketBy;
       this.kind = kind;
       this.seed = seed;
     }
     
-    // Guaranteed non-null
-    List<WeightedVariation> getVariations() {
-      return variations == null ? emptyList() : variations;
+    ContextKind getContextKind() {
+      return contextKind;
     }
     
-    UserAttribute getBucketBy() {
+    // Guaranteed non-null
+    List<WeightedVariation> getVariations() {
+      return variations;
+    }
+    
+    AttributeRef getBucketBy() {
       return bucketBy;
     }
 
@@ -448,11 +467,14 @@ public abstract class DataModel {
     private String key;
     private Set<String> included;
     private Set<String> excluded;
+    private List<SegmentTarget> includedContexts;
+    private List<SegmentTarget> excludedContexts;
     private String salt;
     private List<SegmentRule> rules;
     private int version;
     private boolean deleted;
     private boolean unbounded;
+    private ContextKind unboundedContextKind;
     private Integer generation;
 
     Segment() {}
@@ -460,20 +482,26 @@ public abstract class DataModel {
     Segment(String key,
             Set<String> included,
             Set<String> excluded,
+            List<SegmentTarget> includedContexts,
+            List<SegmentTarget> excludedContexts,
             String salt,
             List<SegmentRule> rules,
             int version,
             boolean deleted,
             boolean unbounded,
+            ContextKind unboundedContextKind,
             Integer generation) {
       this.key = key;
       this.included = included;
       this.excluded = excluded;
+      this.includedContexts = includedContexts;
+      this.excludedContexts = excludedContexts;
       this.salt = salt;
       this.rules = rules;
       this.version = version;
       this.deleted = deleted;
       this.unbounded = unbounded;
+      this.unboundedContextKind = unboundedContextKind;
       this.generation = generation;
     }
 
@@ -491,6 +519,16 @@ public abstract class DataModel {
       return excluded == null ? emptySet() : excluded;
     }
     
+    // Guaranteed non-null
+    List<SegmentTarget> getIncludedContexts() {
+      return includedContexts == null ? emptyList() : includedContexts;
+    }
+
+    // Guaranteed non-null
+    List<SegmentTarget> getExcludedContexts() {
+      return excludedContexts == null ? emptyList() : excludedContexts;
+    }
+
     String getSalt() {
       return salt;
     }
@@ -512,6 +550,10 @@ public abstract class DataModel {
       return unbounded;
     }
 
+    public ContextKind getUnboundedContextKind() {
+      return unboundedContextKind;
+    }
+    
     public Integer getGeneration() {
       return generation;
     }
@@ -521,53 +563,135 @@ public abstract class DataModel {
     }
   }
   
+  @JsonAdapter(DataModelSerialization.SegmentRuleTypeAdapter.class)
   static final class SegmentRule {
     private final List<Clause> clauses;
     private final Integer weight;
-    private final UserAttribute bucketBy;
+    private final ContextKind rolloutContextKind; 
+    private final AttributeRef bucketBy;
     
-    SegmentRule(List<Clause> clauses, Integer weight, UserAttribute bucketBy) {
-      this.clauses = clauses;
+    SegmentRule(List<Clause> clauses, Integer weight, ContextKind rolloutContextKind, AttributeRef bucketBy) {
+      this.clauses = clauses == null ? emptyList() : clauses;
       this.weight = weight;
+      this.rolloutContextKind = rolloutContextKind;
       this.bucketBy = bucketBy;
     }
     
     // Guaranteed non-null
     List<Clause> getClauses() {
-      return clauses == null ? emptyList() : clauses;
+      return clauses;
     }
     
     Integer getWeight() {
       return weight;
     }
     
-    UserAttribute getBucketBy() {
+    ContextKind getRolloutContextKind() {
+      return rolloutContextKind;
+    }
+    
+    AttributeRef getBucketBy() {
       return bucketBy;
     }
   }
 
-  /**
-   * This enum can be directly deserialized from JSON, avoiding the need for a mapping of strings to
-   * operators. The implementation of each operator is in EvaluatorOperators.
-   */
-  static enum Operator {
-    in,
-    endsWith,
-    startsWith,
-    matches,
-    contains,
-    lessThan,
-    lessThanOrEqual,
-    greaterThan,
-    greaterThanOrEqual,
-    before,
-    after,
-    semVerEqual,
-    semVerLessThan,
-    semVerGreaterThan,
-    segmentMatch
+  static class SegmentTarget {
+    private ContextKind contextKind;
+    private Set<String> values;
+    
+    SegmentTarget(ContextKind contextKind, Set<String> values) {
+      this.contextKind = contextKind;
+      this.values = values;
+    }
+    
+    ContextKind getContextKind() {
+      return contextKind;
+    }
+    
+    Set<String> getValues() { // guaranteed non-null
+      return values == null ? emptySet() : values;
+    }
   }
+  
+  /**
+   * This is an enum-like type rather than an enum because we don't want unrecognized operators to
+   * cause parsing of the whole JSON environment to fail. The implementation of each operator is in
+   * EvaluatorOperators.
+   */
+  static class Operator {
+    private final String name;
+    private final boolean builtin;
+    private final int hashCode;
+    
+    private static final Map<String, Operator> builtins = new HashMap<>();
+    
+    private Operator(String name, boolean builtin) {
+      this.name = name;
+      this.builtin = builtin;
+      
+      // Precompute the hash code for fast map lookups - String.hashCode() does memoize this value,
+      // sort of, but we shouldn't have to rely on that 
+      this.hashCode = name.hashCode();
+    }
+    
+    private static Operator builtin(String name) {
+      Operator op = new Operator(name, true);
+      builtins.put(name, op);
+      return op;
+    }
+    
+    static final Operator in = builtin("in");
+    static final Operator startsWith = builtin("startsWith");
+    static final Operator endsWith = builtin("endsWith");
+    static final Operator matches = builtin("matches");
+    static final Operator contains = builtin("contains");
+    static final Operator lessThan = builtin("lessThan");
+    static final Operator lessThanOrEqual = builtin("lessThanOrEqual");
+    static final Operator greaterThan = builtin("greaterThan");
+    static final Operator greaterThanOrEqual = builtin("greaterThanOrEqual");
+    static final Operator before = builtin("before");
+    static final Operator after = builtin("after");
+    static final Operator semVerEqual = builtin("semVerEqual");
+    static final Operator semVerLessThan = builtin("semVerLessThan");
+    static final Operator semVerGreaterThan = builtin("semVerGreaterThan");
+    static final Operator segmentMatch = builtin("segmentMatch");
+    
+    static Operator forName(String name) {
+      // Normally we will only see names that are in the builtins map. Anything else is something
+      // the SDK doesn't recognize, but we still need to allow it to exist rather than throwing
+      // an error.
+      Operator op = builtins.get(name);
+      return op == null ? new Operator(name, false) : op;
+    }
+    
+    static Iterable<Operator> getBuiltins() {
+      return builtins.values();
+    }
 
+    String name() {
+      return name;
+    }
+    
+    @Override
+    public String toString() {
+      return name;
+    }
+    
+    @Override
+    public boolean equals(Object other) {
+      if (this.builtin) {
+        // reference equality is OK for the builtin ones, because we intern them
+        return this == other;
+      }
+      return other instanceof Operator && ((Operator)other).name.equals(this.name);
+    }
+    
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+  }
+  
   /**
    * This enum is all lowercase so that when it is automatically deserialized from JSON, 
    * the lowercase properties properly map to these enumerations.

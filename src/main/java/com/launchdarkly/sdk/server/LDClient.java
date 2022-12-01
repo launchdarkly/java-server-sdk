@@ -5,26 +5,25 @@ import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
+import com.launchdarkly.sdk.internal.http.HttpHelpers;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventProcessor;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 import com.launchdarkly.sdk.server.interfaces.FlagTracker;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 
 import org.apache.commons.codec.binary.Hex;
 
@@ -47,7 +46,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.server.DataModel.FEATURES;
 import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
-import static com.launchdarkly.sdk.server.Util.isAsciiHeaderValue;
+import static com.launchdarkly.sdk.server.subsystems.EventProcessor.NO_VERSION;
 
 /**
  * A client for the LaunchDarkly API. Client instances are thread-safe. Applications should instantiate
@@ -64,14 +63,12 @@ public final class LDClient implements LDClientInterface {
   final DataStore dataStore;
   private final BigSegmentStoreStatusProvider bigSegmentStoreStatusProvider;
   private final BigSegmentStoreWrapper bigSegmentStoreWrapper;
-  private final DataSourceUpdates dataSourceUpdates;
+  private final DataSourceUpdateSink dataSourceUpdates;
   private final DataStoreStatusProviderImpl dataStoreStatusProvider;
   private final DataSourceStatusProviderImpl dataSourceStatusProvider;
   private final FlagTrackerImpl flagTracker;
   private final EventBroadcasterImpl<FlagChangeListener, FlagChangeEvent> flagChangeBroadcaster;
   private final ScheduledExecutorService sharedExecutor;
-  private final EventFactory eventFactoryDefault;
-  private final EventFactory eventFactoryWithReasons;
   private final LDLogger baseLogger;
   private final LDLogger evaluationLogger;
   private final Evaluator.PrerequisiteEvaluationSink prereqEvalsDefault;
@@ -179,39 +176,26 @@ public final class LDClient implements LDClientInterface {
   public LDClient(String sdkKey, LDConfig config) {
     checkNotNull(config, "config must not be null");
     this.sdkKey = checkNotNull(sdkKey, "sdkKey must not be null");
-    if (!isAsciiHeaderValue(sdkKey) ) {
+    if (!HttpHelpers.isAsciiHeaderValue(sdkKey) ) {
       throw new IllegalArgumentException("SDK key contained an invalid character");
     }
     this.offline = config.offline;
     
     this.sharedExecutor = createSharedExecutor(config);
     
-    boolean eventsDisabled = Components.isNullImplementation(config.eventProcessorFactory);
-    if (eventsDisabled) {
-      this.eventFactoryDefault = EventFactory.Disabled.INSTANCE;
-      this.eventFactoryWithReasons = EventFactory.Disabled.INSTANCE;
-    } else {
-      this.eventFactoryDefault = EventFactory.DEFAULT;
-      this.eventFactoryWithReasons = EventFactory.DEFAULT_WITH_REASONS;
-    }
-    
-    // Do not create diagnostic accumulator if config has specified is opted out, or if we're not using the
-    // standard event processor
-    final boolean useDiagnostics = !config.diagnosticOptOut && config.eventProcessorFactory instanceof EventProcessorBuilder;
-    final ClientContextImpl context = new ClientContextImpl(
+    final ClientContextImpl context = ClientContextImpl.fromConfig(
         sdkKey,
         config,
-        sharedExecutor,
-        useDiagnostics ? new DiagnosticAccumulator(new DiagnosticId(sdkKey)) : null
+        sharedExecutor
         );
-    this.baseLogger = context.getBasic().getBaseLogger();
+    this.baseLogger = context.getBaseLogger();
     this.evaluationLogger = this.baseLogger.subLogger(Loggers.EVALUATION_LOGGER_NAME);
     
-    this.eventProcessor = config.eventProcessorFactory.createEventProcessor(context);
+    this.eventProcessor = config.events.build(context);
 
     EventBroadcasterImpl<BigSegmentStoreStatusProvider.StatusListener, BigSegmentStoreStatusProvider.Status> bigSegmentStoreStatusNotifier =
         EventBroadcasterImpl.forBigSegmentStoreStatus(sharedExecutor, baseLogger);
-    BigSegmentsConfiguration bigSegmentsConfig = config.bigSegmentsConfigBuilder.createBigSegmentsConfiguration(context);
+    BigSegmentsConfiguration bigSegmentsConfig = config.bigSegments.build(context);
     if (bigSegmentsConfig.getStore() != null) {
       bigSegmentStoreWrapper = new BigSegmentStoreWrapper(bigSegmentsConfig, bigSegmentStoreStatusNotifier, sharedExecutor,
           this.baseLogger.subLogger(Loggers.BIG_SEGMENTS_LOGGER_NAME));
@@ -223,7 +207,7 @@ public final class LDClient implements LDClientInterface {
     EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> dataStoreStatusNotifier =
         EventBroadcasterImpl.forDataStoreStatus(sharedExecutor, baseLogger);
     DataStoreUpdatesImpl dataStoreUpdates = new DataStoreUpdatesImpl(dataStoreStatusNotifier);
-    this.dataStore = config.dataStoreFactory.createDataStore(context, dataStoreUpdates);
+    this.dataStore = config.dataStore.build(context.withDataStoreUpdateSink(dataStoreUpdates));
 
     this.evaluator = new Evaluator(new Evaluator.Getters() {
       public DataModel.FeatureFlag getFlag(String key) {
@@ -242,7 +226,7 @@ public final class LDClient implements LDClientInterface {
 
     this.flagChangeBroadcaster = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor, baseLogger);
     this.flagTracker = new FlagTrackerImpl(flagChangeBroadcaster,
-        (key, user) -> jsonValueVariation(key, user, LDValue.ofNull()));
+        (key, ctx) -> jsonValueVariation(key, ctx, LDValue.ofNull()));
 
     this.dataStoreStatusProvider = new DataStoreStatusProviderImpl(this.dataStore, dataStoreUpdates);
 
@@ -258,7 +242,7 @@ public final class LDClient implements LDClientInterface {
         baseLogger
         );
     this.dataSourceUpdates = dataSourceUpdates;
-    this.dataSource = config.dataSourceFactory.createDataSource(context, dataSourceUpdates);    
+    this.dataSource = config.dataSource.build(context.withDataSourceUpdateSink(dataSourceUpdates));    
     this.dataSourceStatusProvider = new DataSourceStatusProviderImpl(dataSourceStatusNotifier, dataSourceUpdates);
     
     this.prereqEvalsDefault = makePrerequisiteEventSender(false);
@@ -293,45 +277,45 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public void track(String eventName, LDUser user) {
-    trackData(eventName, user, LDValue.ofNull());
+  public void track(String eventName, LDContext context) {
+    trackData(eventName, context, LDValue.ofNull());
   }
 
   @Override
-  public void trackData(String eventName, LDUser user, LDValue data) {
-    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
-      baseLogger.warn("Track called with null user or null/empty user key!");
+  public void trackData(String eventName, LDContext context, LDValue data) {
+    if (context == null) {
+      baseLogger.warn("Track called with null context!");
+    } else if (!context.isValid()) {
+      baseLogger.warn("Track called with invalid context: " + context.getError());
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, null));
+      eventProcessor.recordCustomEvent(context, eventName, data, null);
     }
   }
 
   @Override
-  public void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
-    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
-      baseLogger.warn("Track called with null user or null/empty user key!");
+  public void trackMetric(String eventName, LDContext context, LDValue data, double metricValue) {
+    if (context == null) {
+      baseLogger.warn("Track called with null context!");
+    } else if (!context.isValid()) {
+      baseLogger.warn("Track called with invalid context: " + context.getError());
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newCustomEvent(eventName, user, data, metricValue));
+      eventProcessor.recordCustomEvent(context, eventName, data, metricValue);
     }
   }
 
   @Override
-  public void identify(LDUser user) {
-    if (user == null || user.getKey() == null || user.getKey().isEmpty()) {
-      baseLogger.warn("Identify called with null user or null/empty user key!");
+  public void identify(LDContext context) {
+    if (context == null) {
+      baseLogger.warn("Identify called with null context!");
+    } else if (!context.isValid()) {
+      baseLogger.warn("Identify called with invalid context: " + context.getError());
     } else {
-      eventProcessor.sendEvent(eventFactoryDefault.newIdentifyEvent(user));
+      eventProcessor.recordIdentifyEvent(context);
     }
   }
 
-  private void sendFlagRequestEvent(Event.FeatureRequest event) {
-    if (event != null) {
-      eventProcessor.sendEvent(event);
-    }
-  }
-  
   @Override
-  public FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
+  public FeatureFlagsState allFlagsState(LDContext context, FlagsStateOption... options) {
     FeatureFlagsState.Builder builder = FeatureFlagsState.builder(options);
     
     if (isOffline()) {
@@ -347,11 +331,15 @@ public final class LDClient implements LDClientInterface {
       }
     }
 
-    if (user == null || user.getKey() == null) {
-      evaluationLogger.warn("allFlagsState() was called with null user or null user key! returning no data");
+    if (context == null) {
+      evaluationLogger.warn("allFlagsState() was called with null context! returning no data");
       return builder.valid(false).build();
     }
-
+    if (!context.isValid()) {
+      evaluationLogger.warn("allFlagsState() was called with invalid context: " + context.getError());
+      return builder.valid(false).build();
+    }
+    
     boolean clientSideOnly = FlagsStateOption.hasOption(options, FlagsStateOption.CLIENT_SIDE_ONLY);
     KeyedItems<ItemDescriptor> flags;
     try {
@@ -371,7 +359,7 @@ public final class LDClient implements LDClientInterface {
         continue;
       }
       try {
-        EvalResult result = evaluator.evaluate(flag, user, null);
+        EvalResult result = evaluator.evaluate(flag, context, null);
         // Note: the null parameter to evaluate() is for the PrerequisiteEvaluationSink; allFlagsState should
         // not generate evaluation events, so we don't want the evaluator to generate any prerequisite evaluation
         // events either. 
@@ -385,63 +373,63 @@ public final class LDClient implements LDClientInterface {
     }
     return builder.build();
   }
-  
+
   @Override
-  public boolean boolVariation(String featureKey, LDUser user, boolean defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.BOOLEAN).booleanValue();
+  public boolean boolVariation(String featureKey, LDContext context, boolean defaultValue) {
+    return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.BOOLEAN).booleanValue();
   }
 
   @Override
-  public int intVariation(String featureKey, LDUser user, int defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.NUMBER).intValue();
+  public int intVariation(String featureKey, LDContext context, int defaultValue) {
+    return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER).intValue();
   }
 
   @Override
-  public double doubleVariation(String featureKey, LDUser user, double defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.NUMBER).doubleValue();
+  public double doubleVariation(String featureKey, LDContext context, double defaultValue) {
+    return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER).doubleValue();
   }
 
   @Override
-  public String stringVariation(String featureKey, LDUser user, String defaultValue) {
-    return evaluate(featureKey, user, LDValue.of(defaultValue), LDValueType.STRING).stringValue();
+  public String stringVariation(String featureKey, LDContext context, String defaultValue) {
+    return evaluate(featureKey, context, LDValue.of(defaultValue), LDValueType.STRING).stringValue();
   }
 
   @Override
-  public LDValue jsonValueVariation(String featureKey, LDUser user, LDValue defaultValue) {
-    return evaluate(featureKey, user, LDValue.normalize(defaultValue), null);
+  public LDValue jsonValueVariation(String featureKey, LDContext context, LDValue defaultValue) {
+    return evaluate(featureKey, context, LDValue.normalize(defaultValue), null);
   }
 
   @Override
-  public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+  public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDContext context, boolean defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.of(defaultValue),
         LDValueType.BOOLEAN, true);
     return result.getAsBoolean();
   }
 
   @Override
-  public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+  public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDContext context, int defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.of(defaultValue),
         LDValueType.NUMBER, true);
     return result.getAsInteger();
   }
 
   @Override
-  public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+  public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDContext context, double defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.of(defaultValue),
         LDValueType.NUMBER, true);
     return result.getAsDouble();
   }
 
   @Override
-  public EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.of(defaultValue),
+  public EvaluationDetail<String> stringVariationDetail(String featureKey, LDContext context, String defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.of(defaultValue),
         LDValueType.STRING, true);
     return result.getAsString();
   }
 
   @Override
-  public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue) {
-    EvalResult result = evaluateInternal(featureKey, user, LDValue.normalize(defaultValue),
+  public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDContext context, LDValue defaultValue) {
+    EvalResult result = evaluateInternal(featureKey, context, LDValue.normalize(defaultValue),
         null, true);
     return result.getAnyType();
   }
@@ -470,24 +458,23 @@ public final class LDClient implements LDClientInterface {
     return false;
   }
 
-  private LDValue evaluate(String featureKey, LDUser user, LDValue defaultValue, LDValueType requireType) {
-    return evaluateInternal(featureKey, user, defaultValue, requireType, false).getValue();
+  private LDValue evaluate(String featureKey, LDContext context, LDValue defaultValue, LDValueType requireType) {
+    return evaluateInternal(featureKey, context, defaultValue, requireType, false).getValue();
   }
   
   private EvalResult errorResult(EvaluationReason.ErrorKind errorKind, final LDValue defaultValue) {
     return EvalResult.of(defaultValue, NO_VARIATION, EvaluationReason.error(errorKind));
   }
   
-  private EvalResult evaluateInternal(String featureKey, LDUser user, LDValue defaultValue,
+  private EvalResult evaluateInternal(String featureKey, LDContext context, LDValue defaultValue,
       LDValueType requireType, boolean withDetail) {
-    EventFactory eventFactory = withDetail ? eventFactoryWithReasons : eventFactoryDefault;
     if (!isInitialized()) {
       if (dataStore.isInitialized()) {
         evaluationLogger.warn("Evaluation called before client initialized for feature flag \"{}\"; using last known values from data store", featureKey);
       } else {
         evaluationLogger.warn("Evaluation called before client initialized for feature flag \"{}\"; data store unavailable, returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
-            EvaluationReason.ErrorKind.CLIENT_NOT_READY));
+        recordEvaluationUnknownFlagErrorEvent(featureKey, context, defaultValue,
+            EvaluationReason.ErrorKind.CLIENT_NOT_READY, withDetail);
         return errorResult(EvaluationReason.ErrorKind.CLIENT_NOT_READY, defaultValue);
       }
     }
@@ -497,20 +484,23 @@ public final class LDClient implements LDClientInterface {
       featureFlag = getFlag(dataStore, featureKey);
       if (featureFlag == null) {
         evaluationLogger.info("Unknown feature flag \"{}\"; returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
-            EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
+        recordEvaluationUnknownFlagErrorEvent(featureKey, context, defaultValue,
+            EvaluationReason.ErrorKind.FLAG_NOT_FOUND, withDetail);
         return errorResult(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, defaultValue);
       }
-      if (user == null || user.getKey() == null) {
-        evaluationLogger.warn("Null user or null user key when evaluating flag \"{}\"; returning default value", featureKey);
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
-            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
+      if (context == null) {
+        evaluationLogger.warn("Null context when evaluating flag \"{}\"; returning default value", featureKey);
+        recordEvaluationErrorEvent(featureFlag, context, defaultValue,
+            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, withDetail);
         return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
-      if (user.getKey().isEmpty()) {
-        evaluationLogger.warn("User key is blank. Flag evaluation will proceed, but the user will not be stored in LaunchDarkly");
+      if (!context.isValid()) {
+        evaluationLogger.warn("Invalid context when evaluating flag \"{}\"; returning default value: " + context.getError(), featureKey);
+        recordEvaluationErrorEvent(featureFlag, context, defaultValue,
+            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, withDetail);
+        return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
-      EvalResult evalResult = evaluator.evaluate(featureFlag, user,
+      EvalResult evalResult = evaluator.evaluate(featureFlag, context,
           withDetail ? prereqEvalsWithReasons : prereqEvalsDefault);
       if (evalResult.isNoVariation()) {
         evalResult = EvalResult.of(defaultValue, evalResult.getVariationIndex(), evalResult.getReason());
@@ -520,23 +510,22 @@ public final class LDClient implements LDClientInterface {
             !value.isNull() &&
             value.getType() != requireType) {
           evaluationLogger.error("Feature flag evaluation expected result as {}, but got {}", defaultValue.getType(), value.getType());
-          sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
-              EvaluationReason.ErrorKind.WRONG_TYPE));
+          recordEvaluationErrorEvent(featureFlag, context, defaultValue, EvaluationReason.ErrorKind.WRONG_TYPE, withDetail);
           return errorResult(EvaluationReason.ErrorKind.WRONG_TYPE, defaultValue);
         }
       }
-      sendFlagRequestEvent(eventFactory.newFeatureRequestEvent(featureFlag, user, evalResult, defaultValue));
+      recordEvaluationEvent(featureFlag, context, evalResult, defaultValue, withDetail, null);
       return evalResult;
     } catch (Exception e) {
       evaluationLogger.error("Encountered exception while evaluating feature flag \"{}\": {}", featureKey,
           LogValues.exceptionSummary(e));
       evaluationLogger.debug("{}", LogValues.exceptionTrace(e));
       if (featureFlag == null) {
-        sendFlagRequestEvent(eventFactory.newUnknownFeatureRequestEvent(featureKey, user, defaultValue,
-            EvaluationReason.ErrorKind.EXCEPTION));
+        recordEvaluationUnknownFlagErrorEvent(featureKey, context, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION, withDetail);
       } else {
-        sendFlagRequestEvent(eventFactory.newDefaultFeatureRequestEvent(featureFlag, user, defaultValue,
-            EvaluationReason.ErrorKind.EXCEPTION));
+        recordEvaluationErrorEvent(featureFlag, context, defaultValue,
+            EvaluationReason.ErrorKind.EXCEPTION, withDetail);
       }
       return EvalResult.of(defaultValue, NO_VARIATION, EvaluationReason.exception(e));
     }
@@ -562,6 +551,12 @@ public final class LDClient implements LDClientInterface {
     return dataSourceStatusProvider;
   }
   
+  /**
+   * Shuts down the client and releases any resources it is using.
+   * <p>
+   * Unless it is offline, the client will attempt to deliver any pending analytics events before
+   * closing.
+   */
   @Override
   public void close() throws IOException {
     baseLogger.info("Closing LaunchDarkly Client");
@@ -586,25 +581,20 @@ public final class LDClient implements LDClientInterface {
   }
 
   @Override
-  public String secureModeHash(LDUser user) {
-    if (user == null || user.getKey() == null) {
+  public String secureModeHash(LDContext context) {
+    if (context == null || !context.isValid()) {
       return null;
     }
     try {
       Mac mac = Mac.getInstance(HMAC_ALGORITHM);
       mac.init(new SecretKeySpec(sdkKey.getBytes(), HMAC_ALGORITHM));
-      return Hex.encodeHexString(mac.doFinal(user.getKey().getBytes("UTF8")));
+      return Hex.encodeHexString(mac.doFinal(context.getFullyQualifiedKey().getBytes("UTF8")));
     } catch (InvalidKeyException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
       // COVERAGE: there is no way to cause these errors in a unit test.
       baseLogger.error("Could not generate secure mode hash: {}", LogValues.exceptionSummary(e));
       baseLogger.debug("{}", LogValues.exceptionTrace(e));
     }
     return null;
-  }
-
-  @Override
-  public void alias(LDUser user, LDUser previousUser) {
-    this.eventProcessor.sendEvent(eventFactoryDefault.newAliasEvent(user, previousUser));
   }
 
   /**
@@ -614,6 +604,79 @@ public final class LDClient implements LDClientInterface {
   @Override
   public String version() {
     return Version.SDK_VERSION;
+  }
+  
+  private void recordEvaluationUnknownFlagErrorEvent(
+      String flagKey,
+      LDContext context,
+      LDValue defaultValue,
+      EvaluationReason.ErrorKind errorKind,
+      boolean withReasons
+      ) {
+    eventProcessor.recordEvaluationEvent(
+        context,
+        flagKey,
+        NO_VERSION,
+        NO_VARIATION,
+        defaultValue,
+        withReasons ? EvaluationReason.error(errorKind) : null,
+        defaultValue,
+        null,
+        false,
+        null
+        );
+  }
+
+  private void recordEvaluationErrorEvent(
+      FeatureFlag flag,
+      LDContext context,
+      LDValue defaultValue,
+      EvaluationReason.ErrorKind errorKind,
+      boolean withReasons
+      ) {
+    eventProcessor.recordEvaluationEvent(
+        context,
+        flag.getKey(),
+        flag.getVersion(),
+        NO_VARIATION,
+        defaultValue,
+        withReasons ? EvaluationReason.error(errorKind) : null,
+        defaultValue,
+        null,
+        flag.isTrackEvents(),
+        flag.getDebugEventsUntilDate()
+        );
+  }
+
+  private void recordEvaluationEvent(
+      FeatureFlag flag,
+      LDContext context,
+      EvalResult result,
+      LDValue defaultValue,
+      boolean withReasons,
+      String prereqOf
+      ) {
+    eventProcessor.recordEvaluationEvent(
+        context,
+        flag.getKey(),
+        flag.getVersion(),
+        result.getVariationIndex(),
+        result.getValue(),
+        (withReasons || result.isForceReasonTracking()) ? result.getReason() : null,
+        defaultValue,
+        prereqOf,
+        flag.isTrackEvents() || result.isForceReasonTracking(),
+        flag.getDebugEventsUntilDate()
+        );
+  }
+
+  private Evaluator.PrerequisiteEvaluationSink makePrerequisiteEventSender(boolean withReasons) {
+    return new Evaluator.PrerequisiteEvaluationSink() {
+      @Override
+      public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context, EvalResult result) {
+        recordEvaluationEvent(flag, context, result, LDValue.ofNull(), withReasons, prereqOfFlag.getKey());
+      }
+    };
   }
   
   // This executor is used for a variety of SDK tasks such as flag change events, checking the data store
@@ -628,16 +691,5 @@ public final class LDClient implements LDClientInterface {
         .setPriority(config.threadPriority)
         .build();
     return Executors.newSingleThreadScheduledExecutor(threadFactory);
-  }
-  
-  private Evaluator.PrerequisiteEvaluationSink makePrerequisiteEventSender(boolean withReasons) {
-    final EventFactory factory = withReasons ? eventFactoryWithReasons : eventFactoryDefault; 
-    return new Evaluator.PrerequisiteEvaluationSink() {
-      @Override
-      public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDUser user, EvalResult result) {
-        eventProcessor.sendEvent(
-            factory.newPrerequisiteFeatureRequestEvent(flag, user, result, prereqOfFlag));
-      }
-    };
   }
 }

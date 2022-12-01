@@ -1,11 +1,12 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.logging.Logs;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore;
+import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.DataStoreUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -21,99 +22,95 @@ import java.util.concurrent.ScheduledExecutorService;
  * implementation of {@link ClientContext}, which might have been created for instance in application
  * test code).
  */
-final class ClientContextImpl implements ClientContext {
+final class ClientContextImpl extends ClientContext {
   private static volatile ScheduledExecutorService fallbackSharedExecutor = null;
   
-  private final BasicConfiguration basicConfiguration;
-  private final HttpConfiguration httpConfiguration;
-  private final LoggingConfiguration loggingConfiguration;
   final ScheduledExecutorService sharedExecutor;
-  final DiagnosticAccumulator diagnosticAccumulator;
-  final DiagnosticEvent.Init diagnosticInitEvent;
+  final DiagnosticStore diagnosticStore;
+  final DataSourceUpdateSink dataSourceUpdateSink;
+  final DataStoreUpdateSink dataStoreUpdateSink;
 
   private ClientContextImpl(
-      BasicConfiguration basicConfiguration,
-      HttpConfiguration httpConfiguration,
-      LoggingConfiguration loggingConfiguration,
+      ClientContext baseContext,
       ScheduledExecutorService sharedExecutor,
-      DiagnosticAccumulator diagnosticAccumulator,
-      DiagnosticEvent.Init diagnosticInitEvent
+      DiagnosticStore diagnosticStore
   ) {
-    this.basicConfiguration = basicConfiguration;
-    this.httpConfiguration = httpConfiguration;
-    this.loggingConfiguration = loggingConfiguration;
+    super(baseContext.getSdkKey(), baseContext.getApplicationInfo(), baseContext.getHttp(),
+        baseContext.getLogging(), baseContext.isOffline(), baseContext.getServiceEndpoints(),
+        baseContext.getThreadPriority());
     this.sharedExecutor = sharedExecutor;
-    this.diagnosticAccumulator = diagnosticAccumulator;
-    this.diagnosticInitEvent = diagnosticInitEvent;
+    this.diagnosticStore = diagnosticStore;
+    this.dataSourceUpdateSink = null;
+    this.dataStoreUpdateSink = null;
   }
 
-  ClientContextImpl(
+  private ClientContextImpl(
+      ClientContextImpl copyFrom,
+      DataSourceUpdateSink dataSourceUpdateSink,
+      DataStoreUpdateSink dataStoreUpdateSink
+      ) {
+    super(copyFrom);
+    this.dataSourceUpdateSink = dataSourceUpdateSink;
+    this.dataStoreUpdateSink = dataStoreUpdateSink;
+    this.diagnosticStore = copyFrom.diagnosticStore;
+    this.sharedExecutor = copyFrom.sharedExecutor;
+  }
+  
+  ClientContextImpl withDataSourceUpdateSink(DataSourceUpdateSink newDataSourceUpdateSink) {
+    return new ClientContextImpl(this, newDataSourceUpdateSink, this.dataStoreUpdateSink);
+  }
+  
+  ClientContextImpl withDataStoreUpdateSink(DataStoreUpdateSink newDataStoreUpdateSink) {
+    return new ClientContextImpl(this, this.dataSourceUpdateSink, newDataStoreUpdateSink);
+  }
+  
+  @Override
+  public DataSourceUpdateSink getDataSourceUpdateSink() {
+    return dataSourceUpdateSink;
+  }
+  
+  @Override
+  public DataStoreUpdateSink getDataStoreUpdateSink() {
+    return dataStoreUpdateSink;
+  }
+  
+  static ClientContextImpl fromConfig(
       String sdkKey,
-      LDConfig configuration,
-      ScheduledExecutorService sharedExecutor,
-      DiagnosticAccumulator diagnosticAccumulator
-  ) {
-    // There is some temporarily over-elaborate logic here because the component factory interfaces can't
-    // be updated to make the dependencies more sensible till the next major version.
-    BasicConfiguration tempBasic = new BasicConfiguration(sdkKey, configuration.offline, configuration.threadPriority,
-        configuration.applicationInfo, configuration.serviceEndpoints, LDLogger.none());
-    this.loggingConfiguration = configuration.loggingConfigFactory.createLoggingConfiguration(tempBasic);
-    LDLogger baseLogger = LDLogger.withAdapter(
-        loggingConfiguration.getLogAdapter() == null ? Logs.none() : loggingConfiguration.getLogAdapter(),
-        loggingConfiguration.getBaseLoggerName() == null ? Loggers.BASE_LOGGER_NAME :
-          loggingConfiguration.getBaseLoggerName()
-        );
+      LDConfig config,
+      ScheduledExecutorService sharedExecutor
+      ) {
+    ClientContext minimalContext = new ClientContext(sdkKey, config.applicationInfo, null,
+        null, config.offline, config.serviceEndpoints, config.threadPriority);
+    LoggingConfiguration loggingConfig = config.logging.build(minimalContext);
     
-    this.basicConfiguration = new BasicConfiguration(
-        sdkKey,
-        configuration.offline,
-        configuration.threadPriority,
-        configuration.applicationInfo,
-        configuration.serviceEndpoints,
-        baseLogger
-        );
+    ClientContext contextWithLogging = new ClientContext(sdkKey, config.applicationInfo, null,
+        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
+    HttpConfiguration httpConfig = config.http.build(contextWithLogging);
     
-    this.httpConfiguration = configuration.httpConfigFactory.createHttpConfiguration(basicConfiguration);
- 
-    
-    if (this.httpConfiguration.getProxy() != null) {
-      baseLogger.info("Using proxy: {} {} authentication.",
-          this.httpConfiguration.getProxy(),
-          this.httpConfiguration.getProxyAuthentication() == null ? "without" : "with");
+    if (httpConfig.getProxy() != null) {
+      contextWithLogging.getBaseLogger().info("Using proxy: {} {} authentication.",
+          httpConfig.getProxy(),
+          httpConfig.getProxyAuthentication() == null ? "without" : "with");
     }
     
-    this.sharedExecutor = sharedExecutor;
+    ClientContext contextWithHttpAndLogging = new ClientContext(sdkKey, config.applicationInfo, httpConfig,
+        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
     
-    if (!configuration.diagnosticOptOut && diagnosticAccumulator != null) {
-      this.diagnosticAccumulator = diagnosticAccumulator;
-      this.diagnosticInitEvent = new DiagnosticEvent.Init(
-          diagnosticAccumulator.dataSinceDate,
-          diagnosticAccumulator.diagnosticId,
-          configuration,
-          basicConfiguration,
-          httpConfiguration
-          );
-    } else {
-      this.diagnosticAccumulator = null;
-      this.diagnosticInitEvent = null;
+    // Create a diagnostic store only if diagnostics are enabled. Diagnostics are enabled as long as 1. the
+    // opt-out property was not set in the config, and 2. we are using the standard event processor.
+    DiagnosticStore diagnosticStore = null;
+    if (!config.diagnosticOptOut && config.events instanceof EventProcessorBuilder) {
+      diagnosticStore = new DiagnosticStore(
+          ServerSideDiagnosticEvents.getSdkDiagnosticParams(contextWithHttpAndLogging, config));
     }
+    
+    return new ClientContextImpl(
+        contextWithHttpAndLogging,
+        sharedExecutor,
+        diagnosticStore
+        );
   }
 
-  @Override
-  public BasicConfiguration getBasic() {
-    return basicConfiguration;
-  }
-  
-  @Override
-  public HttpConfiguration getHttp() {
-    return httpConfiguration;
-  }
-
-  @Override
-  public LoggingConfiguration getLogging() {
-    return loggingConfiguration;
-  }
-  
   /**
    * This mechanism is a convenience for internal components to access the package-private fields of the
    * context if it is a ClientContextImpl, and to receive null values for those fields if it is not.
@@ -130,13 +127,6 @@ final class ClientContextImpl implements ClientContext {
         fallbackSharedExecutor = Executors.newSingleThreadScheduledExecutor();
       }
     }
-    return new ClientContextImpl(
-        context.getBasic(),
-        context.getHttp(),
-        context.getLogging(),
-        fallbackSharedExecutor,
-        null,
-        null
-        );
+    return new ClientContextImpl(context, fallbackSharedExecutor, null);
   }
 }

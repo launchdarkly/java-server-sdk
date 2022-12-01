@@ -11,18 +11,20 @@ import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.UnsuccessfulResponseException;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore;
+import com.launchdarkly.sdk.internal.http.HttpHelpers;
+import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.StreamProcessorEvents.DeleteData;
 import com.launchdarkly.sdk.server.StreamProcessorEvents.PatchData;
 import com.launchdarkly.sdk.server.StreamProcessorEvents.PutData;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -34,11 +36,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
-import static com.launchdarkly.sdk.server.Util.checkIfErrorIsRecoverableAndLog;
-import static com.launchdarkly.sdk.server.Util.concatenateUriPath;
-import static com.launchdarkly.sdk.server.Util.configureHttpClientBuilder;
-import static com.launchdarkly.sdk.server.Util.getHeadersBuilderFor;
-import static com.launchdarkly.sdk.server.Util.httpErrorDescription;
+import static com.launchdarkly.sdk.internal.http.HttpErrors.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.internal.http.HttpErrors.httpErrorDescription;
 
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
@@ -75,12 +74,12 @@ final class StreamProcessor implements DataSource {
   private static final String ERROR_CONTEXT_MESSAGE = "in stream connection";
   private static final String WILL_RETRY_MESSAGE = "will retry";
 
-  private final DataSourceUpdates dataSourceUpdates;
-  private final HttpConfiguration httpConfig;
+  private final DataSourceUpdateSink dataSourceUpdates;
+  private final HttpProperties httpProperties;
   private final Headers headers;
   @VisibleForTesting final URI streamUri;
   @VisibleForTesting final Duration initialReconnectDelay;
-  private final DiagnosticAccumulator diagnosticAccumulator;
+  private final DiagnosticStore diagnosticAccumulator;
   private final int threadPriority;
   private final DataStoreStatusProvider.StatusListener statusListener;
   private volatile EventSource es;
@@ -92,23 +91,23 @@ final class StreamProcessor implements DataSource {
   ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
   
   StreamProcessor(
-      HttpConfiguration httpConfig,
-      DataSourceUpdates dataSourceUpdates,
+      HttpProperties httpProperties,
+      DataSourceUpdateSink dataSourceUpdates,
       int threadPriority,
-      DiagnosticAccumulator diagnosticAccumulator,
+      DiagnosticStore diagnosticAccumulator,
       URI streamUri,
       Duration initialReconnectDelay,
       LDLogger logger
       ) {
     this.dataSourceUpdates = dataSourceUpdates;
-    this.httpConfig = httpConfig;
+    this.httpProperties = httpProperties;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.threadPriority = threadPriority;
     this.streamUri = streamUri;
     this.initialReconnectDelay = initialReconnectDelay;
     this.logger = logger;
-    
-    this.headers = getHeadersBuilderFor(httpConfig)
+
+    this.headers = httpProperties.toHeadersBuilder()
         .add("Accept", "text/event-stream")
         .build();
     
@@ -175,7 +174,7 @@ final class StreamProcessor implements DataSource {
     };
 
     EventHandler handler = new StreamEventHandler(initFuture);
-    URI endpointUri = concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
+    URI endpointUri = HttpHelpers.concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
 
     // Notes about the configuration of the EventSource below:
     //
@@ -195,9 +194,10 @@ final class StreamProcessor implements DataSource {
         .readBufferSize(5000)
         .streamEventData(true)
         .expectFields("event")
+        .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
-          public void configure(OkHttpClient.Builder builder) {
-            configureHttpClientBuilder(httpConfig, builder);
+          public void configure(OkHttpClient.Builder clientBuilder) {
+            httpProperties.applyToHttpClientBuilder(clientBuilder);
           }
         })
         .connectionErrorHandler(wrappedConnectionErrorHandler)

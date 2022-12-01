@@ -1,7 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.google.gson.annotations.JsonAdapter;
-import com.launchdarkly.sdk.server.interfaces.SerializationException;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import org.junit.Test;
 

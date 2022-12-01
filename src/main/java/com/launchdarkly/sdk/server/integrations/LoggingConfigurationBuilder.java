@@ -4,7 +4,8 @@ import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.LDLogLevel;
 import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
 import java.time.Duration;
 
@@ -13,7 +14,7 @@ import java.time.Duration;
  * <p>
  * If you want to set non-default values for any of these properties, create a builder with
  * {@link Components#logging()}, change its properties with the methods of this class, and pass it
- * to {@link com.launchdarkly.sdk.server.LDConfig.Builder#logging(LoggingConfigurationFactory)}:
+ * to {@link com.launchdarkly.sdk.server.LDConfig.Builder#logging(ComponentConfigurer)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .logging(
@@ -27,7 +28,7 @@ import java.time.Duration;
  * 
  * @since 5.0.0
  */
-public abstract class LoggingConfigurationBuilder implements LoggingConfigurationFactory {
+public abstract class LoggingConfigurationBuilder implements ComponentConfigurer<LoggingConfiguration> {
   /**
    * The default value for {@link #logDataSourceOutageAsErrorAfter(Duration)}: one minute.
    */

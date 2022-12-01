@@ -6,18 +6,22 @@ import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.TestComponents.MockDataStoreStatusProvider;
 import com.launchdarkly.sdk.server.TestUtil.ActionCanThrowAnyException;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.testhelpers.ConcurrentHelpers;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestContext;
+import com.launchdarkly.testhelpers.tcptest.TcpHandler;
+import com.launchdarkly.testhelpers.tcptest.TcpHandlers;
+import com.launchdarkly.testhelpers.tcptest.TcpServer;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -32,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataStoreThatThrowsException;
-import static com.launchdarkly.sdk.server.TestComponents.defaultHttpConfiguration;
+import static com.launchdarkly.sdk.server.TestComponents.defaultHttpProperties;
 import static com.launchdarkly.sdk.server.TestComponents.sharedExecutor;
 import static com.launchdarkly.sdk.server.TestUtil.assertDataSetEquals;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
@@ -61,7 +65,7 @@ public class PollingProcessorTest extends BaseTest {
   }
 
   private PollingProcessor makeProcessor(URI baseUri, Duration pollInterval) {
-    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpConfiguration(), baseUri, testLogger);
+    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpProperties(), baseUri, testLogger);
     return new PollingProcessor(requestor, dataSourceUpdates, sharedExecutor, pollInterval, testLogger);
   }
 
@@ -94,8 +98,8 @@ public class PollingProcessorTest extends BaseTest {
   
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
-    DataSourceFactory f = Components.pollingDataSource();
-    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, baseConfig().build()), null)) {
+    ComponentConfigurer<DataSource> f = Components.pollingDataSource();
+    try (PollingProcessor pp = (PollingProcessor)f.build(clientContext(SDK_KEY, baseConfig().build()))) {
       assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(StandardEndpoints.DEFAULT_POLLING_BASE_URI));
       assertThat(pp.pollInterval, equalTo(PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL));
     }
@@ -103,12 +107,9 @@ public class PollingProcessorTest extends BaseTest {
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
-    URI uri = URI.create("http://fake");
-    DataSourceFactory f = Components.pollingDataSource()
-        .baseURI(uri)
+    ComponentConfigurer<DataSource> f = Components.pollingDataSource()
         .pollInterval(LENGTHY_INTERVAL);
-    try (PollingProcessor pp = (PollingProcessor)f.createDataSource(clientContext(SDK_KEY, baseConfig().build()), null)) {
-      assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(uri));
+    try (PollingProcessor pp = (PollingProcessor)f.build(clientContext(SDK_KEY, baseConfig().build()))) {
       assertThat(pp.pollInterval, equalTo(LENGTHY_INTERVAL));
     }
   }
@@ -154,22 +155,25 @@ public class PollingProcessorTest extends BaseTest {
     BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
     dataSourceUpdates.statusBroadcaster.register(statuses::add);
 
-    Handler errorThenSuccess = Handlers.sequential(
-        Handlers.malformedResponse(), // this will cause an IOException
-        new TestPollHandler() // it should time out before reaching this
-        );
+    Handler successHandler = new TestPollHandler(); // it should time out before reaching this
     
-    try (HttpServer server = HttpServer.start(errorThenSuccess)) {
-      try (PollingProcessor pollingProcessor = makeProcessor(server.getUri(), LENGTHY_INTERVAL)) {
-        Future<Void> initFuture = pollingProcessor.start();
-        ConcurrentHelpers.assertFutureIsNotCompleted(initFuture, 200, TimeUnit.MILLISECONDS);
-        assertFalse(initFuture.isDone());
-        assertFalse(pollingProcessor.isInitialized());
-        assertEquals(0, dataSourceUpdates.receivedInits.size());
-        
-        Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
-        assertNotNull(status.getLastError());
-        assertEquals(ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
+    try (HttpServer server = HttpServer.start(successHandler)) {
+      TcpHandler errorThenSuccess = TcpHandlers.sequential(
+          TcpHandlers.noResponse(), // this will cause an IOException due to closing the connection without a response
+          TcpHandlers.forwardToPort(server.getPort())
+          );
+      try (TcpServer forwardingServer = TcpServer.start(errorThenSuccess)) {
+        try (PollingProcessor pollingProcessor = makeProcessor(forwardingServer.getHttpUri(), LENGTHY_INTERVAL)) {
+          Future<Void> initFuture = pollingProcessor.start();
+          ConcurrentHelpers.assertFutureIsNotCompleted(initFuture, 200, TimeUnit.MILLISECONDS);
+          assertFalse(initFuture.isDone());
+          assertFalse(pollingProcessor.isInitialized());
+          assertEquals(0, dataSourceUpdates.receivedInits.size());
+          
+          Status status = requireDataSourceStatus(statuses, State.INITIALIZING);
+          assertNotNull(status.getLastError());
+          assertEquals(ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
+        }
       }
     }
   }

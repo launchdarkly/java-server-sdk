@@ -3,37 +3,39 @@ package com.launchdarkly.sdk.server;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.Logs;
-import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.AttributeRef;
+import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDContext;
+import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore;
+import com.launchdarkly.sdk.internal.events.Event;
+import com.launchdarkly.sdk.internal.events.EventsConfiguration;
+import com.launchdarkly.sdk.internal.events.DiagnosticStore.SdkDiagnosticParams;
+import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider.CacheStats;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
-import com.launchdarkly.sdk.server.interfaces.Event;
-import com.launchdarkly.sdk.server.interfaces.EventProcessor;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
-import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -47,21 +49,30 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @SuppressWarnings("javadoc")
 public class TestComponents {
-  static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
+  public static ScheduledExecutorService sharedExecutor = newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("TestComponents-sharedExecutor-%d").build());
-  
+
   public static LDLogger nullLogger = LDLogger.withAdapter(Logs.none(), "");
+
+  public static DiagnosticStore basicDiagnosticStore() {
+    return new DiagnosticStore(new SdkDiagnosticParams("sdk_key", "sdk", "1.0.0", "Java", null, null, null));
+  }
   
-  public static ClientContext clientContext(final String sdkKey, final LDConfig config) {
-    return new ClientContextImpl(sdkKey, config, sharedExecutor, null);
+  public static ClientContextImpl clientContext(String sdkKey, LDConfig config) {
+    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor);
   }
 
-  public static ClientContext clientContext(final String sdkKey, final LDConfig config, DiagnosticAccumulator diagnosticAccumulator) {
-    return new ClientContextImpl(sdkKey, config, sharedExecutor, diagnosticAccumulator);
+  public static ClientContextImpl clientContext(String sdkKey, LDConfig config,
+      DataSourceUpdateSink dataSourceUpdateSink) {
+    return ClientContextImpl.fromConfig(sdkKey, config, sharedExecutor).withDataSourceUpdateSink(dataSourceUpdateSink);
   }
 
   public static HttpConfiguration defaultHttpConfiguration() {
     return clientContext("", LDConfig.DEFAULT).getHttp();
+  }
+
+  public static HttpProperties defaultHttpProperties() {
+    return ComponentsImpl.toHttpProperties(defaultHttpConfiguration());
   }
   
   public static DataStore dataStoreThatThrowsException(RuntimeException e) {
@@ -77,7 +88,7 @@ public class TestComponents {
   }
   
   static EventsConfiguration defaultEventsConfig() {
-    return makeEventsConfig(false, false, null);
+    return makeEventsConfig(false, null);
   }
 
   public static DataSource failedDataSource() {
@@ -94,36 +105,26 @@ public class TestComponents {
     return store;
   }
 
-  static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate, boolean inlineUsersInEvents,
-      Set<UserAttribute> privateAttributes) {
+  static EventsConfiguration makeEventsConfig(boolean allAttributesPrivate,
+      Collection<AttributeRef> privateAttributes) {
     return new EventsConfiguration(
         allAttributesPrivate,
         0,
         null,
+        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL.toMillis(),
         null,
-        EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL,
-        inlineUsersInEvents,
-        privateAttributes,
+        null,
         0,
-        EventProcessorBuilder.DEFAULT_USER_KEYS_FLUSH_INTERVAL,
-        EventProcessorBuilder.DEFAULT_DIAGNOSTIC_RECORDING_INTERVAL
+        null,
+        EventProcessorBuilder.DEFAULT_FLUSH_INTERVAL.toMillis(),
+        false,
+        false,
+        privateAttributes
         );
   }
 
-  public static DataSourceFactory specificDataSource(final DataSource up) {
-    return (context, dataSourceUpdates) -> up;
-  }
-
-  public static DataStoreFactory specificDataStore(final DataStore store) {
-    return (context, statusUpdater) -> store;
-  }
-
-  public static PersistentDataStoreFactory specificPersistentDataStore(final PersistentDataStore store) {
-    return context -> store;
-  }
-  
-  public static EventProcessorFactory specificEventProcessor(final EventProcessor ep) {
-    return context -> ep;
+  public static <T> ComponentConfigurer<T> specificComponent(final T instance) {
+    return context -> instance;
   }
 
   public static class TestEventProcessor implements EventProcessor {
@@ -131,16 +132,31 @@ public class TestComponents {
     volatile int flushCount;
   
     @Override
-    public void close() throws IOException {}
-  
-    @Override
-    public void sendEvent(Event e) {
-      events.add(e);
-    }
-  
-    @Override
     public void flush() {
       flushCount++;
+    }
+
+    @Override
+    public void close() throws IOException {
+    }
+
+    @Override
+    public void recordEvaluationEvent(LDContext context, String flagKey, int flagVersion, int variation, LDValue value,
+        EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey, boolean requireFullEvent,
+        Long debugEventsUntilDate) {
+      events.add(new Event.FeatureRequest(System.currentTimeMillis(), flagKey, context, flagVersion,
+          variation, value, defaultValue, reason, prerequisiteOfFlagKey, requireFullEvent, debugEventsUntilDate, false));
+    }
+
+    @Override
+    public void recordIdentifyEvent(LDContext context) {
+      events.add(new Event.Identify(System.currentTimeMillis(), context));
+    }
+
+
+    @Override
+    public void recordCustomEvent(LDContext context, String eventKey, LDValue data, Double metricValue) {
+      events.add(new Event.Custom(System.currentTimeMillis(), eventKey, context, data, metricValue));
     }
   }
 
@@ -157,7 +173,7 @@ public class TestComponents {
     }          
   };
   
-  public static class MockDataSourceUpdates implements DataSourceUpdates {
+  public static class MockDataSourceUpdates implements DataSourceUpdateSink {
     public static class UpsertParams {
       public final DataKind kind;
       public final String key;
@@ -236,18 +252,18 @@ public class TestComponents {
     }
   }
   
-  public static class DataStoreFactoryThatExposesUpdater implements DataStoreFactory {
-    public volatile DataStoreUpdates dataStoreUpdates;
-    private final DataStoreFactory wrappedFactory;
+  public static class ContextCapturingFactory<T> implements ComponentConfigurer<T> {
+    public volatile ClientContext clientContext;
+    private final ComponentConfigurer<T> wrappedFactory;
 
-    public DataStoreFactoryThatExposesUpdater(DataStoreFactory wrappedFactory) {
+    public ContextCapturingFactory(ComponentConfigurer<T> wrappedFactory) {
       this.wrappedFactory = wrappedFactory;
     }
     
     @Override
-    public DataStore createDataStore(ClientContext context, DataStoreUpdates dataStoreUpdates) {
-      this.dataStoreUpdates = dataStoreUpdates;
-      return wrappedFactory.createDataStore(context, dataStoreUpdates);
+    public T build(ClientContext context) {
+      this.clientContext = context;
+      return wrappedFactory.build(context);
     }
   }
   

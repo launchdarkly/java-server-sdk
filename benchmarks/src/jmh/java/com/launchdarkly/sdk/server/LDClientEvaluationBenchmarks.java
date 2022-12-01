@@ -1,10 +1,10 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDUser;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
@@ -13,7 +13,7 @@ import org.openjdk.jmh.annotations.State;
 import java.util.Random;
 
 import static com.launchdarkly.sdk.server.TestComponents.initedDataStore;
-import static com.launchdarkly.sdk.server.TestComponents.specificDataStore;
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static com.launchdarkly.sdk.server.TestValues.BOOLEAN_FLAG_KEY;
 import static com.launchdarkly.sdk.server.TestValues.CLAUSE_MATCH_VALUE_COUNT;
@@ -22,8 +22,8 @@ import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_PREREQ_KEY;
 import static com.launchdarkly.sdk.server.TestValues.FLAG_WITH_TARGET_LIST_KEY;
 import static com.launchdarkly.sdk.server.TestValues.INT_FLAG_KEY;
 import static com.launchdarkly.sdk.server.TestValues.JSON_FLAG_KEY;
-import static com.launchdarkly.sdk.server.TestValues.NOT_MATCHED_VALUE_USER;
-import static com.launchdarkly.sdk.server.TestValues.NOT_TARGETED_USER_KEY;
+import static com.launchdarkly.sdk.server.TestValues.NOT_MATCHED_VALUE_CONTEXT;
+import static com.launchdarkly.sdk.server.TestValues.NOT_TARGETED_CONTEXT_KEY;
 import static com.launchdarkly.sdk.server.TestValues.SDK_KEY;
 import static com.launchdarkly.sdk.server.TestValues.STRING_FLAG_KEY;
 import static com.launchdarkly.sdk.server.TestValues.TARGETED_USER_KEYS;
@@ -41,7 +41,7 @@ public class LDClientEvaluationBenchmarks {
   public static class BenchmarkInputs {
     // Initialization of the things in BenchmarkInputs does not count as part of a benchmark.
     final LDClientInterface client;
-    final LDUser basicUser;
+    final LDContext basicUser;
     final Random random;
 
     public BenchmarkInputs() {
@@ -51,14 +51,14 @@ public class LDClientEvaluationBenchmarks {
       }
 
       LDConfig config = new LDConfig.Builder()
-        .dataStore(specificDataStore(dataStore))
+        .dataStore(specificComponent(dataStore))
         .events(Components.noEvents())
         .dataSource(Components.externalUpdatesOnly())
         .logging(Components.noLogging())
         .build();
       client = new LDClient(SDK_KEY, config);
 
-      basicUser = new LDUser("userkey");
+      basicUser = LDContext.create("userkey");
 
       random = new Random();
     }
@@ -127,13 +127,13 @@ public class LDClientEvaluationBenchmarks {
   @Benchmark
   public void userFoundInTargetList(BenchmarkInputs inputs) throws Exception {
     String userKey = TARGETED_USER_KEYS.get(inputs.random.nextInt(TARGETED_USER_KEYS.size()));
-    boolean result = inputs.client.boolVariation(FLAG_WITH_TARGET_LIST_KEY, new LDUser(userKey), false);
+    boolean result = inputs.client.boolVariation(FLAG_WITH_TARGET_LIST_KEY, LDContext.create(userKey), false);
     assertTrue(result);
   }
 
   @Benchmark
   public void userNotFoundInTargetList(BenchmarkInputs inputs) throws Exception {
-    boolean result = inputs.client.boolVariation(FLAG_WITH_TARGET_LIST_KEY, new LDUser(NOT_TARGETED_USER_KEY), false);
+    boolean result = inputs.client.boolVariation(FLAG_WITH_TARGET_LIST_KEY, LDContext.create(NOT_TARGETED_CONTEXT_KEY), false);
     assertFalse(result);
   }
 
@@ -146,14 +146,14 @@ public class LDClientEvaluationBenchmarks {
   @Benchmark
   public void userValueFoundInClauseList(BenchmarkInputs inputs) throws Exception {
     int i = inputs.random.nextInt(CLAUSE_MATCH_VALUE_COUNT);
-    LDUser user = TestValues.CLAUSE_MATCH_VALUE_USERS.get(i);
-    boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, user, false);
+    LDContext context = TestValues.CLAUSE_MATCH_VALUE_CONTEXTS.get(i);
+    boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, context, false);
     assertTrue(result);
   }
   
   @Benchmark
   public void userValueNotFoundInClauseList(BenchmarkInputs inputs) throws Exception {
-    boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, NOT_MATCHED_VALUE_USER, false);
+    boolean result = inputs.client.boolVariation(FLAG_WITH_MULTI_VALUE_CLAUSE_KEY, NOT_MATCHED_VALUE_CONTEXT, false);
     assertFalse(result);
   }
 }

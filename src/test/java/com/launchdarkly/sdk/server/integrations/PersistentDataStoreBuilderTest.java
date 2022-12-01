@@ -1,7 +1,8 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder.StaleValuesPolicy;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 
 import org.junit.Test;
 
@@ -16,11 +17,11 @@ import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class PersistentDataStoreBuilderTest {
-  private static final PersistentDataStoreFactory factory = context -> null;
+  private static final ComponentConfigurer<PersistentDataStore> factory = context -> null;
   
   @Test
   public void factory() {
-    assertSame(factory, persistentDataStore(factory).persistentDataStoreFactory);
+    assertSame(factory, persistentDataStore(factory).persistentDataStoreConfigurer);
   }
   
   @Test

@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.logging.LDLogAdapter;
+import com.launchdarkly.logging.LDLogLevel;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogCapture;
 import com.launchdarkly.logging.Logs;
@@ -36,7 +37,7 @@ public class BaseTest {
     return new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
         .events(Components.noEvents())
-        .logging(Components.logging(testLogging));
+        .logging(Components.logging(testLogging).level(LDLogLevel.DEBUG));
   }
   
   class DumpLogIfTestFails extends TestWatcher {

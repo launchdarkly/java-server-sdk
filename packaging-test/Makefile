@@ -50,9 +50,11 @@ RUN_JARS_test-thin-jar=$(TEST_APP_JAR) $(SDK_THIN_JAR) \
 	$(shell ls $(TEMP_DIR)/dependencies-internal/*.jar 2>/dev/null) \
 	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar 2>/dev/null)
 
+# grep variants with lookahead aren't universally available
+PGREP=$(if $(shell echo a | grep -P . 2>/dev/null),grep -P,$(if $(shell which gxgrep),ggrep -P,echo This makefile requires grep -P or ggrep -P && exit 1;))
 classes_prepare=echo "  checking $(1)..." && $(JAR) tf $(1) | grep '\.class$$' >$(TEMP_OUTPUT)
-classes_should_contain=echo "    should contain $(2)" && grep "^$(1)/.*\.class$$" $(TEMP_OUTPUT) >/dev/null
-classes_should_not_contain=echo "    should not contain $(2)" && ! grep "^$(1)/.*\.class$$" $(TEMP_OUTPUT)
+classes_should_contain=echo "    should contain $(2)" && $(PGREP) "^$(1)/.*\.class$$" $(TEMP_OUTPUT) >/dev/null
+classes_should_not_contain=echo "    should not contain $(2)" && ! $(PGREP) "^$(1)/.*\.class$$" $(TEMP_OUTPUT)
 should_not_have_module_info=echo "    should not have module-info.class" && ! grep "module-info\.class$$" $(TEMP_OUTPUT)
 
 verify_sdk_classes= \
@@ -89,7 +91,7 @@ test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
 	@$(call verify_sdk_classes)
 	@$(call classes_should_contain,com/launchdarkly/logging,unshaded com.launchdarkly.logging classes)
 	@$(call classes_should_contain,org/slf4j,unshaded SLF4j)
-	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/launchdarkly/sdk,shaded SDK classes)
+	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/launchdarkly/sdk(?!/internal),shaded non-internal SDK classes)
 	@$(call classes_should_contain,com/launchdarkly/shaded/com/google/gson,shaded Gson)
 	@$(call classes_should_not_contain,com/google/gson,unshaded Gson)
 	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
@@ -103,7 +105,7 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call classes_prepare,$<)
 	@$(call verify_sdk_classes)
 	@$(call classes_should_contain,com/launchdarkly/logging,unshaded com.launchdarkly.logging classes)
-	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/launchdarkly/sdk,shaded SDK classes)
+	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/launchdarkly/sdk(?!/internal),shaded non-internal SDK classes)
 	@$(call classes_should_contain,com/launchdarkly/shaded/com/google/gson,shaded Gson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
 	@$(call classes_should_not_contain,com/google/gson,unshaded Gson)

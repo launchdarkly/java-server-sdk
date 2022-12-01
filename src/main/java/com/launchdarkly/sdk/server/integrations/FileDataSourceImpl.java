@@ -9,15 +9,15 @@ import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FileDataEx
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFactory;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileParser;
 import com.launchdarkly.sdk.server.integrations.FileDataSourceParsing.FlagFileRep;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
-import com.launchdarkly.sdk.server.interfaces.DataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -52,7 +52,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
  * optionally whenever files change.
  */
 final class FileDataSourceImpl implements DataSource {
-  private final DataSourceUpdates dataSourceUpdates;
+  private final DataSourceUpdateSink dataSourceUpdates;
   private final DataLoader dataLoader;
   private final FileData.DuplicateKeysHandling duplicateKeysHandling;
   private final AtomicBoolean inited = new AtomicBoolean(false);
@@ -60,7 +60,7 @@ final class FileDataSourceImpl implements DataSource {
   private final LDLogger logger;
   
   FileDataSourceImpl(
-      DataSourceUpdates dataSourceUpdates,
+      DataSourceUpdateSink dataSourceUpdates,
       List<SourceInfo> sources,
       boolean autoUpdate,
       FileData.DuplicateKeysHandling duplicateKeysHandling,
