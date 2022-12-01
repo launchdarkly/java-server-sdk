@@ -18,7 +18,8 @@ jobs:
 
 branches:
   - name: main
-    description: 5.x
+    description: 6.x
+  - name: 5.x
   - name: 4.x
 
 documentation:
