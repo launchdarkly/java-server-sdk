@@ -33,6 +33,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
@@ -190,11 +191,10 @@ final class StreamProcessor implements DataSource {
     
     EventSource.Builder builder = new EventSource.Builder(handler, endpointUri)
         .threadPriority(threadPriority)
-        .logger(new EventSourceLoggerAdapter())
+        .logger(logger)
         .readBufferSize(5000)
         .streamEventData(true)
         .expectFields("event")
-        .loggerBaseName(Loggers.DATA_SOURCE_LOGGER_NAME)
         .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
           public void configure(OkHttpClient.Builder clientBuilder) {
             httpProperties.applyToHttpClientBuilder(clientBuilder);
@@ -202,8 +202,8 @@ final class StreamProcessor implements DataSource {
         })
         .connectionErrorHandler(wrappedConnectionErrorHandler)
         .headers(headers)
-        .reconnectTime(initialReconnectDelay)
-        .readTimeout(DEAD_CONNECTION_INTERVAL);
+        .reconnectTime(initialReconnectDelay.toMillis(), TimeUnit.MILLISECONDS)
+        .readTimeout(DEAD_CONNECTION_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
 
     es = builder.build();
     esStarted = System.currentTimeMillis();
@@ -372,31 +372,4 @@ final class StreamProcessor implements DataSource {
   // This exception class indicates that the data store failed to persist an update.
   @SuppressWarnings("serial")
   private static final class StreamStoreException extends Exception {}
-
-  private final class EventSourceLoggerAdapter implements com.launchdarkly.eventsource.Logger {
-    @Override
-    public void debug(String format, Object param) {
-      logger.debug(format, param);
-    }
-
-    @Override
-    public void debug(String format, Object param1, Object param2) {
-      logger.debug(format, param1, param2);
-    }
-
-    @Override
-    public void info(String message) {
-      logger.info(message);
-    }
-
-    @Override
-    public void warn(String message) {
-      logger.warn(message);
-    }
-
-    @Override
-    public void error(String message) {
-      logger.error(message);
-    }
-  }
 }
