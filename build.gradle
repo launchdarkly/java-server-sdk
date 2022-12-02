@@ -76,7 +76,7 @@ ext.versions = [
     "launchdarklyJavaSdkInternal": "1.0.0-SNAPSHOT",
     "launchdarklyLogging": "1.1.0",
     "okhttp": "4.9.3", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
-    "okhttpEventsource": "3.0.0-SNAPSHOT",
+    "okhttpEventsource": "3.0.0",
     "slf4j": "1.7.21",
     "snakeyaml": "1.32",
     "jedis": "2.9.0"
