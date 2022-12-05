@@ -34,6 +34,7 @@ import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentRuleBuilder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.emptyIterable;
@@ -208,7 +209,13 @@ public class DataModelDependenciesTest {
   public void dependencyTrackerBuildsGraph() {
     DependencyTracker dt = new DependencyTracker();
     
-    FeatureFlag flag1 = ModelBuilders.flagBuilder("flag1")
+    Segment segment1 = segmentBuilder("segment1").build();
+    Segment segment2 = segmentBuilder("segment2").
+        rules(segmentRuleBuilder().clauses(clauseMatchingSegment("segment3")).build())
+        .build();
+    Segment segment3 = segmentBuilder("segment3").build();
+    
+    FeatureFlag flag1 = flagBuilder("flag1")
         .prerequisites(
             prerequisite("flag2", 0),
             prerequisite("flag3", 0)
@@ -221,9 +228,8 @@ public class DataModelDependenciesTest {
               .build()
               )
         .build();
-    dt.updateDependenciesFrom(FEATURES, flag1.getKey(), new ItemDescriptor(flag1.getVersion(), flag1));
 
-    FeatureFlag flag2 = ModelBuilders.flagBuilder("flag2")
+    FeatureFlag flag2 = flagBuilder("flag2")
         .prerequisites(
             prerequisite("flag4", 0)
             )
@@ -236,7 +242,12 @@ public class DataModelDependenciesTest {
               )
         .build();
 
-    dt.updateDependenciesFrom(FEATURES, flag2.getKey(), new ItemDescriptor(flag2.getVersion(), flag2));
+    for (Segment s: new Segment[] {segment1, segment2, segment3}) {
+      dt.updateDependenciesFrom(SEGMENTS, s.getKey(), new ItemDescriptor(s.getVersion(), s));
+    }
+    for (FeatureFlag f: new FeatureFlag[] {flag1, flag2}) {
+      dt.updateDependenciesFrom(FEATURES, f.getKey(), new ItemDescriptor(f.getVersion(), f));
+    }
 
     // a change to flag1 affects only flag1
     verifyAffectedItems(dt, FEATURES, "flag1",
@@ -259,6 +270,13 @@ public class DataModelDependenciesTest {
 
     // a change to segment2 affects segment2, flag1, and flag2
     verifyAffectedItems(dt, SEGMENTS, "segment2",
+        new KindAndKey(SEGMENTS, "segment2"),
+        new KindAndKey(FEATURES, "flag1"),
+        new KindAndKey(FEATURES, "flag2"));
+
+    // a change to segment3 affects segment3, segment2, flag1, and flag2
+    verifyAffectedItems(dt, SEGMENTS, "segment3",
+        new KindAndKey(SEGMENTS, "segment3"),
         new KindAndKey(SEGMENTS, "segment2"),
         new KindAndKey(FEATURES, "flag1"),
         new KindAndKey(FEATURES, "flag2"));
