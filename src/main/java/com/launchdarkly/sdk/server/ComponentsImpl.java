@@ -401,7 +401,7 @@ abstract class ComponentsImpl {
   static final class LoggingConfigurationBuilderImpl extends LoggingConfigurationBuilder {
     @Override
     public LoggingConfiguration build(ClientContext clientContext) {
-      LDLogAdapter adapter = logAdapter == null ? LDSLF4J.adapter() : logAdapter;
+      LDLogAdapter adapter = logAdapter == null ? getDefaultLogAdapter() : logAdapter;
       LDLogAdapter filteredAdapter = Logs.level(adapter,
           minimumLevel == null ? LDLogLevel.INFO : minimumLevel);
       // If the adapter is for a framework like SLF4J or java.util.logging that has its own external
@@ -409,6 +409,16 @@ abstract class ComponentsImpl {
       // just the same as adapter.
       String name = baseName == null ? Loggers.BASE_LOGGER_NAME : baseName;
       return new LoggingConfiguration(name, filteredAdapter, logDataSourceOutageAsErrorAfter);
+    }
+    
+    private static LDLogAdapter getDefaultLogAdapter() {
+      // If SLF4J is present in the classpath, use that by default; otherwise use the console.
+      try {
+        Class.forName("org.slf4j.LoggerFactory");
+        return LDSLF4J.adapter();
+      } catch (ClassNotFoundException e) {
+        return Logs.toConsole();
+      }
     }
   }
 

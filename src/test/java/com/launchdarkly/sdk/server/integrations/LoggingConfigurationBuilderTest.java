@@ -9,13 +9,16 @@ import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
+import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.time.Duration;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -45,10 +48,14 @@ public class LoggingConfigurationBuilderTest {
   }
   
   @Test
-  public void defaultLogAdapterIsSLF4J() {
+  public void defaultLogAdapterIsNotSLF4J() {
     LoggingConfiguration c = Components.logging()
         .build(BASIC_CONTEXT);
-    assertThat(c.getLogAdapter(), sameInstance(LDSLF4J.adapter()));
+    assertThat(c.getLogAdapter().getClass().getCanonicalName(),
+        not(startsWith("com.launchdarkly.logging.LDSLF4J")));
+    // Note that we're checking the class name here rather than comparing directly to
+    // LDSLF4J.adapter(), because calling that method isn't safe if you don't have
+    // SLF4J in the classpath.
   }
   
   @Test

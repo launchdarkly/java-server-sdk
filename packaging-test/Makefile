@@ -1,4 +1,4 @@
-.PHONY: all clean test-all-jar test-default-jar test-thin-jar test-all-jar-classes test-default-jar-classes test-thin-jar-classes
+.PHONY: all clean test-default-jar test-thin-jar test-default-jar-classes test-thin-jar-classes
 
 # Running "make all" will verify the following things about the SDK jar distributions:
 # - Each jar contains the expected set of classes, broadly speaking.
@@ -41,9 +41,6 @@ export TEMP_BUNDLE_DIR=$(FELIX_DIR)/app-bundles
 # the OSGi test). Note that we're assuming that all of the SDK's dependencies have built-in support
 # for OSGi, which is currently true; if that weren't true, we would have to do something different
 # to put them on the system classpath in the OSGi test.
-RUN_JARS_test-all-jar=$(TEST_APP_JAR) $(SDK_ALL_JAR) \
-	$(shell ls $(TEMP_DIR)/dependencies-external/gson*.jar 2>/dev/null) \
-	$(shell ls $(TEMP_DIR)/dependencies-external/jackson*.jar 2>/dev/null)
 RUN_JARS_test-default-jar=$(TEST_APP_JAR) $(SDK_DEFAULT_JAR) \
 	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar 2>/dev/null)
 RUN_JARS_test-thin-jar=$(TEST_APP_JAR) $(SDK_THIN_JAR) \
@@ -51,7 +48,7 @@ RUN_JARS_test-thin-jar=$(TEST_APP_JAR) $(SDK_THIN_JAR) \
 	$(shell ls $(TEMP_DIR)/dependencies-external/*.jar 2>/dev/null)
 
 # grep variants with lookahead aren't universally available
-PGREP=$(if $(shell echo a | grep -P . 2>/dev/null),grep -P,$(if $(shell which gxgrep),ggrep -P,echo This makefile requires grep -P or ggrep -P && exit 1;))
+PGREP=$(if $(shell echo a | grep -P . 2>/dev/null),grep -P,$(if $(shell which ggrep),ggrep -P,echo This makefile requires grep -P or ggrep -P && exit 1;))
 classes_prepare=echo "  checking $(1)..." && $(JAR) tf $(1) | grep '\.class$$' >$(TEMP_OUTPUT)
 classes_should_contain=echo "    should contain $(2)" && $(PGREP) "^$(1)/.*\.class$$" $(TEMP_OUTPUT) >/dev/null
 classes_should_not_contain=echo "    should not contain $(2)" && ! $(PGREP) "^$(1)/.*\.class$$" $(TEMP_OUTPUT)
@@ -71,7 +68,7 @@ manifest_should_not_have_classpath= \
 
 caption=echo "" && echo "$(1)"
 
-all: test-all-jar test-default-jar test-thin-jar test-pom
+all: test-default-jar test-thin-jar test-pom
 
 clean:
 	rm -rf $(TEMP_DIR)/*
@@ -80,25 +77,10 @@ clean:
 # SECONDEXPANSION is needed so we can use "$@" inside a variable in the prerequisite list of the test targets
 .SECONDEXPANSION:
 
-test-all-jar test-default-jar test-thin-jar: $$@-classes $(TEST_APP_JAR) get-sdk-dependencies $$(RUN_JARS_$$@) $(FELIX_DIR)
+test-default-jar test-thin-jar: $$@-classes $(TEST_APP_JAR) get-sdk-dependencies $$(RUN_JARS_$$@) $(FELIX_DIR)
 	@$(call caption,$@)
 	@./run-non-osgi-test.sh $(RUN_JARS_$@)
 	@./run-osgi-test.sh $(RUN_JARS_$@)
-
-test-all-jar-classes: $(SDK_ALL_JAR) $(TEMP_DIR)
-	@$(call caption,$@)
-	@$(call classes_prepare,$<)
-	@$(call verify_sdk_classes)
-	@$(call classes_should_contain,com/launchdarkly/logging,unshaded com.launchdarkly.logging classes)
-	@$(call classes_should_contain,org/slf4j,unshaded SLF4j)
-	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/launchdarkly/sdk(?!/internal),shaded non-internal SDK classes)
-	@$(call classes_should_contain,com/launchdarkly/shaded/com/google/gson,shaded Gson)
-	@$(call classes_should_not_contain,com/google/gson,unshaded Gson)
-	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
-	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/fasterxml/jackson,shaded Jackson)
-	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
-	@$(call should_not_have_module_info)
-	@$(call manifest_should_not_have_classpath,$<)
 
 test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call caption,$@)
@@ -107,11 +89,11 @@ test-default-jar-classes: $(SDK_DEFAULT_JAR) $(TEMP_DIR)
 	@$(call classes_should_contain,com/launchdarkly/logging,unshaded com.launchdarkly.logging classes)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/launchdarkly/sdk(?!/internal),shaded non-internal SDK classes)
 	@$(call classes_should_contain,com/launchdarkly/shaded/com/google/gson,shaded Gson)
-	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
 	@$(call classes_should_not_contain,com/google/gson,unshaded Gson)
+	@$(call classes_should_not_contain,org/slf4j,unshaded SLF4j)
+	@$(call classes_should_not_contain,com/launchdarkly/shaded/org/slf4j,shaded SLF4j)
 	@$(call classes_should_not_contain,com/fasterxml/jackson,unshaded Jackson)
 	@$(call classes_should_not_contain,com/launchdarkly/shaded/com/fasterxml/jackson,shaded Jackson)
-	@$(call classes_should_not_contain,org/slf4j,unshaded SLF4j)
 	@$(call should_not_have_module_info)
 	@$(call manifest_should_not_have_classpath,$<)
 
@@ -129,10 +111,8 @@ test-pom: $(POM_XML)
 	@echo "=== contents of $<"
 	@cat $<
 	@echo "==="
-	@echo "  should have SLF4J dependency"
-	@grep 'slf4j-api' >/dev/null $< || (echo "    FAILED" && exit 1)
-	@echo "  should not have any dependencies other than SLF4J"
-	@! grep '<groupId>' $< | grep -v slf4j | grep -v launchdarkly || (echo "    FAILED" && exit 1)
+	@echo "  should not have any dependencies"
+	@! grep '<dependency>' $< || (echo "    FAILED" && exit 1)
 
 $(SDK_DEFAULT_JAR) $(SDK_ALL_JAR) $(SDK_THIN_JAR) $(POM_XML):
 	cd .. && ./gradlew publishToMavenLocal -P version=$(LOCAL_VERSION) -P LD_SKIP_SIGNING=1

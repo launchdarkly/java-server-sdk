@@ -20,7 +20,7 @@ ext.versions = [
 ]
 
 dependencies {
-    implementation files("lib/launchdarkly-java-server-sdk-all.jar")
+    implementation files("lib/launchdarkly-java-server-sdk.jar")
     implementation files("lib/launchdarkly-java-server-sdk-test.jar")
     implementation "com.google.code.gson:gson:2.8.9"
     implementation "com.google.guava:guava:${versions.guava}" // required by SDK test code
