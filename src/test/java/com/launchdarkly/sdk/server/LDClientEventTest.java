@@ -2,10 +2,10 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
-import com.launchdarkly.sdk.internal.events.Event;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.internal.events.Event;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Prerequisite;
@@ -360,6 +360,24 @@ public class LDClientEventTest extends BaseTest {
         EvaluationReason.error(ErrorKind.FLAG_NOT_FOUND));
   }
 
+  @Test
+  public void variationDoesNotSendEventForInvalidContextOrNullUser() throws Exception {
+    DataModel.FeatureFlag flag = flagWithValue("key", LDValue.of("value"));
+    upsertFlag(dataStore, flag);
+    
+    client.boolVariation(flag.getKey(), invalidContext, false);
+    assertThat(eventSink.events, empty());
+    
+    client.boolVariation(flag.getKey(), (LDUser)null, false);
+    assertThat(eventSink.events, empty());
+
+    client.boolVariationDetail(flag.getKey(), invalidContext, false);
+    assertThat(eventSink.events, empty());
+    
+    client.boolVariationDetail(flag.getKey(), (LDUser)null, false);
+    assertThat(eventSink.events, empty());
+  }
+  
   @Test
   public void eventTrackingAndReasonCanBeForcedForRule() throws Exception {
     Clause clause = clauseMatchingContext(context);

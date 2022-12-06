@@ -479,6 +479,15 @@ public final class LDClient implements LDClientInterface {
       }
     }
 
+    if (context == null) {
+      evaluationLogger.warn("Null context when evaluating flag \"{}\"; returning default value", featureKey);
+      return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
+    }
+    if (!context.isValid()) {
+      evaluationLogger.warn("Invalid context when evaluating flag \"{}\"; returning default value: " + context.getError(), featureKey);
+      return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
+    }
+
     DataModel.FeatureFlag featureFlag = null;
     try {
       featureFlag = getFlag(dataStore, featureKey);
@@ -487,18 +496,6 @@ public final class LDClient implements LDClientInterface {
         recordEvaluationUnknownFlagErrorEvent(featureKey, context, defaultValue,
             EvaluationReason.ErrorKind.FLAG_NOT_FOUND, withDetail);
         return errorResult(EvaluationReason.ErrorKind.FLAG_NOT_FOUND, defaultValue);
-      }
-      if (context == null) {
-        evaluationLogger.warn("Null context when evaluating flag \"{}\"; returning default value", featureKey);
-        recordEvaluationErrorEvent(featureFlag, context, defaultValue,
-            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, withDetail);
-        return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
-      }
-      if (!context.isValid()) {
-        evaluationLogger.warn("Invalid context when evaluating flag \"{}\"; returning default value: " + context.getError(), featureKey);
-        recordEvaluationErrorEvent(featureFlag, context, defaultValue,
-            EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, withDetail);
-        return errorResult(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED, defaultValue);
       }
       EvalResult evalResult = evaluator.evaluate(featureFlag, context,
           withDetail ? prereqEvalsWithReasons : prereqEvalsDefault);
