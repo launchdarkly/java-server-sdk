@@ -1,7 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FACTORY;
-
 import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.ComponentsImpl.EventProcessorBuilderImpl;
@@ -23,12 +21,15 @@ import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
+
+import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FACTORY;
 
 /**
  * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.
@@ -38,7 +39,7 @@ import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
  * analytics events. For the latter, the standard way to specify a configuration is to call one of the
  * static methods in {@link Components} (such as {@link #streamingDataSource()}), apply any desired
  * configuration change to the object that that method returns (such as {@link StreamingDataSourceBuilder#initialReconnectDelay(java.time.Duration)},
- * and then use the corresponding method in {@link LDConfig.Builder} (such as {@link LDConfig.Builder#dataSource(DataSourceFactory)})
+ * and then use the corresponding method in {@link LDConfig.Builder} (such as {@link LDConfig.Builder#dataSource(ComponentConfigurer)})
  * to use that configured component in the SDK.
  * 
  * @since 4.0.0
@@ -53,7 +54,7 @@ public abstract class Components {
    * <a href="https://docs.launchdarkly.com/home/users/big-segments">LaunchDarkly documentation</a>.
    * <p>
    * After configuring this object, use
-   * {@link LDConfig.Builder#bigSegments(BigSegmentsConfigurationBuilder)} to store it in your SDK
+   * {@link LDConfig.Builder#bigSegments(ComponentConfigurer)} to store it in your SDK
    * configuration. For example, using the Redis integration:
    *
    * <pre><code>
@@ -67,17 +68,18 @@ public abstract class Components {
    * You must always specify the {@code storeFactory} parameter, to tell the SDK what database you
    * are using. Several database integrations exist for the LaunchDarkly SDK, each with its own
    * behavior and options specific to that database; this is described via some implementation of
-   * {@link BigSegmentStoreFactory}. The {@link BigSegmentsConfigurationBuilder} adds configuration
+   * {@link BigSegmentStore}. The {@link BigSegmentsConfigurationBuilder} adds configuration
    * options for aspects of SDK behavior that are independent of the database. In the example above,
    * {@code prefix} is an option specifically for the Redis integration, whereas
    * {@code userCacheSize} is an option that can be used for any data store type.
    *
-   * @param storeFactory the factory for the underlying data store
+   * @param storeConfigurer the factory for the underlying data store
    * @return a {@link BigSegmentsConfigurationBuilder}
    * @since 5.7.0
+   * @see Components#bigSegments(ComponentConfigurer)
    */
-  public static BigSegmentsConfigurationBuilder bigSegments(BigSegmentStoreFactory storeFactory) {
-    return new BigSegmentsConfigurationBuilder(storeFactory);
+  public static BigSegmentsConfigurationBuilder bigSegments(ComponentConfigurer<BigSegmentStore> storeConfigurer) {
+    return new BigSegmentsConfigurationBuilder(storeConfigurer);
   }
 
   /**
@@ -87,10 +89,10 @@ public abstract class Components {
    * a data store instance for testing purposes.
    * 
    * @return a factory object
-   * @see LDConfig.Builder#dataStore(DataStoreFactory)
+   * @see LDConfig.Builder#dataStore(ComponentConfigurer)
    * @since 4.12.0
    */
-  public static DataStoreFactory inMemoryDataStore() {
+  public static ComponentConfigurer<DataStore> inMemoryDataStore() {
     return InMemoryDataStoreFactory.INSTANCE;
   }
 
@@ -117,13 +119,13 @@ public abstract class Components {
    * For more information on the available persistent data store implementations, see the reference
    * guide on <a href="https://docs.launchdarkly.com/sdk/concepts/data-stores">Using a persistent feature store</a>.
    *  
-   * @param storeFactory the factory/builder for the specific kind of persistent data store
+   * @param storeConfigurer the factory/builder for the specific kind of persistent data store
    * @return a {@link PersistentDataStoreBuilder}
-   * @see LDConfig.Builder#dataStore(DataStoreFactory)
+   * @see LDConfig.Builder#dataStore(ComponentConfigurer)
    * @since 4.12.0
    */
-  public static PersistentDataStoreBuilder persistentDataStore(PersistentDataStoreFactory storeFactory) {
-    return new PersistentDataStoreBuilderImpl(storeFactory);
+  public static PersistentDataStoreBuilder persistentDataStore(ComponentConfigurer<PersistentDataStore> storeConfigurer) {
+    return new PersistentDataStoreBuilderImpl(storeConfigurer);
   }
   
   /**
@@ -131,7 +133,7 @@ public abstract class Components {
    * <p>
    * The default configuration has events enabled with default settings. If you want to
    * customize this behavior, call this method to obtain a builder, change its properties
-   * with the {@link EventProcessorBuilder} properties, and pass it to {@link LDConfig.Builder#events(EventProcessorFactory)}:
+   * with the {@link EventProcessorBuilder} properties, and pass it to {@link LDConfig.Builder#events(ComponentConfigurer)}:
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
    *         .events(Components.sendEvents().capacity(5000).flushIntervalSeconds(2))
@@ -154,7 +156,7 @@ public abstract class Components {
   /**
    * Returns a configuration object that disables analytics events.
    * <p>
-   * Passing this to {@link LDConfig.Builder#events(EventProcessorFactory)} causes the SDK
+   * Passing this to {@link LDConfig.Builder#events(ComponentConfigurer)} causes the SDK
    * to discard all analytics events and not send them to LaunchDarkly, regardless of any other configuration.
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
@@ -164,26 +166,20 @@ public abstract class Components {
    * 
    * @return a factory object
    * @see #sendEvents()
-   * @see LDConfig.Builder#events(EventProcessorFactory)
+   * @see LDConfig.Builder#events(ComponentConfigurer)
    * @since 4.12.0
    */
-  public static EventProcessorFactory noEvents() {
+  public static ComponentConfigurer<EventProcessor> noEvents() {
     return NULL_EVENT_PROCESSOR_FACTORY;
   }
 
-  // package-private method for verifying that the given EventProcessorFactory is the same kind that is
-  // returned by noEvents() - we can use reference equality here because we know we're using a static instance
-  static boolean isNullImplementation(EventProcessorFactory f) {
-    return f == NULL_EVENT_PROCESSOR_FACTORY;
-  }
-  
   /**
    * Returns a configurable factory for using streaming mode to get feature flag data.
    * <p>
    * By default, the SDK uses a streaming connection to receive feature flag data from LaunchDarkly. To use the
    * default behavior, you do not need to call this method. However, if you want to customize the behavior of
    * the connection, call this method to obtain a builder, change its properties with the
-   * {@link StreamingDataSourceBuilder} methods, and pass it to {@link LDConfig.Builder#dataSource(DataSourceFactory)}:
+   * {@link StreamingDataSourceBuilder} methods, and pass it to {@link LDConfig.Builder#dataSource(ComponentConfigurer)}:
    * <pre><code> 
    *     LDConfig config = new LDConfig.Builder()
    *         .dataSource(Components.streamingDataSource().initialReconnectDelayMillis(500))
@@ -194,7 +190,7 @@ public abstract class Components {
    * disable network requests.
    * 
    * @return a builder for setting streaming connection properties
-   * @see LDConfig.Builder#dataSource(DataSourceFactory)
+   * @see LDConfig.Builder#dataSource(ComponentConfigurer)
    * @since 4.12.0
    */
   public static StreamingDataSourceBuilder streamingDataSource() {
@@ -210,7 +206,7 @@ public abstract class Components {
    * polling is still less efficient than streaming and should only be used on the advice of LaunchDarkly support.
    * <p>
    * To use polling mode, call this method to obtain a builder, change its properties with the
-   * {@link PollingDataSourceBuilder} methods, and pass it to {@link LDConfig.Builder#dataSource(DataSourceFactory)}:
+   * {@link PollingDataSourceBuilder} methods, and pass it to {@link LDConfig.Builder#dataSource(ComponentConfigurer)}:
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
    *         .dataSource(Components.pollingDataSource().pollIntervalMillis(45000))
@@ -221,7 +217,7 @@ public abstract class Components {
    * disable network requests.
    * 
    * @return a builder for setting polling properties
-   * @see LDConfig.Builder#dataSource(DataSourceFactory)
+   * @see LDConfig.Builder#dataSource(ComponentConfigurer)
    * @since 4.12.0
    */
   public static PollingDataSourceBuilder pollingDataSource() {
@@ -236,7 +232,7 @@ public abstract class Components {
   /**
    * Returns a configuration object that disables a direct connection with LaunchDarkly for feature flag updates.
    * <p>
-   * Passing this to {@link LDConfig.Builder#dataSource(DataSourceFactory)} causes the SDK
+   * Passing this to {@link LDConfig.Builder#dataSource(ComponentConfigurer)} causes the SDK
    * not to retrieve feature flag data from LaunchDarkly, regardless of any other configuration.
    * This is normally done if you are using the <a href="https://docs.launchdarkly.com/home/relay-proxy">Relay Proxy</a>
    * in "daemon mode", where an external process-- the Relay Proxy-- connects to LaunchDarkly and populates
@@ -253,16 +249,16 @@ public abstract class Components {
    * 
    * @return a factory object
    * @since 4.12.0
-   * @see LDConfig.Builder#dataSource(DataSourceFactory)
+   * @see LDConfig.Builder#dataSource(ComponentConfigurer)
    */
-  public static DataSourceFactory externalUpdatesOnly() {
+  public static ComponentConfigurer<DataSource> externalUpdatesOnly() {
     return NullDataSourceFactory.INSTANCE;
   }
 
   /**
    * Returns a configuration builder for the SDK's networking configuration.
    * <p>
-   * Passing this to {@link LDConfig.Builder#http(com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory)}
+   * Passing this to {@link LDConfig.Builder#http(ComponentConfigurer)}
    * applies this configuration to all HTTP/HTTPS requests made by the SDK.
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
@@ -276,7 +272,7 @@ public abstract class Components {
    * 
    * @return a factory object
    * @since 4.13.0
-   * @see LDConfig.Builder#http(com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory)
+   * @see LDConfig.Builder#http(ComponentConfigurer)
    */
   public static HttpConfigurationBuilder httpConfiguration() {
     return new HttpConfigurationBuilderImpl();
@@ -307,7 +303,7 @@ public abstract class Components {
   /**
    * Returns a configuration builder for the SDK's logging configuration.
    * <p>
-   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)},
+   * Passing this to {@link LDConfig.Builder#logging(ComponentConfigurer)},
    * after setting any desired properties on the builder, applies this configuration to the SDK.
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
@@ -320,7 +316,7 @@ public abstract class Components {
    * 
    * @return a configuration builder
    * @since 5.0.0
-   * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)
+   * @see LDConfig.Builder#logging(ComponentConfigurer)
    */
   public static LoggingConfigurationBuilder logging() {
     return new LoggingConfigurationBuilderImpl();
@@ -332,15 +328,20 @@ public abstract class Components {
    * <p>
    * This is a shortcut for <code>Components.logging().adapter(logAdapter)</code>. The
    * <a href="https://github.com/launchdarkly/java-logging"><code>com.launchdarkly.logging</code></a>
-   * API defines the {@link LDLogAdapter} interface to specify where log output should be sent. By default,
-   * it is set to {@link com.launchdarkly.logging.LDSLF4J#adapter()}, meaning that output will be sent to
-   * <a href="https://www.slf4j.org/">SLF4J</a> and controlled by the SLF4J configuration. You may use
-   * the {@link com.launchdarkly.logging.Logs} factory methods, or a custom implementation, to handle log
-   * output differently. For instance, you may specify {@link com.launchdarkly.logging.Logs#basic()} for
-   * simple console output, or {@link com.launchdarkly.logging.Logs#toJavaUtilLogging()} to use the
-   * <code>java.util.logging</code> framework.
+   * API defines the {@link LDLogAdapter} interface to specify where log output should be sent.
    * <p>
-   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)},
+   * The default logging destination, if no adapter is specified, depends on whether
+   * <a href="https://www.slf4j.org/">SLF4J</a> is present in the classpath. If it is, then the SDK uses
+   * {@link com.launchdarkly.logging.LDSLF4J#adapter()}, causing output to go to SLF4J; what happens to
+   * the output then is determined by the SLF4J configuration. If SLF4J is not present in the classpath,
+   * the SDK uses {@link Logs#toConsole()} instead, causing output to go to the {@code System.err} stream.
+   * <p>
+   * You may use the {@link com.launchdarkly.logging.Logs} factory methods, or a custom implementation,
+   * to handle log output differently. For instance, you may specify
+   * {@link com.launchdarkly.logging.Logs#toJavaUtilLogging()} to use the <code>java.util.logging</code>
+   * framework.
+   * <p>
+   * Passing this to {@link LDConfig.Builder#logging(ComponentConfigurer)},
    * after setting any desired properties on the builder, applies this configuration to the SDK.
    * <pre><code>
    *     LDConfig config = new LDConfig.Builder()
@@ -353,7 +354,7 @@ public abstract class Components {
    * @param logAdapter the log adapter
    * @return a configuration builder
    * @since 5.10.0
-   * @see LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)
+   * @see LDConfig.Builder#logging(ComponentConfigurer)
    * @see LoggingConfigurationBuilder#adapter(LDLogAdapter)
    */
   public static LoggingConfigurationBuilder logging(LDLogAdapter logAdapter) {
@@ -363,7 +364,7 @@ public abstract class Components {
   /**
    * Returns a configuration builder that turns off SDK logging.
    * <p>
-   * Passing this to {@link LDConfig.Builder#logging(com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory)}
+   * Passing this to {@link LDConfig.Builder#logging(ComponentConfigurer)}
    * applies this configuration to the SDK.
    * <p>
    * It is equivalent to <code>Components.logging(com.launchdarkly.logging.Logs.none())</code>.

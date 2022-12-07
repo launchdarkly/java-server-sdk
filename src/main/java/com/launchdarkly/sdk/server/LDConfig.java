@@ -1,20 +1,19 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
-import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.DataSourceFactory;
-import com.launchdarkly.sdk.server.interfaces.DataStoreFactory;
-import com.launchdarkly.sdk.server.interfaces.EventProcessor;
-import com.launchdarkly.sdk.server.interfaces.EventProcessorFactory;
-import com.launchdarkly.sdk.server.interfaces.HttpConfigurationFactory;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
+import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
 import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
-import java.net.URI;
 import java.time.Duration;
 
 /**
@@ -29,13 +28,13 @@ public final class LDConfig {
   protected static final LDConfig DEFAULT = new Builder().build();
 
   final ApplicationInfo applicationInfo;
-  final BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder;
-  final DataSourceFactory dataSourceFactory;
-  final DataStoreFactory dataStoreFactory;
+  final ComponentConfigurer<BigSegmentsConfiguration> bigSegments;
+  final ComponentConfigurer<DataSource> dataSource;
+  final ComponentConfigurer<DataStore> dataStore;
   final boolean diagnosticOptOut;
-  final EventProcessorFactory eventProcessorFactory;
-  final HttpConfigurationFactory httpConfigFactory;
-  final LoggingConfigurationFactory loggingConfigFactory;
+  final ComponentConfigurer<EventProcessor> events;
+  final ComponentConfigurer<HttpConfiguration> http;
+  final ComponentConfigurer<LoggingConfiguration> logging;
   final ServiceEndpoints serviceEndpoints;
   final boolean offline;
   final Duration startWait;
@@ -43,26 +42,20 @@ public final class LDConfig {
 
   protected LDConfig(Builder builder) {
     if (builder.offline) {
-      this.dataSourceFactory = Components.externalUpdatesOnly();
-      this.eventProcessorFactory = Components.noEvents();
+      this.dataSource = Components.externalUpdatesOnly();
+      this.events = Components.noEvents();
     } else {
-      this.dataSourceFactory = builder.dataSourceFactory == null ? Components.streamingDataSource() :
-        builder.dataSourceFactory;
-      this.eventProcessorFactory = builder.eventProcessorFactory == null ? Components.sendEvents() :
-        builder.eventProcessorFactory;
+      this.dataSource = builder.dataSource == null ? Components.streamingDataSource() : builder.dataSource;
+      this.events = builder.events == null ? Components.sendEvents() : builder.events;
     }
     this.applicationInfo = (builder.applicationInfoBuilder == null ? Components.applicationInfo() :
       builder.applicationInfoBuilder)
       .createApplicationInfo();
-    this.bigSegmentsConfigBuilder = builder.bigSegmentsConfigBuilder == null ?
-            Components.bigSegments(null) : builder.bigSegmentsConfigBuilder;
-    this.dataStoreFactory = builder.dataStoreFactory == null ? Components.inMemoryDataStore() :
-      builder.dataStoreFactory;
+    this.bigSegments = builder.bigSegments == null ? Components.bigSegments(null) : builder.bigSegments;
+    this.dataStore = builder.dataStore == null ? Components.inMemoryDataStore() : builder.dataStore;
     this.diagnosticOptOut = builder.diagnosticOptOut;
-    this.httpConfigFactory = builder.httpConfigFactory == null ? Components.httpConfiguration() :
-      builder.httpConfigFactory;
-    this.loggingConfigFactory = builder.loggingConfigFactory == null ? Components.logging() :
-      builder.loggingConfigFactory;
+    this.http = builder.http == null ? Components.httpConfiguration() : builder.http;
+    this.logging = builder.logging == null ? Components.logging() : builder.logging;
     this.offline = builder.offline;
     this.serviceEndpoints = (builder.serviceEndpointsBuilder == null ? Components.serviceEndpoints() :
       builder.serviceEndpointsBuilder)
@@ -84,13 +77,13 @@ public final class LDConfig {
    */
   public static class Builder {
     private ApplicationInfoBuilder applicationInfoBuilder = null;
-    private BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder = null;
-    private DataSourceFactory dataSourceFactory = null;
-    private DataStoreFactory dataStoreFactory = null;
+    private ComponentConfigurer<BigSegmentsConfiguration> bigSegments = null;
+    private ComponentConfigurer<DataSource> dataSource = null;
+    private ComponentConfigurer<DataStore> dataStore = null;
     private boolean diagnosticOptOut = false;
-    private EventProcessorFactory eventProcessorFactory = null;
-    private HttpConfigurationFactory httpConfigFactory = null;
-    private LoggingConfigurationFactory loggingConfigFactory = null;
+    private ComponentConfigurer<EventProcessor> events = null;
+    private ComponentConfigurer<HttpConfiguration> http = null;
+    private ComponentConfigurer<LoggingConfiguration> logging = null;
     private ServiceEndpointsBuilder serviceEndpointsBuilder = null;
     private boolean offline = false;
     private Duration startWait = DEFAULT_START_WAIT;
@@ -132,8 +125,7 @@ public final class LDConfig {
      * By default, there is no implementation and Big Segments cannot be evaluated. In this case,
      * any flag evaluation that references a Big Segment will behave as if no users are included in
      * any Big Segments, and the {@link EvaluationReason} associated with any such flag evaluation
-     * will have a {@link EvaluationReason.BigSegmentsStatus} of
-     * {@link EvaluationReason.BigSegmentsStatus#NOT_CONFIGURED}.
+     * will have a {@link BigSegmentsStatus} of {@link BigSegmentsStatus#NOT_CONFIGURED}.
      *
      * <pre><code>
      *     // This example uses the Redis integration
@@ -143,13 +135,13 @@ public final class LDConfig {
      *         .build();
      * </code></pre>
      *
-     * @param bigSegmentsConfigBuilder a configuration builder object returned by
-     *  {@link Components#bigSegments(BigSegmentStoreFactory)}.
+     * @param bigSegmentsConfigurer the Big Segments configuration builder
      * @return the builder
      * @since 5.7.0
+     * @see Components#bigSegments(ComponentConfigurer)
      */
-    public Builder bigSegments(BigSegmentsConfigurationBuilder bigSegmentsConfigBuilder) {
-      this.bigSegmentsConfigBuilder = bigSegmentsConfigBuilder;
+    public Builder bigSegments(ComponentConfigurer<BigSegmentsConfiguration> bigSegmentsConfigurer) {
+      this.bigSegments = bigSegmentsConfigurer;
       return this;
     }
     
@@ -163,12 +155,12 @@ public final class LDConfig {
      * {@link com.launchdarkly.sdk.server.integrations.FileData#dataSource()}. See those methods
      * for details on how to configure them.
      * 
-     * @param factory the factory object
-     * @return the builder
+     * @param dataSourceConfigurer the data source configuration builder
+     * @return the main configuration builder
      * @since 4.12.0
      */
-    public Builder dataSource(DataSourceFactory factory) {
-      this.dataSourceFactory = factory;
+    public Builder dataSource(ComponentConfigurer<DataSource> dataSourceConfigurer) {
+      this.dataSource = dataSourceConfigurer;
       return this;
     }
 
@@ -176,14 +168,14 @@ public final class LDConfig {
      * Sets the implementation of the data store to be used for holding feature flags and
      * related data received from LaunchDarkly, using a factory object. The default is
      * {@link Components#inMemoryDataStore()}; for database integrations, use
-     * {@link Components#persistentDataStore(com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory)}.
+     * {@link Components#persistentDataStore(ComponentConfigurer)}.
      * 
-     * @param factory the factory object
-     * @return the builder
+     * @param dataStoreConfigurer the data store configuration builder
+     * @return the main configuration builder
      * @since 4.12.0
      */
-    public Builder dataStore(DataStoreFactory factory) {
-      this.dataStoreFactory = factory;
+    public Builder dataStore(ComponentConfigurer<DataStore> dataStoreConfigurer) {
+      this.dataStore = dataStoreConfigurer;
       return this;
     }
 
@@ -210,30 +202,34 @@ public final class LDConfig {
     /**
      * Sets the implementation of {@link EventProcessor} to be used for processing analytics events.
      * <p>
-     * The default is {@link Components#sendEvents()}, but you may choose to use a custom implementation
-     * (for instance, a test fixture), or disable events with {@link Components#noEvents()}.
+     * The default is {@link Components#sendEvents()} with no custom options. You may instead call
+     * {@link Components#sendEvents()} and then set custom options for event processing; or, disable
+     * events with {@link Components#noEvents()}; or, choose to use a custom implementation (for
+     * instance, a test fixture).
      * 
-     * @param factory a builder/factory object for event configuration
-     * @return the builder
+     * @param eventsConfigurer the events configuration builder
+     * @return the main configuration builder
      * @since 4.12.0
+     * @see Components#sendEvents()
+     * @see Components#noEvents()
      */
-    public Builder events(EventProcessorFactory factory) {
-      this.eventProcessorFactory = factory;
+    public Builder events(ComponentConfigurer<EventProcessor> eventsConfigurer) {
+      this.events = eventsConfigurer;
       return this;
     }
 
     /**
-     * Sets the SDK's networking configuration, using a factory object. This object is normally a
-     * configuration builder obtained from {@link Components#httpConfiguration()}, which has methods
-     * for setting individual HTTP-related properties.
+     * Sets the SDK's networking configuration, using a configuration builder. This builder is
+     * obtained from {@link Components#httpConfiguration()}, and has methods for setting individual
+     * HTTP-related properties.
      * 
-     * @param factory the factory object
-     * @return the builder
+     * @param httpConfigurer the HTTP configuration builder
+     * @return the main configuration builder
      * @since 4.13.0
      * @see Components#httpConfiguration()
      */
-    public Builder http(HttpConfigurationFactory factory) {
-      this.httpConfigFactory = factory;
+    public Builder http(ComponentConfigurer<HttpConfiguration> httpConfigurer) {
+      this.http = httpConfigurer;
       return this;
     }
 
@@ -242,13 +238,13 @@ public final class LDConfig {
      * configuration builder obtained from {@link Components#logging()}, which has methods
      * for setting individual logging-related properties.
      * 
-     * @param factory the factory object
-     * @return the builder
+     * @param loggingConfigurer the logging configuration builder
+     * @return the main configuration builder
      * @since 5.0.0
      * @see Components#logging()
      */
-    public Builder logging(LoggingConfigurationFactory factory) {
-      this.loggingConfigFactory = factory;
+    public Builder logging(ComponentConfigurer<LoggingConfiguration> loggingConfigurer) {
+      this.logging = loggingConfigurer;
       return this;
     }
 
@@ -261,7 +257,7 @@ public final class LDConfig {
      * <p>
      * This is equivalent to calling {@code dataSource(Components.externalUpdatesOnly())} and
      * {@code events(Components.noEvents())}. It overrides any other values you may have set for
-     * {@link #dataSource(DataSourceFactory)} or {@link #events(EventProcessorFactory)}.
+     * {@link #dataSource(ComponentConfigurer)} or {@link #events(ComponentConfigurer)}.
      * 
      * @param offline when set to true no calls to LaunchDarkly will be made
      * @return the builder

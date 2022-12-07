@@ -1,21 +1,22 @@
 package com.launchdarkly.sdk.server.integrations;
 
-import static com.launchdarkly.sdk.server.TestUtil.BuilderPropertyTester;
-import static com.launchdarkly.sdk.server.TestUtil.BuilderTestUtil;
-import static org.easymock.EasyMock.createStrictControl;
-import static org.easymock.EasyMock.expectLastCall;
-import static org.junit.Assert.assertSame;
-
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStore;
-import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreFactory;
+import com.launchdarkly.sdk.server.LDConfig;
+import com.launchdarkly.sdk.server.TestComponents;
+import com.launchdarkly.sdk.server.TestUtil.BuilderPropertyTester;
+import com.launchdarkly.sdk.server.TestUtil.BuilderTestUtil;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentsConfiguration;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 
 import org.easymock.IMocksControl;
 import org.junit.Test;
 
 import java.time.Duration;
+
+import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
+import static org.easymock.EasyMock.createStrictControl;
+import static org.junit.Assert.assertSame;
 
 @SuppressWarnings("javadoc")
 public class BigSegmentsConfigurationBuilderTest {
@@ -24,25 +25,19 @@ public class BigSegmentsConfigurationBuilderTest {
 
   public BigSegmentsConfigurationBuilderTest() {
     tester = new BuilderTestUtil<>(() -> Components.bigSegments(null),
-                                   b -> b.createBigSegmentsConfiguration(null));
+                                   b -> b.build(null));
   }
 
   @Test
   public void storeFactory() {
     IMocksControl ctrl = createStrictControl();
-    ClientContext contextMock = ctrl.createMock(ClientContext.class);
     BigSegmentStore storeMock = ctrl.createMock(BigSegmentStore.class);
-    BigSegmentStoreFactory storeFactoryMock = ctrl.createMock(BigSegmentStoreFactory.class);
+    ComponentConfigurer<BigSegmentStore> storeFactory = specificComponent(storeMock);
 
-    storeFactoryMock.createBigSegmentStore(contextMock);
-    expectLastCall().andReturn(storeMock);
-    ctrl.replay();
-
-    BigSegmentsConfigurationBuilder b = Components.bigSegments(storeFactoryMock);
-    BigSegmentsConfiguration c = b.createBigSegmentsConfiguration(contextMock);
+    BigSegmentsConfigurationBuilder b = Components.bigSegments(storeFactory);
+    BigSegmentsConfiguration c = b.build(TestComponents.clientContext("", new LDConfig.Builder().build()));
 
     assertSame(storeMock, c.getStore());
-    ctrl.verify();
   }
 
   @Test

@@ -5,7 +5,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataModel.Segment;
@@ -13,9 +12,9 @@ import com.launchdarkly.sdk.server.DataModelDependencies.DependencyTracker;
 import com.launchdarkly.sdk.server.DataModelDependencies.KindAndKey;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 
 import org.junit.Test;
 
@@ -30,10 +29,12 @@ import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.TEST_ITEMS;
 import static com.launchdarkly.sdk.server.DataStoreTestTypes.toDataMap;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
+import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
 import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.prerequisite;
 import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentRuleBuilder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.emptyIterable;
@@ -65,13 +66,13 @@ public class DataModelDependenciesTest {
         .rules(
             ruleBuilder()
               .clauses(
-                  clause(UserAttribute.KEY, Operator.in, LDValue.of("ignore")),
-                  clause(null, Operator.segmentMatch, LDValue.of("segment1"), LDValue.of("segment2"))
+                  clause("key", Operator.in, LDValue.of("ignore")),
+                  clauseMatchingSegment("segment1", "segment2")
                   )
               .build(),
             ruleBuilder()
               .clauses(
-                  clause(null, Operator.segmentMatch, LDValue.of("segment3"))
+                  clauseMatchingSegment("segment3")
                   )
               .build()
               )
@@ -208,7 +209,13 @@ public class DataModelDependenciesTest {
   public void dependencyTrackerBuildsGraph() {
     DependencyTracker dt = new DependencyTracker();
     
-    FeatureFlag flag1 = ModelBuilders.flagBuilder("flag1")
+    Segment segment1 = segmentBuilder("segment1").build();
+    Segment segment2 = segmentBuilder("segment2").
+        rules(segmentRuleBuilder().clauses(clauseMatchingSegment("segment3")).build())
+        .build();
+    Segment segment3 = segmentBuilder("segment3").build();
+    
+    FeatureFlag flag1 = flagBuilder("flag1")
         .prerequisites(
             prerequisite("flag2", 0),
             prerequisite("flag3", 0)
@@ -216,27 +223,31 @@ public class DataModelDependenciesTest {
         .rules(
             ruleBuilder()
               .clauses(
-                  clause(null, Operator.segmentMatch, LDValue.of("segment1"), LDValue.of("segment2"))
+                  clauseMatchingSegment("segment1", "segment2")
                   )
               .build()
               )
         .build();
-    dt.updateDependenciesFrom(FEATURES, flag1.getKey(), new ItemDescriptor(flag1.getVersion(), flag1));
 
-    FeatureFlag flag2 = ModelBuilders.flagBuilder("flag2")
+    FeatureFlag flag2 = flagBuilder("flag2")
         .prerequisites(
             prerequisite("flag4", 0)
             )
         .rules(
             ruleBuilder()
               .clauses(
-                  clause(null, Operator.segmentMatch, LDValue.of("segment2"))
+                  clauseMatchingSegment("segment2")
                   )
               .build()
               )
         .build();
 
-    dt.updateDependenciesFrom(FEATURES, flag2.getKey(), new ItemDescriptor(flag2.getVersion(), flag2));
+    for (Segment s: new Segment[] {segment1, segment2, segment3}) {
+      dt.updateDependenciesFrom(SEGMENTS, s.getKey(), new ItemDescriptor(s.getVersion(), s));
+    }
+    for (FeatureFlag f: new FeatureFlag[] {flag1, flag2}) {
+      dt.updateDependenciesFrom(FEATURES, f.getKey(), new ItemDescriptor(f.getVersion(), f));
+    }
 
     // a change to flag1 affects only flag1
     verifyAffectedItems(dt, FEATURES, "flag1",
@@ -259,6 +270,13 @@ public class DataModelDependenciesTest {
 
     // a change to segment2 affects segment2, flag1, and flag2
     verifyAffectedItems(dt, SEGMENTS, "segment2",
+        new KindAndKey(SEGMENTS, "segment2"),
+        new KindAndKey(FEATURES, "flag1"),
+        new KindAndKey(FEATURES, "flag2"));
+
+    // a change to segment3 affects segment3, segment2, flag1, and flag2
+    verifyAffectedItems(dt, SEGMENTS, "segment3",
+        new KindAndKey(SEGMENTS, "segment3"),
         new KindAndKey(SEGMENTS, "segment2"),
         new KindAndKey(FEATURES, "flag1"),
         new KindAndKey(FEATURES, "flag2"));

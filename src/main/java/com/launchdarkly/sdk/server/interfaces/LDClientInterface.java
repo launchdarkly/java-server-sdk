@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.EvaluationDetail;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.FeatureFlagsState;
@@ -25,178 +26,540 @@ public interface LDClientInterface extends Closeable {
   boolean isInitialized();
 
   /**
-   * Tracks that a user performed an event.
+   * Tracks that an application-defined event occurred.
    * <p>
-   * To add custom data to the event, use {@link #trackData(String, LDUser, LDValue)}.
+   * This method creates a "custom" analytics event containing the specified event name (key)
+   * and context properties. You may attach arbitrary data or a metric value to the event by calling
+   * {@link #trackData(String, LDContext, LDValue)} or {@link #trackMetric(String, LDContext, LDValue, double)}
+   * instead.
+   * <p>
+   * Note that event delivery is asynchronous, so the event may not actually be sent until
+   * later; see {@link #flush()}.
    *
    * @param eventName the name of the event
-   * @param user      the user that performed the event
+   * @param context   the context associated with the event
+   * @see #trackData(String, LDContext, LDValue)
+   * @see #trackMetric(String, LDContext, LDValue, double)
+   * @see #track(String, LDUser)
+   * @since 6.0.0
    */
-  void track(String eventName, LDUser user);
+  void track(String eventName, LDContext context);
 
   /**
-   * Tracks that a user performed an event, and provides additional custom data.
+   * Tracks that an application-defined event occurred.
+   * <p>
+   * This is equivalent to {@link #track(String, LDContext)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
    *
    * @param eventName the name of the event
-   * @param user      the user that performed the event
-   * @param data      an {@link LDValue} containing additional data associated with the event
+   * @param user      the user attributes
+   * @see #trackData(String, LDContext, LDValue)
+   * @see #trackMetric(String, LDContext, LDValue, double)
+   * @see #track(String, LDContext)
+   */
+  default void track(String eventName, LDUser user) {
+    track(eventName, LDContext.fromUser(user));
+  }
+
+  /**
+   * Tracks that an application-defined event occurred.
+   * <p>
+   * This method creates a "custom" analytics event containing the specified event name (key),
+   * context properties, and optional data. If you do not need custom data, pass {@link LDValue#ofNull()}
+   * for the last parameter or simply omit the parameter. You may attach a metric value to the event by
+   * calling {@link #trackMetric(String, LDContext, LDValue, double)} instead.
+   * <p>
+   * Note that event delivery is asynchronous, so the event may not actually be sent until
+   * later; see {@link #flush()}.
+   *
+   * @param eventName the name of the event
+   * @param context   the context associated with the event
+   * @param data      additional data associated with the event, if any
+   * @since 6.0.0
+   * @see #track(String, LDContext)
+   * @see #trackMetric(String, LDContext, LDValue, double)
+   * @see #trackData(String, LDUser, LDValue)
+   */
+  void trackData(String eventName, LDContext context, LDValue data);
+
+  /**
+   * Tracks that an application-defined event occurred.
+   * <p>
+   * This is equivalent to {@link #trackData(String, LDContext, LDValue)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param eventName the name of the event
+   * @param user      the user attributes
+   * @param data      additional data associated with the event, if any
    * @since 4.8.0
+   * @see #track(String, LDContext)
+   * @see #trackMetric(String, LDContext, LDValue, double)
+   * @see #trackData(String, LDContext, LDValue)
    */
-  void trackData(String eventName, LDUser user, LDValue data);
+  default void trackData(String eventName, LDUser user, LDValue data) {
+    trackData(eventName, LDContext.fromUser(user), data);
+  }
 
   /**
-   * Tracks that a user performed an event, and provides an additional numeric value for custom metrics.
+   * Tracks that an application-defined event occurred, and provides an additional numeric value for
+   * custom metrics.
+   * <p>
+   * This value is used by the LaunchDarkly experimentation feature in numeric custom metrics,
+   * and will also be returned as part of the custom event for Data Export.
+   * <p>
+   * Note that event delivery is asynchronous, so the event may not actually be sent until
+   * later; see {@link #flush()}.
    * 
    * @param eventName the name of the event
-   * @param user      the user that performed the event
+   * @param context   the context associated with the event
    * @param data      an {@link LDValue} containing additional data associated with the event; if not applicable,
    * you may pass either {@code null} or {@link LDValue#ofNull()}
    * @param metricValue a numeric value used by the LaunchDarkly experimentation feature in numeric custom
-   * metrics. Can be omitted if this event is used by only non-numeric metrics. This field will also be
-   * returned as part of the custom event for Data Export.
+   * metrics
    * @since 4.9.0
+   * @see #track(String, LDContext)
+   * @see #trackData(String, LDContext, LDValue)
    */
-  void trackMetric(String eventName, LDUser user, LDValue data, double metricValue);
+  void trackMetric(String eventName, LDContext context, LDValue data, double metricValue);
 
   /**
-   * Registers the user.
-   *
-   * @param user the user to register
-   */
-  void identify(LDUser user);
-
-  /**
-   * Returns an object that encapsulates the state of all feature flags for a given user, including the flag
-   * values and also metadata that can be used on the front end. This method does not send analytics events
-   * back to LaunchDarkly.
+   * Tracks that an application-defined event occurred, and provides an additional numeric value for
+   * custom metrics.
    * <p>
-   * The most common use case for this method is to bootstrap a set of client-side feature flags from a back-end service.
+   * This is equivalent to {@link #trackMetric(String, LDContext, LDValue, double)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param eventName the name of the event
+   * @param user      the user attributes
+   * @param data      an {@link LDValue} containing additional data associated with the event; if not applicable,
+   * you may pass either {@code null} or {@link LDValue#ofNull()}
+   * @param metricValue a numeric value used by the LaunchDarkly experimentation feature in numeric custom
+   * metrics
+   * @since 4.9.0
+   * @see #track(String, LDContext)
+   * @see #trackData(String, LDContext, LDValue)
+   */
+  default void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
+    trackMetric(eventName, LDContext.fromUser(user), data, metricValue);
+  }
+
+  /**
+   * Reports details about an evaluation context.
+   * <p>
+   * This method simply creates an analytics event containing the context properties, to
+   * that LaunchDarkly will know about that context if it does not already.
+   * <p>
+   * Calling any evaluation method, such as {@link #boolVariation(String, LDContext, boolean)},
+   * also sends the context information to LaunchDarkly (if events are enabled), so you only
+   * need to use {@link #identify(LDContext)} if you want to identify the context without
+   * evaluating a flag.
+   * <p>
+   * Note that event delivery is asynchronous, so the event may not actually be sent until
+   * later; see {@link #flush()}.
+   *
+   * @param context the context to register
+   * @see #identify(LDUser)
+   * @since 6.0.0
+   */
+  void identify(LDContext context);
+
+  /**
+   * Reports details about a user.
+   * <p>
+   * This is equivalent to {@link #identify(LDContext)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param user the user attributes
+   * @see #identify(LDContext)
+   */
+  default void identify(LDUser user) {
+    identify(LDContext.fromUser(user));
+  }
+
+  /**
+   * Returns an object that encapsulates the state of all feature flags for a given context, which can be
+   * passed to front-end code.
+   * <p>
+   * The object returned by this method contains the flag values as well as other metadata that
+   * is used by the LaunchDarkly JavaScript client, so it can be used for
+   * <a href="https://docs.launchdarkly.com/sdk/features/bootstrapping#javascript">bootstrapping</a>.
+   * <p>
+   * This method will not send analytics events back to LaunchDarkly.
    *  
-   * @param user the end user requesting the feature flags
+   * @param context the evaluation context
    * @param options optional {@link FlagsStateOption} values affecting how the state is computed - for
    * instance, to filter the set of flags to only include the client-side-enabled ones
    * @return a {@link FeatureFlagsState} object (will never be null; see {@link FeatureFlagsState#isValid()}
+   * @see #allFlagsState(LDUser, FlagsStateOption...)
+   * @since 6.0.0
+   */
+  FeatureFlagsState allFlagsState(LDContext context, FlagsStateOption... options);
+
+  /**
+   * Returns an object that encapsulates the state of all feature flags for a given user, which can be
+   * passed to front-end code.
+   * <p>
+   * This is equivalent to {@link #allFlagsState(LDContext, FlagsStateOption...)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *  
+   * @param user the user attributes
+   * @param options optional {@link FlagsStateOption} values affecting how the state is computed - for
+   * instance, to filter the set of flags to only include the client-side-enabled ones
+   * @return a {@link FeatureFlagsState} object (will never be null; see {@link FeatureFlagsState#isValid()}
+   * @see #allFlagsState(LDContext, FlagsStateOption...)
    * @since 4.3.0
    */
-  FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options);
+  default FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
+    return allFlagsState(LDContext.fromUser(user), options);
+  }
   
   /**
-   * Calculates the value of a feature flag for a given user.
-   *
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
+   * Calculates the boolean value of a feature flag for a given context.
+   * <p>
+   * If the flag variation does not have a boolean value, {@code defaultValue} is returned.
+   * <p>
+   * If an error makes it impossible to evaluate the flag (for instance, the feature flag key
+   * does not match any existing flag), {@code defaultValue} is returned.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #boolVariation(String, LDUser, boolean)
+   * @since 6.0.0
    */
-  boolean boolVariation(String featureKey, LDUser user, boolean defaultValue);
+  boolean boolVariation(String key, LDContext context, boolean defaultValue);
+
+  /**
+   * Calculates the boolean value of a feature flag for a given user.
+   * <p>
+   * This is equivalent to {@link #boolVariation(String, LDContext, boolean)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #boolVariation(String, LDContext, boolean)
+   */
+  default boolean boolVariation(String key, LDUser user, boolean defaultValue) {
+    return boolVariation(key, LDContext.fromUser(user), defaultValue);
+  }
   
+  /**
+   * Calculates the integer value of a feature flag for a given context.
+   * <p>
+   * If the flag variation has a numeric value that is not an integer, it is rounded toward zero
+   * (truncated).
+   * <p>
+   * If the flag variation does not have a numeric value, {@code defaultValue} is returned.
+   * <p>
+   * If an error makes it impossible to evaluate the flag (for instance, the feature flag key
+   * does not match any existing flag), {@code defaultValue} is returned.
+   *
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #intVariation(String, LDUser, int)
+   * @since 6.0.0
+   */
+  int intVariation(String key, LDContext context, int defaultValue);
+
   /**
    * Calculates the integer value of a feature flag for a given user.
    * <p>
-   * If the flag variation has a numeric value that is not an integer, it is rounded toward zero (truncated).
-   * 
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
+   * This is equivalent to {@link #intVariation(String, LDContext, int)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #intVariation(String, LDContext, int)
    */
-  int intVariation(String featureKey, LDUser user, int defaultValue);
+  default int intVariation(String key, LDUser user, int defaultValue) {
+    return intVariation(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
-   * Calculates the floating point numeric value of a feature flag for a given user.
+   * Calculates the floating-point numeric value of a feature flag for a given context.
+   * <p>
+   * If the flag variation does not have a numeric value, {@code defaultValue} is returned.
+   * <p>
+   * If an error makes it impossible to evaluate the flag (for instance, the feature flag key
+   * does not match any existing flag), {@code defaultValue} is returned.
    *
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #doubleVariation(String, LDUser, double)
+   * @since 6.0.0
    */
-  double doubleVariation(String featureKey, LDUser user, double defaultValue);
+  double doubleVariation(String key, LDContext context, double defaultValue);
 
   /**
-   * Calculates the String value of a feature flag for a given user.
+   * Calculates the floating-point numeric value of a feature flag for a given context.
+   * <p>
+   * This is equivalent to {@link #doubleVariation(String, LDContext, double)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
    *
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #doubleVariation(String, LDContext, double)
    */
-  String stringVariation(String featureKey, LDUser user, String defaultValue);
+  default double doubleVariation(String key, LDUser user, double defaultValue) {
+    return doubleVariation(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
-   * Calculates the {@link LDValue} value of a feature flag for a given user.
+   * Calculates the string value of a feature flag for a given context.
+   * <p>
+   * If the flag variation does not have a string value, {@code defaultValue} is returned.
+   * <p>
+   * If an error makes it impossible to evaluate the flag (for instance, the feature flag key
+   * does not match any existing flag), {@code defaultValue} is returned.
    *
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
    * @param defaultValue the default value of the flag
-   * @return the variation for the given user, or {@code defaultValue} if there is an error fetching the variation or the flag doesn't exist;
-   * will never be a null reference, but may be {@link LDValue#ofNull()}
-   * 
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #stringVariation(String, LDUser, String)
+   * @since 6.0.0
+   */
+  String stringVariation(String key, LDContext context, String defaultValue);
+
+  /**
+   * Calculates the string value of a feature flag for a given context.
+   * <p>
+   * This is equivalent to {@link #stringVariation(String, LDContext, String)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #stringVariation(String, LDContext, String)
+   */
+  default String stringVariation(String key, LDUser user, String defaultValue) {
+    return stringVariation(key, LDContext.fromUser(user), defaultValue);
+  }
+
+  /**
+   * Calculates the value of a feature flag for a given context as any JSON value type.
+   * <p>
+   * The type {@link LDValue} is used to represent any of the value types that can
+   * exist in JSON. Use {@link LDValue} methods to examine its type and value.
+   *
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #jsonValueVariation(String, LDUser, LDValue)
+   * @since 6.0.0
+   */
+  LDValue jsonValueVariation(String key, LDContext context, LDValue defaultValue);
+
+  /**
+   * Calculates the value of a feature flag for a given context as any JSON value type.
+   * <p>
+   * This is equivalent to {@link #jsonValueVariation(String, LDContext, LDValue)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
+   * @see #jsonValueVariation(String, LDContext, LDValue)
    * @since 4.8.0
    */
-  LDValue jsonValueVariation(String featureKey, LDUser user, LDValue defaultValue);
+  default LDValue jsonValueVariation(String key, LDUser user, LDValue defaultValue) {
+    return jsonValueVariation(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
-   * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined. The {@code reason} property in the result will also be included in
-   * analytics events, if you are capturing detailed event data for this flag.
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
-   * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetail} object
-   * @since 2.3.0
-   */
-  EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDUser user, boolean defaultValue);
-  
-  /**
-   * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined. The {@code reason} property in the result will also be included in
+   * Calculates the boolean value of a feature flag for a given context, and returns an object that
+   * describes the way the value was determined.
+   * <p>
+   * The {@link EvaluationDetail#getReason()} property in the result will also be included in
    * analytics events, if you are capturing detailed event data for this flag.
    * <p>
-   * If the flag variation has a numeric value that is not an integer, it is rounded toward zero (truncated).
+   * The behavior is otherwise identical to {@link #boolVariation(String, LDContext, boolean)}.
    * 
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @since 6.0.0
+   * @see #boolVariationDetail(String, LDUser, boolean)
+   */
+  EvaluationDetail<Boolean> boolVariationDetail(String key, LDContext context, boolean defaultValue);
+
+  /**
+   * Calculates the boolean value of a feature flag for a given context, and returns an object that
+   * describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #boolVariationDetail(String, LDContext, boolean)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
    * @param defaultValue the default value of the flag
    * @return an {@link EvaluationDetail} object
    * @since 2.3.0
+   * @see #boolVariationDetail(String, LDContext, boolean)
    */
-  EvaluationDetail<Integer> intVariationDetail(String featureKey, LDUser user, int defaultValue);
+  default EvaluationDetail<Boolean> boolVariationDetail(String key, LDUser user, boolean defaultValue) {
+    return boolVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
   
   /**
-   * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined. The {@code reason} property in the result will also be included in
+   * Calculates the integer numeric value of a feature flag for a given context, and returns an object
+   * that describes the way the value was determined.
+   * <p>
+   * The {@link EvaluationDetail#getReason()} property in the result will also be included in
    * analytics events, if you are capturing detailed event data for this flag.
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
-   * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetail} object
-   * @since 2.3.0
-   */
-  EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDUser user, double defaultValue);
-
-  /**
-   * Calculates the value of a feature flag for a given user, and returns an object that describes the
-   * way the value was determined. The {@code reason} property in the result will also be included in
-   * analytics events, if you are capturing detailed event data for this flag.
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
-   * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetail} object
-   * @since 2.3.0
-   */
-  EvaluationDetail<String> stringVariationDetail(String featureKey, LDUser user, String defaultValue);
-
-  /**
-   * Calculates the {@link LDValue} value of a feature flag for a given user.
-   *
-   * @param featureKey   the unique key for the feature flag
-   * @param user         the end user requesting the flag
-   * @param defaultValue the default value of the flag
-   * @return an {@link EvaluationDetail} object
+   * <p>
+   * The behavior is otherwise identical to {@link #intVariation(String, LDContext, int)}.
    * 
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #intVariationDetail(String, LDUser, int)
+   * @since 6.0.0
+   */
+  EvaluationDetail<Integer> intVariationDetail(String key, LDContext context, int defaultValue);
+
+  /**
+   * Calculates the integer numeric value of a feature flag for a given context, and returns an object
+   * that describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #intVariationDetail(String, LDContext, int)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #intVariationDetail(String, LDContext, int)
+   * @since 2.3.0
+   */
+  default EvaluationDetail<Integer> intVariationDetail(String key, LDUser user, int defaultValue) {
+    return intVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
+  
+  /**
+   * Calculates the floating-point numeric value of a feature flag for a given context, and returns an
+   * object that describes the way the value was determined.
+   * <p>
+   * The {@link EvaluationDetail#getReason()} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
+   * <p>
+   * The behavior is otherwise identical to {@link #doubleVariation(String, LDContext, double)}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #doubleVariationDetail(String, LDUser, double)
+   * @since 6.0.0
+   */
+  EvaluationDetail<Double> doubleVariationDetail(String key, LDContext context, double defaultValue);
+
+  /**
+   * Calculates the floating-point numeric value of a feature flag for a given context, and returns an
+   * object that describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #doubleVariationDetail(String, LDContext, double)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #doubleVariation(String, LDContext, double)
+   * @since 2.3.0
+   */
+  default EvaluationDetail<Double> doubleVariationDetail(String key, LDUser user, double defaultValue) {
+    return doubleVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
+
+  /**
+   * Calculates the string value of a feature flag for a given context, and returns an object
+   * that describes the way the value was determined.
+   * <p>
+   * The {@link EvaluationDetail#getReason()} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
+   * <p>
+   * The behavior is otherwise identical to {@link #stringVariation(String, LDContext, String)}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
+   * @param defaultValue the default value of the flag
+   * @see #stringVariation(String, LDUser, String)
+   * @return an {@link EvaluationDetail} object
+   * @since 6.0.0
+   */
+  EvaluationDetail<String> stringVariationDetail(String key, LDContext context, String defaultValue);
+
+  /**
+   * Calculates the string value of a feature flag for a given context, and returns an object
+   * that describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #stringVariationDetail(String, LDContext, String)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   * 
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #stringVariationDetail(String, LDContext, String)
+   * @since 2.3.0
+   */
+  default EvaluationDetail<String> stringVariationDetail(String key, LDUser user, String defaultValue) {
+    return stringVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
+
+  /**
+   * Calculates the value of a feature flag for a given context as any JSON value type, and returns an
+   * object that describes the way the value was determined.
+   * <p>
+   * The {@link EvaluationDetail#getReason()} property in the result will also be included in
+   * analytics events, if you are capturing detailed event data for this flag.
+   * <p>
+   * The behavior is otherwise identical to {@link #jsonValueVariation(String, LDContext, LDValue)}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param context      the evaluation context
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #jsonValueVariation(String, LDUser, LDValue)
+   * @since 6.0.0
+   */
+  EvaluationDetail<LDValue> jsonValueVariationDetail(String key, LDContext context, LDValue defaultValue);
+
+  /**
+   * Calculates the value of a feature flag for a given context as any JSON value type, and returns an
+   * object that describes the way the value was determined.
+   * that describes the way the value was determined.
+   * <p>
+   * This is equivalent to {@link #jsonValueVariationDetail(String, LDContext, LDValue)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param key          the unique key for the feature flag
+   * @param user         the user attributes
+   * @param defaultValue the default value of the flag
+   * @return an {@link EvaluationDetail} object
+   * @see #jsonValueVariation(String, LDContext, LDValue)
    * @since 4.8.0
    */
-  EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDUser user, LDValue defaultValue);
+  default EvaluationDetail<LDValue> jsonValueVariationDetail(String key, LDUser user, LDValue defaultValue) {
+    return jsonValueVariationDetail(key, LDContext.fromUser(user), defaultValue);
+  }
 
   /**
    * Returns true if the specified feature flag currently exists.
@@ -275,28 +638,35 @@ public interface LDClientInterface extends Closeable {
   DataStoreStatusProvider getDataStoreStatusProvider();
   
   /**
-   * For more info: <a href="https://github.com/launchdarkly/js-client#secure-mode">https://github.com/launchdarkly/js-client#secure-mode</a>
-   * @param user the user to be hashed along with the SDK key
+   * Creates a hash string that can be used by the JavaScript SDK to identify a context.
+   * <p>
+   * See <a href="https://docs.launchdarkly.com/sdk/features/secure-mode#configuring-secure-mode-in-the-javascript-client-side-sdk">
+   * Secure mode</a> in the JavaScript SDK Reference.
+   *
+   * @param context the evaluation context
    * @return the hash, or null if the hash could not be calculated
+   * @see #secureModeHash(LDUser)
+   * @since 6.0.0
    */
-  String secureModeHash(LDUser user);
-  
+  String secureModeHash(LDContext context);
+
   /**
-   * Associates two users for analytics purposes. 
-   * 
-   * This can be helpful in the situation where a person is represented by multiple 
-   * LaunchDarkly users. This may happen, for example, when a person initially logs into 
-   * an application-- the person might be represented by an anonymous user prior to logging
-   * in and a different user after logging in, as denoted by a different user key.
-   * 
-   * @param user the newly identified user.
-   * @param previousUser the previously identified user.
-   * @since 5.4.0
+   * Creates a hash string that can be used by the JavaScript SDK to identify a context.
+   * <p>
+   * This is equivalent to {@link #secureModeHash(LDContext)}, but using the {@link LDUser} type
+   * instead of {@link LDContext}.
+   *
+   * @param user the user attributes
+   * @return the hash, or null if the hash could not be calculated
+   * @see #secureModeHash(LDContext)
    */
-  void alias(LDUser user, LDUser previousUser);
+  default String secureModeHash(LDUser user) {
+    return secureModeHash(LDContext.fromUser(user));
+  }
 
   /**
    * The current version string of the SDK.
+   * 
    * @return a string in Semantic Versioning 2.0.0 format
    */
   String version();

@@ -6,27 +6,30 @@ import com.launchdarkly.logging.LDSLF4J;
 import com.launchdarkly.logging.LogCapture;
 import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.BasicConfiguration;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfiguration;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
+import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.time.Duration;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 @SuppressWarnings("javadoc")
 public class LoggingConfigurationBuilderTest {
   private static final String SDK_KEY = "sdk-key";
-  private static final BasicConfiguration BASIC_CONFIG = new BasicConfiguration(SDK_KEY, false, 0, null, null);
+  private static final ClientContext BASIC_CONTEXT = new ClientContext(SDK_KEY);
 
   @Test
   public void testDefaults() {
-    LoggingConfiguration c = Components.logging().createLoggingConfiguration(BASIC_CONFIG);
+    LoggingConfiguration c = Components.logging().build(BASIC_CONTEXT);
     assertEquals(LoggingConfigurationBuilder.DEFAULT_LOG_DATA_SOURCE_OUTAGE_AS_ERROR_AFTER,
         c.getLogDataSourceOutageAsErrorAfter());
   }
@@ -35,20 +38,24 @@ public class LoggingConfigurationBuilderTest {
   public void logDataSourceOutageAsErrorAfter() {
     LoggingConfiguration c1 = Components.logging()
         .logDataSourceOutageAsErrorAfter(Duration.ofMinutes(9))
-        .createLoggingConfiguration(BASIC_CONFIG);
+        .build(BASIC_CONTEXT);
     assertEquals(Duration.ofMinutes(9), c1.getLogDataSourceOutageAsErrorAfter());
 
     LoggingConfiguration c2 = Components.logging()
         .logDataSourceOutageAsErrorAfter(null)
-        .createLoggingConfiguration(BASIC_CONFIG);
+        .build(BASIC_CONTEXT);
     assertNull(c2.getLogDataSourceOutageAsErrorAfter());
   }
   
   @Test
-  public void defaultLogAdapterIsSLF4J() {
+  public void defaultLogAdapterIsNotSLF4J() {
     LoggingConfiguration c = Components.logging()
-        .createLoggingConfiguration(BASIC_CONFIG);
-    assertThat(c.getLogAdapter(), sameInstance(LDSLF4J.adapter()));
+        .build(BASIC_CONTEXT);
+    assertThat(c.getLogAdapter().getClass().getCanonicalName(),
+        not(startsWith("com.launchdarkly.logging.LDSLF4J")));
+    // Note that we're checking the class name here rather than comparing directly to
+    // LDSLF4J.adapter(), because calling that method isn't safe if you don't have
+    // SLF4J in the classpath.
   }
   
   @Test
@@ -57,7 +64,7 @@ public class LoggingConfigurationBuilderTest {
     LoggingConfiguration c = Components.logging()
         .adapter(logSink)
         .level(LDLogLevel.WARN)
-        .createLoggingConfiguration(BASIC_CONFIG);
+        .build(BASIC_CONTEXT);
     LDLogger logger = LDLogger.withAdapter(c.getLogAdapter(), "");
     logger.debug("message 1");
     logger.info("message 2");
@@ -71,7 +78,7 @@ public class LoggingConfigurationBuilderTest {
     LogCapture logSink = Logs.capture();
     LoggingConfiguration c = Components.logging()
         .adapter(logSink)
-        .createLoggingConfiguration(BASIC_CONFIG);
+        .build(BASIC_CONTEXT);
     LDLogger logger = LDLogger.withAdapter(c.getLogAdapter(), "");
     logger.debug("message 1");
     logger.info("message 2");

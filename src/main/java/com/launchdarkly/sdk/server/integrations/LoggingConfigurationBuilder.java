@@ -4,7 +4,8 @@ import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.LDLogLevel;
 import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.LoggingConfigurationFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
 import java.time.Duration;
 
@@ -13,7 +14,7 @@ import java.time.Duration;
  * <p>
  * If you want to set non-default values for any of these properties, create a builder with
  * {@link Components#logging()}, change its properties with the methods of this class, and pass it
- * to {@link com.launchdarkly.sdk.server.LDConfig.Builder#logging(LoggingConfigurationFactory)}:
+ * to {@link com.launchdarkly.sdk.server.LDConfig.Builder#logging(ComponentConfigurer)}:
  * <pre><code>
  *     LDConfig config = new LDConfig.Builder()
  *         .logging(
@@ -27,7 +28,7 @@ import java.time.Duration;
  * 
  * @since 5.0.0
  */
-public abstract class LoggingConfigurationBuilder implements LoggingConfigurationFactory {
+public abstract class LoggingConfigurationBuilder implements ComponentConfigurer<LoggingConfiguration> {
   /**
    * The default value for {@link #logDataSourceOutageAsErrorAfter(Duration)}: one minute.
    */
@@ -42,13 +43,18 @@ public abstract class LoggingConfigurationBuilder implements LoggingConfiguratio
    * Specifies the implementation of logging to use.
    * <p>
    * The <a href="https://github.com/launchdarkly/java-logging"><code>com.launchdarkly.logging</code></a>
-   * API defines the {@link LDLogAdapter} interface to specify where log output should be sent. By default,
-   * it is set to {@link com.launchdarkly.logging.LDSLF4J#adapter()}, meaning that output will be sent to
-   * <a href="https://www.slf4j.org/">SLF4J</a> and controlled by the SLF4J configuration. You may use
-   * the {@link com.launchdarkly.logging.Logs} factory methods, or a custom implementation, to handle log
-   * output differently. For instance, you may specify {@link com.launchdarkly.logging.Logs#basic()} for
-   * simple console output, or {@link com.launchdarkly.logging.Logs#toJavaUtilLogging()} to use the
-   * <code>java.util.logging</code> framework.
+   * API defines the {@link LDLogAdapter} interface to specify where log output should be sent.
+   * <p>
+   * The default logging destination, if no adapter is specified, depends on whether
+   * <a href="https://www.slf4j.org/">SLF4J</a> is present in the classpath. If it is, then the SDK uses
+   * {@link com.launchdarkly.logging.LDSLF4J#adapter()}, causing output to go to SLF4J; what happens to
+   * the output then is determined by the SLF4J configuration. If SLF4J is not present in the classpath,
+   * the SDK uses {@link Logs#toConsole()} instead, causing output to go to the {@code System.err} stream.
+   * <p>
+   * You may use the {@link com.launchdarkly.logging.Logs} factory methods, or a custom implementation,
+   * to handle log output differently. For instance, you may specify
+   * {@link com.launchdarkly.logging.Logs#toJavaUtilLogging()} to use the <code>java.util.logging</code>
+   * framework.
    * <p>
    * For more about logging adapters,
    * see the <a href="https://docs.launchdarkly.com/sdk/features/logging#java">SDK reference guide</a>

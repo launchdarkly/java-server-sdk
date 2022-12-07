@@ -1,6 +1,7 @@
 package com.launchdarkly.sdk.server.interfaces;
 
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
+import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
 
 import java.time.Duration;
 

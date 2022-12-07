@@ -15,11 +15,12 @@ This version of the LaunchDarkly SDK works with Java 8 and above.
 
 ## Distributions
 
-Three variants of the SDK jar are published to Maven:
+Two variants of the SDK jar are published to Maven:
 
-* The default uberjar - this is accessible as `com.launchdarkly:launchdarkly-java-server-sdk:jar` and is the dependency used in the "[Getting started](https://docs.launchdarkly.com/sdk/server-side/java#getting-started)" section of the SDK reference guide as well as in the [`hello-java`](https://github.com/launchdarkly/hello-java) sample app. This variant contains the SDK classes, and all of the SDK's dependencies except for SLF4J (the SLF4J API is assumed to be brought in automatically as Maven dependencies, or otherwise made available in the classpath of the host application). All third-party bundled dependencies have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
-* The extended uberjar - add `<classifier>all</classifier>` in Maven, or `:all` in Gradle. This is the same as the default uberjar except that SLF4J is also bundled, without shading (and is exported in OSGi).
-* The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains _only_ the SDK classes. Applications using this jar must provide all of the dependencies that are in the SDK's `build.gradle`, so it is intended for use only in special cases.
+* The default uberjar - this is accessible as `com.launchdarkly:launchdarkly-java-server-sdk:jar` and is the dependency used in the "[Getting started](https://docs.launchdarkly.com/sdk/server-side/java#getting-started)" section of the SDK reference guide as well as in the [`hello-java`](https://github.com/launchdarkly/hello-java) sample app. This variant contains the SDK classes and all of its required dependencies. All bundled dependencies that are not surfaced in the public API have shaded package names (and are not exported in OSGi), so they will not interfere with any other versions of the same packages.
+* The "thin" jar - add `<classifier>thin</classifier>` in Maven, or `:thin` in Gradle. This contains only the SDK classes, without its dependencies. Applications using this jar must provide all of the dependencies that are in the SDK's `build.gradle`, so it is intended for use only in special cases.
+
+Previous SDK versions also included a third classifier, `all`, which was the same as the default uberjar but also contained the SLF4J API. This no longer exists because the SDK no longer requires the SLF4J API to be in the classpath.
 
 ## Getting started
 
@@ -27,9 +28,11 @@ Refer to the [SDK reference guide](https://docs.launchdarkly.com/sdk/server-side
 
 ## Logging
 
-By default, the LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/). SLF4J has its own configuration mechanisms for determining where output will go, and filtering by level and/or logger name.
+By default, the LaunchDarkly SDK uses [SLF4J](https://www.slf4j.org/) _if_ the SLF4J API is present in the classpath. SLF4J has its own configuration mechanisms for determining where output will go, and filtering by level and/or logger name.
 
-The SDK can also be configured to use other adapters from the [com.launchdarkly.logging](https://github.com/launchdarkly/java-logging) facade instead of SLF4J. See `LoggingConfigurationBuilder`. This allows the logging behavior to be completely determined by the application, rather than by external SLF4J configuration.
+If SLF4J is not in the classpath, the SDK's default logging destination is `System.err`.
+
+The SDK can also be configured to use other adapters from the [com.launchdarkly.logging](https://github.com/launchdarkly/java-logging) facade. See `LoggingConfigurationBuilder`. This allows the logging behavior to be completely determined by the application, rather than by external SLF4J configuration.
 
 For an example of using the default SLF4J behavior with a simple console logging configuration, check out the [`slf4j-logging` branch](https://github.com/launchdarkly/hello-java/tree/slf4j-logging) of the [`hello-java`](https://github.com/launchdarkly/hello-java) project. The [main branch](https://github.com/launchdarkly/hello-java) of `hello-java` uses console logging that is programmatically configured without SLF4J.
 

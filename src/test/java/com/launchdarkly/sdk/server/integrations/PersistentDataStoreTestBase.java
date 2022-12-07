@@ -3,12 +3,12 @@ package com.launchdarkly.sdk.server.integrations;
 import com.launchdarkly.sdk.server.BaseTest;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.TestItem;
-import com.launchdarkly.sdk.server.interfaces.ClientContext;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.SerializedItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStore;
-import com.launchdarkly.sdk.server.interfaces.PersistentDataStoreFactory;
+import com.launchdarkly.sdk.server.subsystems.ClientContext;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.SerializedItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -49,41 +49,18 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
   
   @SuppressWarnings("unchecked")
   private T makeConfiguredStore() {
-    PersistentDataStoreFactory builder = buildStore(null);
-    if (builder == null) {
-      return makeStore();
-    }
-    return (T)builder.createPersistentDataStore(makeClientContext());
+    return (T)buildStore(null).build(makeClientContext());
   }
 
   @SuppressWarnings("unchecked")
   private T makeConfiguredStoreWithPrefix(String prefix) {
-    PersistentDataStoreFactory builder = buildStore(prefix);
+    ComponentConfigurer<PersistentDataStore> builder = buildStore(prefix);
     if (builder == null) {
-      return makeStoreWithPrefix(prefix);
+      return null;
     }
-    return (T)builder.createPersistentDataStore(makeClientContext());
+    return (T)builder.build(makeClientContext());
   }
   
-  /**
-   * Test subclasses can override either this method or {@link #buildStore(String)} to create an instance
-   * of the feature store class with default properties.
-   * @deprecated It is preferable to override {@link #buildStore(String)} instead.
-   */
-  @Deprecated
-  protected T makeStore() {
-    throw new RuntimeException("test subclasses must override either makeStore or buildStore");
-  }
-
-  /**
-   * Test subclasses can implement this (or override {@link #buildStore(String)}) if the feature store
-   * class supports a key prefix option for keeping data sets distinct within the same database.
-   * @deprecated It is preferable to override {@link #buildStore(String)} instead.
-   */
-  protected T makeStoreWithPrefix(String prefix) {
-    return null;
-  }
-
   /**
    * Test subclasses should override this method to prepare an instance of the data store class.
    * They are allowed to return null if {@code prefix} is non-null and they do not support prefixes.
@@ -91,7 +68,7 @@ public abstract class PersistentDataStoreTestBase<T extends PersistentDataStore>
    * @param prefix a database prefix or null
    * @return a factory for creating the data store
    */
-  protected PersistentDataStoreFactory buildStore(String prefix) {
+  protected ComponentConfigurer<PersistentDataStore> buildStore(String prefix) {
     return null;
   }
   

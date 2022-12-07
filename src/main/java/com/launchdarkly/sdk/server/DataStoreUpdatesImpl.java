@@ -1,11 +1,11 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStoreUpdates;
+import com.launchdarkly.sdk.server.subsystems.DataStoreUpdateSink;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-class DataStoreUpdatesImpl implements DataStoreUpdates {
+class DataStoreUpdatesImpl implements DataStoreUpdateSink {
   // package-private because it's convenient to use these from DataStoreStatusProviderImpl
   final EventBroadcasterImpl<DataStoreStatusProvider.StatusListener, DataStoreStatusProvider.Status> statusBroadcaster;
   final AtomicReference<DataStoreStatusProvider.Status> lastStatus;

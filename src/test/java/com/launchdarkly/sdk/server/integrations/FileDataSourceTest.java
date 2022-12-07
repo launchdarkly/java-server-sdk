@@ -5,9 +5,9 @@ import com.launchdarkly.sdk.server.BaseTest;
 import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.TestComponents;
 import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
-import com.launchdarkly.sdk.server.interfaces.DataSource;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
+import com.launchdarkly.sdk.server.subsystems.DataSource;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
 
 import org.junit.Test;
 
@@ -49,7 +49,7 @@ public class FileDataSourceTest extends BaseTest {
   }
 
   private DataSource makeDataSource(FileDataSourceBuilder builder) {
-    return builder.createDataSource(clientContext("", config), dataSourceUpdates);
+    return builder.build(clientContext("", config, dataSourceUpdates));
   }
   
   @Test

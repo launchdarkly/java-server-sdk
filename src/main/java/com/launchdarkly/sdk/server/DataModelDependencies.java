@@ -6,10 +6,10 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.DataModel.Operator;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.KeyedItems;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.KeyedItems;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -28,7 +28,7 @@ import static java.util.Collections.emptySet;
 /**
  * Implements a dependency graph ordering for data to be stored in a data store.
  * <p>
- * We use this to order the data that we pass to {@link com.launchdarkly.sdk.server.interfaces.DataStore#init(FullDataSet)},
+ * We use this to order the data that we pass to {@link com.launchdarkly.sdk.server.subsystems.DataStore#init(FullDataSet)},
  * and also to determine which flags are affected by a change if the application is listening for flag change events.
  * <p>
  * Dependencies are defined as follows: there is a dependency from flag F to flag G if F is a prerequisite flag for
@@ -84,25 +84,35 @@ abstract class DataModelDependencies {
       Iterable<String> segmentKeys = concat(
             transform(
                 flag.getRules(),
-                rule -> concat(
-                    Iterables.<DataModel.Clause, Iterable<String>>transform(
-                        rule.getClauses(),
-                        clause -> clause.getOp() == Operator.segmentMatch ?
-                            transform(clause.getValues(), LDValue::stringValue) :
-                            emptyList()
-                        )
-                    )
-                )
+                rule -> segmentKeysFromClauses(rule.getClauses()))
           );
       
       return ImmutableSet.copyOf(
-          concat(
-              transform(prereqFlagKeys, key -> new KindAndKey(FEATURES, key)),
-              transform(segmentKeys, key -> new KindAndKey(SEGMENTS, key))
-              )
+          concat(kindAndKeys(FEATURES, prereqFlagKeys), kindAndKeys(SEGMENTS, segmentKeys))
           );
+    } else if (fromKind == SEGMENTS) {
+      DataModel.Segment segment = (DataModel.Segment)fromItem.getItem();
+      
+      Iterable<String> nestedSegmentKeys = concat(
+            transform(
+                segment.getRules(),
+                rule -> segmentKeysFromClauses(rule.getClauses())));
+      return ImmutableSet.copyOf(kindAndKeys(SEGMENTS, nestedSegmentKeys));
     }
     return emptySet();
+  }
+  
+  private static Iterable<KindAndKey> kindAndKeys(DataKind kind, Iterable<String> keys) {
+    return transform(keys, key -> new KindAndKey(kind, key));
+  }
+  
+  private static Iterable<String> segmentKeysFromClauses(Iterable<DataModel.Clause> clauses) {
+    return concat(Iterables.<DataModel.Clause, Iterable<String>>transform(
+        clauses,
+        clause -> clause.getOp() == Operator.segmentMatch ?
+            transform(clause.getValues(), LDValue::stringValue) :
+            emptyList()
+        ));
   }
   
   /**

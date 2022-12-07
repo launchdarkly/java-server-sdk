@@ -2,6 +2,8 @@ package sdktest;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.launchdarkly.sdk.server.LDClient;
+import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestContext;
@@ -27,8 +29,10 @@ public class TestService {
     "all-flags-details-only-for-tracked-flags",
     "all-flags-with-reasons",
     "big-segments",
+    "context-type",
+    "service-endpoints",
     "tags",
-    "service-endpoints"
+    "user-type"
   };
   
   static final Gson gson = new GsonBuilder().serializeNulls().create();
@@ -37,6 +41,15 @@ public class TestService {
   
   private final Map<String, SdkClientEntity> clients = new ConcurrentHashMap<String, SdkClientEntity>();
   private final AtomicInteger clientCounter = new AtomicInteger(0);
+  private final String clientVersion;
+  
+  private TestService() {
+    LDClient dummyClient = new LDClient("", new LDConfig.Builder().offline(true).build());
+    clientVersion = dummyClient.version();
+    try {
+      dummyClient.close();
+    } catch (Exception e) {}
+  }
   
   @SuppressWarnings("serial")
   public static class BadRequestException extends Exception {
@@ -67,6 +80,7 @@ public class TestService {
   private Status getStatus() {
     Status rep = new Status();
     rep.capabilities = CAPABILITIES;
+    rep.clientVersion = clientVersion;
     return rep;
   }
 

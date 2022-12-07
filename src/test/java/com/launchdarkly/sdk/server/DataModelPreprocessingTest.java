@@ -5,7 +5,6 @@ import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.UserAttribute;
 import com.launchdarkly.sdk.server.DataModel.Clause;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Operator;
@@ -22,6 +21,9 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+import static com.launchdarkly.sdk.server.ModelBuilders.clause;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentRuleBuilder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
@@ -37,7 +39,7 @@ public class DataModelPreprocessingTest {
   private static final LDValue aValue = LDValue.of("a"), bValue = LDValue.of("b");
   
   private FeatureFlag flagFromClause(Clause c) {
-    return new FeatureFlag("key", 0, false, null, null, null, rulesFromClause(c),
+    return new FeatureFlag("key", 0, false, null, null, null, null, rulesFromClause(c),
         null, null, null, false, false, false, null, false);
   }
   
@@ -47,7 +49,7 @@ public class DataModelPreprocessingTest {
 
   @Test
   public void preprocessFlagAddsPrecomputedOffResult() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
         ImmutableList.of(), null,
         0,
         ImmutableList.of(aValue, bValue),
@@ -62,7 +64,7 @@ public class DataModelPreprocessingTest {
 
   @Test
   public void preprocessFlagAddsPrecomputedOffResultForNullOffVariation() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
         ImmutableList.of(), null,
         null,
         ImmutableList.of(aValue, bValue),
@@ -77,7 +79,7 @@ public class DataModelPreprocessingTest {
 
   @Test
   public void preprocessFlagAddsPrecomputedFallthroughResults() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
         ImmutableList.of(), null, 0,
         ImmutableList.of(aValue, bValue),
         false, false, false, null, false);
@@ -103,8 +105,8 @@ public class DataModelPreprocessingTest {
   @Test
   public void preprocessFlagAddsPrecomputedTargetMatchResults() {
     FeatureFlag f = new FeatureFlag("key", 0, false, null, null,
-        ImmutableList.of(new Target(ImmutableSet.of(), 1)),
-        ImmutableList.of(), null, 0,
+        ImmutableList.of(new Target(null, ImmutableSet.of(), 1)),
+        null, ImmutableList.of(), null, 0,
         ImmutableList.of(aValue, bValue),
         false, false, false, null, false);
     
@@ -120,7 +122,7 @@ public class DataModelPreprocessingTest {
   public void preprocessFlagAddsPrecomputedPrerequisiteFailedResults() {
     FeatureFlag f = new FeatureFlag("key", 0, false,
         ImmutableList.of(new Prerequisite("abc", 1)),
-        null, null,
+        null, null, null,
         ImmutableList.of(), null, 0,
         ImmutableList.of(aValue, bValue),
         false, false, false, null, false);
@@ -135,7 +137,7 @@ public class DataModelPreprocessingTest {
 
   @Test
   public void preprocessFlagAddsPrecomputedResultsToFlagRules() {
-    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null,
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
         ImmutableList.of(new Rule("ruleid0", ImmutableList.of(), null, null, false)),
         null, null,
         ImmutableList.of(aValue, bValue),
@@ -162,11 +164,10 @@ public class DataModelPreprocessingTest {
   
   @Test
   public void preprocessFlagCreatesClauseValuesMapForMultiValueEqualityTest() {
-    Clause c = new Clause(
-        UserAttribute.forName("x"),
+    Clause c = clause(
+        "x",
         Operator.in,
-        ImmutableList.of(LDValue.of("a"), LDValue.of(0)),
-        false
+        LDValue.of("a"), LDValue.of(0) 
         );
  
     FeatureFlag f = flagFromClause(c);
@@ -181,11 +182,10 @@ public class DataModelPreprocessingTest {
   
   @Test
   public void preprocessFlagDoesNotCreateClauseValuesMapForSingleValueEqualityTest() {
-    Clause c = new Clause(
-        UserAttribute.forName("x"),
+    Clause c = clause(
+        "x",
         Operator.in,
-        ImmutableList.of(LDValue.of("a")),
-        false
+        LDValue.of("a")
         );
     
     FeatureFlag f = flagFromClause(c);
@@ -198,11 +198,9 @@ public class DataModelPreprocessingTest {
   
   @Test
   public void preprocessFlagDoesNotCreateClauseValuesMapForEmptyEqualityTest() {
-    Clause c = new Clause(
-        UserAttribute.forName("x"),
-        Operator.in,
-        ImmutableList.of(),
-        false
+    Clause c = clause(
+        "x",
+        Operator.in
         );
     
     FeatureFlag f = flagFromClause(c);
@@ -215,21 +213,20 @@ public class DataModelPreprocessingTest {
   
   @Test
   public void preprocessFlagDoesNotCreateClauseValuesMapForNonEqualityOperators() {
-    for (Operator op: Operator.values()) {
+    for (Operator op: Operator.getBuiltins()) {
       if (op == Operator.in) {
         continue;
       }
-      Clause c = new Clause(
-          UserAttribute.forName("x"),
+      Clause c = clause(
+          "x",
           op,
-          ImmutableList.of(LDValue.of("a"), LDValue.of("b")),
-          false
+          LDValue.of("a"), LDValue.of("b")
           );
       // The values & types aren't very important here because we won't actually evaluate the clause; all that
       // matters is that there's more than one of them, so that it *would* build a map if the operator were "in"
       
       FeatureFlag f = flagFromClause(c);
-      assertNull(op.name(), f.getRules().get(0).getClauses().get(0).preprocessed);
+      assertNull(op.toString(), f.getRules().get(0).getClauses().get(0).preprocessed);
       
       f.afterDeserialized();
       
@@ -249,11 +246,10 @@ public class DataModelPreprocessingTest {
     Instant time2 = Instant.ofEpochMilli(time2Num);
 
     for (Operator op: new Operator[] { Operator.after, Operator.before }) {
-      Clause c = new Clause(
-          UserAttribute.forName("x"),
+      Clause c = clause(
+          "x",
           op,
-          ImmutableList.of(LDValue.of(time1Str), LDValue.of(time2Num), LDValue.of("x"), LDValue.of(false)),
-          false
+          LDValue.of(time1Str), LDValue.of(time2Num), LDValue.of("x"), LDValue.of(false)
           );
       
       FeatureFlag f = flagFromClause(c);
@@ -274,11 +270,10 @@ public class DataModelPreprocessingTest {
   
   @Test
   public void preprocessFlagParsesClauseRegex() {
-    Clause c = new Clause(
-        UserAttribute.forName("x"),
+    Clause c = clause(
+        "x",
         Operator.matches,
-        ImmutableList.of(LDValue.of("x*"), LDValue.of("***not a regex"), LDValue.of(3)),
-        false
+        LDValue.of("x*"), LDValue.of("***not a regex"), LDValue.of(3)
         );
     
     FeatureFlag f = flagFromClause(c);
@@ -303,11 +298,10 @@ public class DataModelPreprocessingTest {
     assertNotNull(expected);
 
     for (Operator op: new Operator[] { Operator.semVerEqual, Operator.semVerGreaterThan, Operator.semVerLessThan }) {
-      Clause c = new Clause(
-          UserAttribute.forName("x"),
+      Clause c = clause(
+          "x",
           op,
-          ImmutableList.of(LDValue.of("1.2.3"), LDValue.of("x"), LDValue.of(false)),
-          false
+          LDValue.of("1.2.3"), LDValue.of("x"), LDValue.of(false)
           );
       
       FeatureFlag f = flagFromClause(c);
@@ -329,14 +323,13 @@ public class DataModelPreprocessingTest {
   @Test
   public void preprocessSegmentPreprocessesClausesInRules() {
     // We'll just check one kind of clause, and assume that the preprocessing works the same as in flag rules
-    Clause c = new Clause(
-        UserAttribute.forName("x"),
+    Clause c = clause(
+        "x",
         Operator.matches,
-        ImmutableList.of(LDValue.of("x*")),
-        false
+        LDValue.of("x*")
         );    
-    SegmentRule rule = new SegmentRule(ImmutableList.of(c), null, null);
-    Segment s = new Segment("key", null, null, null, ImmutableList.of(rule), 0, false, false, null);
+    SegmentRule rule = segmentRuleBuilder().clauses(c).build();
+    Segment s = segmentBuilder("key").disablePreprocessing(true).rules(rule).build();
     
     assertNull(s.getRules().get(0).getClauses().get(0).preprocessed);
     

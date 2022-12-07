@@ -1,16 +1,14 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.sdk.LDValue;
-import com.launchdarkly.sdk.server.DataModel.Operator;
 import com.launchdarkly.sdk.server.DataStoreTestTypes.DataBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorInfo;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.ErrorKind;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.State;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider.Status;
-import com.launchdarkly.sdk.server.interfaces.DataStore;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeEvent;
 import com.launchdarkly.sdk.server.interfaces.FlagChangeListener;
 
@@ -282,7 +280,7 @@ public class DataSourceUpdatesImplTest {
             flagBuilder("flag1").version(1).build(),
             flagBuilder("flag2").version(1).rules(
                 ruleBuilder().clauses(
-                    ModelBuilders.clause(null, Operator.segmentMatch, LDValue.of("segment1"))
+                    ModelBuilders.clauseMatchingSegment("segment1")
                     ).build()
                 ).build(),
             flagBuilder("flag3").version(1).build(),
@@ -311,7 +309,7 @@ public class DataSourceUpdatesImplTest {
             flagBuilder("flag1").version(1).build(),
             flagBuilder("flag2").version(1).rules(
                 ruleBuilder().clauses(
-                    ModelBuilders.clause(null, Operator.segmentMatch, LDValue.of("segment1"))
+                    ModelBuilders.clauseMatchingSegment("segment1")
                     ).build()
                 ).build(),
             flagBuilder("flag3").version(1).build(),

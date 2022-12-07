@@ -1,10 +1,13 @@
 package sdktest;
 
+import com.google.gson.annotations.SerializedName;
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 
 import java.net.URI;
+import java.util.Map;
 
 public abstract class Representations {
   public static class Status {
@@ -41,7 +44,6 @@ public abstract class Representations {
     boolean enableDiagnostics;
     String[] globalPrivateAttributes;
     Long flushIntervalMs;
-    boolean inlineUsers;
   }
   
   public static class SdkConfigBigSegmentsParams {
@@ -69,11 +71,14 @@ public abstract class Representations {
     EvaluateAllFlagsParams evaluateAll;
     IdentifyEventParams identifyEvent;
     CustomEventParams customEvent;
-    AliasEventParams aliasEvent;
+    ContextBuildParams contextBuild;
+    ContextConvertParams contextConvert;
+    SecureModeHashParams secureModeHash;
   }
 
   public static class EvaluateFlagParams {
     String flagKey;
+    LDContext context;
     LDUser user;
     String valueType;
     LDValue value;
@@ -88,6 +93,7 @@ public abstract class Representations {
   }
 
   public static class EvaluateAllFlagsParams {
+    LDContext context;
     LDUser user;
     boolean clientSideOnly;
     boolean detailsOnlyForTrackedFlags;
@@ -99,24 +105,53 @@ public abstract class Representations {
   }
   
   public static class IdentifyEventParams {
+    LDContext context;
     LDUser user;
   }
 
   public static class CustomEventParams {
     String eventKey;
+    LDContext context;
     LDUser user;
     LDValue data;
     boolean omitNullData;
     Double metricValue;
   }
   
-  public static class AliasEventParams {
-    LDUser user;
-    LDUser previousUser;
-  }
-  
   public static class GetBigSegmentsStoreStatusResponse {
     boolean available;
     boolean stale;
+  }
+
+  public static class ContextBuildParams {
+    ContextBuildSingleParams single;
+    ContextBuildSingleParams[] multi;
+  }
+
+  public static class ContextBuildSingleParams {
+    public String kind;
+    public String key;
+    public String name;
+    public Boolean anonymous;
+    @SerializedName("private") public String[] privateAttrs;
+    public Map<String, LDValue> custom;
+  }
+  
+  public static class ContextBuildResponse {
+    String output;
+    String error;
+  }
+  
+  public static class ContextConvertParams {
+    String input;
+  }
+  
+  public static class SecureModeHashParams {
+    LDContext context;
+    LDUser user;
+  }
+  
+  public static class SecureModeHashResponse {
+    String result;
   }
 }

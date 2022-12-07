@@ -9,7 +9,7 @@ import com.launchdarkly.sdk.LDValue;
  * 
  * @since 5.0.0
  * @see FlagValueChangeListener
- * @see FlagTracker#addFlagValueChangeListener(String, com.launchdarkly.sdk.LDUser, FlagValueChangeListener)
+ * @see FlagTracker#addFlagValueChangeListener(String, com.launchdarkly.sdk.LDContext, FlagValueChangeListener)
  */
 public class FlagValueChangeEvent extends FlagChangeEvent {
   private final LDValue oldValue;
@@ -29,7 +29,7 @@ public class FlagValueChangeEvent extends FlagChangeEvent {
   }
   
   /**
-   * Returns the last known value of the flag for the specified user prior to the update.
+   * Returns the last known value of the flag for the specified evaluation context prior to the update.
    * <p>
    * Since flag values can be of any JSON data type, this is represented as {@link LDValue}. That class
    * has methods for converting to a primitive Java type such as {@link LDValue#booleanValue()}.
@@ -45,7 +45,7 @@ public class FlagValueChangeEvent extends FlagChangeEvent {
   }
 
   /**
-   * Returns the new value of the flag for the specified user.
+   * Returns the new value of the flag for the specified evaluation context.
    * <p>
    * Since flag values can be of any JSON data type, this is represented as {@link LDValue}. That class
    * has methods for converting to a primitive Java type such {@link LDValue#booleanValue()}.

@@ -1,13 +1,13 @@
 package com.launchdarkly.sdk.server.integrations;
 
 import com.google.common.collect.ImmutableSet;
-import com.launchdarkly.sdk.UserAttribute;
+import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.server.Components;
-import com.launchdarkly.sdk.server.interfaces.EventSenderFactory;
+import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
+import com.launchdarkly.sdk.server.subsystems.EventSender;
 
 import org.junit.Test;
 
-import java.net.URI;
 import java.time.Duration;
 
 import static com.launchdarkly.sdk.server.Components.sendEvents;
@@ -36,18 +36,6 @@ public class EventProcessorBuilderTest {
   }
   
   @Test
-  public void baseURI() {
-    assertNull(sendEvents().baseURI);
-
-    assertEquals(URI.create("x"), sendEvents().baseURI(URI.create("x")).baseURI);
-
-    assertNull(sendEvents()
-        .baseURI(URI.create("x"))
-        .baseURI(null)
-        .baseURI);
-  }
-
-  @Test
   public void capacity() {
     assertEquals(DEFAULT_CAPACITY, sendEvents().capacity);
 
@@ -74,12 +62,12 @@ public class EventProcessorBuilderTest {
   
   @Test
   public void eventSender() {
-    assertNull(sendEvents().eventSenderFactory);
+    assertNull(sendEvents().eventSenderConfigurer);
     
-    EventSenderFactory f = (ec, hc) -> null;
-    assertSame(f, sendEvents().eventSender(f).eventSenderFactory);
+    ComponentConfigurer<EventSender> f = (ctx) -> null;
+    assertSame(f, sendEvents().eventSender(f).eventSenderConfigurer);
     
-    assertNull(sendEvents().eventSender(f).eventSender(null).eventSenderFactory);
+    assertNull(sendEvents().eventSender(f).eventSender(null).eventSenderConfigurer);
   }
   
   @Test
@@ -95,31 +83,13 @@ public class EventProcessorBuilderTest {
         .flushInterval(null); // null sets it back to the default
     assertEquals(DEFAULT_FLUSH_INTERVAL, builder3.flushInterval);
   }
-  
-  @Test
-  public void inlineUsersInEvents() {
-    assertEquals(false, sendEvents().inlineUsersInEvents);
-
-    assertEquals(true, sendEvents().inlineUsersInEvents(true).inlineUsersInEvents);
-
-    assertEquals(false, sendEvents()
-        .inlineUsersInEvents(true)
-        .inlineUsersInEvents(false)
-        .inlineUsersInEvents);
-  }
-  
-  @Test
-  public void privateAttributeNames() {
-    assertNull(sendEvents().privateAttributes);
     
-    assertEquals(ImmutableSet.of(UserAttribute.forName("a"), UserAttribute.forName("b")),
-        sendEvents().privateAttributeNames("a", "b").privateAttributes);
-  }
-  
   @Test
   public void privateAttributes() {
-    assertEquals(ImmutableSet.of(UserAttribute.EMAIL, UserAttribute.NAME),
-        sendEvents().privateAttributes(UserAttribute.EMAIL, UserAttribute.NAME).privateAttributes);
+    assertNull(sendEvents().privateAttributes);
+    
+    assertEquals(ImmutableSet.of(AttributeRef.fromLiteral("email"), AttributeRef.fromPath("/address/street")),
+        sendEvents().privateAttributes("email", "/address/street").privateAttributes);
   }
   
   @Test

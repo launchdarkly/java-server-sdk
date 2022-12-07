@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import com.launchdarkly.sdk.server.LDConfig.Builder;
+
 /**
  * Integration between the LaunchDarkly SDK and file data.
  * <p>
@@ -39,7 +41,7 @@ public abstract class FileData {
    * <p>
    * This object can be modified with {@link FileDataSourceBuilder} methods for any desired
    * custom settings, before including it in the SDK configuration with
-   * {@link com.launchdarkly.sdk.server.LDConfig.Builder#dataSource(com.launchdarkly.sdk.server.interfaces.DataSourceFactory)}.
+   * {@link Builder#dataSource(com.launchdarkly.sdk.server.subsystems.ComponentConfigurer)}.
    * <p>
    * At a minimum, you will want to call {@link FileDataSourceBuilder#filePaths(String...)} to specify
    * your data file(s); you can also use {@link FileDataSourceBuilder#autoUpdate(boolean)} to
@@ -57,7 +59,7 @@ public abstract class FileData {
    * This will cause the client <i>not</i> to connect to LaunchDarkly to get feature flags. The
    * client may still make network connections to send analytics events, unless you have disabled
    * this with {@link com.launchdarkly.sdk.server.Components#noEvents()}. IMPORTANT: Do <i>not</i>
-   * set {@link com.launchdarkly.sdk.server.LDConfig.Builder#offline(boolean)} to {@code true}; doing so
+   * set {@link Builder#offline(boolean)} to {@code true}; doing so
    * would not just put the SDK "offline" with regard to LaunchDarkly, but will completely turn off
    * all flag data sources to the SDK <i>including the file data source</i>.
    * <p>

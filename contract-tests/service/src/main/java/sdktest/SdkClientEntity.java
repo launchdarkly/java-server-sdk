@@ -1,6 +1,9 @@
 package sdktest;
 
+import com.launchdarkly.sdk.ContextBuilder;
+import com.launchdarkly.sdk.ContextMultiBuilder;
 import com.launchdarkly.sdk.EvaluationDetail;
+import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.json.JsonSerialization;
 import com.launchdarkly.sdk.server.Components;
@@ -21,9 +24,13 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-import sdktest.Representations.AliasEventParams;
 import sdktest.Representations.CommandParams;
+import sdktest.Representations.ContextBuildParams;
+import sdktest.Representations.ContextBuildResponse;
+import sdktest.Representations.ContextBuildSingleParams;
+import sdktest.Representations.ContextConvertParams;
 import sdktest.Representations.CreateInstanceParams;
 import sdktest.Representations.CustomEventParams;
 import sdktest.Representations.EvaluateAllFlagsParams;
@@ -33,6 +40,8 @@ import sdktest.Representations.EvaluateFlagResponse;
 import sdktest.Representations.GetBigSegmentsStoreStatusResponse;
 import sdktest.Representations.IdentifyEventParams;
 import sdktest.Representations.SdkConfigParams;
+import sdktest.Representations.SecureModeHashParams;
+import sdktest.Representations.SecureModeHashResponse;
 
 public class SdkClientEntity {
   private final LDClient client;
@@ -62,9 +71,6 @@ public class SdkClientEntity {
     case "customEvent":
       doCustomEvent(params.customEvent);
       return null;
-    case "aliasEvent":
-      doAliasEvent(params.aliasEvent);
-      return null;
     case "flushEvents":
       client.flush();
       return null;
@@ -74,6 +80,12 @@ public class SdkClientEntity {
       resp.available = status.isAvailable();
       resp.stale = status.isStale();
       return resp;
+    case "contextBuild":
+      return doContextBuild(params.contextBuild);
+    case "contextConvert":
+      return doContextConvert(params.contextConvert);
+    case "secureModeHash":
+      return doSecureModeHash(params.secureModeHash);
     default:
       throw new TestService.BadRequestException("unknown command: " + params.command);
     }
@@ -85,32 +97,37 @@ public class SdkClientEntity {
       EvaluationDetail<?> genericResult;
       switch (params.valueType) {
       case "bool":
-        EvaluationDetail<Boolean> boolResult = client.boolVariationDetail(params.flagKey,
-            params.user, params.defaultValue.booleanValue());
+        EvaluationDetail<Boolean> boolResult = params.user == null ?
+            client.boolVariationDetail(params.flagKey, params.context, params.defaultValue.booleanValue()) :
+              client.boolVariationDetail(params.flagKey, params.user, params.defaultValue.booleanValue());
         resp.value = LDValue.of(boolResult.getValue());
         genericResult = boolResult;
         break;
       case "int":
-        EvaluationDetail<Integer> intResult = client.intVariationDetail(params.flagKey,
-            params.user, params.defaultValue.intValue());
+        EvaluationDetail<Integer> intResult = params.user == null ?
+            client.intVariationDetail(params.flagKey, params.context, params.defaultValue.intValue()) :
+              client.intVariationDetail(params.flagKey, params.user, params.defaultValue.intValue());
         resp.value = LDValue.of(intResult.getValue());
         genericResult = intResult;
         break;
       case "double":
-        EvaluationDetail<Double> doubleResult = client.doubleVariationDetail(params.flagKey,
-            params.user, params.defaultValue.doubleValue());
+        EvaluationDetail<Double> doubleResult = params.user == null ?
+            client.doubleVariationDetail(params.flagKey, params.context, params.defaultValue.doubleValue()) :
+              client.doubleVariationDetail(params.flagKey, params.user, params.defaultValue.doubleValue());
         resp.value = LDValue.of(doubleResult.getValue());
         genericResult = doubleResult;
         break;
       case "string":
-        EvaluationDetail<String> stringResult = client.stringVariationDetail(params.flagKey,
-            params.user, params.defaultValue.stringValue());
+        EvaluationDetail<String> stringResult = params.user == null ?
+            client.stringVariationDetail(params.flagKey, params.context, params.defaultValue.stringValue()) :
+              client.stringVariationDetail(params.flagKey, params.user, params.defaultValue.stringValue());
         resp.value = LDValue.of(stringResult.getValue());
         genericResult = stringResult;
         break;
       default:
-        EvaluationDetail<LDValue> anyResult = client.jsonValueVariationDetail(params.flagKey,
-            params.user, params.defaultValue);
+        EvaluationDetail<LDValue> anyResult = params.user == null ?
+            client.jsonValueVariationDetail(params.flagKey, params.context, params.defaultValue) :
+              client.jsonValueVariationDetail(params.flagKey, params.user, params.defaultValue);
         resp.value = anyResult.getValue();
         genericResult = anyResult;
         break;
@@ -121,19 +138,29 @@ public class SdkClientEntity {
     } else {
       switch (params.valueType) {
       case "bool":
-        resp.value = LDValue.of(client.boolVariation(params.flagKey, params.user, params.defaultValue.booleanValue()));
+        resp.value = LDValue.of(params.user == null ?
+            client.boolVariation(params.flagKey, params.context, params.defaultValue.booleanValue()) :
+              client.boolVariation(params.flagKey, params.user, params.defaultValue.booleanValue()));
         break;
       case "int":
-        resp.value = LDValue.of(client.intVariation(params.flagKey, params.user, params.defaultValue.intValue()));
+        resp.value = LDValue.of(params.user == null ?
+            client.intVariation(params.flagKey, params.context, params.defaultValue.intValue()) :
+              client.intVariation(params.flagKey, params.user, params.defaultValue.intValue()));
         break;
       case "double":
-        resp.value = LDValue.of(client.doubleVariation(params.flagKey, params.user, params.defaultValue.doubleValue()));
+        resp.value = LDValue.of(params.user == null ?
+            client.doubleVariation(params.flagKey, params.context, params.defaultValue.doubleValue()) :
+              client.doubleVariation(params.flagKey, params.user, params.defaultValue.doubleValue()));
         break;
       case "string":
-        resp.value = LDValue.of(client.stringVariation(params.flagKey, params.user, params.defaultValue.stringValue()));
+        resp.value = LDValue.of(params.user == null ?
+            client.stringVariation(params.flagKey, params.context, params.defaultValue.stringValue()) :
+              client.stringVariation(params.flagKey, params.user, params.defaultValue.stringValue()));
         break;
       default:
-        resp.value = client.jsonValueVariation(params.flagKey, params.user, params.defaultValue);
+        resp.value = params.user == null ?
+            client.jsonValueVariation(params.flagKey, params.context, params.defaultValue) :
+              client.jsonValueVariation(params.flagKey, params.user, params.defaultValue);
         break;
       }
     }
@@ -151,28 +178,100 @@ public class SdkClientEntity {
     if (params.withReasons) {
       options.add(FlagsStateOption.WITH_REASONS);
     }
-    FeatureFlagsState state = client.allFlagsState(params.user, options.toArray(new FlagsStateOption[0]));
+    FeatureFlagsState state;
+    if (params.user == null) {
+      state = client.allFlagsState(params.context, options.toArray(new FlagsStateOption[0]));
+    } else {
+      state = client.allFlagsState(params.user, options.toArray(new FlagsStateOption[0]));
+    }
     EvaluateAllFlagsResponse resp = new EvaluateAllFlagsResponse();
     resp.state = LDValue.parse(JsonSerialization.serialize(state));
     return resp;
   }
   
   private void doIdentifyEvent(IdentifyEventParams params) {
-    client.identify(params.user);
+    if (params.user == null) {
+      client.identify(params.context);
+    } else {
+      client.identify(params.user);
+    }
   }
   
   private void doCustomEvent(CustomEventParams params) {
     if ((params.data == null || params.data.isNull()) && params.omitNullData && params.metricValue == null) {
-      client.track(params.eventKey, params.user);
+      if (params.user == null) {
+        client.track(params.eventKey, params.context);
+      } else {
+        client.track(params.eventKey, params.user);
+      }
     } else if (params.metricValue == null) {
-      client.trackData(params.eventKey, params.user, params.data);
+      if (params.user == null) {
+        client.trackData(params.eventKey, params.context, params.data);
+      } else {
+        client.trackData(params.eventKey, params.user, params.data);
+      }
     } else {
-      client.trackMetric(params.eventKey, params.user, params.data, params.metricValue.doubleValue());
+      if (params.user == null) {
+        client.trackMetric(params.eventKey, params.context, params.data, params.metricValue.doubleValue());
+      } else {
+        client.trackMetric(params.eventKey, params.user, params.data, params.metricValue.doubleValue());
+      }
     }
   }
   
-  private void doAliasEvent(AliasEventParams params) {
-    client.alias(params.user, params.previousUser);
+  private ContextBuildResponse doContextBuild(ContextBuildParams params) {
+    LDContext c;
+    if (params.multi == null) {
+      c = doContextBuildSingle(params.single);
+    } else {
+      ContextMultiBuilder b = LDContext.multiBuilder();
+      for (ContextBuildSingleParams s: params.multi) {
+        b.add(doContextBuildSingle(s));
+      }
+      c = b.build();
+    }
+    ContextBuildResponse resp = new ContextBuildResponse();
+    if (c.isValid()) {
+      resp.output = JsonSerialization.serialize(c);
+    } else {
+      resp.error = c.getError();
+    }
+    return resp;
+  }
+  
+  private LDContext doContextBuildSingle(ContextBuildSingleParams params) {
+    ContextBuilder b = LDContext.builder(params.key)
+        .kind(params.kind)
+        .name(params.name);
+    if (params.anonymous != null) {
+      b.anonymous(params.anonymous.booleanValue());
+    }
+    if (params.custom != null) {
+      for (Map.Entry<String, LDValue> kv: params.custom.entrySet()) {
+        b.set(kv.getKey(), kv.getValue());
+      }
+    }
+    if (params.privateAttrs != null) {
+      b.privateAttributes(params.privateAttrs);
+    }
+    return b.build();
+  }
+  
+  private ContextBuildResponse doContextConvert(ContextConvertParams params) {
+    ContextBuildResponse resp = new ContextBuildResponse();
+    try {
+      LDContext c = JsonSerialization.deserialize(params.input, LDContext.class);
+      resp.output = JsonSerialization.serialize(c);
+    } catch (Exception e) {
+      resp.error = e.getMessage();
+    }
+    return resp;
+  }
+  
+  private SecureModeHashResponse doSecureModeHash(SecureModeHashParams params) {
+    SecureModeHashResponse resp = new SecureModeHashResponse();
+    resp.result = params.user == null ? client.secureModeHash(params.context) : client.secureModeHash(params.user);
+    return resp;
   }
   
   public void close() {
@@ -193,9 +292,11 @@ public class SdkClientEntity {
       builder.startWait(Duration.ofMillis(params.startWaitTimeMs.longValue()));
     }
 
+    ServiceEndpointsBuilder endpoints = Components.serviceEndpoints();
+    
     if (params.streaming != null) {
-      StreamingDataSourceBuilder dataSource = Components.streamingDataSource()
-          .baseURI(params.streaming.baseUri);
+      endpoints.streaming(params.streaming.baseUri);
+      StreamingDataSourceBuilder dataSource = Components.streamingDataSource();
       if (params.streaming.initialRetryDelayMs > 0) {
         dataSource.initialReconnectDelay(Duration.ofMillis(params.streaming.initialRetryDelayMs));
       }
@@ -205,10 +306,9 @@ public class SdkClientEntity {
     if (params.events == null) {
       builder.events(Components.noEvents());
     } else {
+      endpoints.events(params.events.baseUri);
       EventProcessorBuilder eb = Components.sendEvents()
-          .baseURI(params.events.baseUri)
-          .allAttributesPrivate(params.events.allAttributesPrivate)
-          .inlineUsersInEvents(params.events.inlineUsers);
+          .allAttributesPrivate(params.events.allAttributesPrivate);
       if (params.events.capacity > 0) {
         eb.capacity(params.events.capacity);
       }
@@ -216,7 +316,7 @@ public class SdkClientEntity {
         eb.flushInterval(Duration.ofMillis(params.events.flushIntervalMs.longValue()));
       }
       if (params.events.globalPrivateAttributes != null) {
-        eb.privateAttributeNames(params.events.globalPrivateAttributes);
+        eb.privateAttributes(params.events.globalPrivateAttributes);
       }
       builder.events(eb);
       builder.diagnosticOptOut(!params.events.enableDiagnostics);
@@ -252,13 +352,17 @@ public class SdkClientEntity {
     }
 
     if (params.serviceEndpoints != null) {
-      builder.serviceEndpoints(
-        Components.serviceEndpoints()
-          .streaming(params.serviceEndpoints.streaming)
-          .polling(params.serviceEndpoints.polling)
-          .events(params.serviceEndpoints.events)
-      );
+      if (params.serviceEndpoints.streaming != null) {
+        endpoints.streaming(params.serviceEndpoints.streaming);
+      }
+      if (params.serviceEndpoints.polling != null) {
+        endpoints.polling(params.serviceEndpoints.polling);
+      }
+      if (params.serviceEndpoints.events != null) {
+        endpoints.events(params.serviceEndpoints.events);
+      }
     }
+    builder.serviceEndpoints(endpoints);
 
     return builder.build();
   }
