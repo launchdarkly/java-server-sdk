@@ -182,6 +182,7 @@ final class StreamProcessor implements DataSource {
       // want to know about those.
       for (StreamEvent event: es.anyEvents()) {
         if (!handleEvent(event, initFuture)) {
+          // handleEvent returns false if we should fall through and end the thread
           break;
         }
       }
@@ -217,6 +218,8 @@ final class StreamProcessor implements DataSource {
     return initialized.get();
   }
 
+  // Handles a single StreamEvent and returns true if we should keep the stream alive,
+  // or false if we should shut down permanently.
   private boolean handleEvent(StreamEvent event, CompletableFuture<Void> initFuture) {
     logger.debug("Received StreamEvent: {}", event);    
     if (event instanceof MessageEvent) {
