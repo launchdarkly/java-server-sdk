@@ -158,10 +158,12 @@ final class StreamProcessor implements DataSource {
 
     HttpConnectStrategy eventSourceHttpConfig = ConnectStrategy.http(endpointUri)
         .headers(headers)
-        .readTimeout(DEAD_CONNECTION_INTERVAL.toMillis(), TimeUnit.MILLISECONDS)
         .clientBuilderActions(clientBuilder -> {
           httpProperties.applyToHttpClientBuilder(clientBuilder);
-        });
+        })
+        // Set readTimeout last, to ensure that this hard-coded value overrides any other read
+        // timeout that might have been set by httpProperties (see comment about readTimeout above).
+        .readTimeout(DEAD_CONNECTION_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
     EventSource.Builder builder = new EventSource.Builder(eventSourceHttpConfig)
         .errorStrategy(ErrorStrategy.alwaysContinue())
           // alwaysContinue means we want EventSource to give us a FaultEvent rather
