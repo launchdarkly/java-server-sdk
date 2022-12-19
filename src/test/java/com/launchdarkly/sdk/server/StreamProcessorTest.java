@@ -21,10 +21,12 @@ import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
+import com.launchdarkly.testhelpers.ConcurrentHelpers;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
 import com.launchdarkly.testhelpers.httptest.RequestInfo;
+import com.launchdarkly.testhelpers.httptest.SpecialHttpConfigurations;
 import com.launchdarkly.testhelpers.tcptest.TcpHandler;
 import com.launchdarkly.testhelpers.tcptest.TcpHandlers;
 import com.launchdarkly.testhelpers.tcptest.TcpServer;
@@ -33,6 +35,7 @@ import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
@@ -657,27 +660,34 @@ public class StreamProcessorTest extends BaseTest {
     }
   }
   
-//  @Test
-//  public void testSpecialHttpConfigurations() throws Exception {
-//    Handler handler = streamResponse(EMPTY_DATA_EVENT);
-//    
-//    SpecialHttpConfigurations.testAll(handler,
-//        (URI serverUri, SpecialHttpConfigurations.Params params) -> {
-//          LDConfig config = new LDConfig.Builder()
-//              .http(TestUtil.makeHttpConfigurationFromTestParams(params))
-//              .build();
-//          ConnectionErrorSink errorSink = new ConnectionErrorSink();
-//          
-//          try (StreamProcessor sp = createStreamProcessor(config, serverUri)) {
-//            sp.connectionErrorHandler = errorSink;
-//            startAndWait(sp);
-//            if (errorSink.errors.size() != 0) {
-//              throw new IOException(errorSink.errors.peek());
-//            }
-//            return true;
-//          }
-//        });
-//  }
+  @Test
+  public void testSpecialHttpConfigurations() throws Exception {
+    Handler handler = streamResponse(EMPTY_DATA_EVENT);
+
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.register(statuses::add);
+
+    SpecialHttpConfigurations.testAll(handler,
+        (URI serverUri, SpecialHttpConfigurations.Params params) -> {
+          LDConfig config = new LDConfig.Builder()
+              .http(TestUtil.makeHttpConfigurationFromTestParams(params))
+              .build();
+          
+          statuses.clear();
+          
+          try (StreamProcessor sp = createStreamProcessor(config, serverUri)) {
+            sp.start();
+            
+            Status status = ConcurrentHelpers.awaitValue(statuses, 1, TimeUnit.SECONDS);
+            if (status.getState() == State.VALID) {
+              return true;
+            }
+            assertNotNull(status.getLastError());
+            assertEquals(ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
+            throw new IOException(status.getLastError().getMessage());
+          }
+        });
+  }
   
   private void testUnrecoverableHttpError(int statusCode) throws Exception {
     Handler errorResp = Handlers.status(statusCode);
