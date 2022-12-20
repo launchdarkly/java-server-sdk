@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.launchdarkly.eventsource.ConnectionErrorHandler;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
@@ -19,6 +18,7 @@ import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.DataKind;
 import com.launchdarkly.sdk.server.interfaces.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.interfaces.HttpConfiguration;
+import com.launchdarkly.testhelpers.ConcurrentHelpers;
 import com.launchdarkly.testhelpers.httptest.Handler;
 import com.launchdarkly.testhelpers.httptest.Handlers;
 import com.launchdarkly.testhelpers.httptest.HttpServer;
@@ -28,7 +28,6 @@ import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.EOFException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
@@ -57,7 +56,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -90,6 +88,18 @@ public class StreamProcessorTest extends BaseTest {
         Handlers.SSE.start(),
         Handlers.SSE.event(data),
         Handlers.waitFor(closeSignal)
+        );
+  }
+  
+  private static Handler streamThatSendsEventsAndThenStaysOpen(String... events) {
+    return Handlers.all(
+        Handlers.SSE.start(),
+        ctx -> {
+          for (String event: events) {
+            Handlers.SSE.event(event).apply(ctx);
+          }
+          Handlers.SSE.leaveOpen().apply(ctx);
+        }
         );
   }
   
@@ -147,9 +157,11 @@ public class StreamProcessorTest extends BaseTest {
   public void builderCanSpecifyConfiguration() throws Exception {
     URI streamUri = URI.create("http://fake");
     DataSourceFactory f = Components.streamingDataSource()
-        .baseURI(streamUri)
         .initialReconnectDelay(Duration.ofMillis(5555));
-    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, LDConfig.DEFAULT),
+    LDConfig config = new LDConfig.Builder()
+        .serviceEndpoints(Components.serviceEndpoints().streaming(streamUri))
+        .build();
+    try (StreamProcessor sp = (StreamProcessor)f.createDataSource(clientContext(SDK_KEY, config),
         dataSourceUpdates(dataStore))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
       assertThat(sp.streamUri, equalTo(streamUri));      
@@ -609,16 +621,21 @@ public class StreamProcessorTest extends BaseTest {
     BlockingQueue<String> events = new LinkedBlockingQueue<>();
     events.add(EMPTY_DATA_EVENT);
     
-    try (HttpServer server = HttpServer.start(streamResponseFromQueue(events))) {
+    Handler responses = Handlers.sequential(
+        streamResponseFromQueue(events), // use a queue for the first request so we can control it below
+        streamThatSendsEventsAndThenStaysOpen(EMPTY_DATA_EVENT) // second request just gets a "put" 
+        );
+    try (HttpServer server = HttpServer.start(responses)) {
       try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
         sp.start();
         dataSourceUpdates.awaitInit();
         server.getRecorder().requireRequest();
        
+        // first connection succeeds and gets the "put"
         requireDataSourceStatus(statuses, State.VALID);
-         
+        
+        // now, cause a problematic event to appear
         events.add(makeEvent(eventName, eventData));
-        events.add(EMPTY_DATA_EVENT);
         
         server.getRecorder().requireRequest();
         dataSourceUpdates.awaitInit();
@@ -635,42 +652,37 @@ public class StreamProcessorTest extends BaseTest {
   @Test
   public void testSpecialHttpConfigurations() throws Exception {
     Handler handler = streamResponse(EMPTY_DATA_EVENT);
-    
+
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.register(statuses::add);
+
     TestHttpUtil.testWithSpecialHttpConfigurations(handler,
         (targetUri, goodHttpConfig) -> {
           LDConfig config = new LDConfig.Builder().http(goodHttpConfig).build();
-          ConnectionErrorSink errorSink = new ConnectionErrorSink();
+          
+          statuses.clear();
           
           try (StreamProcessor sp = createStreamProcessor(config, targetUri)) {
-            sp.connectionErrorHandler = errorSink;
-            startAndWait(sp);
-            assertNull(errorSink.errors.peek());
+            sp.start();
+
+            Status status = ConcurrentHelpers.awaitValue(statuses, 1, TimeUnit.SECONDS);
+            assertEquals(State.VALID, status.getState());
           }
         },
         (targetUri, badHttpConfig) -> {
           LDConfig config = new LDConfig.Builder().http(badHttpConfig).build();
-          ConnectionErrorSink errorSink = new ConnectionErrorSink();
+
+          statuses.clear();
           
           try (StreamProcessor sp = createStreamProcessor(config, targetUri)) {
-            sp.connectionErrorHandler = errorSink;
-            startAndWait(sp);
+            sp.start();
             
-            Throwable error = errorSink.errors.peek();
-            assertNotNull(error);
+            Status status = ConcurrentHelpers.awaitValue(statuses, 1, TimeUnit.SECONDS);
+            assertNotNull(status.getLastError());
+            assertEquals(ErrorKind.NETWORK_ERROR, status.getLastError().getKind());
           }
         }
         );
-  }
-  
-  static class ConnectionErrorSink implements ConnectionErrorHandler {
-    final BlockingQueue<Throwable> errors = new LinkedBlockingQueue<>();
-    
-    public Action onConnectionError(Throwable t) {
-      if (!(t instanceof EOFException)) {
-        errors.add(t);
-      }
-      return Action.SHUTDOWN;
-    }
   }
   
   private void testUnrecoverableHttpError(int statusCode) throws Exception {
