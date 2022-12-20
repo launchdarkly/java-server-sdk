@@ -6,7 +6,13 @@ plugins {
 
 repositories {
     mavenCentral()
+    mavenLocal()
     maven { url "https://oss.sonatype.org/content/groups/public/" }
+}
+
+configurations.all {
+    // check for updates every build for dependencies with: 'changing: true'
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
 }
 
 allprojects {
