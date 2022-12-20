@@ -3,12 +3,18 @@ package com.launchdarkly.sdk.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonParseException;
 import com.google.gson.stream.JsonReader;
-import com.launchdarkly.eventsource.ConnectionErrorHandler;
-import com.launchdarkly.eventsource.ConnectionErrorHandler.Action;
-import com.launchdarkly.eventsource.EventHandler;
+import com.launchdarkly.eventsource.ConnectStrategy;
+import com.launchdarkly.eventsource.ErrorStrategy;
 import com.launchdarkly.eventsource.EventSource;
+import com.launchdarkly.eventsource.FaultEvent;
+import com.launchdarkly.eventsource.HttpConnectStrategy;
 import com.launchdarkly.eventsource.MessageEvent;
-import com.launchdarkly.eventsource.UnsuccessfulResponseException;
+import com.launchdarkly.eventsource.StreamClosedByCallerException;
+import com.launchdarkly.eventsource.StreamClosedByServerException;
+import com.launchdarkly.eventsource.StreamEvent;
+import com.launchdarkly.eventsource.StreamException;
+import com.launchdarkly.eventsource.StreamHttpErrorException;
+import com.launchdarkly.eventsource.StreamIOException;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.internal.events.DiagnosticStore;
@@ -41,7 +47,6 @@ import static com.launchdarkly.sdk.internal.http.HttpErrors.checkIfErrorIsRecove
 import static com.launchdarkly.sdk.internal.http.HttpErrors.httpErrorDescription;
 
 import okhttp3.Headers;
-import okhttp3.OkHttpClient;
 
 /**
  * Implementation of the streaming data source, not including the lower-level SSE implementation which is in
@@ -89,8 +94,6 @@ final class StreamProcessor implements DataSource {
   private volatile boolean lastStoreUpdateFailed = false;
   private final LDLogger logger;
 
-  ConnectionErrorHandler connectionErrorHandler = createDefaultConnectionErrorHandler(); // exposed for testing
-  
   StreamProcessor(
       HttpProperties httpProperties,
       DataSourceUpdateSink dataSourceUpdates,
@@ -129,52 +132,16 @@ final class StreamProcessor implements DataSource {
         EventSource stream = es;
         if (stream != null) {
           logger.warn("Restarting stream to refresh data after data store outage");
-          stream.restart();
+          stream.interrupt();
         }
       }
     }
-  }
-  
-  private ConnectionErrorHandler createDefaultConnectionErrorHandler() {
-    return (Throwable t) -> {
-      recordStreamInit(true);
-      
-      if (t instanceof UnsuccessfulResponseException) {
-        int status = ((UnsuccessfulResponseException)t).getCode();
-        ErrorInfo errorInfo = ErrorInfo.fromHttpError(status);
- 
-        boolean recoverable = checkIfErrorIsRecoverableAndLog(logger, httpErrorDescription(status),
-            ERROR_CONTEXT_MESSAGE, status, WILL_RETRY_MESSAGE);       
-        if (recoverable) {
-          dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
-          esStarted = System.currentTimeMillis();
-          return Action.PROCEED;
-        } else {
-          dataSourceUpdates.updateStatus(State.OFF, errorInfo);
-          return Action.SHUTDOWN; 
-        }
-      }
-      
-      checkIfErrorIsRecoverableAndLog(logger, t.toString(), ERROR_CONTEXT_MESSAGE, 0, WILL_RETRY_MESSAGE);
-      ErrorInfo errorInfo = ErrorInfo.fromException(t instanceof IOException ? ErrorKind.NETWORK_ERROR : ErrorKind.UNKNOWN, t);
-      dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
-      return Action.PROCEED;
-    };
   }
   
   @Override
   public Future<Void> start() {
     final CompletableFuture<Void> initFuture = new CompletableFuture<>();
 
-    ConnectionErrorHandler wrappedConnectionErrorHandler = (Throwable t) -> {
-      Action result = connectionErrorHandler.onConnectionError(t);
-      if (result == Action.SHUTDOWN) {
-        initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
-      }
-      return result;
-    };
-
-    EventHandler handler = new StreamEventHandler(initFuture);
     URI endpointUri = HttpHelpers.concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
 
     // Notes about the configuration of the EventSource below:
@@ -188,26 +155,45 @@ final class StreamProcessor implements DataSource {
     // smaller one there because we don't expect long delays within any *non*-streaming response that the
     // LD client gets. A read timeout on the stream will result in the connection being cycled, so we set
     // this to be slightly more than the expected interval between heartbeat signals.
-    
-    EventSource.Builder builder = new EventSource.Builder(handler, endpointUri)
-        .threadPriority(threadPriority)
+
+    HttpConnectStrategy eventSourceHttpConfig = ConnectStrategy.http(endpointUri)
+        .headers(headers)
+        .clientBuilderActions(clientBuilder -> {
+          httpProperties.applyToHttpClientBuilder(clientBuilder);
+        })
+        // Set readTimeout last, to ensure that this hard-coded value overrides any other read
+        // timeout that might have been set by httpProperties (see comment about readTimeout above).
+        .readTimeout(DEAD_CONNECTION_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
+    EventSource.Builder builder = new EventSource.Builder(eventSourceHttpConfig)
+        .errorStrategy(ErrorStrategy.alwaysContinue())
+          // alwaysContinue means we want EventSource to give us a FaultEvent rather
+          // than throwing an exception if the stream fails
         .logger(logger)
         .readBufferSize(5000)
         .streamEventData(true)
-        .expectFields("event")
-        .clientBuilderActions(new EventSource.Builder.ClientConfigurer() {
-          public void configure(OkHttpClient.Builder clientBuilder) {
-            httpProperties.applyToHttpClientBuilder(clientBuilder);
-          }
-        })
-        .connectionErrorHandler(wrappedConnectionErrorHandler)
-        .headers(headers)
-        .reconnectTime(initialReconnectDelay.toMillis(), TimeUnit.MILLISECONDS)
-        .readTimeout(DEAD_CONNECTION_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
-
+        .expectFields("event")        
+        .retryDelay(initialReconnectDelay.toMillis(), TimeUnit.MILLISECONDS);
     es = builder.build();
-    esStarted = System.currentTimeMillis();
-    es.start();
+    
+    Thread thread = new Thread(() -> {
+      esStarted = System.currentTimeMillis();
+      
+      // We are deliberately not calling es.start() here, but just iterating over es.anyEvents().
+      // EventSource will start the stream connection either way, but if we called start(), it
+      // would swallow any FaultEvents that happened during the initial conection attempt; we
+      // want to know about those.
+      for (StreamEvent event: es.anyEvents()) {
+        if (!handleEvent(event, initFuture)) {
+          // handleEvent returns false if we should fall through and end the thread
+          break;
+        }
+      }
+    });
+    thread.setName("LaunchDarkly-streaming");
+    thread.setDaemon(true);
+    thread.setPriority(threadPriority);
+    thread.start();
+        
     return initFuture;
   }
 
@@ -234,118 +220,138 @@ final class StreamProcessor implements DataSource {
     return initialized.get();
   }
 
-  private class StreamEventHandler implements EventHandler {
-    private final CompletableFuture<Void> initFuture;
-    
-    StreamEventHandler(CompletableFuture<Void> initFuture) {
-      this.initFuture = initFuture;
+  // Handles a single StreamEvent and returns true if we should keep the stream alive,
+  // or false if we should shut down permanently.
+  private boolean handleEvent(StreamEvent event, CompletableFuture<Void> initFuture) {
+    logger.debug("Received StreamEvent: {}", event);    
+    if (event instanceof MessageEvent) {
+      handleMessage((MessageEvent)event, initFuture);
+    } else if (event instanceof FaultEvent) {
+      return handleError(((FaultEvent)event).getCause(), initFuture);
     }
-    
-    @Override
-    public void onOpen() throws Exception {
-    }
-
-    @Override
-    public void onClosed() throws Exception {
-    }
-
-    @Override
-    public void onMessage(String eventName, MessageEvent event) throws Exception {
-      try {
-        switch (eventName) {
-          case PUT:
-            handlePut(event.getDataReader());
-            break;
-         
-          case PATCH:
-            handlePatch(event.getDataReader());
-            break;
-            
-          case DELETE:
-            handleDelete(event.getDataReader()); 
-            break;
-            
-          default:
-            logger.warn("Unexpected event found in stream: {}", eventName);
-            break;
-        }
-        lastStoreUpdateFailed = false;
-        dataSourceUpdates.updateStatus(State.VALID, null);
-      } catch (StreamInputException e) {
-        logger.error("LaunchDarkly service request failed or received invalid data: {}",
-            LogValues.exceptionSummary(e));
-        logger.debug(LogValues.exceptionTrace(e));
-         
-        ErrorInfo errorInfo = new ErrorInfo(
-            e.getCause() instanceof IOException ? ErrorKind.NETWORK_ERROR : ErrorKind.INVALID_DATA,
-            0,
-            e.getCause() == null ? e.getMessage() : e.getCause().toString(),
-            Instant.now()
-            );
-        dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
+    return true;
+  }
+  
+  private void handleMessage(MessageEvent event, CompletableFuture<Void> initFuture) {
+    try {
+      switch (event.getEventName()) {
+        case PUT:
+          handlePut(event.getDataReader(), initFuture);
+          break;
        
-        es.restart();
-      } catch (StreamStoreException e) {
-        // See item 2 in error handling comments at top of class
-        if (statusListener == null) {
-          if (!lastStoreUpdateFailed) {
-            logger.warn("Restarting stream to ensure that we have the latest data");
-          }
-          es.restart();
+        case PATCH:
+          handlePatch(event.getDataReader());
+          break;
+          
+        case DELETE:
+          handleDelete(event.getDataReader()); 
+          break;
+          
+        default:
+          logger.warn("Unexpected event found in stream: {}", event.getEventName());
+          break;
+      }
+      lastStoreUpdateFailed = false;
+      dataSourceUpdates.updateStatus(State.VALID, null);
+    } catch (StreamInputException e) {
+      logger.error("LaunchDarkly service request failed or received invalid data: {}",
+          LogValues.exceptionSummary(e));
+      logger.debug(LogValues.exceptionTrace(e));
+       
+      ErrorInfo errorInfo = new ErrorInfo(
+          e.getCause() instanceof IOException ? ErrorKind.NETWORK_ERROR : ErrorKind.INVALID_DATA,
+          0,
+          e.getCause() == null ? e.getMessage() : e.getCause().toString(),
+          Instant.now()
+          );
+      dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
+     
+      es.interrupt();
+    } catch (StreamStoreException e) {
+      // See item 2 in error handling comments at top of class
+      if (statusListener == null) {
+        if (!lastStoreUpdateFailed) {
+          logger.warn("Restarting stream to ensure that we have the latest data");
         }
-        lastStoreUpdateFailed = true;
-      } catch (Exception e) {
-        logger.warn("Unexpected error from stream processor: {}", LogValues.exceptionSummary(e));
-        logger.debug(LogValues.exceptionTrace(e));
+        es.interrupt();
       }
+      lastStoreUpdateFailed = true;
+    } catch (Exception e) {
+      logger.warn("Unexpected error from stream processor: {}", LogValues.exceptionSummary(e));
+      logger.debug(LogValues.exceptionTrace(e));
     }
-
-    private void handlePut(Reader eventData) throws StreamInputException, StreamStoreException {
-      recordStreamInit(false);
-      esStarted = 0;
-      PutData putData = parseStreamJson(StreamProcessorEvents::parsePutData, eventData);
-      if (!dataSourceUpdates.init(putData.data)) {
-        throw new StreamStoreException();
-      }
-      if (!initialized.getAndSet(true)) {
-        initFuture.complete(null);
-        logger.info("Initialized LaunchDarkly client.");
-      }
-    }
-
-    private void handlePatch(Reader eventData) throws StreamInputException, StreamStoreException {
-      PatchData data = parseStreamJson(StreamProcessorEvents::parsePatchData, eventData);
-      if (data.kind == null) {
-        return;
-      }
-      if (!dataSourceUpdates.upsert(data.kind, data.key, data.item)) {
-        throw new StreamStoreException();
-      }
-    }
-
-    private void handleDelete(Reader eventData) throws StreamInputException, StreamStoreException {
-      DeleteData data = parseStreamJson(StreamProcessorEvents::parseDeleteData, eventData);
-      if (data.kind == null) {
-        return;
-      }
-      ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
-      if (!dataSourceUpdates.upsert(data.kind, data.key, placeholder)) {
-        throw new StreamStoreException();
-      }
-    }
-
-    @Override
-    public void onComment(String comment) {
-      logger.debug("Received a heartbeat");
-    }
-
-    @Override
-    public void onError(Throwable throwable) {
-      logger.warn("Encountered EventSource error: {}", LogValues.exceptionSummary(throwable));
-      logger.debug(LogValues.exceptionTrace(throwable));
-    }  
   }
 
+  private void handlePut(Reader eventData, CompletableFuture<Void> initFuture)
+      throws StreamInputException, StreamStoreException {
+    recordStreamInit(false);
+    esStarted = 0;
+    PutData putData = parseStreamJson(StreamProcessorEvents::parsePutData, eventData);
+    if (!dataSourceUpdates.init(putData.data)) {
+      throw new StreamStoreException();
+    }
+    if (!initialized.getAndSet(true)) {
+      initFuture.complete(null);
+      logger.info("Initialized LaunchDarkly client.");
+    }
+  }
+
+  private void handlePatch(Reader eventData) throws StreamInputException, StreamStoreException {
+    PatchData data = parseStreamJson(StreamProcessorEvents::parsePatchData, eventData);
+    if (data.kind == null) {
+      return;
+    }
+    if (!dataSourceUpdates.upsert(data.kind, data.key, data.item)) {
+      throw new StreamStoreException();
+    }
+  }
+
+  private void handleDelete(Reader eventData) throws StreamInputException, StreamStoreException {
+    DeleteData data = parseStreamJson(StreamProcessorEvents::parseDeleteData, eventData);
+    if (data.kind == null) {
+      return;
+    }
+    ItemDescriptor placeholder = new ItemDescriptor(data.version, null);
+    if (!dataSourceUpdates.upsert(data.kind, data.key, placeholder)) {
+      throw new StreamStoreException();
+    }
+  }
+
+  private boolean handleError(StreamException e, CompletableFuture<Void> initFuture) {
+    boolean streamFailed = true;
+    if (e instanceof StreamClosedByCallerException) {
+      // This indicates that we ourselves deliberately restarted the stream, so we don't
+      // treat that as a failure in our analytics.
+      streamFailed = false;
+    } else {
+      logger.warn("Encountered EventSource error: {}", LogValues.exceptionSummary(e));      
+    }
+    recordStreamInit(streamFailed);
+    
+    if (e instanceof StreamHttpErrorException) {
+      int status = ((StreamHttpErrorException)e).getCode();
+      ErrorInfo errorInfo = ErrorInfo.fromHttpError(status);
+
+      boolean recoverable = checkIfErrorIsRecoverableAndLog(logger, httpErrorDescription(status),
+          ERROR_CONTEXT_MESSAGE, status, WILL_RETRY_MESSAGE);       
+      if (recoverable) {
+        dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
+        esStarted = System.currentTimeMillis();
+        return true; // allow reconnect
+      } else {
+        dataSourceUpdates.updateStatus(State.OFF, errorInfo);
+        initFuture.complete(null); // if client is initializing, make it stop waiting; has no effect if already inited
+        return false; // don't reconnect
+      }
+    }
+
+    boolean isNetworkError = e instanceof StreamIOException || e instanceof StreamClosedByServerException;
+    checkIfErrorIsRecoverableAndLog(logger, e.toString(), ERROR_CONTEXT_MESSAGE, 0, WILL_RETRY_MESSAGE);
+    ErrorInfo errorInfo = ErrorInfo.fromException(isNetworkError ? ErrorKind.NETWORK_ERROR : ErrorKind.UNKNOWN, e);
+    dataSourceUpdates.updateStatus(State.INTERRUPTED, errorInfo);
+    return true; // allow reconnect  
+  }
+  
   private static <T> T parseStreamJson(Function<JsonReader, T> parser, Reader r) throws StreamInputException {
     try {
       try (JsonReader jr = new JsonReader(r)) {
