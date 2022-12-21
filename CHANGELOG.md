@@ -6,6 +6,10 @@ All notable changes to the LaunchDarkly Java SDK will be documented in this file
 ### Changed:
 - The internal implementation of the SSE client for streaming updates has been revised to use a single worker thread instead of two worker threads, reducing thread contention and memory usage.
 
+## [5.10.4] - 2022-12-20
+### Changed:
+- The internal implementation of the SSE client for streaming updates has been revised to use a single worker thread instead of two worker threads, reducing thread contention and memory usage.
+
 ## [6.0.0] - 2022-12-07
 The latest version of this SDK supports LaunchDarkly's new custom contexts feature. Contexts are an evolution of a previously-existing concept, "users." Contexts let you create targeting rules for feature flags based on a variety of different information, including attributes pertaining to users, organizations, devices, and more. You can even combine contexts to create "multi-contexts." 
 
