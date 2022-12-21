@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.4] - 2022-12-20
+### Changed:
+- The internal implementation of the SSE client for streaming updates has been revised to use a single worker thread instead of two worker threads, reducing thread contention and memory usage.
+
 ## [5.10.3] - 2022-10-20
 ### Fixed:
 - The `pom.xml` specified a dependency on `com.launchdarkly:launchdarkly-logging` even though that library is already contained inside the SDK jar, which could cause extra copies of classes to be in the classpath. The dependency has been removed and the classes are still in the jar. ([#282](https://github.com/launchdarkly/java-server-sdk/issues/282))
