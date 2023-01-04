@@ -8,6 +8,7 @@ import com.launchdarkly.sdk.server.TestComponents.MockDataSourceUpdates;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
+import com.launchdarkly.testhelpers.TempFile;
 
 import org.junit.Test;
 
@@ -29,6 +30,7 @@ import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.AL
 import static com.launchdarkly.sdk.server.integrations.FileDataSourceTestData.resourceFilePath;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("javadoc")
@@ -141,5 +143,29 @@ public class FileDataSourceTest extends BaseTest {
     assertThat(store.isInitialized(), equalTo(false));
     DataSourceStatusProvider.Status status = requireDataSourceStatus(statuses, DataSourceStatusProvider.State.INITIALIZING);
     assertEquals(DataSourceStatusProvider.ErrorKind.INVALID_DATA, status.getLastError().getKind());
+  }
+  
+  @Test
+  public void instantiationOfArbitraryTypeIsNotAllowed() throws Exception {
+    // test for https://nvd.nist.gov/vuln/detail/CVE-2022-1471 - this test fails if we use the
+    // empty Yaml() constructor in FileDataSourceParsing
+    String className = SimulatedMaliciousType.class.getName();
+    Class.forName(this.getClass().getName());
+    Class.forName(className);
+    try (TempFile f = TempFile.create()) {
+      f.setContents("---\nbad_thing: !!" + className + " [value]\n");
+      try (DataSource fp = makeDataSource(FileData.dataSource().filePaths(f.getPath()))) {
+        verifyUnsuccessfulStart(fp);
+        assertThat(SimulatedMaliciousType.wasInstantiated, is(false));
+      }
+    }
+  }
+  
+  public static class SimulatedMaliciousType {
+    static volatile boolean wasInstantiated = false;
+    
+    public SimulatedMaliciousType(String value) {
+      wasInstantiated = true;
+    }
   }
 }
