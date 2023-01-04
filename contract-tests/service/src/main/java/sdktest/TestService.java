@@ -58,7 +58,7 @@ public class TestService {
     }
   }
   
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     // ((ch.qos.logback.classic.Logger)LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(
     //     Level.valueOf(config.logLevel.toUpperCase()));
 
@@ -75,6 +75,11 @@ public class TestService {
     server.getRecorder().setEnabled(false); // don't accumulate a request log
 
     System.out.println("Listening on port " + PORT);
+
+    // need to explicitly sleep because HttpServer now starts as a daemon thread
+    while (true) {
+      Thread.sleep(1000);
+    }
   }
 
   private Status getStatus() {

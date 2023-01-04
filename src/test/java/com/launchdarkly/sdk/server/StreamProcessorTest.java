@@ -156,7 +156,7 @@ public class StreamProcessorTest extends BaseTest {
   @Test
   public void builderHasDefaultConfiguration() throws Exception {
     ComponentConfigurer<DataSource> f = Components.streamingDataSource();
-    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, LDConfig.DEFAULT)
+    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, baseConfig().build())
         .withDataSourceUpdateSink(dataSourceUpdates))) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
       assertThat(sp.streamUri, equalTo(StandardEndpoints.DEFAULT_STREAMING_BASE_URI));
@@ -167,7 +167,7 @@ public class StreamProcessorTest extends BaseTest {
   public void builderCanSpecifyConfiguration() throws Exception {
     ComponentConfigurer<DataSource> f = Components.streamingDataSource()
         .initialReconnectDelay(Duration.ofMillis(5555));
-    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, LDConfig.DEFAULT)
+    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, baseConfig().build())
         .withDataSourceUpdateSink(dataSourceUpdates(dataStore)))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
     }
@@ -175,7 +175,7 @@ public class StreamProcessorTest extends BaseTest {
   
   @Test
   public void verifyStreamRequestProperties() throws Exception {
-    HttpConfiguration httpConfig = clientContext(SDK_KEY, LDConfig.DEFAULT).getHttp();
+    HttpConfiguration httpConfig = clientContext(SDK_KEY, baseConfig().build()).getHttp();
     
     try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
       try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
@@ -532,7 +532,7 @@ public class StreamProcessorTest extends BaseTest {
 
         dataSourceUpdates.awaitInit();
         server.getRecorder().requireRequest();
-        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+        server.getRecorder().requireNoRequests(100, TimeUnit.MILLISECONDS);
       }
     }
   }
@@ -548,7 +548,7 @@ public class StreamProcessorTest extends BaseTest {
         dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(false, false));
         dataStoreStatusProvider.updateStatus(new DataStoreStatusProvider.Status(true, false));
 
-        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+        server.getRecorder().requireNoRequests(100, TimeUnit.MILLISECONDS);
       }
     }
   }
@@ -669,7 +669,7 @@ public class StreamProcessorTest extends BaseTest {
 
     SpecialHttpConfigurations.testAll(handler,
         (URI serverUri, SpecialHttpConfigurations.Params params) -> {
-          LDConfig config = new LDConfig.Builder()
+          LDConfig config = baseConfig()
               .http(TestUtil.makeHttpConfigurationFromTestParams(params))
               .build();
           
@@ -707,7 +707,7 @@ public class StreamProcessorTest extends BaseTest {
         assertEquals(statusCode, newStatus.getLastError().getStatusCode());
         
         server.getRecorder().requireRequest();
-        server.getRecorder().requireNoRequests(Duration.ofMillis(50));
+        server.getRecorder().requireNoRequests(50, TimeUnit.MILLISECONDS);
       }
     }
   }
@@ -759,12 +759,12 @@ public class StreamProcessorTest extends BaseTest {
   }
   
   private StreamProcessor createStreamProcessor(URI streamUri) {
-    return createStreamProcessor(LDConfig.DEFAULT, streamUri, null);
+    return createStreamProcessor(baseConfig().build(), streamUri, null);
   }
 
   private StreamProcessor createStreamProcessor(LDConfig config, URI streamUri, DiagnosticStore acc) {
     return new StreamProcessor(
-        ComponentsImpl.toHttpProperties(clientContext(SDK_KEY, config == null ? LDConfig.DEFAULT : config).getHttp()),
+        ComponentsImpl.toHttpProperties(clientContext(SDK_KEY, config == null ? baseConfig().build() : config).getHttp()),
         dataSourceUpdates,
         Thread.MIN_PRIORITY,
         acc,

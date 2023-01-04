@@ -18,9 +18,15 @@ workflows:
           requires:
             - build-linux
       - test-linux:
+          # current LTS version
           name: Java 17 - Linux - OpenJDK
           docker-image: cimg/openjdk:17.0
           with-coverage: true
+          requires:
+            - build-linux
+      - test-linux:
+          name: Java 19 - Linux - OpenJDK
+          docker-image: cimg/openjdk:19.0
           requires:
             - build-linux
       - packaging:

@@ -10,7 +10,9 @@ import com.launchdarkly.sdk.server.integrations.FileDataSourceBuilder.SourceInfo
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.YAMLException;
+import org.yaml.snakeyaml.representer.Representer;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -149,7 +151,8 @@ abstract class FileDataSourceParsing {
    * </ul>
    */
   static final class YamlFlagFileParser extends FlagFileParser {
-    private static final Yaml yaml = new Yaml();
+    private static final Yaml yaml = new Yaml(new SafeConstructor(), new Representer());
+      // Using SafeConstructor disables instantiation of arbitrary classes - https://github.com/launchdarkly/java-server-sdk/issues/288
     private static final Gson gson = new Gson();
     private static final JsonFlagFileParser jsonFileParser = new JsonFlagFileParser();
     

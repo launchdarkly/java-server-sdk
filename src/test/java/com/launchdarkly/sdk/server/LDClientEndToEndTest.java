@@ -20,6 +20,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import static com.launchdarkly.sdk.server.Components.externalUpdatesOnly;
@@ -114,7 +115,7 @@ public class LDClientEndToEndTest extends BaseTest {
         assertFalse(client.boolVariation(flagKey, user, false));
         
         server.getRecorder().requireRequest();
-        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+        server.getRecorder().requireNoRequests(100, TimeUnit.MILLISECONDS);
       }
     }
   }
@@ -168,7 +169,7 @@ public class LDClientEndToEndTest extends BaseTest {
         
         server.getRecorder().requireRequest();
         server.getRecorder().requireRequest();
-        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+        server.getRecorder().requireNoRequests(100, TimeUnit.MILLISECONDS);
       }
     }
   }
@@ -201,7 +202,7 @@ public class LDClientEndToEndTest extends BaseTest {
         assertThat(statuses.isEmpty(), equalTo(true));
         
         server.getRecorder().requireRequest();
-        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+        server.getRecorder().requireNoRequests(100, TimeUnit.MILLISECONDS);
       }
     }
   }

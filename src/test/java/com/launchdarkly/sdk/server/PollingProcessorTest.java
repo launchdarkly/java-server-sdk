@@ -232,7 +232,7 @@ public class PollingProcessorTest extends BaseTest {
         
         Future<Void> initFuture2 = pollingProcessor.start();
         assertSame(initFuture1, initFuture2);
-        server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+        server.getRecorder().requireNoRequests(100, TimeUnit.MILLISECONDS);
       }
     }
   }
@@ -286,7 +286,7 @@ public class PollingProcessorTest extends BaseTest {
           verifyHttpErrorCausedShutdown(statuses, statusCode);
           
           server.getRecorder().requireRequest();
-          server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+          server.getRecorder().requireNoRequests(100, TimeUnit.MILLISECONDS);
         }
       }
     });
@@ -311,7 +311,7 @@ public class PollingProcessorTest extends BaseTest {
           while (server.getRecorder().count() > 0) {
             server.getRecorder().requireRequest();
           }
-          server.getRecorder().requireNoRequests(Duration.ofMillis(100));
+          server.getRecorder().requireNoRequests(100, TimeUnit.MILLISECONDS);
         }
       }
     });
