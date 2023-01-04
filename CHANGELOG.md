@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.5] - 2023-01-04
+### Fixed:
+- Fixed vulnerability [CVE-2022-1471](https://nvd.nist.gov/vuln/detail/CVE-2022-1471) which could allow arbitrary code execution if using `FileDataSource` with a YAML file. (Thanks, [antonmos](https://github.com/launchdarkly/java-server-sdk/pull/289)!)
+
 ## [5.10.4] - 2022-12-20
 ### Changed:
 - The internal implementation of the SSE client for streaming updates has been revised to use a single worker thread instead of two worker threads, reducing thread contention and memory usage.
