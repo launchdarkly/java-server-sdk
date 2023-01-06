@@ -91,6 +91,7 @@ final class StreamProcessor implements DataSource {
   private final DataStoreStatusProvider.StatusListener statusListener;
   private volatile EventSource es;
   private final AtomicBoolean initialized = new AtomicBoolean(false);
+  private final AtomicBoolean closed = new AtomicBoolean(false);
   private volatile long esStarted = 0;
   private volatile boolean lastStoreUpdateFailed = false;
   private final LDLogger logger;
@@ -183,11 +184,25 @@ final class StreamProcessor implements DataSource {
       // EventSource will start the stream connection either way, but if we called start(), it
       // would swallow any FaultEvents that happened during the initial conection attempt; we
       // want to know about those.
-      for (StreamEvent event: es.anyEvents()) {
-        if (!handleEvent(event, initFuture)) {
-          // handleEvent returns false if we should fall through and end the thread
-          break;
+      try {
+        for (StreamEvent event: es.anyEvents()) {
+          if (!handleEvent(event, initFuture)) {
+            // handleEvent returns false if we should fall through and end the thread
+            break;
+          }
         }
+      } catch (Exception e) {
+        // Any uncaught runtime exception at this point would be coming from es.anyEvents().
+        // That's not expected-- all deliberate EventSource exceptions are checked exceptions.
+        // So we have to assume something is wrong that we can't recover from at this point,
+        // and just let the thread terminate. That's better than having the thread be killed
+        // by an uncaught exception.
+        if (closed.get()) {
+          return; // ignore any exception that's just a side effect of stopping the EventSource
+        }
+        logger.error("Stream thread has ended due to unexpected exception: {}", LogValues.exceptionSummary(e));
+        // deliberately log stacktrace at error level since this is an unusual circumstance
+        logger.error(LogValues.exceptionTrace(e));
       }
     });
     thread.setName("LaunchDarkly-streaming");
@@ -206,6 +221,9 @@ final class StreamProcessor implements DataSource {
 
   @Override
   public void close() throws IOException {
+    if (closed.getAndSet(true)) {
+      return; // was already closed
+    }
     logger.info("Closing LaunchDarkly StreamProcessor");
     if (statusListener != null) {
       dataSourceUpdates.getDataStoreStatusProvider().removeStatusListener(statusListener);
@@ -224,6 +242,9 @@ final class StreamProcessor implements DataSource {
   // Handles a single StreamEvent and returns true if we should keep the stream alive,
   // or false if we should shut down permanently.
   private boolean handleEvent(StreamEvent event, CompletableFuture<Void> initFuture) {
+    if (closed.get()) {
+      return false;
+    }
     logger.debug("Received StreamEvent: {}", event);    
     if (event instanceof MessageEvent) {
       handleMessage((MessageEvent)event, initFuture);
