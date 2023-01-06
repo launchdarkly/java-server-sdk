@@ -1,6 +1,8 @@
 package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.eventsource.MessageEvent;
+import com.launchdarkly.logging.LDLogLevel;
+import com.launchdarkly.logging.LogCapture;
 import com.launchdarkly.sdk.server.DataModel.FeatureFlag;
 import com.launchdarkly.sdk.server.DataModel.Segment;
 import com.launchdarkly.sdk.server.DataModel.VersionedData;
@@ -46,6 +48,7 @@ import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompleted;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
@@ -53,6 +56,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -683,6 +687,39 @@ public class StreamProcessorTest extends BaseTest {
           }
         }
         );
+  }
+  
+  @Test
+  public void closingStreamProcessorDoesNotLogNetworkError() throws Exception {
+    // This verifies that we're not generating misleading log output or status updates
+    // due to simply seeing a broken connection when we have already decided to shut down.
+    BlockingQueue<Status> statuses = new LinkedBlockingQueue<>();
+    dataSourceUpdates.statusBroadcaster.register(statuses::add);
+    
+    try (HttpServer server = HttpServer.start(streamResponse(EMPTY_DATA_EVENT))) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        dataSourceUpdates.awaitInit();
+        requireDataSourceStatus(statuses, State.VALID);
+
+        while (logCapture.awaitMessage(10) != null) {} // drain captured logs
+        
+        sp.close();
+        
+        requireDataSourceStatus(statuses, State.OFF); // should not see INTERRUPTED
+        assertNoMoreValues(statuses, 100, TimeUnit.MILLISECONDS);
+        
+        assertThat(logCapture.requireMessage(10).getText(), startsWith("Closing LaunchDarkly"));
+        // There shouldn't be any other log output other than debugging
+        for (;;) {
+          LogCapture.Message message = logCapture.awaitMessage(10);
+          if (message == null) {
+            break;
+          }
+          assertThat(message.getLevel(), equalTo(LDLogLevel.DEBUG));
+        }
+      }
+    }
   }
   
   private void testUnrecoverableHttpError(int statusCode) throws Exception {
