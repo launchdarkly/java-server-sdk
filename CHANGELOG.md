@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.6] - 2023-01-06
+### Fixed:
+- Fixed unintended error behavior when the SDK is being shut down, if streaming is enabled. The symptom was that 1. the SDK could log a misleading message about a network error (in reality this was just the connection being deliberately closed) and 2. an uncaught exception could be thrown from the worker thread that managed that connection. The uncaught exception would be ignored in a default JVM configuration, but it could have more serious consequences in an application that had configured a default exception handler to be triggered by all uncaught exceptions.
+
 ## [5.10.5] - 2023-01-04
 ### Fixed:
 - Fixed vulnerability [CVE-2022-1471](https://nvd.nist.gov/vuln/detail/CVE-2022-1471) which could allow arbitrary code execution if using `FileDataSource` with a YAML file. (Thanks, [antonmos](https://github.com/launchdarkly/java-server-sdk/pull/289)!)
