@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.7] - 2023-01-09
+### Fixed:
+- If the stream connection failed when the SDK had only partially received a piece of JSON data from the stream, the SDK was sometimes logging a misleading error message about invalid JSON in addition to the normal error message about the connection failure.
+
 ## [6.0.3] - 2023-01-06
 ### Fixed:
 - Fixed unintended error behavior when the SDK is being shut down, if streaming is enabled. The symptom was that 1. the SDK could log a misleading message about a network error (in reality this was just the connection being deliberately closed) and 2. an uncaught exception could be thrown from the worker thread that managed that connection. The uncaught exception would be ignored in a default JVM configuration, but it could have more serious consequences in an application that had configured a default exception handler to be triggered by all uncaught exceptions.
