@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 import com.launchdarkly.eventsource.ConnectStrategy;
 import com.launchdarkly.eventsource.ErrorStrategy;
@@ -11,6 +12,7 @@ import com.launchdarkly.eventsource.HttpConnectStrategy;
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.eventsource.StreamClosedByCallerException;
 import com.launchdarkly.eventsource.StreamClosedByServerException;
+import com.launchdarkly.eventsource.StreamClosedWithIncompleteMessageException;
 import com.launchdarkly.eventsource.StreamEvent;
 import com.launchdarkly.eventsource.StreamException;
 import com.launchdarkly.eventsource.StreamHttpErrorException;
@@ -276,6 +278,15 @@ final class StreamProcessor implements DataSource {
       lastStoreUpdateFailed = false;
       dataSourceUpdates.updateStatus(State.VALID, null);
     } catch (StreamInputException e) {
+      if (exceptionHasCause(e, StreamClosedWithIncompleteMessageException.class)) {
+        // JSON parsing failed because the event was cut off prematurely-- because the
+        // stream got closed. In this case we should simply throw the event away; the
+        // closing of the stream will be handled separately on our next pass through
+        // the loop, and is logged separately. There's no point in logging an error
+        // about invalid JSON when the real problem is a broken connection; invalid
+        // JSON is significant only if we think we have a complete message.
+        return;
+      }
       logger.error("LaunchDarkly service request failed or received invalid data: {}",
           LogValues.exceptionSummary(e));
       logger.debug(LogValues.exceptionTrace(e));
@@ -304,6 +315,13 @@ final class StreamProcessor implements DataSource {
     }
   }
 
+  private static boolean exceptionHasCause(Throwable e, Class<?> c) {
+    if (c.isAssignableFrom(e.getClass())) {
+      return true;
+    }
+    return e.getCause() != null && exceptionHasCause(e.getCause(), c);
+  }
+  
   private void handlePut(Reader eventData, CompletableFuture<Void> initFuture)
       throws StreamInputException, StreamStoreException {
     recordStreamInit(false);

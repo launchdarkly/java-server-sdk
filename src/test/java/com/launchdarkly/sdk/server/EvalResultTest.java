@@ -1,12 +1,12 @@
 package com.launchdarkly.sdk.server;
 
-import java.util.function.Function;
-
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDValue;
 
 import org.junit.Test;
+
+import java.util.function.Function;
 
 import static com.launchdarkly.sdk.EvaluationDetail.NO_VARIATION;
 import static com.launchdarkly.sdk.EvaluationReason.ErrorKind.WRONG_TYPE;

@@ -32,6 +32,7 @@ import org.junit.Test;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
@@ -718,6 +719,26 @@ public class StreamProcessorTest extends BaseTest {
           }
           assertThat(message.getLevel(), equalTo(LDLogLevel.DEBUG));
         }
+      }
+    }
+  }
+
+  @Test
+  public void streamFailingWithIncompleteEventDoesNotLogJsonError() throws Exception {
+    String incompleteEvent = "event: put\ndata: {\"flags\":";
+    Handler stream1 = Handlers.all(
+        Handlers.SSE.start(),
+        Handlers.writeChunkString(incompleteEvent)
+        );
+    Handler stream2 = streamResponse(EMPTY_DATA_EVENT);
+    Handler stream1Then2 = Handlers.sequential(stream1, stream2);
+
+    try (HttpServer server = HttpServer.start(stream1Then2)) {
+      try (StreamProcessor sp = createStreamProcessor(null, server.getUri())) {
+        sp.start();
+        dataSourceUpdates.awaitInit();
+
+        assertThat(logCapture.awaitMessage(LDLogLevel.ERROR, 0), nullValue());
       }
     }
   }
