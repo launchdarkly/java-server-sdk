@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [6.0.4] - 2023-01-10
+### Fixed:
+- If the stream connection failed when the SDK had only partially received a piece of JSON data from the stream, the SDK was sometimes logging a misleading error message about invalid JSON in addition to the normal error message about the connection failure.
+
 ## [5.10.7] - 2023-01-09
 ### Fixed:
 - If the stream connection failed when the SDK had only partially received a piece of JSON data from the stream, the SDK was sometimes logging a misleading error message about invalid JSON in addition to the normal error message about the connection failure.
