@@ -2,6 +2,7 @@ package com.launchdarkly.sdk.server;
 
 import com.launchdarkly.sdk.AttributeRef;
 import com.launchdarkly.sdk.ContextKind;
+import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
@@ -19,6 +20,9 @@ import static com.launchdarkly.sdk.server.ModelBuilders.booleanFlagWithClauses;
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingContext;
 import static com.launchdarkly.sdk.server.ModelBuilders.clauseMatchingSegment;
+import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.negateClause;
+import static com.launchdarkly.sdk.server.ModelBuilders.ruleBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
 import static com.launchdarkly.sdk.server.ModelBuilders.segmentRuleBuilder;
 import static org.junit.Assert.assertEquals;
@@ -239,7 +243,30 @@ public class EvaluatorSegmentMatchTest extends EvaluatorTestBase {
       assertEquals(EvalResult.error(ErrorKind.MALFORMED_FLAG), result);
     }
   }
-  
+
+  @Test
+  public void sameSegmentInMultipleSegmentRules() {
+    LDContext context = LDContext.create("foo");
+    Segment reusedSegment = baseSegmentBuilder()
+            .rules(
+                    segmentRuleBuilder().clauses(clauseMatchingContext(context)).build()
+            )
+            .build();
+    DataModel.Rule rule0 = ruleBuilder().id("ruleid0").clauses(negateClause(clauseMatchingSegment(reusedSegment))).variation(0).build();
+    DataModel.Rule rule1 = ruleBuilder().id("ruleid1").clauses(clauseMatchingSegment(reusedSegment)).variation(1).build();
+
+    DataModel.FeatureFlag flag = flagBuilder("flag")
+            .on(true)
+            .rules(rule0,rule1)
+            .fallthroughVariation(0)
+            .offVariation(0)
+            .variations(LDValue.of(false), LDValue.of(true)).build();
+
+    Evaluator e = evaluatorBuilder().withStoredSegments(reusedSegment).build();
+    EvalResult result = e.evaluate(flag, context, expectNoPrerequisiteEvals());
+    assertEquals(EvaluationReason.ruleMatch(1, "ruleid1"), result.getReason());
+    assertTrue(result.getValue().booleanValue());
+  }
   private static SegmentBuilder baseSegmentBuilder() {
     return segmentBuilder(SEGMENT_KEY).version(1).salt(ARBITRARY_SALT);
   }

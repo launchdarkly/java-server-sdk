@@ -524,13 +524,16 @@ class Evaluator {
       }
       state.segmentStack.add(segment.getKey());
       int nRules = rules.size();
-      for (int i = 0; i < nRules; i++) {
-        SegmentRule rule = rules.get(i);
-        if (segmentRuleMatchesContext(rule, context, state, segment.getKey(), segment.getSalt())) {
-          return true;
+      try {
+        for (int i = 0; i < nRules; i++) {
+          SegmentRule rule = rules.get(i);
+          if (segmentRuleMatchesContext(rule, context, state, segment.getKey(), segment.getSalt())) {
+            return true;
+          }
         }
+      } finally {
+        state.segmentStack.remove(state.segmentStack.size() - 1);
       }
-      state.segmentStack.remove(state.segmentStack.size() - 1);
     }
     return false;
   }
