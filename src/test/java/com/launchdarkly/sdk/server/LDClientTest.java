@@ -168,15 +168,17 @@ public class LDClientTest extends BaseTest {
 
   @Test
   public void canSetCustomStreamingEndpoint() throws Exception {
-    URI su = URI.create("http://fake");
+    String base = "http://fake";
+    URI baseUri = URI.create(base);
+    String expected = base + StandardEndpoints.STREAMING_REQUEST_PATH;
     LDConfig config = new LDConfig.Builder()
-        .serviceEndpoints(Components.serviceEndpoints().streaming(su))
+        .serviceEndpoints(Components.serviceEndpoints().streaming(baseUri))
         .events(Components.noEvents())
         .logging(Components.logging(testLogging))
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      assertEquals(su, ((StreamProcessor) client.dataSource).streamUri);
+      assertEquals(expected, ((StreamProcessor) client.dataSource).streamUri.toString());
     }
   }
 

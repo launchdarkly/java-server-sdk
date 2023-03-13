@@ -163,7 +163,9 @@ public class StreamProcessorTest extends BaseTest {
     try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, baseConfig().build())
         .withDataSourceUpdateSink(dataSourceUpdates))) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
-      assertThat(sp.streamUri, equalTo(StandardEndpoints.DEFAULT_STREAMING_BASE_URI));
+
+      String expected = StandardEndpoints.DEFAULT_STREAMING_BASE_URI.toString() + StandardEndpoints.STREAMING_REQUEST_PATH;
+      assertThat(sp.streamUri.toString(), equalTo(expected));
     }
   }
 
@@ -826,6 +828,7 @@ public class StreamProcessorTest extends BaseTest {
         Thread.MIN_PRIORITY,
         acc,
         streamUri,
+        null,
         BRIEF_RECONNECT_DELAY,
         testLogger
         );

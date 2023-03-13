@@ -20,4 +20,15 @@ public class StreamingDataSourceBuilderTest {
     assertEquals(DEFAULT_INITIAL_RECONNECT_DELAY,
         streamingDataSource().initialReconnectDelay(Duration.ofMillis(222)).initialReconnectDelay(null).initialReconnectDelay);
   }
+
+  @Test
+  public void testPayloadFilter() {
+    assertEquals(null, streamingDataSource().payloadFilter);
+
+    assertEquals("aFilter",
+      streamingDataSource().payloadFilter("aFilter").payloadFilter);
+
+    assertEquals(null,
+      streamingDataSource().payloadFilter("aFilter").payloadFilter(null).payloadFilter);
+  }
 }

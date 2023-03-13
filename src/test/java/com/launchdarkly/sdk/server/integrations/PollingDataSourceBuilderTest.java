@@ -13,7 +13,7 @@ public class PollingDataSourceBuilderTest {
   @Test
   public void pollInterval() {
     assertEquals(DEFAULT_POLL_INTERVAL, pollingDataSource().pollInterval);
-    
+
     assertEquals(Duration.ofMinutes(7),
         pollingDataSource().pollInterval(Duration.ofMinutes(7)).pollInterval);
 
@@ -22,5 +22,16 @@ public class PollingDataSourceBuilderTest {
 
     assertEquals(DEFAULT_POLL_INTERVAL,
         pollingDataSource().pollInterval(Duration.ofMillis(1)).pollInterval);
+  }
+
+  @Test
+  public void testPayloadFilter() {
+    assertEquals(null, pollingDataSource().payloadFilter);
+
+    assertEquals("aFilter",
+        pollingDataSource().payloadFilter("aFilter").payloadFilter);
+
+    assertEquals(null,
+        pollingDataSource().payloadFilter("aFilter").payloadFilter(null).payloadFilter);
   }
 }

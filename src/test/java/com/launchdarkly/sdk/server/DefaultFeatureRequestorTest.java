@@ -52,7 +52,7 @@ public class DefaultFeatureRequestorTest extends BaseTest {
   }
 
   private DefaultFeatureRequestor makeRequestor(HttpServer server, LDConfig config) {
-    return new DefaultFeatureRequestor(makeHttpConfig(config), server.getUri(), testLogger);
+    return new DefaultFeatureRequestor(makeHttpConfig(config), server.getUri(), null, testLogger);
   }
 
   private HttpProperties makeHttpConfig(LDConfig config) {
@@ -152,7 +152,7 @@ public class DefaultFeatureRequestorTest extends BaseTest {
     SpecialHttpConfigurations.testAll(handler,
         (URI serverUri, SpecialHttpConfigurations.Params params) -> {
           LDConfig config = new LDConfig.Builder().http(TestUtil.makeHttpConfigurationFromTestParams(params)).build();
-          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), serverUri, testLogger)) {
+          try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(config), serverUri, null, testLogger)) {
             FullDataSet<ItemDescriptor> data = r.getAllData(false);
             verifyExpectedData(data);
             return true;
@@ -169,7 +169,7 @@ public class DefaultFeatureRequestorTest extends BaseTest {
     Handler resp = Handlers.bodyJson(allDataJson);
     
     try (HttpServer server = HttpServer.start(resp)) {
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), server.getUri(), testLogger)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), server.getUri(), null, testLogger)) {
         FullDataSet<ItemDescriptor> data = r.getAllData(true);
  
         RequestInfo req = server.getRecorder().requireRequest();
@@ -188,7 +188,7 @@ public class DefaultFeatureRequestorTest extends BaseTest {
     try (HttpServer server = HttpServer.start(resp)) {
       URI uri = server.getUri().resolve("/context/path");
       
-      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri, testLogger)) {
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri, null, testLogger)) {
         FullDataSet<ItemDescriptor> data = r.getAllData(true);
  
         RequestInfo req = server.getRecorder().requireRequest();

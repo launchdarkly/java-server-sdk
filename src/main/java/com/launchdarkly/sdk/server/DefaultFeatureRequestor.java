@@ -15,6 +15,8 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import javax.annotation.Nullable;
+
 import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
 
 import okhttp3.Cache;
@@ -28,19 +30,39 @@ import okhttp3.Response;
  */
 final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-  
-  @VisibleForTesting final URI baseUri;
+
+  @VisibleForTesting
+  final URI baseUri;
   private final OkHttpClient httpClient;
   private final URI pollingUri;
   private final Headers headers;
   private final Path cacheDir;
   private final LDLogger logger;
 
-  DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri, LDLogger logger) {
+  /**
+   * Creates a {@link DefaultFeatureRequestor}
+   * 
+   * @param httpProperties that will be used
+   * @param baseUri        that will be used
+   * @param payloadFilter  identifier that will be used to filter objects in the
+   *                       payload, provide null for no filtering
+   * @param logger         to log with
+   */
+  DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri, @Nullable String payloadFilter, LDLogger logger) {
     this.baseUri = baseUri;
-    this.pollingUri = HttpHelpers.concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
     this.logger = logger;
-    
+
+    URI tempUri = HttpHelpers.concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
+    if (payloadFilter != null) {
+      if (!payloadFilter.isEmpty()) {
+        tempUri = com.launchdarkly.sdk.server.HttpHelpers.addQueryParamToUri(tempUri, HttpConsts.QUERY_PARAM_FILTER,
+            payloadFilter);
+      } else {
+        logger.info("Payload filter \"{}\" is not valid, not applying filter.", payloadFilter);
+      }
+    }
+    this.pollingUri = tempUri;
+
     OkHttpClient.Builder httpBuilder = httpProperties.toHttpClientBuilder();
     this.headers = httpProperties.toHeadersBuilder().build();
 
@@ -59,7 +81,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
     HttpProperties.shutdownHttpClient(httpClient);
     Util.deleteDirectory(cacheDir);
   }
-  
+
   public FullDataSet<ItemDescriptor> getAllData(boolean returnDataEvenIfCached)
       throws IOException, HttpErrorException, SerializationException {
     Request request = new Request.Builder()

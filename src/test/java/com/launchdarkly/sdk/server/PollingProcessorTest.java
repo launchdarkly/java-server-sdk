@@ -65,7 +65,7 @@ public class PollingProcessorTest extends BaseTest {
   }
 
   private PollingProcessor makeProcessor(URI baseUri, Duration pollInterval) {
-    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpProperties(), baseUri, testLogger);
+    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpProperties(), baseUri, null, testLogger);
     return new PollingProcessor(requestor, dataSourceUpdates, sharedExecutor, pollInterval, testLogger);
   }
 

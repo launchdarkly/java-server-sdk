@@ -84,8 +84,10 @@ final class StreamProcessor implements DataSource {
   private final DataSourceUpdateSink dataSourceUpdates;
   private final HttpProperties httpProperties;
   private final Headers headers;
-  @VisibleForTesting final URI streamUri;
-  @VisibleForTesting final Duration initialReconnectDelay;
+  @VisibleForTesting
+  final URI streamUri;
+  @VisibleForTesting
+  final Duration initialReconnectDelay;
   private final DiagnosticStore diagnosticAccumulator;
   private final int threadPriority;
   private final DataStoreStatusProvider.StatusListener statusListener;
@@ -102,16 +104,27 @@ final class StreamProcessor implements DataSource {
       int threadPriority,
       DiagnosticStore diagnosticAccumulator,
       URI streamUri,
+      String payloadFilter,
       Duration initialReconnectDelay,
-      LDLogger logger
-      ) {
+      LDLogger logger) {
     this.dataSourceUpdates = dataSourceUpdates;
     this.httpProperties = httpProperties;
     this.diagnosticAccumulator = diagnosticAccumulator;
     this.threadPriority = threadPriority;
-    this.streamUri = streamUri;
     this.initialReconnectDelay = initialReconnectDelay;
     this.logger = logger;
+
+    URI tempUri = HttpHelpers.concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
+    if (payloadFilter != null) {
+      if (!payloadFilter.isEmpty()) {
+        tempUri = com.launchdarkly.sdk.server.HttpHelpers.addQueryParamToUri(tempUri, HttpConsts.QUERY_PARAM_FILTER,
+            payloadFilter);
+      } else {
+        logger.info("Payload filter \"{}\" is not valid, not applying filter.", payloadFilter);
+      }
+    }
+    this.streamUri = tempUri;
+
 
     this.headers = httpProperties.toHeadersBuilder()
         .add("Accept", "text/event-stream")
@@ -144,8 +157,6 @@ final class StreamProcessor implements DataSource {
   public Future<Void> start() {
     final CompletableFuture<Void> initFuture = new CompletableFuture<>();
 
-    URI endpointUri = HttpHelpers.concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
-
     // Notes about the configuration of the EventSource below:
     //
     // 1. Setting streamEventData(true) is an optimization to let us read the event's data field directly
@@ -158,7 +169,7 @@ final class StreamProcessor implements DataSource {
     // LD client gets. A read timeout on the stream will result in the connection being cycled, so we set
     // this to be slightly more than the expected interval between heartbeat signals.
 
-    HttpConnectStrategy eventSourceHttpConfig = ConnectStrategy.http(endpointUri)
+    HttpConnectStrategy eventSourceHttpConfig = ConnectStrategy.http(this.streamUri)
         .headers(headers)
         .clientBuilderActions(clientBuilder -> {
           httpProperties.applyToHttpClientBuilder(clientBuilder);
