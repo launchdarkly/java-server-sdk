@@ -1,5 +1,13 @@
 package com.launchdarkly.sdk.server;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.URI;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.LDLogLevel;
@@ -34,15 +42,6 @@ import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-
 import okhttp3.Credentials;
 
 /**
@@ -50,8 +49,7 @@ import okhttp3.Credentials;
  * public factory methods are in {@link Components}.
  */
 abstract class ComponentsImpl {
-  private ComponentsImpl() {
-  }
+  private ComponentsImpl() {}
 
   static final class InMemoryDataStoreFactory implements ComponentConfigurer<DataStore>, DiagnosticDescription {
     static final InMemoryDataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
@@ -371,8 +369,7 @@ abstract class ComponentsImpl {
     }
   }
   
-  static final class PersistentDataStoreBuilderImpl extends PersistentDataStoreBuilder
-      implements DiagnosticDescription {
+  static final class PersistentDataStoreBuilderImpl extends PersistentDataStoreBuilder implements DiagnosticDescription {
     public PersistentDataStoreBuilderImpl(ComponentConfigurer<PersistentDataStore> storeConfigurer) {
       super(storeConfigurer);
     }

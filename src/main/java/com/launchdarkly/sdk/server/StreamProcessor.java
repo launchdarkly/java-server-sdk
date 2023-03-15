@@ -1,5 +1,19 @@
 package com.launchdarkly.sdk.server;
 
+import static com.launchdarkly.sdk.internal.http.HttpErrors.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.internal.http.HttpErrors.httpErrorDescription;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonParseException;
 import com.google.gson.stream.JsonReader;
@@ -32,20 +46,6 @@ import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.net.URI;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-
-import static com.launchdarkly.sdk.internal.http.HttpErrors.checkIfErrorIsRecoverableAndLog;
-import static com.launchdarkly.sdk.internal.http.HttpErrors.httpErrorDescription;
 
 import okhttp3.Headers;
 
@@ -117,8 +117,7 @@ final class StreamProcessor implements DataSource {
     URI tempUri = HttpHelpers.concatenateUriPath(streamUri, StandardEndpoints.STREAMING_REQUEST_PATH);
     if (payloadFilter != null) {
       if (!payloadFilter.isEmpty()) {
-        tempUri = com.launchdarkly.sdk.server.HttpHelpers.addQueryParamToUri(tempUri, HttpConsts.QUERY_PARAM_FILTER,
-            payloadFilter);
+        tempUri = HttpHelpers.addQueryParam(tempUri, HttpConsts.QUERY_PARAM_FILTER, payloadFilter);
       } else {
         logger.info("Payload filter \"{}\" is not valid, not applying filter.", payloadFilter);
       }

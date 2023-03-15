@@ -1,11 +1,11 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import java.time.Duration;
+
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-
-import java.time.Duration;
 
 /**
  * Contains methods for configuring the streaming data source.

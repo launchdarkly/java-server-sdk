@@ -1,5 +1,14 @@
 package com.launchdarkly.sdk.server;
 
+import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
+
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import javax.annotation.Nullable;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.stream.JsonReader;
 import com.launchdarkly.logging.LDLogger;
@@ -9,15 +18,6 @@ import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
-
-import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import javax.annotation.Nullable;
-
-import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
 
 import okhttp3.Cache;
 import okhttp3.Headers;
@@ -55,8 +55,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
     URI tempUri = HttpHelpers.concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
     if (payloadFilter != null) {
       if (!payloadFilter.isEmpty()) {
-        tempUri = com.launchdarkly.sdk.server.HttpHelpers.addQueryParamToUri(tempUri, HttpConsts.QUERY_PARAM_FILTER,
-            payloadFilter);
+        tempUri = HttpHelpers.addQueryParam(tempUri, HttpConsts.QUERY_PARAM_FILTER, payloadFilter);
       } else {
         logger.info("Payload filter \"{}\" is not valid, not applying filter.", payloadFilter);
       }
