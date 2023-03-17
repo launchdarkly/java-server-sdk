@@ -199,7 +199,45 @@ public class DefaultFeatureRequestorTest extends BaseTest {
       }
     }
   }
-  
+
+  @Test
+  public void pollingUriCanHavePayload() throws Exception {
+    Handler resp = Handlers.bodyJson(allDataJson);
+    
+    try (HttpServer server = HttpServer.start(resp)) {
+      URI uri = server.getUri().resolve("/context/path");
+      
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri, "myFilter", testLogger)) {
+        FullDataSet<ItemDescriptor> data = r.getAllData(true);
+ 
+        RequestInfo req = server.getRecorder().requireRequest();
+        assertEquals("?filter=myFilter", req.getQuery());
+        verifyHeaders(req);
+        
+        verifyExpectedData(data);
+      }
+    }
+  }
+
+  @Test
+  public void ignoreEmptyFilter()  throws Exception {
+    Handler resp = Handlers.bodyJson(allDataJson);
+    
+    try (HttpServer server = HttpServer.start(resp)) {
+      URI uri = server.getUri().resolve("/context/path");
+      
+      try (DefaultFeatureRequestor r = new DefaultFeatureRequestor(makeHttpConfig(LDConfig.DEFAULT), uri, "", testLogger)) {
+        FullDataSet<ItemDescriptor> data = r.getAllData(true);
+ 
+        RequestInfo req = server.getRecorder().requireRequest();
+        assertNull(req.getQuery());
+        verifyHeaders(req);
+        
+        verifyExpectedData(data);
+      }
+    }
+  }
+
   private void verifyHeaders(RequestInfo req) {
     HttpConfiguration httpConfig = clientContext(sdkKey, LDConfig.DEFAULT).getHttp();
     for (Map.Entry<String, String> kv: httpConfig.getDefaultHeaders()) {

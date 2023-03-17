@@ -57,7 +57,7 @@ public abstract class PollingDataSourceBuilder implements ComponentConfigurer<Da
 
   /**
    * Sets the Payload Filter that will be used to filter the objects (flags, segments, etc.)
-   * in the payloads from this data source.
+   * from this data source.
    * 
    * @param payloadFilter the filter to be used
    * @return the builder

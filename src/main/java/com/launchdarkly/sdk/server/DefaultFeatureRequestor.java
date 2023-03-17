@@ -12,6 +12,7 @@ import javax.annotation.Nullable;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.stream.JsonReader;
 import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.sdk.internal.http.HttpConsts;
 import com.launchdarkly.sdk.internal.http.HttpErrors.HttpErrorException;
 import com.launchdarkly.sdk.internal.http.HttpHelpers;
 import com.launchdarkly.sdk.internal.http.HttpProperties;
@@ -31,10 +32,9 @@ import okhttp3.Response;
 final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
-  @VisibleForTesting
-  final URI baseUri;
   private final OkHttpClient httpClient;
-  private final URI pollingUri;
+  @VisibleForTesting
+  final URI pollingUri;
   private final Headers headers;
   private final Path cacheDir;
   private final LDLogger logger;
@@ -49,7 +49,6 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
    * @param logger         to log with
    */
   DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri, @Nullable String payloadFilter, LDLogger logger) {
-    this.baseUri = baseUri;
     this.logger = logger;
 
     URI tempUri = HttpHelpers.concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);

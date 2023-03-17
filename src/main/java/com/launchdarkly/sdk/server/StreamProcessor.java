@@ -1,19 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import static com.launchdarkly.sdk.internal.http.HttpErrors.checkIfErrorIsRecoverableAndLog;
-import static com.launchdarkly.sdk.internal.http.HttpErrors.httpErrorDescription;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.net.URI;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.JsonParseException;
 import com.google.gson.stream.JsonReader;
@@ -33,6 +19,7 @@ import com.launchdarkly.eventsource.StreamIOException;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.internal.events.DiagnosticStore;
+import com.launchdarkly.sdk.internal.http.HttpConsts;
 import com.launchdarkly.sdk.internal.http.HttpHelpers;
 import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.StreamProcessorEvents.DeleteData;
@@ -46,6 +33,20 @@ import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataSourceUpdateSink;
 import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
 import com.launchdarkly.sdk.server.subsystems.SerializationException;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+
+import static com.launchdarkly.sdk.internal.http.HttpErrors.checkIfErrorIsRecoverableAndLog;
+import static com.launchdarkly.sdk.internal.http.HttpErrors.httpErrorDescription;
 
 import okhttp3.Headers;
 

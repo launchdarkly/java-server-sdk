@@ -300,7 +300,6 @@ public class SdkClientEntity {
       if (params.streaming.initialRetryDelayMs > 0) {
         dataSource.initialReconnectDelay(Duration.ofMillis(params.streaming.initialRetryDelayMs));
       }
-      // TODO: Discuss why applying values from the message to the datasource is done conditionally above this?
       dataSource.payloadFilter(params.streaming.filter);
       builder.dataSource(dataSource);
     }

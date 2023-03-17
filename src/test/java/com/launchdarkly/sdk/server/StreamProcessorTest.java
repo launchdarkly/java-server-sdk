@@ -1,46 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import static com.launchdarkly.sdk.server.DataModel.FEATURES;
-import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
-import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
-import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
-import static com.launchdarkly.sdk.server.TestComponents.basicDiagnosticStore;
-import static com.launchdarkly.sdk.server.TestComponents.clientContext;
-import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
-import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
-import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompleted;
-import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.endsWith;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
-import static org.hamcrest.Matchers.startsWith;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
-import java.net.URI;
-import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.hamcrest.MatcherAssert;
-import org.junit.Before;
-import org.junit.Test;
-
 import com.launchdarkly.eventsource.MessageEvent;
 import com.launchdarkly.logging.LDLogLevel;
 import com.launchdarkly.logging.LogCapture;
@@ -73,6 +32,48 @@ import com.launchdarkly.testhelpers.httptest.SpecialHttpConfigurations;
 import com.launchdarkly.testhelpers.tcptest.TcpHandler;
 import com.launchdarkly.testhelpers.tcptest.TcpHandlers;
 import com.launchdarkly.testhelpers.tcptest.TcpServer;
+
+import org.hamcrest.MatcherAssert;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.io.IOException;
+import java.net.URI;
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.launchdarkly.sdk.server.DataModel.FEATURES;
+import static com.launchdarkly.sdk.server.DataModel.SEGMENTS;
+import static com.launchdarkly.sdk.server.ModelBuilders.flagBuilder;
+import static com.launchdarkly.sdk.server.ModelBuilders.segmentBuilder;
+import static com.launchdarkly.sdk.server.TestComponents.basicDiagnosticStore;
+import static com.launchdarkly.sdk.server.TestComponents.clientContext;
+import static com.launchdarkly.sdk.server.TestComponents.dataSourceUpdates;
+import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompleted;
+import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.startsWith;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("javadoc")
 public class StreamProcessorTest extends BaseTest {
@@ -179,6 +180,18 @@ public class StreamProcessorTest extends BaseTest {
         .withDataSourceUpdateSink(dataSourceUpdates(dataStore)))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
       assertThat(sp.streamUri.toString(), containsString("filter=myFilter"));
+    }
+  }
+
+  @Test
+  public void emptyFilterIgnored() throws Exception {
+    ComponentConfigurer<DataSource> f = Components.streamingDataSource()
+        .initialReconnectDelay(Duration.ofMillis(5555))
+        .payloadFilter("");
+    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, baseConfig().build())
+        .withDataSourceUpdateSink(dataSourceUpdates(dataStore)))) {
+      assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
+      assertThat(sp.streamUri.toString(), not(containsString("filter")));
     }
   }
   

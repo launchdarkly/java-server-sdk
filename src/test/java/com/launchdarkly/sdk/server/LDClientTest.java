@@ -207,7 +207,8 @@ public class LDClientTest extends BaseTest {
         .startWait(Duration.ZERO)
         .build();
     try (LDClient client = new LDClient(SDK_KEY, config)) {
-      assertEquals(pu, ((DefaultFeatureRequestor) ((PollingProcessor) client.dataSource).requestor).baseUri);
+      String actual = ((DefaultFeatureRequestor) ((PollingProcessor) client.dataSource).requestor).pollingUri.toString();
+      assertThat(actual, containsString(pu.toString()));
     }
   }
 
