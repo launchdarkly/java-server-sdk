@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [6.0.6] - 2023-03-20
+### Fixed:
+- Updated snakeyaml to v2.0.0 to address CVE-2022-1471. This vulnerability would only have affected applications that used the FileData feature with a YAML file, assuming an attacker had write access to the filesystem.
+
 ## [6.0.5] - 2023-02-01
 ### Fixed:
 - Segment bug that returns the default value for variation if multiple flag rules refer to the same segment with a rule.
