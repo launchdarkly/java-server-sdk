@@ -151,7 +151,7 @@ abstract class FileDataSourceParsing {
    * </ul>
    */
   static final class YamlFlagFileParser extends FlagFileParser {
-    private static final Yaml yaml = new Yaml(new SafeConstructor(), new Representer());
+    private static final Yaml yaml = new Yaml();
       // Using SafeConstructor disables instantiation of arbitrary classes - https://github.com/launchdarkly/java-server-sdk/issues/288
     private static final Gson gson = new Gson();
     private static final JsonFlagFileParser jsonFileParser = new JsonFlagFileParser();
