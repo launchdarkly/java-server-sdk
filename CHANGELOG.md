@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [5.10.8] - 2023-03-21
+### Fixed:
+- Updated snakeyaml to v2.0.0 to address CVE-2022-1471. This vulnerability would only have affected applications that used the FileData feature with a YAML file, assuming an attacker had write access to the filesystem.
+
 ## [5.10.7] - 2023-01-09
 ### Fixed:
 - If the stream connection failed when the SDK had only partially received a piece of JSON data from the stream, the SDK was sometimes logging a misleading error message about invalid JSON in addition to the normal error message about the connection failure.
