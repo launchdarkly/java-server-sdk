@@ -53,6 +53,7 @@ abstract class ComponentsImpl {
 
   static final class InMemoryDataStoreFactory implements ComponentConfigurer<DataStore>, DiagnosticDescription {
     static final InMemoryDataStoreFactory INSTANCE = new InMemoryDataStoreFactory();
+
     @Override
     public DataStore build(ClientContext context) {
       return new InMemoryDataStore();
@@ -154,8 +155,7 @@ abstract class ComponentsImpl {
           context.getServiceEndpoints().getStreamingBaseUri(),
           StandardEndpoints.DEFAULT_STREAMING_BASE_URI,
           "streaming",
-          baseLogger
-          );
+          baseLogger);
       
       return new StreamProcessor(
           toHttpProperties(context.getHttp()),
@@ -163,9 +163,9 @@ abstract class ComponentsImpl {
           context.getThreadPriority(),
           ClientContextImpl.get(context).diagnosticStore,
           streamUri,
+          payloadFilter,
           initialReconnectDelay,
-          logger
-          );
+          logger);
     }
 
     @Override
@@ -202,17 +202,20 @@ abstract class ComponentsImpl {
           context.getServiceEndpoints().getPollingBaseUri(),
           StandardEndpoints.DEFAULT_POLLING_BASE_URI,
           "polling",
-          baseLogger
-          );
+          baseLogger);
 
-      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(toHttpProperties(context.getHttp()), pollUri, logger);
+      DefaultFeatureRequestor requestor = new DefaultFeatureRequestor(
+          toHttpProperties(context.getHttp()),
+          pollUri,
+          payloadFilter,
+          logger);
+
       return new PollingProcessor(
           requestor,
           context.getDataSourceUpdateSink(),
           ClientContextImpl.get(context).sharedExecutor,
           pollInterval,
-          logger
-          );
+          logger);
     }
 
     @Override
@@ -241,8 +244,7 @@ abstract class ComponentsImpl {
             null, // use default request path for server-side events
             null, // use default request path for client-side events
             0, // 0 means default retry delay
-            context.getBaseLogger().subLogger(Loggers.EVENTS_LOGGER_NAME)
-            );
+            context.getBaseLogger().subLogger(Loggers.EVENTS_LOGGER_NAME));
       } else {
         eventSender = new EventSenderWrapper(eventSenderConfigurer.build(context));
       }
@@ -250,8 +252,7 @@ abstract class ComponentsImpl {
           context.getServiceEndpoints().getEventsBaseUri(),
           StandardEndpoints.DEFAULT_EVENTS_BASE_URI,
           "events",
-          context.getBaseLogger()
-          );
+          context.getBaseLogger());
       EventsConfiguration eventsConfig = new EventsConfiguration(
           allAttributesPrivate,
           capacity,
@@ -264,8 +265,7 @@ abstract class ComponentsImpl {
           flushInterval.toMillis(),
           false,
           false,
-          privateAttributes
-          );
+          privateAttributes);
       return new DefaultEventProcessorWrapper(context, eventsConfig);
     }
     
@@ -350,8 +350,7 @@ abstract class ComponentsImpl {
           socketFactory,
           socketTimeout,
           sslSocketFactory,
-          trustManager
-      );
+          trustManager);
     }
   }
   
@@ -378,7 +377,7 @@ abstract class ComponentsImpl {
     @Override
     public LDValue describeConfiguration(ClientContext clientContext) {
       if (persistentDataStoreConfigurer instanceof DiagnosticDescription) {
-        return ((DiagnosticDescription)persistentDataStoreConfigurer).describeConfiguration(clientContext);
+        return ((DiagnosticDescription) persistentDataStoreConfigurer).describeConfiguration(clientContext);
       }
       return LDValue.of("custom");
     }
@@ -393,8 +392,7 @@ abstract class ComponentsImpl {
           recordCacheStats,
           context.getDataStoreUpdateSink(),
           ClientContextImpl.get(context).sharedExecutor,
-          context.getBaseLogger().subLogger(Loggers.DATA_STORE_LOGGER_NAME)
-          );
+          context.getBaseLogger().subLogger(Loggers.DATA_STORE_LOGGER_NAME));
     }
   }
   
@@ -434,8 +432,7 @@ abstract class ComponentsImpl {
         return new ServiceEndpoints(
           StandardEndpoints.DEFAULT_STREAMING_BASE_URI,
           StandardEndpoints.DEFAULT_POLLING_BASE_URI,
-          StandardEndpoints.DEFAULT_EVENTS_BASE_URI
-        );
+          StandardEndpoints.DEFAULT_EVENTS_BASE_URI);
       }
       return new ServiceEndpoints(streamingBaseUri, pollingBaseUri, eventsBaseUri);
     }
@@ -455,7 +452,6 @@ abstract class ComponentsImpl {
         httpConfig.getSocketFactory(),
         httpConfig.getSocketTimeout().toMillis(),
         httpConfig.getSslSocketFactory(),
-        httpConfig.getTrustManager()
-        );
+        httpConfig.getTrustManager());
   }
 }

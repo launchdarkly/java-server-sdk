@@ -60,10 +60,12 @@ import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompl
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertNoMoreValues;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
@@ -163,17 +165,33 @@ public class StreamProcessorTest extends BaseTest {
     try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, baseConfig().build())
         .withDataSourceUpdateSink(dataSourceUpdates))) {
       assertThat(sp.initialReconnectDelay, equalTo(StreamingDataSourceBuilder.DEFAULT_INITIAL_RECONNECT_DELAY));
-      assertThat(sp.streamUri, equalTo(StandardEndpoints.DEFAULT_STREAMING_BASE_URI));
+
+      String expected = StandardEndpoints.DEFAULT_STREAMING_BASE_URI.toString() + StandardEndpoints.STREAMING_REQUEST_PATH;
+      assertThat(sp.streamUri.toString(), equalTo(expected));
     }
   }
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
     ComponentConfigurer<DataSource> f = Components.streamingDataSource()
-        .initialReconnectDelay(Duration.ofMillis(5555));
+        .initialReconnectDelay(Duration.ofMillis(5555))
+        .payloadFilter("myFilter");
     try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, baseConfig().build())
         .withDataSourceUpdateSink(dataSourceUpdates(dataStore)))) {
       assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
+      assertThat(sp.streamUri.toString(), containsString("filter=myFilter"));
+    }
+  }
+
+  @Test
+  public void emptyFilterIgnored() throws Exception {
+    ComponentConfigurer<DataSource> f = Components.streamingDataSource()
+        .initialReconnectDelay(Duration.ofMillis(5555))
+        .payloadFilter("");
+    try (StreamProcessor sp = (StreamProcessor)f.build(clientContext(SDK_KEY, baseConfig().build())
+        .withDataSourceUpdateSink(dataSourceUpdates(dataStore)))) {
+      assertThat(sp.initialReconnectDelay, equalTo(Duration.ofMillis(5555)));
+      assertThat(sp.streamUri.toString(), not(containsString("filter")));
     }
   }
   
@@ -826,6 +844,7 @@ public class StreamProcessorTest extends BaseTest {
         Thread.MIN_PRIORITY,
         acc,
         streamUri,
+        null,
         BRIEF_RECONNECT_DELAY,
         testLogger
         );

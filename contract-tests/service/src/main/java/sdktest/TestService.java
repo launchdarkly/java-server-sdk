@@ -32,7 +32,8 @@ public class TestService {
     "context-type",
     "service-endpoints",
     "tags",
-    "user-type"
+    "user-type",
+    "filtering"
   };
   
   static final Gson gson = new GsonBuilder().serializeNulls().create();

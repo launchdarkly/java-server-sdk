@@ -35,6 +35,7 @@ public abstract class Representations {
   public static class SdkConfigStreamParams {
     URI baseUri;
     long initialRetryDelayMs;
+    String filter;
   }
   
   public static class SdkConfigEventParams {

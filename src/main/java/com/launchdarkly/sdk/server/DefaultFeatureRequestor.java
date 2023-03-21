@@ -1,21 +1,24 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.gson.stream.JsonReader;
-import com.launchdarkly.logging.LDLogger;
-import com.launchdarkly.sdk.internal.http.HttpErrors.HttpErrorException;
-import com.launchdarkly.sdk.internal.http.HttpHelpers;
-import com.launchdarkly.sdk.internal.http.HttpProperties;
-import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
-import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
-import com.launchdarkly.sdk.server.subsystems.SerializationException;
+import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static com.launchdarkly.sdk.server.DataModelSerialization.parseFullDataSet;
+import javax.annotation.Nullable;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.gson.stream.JsonReader;
+import com.launchdarkly.logging.LDLogger;
+import com.launchdarkly.sdk.internal.http.HttpConsts;
+import com.launchdarkly.sdk.internal.http.HttpErrors.HttpErrorException;
+import com.launchdarkly.sdk.internal.http.HttpHelpers;
+import com.launchdarkly.sdk.internal.http.HttpProperties;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.FullDataSet;
+import com.launchdarkly.sdk.server.subsystems.DataStoreTypes.ItemDescriptor;
+import com.launchdarkly.sdk.server.subsystems.SerializationException;
 
 import okhttp3.Cache;
 import okhttp3.Headers;
@@ -28,19 +31,36 @@ import okhttp3.Response;
  */
 final class DefaultFeatureRequestor implements FeatureRequestor {
   private static final long MAX_HTTP_CACHE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-  
-  @VisibleForTesting final URI baseUri;
+
   private final OkHttpClient httpClient;
-  private final URI pollingUri;
+  @VisibleForTesting
+  final URI pollingUri;
   private final Headers headers;
   private final Path cacheDir;
   private final LDLogger logger;
 
-  DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri, LDLogger logger) {
-    this.baseUri = baseUri;
-    this.pollingUri = HttpHelpers.concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
+  /**
+   * Creates a {@link DefaultFeatureRequestor}
+   * 
+   * @param httpProperties that will be used
+   * @param baseUri        that will be used
+   * @param payloadFilter  identifier that will be used to filter objects in the
+   *                       payload, provide null for no filtering
+   * @param logger         to log with
+   */
+  DefaultFeatureRequestor(HttpProperties httpProperties, URI baseUri, @Nullable String payloadFilter, LDLogger logger) {
     this.logger = logger;
-    
+
+    URI tempUri = HttpHelpers.concatenateUriPath(baseUri, StandardEndpoints.POLLING_REQUEST_PATH);
+    if (payloadFilter != null) {
+      if (!payloadFilter.isEmpty()) {
+        tempUri = HttpHelpers.addQueryParam(tempUri, HttpConsts.QUERY_PARAM_FILTER, payloadFilter);
+      } else {
+        logger.info("Payload filter \"{}\" is not valid, not applying filter.", payloadFilter);
+      }
+    }
+    this.pollingUri = tempUri;
+
     OkHttpClient.Builder httpBuilder = httpProperties.toHttpClientBuilder();
     this.headers = httpProperties.toHeadersBuilder().build();
 
@@ -59,7 +79,7 @@ final class DefaultFeatureRequestor implements FeatureRequestor {
     HttpProperties.shutdownHttpClient(httpClient);
     Util.deleteDirectory(cacheDir);
   }
-  
+
   public FullDataSet<ItemDescriptor> getAllData(boolean returnDataEvenIfCached)
       throws IOException, HttpErrorException, SerializationException {
     Request request = new Request.Builder()
