@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [6.1.0] - 2023-04-13
+### Added:
+- Support for Payload Filtering in streaming and polling modes. Payload Filtering is a beta feature that allows SDKs to download a subset of environment data, rather than full environments.
+
 ## [6.0.6] - 2023-03-20
 ### Fixed:
 - Updated snakeyaml to v2.0.0 to address CVE-2022-1471. This vulnerability would only have affected applications that used the FileData feature with a YAML file, assuming an attacker had write access to the filesystem.
