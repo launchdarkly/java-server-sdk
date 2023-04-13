@@ -43,6 +43,7 @@ import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatus;
 import static com.launchdarkly.sdk.server.TestUtil.requireDataSourceStatusEventually;
 import static com.launchdarkly.testhelpers.ConcurrentHelpers.assertFutureIsCompleted;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -65,7 +66,7 @@ public class PollingProcessorTest extends BaseTest {
   }
 
   private PollingProcessor makeProcessor(URI baseUri, Duration pollInterval) {
-    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpProperties(), baseUri, testLogger);
+    FeatureRequestor requestor = new DefaultFeatureRequestor(defaultHttpProperties(), baseUri, null, testLogger);
     return new PollingProcessor(requestor, dataSourceUpdates, sharedExecutor, pollInterval, testLogger);
   }
 
@@ -100,17 +101,24 @@ public class PollingProcessorTest extends BaseTest {
   public void builderHasDefaultConfiguration() throws Exception {
     ComponentConfigurer<DataSource> f = Components.pollingDataSource();
     try (PollingProcessor pp = (PollingProcessor)f.build(clientContext(SDK_KEY, baseConfig().build()))) {
-      assertThat(((DefaultFeatureRequestor)pp.requestor).baseUri, equalTo(StandardEndpoints.DEFAULT_POLLING_BASE_URI));
+      assertThat(((DefaultFeatureRequestor)pp.requestor).pollingUri.toString(), containsString(StandardEndpoints.DEFAULT_POLLING_BASE_URI.toString()));
       assertThat(pp.pollInterval, equalTo(PollingDataSourceBuilder.DEFAULT_POLL_INTERVAL));
     }
   }
 
   @Test
   public void builderCanSpecifyConfiguration() throws Exception {
+
     ComponentConfigurer<DataSource> f = Components.pollingDataSource()
-        .pollInterval(LENGTHY_INTERVAL);
-    try (PollingProcessor pp = (PollingProcessor)f.build(clientContext(SDK_KEY, baseConfig().build()))) {
+        .pollInterval(LENGTHY_INTERVAL)
+        .payloadFilter("myFilter");
+
+    try (PollingProcessor pp = (PollingProcessor) f.build(
+        clientContext(
+            SDK_KEY,
+            baseConfig().build()))) {
       assertThat(pp.pollInterval, equalTo(LENGTHY_INTERVAL));
+      assertThat(((DefaultFeatureRequestor) pp.requestor).pollingUri.toString(), containsString("filter=myFilter"));
     }
   }
   

@@ -1,11 +1,11 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import java.time.Duration;
+
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig.Builder;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
-
-import java.time.Duration;
 
 /**
  * Contains methods for configuring the streaming data source.
@@ -31,6 +31,8 @@ public abstract class StreamingDataSourceBuilder implements ComponentConfigurer<
   
   protected Duration initialReconnectDelay = DEFAULT_INITIAL_RECONNECT_DELAY;
 
+  protected String payloadFilter;
+
   /**
    * Sets the initial reconnect delay for the streaming connection.
    * <p>
@@ -46,6 +48,18 @@ public abstract class StreamingDataSourceBuilder implements ComponentConfigurer<
   
   public StreamingDataSourceBuilder initialReconnectDelay(Duration initialReconnectDelay) {
     this.initialReconnectDelay = initialReconnectDelay == null ? DEFAULT_INITIAL_RECONNECT_DELAY : initialReconnectDelay;
+    return this;
+  }
+
+  /**
+   * Sets the Payload Filter that will be used to filter the objects (flags, segments, etc.)
+   * from this data source.
+   * 
+   * @param payloadFilter the filter to be used
+   * @return the builder
+   */
+  public StreamingDataSourceBuilder payloadFilter(String payloadFilter) {
+    this.payloadFilter = payloadFilter;
     return this;
   }
 }

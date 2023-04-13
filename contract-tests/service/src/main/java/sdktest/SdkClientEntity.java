@@ -300,6 +300,7 @@ public class SdkClientEntity {
       if (params.streaming.initialRetryDelayMs > 0) {
         dataSource.initialReconnectDelay(Duration.ofMillis(params.streaming.initialRetryDelayMs));
       }
+      dataSource.payloadFilter(params.streaming.filter);
       builder.dataSource(dataSource);
     }
 
