@@ -39,6 +39,8 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
@@ -325,10 +327,12 @@ abstract class ComponentsImpl {
     @Override
     public HttpConfiguration build(ClientContext clientContext) {
       LDLogger logger = clientContext.getBaseLogger();
+
       // Build the default headers
-      ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
+      Map<String, String> headers = new HashMap<>();
       headers.put("Authorization", clientContext.getSdkKey());
       headers.put("User-Agent", "JavaClient/" + Version.SDK_VERSION);
+
       if (clientContext.getApplicationInfo() != null) {
         String tagHeader = Util.applicationTagHeader(clientContext.getApplicationInfo(), logger);
         if (!tagHeader.isEmpty()) {
@@ -337,14 +341,18 @@ abstract class ComponentsImpl {
       }
       if (wrapperName != null) {
         String wrapperId = wrapperVersion == null ? wrapperName : (wrapperName + "/" + wrapperVersion);
-        headers.put("X-LaunchDarkly-Wrapper", wrapperId);        
+        headers.put("X-LaunchDarkly-Wrapper", wrapperId);
+      }
+
+      if (!customHeaders.isEmpty()) {
+          headers.putAll(customHeaders);
       }
       
       Proxy proxy = proxyHost == null ? null : new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
       
       return new HttpConfiguration(
           connectTimeout,
-          headers.build(),
+          headers,
           proxy,
           proxyAuth,
           socketFactory,

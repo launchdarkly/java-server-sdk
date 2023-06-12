@@ -6,6 +6,8 @@ import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
@@ -45,6 +47,7 @@ public abstract class HttpConfigurationBuilder implements ComponentConfigurer<Ht
   protected Duration connectTimeout = DEFAULT_CONNECT_TIMEOUT;
   protected HttpAuthentication proxyAuth;
   protected String proxyHost;
+  protected Map<String, String> customHeaders = new HashMap<>();
   protected int proxyPort;
   protected Duration socketTimeout = DEFAULT_SOCKET_TIMEOUT;
   protected SocketFactory socketFactory;
@@ -135,6 +138,21 @@ public abstract class HttpConfigurationBuilder implements ComponentConfigurer<Ht
     this.sslSocketFactory = sslSocketFactory;
     this.trustManager = trustManager;
     return this;
+  }
+
+    /**
+     * Specifies a custom HTTP header that should be added to all SDK requests.
+     * <p>
+     * This may be helpful if you are using a gateway or proxy server that requires a specific header in requests. You
+     * may add any number of headers.
+     *
+     * @param headerName standard HTTP header
+     * @param headerValue standard HTTP value
+     * @return the builder
+     */
+    public HttpConfigurationBuilder addCustomHeader(String headerName, String headerValue) {
+      this.customHeaders.put(headerName, headerValue);
+      return this;
   }
 
   /**
