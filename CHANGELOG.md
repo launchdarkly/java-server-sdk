@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [6.2.0] - 2023-06-13
+### Added:
+- Custom headers can now be added to all HTTP requests with `Components.httpConfiguration().addCustomHeader`.
+
 ## [6.1.0] - 2023-04-13
 ### Added:
 - Support for Payload Filtering in streaming and polling modes. Payload Filtering is a beta feature that allows SDKs to download a subset of environment data, rather than full environments.
