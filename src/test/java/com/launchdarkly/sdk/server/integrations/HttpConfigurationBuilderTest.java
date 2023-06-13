@@ -34,13 +34,13 @@ import static org.junit.Assert.assertSame;
 public class HttpConfigurationBuilderTest {
   private static final String SDK_KEY = "sdk-key";
   private static final ClientContext BASIC_CONTEXT = new ClientContext(SDK_KEY);
-  
+
   private static ImmutableMap.Builder<String, String> buildBasicHeaders() {
     return ImmutableMap.<String, String>builder()
         .put("Authorization", SDK_KEY)
         .put("User-Agent", "JavaClient/" + getSdkVersion());
   }
-  
+
   @Test
   public void testDefaults() {
     HttpConfiguration hc = Components.httpConfiguration().build(BASIC_CONTEXT);
@@ -52,6 +52,25 @@ public class HttpConfigurationBuilderTest {
     assertNull(hc.getSslSocketFactory());
     assertNull(hc.getTrustManager());
     assertEquals(buildBasicHeaders().build(), ImmutableMap.copyOf(hc.getDefaultHeaders()));
+  }
+
+  @Test
+  public void testCanSetCustomHeaders() {
+      HttpConfiguration hc = Components.httpConfiguration()
+              .addCustomHeader("X-LaunchDarkly-Test-Label", "my-cool-label")
+              .addCustomHeader("X-Header-Message", "Java FTW")
+              .addCustomHeader("Authorization", "I can override this")
+              .addCustomHeader("User-Agent", "This too")
+              .build(BASIC_CONTEXT);
+
+      ImmutableMap<String, String> expectedHeaders = ImmutableMap.<String, String>builder()
+              .put("X-LaunchDarkly-Test-Label", "my-cool-label")
+              .put("X-Header-Message", "Java FTW")
+              .put("Authorization", "I can override this")
+              .put("User-Agent", "This too")
+              .build();
+
+      assertEquals(expectedHeaders, ImmutableMap.copyOf(hc.getDefaultHeaders()));
   }
 
   @Test
@@ -101,7 +120,7 @@ public class HttpConfigurationBuilderTest {
         .build(BASIC_CONTEXT);
     assertEquals(DEFAULT_SOCKET_TIMEOUT, hc2.getSocketTimeout());
   }
-  
+
   @Test
   public void testSocketFactory() {
     SocketFactory sf = new StubSocketFactory();
@@ -110,7 +129,7 @@ public class HttpConfigurationBuilderTest {
         .build(BASIC_CONTEXT);
     assertSame(sf, hc.getSocketFactory());
   }
-  
+
   @Test
   public void testSslOptions() {
     SSLSocketFactory sf = new StubSSLSocketFactory();
@@ -146,22 +165,22 @@ public class HttpConfigurationBuilderTest {
         .build(contextWithTags);
     assertEquals("application-id/authentication-service application-version/1.0.0", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Tags"));
   }
-  
+
   public static class StubSocketFactory extends SocketFactory {
     public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort)
         throws IOException {
       return null;
     }
-    
+
     public Socket createSocket(String host, int port, InetAddress localHost, int localPort)
         throws IOException, UnknownHostException {
       return null;
     }
-    
+
     public Socket createSocket(InetAddress host, int port) throws IOException {
       return null;
     }
-    
+
     public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
       return null;
     }
@@ -176,40 +195,40 @@ public class HttpConfigurationBuilderTest {
         throws IOException {
       return null;
     }
-    
+
     public Socket createSocket(String host, int port, InetAddress localHost, int localPort)
         throws IOException, UnknownHostException {
       return null;
     }
-    
+
     public Socket createSocket(InetAddress host, int port) throws IOException {
       return null;
     }
-    
+
     public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
       return null;
     }
-    
+
     public String[] getSupportedCipherSuites() {
       return null;
     }
-    
+
     public String[] getDefaultCipherSuites() {
       return null;
     }
-    
+
     public Socket createSocket(Socket s, String host, int port, boolean autoClose) throws IOException {
       return null;
     }
   }
-  
+
   public static class StubX509TrustManager implements X509TrustManager {
     public X509Certificate[] getAcceptedIssuers() {
       return null;
     }
-    
+
     public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
-    
+
     public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
   }
 }
