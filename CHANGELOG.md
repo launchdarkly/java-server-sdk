@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [6.2.1] - 2023-06-29
+### Changed:
+- Bumping Guava version to incorporate CVE-2023-2976 fixes.
+
 ## [6.2.0] - 2023-06-13
 ### Added:
 - Custom headers can now be added to all HTTP requests with `Components.httpConfiguration().addCustomHeader`.
