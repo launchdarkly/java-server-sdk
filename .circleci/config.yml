@@ -120,12 +120,12 @@ jobs:
       - checkout
       - run:
           name: uninstall previous openjdk
-          command: choco uninstall openjdk
+          command: choco uninstall openjdk -y
       - run:
           name: install OpenJDK
           command: |
             $ProgressPreference = "SilentlyContinue"  # prevents console errors from CircleCI host
-            choco install openjdk --version <<parameters.openjdk-version>> --allow-downgrade
+            choco install openjdk --version <<parameters.openjdk-version>> --allow-downgrade -y
       - run: java -version
       - run:
           name: build and test

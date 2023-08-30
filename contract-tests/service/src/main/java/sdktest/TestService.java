@@ -60,17 +60,14 @@ public class TestService {
   }
   
   public static void main(String[] args) throws Exception {
-    // ((ch.qos.logback.classic.Logger)LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(
-    //     Level.valueOf(config.logLevel.toUpperCase()));
-
     TestService service = new TestService();
 
     SimpleRouter router = new SimpleRouter()
-        .add("GET", "/", ctx -> service.writeJson(ctx, service.getStatus()))
+        .add("GET", "/", ctx -> service.writeJson(diableKeepAlive(ctx), service.getStatus()))
         .add("DELETE", "/", ctx -> service.forceQuit())
-        .add("POST", "/", ctx -> service.postCreateClient(ctx))
-        .addRegex("POST", Pattern.compile("/clients/(.*)"), ctx -> service.postClientCommand(ctx))
-        .addRegex("DELETE", Pattern.compile("/clients/(.*)"), ctx -> service.deleteClient(ctx));
+        .add("POST", "/", ctx -> service.postCreateClient(diableKeepAlive(ctx)))
+        .addRegex("POST", Pattern.compile("/clients/(.*)"), ctx -> service.postClientCommand(diableKeepAlive(ctx)))
+        .addRegex("DELETE", Pattern.compile("/clients/(.*)"), ctx -> service.deleteClient(diableKeepAlive(ctx)));
 
     HttpServer server = HttpServer.start(PORT, router); 
     server.getRecorder().setEnabled(false); // don't accumulate a request log
@@ -81,6 +78,11 @@ public class TestService {
     while (true) {
       Thread.sleep(1000);
     }
+  }
+
+  private static RequestContext diableKeepAlive(RequestContext ctx) {
+      ctx.addHeader("Connection", "close");
+      return ctx;
   }
 
   private Status getStatus() {
