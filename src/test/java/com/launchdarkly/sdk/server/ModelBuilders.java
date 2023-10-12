@@ -149,6 +149,10 @@ public abstract class ModelBuilders {
     private boolean trackEventsFallthrough;
     private Long debugEventsUntilDate;
     private boolean deleted;
+    private Long samplingRatio;
+    private FeatureFlag.Migration migration;
+    private boolean excludeFromSummaries;
+
     private boolean disablePreprocessing = false;
     
     private FlagBuilder(String key) {
@@ -173,6 +177,9 @@ public abstract class ModelBuilders {
         this.trackEventsFallthrough = f.isTrackEventsFallthrough();
         this.debugEventsUntilDate = f.getDebugEventsUntilDate();
         this.deleted = f.isDeleted();
+        this.samplingRatio = f.getSamplingRatio();
+        this.migration = f.getMigration();
+        this.excludeFromSummaries = f.isExcludeFromSummaries();
       }
     }
   
@@ -314,15 +321,39 @@ public abstract class ModelBuilders {
       this.disablePreprocessing = disable;
       return this;
     }
+
+    public FlagBuilder samplingRatio(long samplingRatio) {
+      this.samplingRatio = samplingRatio;
+      return this;
+    }
+
+    public FlagBuilder migration(FeatureFlag.Migration migration) {
+      this.migration = migration;
+      return this;
+    }
     
     public FeatureFlag build() {
       FeatureFlag flag = new DataModel.FeatureFlag(key, version, on, prerequisites, salt, targets,
           contextTargets, rules, fallthrough, offVariation, variations,
-          clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted);
+          clientSide, trackEvents, trackEventsFallthrough, debugEventsUntilDate, deleted,
+          samplingRatio, migration, excludeFromSummaries);
       if (!disablePreprocessing) {
         flag.afterDeserialized();
       }
       return flag;
+    }
+  }
+
+  public static class MigrationBuilder {
+    private Long checkRatio;
+
+    public MigrationBuilder checkRatio(long checkRatio) {
+      this.checkRatio = checkRatio;
+      return this;
+    }
+
+    public FeatureFlag.Migration build() {
+      return new FeatureFlag.Migration(checkRatio);
     }
   }
   

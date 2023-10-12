@@ -677,6 +677,9 @@ public class DataModelSerializationTest {
         .put("trackEvents", true)
         .put("trackEventsFallthrough", true)
         .put("debugEventsUntilDate", 1000)
+        .put("samplingRatio", 2)
+        .put("migration", LDValue.buildObject().put("checkRatio", 3).build())
+        .put("excludeFromSummaries", true)
         .build();
   }
 
@@ -711,7 +714,13 @@ public class DataModelSerializationTest {
     assertTrue(flag.isClientSide());
     assertTrue(flag.isTrackEvents());
     assertTrue(flag.isTrackEventsFallthrough());
-    assertEquals(Long.valueOf(1000), flag.getDebugEventsUntilDate());  
+    assertEquals(Long.valueOf(1000), flag.getDebugEventsUntilDate());
+
+    assertNotNull(flag.getSamplingRatio());
+    assertEquals(2l, flag.getSamplingRatio().longValue());
+    assertNotNull(flag.getMigration());
+    assertEquals(3l, flag.getMigration().getCheckRatio().longValue());
+    assertTrue(flag.isExcludeFromSummaries());
   }
   
   private LDValue segmentWithAllPropertiesJson() {

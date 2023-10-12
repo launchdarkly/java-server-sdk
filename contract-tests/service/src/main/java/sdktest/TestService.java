@@ -32,8 +32,9 @@ public class TestService {
     "context-type",
     "service-endpoints",
     "tags",
-    "user-type",
-    "filtering"
+    "filtering",
+    "migrations",
+    "event-sampling"
   };
   
   static final Gson gson = new GsonBuilder().serializeNulls().create();

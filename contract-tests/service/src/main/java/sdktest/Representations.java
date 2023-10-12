@@ -3,7 +3,6 @@ package sdktest;
 import com.google.gson.annotations.SerializedName;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 
 import java.net.URI;
@@ -75,12 +74,15 @@ public abstract class Representations {
     ContextBuildParams contextBuild;
     ContextConvertParams contextConvert;
     SecureModeHashParams secureModeHash;
+
+    MigrationVariationParams migrationVariation;
+
+    MigrationOperationParams migrationOperation;
   }
 
   public static class EvaluateFlagParams {
     String flagKey;
     LDContext context;
-    LDUser user;
     String valueType;
     LDValue value;
     LDValue defaultValue;
@@ -95,7 +97,6 @@ public abstract class Representations {
 
   public static class EvaluateAllFlagsParams {
     LDContext context;
-    LDUser user;
     boolean clientSideOnly;
     boolean detailsOnlyForTrackedFlags;
     boolean withReasons;
@@ -107,13 +108,11 @@ public abstract class Representations {
   
   public static class IdentifyEventParams {
     LDContext context;
-    LDUser user;
   }
 
   public static class CustomEventParams {
     String eventKey;
     LDContext context;
-    LDUser user;
     LDValue data;
     boolean omitNullData;
     Double metricValue;
@@ -149,10 +148,38 @@ public abstract class Representations {
   
   public static class SecureModeHashParams {
     LDContext context;
-    LDUser user;
   }
   
   public static class SecureModeHashResponse {
     String result;
+  }
+
+  public static class MigrationVariationParams {
+    String key;
+    LDContext context;
+    String defaultStage;
+  }
+
+  public static class MigrationVariationResponse {
+    String result;
+  }
+
+  public static class MigrationOperationParams {
+    String operation;
+    LDContext context;
+    String key;
+    String defaultStage;
+    String payload;
+    String readExecutionOrder;
+    boolean trackConsistency;
+    boolean trackLatency;
+    boolean trackErrors;
+    String oldEndpoint;
+    String newEndpoint;
+  }
+
+  public static class MigrationOperationResponse {
+    String result;
+    String error;
   }
 }

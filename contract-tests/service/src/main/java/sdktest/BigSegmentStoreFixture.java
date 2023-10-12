@@ -8,14 +8,14 @@ import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 
 import java.io.IOException;
 
-import sdktest.CallbackRepresentations.BigSegmentStoreGetMembershipParams;
-import sdktest.CallbackRepresentations.BigSegmentStoreGetMembershipResponse;
-import sdktest.CallbackRepresentations.BigSegmentStoreGetMetadataResponse;
+import sdktest.BigSegmentCallbackRepresentation.BigSegmentStoreGetMembershipParams;
+import sdktest.BigSegmentCallbackRepresentation.BigSegmentStoreGetMembershipResponse;
+import sdktest.BigSegmentCallbackRepresentation.BigSegmentStoreGetMetadataResponse;
 
 public class BigSegmentStoreFixture implements BigSegmentStore, ComponentConfigurer<BigSegmentStore> {
-  private final CallbackService service;
+  private final BigSegmentCallbackService service;
   
-  public BigSegmentStoreFixture(CallbackService service) {
+  public BigSegmentStoreFixture(BigSegmentCallbackService service) {
     this.service = service;
   }
   

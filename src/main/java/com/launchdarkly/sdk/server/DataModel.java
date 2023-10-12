@@ -141,6 +141,25 @@ public abstract class DataModel {
     private boolean trackEventsFallthrough;
     private Long debugEventsUntilDate;
     private boolean deleted;
+    private Long samplingRatio;
+    private Migration migration;
+    private boolean excludeFromSummaries;
+
+    /**
+     * Container for migration specific flag data.
+     */
+    static class Migration {
+      Migration() {}
+
+      Migration(Long checkRatio) {
+        this.checkRatio = checkRatio;
+      }
+      private Long checkRatio;
+
+      public Long getCheckRatio() {
+        return checkRatio;
+      }
+    }
 
     transient FlagPreprocessed preprocessed;
     
@@ -150,7 +169,7 @@ public abstract class DataModel {
     FeatureFlag(String key, int version, boolean on, List<Prerequisite> prerequisites, String salt, List<Target> targets,
         List<Target> contextTargets, List<Rule> rules, VariationOrRollout fallthrough, Integer offVariation,
         List<LDValue> variations, boolean clientSide, boolean trackEvents, boolean trackEventsFallthrough,
-        Long debugEventsUntilDate, boolean deleted) {
+        Long debugEventsUntilDate, boolean deleted, Long samplingRatio, Migration migration, boolean excludeFromSummaries) {
       this.key = key;
       this.version = version;
       this.on = on;
@@ -167,6 +186,9 @@ public abstract class DataModel {
       this.trackEventsFallthrough = trackEventsFallthrough;
       this.debugEventsUntilDate = debugEventsUntilDate;
       this.deleted = deleted;
+      this.samplingRatio = samplingRatio;
+      this.migration = migration;
+      this.excludeFromSummaries = excludeFromSummaries;
     }
 
     public int getVersion() {
@@ -235,6 +257,14 @@ public abstract class DataModel {
 
     boolean isClientSide() {
       return clientSide;
+    }
+
+    Long getSamplingRatio() { return samplingRatio; }
+
+    Migration getMigration() { return migration; }
+
+    boolean isExcludeFromSummaries() {
+      return excludeFromSummaries;
     }
 
     public void afterDeserialized() {
@@ -344,7 +374,7 @@ public abstract class DataModel {
       this.contextKind = contextKind;
       this.attribute = attribute;
       this.op = op;
-      this.values = values == null ? emptyList() : values;;
+      this.values = values == null ? emptyList() : values;
       this.negate = negate;
     }
   

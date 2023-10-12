@@ -199,6 +199,23 @@ public class TestDataTest {
   }
 
   @Test
+  public void flagConfigSamplingRatio() throws Exception {
+    verifyFlag(
+        f -> f.samplingRatio(2).on(false),
+        fb -> fb.samplingRatio(2).fallthroughVariation(0).variations(true,false).offVariation(1)
+    );
+  }
+
+  @Test
+  public void flagConfigMigrationCheckRatio() throws Exception {
+    verifyFlag(
+        f -> f.migrationCheckRatio(2).on(false),
+        fb -> fb.migration(new ModelBuilders.MigrationBuilder().checkRatio(2).build())
+            .fallthroughVariation(0).variations(true,false).offVariation(1)
+    );
+  }
+
+  @Test
   public void userTargets() throws Exception {
     Function<ModelBuilders.FlagBuilder, ModelBuilders.FlagBuilder> expectedBooleanFlag = fb ->
         fb.variations(true, false).on(true).offVariation(1).fallthroughVariation(0);

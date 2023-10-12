@@ -11,11 +11,12 @@ import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 
 import java.io.IOException;
+import java.util.Optional;
 
 final class DefaultEventProcessorWrapper implements EventProcessor {
   private final DefaultEventProcessor eventProcessor;
   final EventsConfiguration eventsConfig; // visible for testing
-  
+
   DefaultEventProcessorWrapper(ClientContext clientContext, EventsConfiguration eventsConfig) {
     this.eventsConfig = eventsConfig;
     LDLogger baseLogger = clientContext.getBaseLogger();
@@ -25,13 +26,14 @@ final class DefaultEventProcessorWrapper implements EventProcessor {
         ClientContextImpl.get(clientContext).sharedExecutor,
         clientContext.getThreadPriority(),
         logger
-        );
+    );
   }
 
   @Override
   public void recordEvaluationEvent(LDContext context, String flagKey, int flagVersion, int variation,
-      LDValue value, EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey,
-      boolean requireFullEvent, Long debugEventsUntilDate) {
+                                    LDValue value, EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey,
+                                    boolean requireFullEvent, Long debugEventsUntilDate, boolean excludeFromSummaries,
+                                    Long samplingRatio) {
     eventProcessor.sendEvent(new Event.FeatureRequest(
         System.currentTimeMillis(),
         flagKey,
@@ -44,8 +46,10 @@ final class DefaultEventProcessorWrapper implements EventProcessor {
         prerequisiteOfFlagKey,
         requireFullEvent,
         debugEventsUntilDate,
-        false
-        ));
+        false,
+        samplingRatio != null ? samplingRatio : 1,
+        excludeFromSummaries
+    ));
   }
 
   @Override
@@ -59,10 +63,18 @@ final class DefaultEventProcessorWrapper implements EventProcessor {
   }
 
   @Override
+  public void recordMigrationEvent(MigrationOpTracker tracker) {
+    Optional<Event.MigrationOp> event = tracker.createEvent();
+    if(event.isPresent()) {
+      eventProcessor.sendEvent(event.get());
+    }
+  }
+
+  @Override
   public void flush() {
     eventProcessor.flushAsync();
   }
-  
+
   @Override
   public void close() throws IOException {
     eventProcessor.close();
