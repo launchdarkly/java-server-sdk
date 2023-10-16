@@ -2,6 +2,18 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [7.0.0] - 2023-10-16
+The latest version of this SDK supports the ability to manage migrations or modernizations, using migration flags. You might use this functionality if you are optimizing queries, upgrading to new tech stacks, migrating from one database to another, or other similar technology changes. Migration flags are part of LaunchDarkly's Early Access Program. This feature is available to all LaunchDarkly customers but may undergo additional changes before it is finalized.
+
+For detailed information about this version, refer to the list below. For information on how to upgrade from the previous version, read the [migration guide](https://docs.launchdarkly.com/sdk/server-side/java/migration-6-to-7).
+
+### Added:
+- A new `Migration` type which provides an out-of-the-box configurable migration framework.
+- For more advanced use cases, added new `migrationVariation` and `trackMigration` methods on LDClient.
+
+### Removed:
+- Remove support for `LDUser` in `LDClient` methods. The `LDContext.fromUser` method can be used to convert an `LDUser` to an `LDContext`. In a future version it may be removed.
+
 ## [6.2.1] - 2023-06-29
 ### Changed:
 - Bumping Guava version to incorporate CVE-2023-2976 fixes.
