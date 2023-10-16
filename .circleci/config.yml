@@ -120,16 +120,23 @@ jobs:
       - checkout
       - run:
           name: uninstall previous openjdk
-          command: choco uninstall openjdk
+          command: choco uninstall openjdk -y
       - run:
           name: install OpenJDK
           command: |
             $ProgressPreference = "SilentlyContinue"  # prevents console errors from CircleCI host
-            choco install openjdk --version <<parameters.openjdk-version>> --allow-downgrade
-      - run: java -version
+            choco install openjdk --version <<parameters.openjdk-version>> --allow-downgrade -y
+      - run:
+          name: Check java version
+          command: |
+            Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
+            refreshenv
+            java -version
       - run:
           name: build and test
           command: |
+            Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
+            refreshenv
             cp gradle.properties.example gradle.properties
             .\gradlew.bat --no-daemon test  # must use --no-daemon because CircleCI in Windows will hang if there's a daemon running
       - run:

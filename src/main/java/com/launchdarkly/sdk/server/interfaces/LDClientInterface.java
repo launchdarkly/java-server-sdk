@@ -57,6 +57,7 @@ public interface LDClientInterface extends Closeable {
    * @see #trackMetric(String, LDContext, LDValue, double)
    * @see #track(String, LDContext)
    */
+  @Deprecated
   default void track(String eventName, LDUser user) {
     track(eventName, LDContext.fromUser(user));
   }
@@ -96,6 +97,7 @@ public interface LDClientInterface extends Closeable {
    * @see #trackMetric(String, LDContext, LDValue, double)
    * @see #trackData(String, LDContext, LDValue)
    */
+  @Deprecated
   default void trackData(String eventName, LDUser user, LDValue data) {
     trackData(eventName, LDContext.fromUser(user), data);
   }
@@ -109,7 +111,7 @@ public interface LDClientInterface extends Closeable {
    * <p>
    * Note that event delivery is asynchronous, so the event may not actually be sent until
    * later; see {@link #flush()}.
-   * 
+   *
    * @param eventName the name of the event
    * @param context   the context associated with the event
    * @param data      an {@link LDValue} containing additional data associated with the event; if not applicable,
@@ -128,7 +130,7 @@ public interface LDClientInterface extends Closeable {
    * <p>
    * This is equivalent to {@link #trackMetric(String, LDContext, LDValue, double)}, but using the {@link LDUser} type
    * instead of {@link LDContext}.
-   * 
+   *
    * @param eventName the name of the event
    * @param user      the user attributes
    * @param data      an {@link LDValue} containing additional data associated with the event; if not applicable,
@@ -139,6 +141,7 @@ public interface LDClientInterface extends Closeable {
    * @see #track(String, LDContext)
    * @see #trackData(String, LDContext, LDValue)
    */
+  @Deprecated
   default void trackMetric(String eventName, LDUser user, LDValue data, double metricValue) {
     trackMetric(eventName, LDContext.fromUser(user), data, metricValue);
   }
@@ -172,6 +175,7 @@ public interface LDClientInterface extends Closeable {
    * @param user the user attributes
    * @see #identify(LDContext)
    */
+  @Deprecated
   default void identify(LDUser user) {
     identify(LDContext.fromUser(user));
   }
@@ -185,7 +189,7 @@ public interface LDClientInterface extends Closeable {
    * <a href="https://docs.launchdarkly.com/sdk/features/bootstrapping#javascript">bootstrapping</a>.
    * <p>
    * This method will not send analytics events back to LaunchDarkly.
-   *  
+   *
    * @param context the evaluation context
    * @param options optional {@link FlagsStateOption} values affecting how the state is computed - for
    * instance, to filter the set of flags to only include the client-side-enabled ones
@@ -201,7 +205,7 @@ public interface LDClientInterface extends Closeable {
    * <p>
    * This is equivalent to {@link #allFlagsState(LDContext, FlagsStateOption...)}, but using the {@link LDUser} type
    * instead of {@link LDContext}.
-   *  
+   *
    * @param user the user attributes
    * @param options optional {@link FlagsStateOption} values affecting how the state is computed - for
    * instance, to filter the set of flags to only include the client-side-enabled ones
@@ -209,10 +213,11 @@ public interface LDClientInterface extends Closeable {
    * @see #allFlagsState(LDContext, FlagsStateOption...)
    * @since 4.3.0
    */
+  @Deprecated
   default FeatureFlagsState allFlagsState(LDUser user, FlagsStateOption... options) {
     return allFlagsState(LDContext.fromUser(user), options);
   }
-  
+
   /**
    * Calculates the boolean value of a feature flag for a given context.
    * <p>
@@ -220,7 +225,7 @@ public interface LDClientInterface extends Closeable {
    * <p>
    * If an error makes it impossible to evaluate the flag (for instance, the feature flag key
    * does not match any existing flag), {@code defaultValue} is returned.
-   * 
+   *
    * @param key          the unique key for the feature flag
    * @param context      the evaluation context
    * @param defaultValue the default value of the flag
@@ -235,17 +240,18 @@ public interface LDClientInterface extends Closeable {
    * <p>
    * This is equivalent to {@link #boolVariation(String, LDContext, boolean)}, but using the {@link LDUser} type
    * instead of {@link LDContext}.
-   * 
+   *
    * @param key          the unique key for the feature flag
    * @param user         the user attributes
    * @param defaultValue the default value of the flag
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
    * @see #boolVariation(String, LDContext, boolean)
    */
+  @Deprecated
   default boolean boolVariation(String key, LDUser user, boolean defaultValue) {
     return boolVariation(key, LDContext.fromUser(user), defaultValue);
   }
-  
+
   /**
    * Calculates the integer value of a feature flag for a given context.
    * <p>
@@ -278,6 +284,7 @@ public interface LDClientInterface extends Closeable {
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
    * @see #intVariation(String, LDContext, int)
    */
+  @Deprecated
   default int intVariation(String key, LDUser user, int defaultValue) {
     return intVariation(key, LDContext.fromUser(user), defaultValue);
   }
@@ -311,6 +318,7 @@ public interface LDClientInterface extends Closeable {
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
    * @see #doubleVariation(String, LDContext, double)
    */
+  @Deprecated
   default double doubleVariation(String key, LDUser user, double defaultValue) {
     return doubleVariation(key, LDContext.fromUser(user), defaultValue);
   }
@@ -344,6 +352,7 @@ public interface LDClientInterface extends Closeable {
    * @return the variation for the given context, or {@code defaultValue} if the flag cannot be evaluated
    * @see #stringVariation(String, LDContext, String)
    */
+  @Deprecated
   default String stringVariation(String key, LDUser user, String defaultValue) {
     return stringVariation(key, LDContext.fromUser(user), defaultValue);
   }
@@ -376,6 +385,7 @@ public interface LDClientInterface extends Closeable {
    * @see #jsonValueVariation(String, LDContext, LDValue)
    * @since 4.8.0
    */
+  @Deprecated
   default LDValue jsonValueVariation(String key, LDUser user, LDValue defaultValue) {
     return jsonValueVariation(key, LDContext.fromUser(user), defaultValue);
   }
@@ -412,6 +422,7 @@ public interface LDClientInterface extends Closeable {
    * @since 2.3.0
    * @see #boolVariationDetail(String, LDContext, boolean)
    */
+  @Deprecated
   default EvaluationDetail<Boolean> boolVariationDetail(String key, LDUser user, boolean defaultValue) {
     return boolVariationDetail(key, LDContext.fromUser(user), defaultValue);
   }
@@ -448,6 +459,7 @@ public interface LDClientInterface extends Closeable {
    * @see #intVariationDetail(String, LDContext, int)
    * @since 2.3.0
    */
+  @Deprecated
   default EvaluationDetail<Integer> intVariationDetail(String key, LDUser user, int defaultValue) {
     return intVariationDetail(key, LDContext.fromUser(user), defaultValue);
   }
@@ -484,6 +496,7 @@ public interface LDClientInterface extends Closeable {
    * @see #doubleVariation(String, LDContext, double)
    * @since 2.3.0
    */
+  @Deprecated
   default EvaluationDetail<Double> doubleVariationDetail(String key, LDUser user, double defaultValue) {
     return doubleVariationDetail(key, LDContext.fromUser(user), defaultValue);
   }
@@ -520,6 +533,7 @@ public interface LDClientInterface extends Closeable {
    * @see #stringVariationDetail(String, LDContext, String)
    * @since 2.3.0
    */
+  @Deprecated
   default EvaluationDetail<String> stringVariationDetail(String key, LDUser user, String defaultValue) {
     return stringVariationDetail(key, LDContext.fromUser(user), defaultValue);
   }
@@ -557,6 +571,7 @@ public interface LDClientInterface extends Closeable {
    * @see #jsonValueVariation(String, LDContext, LDValue)
    * @since 4.8.0
    */
+  @Deprecated
   default EvaluationDetail<LDValue> jsonValueVariationDetail(String key, LDUser user, LDValue defaultValue) {
     return jsonValueVariationDetail(key, LDContext.fromUser(user), defaultValue);
   }
@@ -660,6 +675,7 @@ public interface LDClientInterface extends Closeable {
    * @return the hash, or null if the hash could not be calculated
    * @see #secureModeHash(LDContext)
    */
+  @Deprecated
   default String secureModeHash(LDUser user) {
     return secureModeHash(LDContext.fromUser(user));
   }

@@ -95,6 +95,7 @@ public interface FlagTracker {
    * @param listener an object that you provide which will be notified of changes
    * @return a {@link FlagChangeListener} that can be used to unregister the listener
    */
+  @Deprecated
   public default FlagChangeListener addFlagValueChangeListener(String flagKey, LDUser user, FlagValueChangeListener listener) {
     return addFlagValueChangeListener(flagKey, LDContext.fromUser(user), listener);
   }
