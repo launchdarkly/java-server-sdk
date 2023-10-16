@@ -206,6 +206,9 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     boolean on;
     int fallthroughVariation;
     CopyOnWriteArrayList<LDValue> variations;
+    private Long samplingRatio;
+    private Long migrationCheckRatio;
+
     final Map<ContextKind, Map<Integer, ImmutableSet<String>>> targets = new TreeMap<>(); // TreeMap enforces ordering for test determinacy
     final List<FlagRuleBuilder> rules = new ArrayList<>();
     
@@ -628,6 +631,16 @@ public final class TestData implements ComponentConfigurer<DataSource> {
           .put("on", on)
           .put("offVariation", offVariation)
           .put("fallthrough", LDValue.buildObject().put("variation", fallthroughVariation).build());
+
+      if(samplingRatio != null) {
+        builder.put("samplingRatio", samplingRatio);
+      }
+
+      if(migrationCheckRatio != null) {
+        builder.put("migration", LDValue.buildObject()
+            .put("checkRatio", migrationCheckRatio)
+            .build());
+      }
       
       // The following properties shouldn't actually be used in evaluations of this flag, but
       // adding them makes the JSON output more predictable for tests
@@ -699,6 +712,28 @@ public final class TestData implements ComponentConfigurer<DataSource> {
       
       String json = builder.build().toJsonString();
       return DataModel.FEATURES.deserialize(json);
+    }
+
+    /**
+     * Set the samplingRatio, used for event generation, for this flag.
+     *
+     * @param samplingRatio the event sampling ratio
+     * @return a reference to this builder
+     */
+    public FlagBuilder samplingRatio(long samplingRatio) {
+      this.samplingRatio = samplingRatio;
+      return this;
+    }
+
+    /**
+     * Turn this flag into a migration flag and set the check ratio.
+     *
+     * @param checkRatio the check ratio
+     * @return a reference to this builder
+     */
+    public FlagBuilder migrationCheckRatio(long checkRatio) {
+      migrationCheckRatio = checkRatio;
+      return this;
     }
     
     private static int variationForBoolean(boolean value) {

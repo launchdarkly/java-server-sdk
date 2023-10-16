@@ -2,7 +2,7 @@ package sdktest;
 
 import java.util.Map;
 
-public abstract class CallbackRepresentations {
+public abstract class BigSegmentCallbackRepresentation {
   public static class BigSegmentStoreGetMetadataResponse {
     Long lastUpToDate;
   }

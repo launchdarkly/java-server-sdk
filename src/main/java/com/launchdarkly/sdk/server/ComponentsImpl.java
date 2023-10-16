@@ -86,13 +86,16 @@ abstract class ComponentsImpl {
     @Override
     public void recordEvaluationEvent(LDContext context, String flagKey, int flagVersion, int variation, LDValue value,
         EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey, boolean requireFullEvent,
-        Long debugEventsUntilDate) {}
+        Long debugEventsUntilDate, boolean excludeFromSummaries, Long samplingRatio) {}
 
     @Override
     public void recordIdentifyEvent(LDContext context) {}
 
     @Override
     public void recordCustomEvent(LDContext context, String eventKey, LDValue data, Double metricValue) {}
+
+    @Override
+    public void recordMigrationEvent(MigrationOpTracker tracker) {}
   }
   
   static final class NullDataSourceFactory implements ComponentConfigurer<DataSource>, DiagnosticDescription {

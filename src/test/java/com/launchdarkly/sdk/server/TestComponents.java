@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -143,7 +144,8 @@ public class TestComponents {
     @Override
     public void recordEvaluationEvent(LDContext context, String flagKey, int flagVersion, int variation, LDValue value,
         EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey, boolean requireFullEvent,
-        Long debugEventsUntilDate) {
+        Long debugEventsUntilDate, boolean excludeFromSummaries,
+                                      Long samplingRatio) {
       events.add(new Event.FeatureRequest(System.currentTimeMillis(), flagKey, context, flagVersion,
           variation, value, defaultValue, reason, prerequisiteOfFlagKey, requireFullEvent, debugEventsUntilDate, false));
     }
@@ -157,6 +159,14 @@ public class TestComponents {
     @Override
     public void recordCustomEvent(LDContext context, String eventKey, LDValue data, Double metricValue) {
       events.add(new Event.Custom(System.currentTimeMillis(), eventKey, context, data, metricValue));
+    }
+
+    @Override
+    public void recordMigrationEvent(MigrationOpTracker tracker) {
+      Optional<Event.MigrationOp> event = tracker.createEvent();
+      if(event.isPresent()) {
+        events.add(event.get());
+      }
     }
   }
 

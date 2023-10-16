@@ -5,7 +5,6 @@ import com.google.gson.Gson;
 import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.TestData;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
@@ -43,9 +42,7 @@ import static org.junit.Assert.assertTrue;
 @SuppressWarnings("javadoc")
 public class LDClientEvaluationTest extends BaseTest {
   private static final LDContext context = LDContext.create("userkey");
-  private static final LDUser contextAsUser = new LDUser(context.getKey());
   private static final LDContext invalidContext = LDContext.create(null);
-  private static final LDUser invalidUser = new LDUser(null);
   private static final Gson gson = new Gson();
   
   private DataStore dataStore = initedDataStore();
@@ -65,9 +62,7 @@ public class LDClientEvaluationTest extends BaseTest {
 
   private <T> void doTypedVariationTests(
       EvalMethod<LDContext, T> variationMethod,
-      EvalMethod<LDUser, T> variationForUserMethod,
       EvalDetailMethod<LDContext, T> variationDetailMethod,
-      EvalDetailMethod<LDUser, T> variationDetailForUserMethod,
       T expectedValue,
       LDValue expectedLdValue,
       T defaultValue,
@@ -90,40 +85,27 @@ public class LDClientEvaluationTest extends BaseTest {
       LDClientInterface client = new LDClient("SDK_KEY", baseConfig().dataSource(testData).build());
 
       assertEquals(expectedValue, variationMethod.apply(client, flagKey, context, defaultValue));
-      assertEquals(expectedValue, variationForUserMethod.apply(client, flagKey, contextAsUser, defaultValue));
 
       assertEquals(EvaluationDetail.fromValue(expectedValue, 1, EvaluationReason.targetMatch()),
           variationDetailMethod.apply(client, flagKey, context, defaultValue));
-      assertEquals(EvaluationDetail.fromValue(expectedValue, 1, EvaluationReason.targetMatch()),
-          variationDetailForUserMethod.apply(client, flagKey, contextAsUser, defaultValue));
 
       // unknown flag
       assertEquals(defaultValue, variationMethod.apply(client, unknownKey, context, defaultValue));
-      assertEquals(defaultValue, variationForUserMethod.apply(client, unknownKey, contextAsUser, defaultValue));
       assertEquals(EvaluationDetail.fromValue(defaultValue, -1, EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND)),
           variationDetailMethod.apply(client, unknownKey, context, defaultValue));
-      assertEquals(EvaluationDetail.fromValue(defaultValue, -1, EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND)),
-          variationDetailForUserMethod.apply(client, unknownKey, contextAsUser, defaultValue));
 
       // invalid/null context/user
       assertEquals(defaultValue, variationMethod.apply(client, flagKey, invalidContext, defaultValue));
       assertEquals(defaultValue, variationMethod.apply(client, flagKey, null, defaultValue));
-      assertEquals(defaultValue, variationForUserMethod.apply(client, flagKey, invalidUser, defaultValue));
-      assertEquals(defaultValue, variationForUserMethod.apply(client, flagKey, null, defaultValue));
       assertEquals(EvaluationDetail.fromValue(defaultValue, -1, EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED)),
           variationDetailMethod.apply(client, flagKey, invalidContext, defaultValue));
       assertEquals(EvaluationDetail.fromValue(defaultValue, -1, EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED)),
           variationDetailMethod.apply(client, flagKey, null, defaultValue));
-      assertEquals(EvaluationDetail.fromValue(defaultValue, -1, EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED)),
-          variationDetailForUserMethod.apply(client, flagKey, invalidUser, defaultValue));
-      assertEquals(EvaluationDetail.fromValue(defaultValue, -1, EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED)),
-          variationDetailForUserMethod.apply(client, flagKey, null, defaultValue));
 
       // wrong type
       if (wrongTypeLdValue != null)
       {
         assertEquals(defaultValue, variationMethod.apply(client, wrongTypeFlagKey, context, defaultValue));
-        assertEquals(defaultValue, variationForUserMethod.apply(client, wrongTypeFlagKey, contextAsUser, defaultValue));
         assertEquals(EvaluationDetail.fromValue(defaultValue, -1, EvaluationReason.error(EvaluationReason.ErrorKind.WRONG_TYPE)),
             variationDetailMethod.apply(client, wrongTypeFlagKey, context, defaultValue));
       }
@@ -133,9 +115,7 @@ public class LDClientEvaluationTest extends BaseTest {
   public void boolEvaluations() {
     doTypedVariationTests(
         (LDClientInterface c, String f, LDContext ctx, Boolean d) -> c.boolVariation(f, ctx, d),
-        (LDClientInterface c, String f, LDUser u, Boolean d) -> c.boolVariation(f, u, d),
         (LDClientInterface c, String f, LDContext ctx, Boolean d) -> c.boolVariationDetail(f, ctx, d),
-        (LDClientInterface c, String f, LDUser u, Boolean d) -> c.boolVariationDetail(f, u, d),
         true,
         LDValue.of(true),
         false,
@@ -147,9 +127,7 @@ public class LDClientEvaluationTest extends BaseTest {
   public void intEvaluations() {
     doTypedVariationTests(
         (LDClientInterface c, String f, LDContext ctx, Integer d) -> c.intVariation(f, ctx, d),
-        (LDClientInterface c, String f, LDUser u, Integer d) -> c.intVariation(f, u, d),
         (LDClientInterface c, String f, LDContext ctx, Integer d) -> c.intVariationDetail(f, ctx, d),
-        (LDClientInterface c, String f, LDUser u, Integer d) -> c.intVariationDetail(f, u, d),
         2,
         LDValue.of(2),
         1,
@@ -161,9 +139,7 @@ public class LDClientEvaluationTest extends BaseTest {
   public void doubleEvaluations() {
     doTypedVariationTests(
         (LDClientInterface c, String f, LDContext ctx, Double d) -> c.doubleVariation(f, ctx, d),
-        (LDClientInterface c, String f, LDUser u, Double d) -> c.doubleVariation(f, u, d),
         (LDClientInterface c, String f, LDContext ctx, Double d) -> c.doubleVariationDetail(f, ctx, d),
-        (LDClientInterface c, String f, LDUser u, Double d) -> c.doubleVariationDetail(f, u, d),
         2.5d,
         LDValue.of(2.5d),
         1.5d,
@@ -177,9 +153,7 @@ public class LDClientEvaluationTest extends BaseTest {
     LDValue defaultValue = LDValue.of("default");
     doTypedVariationTests(
         (LDClientInterface c, String f, LDContext ctx, LDValue d) -> c.jsonValueVariation(f, ctx, d),
-        (LDClientInterface c, String f, LDUser u, LDValue d) -> c.jsonValueVariation(f, u, d),
         (LDClientInterface c, String f, LDContext ctx, LDValue d) -> c.jsonValueVariationDetail(f, ctx, d),
-        (LDClientInterface c, String f, LDUser u, LDValue d) -> c.jsonValueVariationDetail(f, u, d),
         data,
         data,
         defaultValue,
@@ -473,9 +447,6 @@ public class LDClientEvaluationTest extends BaseTest {
         "\"$valid\":true" +
       "}";
     assertJsonEquals(json, gson.toJson(state));
-    
-    LDUser userWithOldUserType = new LDUser(context.getKey());
-    assertJsonEquals(gson.toJson(state), gson.toJson(client.allFlagsState(userWithOldUserType)));
   }
 
   @Test

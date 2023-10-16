@@ -3,7 +3,6 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
 import com.launchdarkly.sdk.LDContext;
-import com.launchdarkly.sdk.LDUser;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.internal.events.Event;
 import com.launchdarkly.sdk.server.DataModel.Clause;
@@ -37,7 +36,6 @@ import static org.junit.Assert.assertTrue;
 @SuppressWarnings("javadoc")
 public class LDClientEventTest extends BaseTest {
   private static final LDContext context = LDContext.create("userkey");
-  private static final LDUser contextAsUser = new LDUser(context.getKey());
   private static final LDContext invalidContext = LDContext.create(null);
   
   private DataStore dataStore = initedDataStore();
@@ -60,22 +58,8 @@ public class LDClientEventTest extends BaseTest {
   }
 
   @Test
-  public void identifySendsEventForOldUser() throws Exception {
-    client.identify(contextAsUser);
-    
-    assertEquals(1, eventSink.events.size());
-    Event e = eventSink.events.get(0);
-    assertEquals(Event.Identify.class, e.getClass());
-    Event.Identify ie = (Event.Identify)e;
-    assertEquals(contextAsUser.getKey(), ie.getContext().getKey());
-  }
-
-  @Test
   public void identifyWithNullContextOrUserDoesNotSendEvent() {
     client.identify((LDContext)null);
-    assertEquals(0, eventSink.events.size());
-
-    client.identify((LDUser)null);
     assertEquals(0, eventSink.events.size());
   }
 
@@ -99,19 +83,6 @@ public class LDClientEventTest extends BaseTest {
   }
 
   @Test
-  public void trackSendsEventForOldUser() throws Exception {
-    client.track("eventkey", contextAsUser);
-    
-    assertEquals(1, eventSink.events.size());
-    Event e = eventSink.events.get(0);
-    assertEquals(Event.Custom.class, e.getClass());
-    Event.Custom ce = (Event.Custom)e;
-    assertEquals(contextAsUser.getKey(), ce.getContext().getKey());
-    assertEquals("eventkey", ce.getKey());
-    assertEquals(LDValue.ofNull(), ce.getData());
-  }
-
-  @Test
   public void trackSendsEventWithData() throws Exception {
     LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
     client.trackData("eventkey", context, data);
@@ -121,20 +92,6 @@ public class LDClientEventTest extends BaseTest {
     assertEquals(Event.Custom.class, e.getClass());
     Event.Custom ce = (Event.Custom)e;
     assertEquals(context.getKey(), ce.getContext().getKey());
-    assertEquals("eventkey", ce.getKey());
-    assertEquals(data, ce.getData());
-  }
-
-  @Test
-  public void trackSendsEventWithDataForOldUser() throws Exception {
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    client.trackData("eventkey", contextAsUser, data);
-    
-    assertEquals(1, eventSink.events.size());
-    Event e = eventSink.events.get(0);
-    assertEquals(Event.Custom.class, e.getClass());
-    Event.Custom ce = (Event.Custom)e;
-    assertEquals(contextAsUser.getKey(), ce.getContext().getKey());
     assertEquals("eventkey", ce.getKey());
     assertEquals(data, ce.getData());
   }
@@ -156,27 +113,8 @@ public class LDClientEventTest extends BaseTest {
   }
 
   @Test
-  public void trackSendsEventWithDataAndMetricValueForOldUser() throws Exception {
-    LDValue data = LDValue.buildObject().put("thing", LDValue.of("stuff")).build();
-    double metricValue = 1.5;
-    client.trackMetric("eventkey", contextAsUser, data, metricValue);
-    
-    assertEquals(1, eventSink.events.size());
-    Event e = eventSink.events.get(0);
-    assertEquals(Event.Custom.class, e.getClass());
-    Event.Custom ce = (Event.Custom)e;
-    assertEquals(contextAsUser.getKey(), ce.getContext().getKey());
-    assertEquals("eventkey", ce.getKey());
-    assertEquals(data, ce.getData());
-    assertEquals(Double.valueOf(metricValue), ce.getMetricValue());
-  }
-
-  @Test
   public void trackWithNullContextOrUserDoesNotSendEvent() {
     client.track("eventkey", (LDContext)null);
-    assertEquals(0, eventSink.events.size());
-
-    client.track("eventkey", (LDUser)null);
     assertEquals(0, eventSink.events.size());
 
     client.trackData("eventkey", (LDContext)null, LDValue.of(1));
@@ -367,14 +305,8 @@ public class LDClientEventTest extends BaseTest {
     
     client.boolVariation(flag.getKey(), invalidContext, false);
     assertThat(eventSink.events, empty());
-    
-    client.boolVariation(flag.getKey(), (LDUser)null, false);
-    assertThat(eventSink.events, empty());
 
     client.boolVariationDetail(flag.getKey(), invalidContext, false);
-    assertThat(eventSink.events, empty());
-    
-    client.boolVariationDetail(flag.getKey(), (LDUser)null, false);
     assertThat(eventSink.events, empty());
   }
   

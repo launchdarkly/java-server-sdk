@@ -4,6 +4,7 @@ import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
+import com.launchdarkly.sdk.server.MigrationOpTracker;
 
 import java.io.Closeable;
 
@@ -39,6 +40,8 @@ public interface EventProcessor extends Closeable {
    *   or null if this flag was evaluated for itself
    * @param requireFullEvent true if full-fidelity analytics events should be sent for this flag
    * @param debugEventsUntilDate if non-null, debug events are to be generated until this millisecond time
+   * @param excludeFromSummaries true if the event evaluation should not be included in summaries
+   * @param samplingRatio ratio used to control event sampling
    */
   void recordEvaluationEvent(
       LDContext context,
@@ -50,7 +53,9 @@ public interface EventProcessor extends Closeable {
       LDValue defaultValue,
       String prerequisiteOfFlagKey,
       boolean requireFullEvent,
-      Long debugEventsUntilDate
+      Long debugEventsUntilDate,
+      boolean excludeFromSummaries,
+      Long samplingRatio
       );
   
   /**
@@ -76,6 +81,13 @@ public interface EventProcessor extends Closeable {
       LDValue data,
       Double metricValue
       );
+
+  /**
+   * Creates a migration event when the SDK's {@code trackMigration} method is called.
+   *
+   * @param tracker Migration tracker which was used to track details of the migration operation.
+   */
+  void recordMigrationEvent(MigrationOpTracker tracker);
   
   /**
    * Specifies that any buffered events should be sent as soon as possible, rather than waiting

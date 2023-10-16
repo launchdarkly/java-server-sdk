@@ -18,7 +18,8 @@ jobs:
 
 branches:
   - name: main
-    description: 6.x
+    description: 7.x
+  - name: 6.x
   - name: 5.x
   - name: 4.x
 

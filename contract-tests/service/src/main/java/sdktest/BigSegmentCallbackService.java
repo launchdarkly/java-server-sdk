@@ -7,10 +7,10 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-public class CallbackService {
+public class BigSegmentCallbackService {
   private final URI baseUri;
   
-  public CallbackService(URI baseUri) {
+  public BigSegmentCallbackService(URI baseUri) {
     this.baseUri = baseUri;
   }
   
