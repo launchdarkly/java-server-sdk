@@ -3,4 +3,5 @@ com.launchdarkly.sdk.json
 com.launchdarkly.sdk.server
 com.launchdarkly.sdk.server.integrations
 com.launchdarkly.sdk.server.interfaces
+com.launchdarkly.sdk.server.migrations
 com.launchdarkly.sdk.server.subsystems
