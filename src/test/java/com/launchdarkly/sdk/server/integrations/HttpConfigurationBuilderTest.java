@@ -160,7 +160,7 @@ public class HttpConfigurationBuilderTest {
   @Test
   public void testApplicationTags() {
     ApplicationInfo info = new ApplicationInfo("authentication-service", "1.0.0");
-    ClientContext contextWithTags = new ClientContext(SDK_KEY, info, null, null, false, null, 0);
+    ClientContext contextWithTags = new ClientContext(SDK_KEY, info, null, null, false, null, 0, null);
     HttpConfiguration hc = Components.httpConfiguration()
         .build(contextWithTags);
     assertEquals("application-id/authentication-service application-version/1.0.0", ImmutableMap.copyOf(hc.getDefaultHeaders()).get("X-LaunchDarkly-Tags"));

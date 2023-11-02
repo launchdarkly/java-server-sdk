@@ -64,6 +64,50 @@ public class ServerSideDiagnosticEventsTest {
   }
 
   @Test
+  public void sdkDataWrapperPropertiesUsingWrapperInfoOverridesHttpConfig() {
+    LDConfig config1 = new LDConfig.Builder()
+      .http(Components.httpConfiguration().wrapper("Scala", "0.1.0"))
+      .wrapper(Components.wrapperInfo().wrapperName("Clojure").wrapperVersion("0.2.0"))
+      .build();
+    LDValue sdkData1 = makeSdkData(config1);
+    assertThat(jsonFromValue(sdkData1), allOf(
+      jsonProperty("wrapperName", jsonEqualsValue("Clojure")),
+      jsonProperty("wrapperVersion", jsonEqualsValue("0.2.0"))
+    ));
+
+    LDConfig config2 = new LDConfig.Builder()
+      .http(Components.httpConfiguration().wrapper("Scala", null))
+      .wrapper(Components.wrapperInfo().wrapperName("Clojure"))
+      .build();
+    LDValue sdkData2 = makeSdkData(config2);
+    assertThat(jsonFromValue(sdkData2), allOf(
+      jsonProperty("wrapperName", jsonEqualsValue("Clojure")),
+      jsonProperty("wrapperVersion", jsonUndefined())
+    ));
+  }
+
+  @Test
+  public void sdkDataWrapperPropertiesUsingWrapperInfo() {
+    LDConfig config1 = new LDConfig.Builder()
+      .wrapper(Components.wrapperInfo().wrapperName("Clojure").wrapperVersion("0.2.0"))
+      .build();
+    LDValue sdkData1 = makeSdkData(config1);
+    assertThat(jsonFromValue(sdkData1), allOf(
+      jsonProperty("wrapperName", jsonEqualsValue("Clojure")),
+      jsonProperty("wrapperVersion", jsonEqualsValue("0.2.0"))
+    ));
+
+    LDConfig config2 = new LDConfig.Builder()
+      .wrapper(Components.wrapperInfo().wrapperName("Clojure"))
+      .build();
+    LDValue sdkData2 = makeSdkData(config2);
+    assertThat(jsonFromValue(sdkData2), allOf(
+      jsonProperty("wrapperName", jsonEqualsValue("Clojure")),
+      jsonProperty("wrapperVersion", jsonUndefined())
+    ));
+  }
+
+  @Test
   public void platformDataOsNames() {
     String realOsName = System.getProperty("os.name");
     try {

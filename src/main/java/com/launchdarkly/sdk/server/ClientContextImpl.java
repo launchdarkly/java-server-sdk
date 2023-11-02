@@ -37,7 +37,7 @@ final class ClientContextImpl extends ClientContext {
   ) {
     super(baseContext.getSdkKey(), baseContext.getApplicationInfo(), baseContext.getHttp(),
         baseContext.getLogging(), baseContext.isOffline(), baseContext.getServiceEndpoints(),
-        baseContext.getThreadPriority());
+        baseContext.getThreadPriority(), baseContext.getWrapperInfo());
     this.sharedExecutor = sharedExecutor;
     this.diagnosticStore = diagnosticStore;
     this.dataSourceUpdateSink = null;
@@ -80,11 +80,11 @@ final class ClientContextImpl extends ClientContext {
       ScheduledExecutorService sharedExecutor
       ) {
     ClientContext minimalContext = new ClientContext(sdkKey, config.applicationInfo, null,
-        null, config.offline, config.serviceEndpoints, config.threadPriority);
+        null, config.offline, config.serviceEndpoints, config.threadPriority, config.wrapperInfo);
     LoggingConfiguration loggingConfig = config.logging.build(minimalContext);
     
     ClientContext contextWithLogging = new ClientContext(sdkKey, config.applicationInfo, null,
-        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
+        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority, config.wrapperInfo);
     HttpConfiguration httpConfig = config.http.build(contextWithLogging);
     
     if (httpConfig.getProxy() != null) {
@@ -94,7 +94,7 @@ final class ClientContextImpl extends ClientContext {
     }
     
     ClientContext contextWithHttpAndLogging = new ClientContext(sdkKey, config.applicationInfo, httpConfig,
-        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority);
+        loggingConfig, config.offline, config.serviceEndpoints, config.threadPriority, config.wrapperInfo);
     
     // Create a diagnostic store only if diagnostics are enabled. Diagnostics are enabled as long as 1. the
     // opt-out property was not set in the config, and 2. we are using the standard event processor.
