@@ -116,7 +116,8 @@ public final class LDConfig {
       newBuilder.offline = config.offline;
       newBuilder.startWait = config.startWait;
       newBuilder.threadPriority = config.threadPriority;
-      newBuilder.wrapperBuilder = ComponentsImpl.WrapperInfoBuilderImpl.fromInfo(config.wrapperInfo);
+      newBuilder.wrapperBuilder = config.wrapperInfo != null ?
+        ComponentsImpl.WrapperInfoBuilderImpl.fromInfo(config.wrapperInfo) : null;
       return newBuilder;
     }
 

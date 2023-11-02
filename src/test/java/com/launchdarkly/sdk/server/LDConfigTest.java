@@ -59,6 +59,7 @@ public class LDConfigTest {
 
     assertEquals(LDConfig.DEFAULT_START_WAIT, config.startWait);
     assertEquals(Thread.MIN_PRIORITY, config.threadPriority);
+    assertNull(config.wrapperInfo);
   }
 
   @Test
@@ -214,5 +215,33 @@ public class LDConfigTest {
     assertEquals(URI.create("polling"), config2.serviceEndpoints.getPollingBaseUri());
     assertEquals(URI.create("stream"), config2.serviceEndpoints.getStreamingBaseUri());
     assertEquals(URI.create("events"), config2.serviceEndpoints.getEventsBaseUri());
+  }
+
+  @Test
+  public void fromConfigDefault() {
+    LDConfig config = LDConfig.Builder.fromConfig(new LDConfig.Builder().build()).build();
+    assertNotNull(config.bigSegments);
+    assertNull(config.bigSegments.build(clientContext("", config)).getStore());
+    assertNotNull(config.dataSource);
+    assertEquals(Components.streamingDataSource().getClass(), config.dataSource.getClass());
+    assertNotNull(config.dataStore);
+    assertEquals(Components.inMemoryDataStore().getClass(), config.dataStore.getClass());
+    assertFalse(config.diagnosticOptOut);
+    assertNotNull(config.events);
+    assertEquals(Components.sendEvents().getClass(), config.events.getClass());
+    assertFalse(config.offline);
+
+    assertNotNull(config.http);
+    HttpConfiguration httpConfig = config.http.build(BASIC_CONTEXT);
+    assertEquals(HttpConfigurationBuilder.DEFAULT_CONNECT_TIMEOUT, httpConfig.getConnectTimeout());
+
+    assertNotNull(config.logging);
+    LoggingConfiguration loggingConfig = config.logging.build(BASIC_CONTEXT);
+    assertEquals(LoggingConfigurationBuilder.DEFAULT_LOG_DATA_SOURCE_OUTAGE_AS_ERROR_AFTER,
+      loggingConfig.getLogDataSourceOutageAsErrorAfter());
+
+    assertEquals(LDConfig.DEFAULT_START_WAIT, config.startWait);
+    assertEquals(Thread.MIN_PRIORITY, config.threadPriority);
+    assertNull(config.wrapperInfo);
   }
 }
