@@ -21,9 +21,11 @@ import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.sdk.server.integrations.WrapperInfoBuilder;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
+import com.launchdarkly.sdk.server.interfaces.WrapperInfo;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
@@ -342,8 +344,24 @@ abstract class ComponentsImpl {
           headers.put("X-LaunchDarkly-Tags", tagHeader);
         }
       }
-      if (wrapperName != null) {
-        String wrapperId = wrapperVersion == null ? wrapperName : (wrapperName + "/" + wrapperVersion);
+
+      String wrapperNameToUse = null;
+      String wrapperVersionToUse = null;
+
+      WrapperInfo wrapperInfo = clientContext.getWrapperInfo();
+      // If information from wrapperInfo is available, then it overwrites that from the http properties
+      // builder.
+      if(wrapperInfo != null) {
+        wrapperNameToUse = wrapperInfo.getWrapperName();
+        wrapperVersionToUse = wrapperInfo.getWrapperVersion();
+      }
+      else if (wrapperName != null) {
+        wrapperNameToUse = wrapperName;
+        wrapperVersionToUse = wrapperVersion;
+      }
+
+      if(wrapperNameToUse != null) {
+        String wrapperId = wrapperVersionToUse == null ? wrapperNameToUse : (wrapperNameToUse + "/" + wrapperVersionToUse);
         headers.put("X-LaunchDarkly-Wrapper", wrapperId);
       }
 
@@ -447,6 +465,14 @@ abstract class ComponentsImpl {
       }
       return new ServiceEndpoints(streamingBaseUri, pollingBaseUri, eventsBaseUri);
     }
+
+    public static ServiceEndpointsBuilderImpl fromServiceEndpoints(ServiceEndpoints endpoints) {
+      ServiceEndpointsBuilderImpl newBuilder = new ServiceEndpointsBuilderImpl();
+      newBuilder.eventsBaseUri = endpoints.getEventsBaseUri();
+      newBuilder.pollingBaseUri = endpoints.getPollingBaseUri();
+      newBuilder.streamingBaseUri = endpoints.getStreamingBaseUri();
+      return newBuilder;
+    }
   }
   
   static HttpProperties toHttpProperties(HttpConfiguration httpConfig) {
@@ -464,5 +490,23 @@ abstract class ComponentsImpl {
         httpConfig.getSocketTimeout().toMillis(),
         httpConfig.getSslSocketFactory(),
         httpConfig.getTrustManager());
+  }
+
+  static final class WrapperInfoBuilderImpl extends WrapperInfoBuilder {
+    public WrapperInfoBuilderImpl() {
+      this(null, null);
+    }
+    public WrapperInfoBuilderImpl(String wrapperName, String wrapperVersion) {
+      this.wrapperName = wrapperName;
+      this.wrapperVersion = wrapperVersion;
+    }
+
+    public WrapperInfo build() {
+      return new WrapperInfo(wrapperName, wrapperVersion);
+    }
+
+    public static WrapperInfoBuilderImpl fromInfo(WrapperInfo info) {
+      return new WrapperInfoBuilderImpl(info.getWrapperName(), info.getWrapperVersion());
+    }
   }
 }

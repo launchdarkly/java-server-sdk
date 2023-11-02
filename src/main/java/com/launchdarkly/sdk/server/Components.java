@@ -12,6 +12,7 @@ import com.launchdarkly.sdk.server.ComponentsImpl.PersistentDataStoreBuilderImpl
 import com.launchdarkly.sdk.server.ComponentsImpl.PollingDataSourceBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.ServiceEndpointsBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.StreamingDataSourceBuilderImpl;
+import com.launchdarkly.sdk.server.ComponentsImpl.WrapperInfoBuilderImpl;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
@@ -21,6 +22,7 @@ import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
 import com.launchdarkly.sdk.server.integrations.PollingDataSourceBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
+import com.launchdarkly.sdk.server.integrations.WrapperInfoBuilder;
 import com.launchdarkly.sdk.server.interfaces.HttpAuthentication;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStore;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
@@ -420,4 +422,14 @@ public abstract class Components {
   public static ServiceEndpointsBuilder serviceEndpoints() {
     return new ServiceEndpointsBuilderImpl();
   }
+
+  /**
+   * Returns a wrapper information builder.
+   * <p>
+   * This is intended for use by LaunchDarkly in the development of wrapper SDKs.
+   *
+   * @return a builder object
+   * @since 7.1.0
+   */
+  public static WrapperInfoBuilder wrapperInfo() { return new WrapperInfoBuilderImpl(); }
 }

@@ -3,8 +3,10 @@ package com.launchdarkly.sdk.server.subsystems;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.sdk.server.Components;
 import com.launchdarkly.sdk.server.LDConfig.Builder;
+import com.launchdarkly.sdk.server.integrations.WrapperInfoBuilder;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
 import com.launchdarkly.sdk.server.interfaces.ServiceEndpoints;
+import com.launchdarkly.sdk.server.interfaces.WrapperInfo;
 
 /**
  * Context information provided by the {@link com.launchdarkly.sdk.server.LDClient} when creating components.
@@ -29,6 +31,7 @@ public class ClientContext {
   private final boolean offline;
   private final ServiceEndpoints serviceEndpoints;
   private final int threadPriority;
+  private WrapperInfo wrapperInfo;
 
   /**
    * Constructor that sets all properties. All should be non-null.
@@ -42,6 +45,7 @@ public class ClientContext {
    * @param serviceEndpoints service endpoint URI properties from
    *   {@link Builder#serviceEndpoints(com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder)}
    * @param threadPriority worker thread priority from {@link Builder#threadPriority(int)}
+   * @param wrapperInfo wrapper configuration from {@link Builder#wrapper(com.launchdarkly.sdk.server.integrations.WrapperInfoBuilder)}
    */
   public ClientContext(
       String sdkKey,
@@ -50,7 +54,8 @@ public class ClientContext {
       LoggingConfiguration logging,
       boolean offline,
       ServiceEndpoints serviceEndpoints,
-      int threadPriority
+      int threadPriority,
+      WrapperInfo wrapperInfo
       ) {
     this.sdkKey = sdkKey;
     this.applicationInfo = applicationInfo;
@@ -59,6 +64,7 @@ public class ClientContext {
     this.offline = offline;
     this.serviceEndpoints = serviceEndpoints;
     this.threadPriority = threadPriority;
+    this.wrapperInfo = wrapperInfo;
     
     this.baseLogger = logging == null ? LDLogger.none() :
       LDLogger.withAdapter(logging.getLogAdapter(), logging.getBaseLoggerName());
@@ -71,7 +77,7 @@ public class ClientContext {
    */
   protected ClientContext(ClientContext copyFrom) {
     this(copyFrom.sdkKey, copyFrom.applicationInfo, copyFrom.http, copyFrom.logging,
-        copyFrom.offline, copyFrom.serviceEndpoints, copyFrom.threadPriority);
+        copyFrom.offline, copyFrom.serviceEndpoints, copyFrom.threadPriority, copyFrom.wrapperInfo);
   }
   
   /**
@@ -87,17 +93,18 @@ public class ClientContext {
         defaultLogging(),
         false,
         Components.serviceEndpoints().createServiceEndpoints(),
-        Thread.MIN_PRIORITY
+        Thread.MIN_PRIORITY,
+      null
         );
   }
   
   private static HttpConfiguration defaultHttp(String sdkKey) {
-    ClientContext minimalContext = new ClientContext(sdkKey, null, null, null, false, null, 0);
+    ClientContext minimalContext = new ClientContext(sdkKey, null, null, null, false, null, 0, null);
     return Components.httpConfiguration().build(minimalContext);
   }
   
   private static LoggingConfiguration defaultLogging() {
-    ClientContext minimalContext = new ClientContext("", null, null, null, false, null, 0);
+    ClientContext minimalContext = new ClientContext("", null, null, null, false, null, 0, null);
     return Components.logging().build(minimalContext);
   }
   
@@ -197,5 +204,14 @@ public class ClientContext {
    */
   public int getThreadPriority() {
     return threadPriority;
+  }
+
+  /**
+   * Returns the wrapper information.
+   *
+   * @return the wrapper information
+   */
+  public WrapperInfo getWrapperInfo() {
+    return wrapperInfo;
   }
 }

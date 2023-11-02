@@ -74,4 +74,11 @@ public final class ApplicationInfoBuilder {
   public ApplicationInfo createApplicationInfo() {
     return new ApplicationInfo(applicationId, applicationVersion);
   }
+
+  public static ApplicationInfoBuilder fromApplicationInfo(ApplicationInfo info) {
+    ApplicationInfoBuilder newBuilder = new ApplicationInfoBuilder();
+    newBuilder.applicationId = info.getApplicationId();
+    newBuilder.applicationVersion = info.getApplicationVersion();
+    return newBuilder;
+  }
 }
