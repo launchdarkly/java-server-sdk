@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [7.1.0] - 2023-11-02
+### Added:
+- Added an improved way of setting wrapper information for wrapper SDKs. This functionality is primarily intended for use by LaunchDarkly while developing wrapper SDKs.
+
 ## [7.0.0] - 2023-10-16
 The latest version of this SDK supports the ability to manage migrations or modernizations, using migration flags. You might use this functionality if you are optimizing queries, upgrading to new tech stacks, migrating from one database to another, or other similar technology changes. Migration flags are part of LaunchDarkly's Early Access Program. This feature is available to all LaunchDarkly customers but may undergo additional changes before it is finalized.
 
