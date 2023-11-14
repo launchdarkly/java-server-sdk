@@ -2,6 +2,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [7.1.1] - 2023-11-14
+### Fixed:
+- Fixes NPE when interacting with Context created by copying.  (Thanks, [
+pedroafonsodias](https://github.com/launchdarkly/java-sdk-common/pull/15))
+
 ## [7.1.0] - 2023-11-02
 ### Added:
 - Added an improved way of setting wrapper information for wrapper SDKs. This functionality is primarily intended for use by LaunchDarkly while developing wrapper SDKs.
