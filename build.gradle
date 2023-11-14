@@ -72,8 +72,8 @@ ext.versions = [
     "gson": "2.8.9",
     "guava": "32.0.1-jre",
     "jackson": "2.11.2", 
-    "launchdarklyJavaSdkCommon": "2.0.0",
-    "launchdarklyJavaSdkInternal": "1.2.0",
+    "launchdarklyJavaSdkCommon": "2.1.1",
+    "launchdarklyJavaSdkInternal": "1.2.1",
     "launchdarklyLogging": "1.1.0",
     "okhttp": "4.9.3", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
     "okhttpEventsource": "4.1.0",
