@@ -537,7 +537,7 @@ public final class LDClient implements LDClientInterface {
         if (requireType != null &&
             !value.isNull() &&
             value.getType() != requireType) {
-          evaluationLogger.error("Feature flag evaluation expected result as {}, but got {}", defaultValue.getType(), value.getType());
+          evaluationLogger.error("Feature flag \"{}\"; evaluation expected result as {}, but got {}", featureKey, defaultValue.getType(), value.getType());
           recordEvaluationErrorEvent(featureFlag, context, defaultValue, EvaluationReason.ErrorKind.WRONG_TYPE, withDetail);
           return new EvalResultAndFlag(errorResult(EvaluationReason.ErrorKind.WRONG_TYPE, defaultValue), featureFlag);
         }
