@@ -77,6 +77,7 @@ ext.versions = [
     "launchdarklyLogging": "1.1.0",
     "okhttp": "4.9.3", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
     "okhttpEventsource": "4.1.0",
+    "reactorCore":"3.6.2",
     "slf4j": "1.7.21",
     "snakeyaml": "2.0",
     "jedis": "2.9.0",
@@ -122,7 +123,8 @@ libraries.internal = [
     "com.squareup.okhttp3:okhttp:${versions.okhttp}",
     "com.launchdarkly:okhttp-eventsource:${versions.okhttpEventsource}",
     "org.yaml:snakeyaml:${versions.snakeyaml}",
-    "org.jetbrains:annotations:${versions.annotations}"
+    "org.jetbrains:annotations:${versions.annotations}",
+    "io.projectreactor:reactor-core:${versions.reactorCore}",
 ]
 
 // Add dependencies to "libraries.optional" that are not exposed in our public API and are
