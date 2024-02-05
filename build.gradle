@@ -124,7 +124,6 @@ libraries.internal = [
     "com.launchdarkly:okhttp-eventsource:${versions.okhttpEventsource}",
     "org.yaml:snakeyaml:${versions.snakeyaml}",
     "org.jetbrains:annotations:${versions.annotations}",
-    "io.projectreactor:reactor-core:${versions.reactorCore}",
 ]
 
 // Add dependencies to "libraries.optional" that are not exposed in our public API and are
@@ -167,6 +166,7 @@ configurations {
 
 dependencies {
     implementation libraries.internal
+    implementation "io.projectreactor:reactor-core:3.6.2"
     testImplementation libraries.test, libraries.internal
     optional libraries.optional
 
@@ -333,7 +333,7 @@ def shadeDependencies(jarTask) {
         }.
             unique()
     referencedPackages.forEach { packageToRelocate ->
-        jarTask.relocate(packageToRelocate, "com.launchdarkly.shaded." + packageToRelocate) {
+        jarTask.relocate(packageToRelocate, "" + packageToRelocate) {
             excludePackages.forEach { exclude(it + ".*") }
         }
     }

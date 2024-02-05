@@ -17,127 +17,215 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
 /**
- * A thin wrapper of the {@link LDClient} that aims to make it compatible with reactive programming paradigms.
+ * A thin wrapper of the {@link LDClient} that aims to adapt it to reactive stream programming.
  *
  * To build a {@link LDReactorClient}, use a {@link ReactorClientFactory}.
  *
- * Methods that are potentially long running or that use IO have been wrapped to return {@link Mono}s
- * and will be executed on the scheduler provided by the {@link ReactorClientFactory}.
+ * Methods that are potentially long running or that use IO have been wrapped to return {@link Mono}s and will be
+ * executed on the scheduler provided to the {@link ReactorClientFactory}.  Methods that do not have a risk of
+ * blocking have not been wrapped and are pass through.
  */
 public final class LDReactorClient {
 
-    private final LDClient internalClient;
+    private final LDClient wrappedClient;
     private final Scheduler scheduler;
 
-    LDReactorClient(Scheduler scheduler, LDClient internalClient) {
+    /**
+     * Creates a wrapper that uses the provided scheduler to execute functionality in a non-blocking manner.  This
+     * constructor is intentionally not public to enforce creation through the {@link ReactorClientFactory}
+     * @param scheduler for executing background tasks
+     * @param wrappedClient that will be wrapped
+     */
+    LDReactorClient(Scheduler scheduler, LDClient wrappedClient) {
         this.scheduler = scheduler;
-        this.internalClient = internalClient;
+        this.wrappedClient = wrappedClient;
     }
 
+    /**
+     * See {@link LDClient#isInitialized()}.
+     */
     public boolean isInitialized() {
-        return internalClient.isInitialized();
+        return wrappedClient.isInitialized();
     }
 
+    /**
+     * See {@link LDClient#track(String, LDContext)}.
+     */
     public void track(String eventName, LDContext context) {
-        internalClient.track(eventName, context);
+        wrappedClient.track(eventName, context);
     }
 
+    /**
+     * See {@link LDClient#trackData(String, LDContext, LDValue)}.
+     */
     public void trackData(String eventName, LDContext context, LDValue data) {
-        internalClient.trackData(eventName, context, data);
+        wrappedClient.trackData(eventName, context, data);
     }
 
+    /**
+     * See {@link LDClient#trackMetric(String, LDContext, LDValue, double)}.
+     */
     public void trackMetric(String eventName, LDContext context, LDValue data, double metricValue) {
-        internalClient.trackMetric(eventName, context, data, metricValue);
+        wrappedClient.trackMetric(eventName, context, data, metricValue);
     }
 
+    /**
+     * See {@link LDClient#identify(LDContext)}.
+     */
     public void identify(LDContext context) {
-        internalClient.identify(context);
+        wrappedClient.identify(context);
     }
 
+    /**
+     * See {@link LDClient#allFlagsState(LDContext, FlagsStateOption...)}.
+     */
     public Mono<FeatureFlagsState> allFlagsState(LDContext context, FlagsStateOption... options) {
-        return Mono.fromCallable(() -> internalClient.allFlagsState(context, options)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.allFlagsState(context, options)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#boolVariation(String, LDContext, boolean)}.
+     */
     public Mono<Boolean> boolVariation(String featureKey, LDContext context, boolean defaultValue) {
-        return Mono.fromCallable(() -> internalClient.boolVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.boolVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#intVariation(String, LDContext, int)}.
+     */
     public Mono<Integer> intVariation(String featureKey, LDContext context, int defaultValue) {
-        return Mono.fromCallable(() -> internalClient.intVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.intVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#doubleVariation(String, LDContext, double)}.
+     */
     public Mono<Double> doubleVariation(String featureKey, LDContext context, double defaultValue) {
-        return Mono.fromCallable(() -> internalClient.doubleVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.doubleVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#stringVariation(String, LDContext, String)}.
+     */
     public Mono<String> stringVariation(String featureKey, LDContext context, String defaultValue) {
-        return Mono.fromCallable(() -> internalClient.stringVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.stringVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#jsonValueVariation(String, LDContext, LDValue)}.
+     */
     public Mono<LDValue> jsonValueVariation(String featureKey, LDContext context, LDValue defaultValue) {
-        return Mono.fromCallable(() -> internalClient.jsonValueVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.jsonValueVariation(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#boolVariationDetail(String, LDContext, boolean)}.
+     */
     public Mono<EvaluationDetail<Boolean>> boolVariationDetail(String featureKey, LDContext context, boolean defaultValue) {
-        return Mono.fromCallable(() -> internalClient.boolVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.boolVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#intVariationDetail(String, LDContext, int)}.
+     */
     public Mono<EvaluationDetail<Integer>> intVariationDetail(String featureKey, LDContext context, int defaultValue) {
-        return Mono.fromCallable(() -> internalClient.intVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.intVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#doubleVariationDetail(String, LDContext, double)}.
+     */
     public Mono<EvaluationDetail<Double>> doubleVariationDetail(String featureKey, LDContext context, double defaultValue) {
-        return Mono.fromCallable(() -> internalClient.doubleVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.doubleVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#stringVariationDetail(String, LDContext, String)}.
+     */
     public Mono<EvaluationDetail<String>> stringVariationDetail(String featureKey, LDContext context, String defaultValue) {
-        return Mono.fromCallable(() -> internalClient.stringVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.stringVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#jsonValueVariationDetail(String, LDContext, LDValue)}.
+     */
     public Mono<EvaluationDetail<LDValue>> jsonValueVariationDetail(String featureKey, LDContext context, LDValue defaultValue) {
-        return Mono.fromCallable(() -> internalClient.jsonValueVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
+        return Mono.fromCallable(() -> wrappedClient.jsonValueVariationDetail(featureKey, context, defaultValue)).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#isFlagKnown(String)}.
+     */
     public boolean isFlagKnown(String featureKey) {
-        return internalClient.isFlagKnown(featureKey);
+        return wrappedClient.isFlagKnown(featureKey);
     }
 
+    /**
+     * See {@link LDClient#getFlagTracker()}.
+     */
     public FlagTracker getFlagTracker() {
-        return internalClient.getFlagTracker();
+        return wrappedClient.getFlagTracker();
     }
 
+    /**
+     * See {@link LDClient#getBigSegmentStoreStatusProvider()}.  Getting the {@link BigSegmentStoreStatusProvider} is
+     * not a blocking operation, but function calls on the {@link BigSegmentStoreStatusProvider} may be.
+     */
     public BigSegmentStoreStatusProvider getBigSegmentStoreStatusProvider() {
-        return internalClient.getBigSegmentStoreStatusProvider();
+        return wrappedClient.getBigSegmentStoreStatusProvider();
     }
 
+    /**
+     * See {@link LDClient#getDataStoreStatusProvider()}.  Getting the {@link DataStoreStatusProvider} is not a blocking
+     * operation, but function calls on the {@link DataStoreStatusProvider} may be.
+     */
     public DataStoreStatusProvider getDataStoreStatusProvider() {
-        return internalClient.getDataStoreStatusProvider();
+        return wrappedClient.getDataStoreStatusProvider();
     }
 
+    /**
+     * See {@link LDClient#getDataSourceStatusProvider()}.  Getting the {@link DataSourceStatusProvider} is not a
+     * blocking operation, but function calls on the {@link DataSourceStatusProvider} may be.
+     */
     public DataSourceStatusProvider getDataSourceStatusProvider() {
-        return internalClient.getDataSourceStatusProvider();
+        return wrappedClient.getDataSourceStatusProvider();
     }
 
+    /**
+     * See {@link LDClient#close()}. Mono completes when {@link LDClient#close()} completes.
+     */
     public Mono<Void> close() {
         return Mono.fromCallable((Callable<Void>) () -> {
-            internalClient.close();
+            wrappedClient.close();
             return null;
         }).subscribeOn(this.scheduler);
     }
 
+    /**
+     * See {@link LDClient#flush()}.
+     */
     public void flush() {
-        internalClient.flush();
+        wrappedClient.flush();
     }
 
+    /**
+     * See {@link LDClient#isOffline()}.
+     */
     public boolean isOffline() {
-        return internalClient.isOffline();
+        return wrappedClient.isOffline();
     }
 
+    /**
+     * See {@link LDClient#secureModeHash(LDContext)}.
+     */
     public String secureModeHash(LDContext context) {
-        return internalClient.secureModeHash(context);
+        return wrappedClient.secureModeHash(context);
     }
 
+    /**
+     * See {@link LDClient#version()}.
+     */
     public String version() {
-        return internalClient.version();
+        return wrappedClient.version();
     }
 }
