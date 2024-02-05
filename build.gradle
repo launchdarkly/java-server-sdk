@@ -166,7 +166,7 @@ configurations {
 
 dependencies {
     implementation libraries.internal
-    implementation "io.projectreactor:reactor-core:3.6.2"
+    implementation "io.projectreactor:reactor-core:3.3.22.RELEASE"
     testImplementation libraries.test, libraries.internal
     optional libraries.optional
 
