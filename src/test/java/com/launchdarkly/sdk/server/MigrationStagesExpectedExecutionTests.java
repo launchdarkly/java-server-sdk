@@ -50,6 +50,13 @@ public class MigrationStagesExpectedExecutionTests extends MigrationExecutionFix
   /**
    * The parameterization is done using a constructor here so that the base class can be parameterized.
    * This did not combine well with an outer class using Enclosed.class.
+   *
+   * @param execution to test
+   * @param stage to test
+   * @param expectReadOldCalled expected read old
+   * @param expectReadNewCalled expected read new
+   * @param expectWriteOldCalled expected write old
+   * @param expectWriteNewCalled expected write new
    */
   public MigrationStagesExpectedExecutionTests(
       MigrationExecution execution,
