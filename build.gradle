@@ -167,7 +167,7 @@ configurations {
 
 dependencies {
     implementation libraries.internal
-    testImplementation libraries.test, libraries.internal
+    testImplementation libraries.test, libraries.internal, libraries.optional
     optional libraries.optional
 
     internal libraries.internal
@@ -186,6 +186,10 @@ task generateJava(type: Copy) {
     from 'src/templates/java'
     into "src/main/java"
     filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [VERSION: version.toString()])
+}
+
+compileJava {
+    classpath = configurations.internal + configurations.optional
 }
 
 compileJava.dependsOn 'generateJava'
