@@ -77,7 +77,7 @@ ext.versions = [
     "launchdarklyLogging": "1.1.0",
     "okhttp": "4.9.3", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
     "okhttpEventsource": "4.1.0",
-    "reactorCore":"3.6.2",
+    "reactorCore":"3.3.22.RELEASE",
     "slf4j": "1.7.21",
     "snakeyaml": "2.0",
     "jedis": "2.9.0",
@@ -123,7 +123,7 @@ libraries.internal = [
     "com.squareup.okhttp3:okhttp:${versions.okhttp}",
     "com.launchdarkly:okhttp-eventsource:${versions.okhttpEventsource}",
     "org.yaml:snakeyaml:${versions.snakeyaml}",
-    "org.jetbrains:annotations:${versions.annotations}",
+    "org.jetbrains:annotations:${versions.annotations}"
 ]
 
 // Add dependencies to "libraries.optional" that are not exposed in our public API and are
@@ -143,7 +143,8 @@ libraries.internal = [
 libraries.optional = [
     "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
     "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}",
-    "org.slf4j:slf4j-api:${versions.slf4j}"
+    "org.slf4j:slf4j-api:${versions.slf4j}",
+    "io.projectreactor:reactor-core:${versions.reactorCore}",
 ]
 
 // Add dependencies to "libraries.test" that are used only in unit tests.
@@ -166,7 +167,6 @@ configurations {
 
 dependencies {
     implementation libraries.internal
-    implementation "io.projectreactor:reactor-core:3.3.22.RELEASE"
     testImplementation libraries.test, libraries.internal
     optional libraries.optional
 
@@ -333,7 +333,7 @@ def shadeDependencies(jarTask) {
         }.
             unique()
     referencedPackages.forEach { packageToRelocate ->
-        jarTask.relocate(packageToRelocate, "" + packageToRelocate) {
+        jarTask.relocate(packageToRelocate, "com.launchdarkly.shaded." + packageToRelocate) {
             excludePackages.forEach { exclude(it + ".*") }
         }
     }
