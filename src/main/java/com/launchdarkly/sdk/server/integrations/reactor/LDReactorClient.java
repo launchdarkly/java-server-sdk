@@ -19,11 +19,9 @@ import reactor.core.scheduler.Scheduler;
 /**
  * A thin wrapper of the {@link LDClient} that aims to adapt it to reactive stream programming.
  *
- * To build a {@link LDReactorClient}, use a {@link ReactorClientFactory}.
- *
  * Methods that are potentially long running or that use IO have been wrapped to return {@link Mono}s and will be
- * executed on the scheduler provided to the {@link ReactorClientFactory}.  Methods that do not have a risk of
- * blocking have not been wrapped and are pass through.
+ * executed on the scheduler provided.  Methods that do not have a risk of blocking have not been wrapped and are
+ * pass through.
  */
 public final class LDReactorClient {
 
@@ -31,14 +29,14 @@ public final class LDReactorClient {
     private final Scheduler scheduler;
 
     /**
-     * Creates a wrapper that uses the provided scheduler to execute functionality in a non-blocking manner.  This
-     * constructor is intentionally not public to enforce creation through the {@link ReactorClientFactory}
-     * @param scheduler for executing background tasks
+     * Creates a wrapper that uses the provided scheduler to execute functionality in a non-blocking manner.
+     *
      * @param wrappedClient that will be wrapped
+     * @param scheduler that will execute wrapped client methods
      */
-    LDReactorClient(Scheduler scheduler, LDClient wrappedClient) {
-        this.scheduler = scheduler;
+    public LDReactorClient(LDClient wrappedClient, Scheduler scheduler) {
         this.wrappedClient = wrappedClient;
+        this.scheduler = scheduler;
     }
 
     /**
