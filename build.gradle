@@ -154,7 +154,8 @@ libraries.test = [
     "junit:junit:4.12",
     "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
     "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}",
-    "com.launchdarkly:test-helpers:2.0.1"
+    "com.launchdarkly:test-helpers:2.0.1",
+    "io.projectreactor:reactor-core:${versions.reactorCore}", // this is to make javadoc happy when using the test classpath
 ]
 
 configurations {
