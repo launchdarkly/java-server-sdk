@@ -167,7 +167,7 @@ configurations {
 
 dependencies {
     implementation libraries.internal
-    testImplementation libraries.test, libraries.internal, libraries.optional
+    testImplementation libraries.test, libraries.internal
     optional libraries.optional
 
     internal libraries.internal
