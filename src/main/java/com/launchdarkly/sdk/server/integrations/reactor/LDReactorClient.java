@@ -10,7 +10,6 @@ import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.FlagTracker;
-import com.launchdarkly.sdk.server.interfaces.LDReactorClientInterface;
 
 import java.util.concurrent.Callable;
 
