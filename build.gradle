@@ -77,6 +77,7 @@ ext.versions = [
     "launchdarklyLogging": "1.1.0",
     "okhttp": "4.9.3", // specify this for the SDK build instead of relying on the transitive dependency from okhttp-eventsource
     "okhttpEventsource": "4.1.0",
+    "reactorCore":"3.3.22.RELEASE",
     "slf4j": "1.7.21",
     "snakeyaml": "2.0",
     "jedis": "2.9.0",
@@ -142,7 +143,8 @@ libraries.internal = [
 libraries.optional = [
     "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
     "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}",
-    "org.slf4j:slf4j-api:${versions.slf4j}"
+    "org.slf4j:slf4j-api:${versions.slf4j}",
+    "io.projectreactor:reactor-core:${versions.reactorCore}",
 ]
 
 // Add dependencies to "libraries.test" that are used only in unit tests.
@@ -152,7 +154,8 @@ libraries.test = [
     "junit:junit:4.12",
     "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
     "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}",
-    "com.launchdarkly:test-helpers:2.0.1"
+    "com.launchdarkly:test-helpers:2.0.1",
+    "io.projectreactor:reactor-core:${versions.reactorCore}", // this is to make javadoc happy when using the test classpath
 ]
 
 configurations {
@@ -184,6 +187,10 @@ task generateJava(type: Copy) {
     from 'src/templates/java'
     into "src/main/java"
     filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [VERSION: version.toString()])
+}
+
+compileJava {
+    classpath = configurations.internal + configurations.optional
 }
 
 compileJava.dependsOn 'generateJava'
