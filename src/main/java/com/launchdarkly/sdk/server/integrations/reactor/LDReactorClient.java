@@ -6,6 +6,7 @@ import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.FeatureFlagsState;
 import com.launchdarkly.sdk.server.FlagsStateOption;
 import com.launchdarkly.sdk.server.LDClient;
+import com.launchdarkly.sdk.server.LDConfig;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataSourceStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
@@ -29,13 +30,25 @@ public final class LDReactorClient implements LDReactorClientInterface {
     private final Scheduler scheduler;
 
     /**
-     * Creates a wrapper that uses the provided scheduler to execute functionality in a non-blocking manner.
+     * Creates a client that uses the provided scheduler to execute functionality in a non-blocking manner.
      *
-     * @param wrappedClient that will be wrapped
+     * @param sdkKey the SDK key for your LaunchDarkly environment
      * @param scheduler that will execute wrapped client methods
      */
-    public LDReactorClient(LDClient wrappedClient, Scheduler scheduler) {
-        this.wrappedClient = wrappedClient;
+    public LDReactorClient(String sdkKey, Scheduler scheduler) {
+        this.wrappedClient = new LDClient(sdkKey);
+        this.scheduler = scheduler;
+    }
+
+    /**
+     * Creates a client that uses the provided scheduler to execute functionality in a non-blocking manner.
+     *
+     * @param sdkKey the SDK key for your LaunchDarkly environment
+     * @param config a client configuration object
+     * @param scheduler that will execute wrapped client methods
+     */
+    public LDReactorClient(String sdkKey, LDConfig config, Scheduler scheduler) {
+        this.wrappedClient = new LDClient(sdkKey, config);
         this.scheduler = scheduler;
     }
 
