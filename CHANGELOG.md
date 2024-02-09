@@ -2,6 +2,10 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [7.2.6] - 2024-02-09
+### Added:
+- LDReactorClient to adapt LDClient to reactive streams.
+
 ## [7.1.1] - 2023-11-14
 ### Fixed:
 - Fixes NPE when interacting with Context created by copying.  (Thanks, [
