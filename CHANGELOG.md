@@ -2,6 +2,11 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [7.3.0] - 2024-03-14
+### Changed:
+- Redact anonymous attributes within feature events
+- Always inline contexts for feature events
+
 ## [7.2.6] - 2024-02-09
 ### Added:
 - LDReactorClient to adapt LDClient to reactive streams.
