@@ -34,17 +34,19 @@ public class TestService {
     "tags",
     "filtering",
     "migrations",
-    "event-sampling"
+    "event-sampling",
+    "inline-context",
+    "anonymous-redaction"
   };
-  
+
   static final Gson gson = new GsonBuilder().serializeNulls().create();
 
   static final OkHttpClient client = new OkHttpClient();
-  
+
   private final Map<String, SdkClientEntity> clients = new ConcurrentHashMap<String, SdkClientEntity>();
   private final AtomicInteger clientCounter = new AtomicInteger(0);
   private final String clientVersion;
-  
+
   private TestService() {
     LDClient dummyClient = new LDClient("", new LDConfig.Builder().offline(true).build());
     clientVersion = dummyClient.version();
@@ -52,14 +54,14 @@ public class TestService {
       dummyClient.close();
     } catch (Exception e) {}
   }
-  
+
   @SuppressWarnings("serial")
   public static class BadRequestException extends Exception {
     public BadRequestException(String message) {
       super(message);
     }
   }
-  
+
   public static void main(String[] args) throws Exception {
     TestService service = new TestService();
 
@@ -70,7 +72,7 @@ public class TestService {
         .addRegex("POST", Pattern.compile("/clients/(.*)"), ctx -> service.postClientCommand(diableKeepAlive(ctx)))
         .addRegex("DELETE", Pattern.compile("/clients/(.*)"), ctx -> service.deleteClient(diableKeepAlive(ctx)));
 
-    HttpServer server = HttpServer.start(PORT, router); 
+    HttpServer server = HttpServer.start(PORT, router);
     server.getRecorder().setEnabled(false); // don't accumulate a request log
 
     System.out.println("Listening on port " + PORT);
@@ -97,7 +99,7 @@ public class TestService {
     System.out.println("Test harness has told us to quit");
     System.exit(0);
   }
-  
+
   private void postCreateClient(RequestContext ctx) {
     CreateInstanceParams params = readJson(ctx, CreateInstanceParams.class);
 
@@ -105,13 +107,13 @@ public class TestService {
     SdkClientEntity client = new SdkClientEntity(this, params);
 
     clients.put(clientId, client);
-    
+
     ctx.addHeader("Location", "/clients/" + clientId);
   }
 
   private void postClientCommand(RequestContext ctx) {
     CommandParams params = readJson(ctx, CommandParams.class);
-    
+
     String clientId = ctx.getPathParam(0);
     SdkClientEntity client = clients.get(clientId);
     if (client == null) {
@@ -131,9 +133,9 @@ public class TestService {
         client.logger.error("Unexpected exception: {}", e);
         ctx.setStatus(500);
       }
-    }  
+    }
   }
-  
+
   private void deleteClient(RequestContext ctx) {
     String clientId = ctx.getPathParam(0);
     SdkClientEntity client = clients.get(clientId);
@@ -143,11 +145,11 @@ public class TestService {
       client.close();
     }
   }
-  
+
   private <T> T readJson(RequestContext ctx, Class<T> paramsClass) {
     return gson.fromJson(ctx.getRequest().getBody(), paramsClass);
   }
-  
+
   private void writeJson(RequestContext ctx, Object data) {
     String json = gson.toJson(data);
     Handlers.bodyJson(json).apply(ctx);
