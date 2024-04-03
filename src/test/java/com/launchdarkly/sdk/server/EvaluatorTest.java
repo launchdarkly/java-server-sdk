@@ -56,22 +56,6 @@ public class EvaluatorTest extends EvaluatorTestBase {
     Rollout rollout = new Rollout(null, variations, null, kind, seed);
     return rollout;
   }
-  
-  @Test
-  public void evaluationReturnsErrorIfContextIsNull() throws Exception {
-    DataModel.FeatureFlag f = flagBuilder("feature").build();
-    EvalResult result = BASE_EVALUATOR.evaluate(f, null, expectNoPrerequisiteEvals());
-    
-    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.EXCEPTION), result);
-  }
-
-  @Test
-  public void evaluationReturnsErrorIfContextIsInvalid() throws Exception {
-    DataModel.FeatureFlag f = flagBuilder("feature").build();
-    EvalResult result = BASE_EVALUATOR.evaluate(f, LDContext.create(""), expectNoPrerequisiteEvals());
-    
-    assertEquals(EvalResult.error(EvaluationReason.ErrorKind.EXCEPTION), result);
-  }
 
   @Test
   public void flagReturnsOffVariationIfFlagIsOff() throws Exception {

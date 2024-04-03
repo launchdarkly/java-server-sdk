@@ -31,7 +31,7 @@ import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 
-import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FACTORY;
+import static com.launchdarkly.sdk.server.ComponentsImpl.NOOP_EVENT_PROCESSOR_FACTORY;
 
 /**
  * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.
@@ -172,7 +172,7 @@ public abstract class Components {
    * @since 4.12.0
    */
   public static ComponentConfigurer<EventProcessor> noEvents() {
-    return NULL_EVENT_PROCESSOR_FACTORY;
+    return NOOP_EVENT_PROCESSOR_FACTORY;
   }
 
   /**

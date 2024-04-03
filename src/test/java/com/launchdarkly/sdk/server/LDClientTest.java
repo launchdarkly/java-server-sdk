@@ -141,14 +141,14 @@ public class LDClientTest extends BaseTest {
   }
 
   @Test
-  public void clientHasNullEventProcessorWithNoEvents() throws Exception {
+  public void clientHasNoOpEventProcessorWithNoEvents() throws Exception {
     LDConfig config = new LDConfig.Builder()
         .dataSource(Components.externalUpdatesOnly())
         .events(Components.noEvents())
         .logging(Components.logging(testLogging))
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {
-      assertEquals(ComponentsImpl.NullEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(NoOpEventProcessor.class, client.eventProcessor.getClass());
     }
   }
 

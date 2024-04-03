@@ -32,12 +32,12 @@ public class LDClientOfflineTest extends BaseTest {
   }
 
   @Test
-  public void offlineClientHasNullEventProcessor() throws IOException {
+  public void offlineClientHasNoOpEventProcessor() throws IOException {
     LDConfig config = baseConfig()
         .offline(true)
         .build();
     try (LDClient client = new LDClient("SDK_KEY", config)) {    
-      assertEquals(ComponentsImpl.NullEventProcessor.class, client.eventProcessor.getClass());
+      assertEquals(NoOpEventProcessor.class, client.eventProcessor.getClass());
     }
   }
   

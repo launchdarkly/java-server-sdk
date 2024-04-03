@@ -64,6 +64,10 @@ final class EvalResult {
   static EvalResult error(ErrorKind errorKind) {
     return of(LDValue.ofNull(), EvaluationDetail.NO_VARIATION, EvaluationReason.error(errorKind));
   }
+
+  static EvalResult error(ErrorKind errorKind, LDValue defaultValue) {
+    return of(defaultValue, EvaluationDetail.NO_VARIATION, EvaluationReason.error(errorKind));
+  }
   
   private EvalResult(EvaluationDetail<LDValue> original) {
     this.anyType = original.getValue() == null ?
