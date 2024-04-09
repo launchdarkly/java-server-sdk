@@ -2,10 +2,12 @@ package sdktest;
 
 import com.google.gson.annotations.SerializedName;
 import com.launchdarkly.sdk.EvaluationReason;
+import com.launchdarkly.sdk.EvaluationDetail;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 public abstract class Representations {
@@ -29,6 +31,7 @@ public abstract class Representations {
     SdkConfigBigSegmentsParams bigSegments;
     SdkConfigTagParams tags;
     SdkConfigServiceEndpointParams serviceEndpoints;
+    SdkConfigHookParams hooks;
   }
   
   public static class SdkConfigStreamParams {
@@ -64,7 +67,28 @@ public abstract class Representations {
     String polling;
     String events;
   }
-  
+
+  public static class SdkConfigHookParams {
+    List<HookConfig> hooks;
+  }
+
+  public static class HookConfig {
+    String name;
+    URI callbackUri;
+    HookData data;
+    HookErrors errors;
+  }
+
+  public static class HookData {
+    Map<String, Object> beforeEvaluation;
+    Map<String, Object> afterEvaluation;
+  }
+
+  public static class HookErrors {
+    String beforeEvaluation;
+    String afterEvaluation;
+  }
+
   public static class CommandParams {
     String command;
     EvaluateFlagParams evaluate;
@@ -105,7 +129,21 @@ public abstract class Representations {
   public static class EvaluateAllFlagsResponse {
     LDValue state;
   }
-  
+
+  public static class EvaluationHookCallbackParams {
+    EvaluationSeriesContextParam evaluationSeriesContext;
+    Map<String, Object> evaluationSeriesData;
+    EvaluationDetail<LDValue> evaluationDetail;
+    String stage;
+  }
+
+  public static class EvaluationSeriesContextParam {
+    String flagKey;
+    LDContext context;
+    LDValue defaultValue;
+    String method;
+  }
+
   public static class IdentifyEventParams {
     LDContext context;
   }

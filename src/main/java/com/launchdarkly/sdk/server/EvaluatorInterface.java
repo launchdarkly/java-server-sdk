@@ -12,6 +12,7 @@ public interface EvaluatorInterface {
   /**
    * Evaluates the provided flag.
    *
+   * @param method       the top level customer facing method that led to this invocation
    * @param flagKey      of the flag that will be evaluated
    * @param context      to use during the evaluation
    * @param defaultValue the value that will be returned in the result if an issue prevents the evaluator from
@@ -21,7 +22,7 @@ public interface EvaluatorInterface {
    * @param options      that are used to control more specific behavior of the evaluation
    * @return the evaluation result and flag object
    */
-  EvalResultAndFlag evalAndFlag(String flagKey, LDContext context, LDValue defaultValue,
+  EvalResultAndFlag evalAndFlag(String method, String flagKey, LDContext context, LDValue defaultValue,
                                 LDValueType requireType, EvaluationOptions options);
 
   /**

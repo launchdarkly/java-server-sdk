@@ -3,6 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.integrations.MockPersistentDataStore;
+import com.launchdarkly.sdk.server.integrations.Hook;
 import com.launchdarkly.sdk.server.interfaces.DataStoreStatusProvider;
 import com.launchdarkly.sdk.server.interfaces.LDClientInterface;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
@@ -19,6 +20,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -31,11 +33,13 @@ import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
 import static com.launchdarkly.sdk.server.TestUtil.upsertFlag;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.mock;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -208,6 +212,22 @@ public class LDClientTest extends BaseTest {
     try (LDClient client = new LDClient(SDK_KEY, config)) {
       String actual = ((DefaultFeatureRequestor) ((PollingProcessor) client.dataSource).requestor).pollingUri.toString();
       assertThat(actual, containsString(pu.toString()));
+    }
+  }
+
+  @Test
+  public void canSetHooks() throws Exception {
+    LDConfig config1 = new LDConfig.Builder()
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config1)) {
+      assertNotEquals(EvaluatorWithHooks.class, client.evaluator.getClass());
+    }
+
+    LDConfig config2 = new LDConfig.Builder()
+        .hooks(Components.hooks().setHooks(Collections.singletonList(mock(Hook.class))))
+        .build();
+    try (LDClient client = new LDClient(SDK_KEY, config2)) {
+      assertEquals(EvaluatorWithHooks.class, client.evaluator.getClass());
     }
   }
 

@@ -3,6 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.BigSegmentsStatus;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
+import com.launchdarkly.sdk.server.integrations.HooksConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.WrapperInfoBuilder;
 import com.launchdarkly.sdk.server.interfaces.ApplicationInfo;
@@ -13,6 +14,7 @@ import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.HookConfiguration;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 
@@ -35,6 +37,7 @@ public final class LDConfig {
   final ComponentConfigurer<DataStore> dataStore;
   final boolean diagnosticOptOut;
   final ComponentConfigurer<EventProcessor> events;
+  final HookConfiguration hooks;
   final ComponentConfigurer<HttpConfiguration> http;
   final ComponentConfigurer<LoggingConfiguration> logging;
   final ServiceEndpoints serviceEndpoints;
@@ -57,6 +60,7 @@ public final class LDConfig {
     this.bigSegments = builder.bigSegments == null ? Components.bigSegments(null) : builder.bigSegments;
     this.dataStore = builder.dataStore == null ? Components.inMemoryDataStore() : builder.dataStore;
     this.diagnosticOptOut = builder.diagnosticOptOut;
+    this.hooks = (builder.hooksConfigurationBuilder == null ? Components.hooks() : builder.hooksConfigurationBuilder).build();
     this.http = builder.http == null ? Components.httpConfiguration() : builder.http;
     this.logging = builder.logging == null ? Components.logging() : builder.logging;
     this.offline = builder.offline;
@@ -86,6 +90,7 @@ public final class LDConfig {
     private ComponentConfigurer<DataStore> dataStore = null;
     private boolean diagnosticOptOut = false;
     private ComponentConfigurer<EventProcessor> events = null;
+    private HooksConfigurationBuilder hooksConfigurationBuilder = null;
     private ComponentConfigurer<HttpConfiguration> http = null;
     private ComponentConfigurer<LoggingConfiguration> logging = null;
     private ServiceEndpointsBuilder serviceEndpointsBuilder = null;
@@ -100,6 +105,12 @@ public final class LDConfig {
     public Builder() {
     }
 
+    /**
+     * Creates a {@link LDConfig.Builder} from the provided {@link LDConfig}
+     *
+     * @param config to be used to initialize the builder
+     * @return the builder
+     */
     public static Builder fromConfig(LDConfig config) {
       Builder newBuilder = new Builder();
       newBuilder.applicationInfoBuilder = ApplicationInfoBuilder.fromApplicationInfo(config.applicationInfo);
@@ -108,6 +119,7 @@ public final class LDConfig {
       newBuilder.dataStore = config.dataStore;
       newBuilder.diagnosticOptOut = config.diagnosticOptOut;
       newBuilder.events = config.events;
+      newBuilder.hooksConfigurationBuilder = ComponentsImpl.HooksConfigurationBuilderImpl.fromHooksConfiguration(config.hooks);
       newBuilder.http = config.http;
       newBuilder.logging = config.logging;
 
@@ -241,6 +253,20 @@ public final class LDConfig {
      */
     public Builder events(ComponentConfigurer<EventProcessor> eventsConfigurer) {
       this.events = eventsConfigurer;
+      return this;
+    }
+
+    /**
+     * Sets the SDK's hooks configuration, using a builder. This is normally a obtained from
+     * {@link Components#hooks()} ()}, which has methods for setting individual other hook
+     * related properties.
+     *
+     * @param hooksConfiguration the hooks configuration builder
+     * @return the main configuration builder
+     * @see Components#hooks()
+     */
+    public Builder hooks(HooksConfigurationBuilder hooksConfiguration) {
+      this.hooksConfigurationBuilder = hooksConfiguration;
       return this;
     }
 

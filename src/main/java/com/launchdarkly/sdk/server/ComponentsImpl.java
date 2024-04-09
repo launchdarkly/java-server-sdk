@@ -13,6 +13,7 @@ import com.launchdarkly.sdk.internal.events.EventSender;
 import com.launchdarkly.sdk.internal.events.EventsConfiguration;
 import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.integrations.HooksConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
@@ -30,6 +31,7 @@ import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.HookConfiguration;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
@@ -459,6 +461,20 @@ abstract class ComponentsImpl {
         httpConfig.getSocketTimeout().toMillis(),
         httpConfig.getSslSocketFactory(),
         httpConfig.getTrustManager());
+  }
+
+  static final class HooksConfigurationBuilderImpl extends HooksConfigurationBuilder {
+
+    public static HooksConfigurationBuilderImpl fromHooksConfiguration(HookConfiguration hooksConfiguration) {
+      HooksConfigurationBuilderImpl builder = new HooksConfigurationBuilderImpl();
+      builder.setHooks(hooksConfiguration.getHooks());
+      return builder;
+    }
+
+    @Override
+    public HookConfiguration build() {
+      return new HookConfiguration(hooks);
+    }
   }
 
   static final class WrapperInfoBuilderImpl extends WrapperInfoBuilder {

@@ -70,8 +70,10 @@ class InputValidatingEvaluator implements EvaluatorInterface {
   }
 
   @Override
-  public EvalResultAndFlag evalAndFlag(String flagKey, LDContext context, LDValue defaultValue,
+  public EvalResultAndFlag evalAndFlag(String method, String flagKey, LDContext context, LDValue defaultValue,
                                        @Nullable LDValueType requireType, EvaluationOptions options) {
+    // this implementation does not care for the method parameter
+
     // map options to appropriate event sink
     EvaluationRecorder sink;
     if (options == EvaluationOptions.EVENTS_WITH_REASONS) {

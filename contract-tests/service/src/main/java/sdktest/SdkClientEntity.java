@@ -18,9 +18,11 @@ import com.launchdarkly.sdk.server.migrations.MigrationMethodResult;
 import com.launchdarkly.sdk.server.migrations.MigrationSerialOrder;
 import com.launchdarkly.sdk.server.MigrationStage;
 import com.launchdarkly.sdk.server.MigrationVariation;
+import com.launchdarkly.sdk.server.integrations.Hook;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.integrations.HooksConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.StreamingDataSourceBuilder;
 import com.launchdarkly.sdk.server.interfaces.BigSegmentStoreStatusProvider;
@@ -32,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URL;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,6 +52,8 @@ import sdktest.Representations.EvaluateFlagParams;
 import sdktest.Representations.EvaluateFlagResponse;
 import sdktest.Representations.GetBigSegmentsStoreStatusResponse;
 import sdktest.Representations.IdentifyEventParams;
+import sdktest.Representations.HookConfig;
+import sdktest.Representations.SdkConfigHookParams;
 import sdktest.Representations.SdkConfigParams;
 import sdktest.Representations.SecureModeHashParams;
 import sdktest.Representations.SecureModeHashResponse;
@@ -216,7 +221,7 @@ public class SdkClientEntity {
       c = doContextBuildSingle(params.single);
     } else {
       ContextMultiBuilder b = LDContext.multiBuilder();
-      for (ContextBuildSingleParams s: params.multi) {
+      for (ContextBuildSingleParams s : params.multi) {
         b.add(doContextBuildSingle(s));
       }
       c = b.build();
@@ -238,7 +243,7 @@ public class SdkClientEntity {
       b.anonymous(params.anonymous.booleanValue());
     }
     if (params.custom != null) {
-      for (Map.Entry<String, LDValue> kv: params.custom.entrySet()) {
+      for (Map.Entry<String, LDValue> kv : params.custom.entrySet()) {
         b.set(kv.getKey(), kv.getValue());
       }
     }
@@ -291,12 +296,12 @@ public class SdkClientEntity {
         (payload) -> getMigrationMethodResult(payload, newService));
     }
     Optional<Migration<String, String, String, String>> opt = migrationBuilder.build();
-    if(!opt.isPresent()) {
+    if (!opt.isPresent()) {
       return null;
     }
     Migration<String, String, String, String> migration = opt.get();
 
-    switch(params.operation) {
+    switch (params.operation) {
       case "read": {
         Migration.MigrationResult<String> res = migration.read(
           params.key,
@@ -304,7 +309,7 @@ public class SdkClientEntity {
           MigrationStage.of(params.defaultStage, MigrationStage.OFF),
           params.payload);
         Representations.MigrationOperationResponse response = new Representations.MigrationOperationResponse();
-        if(res.isSuccess()) {
+        if (res.isSuccess()) {
           response.result = res.getResult().orElse(null);
         } else {
           response.error = res.getException().map(ex -> ex.getMessage()).orElse(null);
@@ -338,7 +343,7 @@ public class SdkClientEntity {
   }
 
   private MigrationExecution getExecution(String execution) {
-    switch(execution) {
+    switch (execution) {
       case "serial":
         return MigrationExecution.Serial(MigrationSerialOrder.FIXED);
       case "random":
@@ -440,6 +445,24 @@ public class SdkClientEntity {
       }
     }
     builder.serviceEndpoints(endpoints);
+
+    if (params.hooks != null && params.hooks.hooks != null) {
+      List<Hook> hookList = new ArrayList<>();
+      for (HookConfig hookConfig : params.hooks.hooks) {
+
+        HookCallbackService callbackService = new HookCallbackService(hookConfig.callbackUri);
+        TestHook testHook = new TestHook(
+            hookConfig.name,
+            callbackService,
+            hookConfig.data != null ? hookConfig.data.beforeEvaluation : Collections.emptyMap(),
+            hookConfig.data != null ? hookConfig.data.afterEvaluation : Collections.emptyMap(),
+            hookConfig.errors != null ? hookConfig.errors.beforeEvaluation : null,
+            hookConfig.errors != null ? hookConfig.errors.afterEvaluation : null
+        );
+        hookList.add(testHook);
+      }
+      builder.hooks(Components.hooks().setHooks(hookList));
+    }
 
     return builder.build();
   }

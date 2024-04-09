@@ -1,10 +1,10 @@
 package com.launchdarkly.sdk.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LogValues;
 import com.launchdarkly.sdk.EvaluationDetail;
-import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.LDValueType;
@@ -50,7 +50,9 @@ public final class LDClient implements LDClientInterface {
 
   private final String sdkKey;
   private final boolean offline;
-  private final EvaluatorInterface evaluator;
+  @VisibleForTesting
+  final EvaluatorInterface evaluator;
+  final EvaluatorInterface migrationEvaluator;
   final EventProcessor eventProcessor;
   final DataSource dataSource;
   final DataStore dataStore;
@@ -200,7 +202,16 @@ public final class LDClient implements LDClientInterface {
     DataStoreUpdatesImpl dataStoreUpdates = new DataStoreUpdatesImpl(dataStoreStatusNotifier);
     this.dataStore = config.dataStore.build(context.withDataStoreUpdateSink(dataStoreUpdates));
 
-    this.evaluator = new InputValidatingEvaluator(dataStore, bigSegmentStoreWrapper, eventProcessor, evaluationLogger);
+    EvaluatorInterface evaluator = new InputValidatingEvaluator(dataStore, bigSegmentStoreWrapper, eventProcessor, evaluationLogger);
+
+    // decorate evaluator with hooks if hooks were provided
+    if (config.hooks.getHooks().isEmpty()) {
+      this.evaluator = evaluator;
+      this.migrationEvaluator = new MigrationStageEnforcingEvaluator(evaluator, evaluationLogger);
+    } else {
+      this.evaluator = new EvaluatorWithHooks(evaluator, config.hooks.getHooks(), this.baseLogger.subLogger(Loggers.HOOKS_LOGGER_NAME));
+      this.migrationEvaluator = new EvaluatorWithHooks(new MigrationStageEnforcingEvaluator(evaluator, evaluationLogger), config.hooks.getHooks(), this.baseLogger.subLogger(Loggers.HOOKS_LOGGER_NAME));
+    }
 
     this.flagChangeBroadcaster = EventBroadcasterImpl.forFlagChangeEvents(sharedExecutor, baseLogger);
     this.flagTracker = new FlagTrackerImpl(flagChangeBroadcaster,
@@ -303,77 +314,78 @@ public final class LDClient implements LDClientInterface {
 
   @Override
   public boolean boolVariation(String featureKey, LDContext context, boolean defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.of(defaultValue), LDValueType.BOOLEAN,
+    return evaluator.evalAndFlag("LDClient.boolVariation", featureKey, context, LDValue.of(defaultValue), LDValueType.BOOLEAN,
         EvaluationOptions.EVENTS_WITHOUT_REASONS).getResult().getValue().booleanValue();
   }
 
   @Override
   public int intVariation(String featureKey, LDContext context, int defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER,
+    return evaluator.evalAndFlag("LDClient.intVariation", featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER,
         EvaluationOptions.EVENTS_WITHOUT_REASONS).getResult().getValue().intValue();
   }
 
   @Override
   public double doubleVariation(String featureKey, LDContext context, double defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER,
+    return evaluator.evalAndFlag("LDClient.doubleVariation", featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER,
         EvaluationOptions.EVENTS_WITHOUT_REASONS).getResult().getValue().doubleValue();
   }
 
   @Override
   public String stringVariation(String featureKey, LDContext context, String defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.of(defaultValue), LDValueType.STRING,
+    return evaluator.evalAndFlag("LDClient.stringVariation", featureKey, context, LDValue.of(defaultValue), LDValueType.STRING,
         EvaluationOptions.EVENTS_WITHOUT_REASONS).getResult().getValue().stringValue();
 
   }
 
   @Override
   public LDValue jsonValueVariation(String featureKey, LDContext context, LDValue defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.normalize(defaultValue), null,
+    return evaluator.evalAndFlag("LDClient.jsonValueVariation", featureKey, context, LDValue.normalize(defaultValue), null,
         EvaluationOptions.EVENTS_WITHOUT_REASONS).getResult().getValue();
   }
 
   @Override
   public EvaluationDetail<Boolean> boolVariationDetail(String featureKey, LDContext context, boolean defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.of(defaultValue), LDValueType.BOOLEAN,
+    return evaluator.evalAndFlag("LDClient.boolVariationDetail", featureKey, context, LDValue.of(defaultValue), LDValueType.BOOLEAN,
         EvaluationOptions.EVENTS_WITH_REASONS).getResult().getAsBoolean();
   }
 
   @Override
   public EvaluationDetail<Integer> intVariationDetail(String featureKey, LDContext context, int defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER,
+    return evaluator.evalAndFlag("LDClient.intVariationDetail", featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER,
         EvaluationOptions.EVENTS_WITH_REASONS).getResult().getAsInteger();
   }
 
   @Override
   public EvaluationDetail<Double> doubleVariationDetail(String featureKey, LDContext context, double defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER,
+    return evaluator.evalAndFlag("LDClient.doubleVariationDetail", featureKey, context, LDValue.of(defaultValue), LDValueType.NUMBER,
         EvaluationOptions.EVENTS_WITH_REASONS).getResult().getAsDouble();
   }
 
   @Override
   public EvaluationDetail<String> stringVariationDetail(String featureKey, LDContext context, String defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.of(defaultValue), LDValueType.STRING,
+    return evaluator.evalAndFlag("LDClient.stringVariationDetail", featureKey, context, LDValue.of(defaultValue), LDValueType.STRING,
         EvaluationOptions.EVENTS_WITH_REASONS).getResult().getAsString();
   }
 
   @Override
   public EvaluationDetail<LDValue> jsonValueVariationDetail(String featureKey, LDContext context, LDValue defaultValue) {
-    return evaluator.evalAndFlag(featureKey, context, LDValue.normalize(defaultValue), null,
+    return evaluator.evalAndFlag("LDClient.jsonValueVariationDetail", featureKey, context, LDValue.normalize(defaultValue), null,
         EvaluationOptions.EVENTS_WITH_REASONS).getResult().getAnyType();
   }
 
   @Override
   public MigrationVariation migrationVariation(String key, LDContext context, MigrationStage defaultStage) {
-    EvalResultAndFlag res = evaluator.evalAndFlag(key, context, LDValue.of(defaultStage.toString()), LDValueType.STRING,
+    // The migration evaluator is decorated with logic that will enforce the result is for a recognized migration
+    // stage or an error result is returned with the default stage value.  This decorator was added as part of
+    // the Hooks implementation to ensure that the Hook would be given the result after that migration stage
+    // enforcement.
+    EvalResultAndFlag res = migrationEvaluator.evalAndFlag("LDClient.migrationVariation", key, context, LDValue.of(defaultStage.toString()), LDValueType.STRING,
         EvaluationOptions.EVENTS_WITHOUT_REASONS);
 
+    // since evaluation result inner types are boxed primitives, it is necessary to still make this mapping to the
+    // MigrationState type.
     EvaluationDetail<String> resDetail = res.getResult().getAsString();
-    String resStageString = resDetail.getValue();
-    if (!MigrationStage.isStage(resStageString)) {
-      baseLogger.error("Unrecognized MigrationState for \"{}\"; returning default value.", key);
-      resDetail = EvalResult.error(EvaluationReason.ErrorKind.WRONG_TYPE, LDValue.of(defaultStage.toString())).getAsString();
-    }
-    MigrationStage stageChecked = MigrationStage.of(resStageString, defaultStage);
+    MigrationStage stageChecked = MigrationStage.of(resDetail.getValue(), defaultStage);
 
     long checkRatio = 1;
 
