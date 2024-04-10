@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "sdks": {
+    "java-server-sdk": {
+      "name": "Java Server SDK",
+      "type": "server-side",
+      "languages": [
+        "Java"
+      ]
+    }
+  }
+}
