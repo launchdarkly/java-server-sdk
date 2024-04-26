@@ -6,8 +6,6 @@ import com.launchdarkly.logging.LDLogLevel;
 import com.launchdarkly.logging.LDLogger;
 import com.launchdarkly.logging.LDSLF4J;
 import com.launchdarkly.logging.Logs;
-import com.launchdarkly.sdk.EvaluationReason;
-import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.internal.events.DefaultEventSender;
 import com.launchdarkly.sdk.internal.events.DiagnosticConfigProperty;
@@ -15,6 +13,7 @@ import com.launchdarkly.sdk.internal.events.EventSender;
 import com.launchdarkly.sdk.internal.events.EventsConfiguration;
 import com.launchdarkly.sdk.internal.http.HttpProperties;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.integrations.HooksConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
@@ -32,9 +31,11 @@ import com.launchdarkly.sdk.server.subsystems.DataSource;
 import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.DiagnosticDescription;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
+import com.launchdarkly.sdk.server.subsystems.HookConfiguration;
 import com.launchdarkly.sdk.server.subsystems.HttpConfiguration;
 import com.launchdarkly.sdk.server.subsystems.LoggingConfiguration;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
+import okhttp3.Credentials;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -45,8 +46,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-
-import okhttp3.Credentials;
 
 /**
  * This class contains the package-private implementations of component factories and builders whose
@@ -68,37 +67,9 @@ abstract class ComponentsImpl {
       return LDValue.of("memory");
     }
   }
-  
-  static final ComponentConfigurer<EventProcessor> NULL_EVENT_PROCESSOR_FACTORY = context -> NullEventProcessor.INSTANCE;
-  
-  /**
-   * Stub implementation of {@link EventProcessor} for when we don't want to send any events.
-   */
-  static final class NullEventProcessor implements EventProcessor {
-    static final NullEventProcessor INSTANCE = new NullEventProcessor();
-    
-    private NullEventProcessor() {}
-    
-    @Override
-    public void flush() {}
-    
-    @Override
-    public void close() {}
 
-    @Override
-    public void recordEvaluationEvent(LDContext context, String flagKey, int flagVersion, int variation, LDValue value,
-        EvaluationReason reason, LDValue defaultValue, String prerequisiteOfFlagKey, boolean requireFullEvent,
-        Long debugEventsUntilDate, boolean excludeFromSummaries, Long samplingRatio) {}
-
-    @Override
-    public void recordIdentifyEvent(LDContext context) {}
-
-    @Override
-    public void recordCustomEvent(LDContext context, String eventKey, LDValue data, Double metricValue) {}
-
-    @Override
-    public void recordMigrationEvent(MigrationOpTracker tracker) {}
-  }
+  static final EventProcessor NOOP_EVENT_PROCESSOR = new NoOpEventProcessor();
+  static final ComponentConfigurer<EventProcessor> NOOP_EVENT_PROCESSOR_FACTORY = context -> NOOP_EVENT_PROCESSOR;
   
   static final class NullDataSourceFactory implements ComponentConfigurer<DataSource>, DiagnosticDescription {
     static final NullDataSourceFactory INSTANCE = new NullDataSourceFactory();
@@ -490,6 +461,20 @@ abstract class ComponentsImpl {
         httpConfig.getSocketTimeout().toMillis(),
         httpConfig.getSslSocketFactory(),
         httpConfig.getTrustManager());
+  }
+
+  static final class HooksConfigurationBuilderImpl extends HooksConfigurationBuilder {
+
+    public static HooksConfigurationBuilderImpl fromHooksConfiguration(HookConfiguration hooksConfiguration) {
+      HooksConfigurationBuilderImpl builder = new HooksConfigurationBuilderImpl();
+      builder.setHooks(hooksConfiguration.getHooks());
+      return builder;
+    }
+
+    @Override
+    public HookConfiguration build() {
+      return new HookConfiguration(hooks);
+    }
   }
 
   static final class WrapperInfoBuilderImpl extends WrapperInfoBuilder {

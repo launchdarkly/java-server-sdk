@@ -128,10 +128,13 @@ public abstract class EvaluatorTestUtil {
       return this;
     }
   }
-  
-  public static Evaluator.PrerequisiteEvaluationSink expectNoPrerequisiteEvals() {
-    return (f1, f2, u, r) -> {
-      throw new AssertionError("did not expect any prerequisite evaluations, but got one");
+
+  public static EvaluationRecorder expectNoPrerequisiteEvals() {
+    return new EvaluationRecorder() {
+      @Override
+      public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context, EvalResult result) {
+        throw new AssertionError("did not expect any prerequisite evaluations, but got one");
+      }
     };
   }
   
@@ -149,8 +152,8 @@ public abstract class EvaluatorTestUtil {
     }
   }
   
-  public static final class PrereqRecorder implements Evaluator.PrerequisiteEvaluationSink {
-    public final List<PrereqEval> evals = new ArrayList<PrereqEval>();
+  public static final class PrereqRecorder implements EvaluationRecorder {
+    public final List<PrereqEval> evals = new ArrayList<>();
 
     @Override
     public void recordPrerequisiteEvaluation(FeatureFlag flag, FeatureFlag prereqOfFlag, LDContext context,

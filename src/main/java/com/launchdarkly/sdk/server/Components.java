@@ -3,6 +3,7 @@ package com.launchdarkly.sdk.server;
 import com.launchdarkly.logging.LDLogAdapter;
 import com.launchdarkly.logging.Logs;
 import com.launchdarkly.sdk.server.ComponentsImpl.EventProcessorBuilderImpl;
+import com.launchdarkly.sdk.server.ComponentsImpl.HooksConfigurationBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.HttpBasicAuthentication;
 import com.launchdarkly.sdk.server.ComponentsImpl.HttpConfigurationBuilderImpl;
 import com.launchdarkly.sdk.server.ComponentsImpl.InMemoryDataStoreFactory;
@@ -16,6 +17,7 @@ import com.launchdarkly.sdk.server.ComponentsImpl.WrapperInfoBuilderImpl;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.EventProcessorBuilder;
+import com.launchdarkly.sdk.server.integrations.HooksConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.PersistentDataStoreBuilder;
@@ -31,7 +33,7 @@ import com.launchdarkly.sdk.server.subsystems.DataStore;
 import com.launchdarkly.sdk.server.subsystems.EventProcessor;
 import com.launchdarkly.sdk.server.subsystems.PersistentDataStore;
 
-import static com.launchdarkly.sdk.server.ComponentsImpl.NULL_EVENT_PROCESSOR_FACTORY;
+import static com.launchdarkly.sdk.server.ComponentsImpl.NOOP_EVENT_PROCESSOR_FACTORY;
 
 /**
  * Provides configurable factories for the standard implementations of LaunchDarkly component interfaces.
@@ -172,7 +174,7 @@ public abstract class Components {
    * @since 4.12.0
    */
   public static ComponentConfigurer<EventProcessor> noEvents() {
-    return NULL_EVENT_PROCESSOR_FACTORY;
+    return NOOP_EVENT_PROCESSOR_FACTORY;
   }
 
   /**
@@ -421,6 +423,26 @@ public abstract class Components {
    */
   public static ServiceEndpointsBuilder serviceEndpoints() {
     return new ServiceEndpointsBuilderImpl();
+  }
+
+  /**
+   * Returns a builder for configuring hooks.
+   *
+   * Passing this to {@link LDConfig.Builder#hooks(com.launchdarkly.sdk.server.integrations.HooksConfigurationBuilder)},
+   * after setting any desired hooks on the builder, applies this configuration to the SDK.
+   * <pre><code>
+   *     List hooks = myCreateHooksFunc();
+   *     LDConfig config = new LDConfig.Builder()
+   *         .hooks(
+   *             Components.hooks()
+   *                 .setHooks(hooks)
+   *         )
+   *         .build();
+   * </code></pre>
+   * @return a {@link HooksConfigurationBuilder} that can be used for customization
+   */
+  public static HooksConfigurationBuilder hooks() {
+    return new HooksConfigurationBuilderImpl();
   }
 
   /**

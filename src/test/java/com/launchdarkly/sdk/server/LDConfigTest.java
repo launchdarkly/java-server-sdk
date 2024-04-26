@@ -3,10 +3,12 @@ package com.launchdarkly.sdk.server;
 import com.google.common.collect.ImmutableMap;
 import com.launchdarkly.sdk.server.integrations.ApplicationInfoBuilder;
 import com.launchdarkly.sdk.server.integrations.BigSegmentsConfigurationBuilder;
+import com.launchdarkly.sdk.server.integrations.HooksConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.HttpConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.LoggingConfigurationBuilder;
 import com.launchdarkly.sdk.server.integrations.ServiceEndpointsBuilder;
 import com.launchdarkly.sdk.server.integrations.WrapperInfoBuilder;
+import com.launchdarkly.sdk.server.integrations.Hook;
 import com.launchdarkly.sdk.server.subsystems.ClientContext;
 import com.launchdarkly.sdk.server.subsystems.ComponentConfigurer;
 import com.launchdarkly.sdk.server.subsystems.DataSource;
@@ -19,10 +21,12 @@ import org.junit.Test;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.launchdarkly.sdk.server.TestComponents.clientContext;
 import static com.launchdarkly.sdk.server.TestComponents.specificComponent;
+import static org.easymock.EasyMock.mock;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -116,6 +120,15 @@ public class LDConfigTest {
   }
 
   @Test
+  public void hooks() {
+    Hook mockHook = mock(Hook.class);
+    HooksConfigurationBuilder b = Components.hooks().setHooks(Collections.singletonList(mockHook));
+    LDConfig config = new LDConfig.Builder().hooks(b).build();
+    assertEquals(1, config.hooks.getHooks().size());
+    assertEquals(mockHook, config.hooks.getHooks().get(0));
+  }
+
+  @Test
   public void http() {
     HttpConfigurationBuilder b = Components.httpConfiguration().connectTimeout(Duration.ofSeconds(9));
     LDConfig config = new LDConfig.Builder().http(b).build();
@@ -182,6 +195,8 @@ public class LDConfigTest {
     BigSegmentsConfigurationBuilder bigSegments = Components.bigSegments(null);
     ComponentConfigurer<DataSource> dataSource = specificComponent(null);
     ComponentConfigurer<EventProcessor> eventProcessor = specificComponent(null);
+    Hook mockHook = mock(Hook.class);
+    HooksConfigurationBuilder hooksBuilder = Components.hooks().setHooks(Collections.singletonList(mockHook));
     HttpConfigurationBuilder http = Components.httpConfiguration().connectTimeout(Duration.ofSeconds(9));
     WrapperInfoBuilder wrapperInfo = Components.wrapperInfo().wrapperName("the-name").wrapperVersion("the-version");
     ApplicationInfoBuilder applicationInfo = Components.applicationInfo().applicationId("test").applicationVersion("version");
@@ -195,6 +210,7 @@ public class LDConfigTest {
       .events(eventProcessor)
       .diagnosticOptOut(true)
       .offline(false) // To keep the data source from being removed in the build.
+      .hooks(hooksBuilder)
       .http(http)
       .serviceEndpoints(serviceEndpoints)
       .wrapper(wrapperInfo).build();
@@ -215,6 +231,8 @@ public class LDConfigTest {
     assertEquals(URI.create("polling"), config2.serviceEndpoints.getPollingBaseUri());
     assertEquals(URI.create("stream"), config2.serviceEndpoints.getStreamingBaseUri());
     assertEquals(URI.create("events"), config2.serviceEndpoints.getEventsBaseUri());
+
+    assertEquals(mockHook, config2.hooks.getHooks().get(0));
   }
 
   @Test
@@ -230,6 +248,9 @@ public class LDConfigTest {
     assertNotNull(config.events);
     assertEquals(Components.sendEvents().getClass(), config.events.getClass());
     assertFalse(config.offline);
+
+    assertNotNull(config.hooks.getHooks());
+    assertEquals(0, config.hooks.getHooks().size());
 
     assertNotNull(config.http);
     HttpConfiguration httpConfig = config.http.build(BASIC_CONTEXT);

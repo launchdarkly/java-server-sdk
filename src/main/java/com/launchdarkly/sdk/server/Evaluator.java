@@ -22,6 +22,8 @@ import com.launchdarkly.sdk.server.DataModel.VariationOrRollout;
 import com.launchdarkly.sdk.server.DataModel.WeightedVariation;
 import com.launchdarkly.sdk.server.subsystems.BigSegmentStoreTypes;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -64,7 +66,7 @@ class Evaluator {
   // 5. Avoid using lambdas/closures here, because these generally cause a heap object to be allocated for
   // variables captured in the closure each time they are used.
   //
-  
+
   /**
    * This key cannot exist in LaunchDarkly because it contains invalid characters. We use it in tests as a way to
    * simulate an unexpected RuntimeException during flag evaluations. We check for it by reference equality, so
@@ -72,34 +74,33 @@ class Evaluator {
    */
   static final String INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION = "$ test error flag $";
   static final RuntimeException EXPECTED_EXCEPTION_FROM_INVALID_FLAG = new RuntimeException("deliberate test error");
-  
+
   private final Getters getters;
   private final LDLogger logger;
-  
+
   /**
    * An abstraction of getting flags or segments by key. This ensures that Evaluator cannot modify the data store,
    * and simplifies testing.
    */
   static interface Getters {
+
+    /**
+     * @param key of the flag to get
+     * @return the flag, or null if a flag with the given key doesn't exist
+     */
+    @Nullable
     FeatureFlag getFlag(String key);
+
+    /**
+     * @param key of the segment to get
+     * @return the segment, or null if a segment with the given key doesn't exist.
+     */
+    @Nullable
     Segment getSegment(String key);
+
     BigSegmentStoreWrapper.BigSegmentsQueryResult getBigSegments(String key);
   }
 
-  /**
-   * An interface for the caller to receive information about prerequisite flags that were evaluated as a side
-   * effect of evaluating a flag. Evaluator pushes information to this object to avoid the overhead of building
-   * and returning lists of evaluation events.
-   */
-  static interface PrerequisiteEvaluationSink {
-    void recordPrerequisiteEvaluation(
-        FeatureFlag flag,
-        FeatureFlag prereqOfFlag,
-        LDContext context,
-        EvalResult result
-        );
-  }
-  
   /**
    * Represents errors that should terminate evaluation, for situations where it's simpler to use throw/catch
    * than to return an error result back up a call chain.
@@ -107,12 +108,12 @@ class Evaluator {
   @SuppressWarnings("serial")
   static class EvaluationException extends RuntimeException {
     final ErrorKind errorKind;
-    
+
     EvaluationException(ErrorKind errorKind, String message) {
       this.errorKind = errorKind;
     }
   }
-  
+
   /**
    * This object holds mutable state that Evaluator may need during an evaluation.
    */
@@ -123,7 +124,7 @@ class Evaluator {
     private List<String> prerequisiteStack = null;
     private List<String> segmentStack = null;
   }
-  
+
   Evaluator(Getters getters, LDLogger logger) {
     this.getters = getters;
     this.logger = logger;
@@ -131,35 +132,27 @@ class Evaluator {
 
   /**
    * The client's entry point for evaluating a flag. No other Evaluator methods should be exposed.
-   * 
+   *
    * @param flag an existing feature flag; any other referenced flags or segments will be queried via {@link Getters}
    * @param context the evaluation context
-   * @param eventFactory produces feature request events
+   * @param recorder records information as evaluation runs
    * @return an {@link EvalResult} - guaranteed non-null
    */
-  EvalResult evaluate(FeatureFlag flag, LDContext context, PrerequisiteEvaluationSink prereqEvals) {
+  EvalResult evaluate(FeatureFlag flag, LDContext context, @Nonnull EvaluationRecorder recorder) {
     if (flag.getKey() == INVALID_FLAG_KEY_THAT_THROWS_EXCEPTION) {
       throw EXPECTED_EXCEPTION_FROM_INVALID_FLAG;
-    }
-    
-    if (context == null || !context.isValid()) {
-      // This would be a serious logic error on our part, rather than an application error, since LDClient
-      // should never be passing a null or invalid context to Evaluator; the SDK should have rejected that
-      // at a higher level. So we will report it as EXCEPTION to differentiate it from application errors.
-      logger.error("Null or invalid context was unexpectedly passed to evaluator");
-      return EvalResult.error(EvaluationReason.ErrorKind.EXCEPTION);
     }
 
     EvaluatorState state = new EvaluatorState();
     state.originalFlag = flag;
-    
+
     try {
-      EvalResult result = evaluateInternal(flag, context, prereqEvals, state);
-  
+      EvalResult result = evaluateInternal(flag, context, recorder, state);
+
       if (state.bigSegmentsStatus != null) {
         return result.withReason(
             result.getReason().withBigSegmentsStatus(state.bigSegmentsStatus)
-            );
+        );
       }
       return result;
     } catch (EvaluationException e) {
@@ -168,23 +161,22 @@ class Evaluator {
     }
   }
 
-  private EvalResult evaluateInternal(FeatureFlag flag, LDContext context,
-      PrerequisiteEvaluationSink prereqEvals, EvaluatorState state) {
+  private EvalResult evaluateInternal(FeatureFlag flag, LDContext context, @Nonnull EvaluationRecorder recorder, EvaluatorState state) {
     if (!flag.isOn()) {
       return EvaluatorHelpers.offResult(flag);
     }
-    
-    EvalResult prereqFailureResult = checkPrerequisites(flag, context, prereqEvals, state);
+
+    EvalResult prereqFailureResult = checkPrerequisites(flag, context, recorder, state);
     if (prereqFailureResult != null) {
       return prereqFailureResult;
     }
-    
+
     // Check to see if targets match
     EvalResult targetMatchResult = checkTargets(flag, context);
     if (targetMatchResult != null) {
       return targetMatchResult;
     }
-    
+
     // Now walk through the rules and see if any match
     List<Rule> rules = flag.getRules(); // guaranteed non-null
     int nRules = rules.size();
@@ -202,14 +194,13 @@ class Evaluator {
 
   // Checks prerequisites if any; returns null if successful, or an EvalResult if we have to
   // short-circuit due to a prerequisite failure.
-  private EvalResult checkPrerequisites(FeatureFlag flag, LDContext context,
-      PrerequisiteEvaluationSink prereqEvals, EvaluatorState state) {
+  private EvalResult checkPrerequisites(FeatureFlag flag, LDContext context, @Nonnull EvaluationRecorder recorder, EvaluatorState state) {
     List<Prerequisite> prerequisites = flag.getPrerequisites(); // guaranteed non-null
     int nPrerequisites = prerequisites.size();
     if (nPrerequisites == 0) {
       return null;
     }
-    
+
     try {
       // We use the state object to guard against circular references in prerequisites. To avoid
       // the overhead of creating the state.prerequisiteStack list in the most common case where
@@ -221,42 +212,39 @@ class Evaluator {
         }
         state.prerequisiteStack.add(flag.getKey());
       }
-      
+
       for (int i = 0; i < nPrerequisites; i++) {
         Prerequisite prereq = prerequisites.get(i);
         String prereqKey = prereq.getKey();
-        
+
         if (prereqKey.equals(state.originalFlag.getKey()) ||
             (flag != state.originalFlag && prereqKey.equals(flag.getKey())) ||
             (state.prerequisiteStack != null && state.prerequisiteStack.contains(prereqKey))) {
           throw new EvaluationException(ErrorKind.MALFORMED_FLAG,
               "prerequisite relationship to \"" + prereqKey + "\" caused a circular reference;" +
-              " this is probably a temporary condition due to an incomplete update");
+                  " this is probably a temporary condition due to an incomplete update");
         }
-        
+
         boolean prereqOk = true;
         FeatureFlag prereqFeatureFlag = getters.getFlag(prereq.getKey());
         if (prereqFeatureFlag == null) {
           logger.error("Could not retrieve prerequisite flag \"{}\" when evaluating \"{}\"", prereq.getKey(), flag.getKey());
           prereqOk = false;
         } else {
-          EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, context, prereqEvals, state);
+          EvalResult prereqEvalResult = evaluateInternal(prereqFeatureFlag, context, recorder, state);
           // Note that if the prerequisite flag is off, we don't consider it a match no matter what its
           // off variation was. But we still need to evaluate it in order to generate an event.
           if (!prereqFeatureFlag.isOn() || prereqEvalResult.getVariationIndex() != prereq.getVariation()) {
             prereqOk = false;
           }
-          if (prereqEvals != null) {
-            prereqEvals.recordPrerequisiteEvaluation(prereqFeatureFlag, flag, context, prereqEvalResult);
-          }
+          recorder.recordPrerequisiteEvaluation(prereqFeatureFlag, flag, context, prereqEvalResult);
         }
         if (!prereqOk) {
           return EvaluatorHelpers.prerequisiteFailedResult(flag, prereq);
         }
       }
       return null; // all prerequisites were satisfied
-    }
-    finally {
+    } finally {
       if (state.prerequisiteStack != null && !state.prerequisiteStack.isEmpty()) {
         state.prerequisiteStack.remove(state.prerequisiteStack.size() - 1);
       }
@@ -266,12 +254,12 @@ class Evaluator {
   private static EvalResult checkTargets(
       FeatureFlag flag,
       LDContext context
-      ) {
+  ) {
     List<Target> contextTargets = flag.getContextTargets(); // guaranteed non-null
     List<Target> userTargets = flag.getTargets(); // guaranteed non-null
     int nContextTargets = contextTargets.size();
     int nUserTargets = userTargets.size();
-    
+
     if (nContextTargets == 0) {
       // old-style data has only targets for users
       if (nUserTargets != 0) {
@@ -287,7 +275,7 @@ class Evaluator {
       }
       return null;
     }
-    
+
     // new-style data has ContextTargets, which may include placeholders for user targets that are in Targets
     for (int i = 0; i < nContextTargets; i++) {
       Target t = contextTargets.get(i);
@@ -313,14 +301,14 @@ class Evaluator {
     }
     return null;
   }
-  
+
   private EvalResult getValueForVariationOrRollout(
       FeatureFlag flag,
       VariationOrRollout vr,
       LDContext context,
       DataModelPreprocessing.EvalResultFactoryMultiVariations precomputedResults,
       EvaluationReason reason
-      ) {
+  ) {
     int variation = -1;
     boolean inExperiment = false;
     Integer maybeVariation = vr.getVariation();
@@ -337,7 +325,7 @@ class Evaluator {
             flag.getKey(),
             rollout.getBucketBy(),
             flag.getSalt()
-            );
+        );
         boolean contextWasFound = bucket >= 0; // see comment on computeBucketValue
         float sum = 0F;
         List<WeightedVariation> variations = rollout.getVariations(); // guaranteed non-null
@@ -363,10 +351,10 @@ class Evaluator {
         }
       }
     }
-    
+
     if (variation < 0) {
       logger.error("Data inconsistency in feature flag \"{}\": variation/rollout object with no variation or rollout", flag.getKey());
-      return EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG); 
+      return EvalResult.error(EvaluationReason.ErrorKind.MALFORMED_FLAG);
     }
     // Normally, we will always have precomputedResults
     if (precomputedResults != null) {
@@ -381,7 +369,7 @@ class Evaluator {
     if (reason.getKind() == Kind.FALLTHROUGH) {
       return EvaluationReason.fallthrough(true);
     } else if (reason.getKind() == Kind.RULE_MATCH) {
-     return EvaluationReason.ruleMatch(reason.getRuleIndex(), reason.getRuleId(), true);
+      return EvaluationReason.ruleMatch(reason.getRuleIndex(), reason.getRuleId(), true);
     }
     return reason;
   }
@@ -436,10 +424,10 @@ class Evaluator {
     }
     return false;
   }
-  
+
   private boolean matchAnySegment(List<LDValue> values, LDContext context, EvaluatorState state) {
     // For the segmentMatch operator, the values list is really a list of segment keys. We
-    // return a match if any of these segments matches the context.    
+    // return a match if any of these segments matches the context.
     int nValues = values.size();
     for (int i = 0; i < nValues; i++) {
       LDValue clauseValue = values.get(i);
@@ -452,7 +440,7 @@ class Evaluator {
         if (state.segmentStack.contains(segmentKey)) {
           throw new EvaluationException(ErrorKind.MALFORMED_FLAG,
               "segment rule referencing segment \"" + segmentKey + "\" caused a circular reference;" +
-              " this is probably a temporary condition due to an incomplete update");
+                  " this is probably a temporary condition due to an incomplete update");
         }
       }
       Segment segment = getters.getSegment(segmentKey);
@@ -464,7 +452,7 @@ class Evaluator {
     }
     return false;
   }
-  
+
   private boolean segmentMatchesContext(Segment segment, LDContext context, EvaluatorState state) {
     if (segment.isUnbounded()) {
       if (segment.getGeneration() == null) {
@@ -537,14 +525,14 @@ class Evaluator {
     }
     return false;
   }
-  
+
   private boolean segmentRuleMatchesContext(
       SegmentRule segmentRule,
       LDContext context,
       EvaluatorState state,
       String segmentKey,
       String salt
-      ) {
+  ) {
     List<Clause> clauses = segmentRule.getClauses(); // guaranteed non-null
     int nClauses = clauses.size();
     for (int i = 0; i < nClauses; i++) {
@@ -553,12 +541,12 @@ class Evaluator {
         return false;
       }
     }
-    
+
     // If the Weight is absent, this rule matches
     if (segmentRule.getWeight() == null) {
       return true;
     }
-    
+
     // All of the clauses are met. See if the context buckets in
     double bucket = computeBucketValue(
         false,
@@ -568,8 +556,8 @@ class Evaluator {
         segmentKey,
         segmentRule.getBucketBy(),
         salt
-        );
-    double weight = (double)segmentRule.getWeight() / 100000.0;
+    );
+    double weight = (double) segmentRule.getWeight() / 100000.0;
     return bucket < weight;
   }
 
@@ -580,7 +568,7 @@ class Evaluator {
     EvaluationReason reason = EvaluationReason.ruleMatch(ruleIndex, rule.getId());
     return getValueForVariationOrRollout(flag, rule, context, null, reason);
   }
-  
+
   static String makeBigSegmentRef(Segment segment) {
     return String.format("%s.g%d", segment.getKey(), segment.getGeneration());
   }

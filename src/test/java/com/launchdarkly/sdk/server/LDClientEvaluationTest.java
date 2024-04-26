@@ -344,7 +344,16 @@ public class LDClientEvaluationTest extends BaseTest {
         EvaluationReason.error(EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
     assertEquals(expectedResult, client.stringVariationDetail("key", context, "default"));
   }
-  
+
+  @Test
+  public void appropriateErrorIfContextIsNull() throws Exception {
+    upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));
+
+    EvaluationDetail<String> expectedResult = EvaluationDetail.fromValue("default", NO_VARIATION,
+        EvaluationReason.error(EvaluationReason.ErrorKind.USER_NOT_SPECIFIED));
+    assertEquals(expectedResult, client.stringVariationDetail("key", null, "default"));
+  }
+
   @Test
   public void appropriateErrorIfContextIsInvalid() throws Exception {
     upsertFlag(dataStore, flagWithValue("key", LDValue.of(true)));

@@ -36,7 +36,8 @@ public class TestService {
     "migrations",
     "event-sampling",
     "inline-context",
-    "anonymous-redaction"
+    "anonymous-redaction",
+    "evaluation-hooks"
   };
 
   static final Gson gson = new GsonBuilder().serializeNulls().create();
