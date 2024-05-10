@@ -67,6 +67,8 @@ public final class LDClient implements LDClientInterface {
   private final LDLogger baseLogger;
   private final LDLogger evaluationLogger;
 
+  private static final int EXCESSIVE_INIT_WAIT_MILLIS = 60000;
+
   /**
    * Creates a new client instance that connects to LaunchDarkly with the default configuration.
    * <p>
@@ -239,6 +241,9 @@ public final class LDClient implements LDClientInterface {
       if (!(dataSource instanceof ComponentsImpl.NullDataSource)) {
         baseLogger.info("Waiting up to {} milliseconds for LaunchDarkly client to start...",
             config.startWait.toMillis());
+        if (config.startWait.toMillis() > EXCESSIVE_INIT_WAIT_MILLIS) {
+          baseLogger.warn("LaunchDarkly client created with start wait time of {} milliseconds.  We recommend a timeout of less than {} milliseconds.", config.startWait.toMillis(), EXCESSIVE_INIT_WAIT_MILLIS);
+        }
       }
       try {
         startFuture.get(config.startWait.toMillis(), TimeUnit.MILLISECONDS);
