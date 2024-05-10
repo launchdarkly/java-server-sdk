@@ -1,6 +1,5 @@
 package com.launchdarkly.sdk.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.EvaluationReason.ErrorKind;
@@ -16,6 +15,7 @@ import com.launchdarkly.sdk.server.DataModel.Target;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -62,10 +62,10 @@ abstract class DataModelPreprocessing {
   }
   
   static final class EvalResultFactoryMultiVariations {
-    private final ImmutableList<EvalResultsForSingleVariation> variations;
+    private final List<EvalResultsForSingleVariation> variations;
     
     EvalResultFactoryMultiVariations(
-        ImmutableList<EvalResultsForSingleVariation> variations
+        List<EvalResultsForSingleVariation> variations
         ) {
       this.variations = variations;
     }
@@ -74,6 +74,13 @@ abstract class DataModelPreprocessing {
       if (index < 0 || index >= variations.size()) {
         return EvalResult.error(ErrorKind.MALFORMED_FLAG);
       }
+
+      if (variations.get(index) == null) {
+        // getting here indicates that the preprocessor incorrectly processed data and another piece of code is
+        // asking for a variation that was not populated ahead of time.  This is an unexpected bug if it happens.
+        return EvalResult.error(ErrorKind.EXCEPTION);
+      }
+
       return variations.get(index).getResult(inExperiment);
     }
   }
@@ -140,7 +147,7 @@ abstract class DataModelPreprocessing {
   static void preprocessFlag(FeatureFlag f) {
     f.preprocessed = new FlagPreprocessed(
         EvaluatorHelpers.offResult(f),
-        precomputeMultiVariationResults(f, EvaluationReason.fallthrough(false),
+        precomputeMultiVariationResultsForFlag(f, EvaluationReason.fallthrough(false),
             EvaluationReason.fallthrough(true), f.isTrackEventsFallthrough())
         );
     
@@ -183,7 +190,7 @@ abstract class DataModelPreprocessing {
   static void preprocessFlagRule(Rule r, int ruleIndex, FeatureFlag f) {
     EvaluationReason ruleMatchReason = EvaluationReason.ruleMatch(ruleIndex, r.getId(), false);
     EvaluationReason ruleMatchReasonInExperiment = EvaluationReason.ruleMatch(ruleIndex, r.getId(), true);
-    r.preprocessed = new FlagRulePreprocessed(precomputeMultiVariationResults(f,
+    r.preprocessed = new FlagRulePreprocessed(precomputeMultiVariationResultsForRule(f, r,
         ruleMatchReason, ruleMatchReasonInExperiment, r.isTrackEvents()));
     
     for (Clause c: r.getClauses()) {
@@ -255,18 +262,52 @@ abstract class DataModelPreprocessing {
     return new ClausePreprocessed(null, valuesExtra);
   }
   
-  private static EvalResultFactoryMultiVariations precomputeMultiVariationResults(
+  private static EvalResultFactoryMultiVariations precomputeMultiVariationResultsForFlag(
       FeatureFlag f,
       EvaluationReason regularReason,
       EvaluationReason inExperimentReason,
       boolean alwaysInExperiment
       ) {
-    ImmutableList.Builder<EvalResultsForSingleVariation> builder =
-        ImmutableList.builderWithExpectedSize(f.getVariations().size());
+    ArrayList<EvalResultsForSingleVariation> variations = new ArrayList<>(f.getVariations().size());
     for (int i = 0; i < f.getVariations().size(); i++) {
-      builder.add(new EvalResultsForSingleVariation(f.getVariations().get(i), i,
+      variations.add(new EvalResultsForSingleVariation(f.getVariations().get(i), i,
           regularReason, inExperimentReason, alwaysInExperiment));
     }
-    return new EvalResultFactoryMultiVariations(builder.build());
+    return new EvalResultFactoryMultiVariations(Collections.unmodifiableList(variations));
+  }
+
+  private static EvalResultFactoryMultiVariations precomputeMultiVariationResultsForRule(
+      FeatureFlag f,
+      Rule r,
+      EvaluationReason regularReason,
+      EvaluationReason inExperimentReason,
+      boolean alwaysInExperiment
+  ) {
+    // Here we create a list of nulls and then insert into that list variations from the rule at their associated index.
+    // This allows the evaluator to then index into the array in constant time. Alternative options are to use a map or
+    // a sparse array. The map has high memory footprint for most customer situations, so it was not used. There is no
+    // standard implementation for sparse array, and it is also not always constant time. Most customers don't have
+    // many variations per flag and so these arrays should not be large on average. This approach was part of a bugfix
+    // and this approach cuts the memory footprint enough to meet the need.
+    List<EvalResultsForSingleVariation> variations = new ArrayList<>(Collections.nCopies(f.getVariations().size(), null));
+    if (r.getVariation() != null) {
+      int index = r.getVariation();
+      if (index >= 0 && index < f.getVariations().size()) {
+        variations.set(index, new EvalResultsForSingleVariation(f.getVariations().get(index), index,
+            regularReason, inExperimentReason, alwaysInExperiment));
+      }
+    }
+
+    if (r.getRollout() != null && r.getRollout().getVariations() != null) {
+      for (DataModel.WeightedVariation wv : r.getRollout().getVariations()) {
+        int index = wv.getVariation();
+        if (index >= 0 && index < f.getVariations().size()) {
+          variations.set(index, new EvalResultsForSingleVariation(f.getVariations().get(index), index,
+              regularReason, inExperimentReason, alwaysInExperiment));
+        }
+      }
+    }
+
+    return new EvalResultFactoryMultiVariations(Collections.unmodifiableList(variations));
   }
 }
