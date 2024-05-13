@@ -2,6 +2,13 @@
 
 All notable changes to the LaunchDarkly Java SDK will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org).
 
+## [7.4.1] - 2024-05-13
+### Added:
+- Adds warning log if excessive start wait time is used.
+
+### Fixed:
+- Improved preprocessing allocations to reduce memory footprint in rare flag configurations.
+
 ## [7.4.0] - 2024-04-26
 ### Added:
 - This release introduces a Hooks API. Hooks are collections of user-defined callbacks that are executed by the SDK at various points of interest. You can use them to augment the SDK with metrics or tracing.
