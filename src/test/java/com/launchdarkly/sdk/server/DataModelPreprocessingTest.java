@@ -19,6 +19,7 @@ import org.junit.Test;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.launchdarkly.sdk.server.ModelBuilders.clause;
@@ -136,9 +137,44 @@ public class DataModelPreprocessingTest {
   }
 
   @Test
-  public void preprocessFlagAddsPrecomputedResultsToFlagRules() {
+  public void preprocessFlagAddsPrecomputedResultsToFlagRulesWithRollout() {
+
+    List<DataModel.WeightedVariation> variations = new ArrayList<>();
+    variations.add(new DataModel.WeightedVariation(0, 50000, false));
+    variations.add(new DataModel.WeightedVariation(1, 50000, false));
+    DataModel.RolloutKind kind = DataModel.RolloutKind.rollout;
+    Integer seed = 123;
+    DataModel.Rollout rollout = new DataModel.Rollout(null, variations, null, kind, seed);
+
     FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
-        ImmutableList.of(new Rule("ruleid0", ImmutableList.of(), null, null, false)),
+        ImmutableList.of(new Rule("ruleid0", ImmutableList.of(), null, rollout, false)),
+        null, null,
+        ImmutableList.of(aValue, bValue),
+        false, false, false, null, false, null, null, false);
+
+    f.afterDeserialized();
+
+    Rule rule = f.getRules().get(0);
+    assertThat(rule.preprocessed, notNullValue());
+    assertThat(rule.preprocessed.allPossibleResults, notNullValue());
+    EvaluationReason regularReason = EvaluationReason.ruleMatch(0, "ruleid0", false);
+    EvaluationReason inExperimentReason = EvaluationReason.ruleMatch(0, "ruleid0", true);
+
+    assertThat(rule.preprocessed.allPossibleResults.forVariation(0, false),
+        equalTo(EvalResult.of(aValue, 0, regularReason)));
+    assertThat(rule.preprocessed.allPossibleResults.forVariation(0, true),
+        equalTo(EvalResult.of(aValue, 0, inExperimentReason)));
+
+    assertThat(rule.preprocessed.allPossibleResults.forVariation(1, false),
+        equalTo(EvalResult.of(bValue, 1, regularReason)));
+    assertThat(rule.preprocessed.allPossibleResults.forVariation(1, true),
+        equalTo(EvalResult.of(bValue, 1, inExperimentReason)));
+  }
+
+  @Test
+  public void preprocessFlagAddsPrecomputedResultsToFlagRulesWithJustVariation() {
+    FeatureFlag f = new FeatureFlag("key", 0, false, null, null, null, null,
+        ImmutableList.of(new Rule("ruleid0", ImmutableList.of(), 0, null, false)),
         null, null,
         ImmutableList.of(aValue, bValue),
         false, false, false, null, false, null, null, false);
@@ -157,9 +193,9 @@ public class DataModelPreprocessingTest {
         equalTo(EvalResult.of(aValue, 0, inExperimentReason)));
     
     assertThat(rule.preprocessed.allPossibleResults.forVariation(1, false),
-        equalTo(EvalResult.of(bValue, 1, regularReason)));
+        equalTo(EvalResult.error(EvaluationReason.ErrorKind.EXCEPTION)));
     assertThat(rule.preprocessed.allPossibleResults.forVariation(1, true),
-        equalTo(EvalResult.of(bValue, 1, inExperimentReason)));
+        equalTo(EvalResult.error(EvaluationReason.ErrorKind.EXCEPTION)));
   }
   
   @Test

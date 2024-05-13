@@ -346,10 +346,11 @@ final class DataSourceUpdatesImpl implements DataSourceUpdateSink {
         onOutageErrorLog.accept(errorsDesc);
       }
       logger.error(
-          "LaunchDarkly data source outage - updates have been unavailable for at least {} with the following errors: {}",
+          "A streaming connection to LaunchDarkly has not been established within {} after the connection was interrupted. " +
+              "The following errors were encountered: {}",
           Util.describeDuration(loggingTimeout),
           errorsDesc
-          );
+      );
     }
   }
   
