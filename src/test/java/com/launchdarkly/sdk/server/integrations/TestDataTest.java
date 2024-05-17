@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.iterableWithSize;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 @SuppressWarnings("javadoc")
@@ -151,7 +152,34 @@ public class TestDataTest {
     expectedFlag.on(true).version(2);
     assertJsonEquals(flagJson(expectedFlag, 2), flagJson(flag1));
   }
-  
+
+  @Test
+  public void deletesFlag() throws Exception {
+    final TestData td = TestData.dataSource();
+
+    try (final DataSource ds = td.build(clientContext("", new LDConfig.Builder().build(), updates))) {
+      final Future<Void> started = ds.start();
+      assertThat(started.isDone(), is(true));
+      assertThat(updates.valid, is(true));
+
+      td.update(td.flag("foo").on(false).valueForAll(LDValue.of("bar")));
+      td.delete("foo");
+
+      assertThat(updates.upserts.size(), equalTo(2));
+      UpsertParams up = updates.upserts.take();
+      assertThat(up.kind, is(DataModel.FEATURES));
+      assertThat(up.key, equalTo("foo"));
+      assertThat(up.item.getVersion(), equalTo(1));
+      assertThat(up.item.getItem(), notNullValue());
+
+      up = updates.upserts.take();
+      assertThat(up.kind, is(DataModel.FEATURES));
+      assertThat(up.key, equalTo("foo"));
+      assertThat(up.item.getVersion(), equalTo(2));
+      assertThat(up.item.getItem(), nullValue());
+    }
+  }
+
   @Test
   public void flagConfigSimpleBoolean() throws Exception {
     Function<ModelBuilders.FlagBuilder, ModelBuilders.FlagBuilder> expectedBooleanFlag = fb ->

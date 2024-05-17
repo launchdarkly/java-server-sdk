@@ -1,5 +1,7 @@
 package com.launchdarkly.sdk.server.integrations;
 
+import com.launchdarkly.sdk.EvaluationDetail;
+import com.launchdarkly.sdk.EvaluationReason;
 import com.launchdarkly.sdk.LDContext;
 import com.launchdarkly.sdk.LDValue;
 import com.launchdarkly.sdk.server.Components;
@@ -52,7 +54,23 @@ public class TestDataWithClientTest {
       assertThat(client.boolVariation("flag", LDContext.create("user"), false), is(true));
     }
   }
-  
+
+  @Test
+  public void deletesFlag() throws Exception {
+    td.update(td.flag("flag").on(true));
+
+    try (LDClient client = new LDClient(SDK_KEY, config)) {
+      assertThat(client.boolVariation("flag", LDContext.create("user"), false), is(true));
+
+      td.delete("flag");
+
+      final EvaluationDetail<Boolean> detail = client.boolVariationDetail("flag", LDContext.create("user"), false);
+      assertThat(detail.getValue(), is(false));
+      assertThat(detail.isDefaultValue(), is(true));
+      assertThat(detail.getReason().getErrorKind(), is(EvaluationReason.ErrorKind.FLAG_NOT_FOUND));
+    }
+  }
+
   @Test
   public void usesTargets() throws Exception {
     td.update(td.flag("flag").fallthroughVariation(false).variationForUser("user1", true));

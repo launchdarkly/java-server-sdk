@@ -110,7 +110,36 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     }
     return new FlagBuilder(key).booleanFlag();
   }
-  
+
+  /**
+   * Deletes a specific flag from the test data by create a versioned tombstone.
+   * <p>
+   * This has the same effect as if a flag were removed on the LaunchDarkly dashboard.
+   * It immediately propagates the flag change to any {@code LDClient} instance(s) that you have
+   * already configured to use this {@code TestData}. If no {@code LDClient} has been started yet,
+   * it simply adds tombstone to the test data which will be provided to any {@code LDClient} that
+   * you subsequently configure.
+   *
+   * @param key the flag key
+   * @return a flag configuration builder
+   */
+  public TestData delete(String key) {
+    final ItemDescriptor tombstoneItem;
+    synchronized (lock) {
+      final ItemDescriptor oldItem = currentFlags.get(key);
+      final int oldVersion = oldItem == null ? 0 : oldItem.getVersion();
+      tombstoneItem = ItemDescriptor.deletedItem(oldVersion + 1);
+      currentFlags.put(key, tombstoneItem);
+      currentBuilders.remove(key);
+    }
+
+    for (DataSourceImpl instance: instances) {
+      instance.updates.upsert(DataModel.FEATURES, key, tombstoneItem);
+    }
+
+    return this;
+  }
+
   /**
    * Updates the test data with the specified flag configuration.
    * <p>
@@ -146,7 +175,7 @@ public final class TestData implements ComponentConfigurer<DataSource> {
     
     return this;
   }
-  
+
   /**
    * Simulates a change in the data source status.
    * <p>
